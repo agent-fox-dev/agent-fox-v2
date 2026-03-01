@@ -25,34 +25,34 @@ reporting, standup reporting, reset engine, and output formatters.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Write status report tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Write status report tests
     - `tests/unit/reporting/test_status.py`: TS-07-1 (task counts), TS-07-2
       (token usage and cost), TS-07-3 (problem tasks list)
     - Create test fixtures: sample state.jsonl content and plan.json content
       with various task states
     - _Test Spec: TS-07-1, TS-07-2, TS-07-3_
 
-  - [ ] 1.2 Write standup report tests
+  - [x] 1.2 Write standup report tests
     - `tests/unit/reporting/test_standup.py`: TS-07-4 (agent activity
       windowing), TS-07-5 (human commits), TS-07-6 (file overlap detection),
       TS-07-7 (queue summary), TS-07-8 (cost breakdown by model)
     - Create test fixtures: sample state with timestamps, mock git log output
     - _Test Spec: TS-07-4, TS-07-5, TS-07-6, TS-07-7, TS-07-8_
 
-  - [ ] 1.3 Write formatter tests
+  - [x] 1.3 Write formatter tests
     - `tests/unit/reporting/test_formatters.py`: TS-07-9 (JSON valid),
       TS-07-10 (YAML valid)
     - _Test Spec: TS-07-9, TS-07-10_
 
-  - [ ] 1.4 Write reset engine tests
+  - [x] 1.4 Write reset engine tests
     - `tests/unit/engine/test_reset.py`: TS-07-11 (full reset), TS-07-12
       (single-task reset with cascade unblock)
     - Create test fixtures: sample plan with dependencies, state with
       failed/blocked tasks, temporary worktree directories
     - _Test Spec: TS-07-11, TS-07-12_
 
-  - [ ] 1.5 Write edge case tests
+  - [x] 1.5 Write edge case tests
     - `tests/unit/reporting/test_status.py`: TS-07-E1 (no state file),
       TS-07-E2 (no plan file)
     - `tests/unit/reporting/test_standup.py`: TS-07-E3 (no agent activity),
@@ -63,17 +63,17 @@ reporting, standup reporting, reset engine, and output formatters.
       completed task)
     - _Test Spec: TS-07-E1 through TS-07-E9_
 
-  - [ ] 1.6 Write property tests
+  - [x] 1.6 Write property tests
     - `tests/property/reporting/test_status_props.py`: TS-07-P1 (count
       consistency), TS-07-P3 (JSON roundtrip)
     - `tests/property/reporting/test_reset_props.py`: TS-07-P2 (reset
       preserves completed), TS-07-P4 (cascade unblock correctness)
     - _Test Spec: TS-07-P1, TS-07-P2, TS-07-P3, TS-07-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/reporting/ tests/unit/engine/test_reset.py tests/property/reporting/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/reporting/ tests/unit/engine/test_reset.py tests/property/reporting/`
 
 - [ ] 2. Implement status report generator
   - [ ] 2.1 Create report data models
