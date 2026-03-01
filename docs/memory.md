@@ -36,10 +36,12 @@
 - The session runner uses a two-level async structure: run_session() catches TimeoutError and generic Exception, while _execute_query() handles actual SDK iteration. This separation allows with_timeout() to wrap only the query execution. *(source: 03_session_and_workspace/3)*
 - Tests mock agent_fox.session.runner.query via side_effect with async generator functions for success cases, and side_effect=Exception(...) for error cases. The timeout test patches both query and with_timeout. *(source: 03_session_and_workspace/3)*
 - The harvester executes rebase and abort_rebase operations from `workspace.path` (the worktree directory) rather than `repo_root` to avoid worktree branch lock conflicts. *(source: 03_session_and_workspace/4)*
-- GraphSync takes node_states dict and edges dict where edges maps node_id to list of dependency node_ids (predecessors). This is the reverse of TaskGraph's adjacency list representation. *(source: 04_orchestrator/1)*
 - CircuitBreaker.check_launch() uses 1-indexed attempts where attempt 1 is the initial try and attempts 2 through max_retries+1 are retries. Allowed attempt count equals max_retries + 1. *(source: 04_orchestrator/1)*
 - GraphSync edges dict maps node_id to list of dependency node_ids (predecessors); reverse adjacency must be built in __init__ for cascade blocking BFS operations. *(source: 04_orchestrator/2)*
 - Persistence layer uses dataclasses.asdict() for serialization and manual field extraction for deserialization when reconstructing SessionRecord objects from dicts. *(source: 04_orchestrator/2)*
+- SerialRunner supports both callable runners (via __call__) and runners with an execute() method by checking hasattr(runner, 'execute'). This dual support accommodates mock styles used in tests: MockSerialSessionRunner (callable) and MockSessionRunner (.execute() method). *(source: 04_orchestrator/3)*
+- The orchestrator dispatches one ready task per main-loop iteration in serial mode, then re-evaluates ready tasks. This ensures newly-unblocked tasks are discovered immediately after each completion. *(source: 04_orchestrator/3)*
+- The orchestrator uses an attempt tracker and error tracker initialized from session history to support correct resume behavior — attempt counts and error messages persist across sessions. *(source: 04_orchestrator/3)*
 
 ## Decisions
 
@@ -61,20 +63,18 @@
 - `delete_branch()` detects 'not found' in stderr to distinguish missing-branch errors (handled as no-op with warning) from other failures (which raise WorkspaceError). *(source: 03_session_and_workspace/2)*
 - Data models (SessionRecord, ExecutionState, RunStatus, LaunchDecision) are defined in their respective stub modules rather than shared locations to support proper test imports. *(source: 04_orchestrator/1)*
 - StateManager persists ExecutionState using JSON Lines format where each line is a complete snapshot; load() reads the last line, save() appends new lines. *(source: 04_orchestrator/2)*
+- In-progress tasks from prior interrupted runs are reset to pending status during state loading, with attempt tracking preserved from session history. This implements exactly-once semantics per requirement 04-REQ-7.E1. *(source: 04_orchestrator/3)*
 
 ## Conventions
 
 - All Python files use `from __future__ import annotations` for modern type hint syntax. *(source: 01_core_foundation/1)*
-- Tests use pytest class-based grouping keyed to test spec IDs (e.g., `TestConfigDefaults` maps to TS-01-3). *(source: 01_core_foundation/1)*
 - Error hierarchy uses simple class inheritance with `**context` kwargs pattern for passing contextual data to exceptions (e.g., `AgentFoxError("msg", field="x")`). *(source: 01_core_foundation/1)*
 - Package structure follows: `agent_fox/cli/`, `agent_fox/core/`, `agent_fox/infra/`, `agent_fox/ui/` with matching test structure in `tests/unit/`, `tests/property/`, `tests/integration/`. *(source: 01_core_foundation/1)*
 - MODEL_REGISTRY keys are full model ID strings (e.g. 'claude-sonnet-4-6'), and TIER_DEFAULTS maps ModelTier enum values to those keys. *(source: 01_core_foundation/2)*
-- ModelTier uses StrEnum instead of Enum to allow tier values to be compared directly as strings. *(source: 01_core_foundation/2)*
 - All pydantic ConfigDict models must set extra='ignore' to handle unknown keys, and this must be applied to every sub-model (not just top-level AgentFoxConfig) to properly ignore unknown fields within known configuration sections. *(source: 01_core_foundation/3)*
 - `invoke_without_command=True` is used instead of custom `BannerGroup.invoke()` override to handle no-subcommand banner display while avoiding interference with Click's built-in unknown-subcommand error handling (exit code 2). *(source: 01_core_foundation/4)*
 - Git operations in the init command use `subprocess.run()` rather than a git library, keeping dependencies minimal. *(source: 01_core_foundation/4)*
 - Theme system validates Rich style strings at theme creation time using `Style.parse()`, falling back to defaults from `_DEFAULT_STYLES` dict on invalid values. *(source: 01_core_foundation/4)*
-- Ruff UP042 rule requires StrEnum instead of (str, Enum) pattern for string enums in Python 3.12+ projects. *(source: 02_planning_engine/1)*
 - Test files follow a naming convention where class names map to test spec IDs (e.g., TestDiscoverSpecsSorted maps to TS-02-1). *(source: 02_planning_engine/1)*
 - CrossSpecDep fields use from_spec/from_group (the spec declaring the dependency) and to_spec/to_group (the spec being depended on), matching the prd.md table direction. *(source: 02_planning_engine/1)*
 - Spec folder discovery uses a regex pattern `^(\d{2})_(.+)$` that requires exactly two-digit prefixes. Only directories matching this pattern are recognized as valid specs. *(source: 02_planning_engine/2)*
@@ -94,6 +94,7 @@
 - RunStatus uses StrEnum instead of str, Enum per ruff rule UP042. *(source: 04_orchestrator/1)*
 - ruff requires imports sorted in order: stdlib → third-party → first-party → local. Use 'ruff check --fix' to auto-sort. Property test files import hypothesis before agent_fox modules. *(source: 04_orchestrator/1)*
 - Use `datetime.UTC` alias instead of `datetime.timezone.utc` to satisfy ruff linter rule UP017. *(source: 04_orchestrator/2)*
+- Plan edges use source → target notation where source must complete before target. The Orchestrator converts these to GraphSync edges dict format: {target: [source, ...]} mapping each node to its dependency predecessors. *(source: 04_orchestrator/3)*
 
 ## Anti-Patterns
 
