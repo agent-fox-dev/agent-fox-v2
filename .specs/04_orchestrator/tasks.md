@@ -85,34 +85,34 @@ makes a subset of tests green.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/engine/ tests/property/engine/`
 
-- [ ] 2. Implement graph sync and state persistence
-  - [ ] 2.1 Create engine package
+- [x] 2. Implement graph sync and state persistence
+  - [x] 2.1 Create engine package
     - `agent_fox/engine/__init__.py`
 
-  - [ ] 2.2 Implement graph sync
+  - [x] 2.2 Implement graph sync
     - `agent_fox/engine/sync.py`: GraphSync class with ready_tasks(),
       mark_completed(), mark_failed(), mark_blocked() with BFS cascade,
       mark_in_progress(), is_stalled(), summary()
     - _Requirements: 04-REQ-1.1, 04-REQ-3.1, 04-REQ-3.2, 04-REQ-10.1,
       04-REQ-10.2_
 
-  - [ ] 2.3 Implement execution state data model
+  - [x] 2.3 Implement execution state data model
     - `agent_fox/engine/state.py`: RunStatus enum, SessionRecord dataclass,
       ExecutionState dataclass, JSON serialization/deserialization
     - _Requirements: 04-REQ-4.2_
 
-  - [ ] 2.4 Implement state manager
+  - [x] 2.4 Implement state manager
     - `agent_fox/engine/state.py`: StateManager class with load(), save(),
       record_session(), compute_plan_hash()
     - Handle corrupted state files (log warning, return None)
     - _Requirements: 04-REQ-4.1, 04-REQ-4.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Sync tests pass: `uv run pytest tests/unit/engine/test_sync.py -q`
-    - [ ] State tests pass: `uv run pytest tests/unit/engine/test_state.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/engine/test_sync_props.py tests/property/engine/test_state_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/`
-    - [ ] Requirements 04-REQ-3.*, 04-REQ-4.*, 04-REQ-10.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Sync tests pass: `uv run pytest tests/unit/engine/test_sync.py -q`
+    - [x] State tests pass: `uv run pytest tests/unit/engine/test_state.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/engine/test_sync_props.py tests/property/engine/test_state_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/`
+    - [x] Requirements 04-REQ-3.*, 04-REQ-4.*, 04-REQ-10.* acceptance criteria met
 
 - [ ] 3. Implement serial execution and orchestrator core
   - [ ] 3.1 Implement serial runner
