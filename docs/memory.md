@@ -15,6 +15,8 @@
 - Ruff's import sorter (I001) requires third-party imports (e.g., `claude_code_sdk`) to be in a separate group from local imports (e.g., `agent_fox.*`), with blank lines separating the groups. *(source: 03_session_and_workspace/1)*
 - Ruff rule UP041 requires using builtin TimeoutError instead of asyncio.TimeoutError — they are the same class in Python 3.11+ but ruff flags the alias as incorrect. *(source: 03_session_and_workspace/3)*
 - When rebasing a feature branch that is checked out in a worktree, `git rebase <onto> <branch>` fails with 'already used by worktree' error. Run `git rebase <onto>` without the branch argument from within the worktree directory instead. *(source: 03_session_and_workspace/4)*
+- The render module must iterate over CATEGORY_TITLES dict keys (not the Category enum) to ensure correct section ordering and prevent unpopulated categories from appearing. *(source: 05_structured_memory/5)*
+- Pre-existing mypy errors in extraction.py (union-attr on response.content[0].text) do not propagate to or affect compaction or render modules. *(source: 05_structured_memory/5)*
 
 ## Patterns
 
@@ -55,6 +57,15 @@
 - The `make_pre_tool_use_hook()` function returns a callable (not a dict with callback), matching the design.md interface where the hook directly receives `tool_name` and `tool_input` keyword arguments. *(source: 06_hooks_sync_security/1)*
 - Hook runner uses `subprocess.run()` with `capture_output=True, text=True` for stdout/stderr handling, enforces timeout via `subprocess.TimeoutExpired`, and handles missing scripts via `FileNotFoundError`, producing `HookResult` with exit codes: -1 for timeout, 127 for not found, 126 for OS errors. *(source: 06_hooks_sync_security/2)*
 - The `build_hook_env()` function copies `os.environ` and adds AF_* prefixed environment variables, ensuring hook scripts inherit the full environment including PATH. *(source: 06_hooks_sync_security/2)*
+- The store module uses manual dict serialization (_fact_to_dict/_dict_to_fact) rather than dataclasses.asdict() to maintain explicit control over field mapping, consistent with the persistence pattern used in the orchestrator module. *(source: 05_structured_memory/2)*
+- The store uses append mode ('a') for append_facts and write mode ('w') for write_facts, ensuring multiple appends accumulate while compaction can fully replace file contents. *(source: 05_structured_memory/2)*
+- Extraction module uses a two-layer error pattern where `_parse_extraction_response()` raises ValueError for invalid JSON and `extract_facts()` catches it to log a warning and return an empty list, keeping parsing logic testable independently. *(source: 05_structured_memory/3)*
+- Extraction tests mock `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with response structured as `response.content[0].text` containing the raw JSON string for test assertions. *(source: 05_structured_memory/3)*
+- The filter module matches facts on spec_name OR keyword overlap (union), not both (intersection). A fact with only a matching spec_name is relevant even with zero keyword matches. *(source: 05_structured_memory/4)*
+- Recency bonus computation uses `datetime.fromisoformat()` to parse ISO 8601 timestamps from the Fact `created_at` field, with fallback to `now` for unparseable values. *(source: 05_structured_memory/4)*
+- Compaction deduplication uses a two-pass approach: first pass identifies the earliest fact per content hash, second pass preserves original ordering among deduplicated survivors. *(source: 05_structured_memory/5)*
+- Supersession resolution collects all superseded IDs (targets of `supersedes` fields) into a set and filters them in a single pass; transitive chains are handled implicitly because intermediate facts are also targets. *(source: 05_structured_memory/5)*
+- The security module uses `PurePosixPath.name` to strip path prefixes from command strings, which works correctly for both absolute paths and plain command names. *(source: 06_hooks_sync_security/3)*
 
 ## Decisions
 
@@ -85,6 +96,7 @@
 - Pure data type tests (enums, dataclasses) pass immediately against stubs because the types themselves are complete implementations, following the same pattern as error hierarchy stubs. *(source: 05_structured_memory/1)*
 - The `DEFAULT_ALLOWLIST` constant is defined directly in the stub module (not as a NotImplementedError stub) because it is a pure data constant. This means tests that only inspect the constant pass immediately, consistent with the project convention for pure data types. *(source: 06_hooks_sync_security/1)*
 - Sync interval barrier trigger tests (TS-06-E7) test pure arithmetic logic without any module dependency, so they pass immediately against stubs. *(source: 06_hooks_sync_security/1)*
+- `check_command_allowed()` delegates to `extract_command_name()` for command parsing, so empty/whitespace commands raise `SecurityError` from `extract_command_name` rather than returning `(False, msg)` from `check_command_allowed`. *(source: 06_hooks_sync_security/3)*
 
 ## Conventions
 
@@ -123,6 +135,11 @@
 - Test file structure mirrors module organization: `tests/unit/hooks/test_runner.py` for `agent_fox/hooks/runner.py`, `tests/unit/hooks/test_security.py` for `agent_fox/hooks/security.py`, `tests/unit/hooks/test_hot_load.py` for `agent_fox/engine/hot_load.py`. *(source: 06_hooks_sync_security/1)*
 - Security property tests use Hypothesis strategies for command-like strings with alphabet restricted to letters, numbers, and common path characters (`_-./`). *(source: 06_hooks_sync_security/1)*
 - Per-hook failure mode is looked up from `config.modes` dict using the script path as key, defaulting to `"abort"` when not found, per requirement 06-REQ-2.3. *(source: 06_hooks_sync_security/2)*
+- Write operations (append_facts, write_facts) catch OSError and log errors without raising, per requirement 05-REQ-3.E2. Read operations (load_all_facts) return empty lists for missing files without logging errors. *(source: 05_structured_memory/2)*
+- Ruff rule UP017 requires using `datetime.UTC` instead of `timezone.utc` when targeting Python 3.12+. *(source: 05_structured_memory/3)*
+- The ruff linter enforces UP017: use `datetime.UTC` instead of `datetime.timezone.utc` for Python 3.12+. *(source: 05_structured_memory/4)*
+- The `make_pre_tool_use_hook()` function returns a plain callable (closure) that accepts `tool_name` and `tool_input` as keyword arguments and returns a dict with `{"decision": "allow"}` or `{"decision": "block", "message": "..."}` keys. *(source: 06_hooks_sync_security/3)*
+- Import `Callable` from `collections.abc` (not `typing`) to satisfy ruff UP035 rule in this project. *(source: 06_hooks_sync_security/3)*
 
 ## Anti-Patterns
 
