@@ -163,7 +163,7 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/hot_load.py`
     - [x] Requirements 06-REQ-6.*, 06-REQ-7.* acceptance criteria met
 
-- [ ] 5. Checkpoint -- Hooks, Sync Barriers, and Security Complete
+- [x] 5. Checkpoint -- Hooks, Sync Barriers, and Security Complete
   - Ensure all tests pass: `uv run pytest tests/unit/hooks/ tests/property/hooks/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/hooks/ agent_fox/engine/hot_load.py`
   - Ensure type check clean: `uv run mypy agent_fox/hooks/ agent_fox/engine/hot_load.py`
