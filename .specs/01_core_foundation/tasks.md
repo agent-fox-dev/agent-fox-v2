@@ -75,8 +75,8 @@ command.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement error hierarchy and model registry
-  - [ ] 2.1 Create error hierarchy
+- [x] 2. Implement error hierarchy and model registry
+  - [x] 2.1 Create error hierarchy
     - `agent_fox/core/errors.py`: AgentFoxError base class and all
       subclasses (ConfigError, InitError, PlanError, SessionError,
       WorkspaceError, IntegrationError, HookError, SessionTimeoutError,
@@ -84,22 +84,22 @@ command.
     - Each carries a message and optional **context kwargs
     - _Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.3_
 
-  - [ ] 2.2 Create model registry
+  - [x] 2.2 Create model registry
     - `agent_fox/core/models.py`: ModelTier enum, ModelEntry dataclass,
       MODEL_REGISTRY dict, TIER_DEFAULTS dict
     - `resolve_model(name)`: tier name or model ID → ModelEntry
     - `calculate_cost(input_tokens, output_tokens, model)`: USD float
     - _Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4_
 
-  - [ ] 2.3 Create domain types stub
+  - [x] 2.3 Create domain types stub
     - `agent_fox/core/types.py`: placeholder file for shared domain types
       (NodeStatus enum, etc.) — populated by later specs
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/core/test_errors.py tests/unit/core/test_models.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/core/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/core/`
-    - [ ] Requirements 01-REQ-4.*, 01-REQ-5.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/core/test_errors.py tests/unit/core/test_models.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/core/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/core/`
+    - [x] Requirements 01-REQ-4.*, 01-REQ-5.* acceptance criteria met
 
 - [ ] 3. Implement configuration system
   - [ ] 3.1 Create pydantic config models

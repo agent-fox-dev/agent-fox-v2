@@ -1,7 +1,9 @@
 """Exception hierarchy for agent-fox.
 
-Stub: defines only class names and basic structure.
-Full implementation in task group 2.
+Defines a base AgentFoxError with optional structured context,
+and specific subclasses for each error category in the system.
+
+Requirements: 01-REQ-4.1, 01-REQ-4.2, 01-REQ-4.3
 """
 
 from __future__ import annotations
