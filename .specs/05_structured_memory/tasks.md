@@ -24,34 +24,34 @@ context selection, then compaction and rendering.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Write type and store tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Write type and store tests
     - `tests/unit/memory/test_types.py`: TS-05-1 (fact creation), TS-05-2
       (category enum)
     - `tests/unit/memory/test_store.py`: TS-05-4 (append/load round-trip),
       TS-05-5 (create file if missing), TS-05-12 (load by spec)
     - _Test Spec: TS-05-1, TS-05-2, TS-05-4, TS-05-5, TS-05-12_
 
-  - [ ] 1.2 Write extraction tests
+  - [x] 1.2 Write extraction tests
     - `tests/unit/memory/test_extraction.py`: TS-05-3 (valid LLM response)
     - Mock LLM client to return predetermined JSON responses
     - _Test Spec: TS-05-3_
 
-  - [ ] 1.3 Write filter tests
+  - [x] 1.3 Write filter tests
     - `tests/unit/memory/test_filter.py`: TS-05-6 (select by spec name),
       TS-05-7 (keyword ranking), TS-05-8 (budget enforcement)
     - _Test Spec: TS-05-6, TS-05-7, TS-05-8_
 
-  - [ ] 1.4 Write compaction tests
+  - [x] 1.4 Write compaction tests
     - `tests/unit/memory/test_compaction.py`: TS-05-9 (dedup by content hash),
       TS-05-10 (supersession chain resolution)
     - _Test Spec: TS-05-9, TS-05-10_
 
-  - [ ] 1.5 Write render tests
+  - [x] 1.5 Write render tests
     - `tests/unit/memory/test_render.py`: TS-05-11 (markdown generation)
     - _Test Spec: TS-05-11_
 
-  - [ ] 1.6 Write edge case tests
+  - [x] 1.6 Write edge case tests
     - `tests/unit/memory/test_extraction.py`: TS-05-E1 (invalid JSON),
       TS-05-E2 (zero facts), TS-05-E3 (unknown category)
     - `tests/unit/memory/test_store.py`: TS-05-E4 (nonexistent file)
@@ -61,7 +61,7 @@ context selection, then compaction and rendering.
       TS-05-E8 (empty knowledge base)
     - _Test Spec: TS-05-E1..TS-05-E8_
 
-  - [ ] 1.7 Write property tests
+  - [x] 1.7 Write property tests
     - `tests/property/memory/test_filter_props.py`: TS-05-P1 (budget
       enforcement)
     - `tests/property/memory/test_compaction_props.py`: TS-05-P2
@@ -73,10 +73,10 @@ context selection, then compaction and rendering.
       completeness)
     - _Test Spec: TS-05-P1..TS-05-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/memory/ tests/property/memory/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/memory/ tests/property/memory/`
 
 - [ ] 2. Implement types and store
   - [ ] 2.1 Create memory package
