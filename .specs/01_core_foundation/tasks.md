@@ -125,8 +125,8 @@ command.
     - [x] No linter warnings: `uv run ruff check agent_fox/core/config.py`
     - [x] Requirements 01-REQ-2.* acceptance criteria met
 
-- [ ] 4. Implement CLI, theme, logging, and init command
-  - [ ] 4.1 Create theme system
+- [x] 4. Implement CLI, theme, logging, and init command
+  - [x] 4.1 Create theme system
     - `agent_fox/ui/__init__.py`, `agent_fox/ui/theme.py`: AppTheme
       class with Rich Console, color roles, playful/neutral message
       variants
@@ -134,21 +134,21 @@ command.
     - `create_theme(config)`: factory function
     - _Requirements: 01-REQ-7.1, 01-REQ-7.2, 01-REQ-7.3, 01-REQ-7.4_
 
-  - [ ] 4.2 Create logging setup
+  - [x] 4.2 Create logging setup
     - `agent_fox/infra/__init__.py`, `agent_fox/infra/logging.py`:
       `setup_logging(verbose, quiet)` configuring Python logging with
       format `[LEVEL] component: message`
     - Named loggers per module
     - _Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3_
 
-  - [ ] 4.3 Create CLI entry point
+  - [x] 4.3 Create CLI entry point
     - `agent_fox/cli/__init__.py`, `agent_fox/cli/app.py`: BannerGroup
       class, `main` Click group with --version, --verbose, --quiet
     - Global exception handler for AgentFoxError and unexpected exceptions
     - Load config and attach to Click context
     - _Requirements: 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4_
 
-  - [ ] 4.4 Implement init command
+  - [x] 4.4 Implement init command
     - `agent_fox/cli/init.py`: `init` Click command
     - Create `.agent-fox/` directory structure
     - Generate default `config.toml` (render from template or string)
@@ -158,17 +158,17 @@ command.
     - Git repo check: exit with error if not in a git repo
     - _Requirements: 01-REQ-3.1, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-3.4, 01-REQ-3.5_
 
-  - [ ] 4.5 Wire up `__main__.py` and pyproject.toml console script
+  - [x] 4.5 Wire up `__main__.py` and pyproject.toml console script
     - `agent_fox/__main__.py`: `from agent_fox.cli.app import main; main()`
     - Verify `pyproject.toml` has `[project.scripts] agent-fox = "..."`
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest tests/ -q`
-    - [ ] All property tests pass: `uv run pytest tests/property/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Type check passes: `uv run mypy agent_fox/`
-    - [ ] Requirements 01-REQ-1.*, 01-REQ-3.*, 01-REQ-6.*, 01-REQ-7.* met
-    - [ ] CLI is invocable: `uv run agent-fox --version`
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest tests/ -q`
+    - [x] All property tests pass: `uv run pytest tests/property/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Type check passes: `uv run mypy agent_fox/`
+    - [x] Requirements 01-REQ-1.*, 01-REQ-3.*, 01-REQ-6.*, 01-REQ-7.* met
+    - [x] CLI is invocable: `uv run agent-fox --version`
 
 - [ ] 5. Checkpoint — Core Foundation Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`
