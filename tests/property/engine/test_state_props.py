@@ -8,9 +8,10 @@ Requirements: 04-REQ-4.1, 04-REQ-4.3
 from __future__ import annotations
 
 import pytest
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 
 # -- Hypothesis strategies for generating valid ExecutionState ----------------
 

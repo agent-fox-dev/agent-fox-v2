@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from collections import deque
 
-from agent_fox.engine.sync import GraphSync
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from agent_fox.engine.sync import GraphSync
 
 # -- Hypothesis strategies for generating DAGs --------------------------------
 
