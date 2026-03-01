@@ -135,21 +135,21 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - [x] No linter warnings: `uv run ruff check agent_fox/hooks/security.py`
     - [x] Requirements 06-REQ-8.*, 06-REQ-9.* acceptance criteria met
 
-- [ ] 4. Implement sync barriers and hot-loading
-  - [ ] 4.1 Create hot-load module
+- [x] 4. Implement sync barriers and hot-loading
+  - [x] 4.1 Create hot-load module
     - `agent_fox/engine/__init__.py` (if not already present)
     - `agent_fox/engine/hot_load.py`: `discover_new_specs()` function that
       compares `.specs/` contents against known spec names in graph
     - _Requirements: 06-REQ-6.3, 06-REQ-7.E2_
 
-  - [ ] 4.2 Implement hot-load spec integration
+  - [x] 4.2 Implement hot-load spec integration
     - `hot_load_specs()`: parse tasks.md for new specs, parse cross-spec deps
       from prd.md, create nodes and edges, re-compute topological ordering,
       persist updated plan
     - Handle invalid dependency references: log warning, skip spec
     - _Requirements: 06-REQ-7.1, 06-REQ-7.2, 06-REQ-7.3, 06-REQ-7.E1_
 
-  - [ ] 4.3 Implement sync barrier trigger logic
+  - [x] 4.3 Implement sync barrier trigger logic
     - Barrier check function: `should_trigger_barrier(completed_count,
       sync_interval)` returning bool
     - Integration point documentation for orchestrator: after each session
@@ -157,11 +157,11 @@ runner, then security/allowlist, then sync barriers and hot-loading.
       memory + hot-load
     - _Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/hooks/test_hot_load.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/hooks/test_hot_load_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/hot_load.py`
-    - [ ] Requirements 06-REQ-6.*, 06-REQ-7.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/hooks/test_hot_load.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/hooks/test_hot_load_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/hot_load.py`
+    - [x] Requirements 06-REQ-6.*, 06-REQ-7.* acceptance criteria met
 
 - [ ] 5. Checkpoint -- Hooks, Sync Barriers, and Security Complete
   - Ensure all tests pass: `uv run pytest tests/unit/hooks/ tests/property/hooks/ -q`
