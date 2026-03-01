@@ -100,8 +100,8 @@ context selection, then compaction and rendering.
     - [x] No linter warnings: `uv run ruff check agent_fox/memory/`
     - [x] Requirements 05-REQ-2.1, 05-REQ-3.* acceptance criteria met
 
-- [ ] 3. Implement extraction
-  - [ ] 3.1 Implement fact extraction
+- [x] 3. Implement extraction
+  - [x] 3.1 Implement fact extraction
     - `agent_fox/memory/extraction.py`: `extract_facts()`,
       `_parse_extraction_response()`
     - Define EXTRACTION_PROMPT with structured JSON output instructions
@@ -113,10 +113,10 @@ context selection, then compaction and rendering.
     - _Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1,
       05-REQ-1.E2, 05-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/memory/test_extraction.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/memory/extraction.py`
-    - [ ] Requirements 05-REQ-1.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/memory/test_extraction.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/memory/extraction.py`
+    - [x] Requirements 05-REQ-1.* acceptance criteria met
 
 - [ ] 4. Implement context selection (filter)
   - [ ] 4.1 Implement filter
