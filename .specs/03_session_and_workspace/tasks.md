@@ -130,8 +130,8 @@ harvester.
       `uv run ruff check agent_fox/workspace/`
     - [x] Requirements 03-REQ-1.*, 03-REQ-2.*, 03-REQ-9.* met
 
-- [ ] 3. Implement context, prompt, timeout, and session runner
-  - [ ] 3.1 Create context assembler
+- [x] 3. Implement context, prompt, timeout, and session runner
+  - [x] 3.1 Create context assembler
     - `agent_fox/session/__init__.py`
     - `agent_fox/session/context.py`: `assemble_context()` function
     - Read spec files (requirements.md, design.md, tasks.md) from the
@@ -140,7 +140,7 @@ harvester.
     - Append memory facts in a labeled section
     - _Requirements: 03-REQ-4.1 through 03-REQ-4.E1_
 
-  - [ ] 3.2 Create prompt builder
+  - [x] 3.2 Create prompt builder
     - `agent_fox/session/prompt.py`: `build_system_prompt()`,
       `build_task_prompt()`
     - System prompt: agent role, context insertion, task group
@@ -149,13 +149,13 @@ harvester.
     - Task prompt: identify the target task group, reference tasks.md
     - _Requirements: 03-REQ-5.1, 03-REQ-5.2_
 
-  - [ ] 3.3 Create timeout enforcer
+  - [x] 3.3 Create timeout enforcer
     - `agent_fox/session/timeout.py`: `with_timeout()` function
     - Wraps a coroutine with `asyncio.wait_for()`, converting minutes
       to seconds
     - _Requirements: 03-REQ-6.1, 03-REQ-6.2_
 
-  - [ ] 3.4 Create session runner
+  - [x] 3.4 Create session runner
     - `agent_fox/session/runner.py`: `SessionOutcome` dataclass,
       `run_session()`, `build_allowlist_hook()`
     - Build `ClaudeAgentOptions` with cwd, model, system_prompt,
@@ -171,18 +171,18 @@ harvester.
     - _Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.E1,
       03-REQ-8.1 through 03-REQ-8.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Context tests pass:
+  - [x] 3.V Verify task group 3
+    - [x] Context tests pass:
       `uv run pytest tests/unit/session/test_context.py -q`
-    - [ ] Prompt tests pass:
+    - [x] Prompt tests pass:
       `uv run pytest tests/unit/session/test_prompt.py -q`
-    - [ ] Runner tests pass:
+    - [x] Runner tests pass:
       `uv run pytest tests/unit/session/test_runner.py -q`
-    - [ ] Property tests pass:
+    - [x] Property tests pass:
       `uv run pytest tests/property/session/ -q`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `uv run ruff check agent_fox/session/`
-    - [ ] Requirements 03-REQ-3.* through 03-REQ-8.* met
+    - [x] Requirements 03-REQ-3.* through 03-REQ-8.* met
 
 - [ ] 4. Implement harvester
   - [ ] 4.1 Create harvester module
