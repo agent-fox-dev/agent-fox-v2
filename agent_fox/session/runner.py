@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from claude_code_sdk import query  # noqa: F401
+from claude_code_sdk import ClaudeCodeOptions, query  # noqa: F401
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
@@ -147,14 +147,15 @@ async def _execute_query(
     status = "completed"
 
     # 03-REQ-3.1, 03-REQ-3.4: Call query with options
+    options = ClaudeCodeOptions(
+        cwd=cwd,
+        model=model_id,
+        system_prompt=system_prompt,
+        permission_mode="bypassPermissions",
+    )
     async for message in query(
         prompt=task_prompt,
-        options={
-            "cwd": cwd,
-            "model": model_id,
-            "system_prompt": system_prompt,
-            "permission_mode": "bypassPermissions",
-        },
+        options=options,
     ):
         # 03-REQ-3.2: Collect the ResultMessage
         if getattr(message, "type", None) == "result":

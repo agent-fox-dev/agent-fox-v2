@@ -202,7 +202,7 @@ harvester.
       `uv run ruff check agent_fox/workspace/harvester.py`
     - [x] Requirements 03-REQ-7.* met
 
-- [ ] 5. Checkpoint -- Session and Workspace Complete
+- [x] 5. Checkpoint -- Session and Workspace Complete
   - All spec tests pass:
     `uv run pytest tests/unit/workspace/ tests/unit/session/ -q`
   - All property tests pass:
