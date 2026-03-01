@@ -108,32 +108,32 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - [x] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.*, 06-REQ-4.*,
       06-REQ-5.* acceptance criteria met
 
-- [ ] 3. Implement security / command allowlist
-  - [ ] 3.1 Create security module
+- [x] 3. Implement security / command allowlist
+  - [x] 3.1 Create security module
     - `agent_fox/hooks/security.py`: `DEFAULT_ALLOWLIST` frozenset with all
       ~46 commands
     - `build_effective_allowlist()`: handle bash_allowlist (replace),
       bash_allowlist_extend (add to default), both set (prefer allowlist, warn)
     - _Requirements: 06-REQ-8.3, 06-REQ-9.1, 06-REQ-9.2, 06-REQ-9.E1_
 
-  - [ ] 3.2 Implement command extraction and checking
+  - [x] 3.2 Implement command extraction and checking
     - `extract_command_name()`: first token, strip path prefix to basename,
       raise SecurityError for empty/whitespace
     - `check_command_allowed()`: extract name, check membership, return
       (bool, message)
     - _Requirements: 06-REQ-8.1, 06-REQ-8.2, 06-REQ-8.E1_
 
-  - [ ] 3.3 Implement PreToolUse hook factory
+  - [x] 3.3 Implement PreToolUse hook factory
     - `make_pre_tool_use_hook()`: returns a callable that inspects Bash tool
       invocations and returns allow/block decisions
     - Non-Bash tools pass through without inspection
     - _Requirements: 06-REQ-8.1, 06-REQ-8.2, 06-REQ-8.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/hooks/test_security.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/hooks/test_security_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/hooks/security.py`
-    - [ ] Requirements 06-REQ-8.*, 06-REQ-9.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/hooks/test_security.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/hooks/test_security_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/hooks/security.py`
+    - [x] Requirements 06-REQ-8.*, 06-REQ-9.* acceptance criteria met
 
 - [ ] 4. Implement sync barriers and hot-loading
   - [ ] 4.1 Create hot-load module

@@ -10,6 +10,9 @@ Requirements: 06-REQ-8.1, 06-REQ-8.2, 06-REQ-8.3, 06-REQ-9.1, 06-REQ-9.2
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from pathlib import PurePosixPath
+from typing import Any
 
 from agent_fox.core.config import SecurityConfig
 from agent_fox.core.errors import SecurityError  # noqa: F401
@@ -56,7 +59,22 @@ def build_effective_allowlist(config: SecurityConfig) -> frozenset[str]:
     Returns:
         Frozenset of permitted command names.
     """
-    raise NotImplementedError
+    if config.bash_allowlist is not None:
+        # 06-REQ-9.E1: if both are set, bash_allowlist takes precedence
+        if config.bash_allowlist_extend:
+            logger.warning(
+                "Both bash_allowlist and bash_allowlist_extend are configured; "
+                "bash_allowlist takes precedence, ignoring bash_allowlist_extend"
+            )
+        # 06-REQ-9.1: custom allowlist replaces default entirely
+        return frozenset(config.bash_allowlist)
+
+    if config.bash_allowlist_extend:
+        # 06-REQ-9.2: extend adds to the default allowlist
+        return DEFAULT_ALLOWLIST | frozenset(config.bash_allowlist_extend)
+
+    # Neither set: use defaults
+    return DEFAULT_ALLOWLIST
 
 
 def extract_command_name(command_string: str) -> str:
@@ -77,7 +95,20 @@ def extract_command_name(command_string: str) -> str:
     Raises:
         SecurityError: If the command string is empty or whitespace-only.
     """
-    raise NotImplementedError
+    stripped = command_string.strip()
+    if not stripped:
+        raise SecurityError(
+            "Command string is empty or contains only whitespace",
+            command=command_string,
+        )
+
+    # Take the first whitespace-delimited token
+    first_token = stripped.split()[0]
+
+    # Strip any path prefix to get the basename
+    basename = PurePosixPath(first_token).name
+
+    return basename
 
 
 def check_command_allowed(
@@ -94,12 +125,27 @@ def check_command_allowed(
         Tuple of (allowed: bool, message: str). If blocked, message
         identifies the command and lists up to 10 similar allowed commands.
     """
-    raise NotImplementedError
+    name = extract_command_name(command_string)
+
+    if name in allowlist:
+        return True, f"Command '{name}' is allowed"
+
+    # Build a helpful message listing up to 10 allowed commands
+    sorted_allowed = sorted(allowlist)[:10]
+    alternatives = ", ".join(sorted_allowed)
+    msg = (
+        f"Command '{name}' is not on the allowlist. "
+        f"Allowed commands include: {alternatives}"
+    )
+    if len(allowlist) > 10:
+        msg += f" (and {len(allowlist) - 10} more)"
+
+    return False, msg
 
 
 def make_pre_tool_use_hook(
     config: SecurityConfig,
-) -> object:
+) -> Callable[..., dict[str, Any]]:
     """Create a PreToolUse hook function for the claude-code-sdk.
 
     The returned callable inspects Bash tool invocations and blocks
@@ -116,4 +162,42 @@ def make_pre_tool_use_hook(
     Returns:
         A callable suitable for use as a PreToolUse hook.
     """
-    raise NotImplementedError
+    allowlist = build_effective_allowlist(config)
+
+    def hook(
+        *,
+        tool_name: str,
+        tool_input: dict[str, Any],
+    ) -> dict[str, Any]:
+        """PreToolUse hook that enforces the command allowlist.
+
+        Args:
+            tool_name: Name of the tool being invoked (e.g. "Bash", "Read").
+            tool_input: Input parameters for the tool invocation.
+
+        Returns:
+            Decision dict: {"decision": "allow"} or
+            {"decision": "block", "message": "..."}.
+        """
+        # 06-REQ-8.E2: non-Bash tools pass through without inspection
+        if tool_name != "Bash":
+            return {"decision": "allow"}
+
+        # Extract the command from tool_input
+        command = tool_input.get("command", "")
+
+        try:
+            allowed, message = check_command_allowed(command, allowlist)
+        except SecurityError:
+            # 06-REQ-8.E1: empty/whitespace command is blocked
+            return {
+                "decision": "block",
+                "message": "Command string is empty or contains only whitespace",
+            }
+
+        if allowed:
+            return {"decision": "allow"}
+
+        return {"decision": "block", "message": message}
+
+    return hook
