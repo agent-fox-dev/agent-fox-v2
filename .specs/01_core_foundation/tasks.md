@@ -101,8 +101,8 @@ command.
     - [x] No linter warnings: `uv run ruff check agent_fox/core/`
     - [x] Requirements 01-REQ-4.*, 01-REQ-5.* acceptance criteria met
 
-- [ ] 3. Implement configuration system
-  - [ ] 3.1 Create pydantic config models
+- [x] 3. Implement configuration system
+  - [x] 3.1 Create pydantic config models
     - `agent_fox/core/config.py`: All config section models
       (OrchestratorConfig, ModelConfig, HookConfig, SecurityConfig,
       ThemeConfig, PlatformConfig, MemoryConfig, KnowledgeConfig,
@@ -110,7 +110,7 @@ command.
     - All fields with documented defaults and validation constraints
     - _Requirements: 01-REQ-2.3, 01-REQ-2.4_
 
-  - [ ] 3.2 Implement config loading
+  - [x] 3.2 Implement config loading
     - `load_config(path)`: TOML → pydantic model with defaults
     - Handle missing file (return defaults), invalid TOML (raise
       ConfigError), invalid types (raise ConfigError with field details)
@@ -119,11 +119,11 @@ command.
     - Implement numeric clamping via pydantic validators
     - _Requirements: 01-REQ-2.1, 01-REQ-2.2, 01-REQ-2.5, 01-REQ-2.6_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/core/test_config.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/core/test_config_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/core/config.py`
-    - [ ] Requirements 01-REQ-2.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/core/test_config.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/core/test_config_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/core/config.py`
+    - [x] Requirements 01-REQ-2.* acceptance criteria met
 
 - [ ] 4. Implement CLI, theme, logging, and init command
   - [ ] 4.1 Create theme system
