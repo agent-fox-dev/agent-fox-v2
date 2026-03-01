@@ -150,8 +150,8 @@ working planner.
     - [x] No linter warnings: `uv run ruff check agent_fox/graph/`
     - [x] Requirements 02-REQ-4.*, 02-REQ-5.*, 02-REQ-6.* met
 
-- [ ] 5. Implement plan CLI command and integration
-  - [ ] 5.1 Create plan command
+- [x] 5. Implement plan CLI command and integration
+  - [x] 5.1 Create plan command
     - `agent_fox/cli/plan.py`: Click command with `--fast`, `--spec`,
       `--reanalyze`, `--verify` options
     - Wire up discovery -> parsing -> building -> resolving -> fast mode
@@ -163,12 +163,12 @@ working planner.
     - _Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4,
       02-REQ-7.5_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `uv run pytest tests/unit/spec/ tests/unit/graph/ tests/property/graph/ tests/property/spec/ tests/integration/test_plan.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
-    - [ ] Requirements 02-REQ-7.* met
-    - [ ] CLI is invocable: `uv run agent-fox plan --help`
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `uv run pytest tests/unit/spec/ tests/unit/graph/ tests/property/graph/ tests/property/spec/ tests/integration/test_plan.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
+    - [x] Type check passes: `uv run mypy agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
+    - [x] Requirements 02-REQ-7.* met
+    - [x] CLI is invocable: `uv run agent-fox plan --help`
 
 - [ ] 6. Checkpoint -- Planning Engine Complete
   - Ensure all tests pass: `uv run pytest tests/unit/spec/ tests/unit/graph/ tests/property/graph/ tests/property/spec/ tests/integration/test_plan.py -q`
