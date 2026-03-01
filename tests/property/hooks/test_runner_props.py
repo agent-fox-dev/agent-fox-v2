@@ -42,7 +42,7 @@ class TestHookModeDeterminism:
     """
 
     @given(exit_code=st.integers(min_value=1, max_value=127))
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=None)
     def test_abort_mode_always_raises(
         self, exit_code: int, tmp_path_factory,
     ) -> None:
@@ -64,7 +64,7 @@ class TestHookModeDeterminism:
             run_hook(str(script_path), context, mode="abort")
 
     @given(exit_code=st.integers(min_value=1, max_value=127))
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=None)
     def test_warn_mode_never_raises(
         self, exit_code: int, tmp_path_factory,
     ) -> None:

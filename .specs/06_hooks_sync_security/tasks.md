@@ -76,14 +76,14 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/hooks/ tests/property/hooks/`
 
-- [ ] 2. Implement hook runner
-  - [ ] 2.1 Create hook runner module
+- [x] 2. Implement hook runner
+  - [x] 2.1 Create hook runner module
     - `agent_fox/hooks/__init__.py`
     - `agent_fox/hooks/runner.py`: `HookContext` and `HookResult` dataclasses,
       `build_hook_env()` function
     - _Requirements: 06-REQ-4.1, 06-REQ-4.2_
 
-  - [ ] 2.2 Implement single hook execution
+  - [x] 2.2 Implement single hook execution
     - `run_hook()`: subprocess.run with timeout, env vars, cwd, stdout/stderr
       capture
     - Handle abort mode (raise HookError) and warn mode (log warning)
@@ -92,7 +92,7 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - _Requirements: 06-REQ-2.1, 06-REQ-2.2, 06-REQ-2.3, 06-REQ-3.1,
       06-REQ-3.2, 06-REQ-2.E1_
 
-  - [ ] 2.3 Implement hook batch execution
+  - [x] 2.3 Implement hook batch execution
     - `run_hooks()`: sequential execution of multiple scripts
     - `run_pre_session_hooks()`: delegates to run_hooks with pre_code list
     - `run_post_session_hooks()`: delegates to run_hooks with post_code list
@@ -101,11 +101,11 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - All respect the `no_hooks` flag
     - _Requirements: 06-REQ-1.1, 06-REQ-1.2, 06-REQ-5.1, 06-REQ-1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/hooks/test_runner.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/hooks/test_runner_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/hooks/`
-    - [ ] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.*, 06-REQ-4.*,
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/hooks/test_runner.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/hooks/test_runner_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/hooks/`
+    - [x] Requirements 06-REQ-1.*, 06-REQ-2.*, 06-REQ-3.*, 06-REQ-4.*,
       06-REQ-5.* acceptance criteria met
 
 - [ ] 3. Implement security / command allowlist

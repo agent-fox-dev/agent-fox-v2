@@ -10,12 +10,13 @@ Requirements: 06-REQ-1.1, 06-REQ-1.2, 06-REQ-2.1, 06-REQ-2.2, 06-REQ-2.3,
 from __future__ import annotations
 
 import logging
-import subprocess  # noqa: F401
+import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 from agent_fox.core.config import HookConfig
-from agent_fox.core.errors import HookError  # noqa: F401
+from agent_fox.core.errors import HookError
 
 logger = logging.getLogger("agent_fox.hooks.runner")
 
@@ -50,7 +51,12 @@ def build_hook_env(context: HookContext) -> dict[str, str]:
     - AF_WORKSPACE: absolute path to the workspace directory
     - AF_BRANCH: the feature branch name
     """
-    raise NotImplementedError
+    env = os.environ.copy()
+    env["AF_SPEC_NAME"] = context.spec_name
+    env["AF_TASK_GROUP"] = context.task_group
+    env["AF_WORKSPACE"] = context.workspace
+    env["AF_BRANCH"] = context.branch
+    return env
 
 
 def run_hook(
@@ -76,7 +82,79 @@ def run_hook(
     Raises:
         HookError: If the hook fails and mode is "abort".
     """
-    raise NotImplementedError
+    env = build_hook_env(context)
+    cwd_str = str(cwd) if cwd is not None else None
+
+    try:
+        completed = subprocess.run(
+            [script],
+            env=env,
+            cwd=cwd_str,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+        )
+        result = HookResult(
+            script=script,
+            exit_code=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+            timed_out=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        result = HookResult(
+            script=script,
+            exit_code=-1,
+            stdout=exc.stdout if isinstance(exc.stdout, str) else "",
+            stderr=exc.stderr if isinstance(exc.stderr, str) else "",
+            timed_out=True,
+        )
+    except FileNotFoundError:
+        result = HookResult(
+            script=script,
+            exit_code=127,
+            stdout="",
+            stderr=f"Hook script not found: {script}",
+            timed_out=False,
+        )
+    except OSError as exc:
+        result = HookResult(
+            script=script,
+            exit_code=126,
+            stdout="",
+            stderr=f"Hook script not executable or OS error: {script}: {exc}",
+            timed_out=False,
+        )
+
+    # Handle failure based on mode
+    if result.exit_code != 0:
+        if mode == "abort":
+            if result.timed_out:
+                raise HookError(
+                    f"Hook script '{script}' timed out after {timeout}s",
+                    script=script,
+                    timeout=timeout,
+                )
+            raise HookError(
+                f"Hook script '{script}' failed with exit code {result.exit_code}",
+                script=script,
+                exit_code=result.exit_code,
+            )
+        # mode == "warn"
+        if result.timed_out:
+            logger.warning(
+                "Hook script '%s' timed out after %ds (warn mode, continuing)",
+                script,
+                timeout,
+            )
+        else:
+            logger.warning(
+                "Hook script '%s' failed with exit code %d (warn mode, continuing)",
+                script,
+                result.exit_code,
+            )
+
+    return result
 
 
 def run_hooks(
@@ -100,7 +178,19 @@ def run_hooks(
     Raises:
         HookError: If any hook fails in "abort" mode.
     """
-    raise NotImplementedError
+    results: list[HookResult] = []
+    for script in scripts:
+        # Look up per-hook mode, defaulting to "abort" (06-REQ-2.3)
+        mode = config.modes.get(script, "abort")
+        result = run_hook(
+            script,
+            context,
+            timeout=config.timeout,
+            mode=mode,
+            cwd=cwd,
+        )
+        results.append(result)
+    return results
 
 
 def run_pre_session_hooks(
@@ -122,7 +212,14 @@ def run_pre_session_hooks(
     Raises:
         HookError: If any abort-mode hook fails.
     """
-    raise NotImplementedError
+    if no_hooks or not config.pre_code:
+        return []
+    return run_hooks(
+        config.pre_code,
+        context,
+        config=config,
+        cwd=Path(context.workspace) if context.workspace else None,
+    )
 
 
 def run_post_session_hooks(
@@ -144,7 +241,14 @@ def run_post_session_hooks(
     Raises:
         HookError: If any abort-mode hook fails.
     """
-    raise NotImplementedError
+    if no_hooks or not config.post_code:
+        return []
+    return run_hooks(
+        config.post_code,
+        context,
+        config=config,
+        cwd=Path(context.workspace) if context.workspace else None,
+    )
 
 
 def run_sync_barrier_hooks(
@@ -173,4 +277,18 @@ def run_sync_barrier_hooks(
     Raises:
         HookError: If any abort-mode hook fails.
     """
-    raise NotImplementedError
+    if no_hooks or not config.sync_barrier:
+        return []
+
+    context = HookContext(
+        spec_name="__sync_barrier__",
+        task_group=str(barrier_number),
+        workspace=workspace,
+        branch=branch,
+    )
+    return run_hooks(
+        config.sync_barrier,
+        context,
+        config=config,
+        cwd=Path(workspace) if workspace else None,
+    )
