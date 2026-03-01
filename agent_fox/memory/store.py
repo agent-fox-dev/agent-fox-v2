@@ -9,6 +9,7 @@ Requirements: 05-REQ-3.1, 05-REQ-3.2, 05-REQ-3.3, 05-REQ-3.E1,
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -28,7 +29,14 @@ def append_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: List of Fact objects to append.
         path: Path to the JSONL file.
     """
-    raise NotImplementedError
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            for fact in facts:
+                line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
+                f.write(line + "\n")
+    except OSError:
+        logger.error("Failed to write facts to %s", path, exc_info=True)
 
 
 def load_all_facts(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
@@ -41,7 +49,18 @@ def load_all_facts(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
         A list of all Fact objects. Returns an empty list if the file
         does not exist or is empty.
     """
-    raise NotImplementedError
+    if not path.exists():
+        return []
+
+    facts: list[Fact] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            data = json.loads(stripped)
+            facts.append(_dict_to_fact(data))
+    return facts
 
 
 def load_facts_by_spec(
@@ -57,7 +76,7 @@ def load_facts_by_spec(
     Returns:
         A list of Fact objects matching the spec name.
     """
-    raise NotImplementedError
+    return [f for f in load_all_facts(path) if f.spec_name == spec_name]
 
 
 def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
@@ -69,14 +88,39 @@ def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: The complete list of facts to write.
         path: Path to the JSONL file.
     """
-    raise NotImplementedError
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
+            for fact in facts:
+                line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
+                f.write(line + "\n")
+    except OSError:
+        logger.error("Failed to write facts to %s", path, exc_info=True)
 
 
 def _fact_to_dict(fact: Fact) -> dict:
     """Serialize a Fact to a JSON-compatible dictionary."""
-    raise NotImplementedError
+    return {
+        "id": fact.id,
+        "content": fact.content,
+        "category": fact.category,
+        "spec_name": fact.spec_name,
+        "keywords": fact.keywords,
+        "confidence": fact.confidence,
+        "created_at": fact.created_at,
+        "supersedes": fact.supersedes,
+    }
 
 
 def _dict_to_fact(data: dict) -> Fact:
     """Deserialize a dictionary to a Fact object."""
-    raise NotImplementedError
+    return Fact(
+        id=data["id"],
+        content=data["content"],
+        category=data["category"],
+        spec_name=data["spec_name"],
+        keywords=data["keywords"],
+        confidence=data["confidence"],
+        created_at=data["created_at"],
+        supersedes=data.get("supersedes"),
+    )

@@ -78,14 +78,14 @@ context selection, then compaction and rendering.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/memory/ tests/property/memory/`
 
-- [ ] 2. Implement types and store
-  - [ ] 2.1 Create memory package
+- [x] 2. Implement types and store
+  - [x] 2.1 Create memory package
     - `agent_fox/memory/__init__.py`: package init
     - `agent_fox/memory/types.py`: Fact dataclass, Category enum (6 values),
       ConfidenceLevel enum (high, medium, low)
     - _Requirements: 05-REQ-2.1, 05-REQ-3.2_
 
-  - [ ] 2.2 Implement JSONL store
+  - [x] 2.2 Implement JSONL store
     - `agent_fox/memory/store.py`: `append_facts()`, `load_all_facts()`,
       `load_facts_by_spec()`, `write_facts()`, `_fact_to_dict()`,
       `_dict_to_fact()`
@@ -94,11 +94,11 @@ context selection, then compaction and rendering.
     - _Requirements: 05-REQ-3.1, 05-REQ-3.2, 05-REQ-3.3, 05-REQ-3.E1,
       05-REQ-3.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/memory/test_types.py tests/unit/memory/test_store.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/memory/test_store_props.py tests/property/memory/test_types_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/memory/`
-    - [ ] Requirements 05-REQ-2.1, 05-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/memory/test_types.py tests/unit/memory/test_store.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/memory/test_store_props.py tests/property/memory/test_types_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/memory/`
+    - [x] Requirements 05-REQ-2.1, 05-REQ-3.* acceptance criteria met
 
 - [ ] 3. Implement extraction
   - [ ] 3.1 Implement fact extraction
