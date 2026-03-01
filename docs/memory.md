@@ -50,6 +50,11 @@
 - The `make_fact()` helper in conftest.py provides sensible defaults for all Fact dataclass fields, allowing tests to override only the fields they need to customize. *(source: 05_structured_memory/1)*
 - Extraction tests mock the Anthropic client by patching `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with a return value containing `messages.create` as an AsyncMock. *(source: 05_structured_memory/1)*
 - Property test Hypothesis strategies generate ISO 8601 timestamps for `created_at` field using `from_regex()` rather than `datetimes()` to match the string-based dataclass field. *(source: 05_structured_memory/1)*
+- Hook runner tests use real temporary shell scripts (created via `tmp_hook_script`) and marker files to verify execution order and environment variable passing, rather than mocking subprocess. *(source: 06_hooks_sync_security/1)*
+- Hot-load test helpers (`_make_minimal_tasks_md`, `_make_minimal_prd_md`, `_make_graph_with_spec`) create minimal valid spec structures in temp directories for testing graph augmentation. *(source: 06_hooks_sync_security/1)*
+- The `make_pre_tool_use_hook()` function returns a callable (not a dict with callback), matching the design.md interface where the hook directly receives `tool_name` and `tool_input` keyword arguments. *(source: 06_hooks_sync_security/1)*
+- Hook runner uses `subprocess.run()` with `capture_output=True, text=True` for stdout/stderr handling, enforces timeout via `subprocess.TimeoutExpired`, and handles missing scripts via `FileNotFoundError`, producing `HookResult` with exit codes: -1 for timeout, 127 for not found, 126 for OS errors. *(source: 06_hooks_sync_security/2)*
+- The `build_hook_env()` function copies `os.environ` and adds AF_* prefixed environment variables, ensuring hook scripts inherit the full environment including PATH. *(source: 06_hooks_sync_security/2)*
 
 ## Decisions
 
@@ -78,6 +83,8 @@
 - When circuit breaker denies a task launch due to retry limit, the task is blocked with cascade. For cost or session limit denials, the main loop re-checks via should_stop() and sets the appropriate RunStatus (COST_LIMIT or SESSION_LIMIT). *(source: 04_orchestrator/5)*
 - Category and ConfidenceLevel use StrEnum instead of plain str Enum for consistency with NodeStatus in graph/types.py. *(source: 05_structured_memory/1)*
 - Pure data type tests (enums, dataclasses) pass immediately against stubs because the types themselves are complete implementations, following the same pattern as error hierarchy stubs. *(source: 05_structured_memory/1)*
+- The `DEFAULT_ALLOWLIST` constant is defined directly in the stub module (not as a NotImplementedError stub) because it is a pure data constant. This means tests that only inspect the constant pass immediately, consistent with the project convention for pure data types. *(source: 06_hooks_sync_security/1)*
+- Sync interval barrier trigger tests (TS-06-E7) test pure arithmetic logic without any module dependency, so they pass immediately against stubs. *(source: 06_hooks_sync_security/1)*
 
 ## Conventions
 
@@ -112,6 +119,10 @@
 - Session runner factories must return either a callable with signature `(node_id, attempt, previous_error) -> SessionRecord` or an object with an `execute()` method. Runner code checks `hasattr(runner, 'execute')` to support both patterns. *(source: 04_orchestrator/4)*
 - Stub modules import external dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` to find the attribute on the module. *(source: 05_structured_memory/1)*
 - Test file structure mirrors module organization with tests/unit/memory/test_{module}.py for unit tests and tests/property/memory/test_{module}_props.py for property tests. *(source: 05_structured_memory/1)*
+- Hook test fixtures live in `tests/unit/hooks/conftest.py`. The `tmp_hook_script` fixture is a factory function that creates executable shell scripts with controlled content and exit codes. *(source: 06_hooks_sync_security/1)*
+- Test file structure mirrors module organization: `tests/unit/hooks/test_runner.py` for `agent_fox/hooks/runner.py`, `tests/unit/hooks/test_security.py` for `agent_fox/hooks/security.py`, `tests/unit/hooks/test_hot_load.py` for `agent_fox/engine/hot_load.py`. *(source: 06_hooks_sync_security/1)*
+- Security property tests use Hypothesis strategies for command-like strings with alphabet restricted to letters, numbers, and common path characters (`_-./`). *(source: 06_hooks_sync_security/1)*
+- Per-hook failure mode is looked up from `config.modes` dict using the script path as key, defaulting to `"abort"` when not found, per requirement 06-REQ-2.3. *(source: 06_hooks_sync_security/2)*
 
 ## Anti-Patterns
 
@@ -125,3 +136,4 @@
 - Cross-spec dependency resolution between prd.md and discovered specs is fragile; incomplete filtering can cause dangling references that break graph building. *(source: 02_planning_engine/5)*
 - The `_dispatch_parallel` on_complete closure captures `attempt_tracker` and `error_tracker` dicts by reference. Changes to these dicts during callback execution affect subsequent callbacks in the same batch, but this is safe because callbacks are serialized under the lock. *(source: 04_orchestrator/4)*
 - Extraction test mocking depends on the exact import path `agent_fox.memory.extraction.anthropic.AsyncAnthropic` — if the extraction module changes how it imports anthropic, all extraction tests require updating. *(source: 05_structured_memory/1)*
+- Hypothesis property tests spawning subprocesses are sensitive to the default 200ms deadline because OS process creation overhead can cause first subprocess invocations to exceed the timeout. Use `deadline=None` in `@settings()` for subprocess-based property tests. *(source: 06_hooks_sync_security/2)*
