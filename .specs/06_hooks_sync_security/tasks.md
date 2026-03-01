@@ -24,8 +24,8 @@ runner, then security/allowlist, then sync barriers and hot-loading.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/unit/hooks/__init__.py`
     - Create `tests/unit/hooks/conftest.py` with shared fixtures:
       `tmp_hook_script` (creates executable temp scripts with controlled exit
@@ -33,7 +33,7 @@ runner, then security/allowlist, then sync barriers and hot-loading.
       HookConfig), `tmp_specs_dir` (temp .specs/ directory)
     - Create `tests/property/hooks/__init__.py`
 
-  - [ ] 1.2 Write hook runner tests
+  - [x] 1.2 Write hook runner tests
     - `tests/unit/hooks/test_runner.py`: TS-06-1 (pre-session order),
       TS-06-2 (post-session context), TS-06-3 (abort mode), TS-06-4 (warn
       mode), TS-06-5 (timeout), TS-06-6 (env vars), TS-06-7 (sync barrier
@@ -41,19 +41,19 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - _Test Spec: TS-06-1, TS-06-2, TS-06-3, TS-06-4, TS-06-5, TS-06-6,
       TS-06-7, TS-06-8_
 
-  - [ ] 1.3 Write security / allowlist tests
+  - [x] 1.3 Write security / allowlist tests
     - `tests/unit/hooks/test_security.py`: TS-06-9 (default allowlist),
       TS-06-10 (allowed command), TS-06-11 (blocked command), TS-06-12
       (path prefix), TS-06-13 (custom allowlist), TS-06-14 (allowlist
       extend)
     - _Test Spec: TS-06-9, TS-06-10, TS-06-11, TS-06-12, TS-06-13, TS-06-14_
 
-  - [ ] 1.4 Write hot-load tests
+  - [x] 1.4 Write hot-load tests
     - `tests/unit/hooks/test_hot_load.py`: TS-06-15 (discover and add new
       specs), TS-06-16 (no new specs is no-op)
     - _Test Spec: TS-06-15, TS-06-16_
 
-  - [ ] 1.5 Write edge case tests
+  - [x] 1.5 Write edge case tests
     - `tests/unit/hooks/test_runner.py` (append): TS-06-E1 (no hooks),
       TS-06-E2 (hook not found)
     - `tests/unit/hooks/test_security.py` (append): TS-06-E3 (empty command),
@@ -63,7 +63,7 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - _Test Spec: TS-06-E1, TS-06-E2, TS-06-E3, TS-06-E4, TS-06-E5,
       TS-06-E6, TS-06-E7_
 
-  - [ ] 1.6 Write property tests
+  - [x] 1.6 Write property tests
     - `tests/property/hooks/test_security_props.py`: TS-06-P1 (enforcement
       completeness), TS-06-P2 (default stability)
     - `tests/property/hooks/test_runner_props.py`: TS-06-P3 (mode
@@ -71,10 +71,10 @@ runner, then security/allowlist, then sync barriers and hot-loading.
     - `tests/property/hooks/test_hot_load_props.py`: TS-06-P4 (monotonicity)
     - _Test Spec: TS-06-P1, TS-06-P2, TS-06-P3, TS-06-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/hooks/ tests/property/hooks/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/hooks/ tests/property/hooks/`
 
 - [ ] 2. Implement hook runner
   - [ ] 2.1 Create hook runner module
