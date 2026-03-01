@@ -5,9 +5,21 @@ Requirements: 03-REQ-7.1 through 03-REQ-7.E2
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+from agent_fox.core.errors import IntegrationError
+from agent_fox.workspace.git import (
+    abort_rebase,
+    checkout_branch,
+    get_changed_files,
+    has_new_commits,
+    merge_fast_forward,
+    run_git,
+)
 from agent_fox.workspace.worktree import WorkspaceInfo
+
+logger = logging.getLogger(__name__)
 
 
 async def harvest(
@@ -30,4 +42,74 @@ async def harvest(
     Raises:
         IntegrationError: If merge fails after rebase retry.
     """
-    raise NotImplementedError
+    # Step 1: Check for new commits (03-REQ-7.E2)
+    if not await has_new_commits(repo_root, workspace.branch, dev_branch):
+        logger.info(
+            "No new commits on '%s' relative to '%s', skipping harvest",
+            workspace.branch,
+            dev_branch,
+        )
+        return []
+
+    # Capture the list of changed files before switching branches
+    changed_files = await get_changed_files(
+        repo_root, workspace.branch, dev_branch,
+    )
+
+    # Step 2: Checkout the development branch in the main repo
+    await checkout_branch(repo_root, dev_branch)
+
+    # Step 3: Attempt fast-forward merge (03-REQ-7.1)
+    try:
+        await merge_fast_forward(repo_root, workspace.branch)
+        logger.info(
+            "Fast-forward merge of '%s' into '%s' succeeded",
+            workspace.branch,
+            dev_branch,
+        )
+        return changed_files
+    except IntegrationError:
+        logger.info(
+            "Fast-forward merge failed for '%s', attempting rebase",
+            workspace.branch,
+        )
+
+    # Step 4: Rebase and retry (03-REQ-7.2)
+    # Run rebase from the worktree directory because the feature branch
+    # is checked out there. Using `git rebase <onto>` (without a branch
+    # argument) rebases the currently checked-out branch.
+    try:
+        returncode, _stdout, stderr = await run_git(
+            ["rebase", dev_branch],
+            cwd=workspace.path,
+            check=False,
+        )
+        if returncode != 0:
+            raise IntegrationError(
+                f"Rebase of '{workspace.branch}' onto "
+                f"'{dev_branch}' failed: {stderr.strip()}",
+                branch=workspace.branch,
+                onto=dev_branch,
+            )
+    except IntegrationError:
+        # Step 5: Abort rebase on failure (03-REQ-7.E1)
+        logger.warning(
+            "Rebase of '%s' onto '%s' failed, aborting",
+            workspace.branch,
+            dev_branch,
+        )
+        await abort_rebase(workspace.path)
+        raise
+
+    # Retry the merge after successful rebase
+    # After rebase, the changed files may differ slightly, so re-fetch
+    changed_files = await get_changed_files(
+        repo_root, workspace.branch, dev_branch,
+    )
+    await merge_fast_forward(repo_root, workspace.branch)
+    logger.info(
+        "Merge of '%s' into '%s' succeeded after rebase",
+        workspace.branch,
+        dev_branch,
+    )
+    return changed_files

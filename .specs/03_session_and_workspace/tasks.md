@@ -184,8 +184,8 @@ harvester.
       `uv run ruff check agent_fox/session/`
     - [x] Requirements 03-REQ-3.* through 03-REQ-8.* met
 
-- [ ] 4. Implement harvester
-  - [ ] 4.1 Create harvester module
+- [x] 4. Implement harvester
+  - [x] 4.1 Create harvester module
     - `agent_fox/workspace/harvester.py`: `harvest()` function
     - Check for new commits; no-op if none
     - Checkout dev branch in main repo
@@ -195,12 +195,12 @@ harvester.
     - Return list of changed files on success
     - _Requirements: 03-REQ-7.1 through 03-REQ-7.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Harvester tests pass:
+  - [x] 4.V Verify task group 4
+    - [x] Harvester tests pass:
       `uv run pytest tests/unit/workspace/test_harvester.py -q`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `uv run ruff check agent_fox/workspace/harvester.py`
-    - [ ] Requirements 03-REQ-7.* met
+    - [x] Requirements 03-REQ-7.* met
 
 - [ ] 5. Checkpoint -- Session and Workspace Complete
   - All spec tests pass:
