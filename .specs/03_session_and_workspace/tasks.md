@@ -98,8 +98,8 @@ harvester.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement git operations and worktree management
-  - [ ] 2.1 Create git operations module
+- [x] 2. Implement git operations and worktree management
+  - [x] 2.1 Create git operations module
     - `agent_fox/workspace/__init__.py`
     - `agent_fox/workspace/git.py`: `run_git()`, `create_branch()`,
       `delete_branch()`, `checkout_branch()`, `has_new_commits()`,
@@ -111,7 +111,7 @@ harvester.
       `IntegrationError` with stderr context
     - _Requirements: 03-REQ-9.1, 03-REQ-9.2_
 
-  - [ ] 2.2 Create worktree manager
+  - [x] 2.2 Create worktree manager
     - `agent_fox/workspace/worktree.py`: `WorkspaceInfo` dataclass,
       `create_worktree()`, `destroy_worktree()`
     - Create worktree: handle stale worktree/branch cleanup, create
@@ -121,14 +121,14 @@ harvester.
     - _Requirements: 03-REQ-1.1 through 03-REQ-1.E3, 03-REQ-2.1
       through 03-REQ-2.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Worktree tests pass:
+  - [x] 2.V Verify task group 2
+    - [x] Worktree tests pass:
       `uv run pytest tests/unit/workspace/test_worktree.py -q`
-    - [ ] Property tests pass:
+    - [x] Property tests pass:
       `uv run pytest tests/property/workspace/ -q`
-    - [ ] No linter warnings:
+    - [x] No linter warnings:
       `uv run ruff check agent_fox/workspace/`
-    - [ ] Requirements 03-REQ-1.*, 03-REQ-2.*, 03-REQ-9.* met
+    - [x] Requirements 03-REQ-1.*, 03-REQ-2.*, 03-REQ-9.* met
 
 - [ ] 3. Implement context, prompt, timeout, and session runner
   - [ ] 3.1 Create context assembler
