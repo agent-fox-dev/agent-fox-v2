@@ -170,7 +170,7 @@ working planner.
     - [x] Requirements 02-REQ-7.* met
     - [x] CLI is invocable: `uv run agent-fox plan --help`
 
-- [ ] 6. Checkpoint -- Planning Engine Complete
+- [x] 6. Checkpoint -- Planning Engine Complete
   - Ensure all tests pass: `uv run pytest tests/unit/spec/ tests/unit/graph/ tests/property/graph/ tests/property/spec/ tests/integration/test_plan.py -q`
   - Ensure linter clean: `uv run ruff check agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
   - Ensure type check clean: `uv run mypy agent_fox/spec/ agent_fox/graph/ agent_fox/cli/plan.py`
