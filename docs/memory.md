@@ -42,6 +42,14 @@
 - SerialRunner supports both callable runners (via __call__) and runners with an execute() method by checking hasattr(runner, 'execute'). This dual support accommodates mock styles used in tests: MockSerialSessionRunner (callable) and MockSessionRunner (.execute() method). *(source: 04_orchestrator/3)*
 - The orchestrator dispatches one ready task per main-loop iteration in serial mode, then re-evaluates ready tasks. This ensures newly-unblocked tasks are discovered immediately after each completion. *(source: 04_orchestrator/3)*
 - The orchestrator uses an attempt tracker and error tracker initialized from session history to support correct resume behavior — attempt counts and error messages persist across sessions. *(source: 04_orchestrator/3)*
+- Orchestrator dispatches sessions either serially or in parallel based on `config.parallel > 1`, with both paths converging through a shared `_process_session_result()` method. *(source: 04_orchestrator/4)*
+- Test mocks differ by runner type: ParallelRunner tests use MockParallelSessionRunner (callable, records timing), while orchestrator tests use MockSessionRunner (with `.execute()` method, records calls). *(source: 04_orchestrator/4)*
+- CircuitBreaker.should_stop() checks only global limits (cost ceiling, session limit) at the top of the orchestrator's main loop, while check_launch() checks all three limits (cost, session, retry) per-task during dispatch. *(source: 04_orchestrator/5)*
+- The orchestrator determines which RunStatus to set (COST_LIMIT vs SESSION_LIMIT) by re-checking the specific limit conditions after should_stop() returns denied, rather than relying on the reason string from LaunchDecision. *(source: 04_orchestrator/5)*
+- Memory module structure organizes code into layers: types.py (data models), store.py (persistence), extraction.py (LLM integration), filter.py (selection), compaction.py (dedup), render.py (output). *(source: 05_structured_memory/1)*
+- The `make_fact()` helper in conftest.py provides sensible defaults for all Fact dataclass fields, allowing tests to override only the fields they need to customize. *(source: 05_structured_memory/1)*
+- Extraction tests mock the Anthropic client by patching `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with a return value containing `messages.create` as an AsyncMock. *(source: 05_structured_memory/1)*
+- Property test Hypothesis strategies generate ISO 8601 timestamps for `created_at` field using `from_regex()` rather than `datetimes()` to match the string-based dataclass field. *(source: 05_structured_memory/1)*
 
 ## Decisions
 
@@ -64,6 +72,12 @@
 - Data models (SessionRecord, ExecutionState, RunStatus, LaunchDecision) are defined in their respective stub modules rather than shared locations to support proper test imports. *(source: 04_orchestrator/1)*
 - StateManager persists ExecutionState using JSON Lines format where each line is a complete snapshot; load() reads the last line, save() appends new lines. *(source: 04_orchestrator/2)*
 - In-progress tasks from prior interrupted runs are reset to pending status during state loading, with attempt tracking preserved from session history. This implements exactly-once semantics per requirement 04-REQ-7.E1. *(source: 04_orchestrator/3)*
+- ParallelRunner uses asyncio.Semaphore to bound concurrency instead of ThreadPoolExecutor, maintaining consistency with the project's async-first design philosophy. *(source: 04_orchestrator/4)*
+- In ParallelRunner, the on_complete callback executes outside the semaphore but under the state lock. This design allows new sessions to start while state writes occur, maximizing throughput. *(source: 04_orchestrator/4)*
+- Exactly-once semantics in parallel mode is enforced by marking tasks `in_progress` in the orchestrator before building the batch, not in the runner. This prevents the same task from being included in multiple batches. *(source: 04_orchestrator/4)*
+- When circuit breaker denies a task launch due to retry limit, the task is blocked with cascade. For cost or session limit denials, the main loop re-checks via should_stop() and sets the appropriate RunStatus (COST_LIMIT or SESSION_LIMIT). *(source: 04_orchestrator/5)*
+- Category and ConfidenceLevel use StrEnum instead of plain str Enum for consistency with NodeStatus in graph/types.py. *(source: 05_structured_memory/1)*
+- Pure data type tests (enums, dataclasses) pass immediately against stubs because the types themselves are complete implementations, following the same pattern as error hierarchy stubs. *(source: 05_structured_memory/1)*
 
 ## Conventions
 
@@ -95,6 +109,9 @@
 - ruff requires imports sorted in order: stdlib → third-party → first-party → local. Use 'ruff check --fix' to auto-sort. Property test files import hypothesis before agent_fox modules. *(source: 04_orchestrator/1)*
 - Use `datetime.UTC` alias instead of `datetime.timezone.utc` to satisfy ruff linter rule UP017. *(source: 04_orchestrator/2)*
 - Plan edges use source → target notation where source must complete before target. The Orchestrator converts these to GraphSync edges dict format: {target: [source, ...]} mapping each node to its dependency predecessors. *(source: 04_orchestrator/3)*
+- Session runner factories must return either a callable with signature `(node_id, attempt, previous_error) -> SessionRecord` or an object with an `execute()` method. Runner code checks `hasattr(runner, 'execute')` to support both patterns. *(source: 04_orchestrator/4)*
+- Stub modules import external dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` to find the attribute on the module. *(source: 05_structured_memory/1)*
+- Test file structure mirrors module organization with tests/unit/memory/test_{module}.py for unit tests and tests/property/memory/test_{module}_props.py for property tests. *(source: 05_structured_memory/1)*
 
 ## Anti-Patterns
 
@@ -106,3 +123,5 @@
 - Integration tests change working directory via `os.chdir()` — must restore in fixture teardown to avoid side effects on subsequent tests. *(source: 01_core_foundation/1)*
 - CrossSpecDep field naming (from_spec = declaring spec, to_spec = depended-on spec) is opposite to edge direction in the graph; the builder must translate so edges go from to_spec:to_group -> from_spec:from_group. *(source: 02_planning_engine/1)*
 - Cross-spec dependency resolution between prd.md and discovered specs is fragile; incomplete filtering can cause dangling references that break graph building. *(source: 02_planning_engine/5)*
+- The `_dispatch_parallel` on_complete closure captures `attempt_tracker` and `error_tracker` dicts by reference. Changes to these dicts during callback execution affect subsequent callbacks in the same batch, but this is safe because callbacks are serialized under the lock. *(source: 04_orchestrator/4)*
+- Extraction test mocking depends on the exact import path `agent_fox.memory.extraction.anthropic.AsyncAnthropic` — if the extraction module changes how it imports anthropic, all extraction tests require updating. *(source: 05_structured_memory/1)*
