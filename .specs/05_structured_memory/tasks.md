@@ -164,7 +164,7 @@ context selection, then compaction and rendering.
     - [x] Type check passes: `uv run mypy agent_fox/memory/`
     - [x] Requirements 05-REQ-5.*, 05-REQ-6.* acceptance criteria met
 
-- [ ] 6. Checkpoint -- Structured Memory Complete
+- [x] 6. Checkpoint -- Structured Memory Complete
   - Ensure all tests pass: `uv run pytest tests/unit/memory/ tests/property/memory/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/memory/ tests/unit/memory/ tests/property/memory/`
   - Ensure type check clean: `uv run mypy agent_fox/memory/`

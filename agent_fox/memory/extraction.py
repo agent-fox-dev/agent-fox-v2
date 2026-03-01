@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 
 import anthropic  # noqa: F401
+from anthropic.types import TextBlock
 
 from agent_fox.core.models import resolve_model
 from agent_fox.memory.types import Category, ConfidenceLevel, Fact
@@ -72,7 +73,16 @@ async def extract_facts(
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw_text = response.content[0].text
+    first_block = response.content[0]
+    if isinstance(first_block, TextBlock):
+        raw_text: str = first_block.text
+    else:
+        # Fallback for types with a .text attribute (e.g. test mocks)
+        maybe_text: str | None = getattr(first_block, "text", None)
+        if maybe_text is None:
+            logger.warning("Extraction response has no text content, skipping")
+            return []
+        raw_text = maybe_text
 
     try:
         facts = _parse_extraction_response(raw_text, spec_name)
