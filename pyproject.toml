@@ -30,10 +30,12 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.23",
     "hypothesis>=6.0",
     "ruff>=0.5",
     "mypy>=1.10",

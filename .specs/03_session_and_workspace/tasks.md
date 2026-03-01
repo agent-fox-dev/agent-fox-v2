@@ -26,8 +26,8 @@ harvester.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure and fixtures
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure and fixtures
     - Create `tests/unit/workspace/__init__.py`
     - Create `tests/unit/session/__init__.py`
     - Create `tests/property/workspace/__init__.py`
@@ -42,38 +42,38 @@ harvester.
       (mock for claude-code-sdk query), `default_config`
       (AgentFoxConfig with test-friendly defaults)
 
-  - [ ] 1.2 Write worktree management tests
+  - [x] 1.2 Write worktree management tests
     - `tests/unit/workspace/test_worktree.py`:
       TS-03-1 (creation), TS-03-2 (destruction), TS-03-3 (stale removal)
     - _Test Spec: TS-03-1, TS-03-2, TS-03-3_
 
-  - [ ] 1.3 Write context assembly tests
+  - [x] 1.3 Write context assembly tests
     - `tests/unit/session/test_context.py`:
       TS-03-4 (spec docs), TS-03-5 (memory facts)
     - _Test Spec: TS-03-4, TS-03-5_
 
-  - [ ] 1.4 Write prompt builder tests
+  - [x] 1.4 Write prompt builder tests
     - `tests/unit/session/test_prompt.py`:
       TS-03-6 (system and task prompts)
     - _Test Spec: TS-03-6_
 
-  - [ ] 1.5 Write session runner tests
+  - [x] 1.5 Write session runner tests
     - `tests/unit/session/test_runner.py`:
       TS-03-7 (success), TS-03-8 (SDK error), TS-03-9 (timeout)
     - _Test Spec: TS-03-7, TS-03-8, TS-03-9_
 
-  - [ ] 1.6 Write allowlist hook tests
+  - [x] 1.6 Write allowlist hook tests
     - `tests/unit/session/test_runner.py` (or separate
       `tests/unit/session/test_security.py`):
       TS-03-12 (allowlist enforcement)
     - _Test Spec: TS-03-12_
 
-  - [ ] 1.7 Write harvester tests
+  - [x] 1.7 Write harvester tests
     - `tests/unit/workspace/test_harvester.py`:
       TS-03-10 (fast-forward merge), TS-03-11 (rebase on conflict)
     - _Test Spec: TS-03-10, TS-03-11_
 
-  - [ ] 1.8 Write edge case tests
+  - [x] 1.8 Write edge case tests
     - `tests/unit/workspace/test_worktree.py`: TS-03-E1 (git error),
       TS-03-E2 (destroy non-existent)
     - `tests/unit/session/test_runner.py`: TS-03-E3 (is_error result)
@@ -84,7 +84,7 @@ harvester.
       `tests/unit/session/test_security.py`: TS-03-E7 (empty command)
     - _Test Spec: TS-03-E1 through TS-03-E7_
 
-  - [ ] 1.9 Write property tests
+  - [x] 1.9 Write property tests
     - `tests/property/workspace/test_worktree_props.py`:
       TS-03-P1 (path uniqueness)
     - `tests/property/session/test_runner_props.py`:
@@ -93,10 +93,10 @@ harvester.
       TS-03-P3 (allowlist enforcement)
     - _Test Spec: TS-03-P1, TS-03-P2, TS-03-P3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement git operations and worktree management
   - [ ] 2.1 Create git operations module
