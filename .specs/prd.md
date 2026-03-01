@@ -2,10 +2,11 @@
 
 | Field   | Value                                    |
 |---------|------------------------------------------|
-| Version | 1.0                                      |
+| Version | 2.0                                      |
 | Author  | Reverse-engineered from codebase         |
 | Date    | 2026-03-01                               |
 | Status  | Draft                                    |
+| Sources | prd.md (v1 base), prd2.md (DuckDB Knowledge Store), prd3.md (Fox Ball), prd4.md (Time Vision) |
 
 ## 1. Product Overview
 
@@ -18,6 +19,14 @@ through each task — each running independently so that one task's problems
 cannot affect another. Sessions can run one at a time or up to eight in
 parallel. Progress, learnings, and cost are tracked automatically. If the
 process is interrupted, it resumes from where it left off.
+
+v2 introduces a structured knowledge system powered by DuckDB. Session
+outcomes, memory facts, and tool signals are persisted in an embedded
+database, enabling two new capabilities: the **Fox Ball** — a semantic
+knowledge oracle that lets developers query accumulated project knowledge
+in natural language — and **Time Vision** — temporal reasoning that tracks
+causal chains between facts, constructs timelines, and detects predictive
+patterns across sessions.
 
 The product targets solo developers and small teams who want to convert a
 well-defined specification into a working, version-controlled codebase with
@@ -39,18 +48,36 @@ dozens of clean, traceable commits — overnight, unattended.
 - ✅ Validate specification quality before execution to catch problems early.
 - ✅ Detect and auto-fix test, lint, type-check, and build failures without
   manual triage.
+- ✅ Persist session outcomes and knowledge in a structured, queryable
+  database — always on, not gated by debug mode.
+- ✅ Enable natural-language queries over accumulated project knowledge so
+  developers can ask "why did we choose this library?" and get grounded
+  answers.
+- ✅ Track causal relationships and temporal patterns across sessions so the
+  agent can trace impact, predict breakage, and learn from history.
 
 **Non-Goals**
 
 - 🚫 Real-time IDE integration — agent-fox is a batch CLI tool, not an
-  ambient assistant. (Planned for v2.)
+  ambient assistant.
 - 🚫 Goal-driven planning from natural language — the developer must provide
   structured specifications; agent-fox does not infer intent from vague
-  descriptions. (Planned for v2.)
+  descriptions.
 - 🚫 Multi-repository orchestration — all work happens within a single
   repository.
 - 🚫 Self-hosting or SaaS — agent-fox is a local developer tool, not a
   hosted service.
+- 🚫 Local embedding models — Anthropic voyage-3 API only for now.
+- 🚫 Migrating existing JSONL audit files into DuckDB — future
+  `--rebuild-knowledge` flag.
+- 🚫 Real-time pattern detection during active sessions — batch analysis
+  only.
+- 🚫 Automatic causal inference from code diffs — too expensive; causal
+  links are extracted from session context.
+- 🚫 Interactive timeline visualization — CLI text output only.
+- 🚫 Causal link editing by humans — read-only for now.
+- 🚫 Full-text search over the knowledge base — vector search is sufficient
+  at agent-fox's scale.
 
 ## 3. User Personas
 
@@ -185,6 +212,41 @@ dozens of clean, traceable commits — overnight, unattended.
 4. Developer re-runs `agent-fox code` to retry.
 5. Outcome: Failed tasks get a fresh start without affecting completed
    work.
+
+---
+
+**Workflow: Query Project Knowledge (Fox Ball)**
+
+1. Developer runs `agent-fox ask "why did we choose DuckDB over SQLite?"`.
+2. The system generates an embedding of the question using the configured
+   embedding model (Anthropic voyage-3).
+3. The system performs vector similarity search over the fact store in
+   DuckDB, retrieving the most relevant facts.
+4. Retrieved facts — along with their provenance (source spec, session,
+   commit) — are passed to a synthesis model that generates a grounded
+   natural-language answer.
+5. If retrieved facts contradict each other, the synthesis model flags
+   the contradiction in the response.
+6. The answer is displayed with source attributions.
+7. Outcome: The developer gets an AI-generated answer grounded in the
+   project's accumulated knowledge, not hallucinated from general
+   training data.
+
+---
+
+**Workflow: Explore Temporal Patterns (Time Vision)**
+
+1. Developer runs `agent-fox ask "what happened last time we changed the
+   auth module?"` or `agent-fox patterns`.
+2. The system queries the causal graph in DuckDB, following cause→effect
+   links between facts to construct a timeline.
+3. For pattern detection, the system identifies recurring sequences
+   (e.g., "module X changes → test Y breaks") by analyzing historical
+   co-occurrences in the causal graph.
+4. Results are rendered as indented text chains in the CLI, showing the
+   causal flow with timestamps and provenance.
+5. Outcome: The developer can trace the impact of past changes, predict
+   likely breakage, and understand recurring failure patterns.
 
 ## 5. Functional Requirements
 
@@ -407,6 +469,82 @@ dozens of clean, traceable commits — overnight, unattended.
   utilities (approximately 35 commands). The operator may replace this list
   entirely or extend it with additional commands via configuration.
 
+**Capability Area: DuckDB Knowledge Store**
+
+- [REQ-140] The system shall maintain a DuckDB database at
+  `.agent-fox/knowledge.duckdb` as the structured persistence layer for
+  session outcomes, memory facts, and tool signals.
+- [REQ-141] Session outcome records (spec name, task group, success/failure,
+  files touched, token usage, duration) shall be written unconditionally
+  after every coding session — not gated by `--debug`.
+- [REQ-142] Tool call and error signal records shall be written to DuckDB
+  only when `--debug` is enabled, preserving the existing debug-gated
+  behavior for detailed traces.
+- [REQ-143] The existing JSONL audit behavior shall be preserved unchanged.
+  DuckDB is an additional persistence target, not a replacement.
+- [REQ-144] The system shall use a `SessionSink` protocol (composable sink
+  abstraction) so that sink implementations (JSONL, DuckDB, future sinks)
+  are decoupled from the session runner and can be composed independently.
+- [REQ-145] The database schema shall include a version table supporting
+  forward-only migrations. Rollback is not required.
+- [REQ-146] If the DuckDB file is corrupted or inaccessible, the system
+  shall log an error, warn the user, and continue operating without the
+  knowledge store — graceful degradation, not a hard failure.
+
+**Capability Area: Fox Ball — Semantic Knowledge Oracle**
+
+- [REQ-150] The system shall dual-write memory facts to both JSONL
+  (backward compatibility, source of truth) and DuckDB (queryable index).
+- [REQ-151] When writing a fact to DuckDB, the system shall generate a
+  vector embedding using the configured embedding model (default:
+  Anthropic voyage-3, 1024 dimensions) and store the embedding alongside
+  the fact.
+- [REQ-152] If embedding generation fails (API error, rate limit), the
+  fact shall be written without an embedding. Missing embeddings may be
+  backfilled later.
+- [REQ-153] The system shall support vector similarity search over the
+  fact store, returning facts ranked by cosine similarity to a query
+  embedding.
+- [REQ-154] The system shall ingest additional knowledge sources beyond
+  session-extracted facts: ADRs (`docs/adr/`), spec history, and git
+  commit messages. These sources shall be embedded and searchable
+  alongside session facts.
+- [REQ-155] When the user runs the `ask` command with a natural-language
+  question, the system shall: embed the question, retrieve the top-k most
+  similar facts from DuckDB, pass retrieved facts with provenance to a
+  synthesis model, and return a grounded answer.
+- [REQ-156] When retrieved facts contradict each other, the synthesis
+  model shall flag the contradiction in the response rather than silently
+  choosing one.
+- [REQ-157] The `ask` command shall use a single API call (not streaming)
+  with the standard synthesis model (Sonnet) for answer generation.
+- [REQ-158] The system shall track fact supersession relationships in
+  DuckDB, recording when a newer fact replaces or updates an older one.
+
+**Capability Area: Time Vision — Temporal Reasoning**
+
+- [REQ-160] Every fact stored in DuckDB shall include provenance metadata:
+  the source spec name, session ID, and commit SHA.
+- [REQ-161] The memory extraction prompt shall be enriched to identify
+  cause→effect relationships between the current session's facts and
+  prior facts. Causal links shall be stored in a `fact_causes` table in
+  DuckDB.
+- [REQ-162] The system shall support temporal queries via the `ask`
+  command (e.g., "what happened last time we changed X?", "what has
+  failed repeatedly?"). These queries shall traverse the causal graph
+  and return timeline-structured results.
+- [REQ-163] The system shall detect predictive patterns by analyzing
+  historical co-occurrences in the causal graph (e.g., "module X changes
+  → test Y breaks"). Pattern detection is batch, triggered by the `ask`
+  command or a dedicated `patterns` command.
+- [REQ-164] Timelines shall be rendered as indented text chains in the
+  CLI, showing causal flow with timestamps, provenance, and fact content.
+  The format shall be suitable for piping to other tools.
+- [REQ-165] Before each coding session, the system shall use causal graph
+  data to enhance context selection — prioritizing facts that are
+  causally linked to the current task's topic, in addition to the
+  existing keyword-based matching (REQ-061).
+
 ## 6. Configuration & Input Specification
 
 | Option | Description | Default | Valid Values |
@@ -435,6 +573,11 @@ dozens of clean, traceable commits — overnight, unattended.
 | Command allowlist (extend) | Additional commands appended to the default allowlist. | None | List of command names |
 | Theme: playful mode | Use personality-flavored messages in output. | Enabled | Enabled / Disabled |
 | Theme: colors | Color scheme for terminal output (header, success, error, warning, info, etc.). | Fox-themed warm palette | Any valid terminal color or style |
+| Embedding model | Model used for generating fact embeddings. | voyage-3 (Anthropic) | Any supported embedding model identifier |
+| Embedding dimensions | Dimensionality of embedding vectors. | 1024 | Positive integer matching the embedding model's output |
+| Ask: top-k | Number of facts retrieved for knowledge queries. | 20 | Any positive integer |
+| Ask: synthesis model | Model used for generating answers to `ask` queries. | Standard model (Sonnet) | Any supported model identifier |
+| Knowledge store path | Location of the DuckDB database file. | `.agent-fox/knowledge.duckdb` | Any valid file path |
 
 Configuration is stored in a project-level configuration file. Command-line
 options override configuration file values where both are available.
@@ -498,11 +641,35 @@ options override configuration file values where both are available.
 - Summary counts by severity.
 - Available as table, JSON, or YAML.
 
+**Knowledge Query Output (ask command)**
+
+- A natural-language answer grounded in retrieved project facts.
+- Source attributions listing which facts contributed to the answer, with
+  provenance (spec name, session ID, commit SHA).
+- Contradiction warnings when retrieved facts conflict.
+- Confidence indicators based on the number and relevance of matching facts.
+
+**Timeline Output (temporal queries)**
+
+- Indented text chains showing causal flow between facts.
+- Each node includes: timestamp, fact content, provenance (spec, session,
+  commit), and causal relationship type.
+- Format is designed for CLI readability and piping to other tools.
+
+**Pattern Detection Output (patterns command)**
+
+- Recurring sequences identified in the causal graph (e.g., "module X
+  changes → test Y breaks"), ranked by frequency and recency.
+- Each pattern includes: trigger condition, effect, occurrence count, and
+  last occurrence date.
+
 **Audit Log (optional)**
 
 - When debug mode is enabled, a detailed log is written per run that
   enables full reconstruction of what the agent saw, decided, and did.
   Useful for diagnosing unexpected behavior or auditing agent decisions.
+- Session outcome records are always written to DuckDB regardless of debug
+  mode. Debug mode adds tool-call and error-signal detail.
 
 ## 8. Error Handling & User Feedback
 
@@ -563,6 +730,30 @@ options override configuration file values where both are available.
 - If the fix command cannot detect any quality-check tools in the project,
   it reports an error and exits rather than proceeding blindly.
 
+**Knowledge Store Degradation**
+
+- If the DuckDB file is corrupted, locked, or inaccessible at startup,
+  the system logs a warning and continues without the knowledge store.
+  Session outcomes fall back to JSONL-only recording. The `ask` and
+  `patterns` commands report an error explaining the store is unavailable.
+- If DuckDB becomes inaccessible mid-run (e.g., disk full), the system
+  logs the error and continues execution — knowledge writes are best-effort,
+  not execution-blocking.
+
+**Embedding API Failure**
+
+- If the embedding API call fails when writing a fact, the fact is stored
+  without an embedding. A warning is logged. Facts without embeddings are
+  excluded from vector search but remain queryable by other means.
+- If the embedding API fails during an `ask` query (preventing the question
+  from being embedded), the system reports the error and suggests retrying.
+
+**Causal Link Extraction Failure**
+
+- If the enriched memory extraction prompt fails to identify causal links,
+  the facts are stored without causal metadata. Time Vision queries will
+  have reduced coverage but will not fail.
+
 ## 9. Constraints & Assumptions
 
 **Constraints**
@@ -572,6 +763,10 @@ options override configuration file values where both are available.
 - Requires valid AI provider credentials configured in the environment.
 - All work happens within a single Git repository.
 - Maximum 8 concurrent coding sessions.
+- DuckDB is embedded (single-file, no external server). The database file
+  must be writable by the process.
+- Embedding generation requires network access to the Anthropic API.
+  Offline operation degrades gracefully (facts stored without embeddings).
 
 **Assumptions**
 
@@ -585,6 +780,10 @@ options override configuration file values where both are available.
   integration target.
 - When GitHub integration is enabled, a valid access token with appropriate
   permissions is available in the environment.
+- The same Anthropic API key used for coding models also provides access
+  to the voyage-3 embedding model.
+- JSONL remains the source of truth for facts; DuckDB is a queryable index
+  that can be rebuilt from JSONL in the future.
 
 ## 10. Open Questions
 
@@ -592,18 +791,34 @@ options override configuration file values where both are available.
 |---|---|---|
 | 1 | How should the system handle specifications that are modified by a human _during_ an active run? Hot-loading adds new specs, but behavior for edited existing specs mid-run is unclear. | Could lead to inconsistent state if a spec's tasks change while sessions are in flight. |
 | 2 | What is the intended behavior when the development branch is force-pushed or rebased externally during a run? | Workspace isolation depends on the development branch as a stable integration target. External changes could break merges. |
-| 3 | The memory compaction step (deduplication and pruning of superseded facts) appears to require manual invocation. Should it run automatically at a certain knowledge-base size? | Without automatic compaction, the knowledge base could grow unboundedly over many runs. |
+| 3 | The memory compaction step (deduplication and pruning of superseded facts) appears to require manual invocation. Should it run automatically at a certain knowledge-base size? | Without automatic compaction, the knowledge base could grow unboundedly over many runs. With DuckDB, compaction could also prune low-confidence or superseded facts from the vector index. |
 | 4 | The standup report's file-overlap detection compares agent and human changes to the same files. What action, if any, should the system recommend when overlaps are detected? | Currently informational only. Users may expect guidance on resolution. |
 | 5 | The platform integration supports GitHub. Are GitLab and Gitea planned, and should the PRD account for forge-neutral requirements? | The configuration accepts only "github" or "none" today. Other forges would need similar PR, CI, and review gate support. |
+| 6 | Should facts without embeddings be automatically backfilled when the embedding API becomes available again, or should this be a manual `agent-fox backfill-embeddings` command? | Embedding failures are non-fatal, but unembedded facts are invisible to vector search. Automatic backfilling ensures eventual consistency; manual backfilling gives the user control over API spend. |
+| 7 | How should causal links be validated? Can a fact reference a prior fact that has been compacted away? | Compaction may remove facts that are targets of causal links, creating dangling references in the causal graph. |
+| 8 | Should the `ask` command support follow-up questions within a conversational context, or is each query independent? | Conversational context would improve multi-step knowledge exploration but adds complexity to the CLI interaction model. |
+| 9 | What is the migration path from an existing v1 JSONL knowledge base to the DuckDB-backed v2 system? | Users upgrading from v1 will have existing JSONL data that needs to be indexed into DuckDB for Fox Ball and Time Vision to be useful from day one. |
 
 ## 11. Future Considerations
 
 Based on patterns in the codebase and documentation, several capabilities
 appear to be planned or partially explored:
 
-- **Knowledge Oracle:** A queryable interface that lets developers ask
-  natural-language questions and receive answers grounded in the project's
-  accumulated knowledge base.
+- **JSONL-to-DuckDB Rebuild:** An `agent-fox init --rebuild-knowledge`
+  command that re-indexes an existing JSONL knowledge base into DuckDB,
+  generating embeddings and reconstructing causal links from historical
+  data. Critical for v1→v2 migration.
+- **Local Embedding Models:** Support for local embedding models (e.g.,
+  sentence-transformers) to eliminate the API dependency for embedding
+  generation, enabling fully offline operation.
+- **Embedding Backfill:** Automatic or on-demand backfilling of embeddings
+  for facts that were stored without them due to API failures.
+- **Real-Time Pattern Detection:** Streaming pattern detection during active
+  sessions, alerting the agent to predicted breakage before it happens
+  (currently batch-only).
+- **Interactive Timeline Visualization:** A web-based or TUI-based
+  graphical timeline viewer for the causal graph, replacing the current
+  text-only CLI output.
 - **Goal-Driven Planning:** Accepting high-level goals or GitHub issues as
   input and automatically generating specifications, rather than requiring
   hand-authored specs.
