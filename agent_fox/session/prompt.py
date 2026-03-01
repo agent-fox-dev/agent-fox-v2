@@ -22,7 +22,22 @@ def build_system_prompt(
 
     Returns the complete system prompt string.
     """
-    raise NotImplementedError
+    return (
+        f"You are an expert software developer implementing specification "
+        f"`{spec_name}`, task group {task_group}.\n"
+        f"\n"
+        f"## Instructions\n"
+        f"\n"
+        f"- Implement ONLY task group {task_group} from the tasks listed below.\n"
+        f"- Follow the acceptance criteria in the provided context exactly.\n"
+        f"- Commit all changes on the current feature branch.\n"
+        f"- Run tests and linters before committing to ensure quality.\n"
+        f"- Do NOT implement other task groups or make unrelated changes.\n"
+        f"\n"
+        f"## Context\n"
+        f"\n"
+        f"{context}\n"
+    )
 
 
 def build_task_prompt(
@@ -36,4 +51,11 @@ def build_task_prompt(
 
     Returns the task prompt string.
     """
-    raise NotImplementedError
+    return (
+        f"Implement task group {task_group} from specification `{spec_name}`.\n"
+        f"\n"
+        f"Refer to the tasks.md subtask list in the context above for the "
+        f"detailed breakdown of work items. Complete all subtasks in group "
+        f"{task_group}, update checkbox states in tasks.md, and commit your "
+        f"changes on the current branch.\n"
+    )
