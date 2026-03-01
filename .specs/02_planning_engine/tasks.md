@@ -100,8 +100,8 @@ working planner.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/graph/`
     - [x] Requirements 02-REQ-1.*, 02-REQ-3.3, 02-REQ-3.4 met
 
-- [ ] 3. Implement task parser and graph builder
-  - [ ] 3.1 Create task parser
+- [x] 3. Implement task parser and graph builder
+  - [x] 3.1 Create task parser
     - `agent_fox/spec/parser.py`: `SubtaskDef`, `TaskGroupDef`,
       `CrossSpecDep` dataclasses, `parse_tasks()`, `parse_cross_deps()`
     - Parse checkbox markdown with regex
@@ -110,7 +110,7 @@ working planner.
     - Parse cross-spec dependency table from prd.md
     - _Requirements: 02-REQ-2.1, 02-REQ-2.2, 02-REQ-2.3, 02-REQ-2.4_
 
-  - [ ] 3.2 Create graph builder
+  - [x] 3.2 Create graph builder
     - `agent_fox/graph/builder.py`: `build_graph()` function
     - Create nodes from parsed task groups
     - Add intra-spec sequential edges
@@ -118,10 +118,10 @@ working planner.
     - Validate: no dangling references
     - _Requirements: 02-REQ-3.1, 02-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/spec/test_parser.py tests/unit/graph/test_builder.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/parser.py agent_fox/graph/builder.py`
-    - [ ] Requirements 02-REQ-2.*, 02-REQ-3.1, 02-REQ-3.2 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/spec/test_parser.py tests/unit/graph/test_builder.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/parser.py agent_fox/graph/builder.py`
+    - [x] Requirements 02-REQ-2.*, 02-REQ-3.1, 02-REQ-3.2 met
 
 - [ ] 4. Implement resolver, fast mode, and plan persistence
   - [ ] 4.1 Implement dependency resolver
