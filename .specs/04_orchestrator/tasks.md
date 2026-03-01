@@ -114,15 +114,15 @@ makes a subset of tests green.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/`
     - [x] Requirements 04-REQ-3.*, 04-REQ-4.*, 04-REQ-10.* acceptance criteria met
 
-- [ ] 3. Implement serial execution and orchestrator core
-  - [ ] 3.1 Implement serial runner
+- [x] 3. Implement serial execution and orchestrator core
+  - [x] 3.1 Implement serial runner
     - `agent_fox/engine/serial.py`: SerialRunner class with execute()
       and delay() methods
     - Wire to SessionRunner protocol from spec 03 (or use a Protocol/ABC
       for now if spec 03 is not yet implemented)
     - _Requirements: 04-REQ-1.2, 04-REQ-9.1_
 
-  - [ ] 3.2 Implement orchestrator core loop
+  - [x] 3.2 Implement orchestrator core loop
     - `agent_fox/engine/orchestrator.py`: Orchestrator class with run() method
     - Load plan, load/initialize state, plan hash verification
     - Main loop: pick ready tasks, dispatch via serial runner, update state,
@@ -133,17 +133,17 @@ makes a subset of tests green.
     - _Requirements: 04-REQ-1.1, 04-REQ-1.2, 04-REQ-1.3, 04-REQ-1.4,
       04-REQ-2.1, 04-REQ-2.2, 04-REQ-2.3, 04-REQ-7.1, 04-REQ-7.2_
 
-  - [ ] 3.3 Implement SIGINT handler
+  - [x] 3.3 Implement SIGINT handler
     - Signal handler that sets `_interrupted` flag, saves state, prints
       resume instructions
     - Double-SIGINT exits immediately
     - _Requirements: 04-REQ-8.1, 04-REQ-8.3, 04-REQ-8.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Serial tests pass: `uv run pytest tests/unit/engine/test_serial.py -q`
-    - [ ] Orchestrator tests pass: `uv run pytest tests/unit/engine/test_orchestrator.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/`
-    - [ ] Requirements 04-REQ-1.*, 04-REQ-2.*, 04-REQ-7.*, 04-REQ-8.*, 04-REQ-9.* met
+  - [x] 3.V Verify task group 3
+    - [x] Serial tests pass: `uv run pytest tests/unit/engine/test_serial.py -q`
+    - [x] Orchestrator tests pass: `uv run pytest tests/unit/engine/test_orchestrator.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/`
+    - [x] Requirements 04-REQ-1.*, 04-REQ-2.*, 04-REQ-7.*, 04-REQ-8.*, 04-REQ-9.* met
 
 - [ ] 4. Implement parallel execution
   - [ ] 4.1 Implement parallel runner
