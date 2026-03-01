@@ -9,6 +9,7 @@ dependencies = [
     "rich>=13.0",
     "anthropic>=0.40",
     "claude-code-sdk>=0.0.1",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
