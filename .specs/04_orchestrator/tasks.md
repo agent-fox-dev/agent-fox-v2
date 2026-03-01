@@ -25,44 +25,44 @@ makes a subset of tests green.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/unit/engine/__init__.py`
     - Create `tests/unit/engine/conftest.py` with shared fixtures:
       mock session runner factory, mock plan builder, tmp state path
     - Create `tests/property/engine/__init__.py`
 
-  - [ ] 1.2 Write graph sync tests
+  - [x] 1.2 Write graph sync tests
     - `tests/unit/engine/test_sync.py`: TS-04-2 (ready tasks), TS-04-6
       (cascade blocking linear), TS-04-7 (cascade blocking diamond),
       TS-04-E10 (stall detection)
     - _Test Spec: TS-04-2, TS-04-6, TS-04-7, TS-04-E10_
 
-  - [ ] 1.3 Write state persistence tests
+  - [x] 1.3 Write state persistence tests
     - `tests/unit/engine/test_state.py`: TS-04-8 (persist after session),
       TS-04-9 (resume from state), TS-04-E3 (corrupted state),
       TS-04-E4 (plan hash mismatch)
     - _Test Spec: TS-04-8, TS-04-9, TS-04-E3, TS-04-E4_
 
-  - [ ] 1.4 Write circuit breaker tests
+  - [x] 1.4 Write circuit breaker tests
     - `tests/unit/engine/test_circuit.py`: TS-04-10 (cost limit),
       TS-04-11 (session limit), TS-04-5 (zero retries),
       TS-04-E8 (circuit denies at cost limit),
       TS-04-E9 (circuit denies at session limit)
     - _Test Spec: TS-04-10, TS-04-11, TS-04-5, TS-04-E8, TS-04-E9_
 
-  - [ ] 1.5 Write serial runner tests
+  - [x] 1.5 Write serial runner tests
     - `tests/unit/engine/test_serial.py`: TS-04-16 (inter-session delay),
       TS-04-E7 (zero delay)
     - _Test Spec: TS-04-16, TS-04-E7_
 
-  - [ ] 1.6 Write parallel runner tests
+  - [x] 1.6 Write parallel runner tests
     - `tests/unit/engine/test_parallel.py`: TS-04-12 (concurrent dispatch),
       TS-04-13 (respects dependencies), TS-04-14 (serialized state writes),
       TS-04-E5 (parallelism clamped), TS-04-E6 (fewer tasks than parallelism)
     - _Test Spec: TS-04-12, TS-04-13, TS-04-14, TS-04-E5, TS-04-E6_
 
-  - [ ] 1.7 Write orchestrator integration tests
+  - [x] 1.7 Write orchestrator integration tests
     - `tests/unit/engine/test_orchestrator.py`: TS-04-1 (linear chain),
       TS-04-3 (retry with error), TS-04-4 (blocked after retries),
       TS-04-15 (graceful shutdown), TS-04-17 (stalled execution),
@@ -71,7 +71,7 @@ makes a subset of tests green.
     - _Test Spec: TS-04-1, TS-04-3, TS-04-4, TS-04-15, TS-04-17,
       TS-04-18, TS-04-E1, TS-04-E2_
 
-  - [ ] 1.8 Write property tests
+  - [x] 1.8 Write property tests
     - `tests/property/engine/test_sync_props.py`: TS-04-P1 (cascade
       completeness), TS-04-P2 (ready task correctness)
     - `tests/property/engine/test_circuit_props.py`: TS-04-P3 (retry bound),
@@ -80,10 +80,10 @@ makes a subset of tests green.
       roundtrip)
     - _Test Spec: TS-04-P1, TS-04-P2, TS-04-P3, TS-04-P4, TS-04-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/engine/ tests/property/engine/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/engine/ tests/property/engine/`
 
 - [ ] 2. Implement graph sync and state persistence
   - [ ] 2.1 Create engine package
