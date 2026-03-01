@@ -7,7 +7,7 @@ Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.E1,
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from agent_fox.memory.types import Fact
 
@@ -40,10 +40,50 @@ def select_relevant_facts(
         budget: Maximum number of facts to return (default: 50).
 
     Returns:
-        A list of up to `budget` facts, sorted by relevance score
+        A list of up to ``budget`` facts, sorted by relevance score
         (highest first).
     """
-    raise NotImplementedError
+    if not all_facts:
+        return []
+
+    task_keywords_lower: set[str] = {kw.lower() for kw in task_keywords}
+
+    # Filter: a fact is relevant if it shares the spec name OR has keyword overlap.
+    relevant: list[Fact] = []
+    for fact in all_facts:
+        if fact.spec_name == spec_name:
+            relevant.append(fact)
+            continue
+        fact_keywords_lower = {kw.lower() for kw in fact.keywords}
+        if fact_keywords_lower & task_keywords_lower:
+            relevant.append(fact)
+
+    if not relevant:
+        return []
+
+    # Determine the time range across relevant facts for recency scoring.
+    now = datetime.now(tz=UTC)
+    timestamps = []
+    for fact in relevant:
+        try:
+            timestamps.append(datetime.fromisoformat(fact.created_at))
+        except (ValueError, TypeError):
+            timestamps.append(now)
+
+    oldest = min(timestamps)
+
+    # Score and sort.
+    scored: list[tuple[float, int, Fact]] = []
+    for idx, fact in enumerate(relevant):
+        score = _compute_relevance_score(
+            fact, spec_name, task_keywords_lower, now, oldest
+        )
+        # Use negative index as tie-breaker to maintain stable ordering.
+        scored.append((score, -idx, fact))
+
+    scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
+
+    return [fact for _, _, fact in scored[:budget]]
 
 
 def _compute_relevance_score(
@@ -62,4 +102,20 @@ def _compute_relevance_score(
 
     This gives the newest fact a bonus of 1.0 and the oldest a bonus of 0.0.
     """
-    raise NotImplementedError
+    # Keyword match count (case-insensitive).
+    fact_keywords_lower = {kw.lower() for kw in fact.keywords}
+    keyword_match_count = len(fact_keywords_lower & task_keywords_lower)
+
+    # Recency bonus: normalised between 0.0 (oldest) and 1.0 (newest).
+    total_range = (now - oldest).total_seconds()
+    if total_range > 0:
+        try:
+            fact_time = datetime.fromisoformat(fact.created_at)
+        except (ValueError, TypeError):
+            fact_time = now
+        age_from_oldest = (fact_time - oldest).total_seconds()
+        recency_bonus = age_from_oldest / total_range
+    else:
+        recency_bonus = 1.0
+
+    return float(keyword_match_count) + recency_bonus

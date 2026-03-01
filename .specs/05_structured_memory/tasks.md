@@ -118,8 +118,8 @@ context selection, then compaction and rendering.
     - [x] No linter warnings: `uv run ruff check agent_fox/memory/extraction.py`
     - [x] Requirements 05-REQ-1.* acceptance criteria met
 
-- [ ] 4. Implement context selection (filter)
-  - [ ] 4.1 Implement filter
+- [x] 4. Implement context selection (filter)
+  - [x] 4.1 Implement filter
     - `agent_fox/memory/filter.py`: `select_relevant_facts()`,
       `_compute_relevance_score()`
     - Match by spec_name exact match and keyword overlap (case-insensitive)
@@ -129,11 +129,11 @@ context selection, then compaction and rendering.
     - _Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.E1,
       05-REQ-4.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/memory/test_filter.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/memory/test_filter_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/memory/filter.py`
-    - [ ] Requirements 05-REQ-4.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/memory/test_filter.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/memory/test_filter_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/memory/filter.py`
+    - [x] Requirements 05-REQ-4.* acceptance criteria met
 
 - [ ] 5. Implement compaction and render
   - [ ] 5.1 Implement compaction
