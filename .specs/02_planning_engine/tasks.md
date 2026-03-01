@@ -123,32 +123,32 @@ working planner.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/parser.py agent_fox/graph/builder.py`
     - [x] Requirements 02-REQ-2.*, 02-REQ-3.1, 02-REQ-3.2 met
 
-- [ ] 4. Implement resolver, fast mode, and plan persistence
-  - [ ] 4.1 Implement dependency resolver
+- [x] 4. Implement resolver, fast mode, and plan persistence
+  - [x] 4.1 Implement dependency resolver
     - `agent_fox/graph/resolver.py`: `resolve_order()` using Kahn's
       algorithm with deterministic tie-breaking (spec prefix, then group
       number)
     - Cycle detection: raise PlanError listing cycle nodes
     - _Requirements: 02-REQ-4.1, 02-REQ-4.2_
 
-  - [ ] 4.2 Implement fast-mode filter
+  - [x] 4.2 Implement fast-mode filter
     - `agent_fox/graph/fast_mode.py`: `apply_fast_mode()` function
     - Remove optional nodes, rewire dependencies (A -> B* -> C becomes
       A -> C), set removed nodes to SKIPPED status
     - _Requirements: 02-REQ-5.1, 02-REQ-5.2, 02-REQ-5.3_
 
-  - [ ] 4.3 Implement plan persistence
+  - [x] 4.3 Implement plan persistence
     - Add `save_plan(graph, path)` and `load_plan(path)` functions to
       `agent_fox/graph/types.py` (or a new `agent_fox/graph/persistence.py`)
     - Serialize/deserialize TaskGraph to/from JSON
     - Handle corrupted files gracefully
     - _Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/graph/ -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/graph/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/graph/`
-    - [ ] Requirements 02-REQ-4.*, 02-REQ-5.*, 02-REQ-6.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/graph/ -q`
+    - [x] Property tests pass: `uv run pytest tests/property/graph/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/graph/`
+    - [x] Requirements 02-REQ-4.*, 02-REQ-5.*, 02-REQ-6.* met
 
 - [ ] 5. Implement plan CLI command and integration
   - [ ] 5.1 Create plan command
