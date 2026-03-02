@@ -65,8 +65,8 @@ failing tests, task group 2 implements the command and makes all tests pass.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `.venv/bin/python -m ruff check tests/unit/cli/test_code.py tests/property/cli/test_code_props.py`
 
-- [ ] 2. Implement the code command
-  - [ ] 2.1 Create `agent_fox/cli/code.py`
+- [x] 2. Implement the code command
+  - [x] 2.1 Create `agent_fox/cli/code.py`
     - Click command with --parallel, --no-hooks, --max-cost, --max-sessions
     - `_apply_overrides()` helper to merge CLI options into OrchestratorConfig
     - `_exit_code_for_status()` helper for run status → exit code mapping
@@ -76,18 +76,18 @@ failing tests, task group 2 implements the command and makes all tests pass.
     - Error handling: PlanError, AgentFoxError, unexpected exceptions
     - _Requirements: 16-REQ-1.1 through 16-REQ-5.2_
 
-  - [ ] 2.2 Register command in `agent_fox/cli/app.py`
+  - [x] 2.2 Register command in `agent_fox/cli/app.py`
     - Import `code_cmd` from `agent_fox.cli.code`
     - Add `main.add_command(code_cmd, name="code")`
     - _Requirements: 16-REQ-1.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All unit tests pass: `.venv/bin/python -m pytest tests/unit/cli/test_code.py -q`
-    - [ ] All property tests pass: `.venv/bin/python -m pytest tests/property/cli/test_code_props.py -q`
-    - [ ] All existing tests still pass: `.venv/bin/python -m pytest -q`
-    - [ ] No linter warnings: `.venv/bin/python -m ruff check agent_fox/cli/code.py`
-    - [ ] Type check passes: `.venv/bin/python -m mypy agent_fox/cli/code.py`
-    - [ ] Requirements 16-REQ-1.* through 16-REQ-5.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] All unit tests pass: `.venv/bin/python -m pytest tests/unit/cli/test_code.py -q`
+    - [x] All property tests pass: `.venv/bin/python -m pytest tests/property/cli/test_code_props.py -q`
+    - [x] All existing tests still pass: `.venv/bin/python -m pytest -q`
+    - [x] No linter warnings: `.venv/bin/python -m ruff check agent_fox/cli/code.py`
+    - [x] Type check passes: `.venv/bin/python -m mypy agent_fox/cli/code.py`
+    - [x] Requirements 16-REQ-1.* through 16-REQ-5.* acceptance criteria met
 
 - [ ] 3. Checkpoint — Code Command Complete
   - Ensure all tests pass: `.venv/bin/python -m pytest tests/unit/cli/test_code.py tests/property/cli/test_code_props.py -q`
