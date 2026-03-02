@@ -97,45 +97,45 @@ command to make those tests pass.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement static validation rules
-  - [ ] 2.1 Create Finding data model
+- [x] 2. Implement static validation rules
+  - [x] 2.1 Create Finding data model
     - `agent_fox/spec/__init__.py`
     - `agent_fox/spec/validator.py`: `Finding` frozen dataclass, severity
       constants (`SEVERITY_ERROR`, `SEVERITY_WARNING`, `SEVERITY_HINT`),
       `EXPECTED_FILES` list, `MAX_SUBTASKS_PER_GROUP` constant
     - _Requirements: 09-REQ-2.1 (data model)_
 
-  - [ ] 2.2 Implement `check_missing_files`
+  - [x] 2.2 Implement `check_missing_files`
     - Check for 5 expected files, return Error findings for missing ones
     - _Requirements: 09-REQ-2.1, 09-REQ-2.2_
 
-  - [ ] 2.3 Implement `check_oversized_groups`
+  - [x] 2.3 Implement `check_oversized_groups`
     - Count subtasks excluding verification steps (N.V pattern)
     - Return Warning finding when count exceeds 6
     - _Requirements: 09-REQ-3.1, 09-REQ-3.2_
 
-  - [ ] 2.4 Implement `check_missing_verification`
+  - [x] 2.4 Implement `check_missing_verification`
     - Check for subtask matching N.V pattern in each task group
     - Return Warning finding when missing
     - _Requirements: 09-REQ-4.1, 09-REQ-4.2_
 
-  - [ ] 2.5 Implement `check_missing_acceptance_criteria`
+  - [x] 2.5 Implement `check_missing_acceptance_criteria`
     - Parse requirement sections from requirements.md
     - Check each section has at least one `[NN-REQ-N.N]` pattern
     - Return Error findings for sections without criteria
     - _Requirements: 09-REQ-5.1, 09-REQ-5.2_
 
-  - [ ] 2.6 Implement `check_broken_dependencies`
+  - [x] 2.6 Implement `check_broken_dependencies`
     - Parse dependency table from prd.md
     - Validate spec names and group numbers against known_specs
     - Return Error findings for invalid references
     - _Requirements: 09-REQ-6.1, 09-REQ-6.2, 09-REQ-6.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Static rule unit tests pass: `uv run pytest tests/unit/spec/test_validator.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/spec/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/validator.py`
-    - [ ] Requirements 09-REQ-2.* through 09-REQ-6.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Static rule unit tests pass: `uv run pytest tests/unit/spec/test_validator.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/spec/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/validator.py`
+    - [x] Requirements 09-REQ-2.* through 09-REQ-6.* acceptance criteria met
 
 - [ ] 3. Implement requirement traceability and AI analysis
   - [ ] 3.1 Implement `check_untraced_requirements`
