@@ -24,6 +24,10 @@
 - Pytest fixture names starting with `pytest_` collide with pytest's internal plugin hook system and raise `PluginValidationError: unknown hook`. Use alternative naming conventions like `check_descriptor_pytest` instead. *(source: 08_error_autofix/1)*
 - Git's `--invert-grep` flag only inverts `--grep` pattern matching, not `--author` matching. To exclude commits by a specific author, fetch all commits and filter in Python rather than relying on `--invert-grep --author=<name>`. *(source: 07_operational_commands/3)*
 - The `tmp_git_repo` fixture in `tests/conftest.py` creates an initial commit authored by "Test", which counts as a human commit in `_get_human_commits()`. Tests must account for this extra commit when asserting human commit counts. *(source: 07_operational_commands/3)*
+- Pre-existing mypy errors exist in `agent_fox/spec/ai_validator.py:97` due to Anthropic SDK union-attr type narrowing limitations; these are not introduced by recent changes. *(source: 09_spec_validation/4)*
+- PyYAML type stubs (`types-PyYAML`) are not installed, so yaml imports require `type: ignore[import-untyped]` comment to pass mypy type checking. *(source: 09_spec_validation/4)*
+- Pre-existing mypy errors exist in clusterer.py:85 related to Anthropic SDK's union content block types (response.content[0].text). These originated from task group 3's AI clustering, not recent changes. *(source: 08_error_autofix/5)*
+- The `ReportFormatter` protocol requires `type: ignore[return-value]` in `get_formatter()` because concrete implementations are not explicitly declared as implementing the protocol, causing type checker conflicts. *(source: 07_operational_commands/5)*
 
 ## Patterns
 
@@ -96,6 +100,15 @@
 - Spec generator sanitizes labels for filesystem-safe directory names using `re.sub(r"[^a-zA-Z0-9]", "_", label.lower())` with underscore collapsing and stripping applied afterward. *(source: 08_error_autofix/4)*
 - Fix loop uses Python's for...else construct where the else clause sets MAX_PASSES when the loop completes without a break statement. *(source: 08_error_autofix/4)*
 - Fix loop computes clusters_resolved by tracking total_clusters_seen across all passes and calculating the difference from remaining clusters in the final pass. *(source: 08_error_autofix/4)*
+- The `discover_specs()` function raises `PlanError` when no specs are found, which is caught by the CLI to produce a user-friendly error message for end users. *(source: 09_spec_validation/4)*
+- CLI integration tests use `os.chdir(tmp_path)` with cleanup to simulate running commands from a project root, since `discover_specs()` resolves `.specs/` relative to the current working directory. *(source: 09_spec_validation/4)*
+- CLI commands in agent_fox/cli/ follow a consistent pattern using @click.command() with @click.pass_context, accessing ctx.obj["config"] for configuration. *(source: 08_error_autofix/5)*
+- CLI commands are registered at module level in app.py via main.add_command(cmd, name="name"). *(source: 08_error_autofix/5)*
+- The render_fix_report() function uses Rich's Table class with Console(file=StringIO(), force_terminal=True) in tests to capture styled output for assertions. *(source: 08_error_autofix/5)*
+- The _REASON_LABELS dict maps TerminationReason enum values to (human_label, rich_style) tuples for consistent color-coded display in reports. *(source: 08_error_autofix/5)*
+- The `TableFormatter` renders output to a `StringIO` buffer by creating a dedicated `Console(file=buf)` instance, then returns the buffer contents as a string rather than printing directly. *(source: 07_operational_commands/5)*
+- CLI commands locate the `.agent-fox/` configuration directory using `Path.cwd()`, following the established pattern used across other CLI modules. *(source: 07_operational_commands/5)*
+- CI timeout tests patch _CI_POLL_INTERVAL to 0 and use a small timeout (1 second) to avoid slow tests while verifying the timeout behavior. *(source: 10_platform_integration/1)*
 
 ## Decisions
 
@@ -135,6 +148,8 @@
 - reset_all() returns unblocked_tasks=[] because cascade unblocking only applies to single-task reset; full reset already resets all non-completed tasks, making cascade unblocking implicit. *(source: 07_operational_commands/4)*
 - The AI validator's run_ai_validation implements fail-fast graceful degradation per 09-REQ-8.E1, returning empty immediately on the first exception regardless of which spec caused it. *(source: 09_spec_validation/3)*
 - Cleanup function removes both directories (via shutil.rmtree) and individual files from the output directory to support idempotent cleanup operations. *(source: 08_error_autofix/4)*
+- `types-pyyaml>=6.0` was added to dev dependencies to provide mypy with required type stubs for PyYAML library. *(source: 07_operational_commands/5)*
+- Protocol structure tests (hasattr, iscoroutinefunction, isinstance) pass immediately against stubs because the Protocol and class structure are complete implementations, following the project pattern for pure data type tests. *(source: 10_platform_integration/1)*
 
 ## Conventions
 
@@ -184,6 +199,11 @@
 - The broken_deps_spec fixture encodes group references in the third column of the dependency table using `(group N)` syntax. The validator parses this with regex `\bgroup\s+(\d+)\b` to validate group existence. *(source: 09_spec_validation/2)*
 - The `check_untraced_requirements` function is listed under task 3.1 in tasks.md but is needed for the 2.V verification (test_validator.py includes TS-09-11). Implement it alongside the task group 2 rules to pass all unit tests. *(source: 09_spec_validation/2)*
 - AI issue types "vague" and "implementation-leak" are mapped to rules "vague-criterion" and "implementation-leak" respectively, both with severity level "hint". *(source: 09_spec_validation/3)*
+- CLI commands use asyncio.run() to bridge from synchronous Click handlers to async functions like run_fix_loop(). *(source: 08_error_autofix/5)*
+- CLI commands are registered in `agent_fox/cli/app.py` using `main.add_command(cmd, name="name")` with module-level imports annotated with `# noqa: E402` to suppress linting warnings. *(source: 07_operational_commands/5)*
+- Stub modules import their dependencies with `# noqa: F401` to enable mocking via unittest.mock.patch() at the module's import path (e.g., agent_fox.platform.null.subprocess.run). *(source: 10_platform_integration/1)*
+- The github_platform fixture patches both shutil.which and subprocess.run at the agent_fox.platform.github module level, and the _verify_gh_available() call in __init__ requires the mock to be active before instantiation. *(source: 10_platform_integration/1)*
+- asyncio_mode = "auto" in pyproject.toml means async test methods do not need @pytest.mark.asyncio decorators — pytest-asyncio detects them automatically. *(source: 10_platform_integration/1)*
 
 ## Anti-Patterns
 
