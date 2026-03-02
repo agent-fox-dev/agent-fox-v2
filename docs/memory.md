@@ -42,6 +42,18 @@
 - Query embedding parameters must be explicitly cast with `?::FLOAT[1024]` in DuckDB SQL for the cosine distance function to accept Python lists. *(source: 12_fox_ball/3)*
 - DuckDB UUID columns require `CAST(column AS VARCHAR)` when reading into Python strings to ensure consistent string representation across different queries. *(source: 12_fox_ball/3)*
 - Test mocks created with `MagicMock(text=...)` are not instances of `TextBlock`, so the isinstance guard's else-branch with getattr fallback will be exercised by test mocks rather than real SDK responses. This is intentional design for backward compatibility. *(source: fix_02_unnarrrowed_content_block_union/1)*
+- `QueueSummary` dataclass is missing `total`, `in_progress`, and `ready_task_ids` fields, and `_build_queue_summary` silently skips `in_progress` tasks via `pass` without counting them. *(source: 15_standup_formatting/1)*
+- `StandupReport` dataclass lacks `task_activities` and `total_cost` fields, requiring them to be added with defaults to maintain backward compatibility with existing spec 07 tests. *(source: 15_standup_formatting/1)*
+- The `tmp_spec_dir` fixture in `tests/unit/session/conftest.py` is shared across all session test files, so adding files like `test_spec.md` affects all existing context tests. However, the assembler skips unknown files, allowing existing tests to continue passing. *(source: 15_session_prompt/1)*
+- The current `build_system_prompt` and `build_task_prompt` functions already include spec_name, task_group, and 'commit' in their output, so tests asserting only those properties pass even before template-based rewrites are implemented. *(source: 15_session_prompt/1)*
+- test_standup_formatting.py imports _format_tokens and _display_node_id at module level from formatters.py, so these functions must exist before test collection — missing them breaks even generator tests (TS-15-9, TS-15-10) that don't directly use them. *(source: 15_standup_formatting/2)*
+- Hypothesis property tests cannot use pytest's function-scoped `monkeypatch` fixture because Hypothesis generates multiple examples per test invocation. Use `unittest.mock.patch.object()` as context manager inside test body instead. *(source: 14_cli_banner/1)*
+- Some CLI integration tests may pass 'vacuously' when current behavior already satisfies expected output (e.g., `--version` doesn't show banner because Click handles it before main function runs). This is acceptable for failing-test tasks; tests verify correct interface and remain valid after implementation. *(source: 14_cli_banner/1)*
+- The `tests/property/reporting/test_standup_fmt_props.py` and `tests/unit/reporting/test_standup_formatting.py` files fail to collect due to unimplemented `_display_node_id` import from a different spec; these are pre-existing failures unrelated to spec 15. *(source: 15_session_prompt/2)*
+- The _format_tokens() and _display_node_id() utility functions were already implemented in task group 2, making task 3.1 effectively redundant—developers should verify existing implementations before implementing similar utilities. *(source: 15_standup_formatting/3)*
+- Rich markup wrapping interprets backslashes as escape characters. Backslashes before closing tags like `[/header]` can escape the bracket and prevent the tag from being recognized. Use `console.print(text, style="header", highlight=False)` to bypass markup parsing. *(source: 14_cli_banner/2)*
+- Rich's `highlight=False` parameter must be used when printing arbitrary text (ASCII art, file paths) to prevent auto-highlighting of detected patterns (numbers, paths, URLs) which inserts extra ANSI escape codes that break substring matching in tests. *(source: 14_cli_banner/2)*
+- Rendering the banner on every CLI invocation breaks integration tests that parse structured output (JSON/YAML) from subcommands. Tests must use the `--quiet` flag to suppress the banner before parsing structured output. *(source: 14_cli_banner/2)*
 
 ## Patterns
 
@@ -78,7 +90,6 @@
 - Hook runner uses `subprocess.run()` with `capture_output=True, text=True` for stdout/stderr handling, enforces timeout via `subprocess.TimeoutExpired`, and handles missing scripts via `FileNotFoundError`, producing `HookResult` with exit codes: -1 for timeout, 127 for not found, 126 for OS errors. *(source: 06_hooks_sync_security/2)*
 - The `build_hook_env()` function copies `os.environ` and adds AF_* prefixed environment variables, ensuring hook scripts inherit the full environment including PATH. *(source: 06_hooks_sync_security/2)*
 - The store module uses manual dict serialization (_fact_to_dict/_dict_to_fact) rather than dataclasses.asdict() to maintain explicit control over field mapping, consistent with the persistence pattern used in the orchestrator module. *(source: 05_structured_memory/2)*
-- Extraction tests mock `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with response structured as `response.content[0].text` containing the raw JSON string for test assertions. *(source: 05_structured_memory/3)*
 - The filter module matches facts on spec_name OR keyword overlap (union), not both (intersection). A fact with only a matching spec_name is relevant even with zero keyword matches. *(source: 05_structured_memory/4)*
 - Recency bonus computation uses `datetime.fromisoformat()` to parse ISO 8601 timestamps from the Fact `created_at` field, with fallback to `now` for unparseable values. *(source: 05_structured_memory/4)*
 - Compaction deduplication uses a two-pass approach: first pass identifies the earliest fact per content hash, second pass preserves original ordering among deduplicated survivors. *(source: 05_structured_memory/5)*
@@ -151,8 +162,13 @@
 - ADR ingestion uses `spec_name` column to store the ADR filename for duplicate detection, while git commit ingestion uses `commit_sha` column. *(source: 12_fox_ball/6)*
 - Ingestion embedding failures are tracked in `IngestResult.embedding_failures` but never raise exceptions, following the project's best-effort embedding pattern. *(source: 12_fox_ball/6)*
 - Anthropic SDK content block response narrowing uses `isinstance(block, TextBlock)` checks with a `getattr` fallback for test mocks that don't inherit from TextBlock. This pattern is established across multiple files like `extraction.py` and `ai_validator.py`. *(source: fix_02_unnarrrowed_content_block_union/1)*
-- AI validator tests use MagicMock(text=...) for response content blocks, which exercises the getattr fallback branch rather than the isinstance(TextBlock) branch since MagicMock is not a TextBlock instance. *(source: fix_02_unnarrrowed_content_block_union/2)*
 - isinstance guard additions to validator logic don't break existing tests because MagicMock objects trigger the getattr fallback path, allowing all 8 existing validator tests to pass without modification. *(source: fix_02_unnarrrowed_content_block_union/2)*
+- Property tests in `tests/property/reporting/test_status_props.py` use `tmp_path_factory` for hypothesis-compatible temporary directories, establishing a pattern for consistency in property-based testing. *(source: 15_standup_formatting/1)*
+- Prompt builder tests use lazy imports inside test methods with `# type: ignore[attr-error]` to allow test file collection while individual tests fail at runtime when referencing not-yet-implemented functions like `_strip_frontmatter` and `_TEMPLATE_DIR`. *(source: 15_session_prompt/1)*
+- Tests for new behavior (template content, role parameter, frontmatter stripping) correctly fail when the underlying functionality is not yet implemented, validating the test design. *(source: 15_session_prompt/1)*
+- For 'write failing tests' tasks, use lazy imports (inside test methods) for symbols that don't exist yet, while importing existing symbols at module level. This keeps tests collectable by pytest while ensuring they fail at runtime (FAILED) rather than during collection (ERROR). *(source: 14_cli_banner/1)*
+- The `_SPEC_FILES` list in `context.py` controls both the reading order and section headers for assembled context; adding a new entry is the only change needed to include a new spec file type. *(source: 15_session_prompt/2)*
+- New fields in StandupReport and QueueSummary classes use default values (task_activities=[], total_cost=0.0, total=0, in_progress=0, ready_task_ids=[]) to maintain backward compatibility with existing test fixtures. *(source: 15_standup_formatting/3)*
 
 ## Decisions
 
@@ -202,6 +218,11 @@
 - Pattern detection SQL groups by (changed.touched_path, failed.touched_path) rather than failed.spec_name because the same file change can trigger the same test failure across different specs, producing more meaningful recurring patterns. *(source: 13_time_vision/4)*
 - The `ask` command is registered in `app.py` alphabetically before other commands using `main.add_command(ask_command, name="ask")`. *(source: 12_fox_ball/1)*
 - The `select_context_with_causal()` function limits causal traversal depth to 3 instead of the default 10 to balance context relevance with performance. Deeper connections are unlikely to be directly useful for context selection. *(source: 13_time_vision/5)*
+- Adding new fields to `StandupReport` and `QueueSummary` requires providing default values to ensure backward compatibility with tests that construct these models directly without keyword arguments. *(source: 15_standup_formatting/1)*
+- The `git-flow.md` template uses YAML frontmatter (`---\ninclusion: always\n---`) which serves as the primary test case for frontmatter stripping verification in template processing. *(source: 15_session_prompt/1)*
+- QueueSummary and StandupReport new fields use default values (total=0, in_progress=0, ready_task_ids=list, task_activities=list, total_cost=0.0) to maintain backward compatibility with existing spec 07 tests that construct these models without providing the new fields. *(source: 15_standup_formatting/2)*
+- TableFormatter.format_standup() was refactored to emit plain-text lines joined with newlines instead of Rich Console/Table rendering, while Rich imports remain for format_status(). *(source: 15_standup_formatting/3)*
+- Test fixtures in test_formatters.py and test_standup.py did not require updates due to default values on new fields, eliminating the need for retroactive test maintenance. *(source: 15_standup_formatting/3)*
 
 ## Conventions
 
@@ -252,7 +273,6 @@
 - CLI commands use asyncio.run() to bridge from synchronous Click handlers to async functions like run_fix_loop(). *(source: 08_error_autofix/5)*
 - Protocol classes with method signatures in `protocol.py` are considered fully implemented following the project pattern for pure structural type definitions, even in early task phases. *(source: 10_platform_integration/2)*
 - The `github_platform` test fixture in conftest.py patches both `shutil.which` and `subprocess.run` at the `agent_fox.platform.github` module level; `_verify_gh_available()` in `__init__` requires the mock to be active before instantiation. *(source: 10_platform_integration/3)*
-- Stub modules import their dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` at the module's import path (e.g., `agent_fox.platform.github.subprocess.run`). *(source: 10_platform_integration/3)*
 - Stub modules import their dependencies with `# noqa: F401` to enable mocking via unittest.mock.patch() at the module's import path (e.g., patching `agent_fox.knowledge.migrations.duckdb`). *(source: 11_duckdb_knowledge_store/1)*
 - The `create_schema` helper in `tests/unit/knowledge/conftest.py` duplicates DDL from `KnowledgeDB._initialize_schema` to allow schema setup without the full `KnowledgeDB.open()` path, and must stay in sync with the real schema. *(source: 11_duckdb_knowledge_store/1)*
 - The platform package `__init__.py` exports all public symbols (`Platform`, `create_platform`, `NullPlatform`, `GitHubPlatform`) in alphabetical order within `__all__` to improve discoverability. *(source: 10_platform_integration/4)*
@@ -273,10 +293,15 @@
 - KnowledgeConfig supports `model_copy(update={...})` (Pydantic v2) for creating config variants with overridden fields, used by CLI to apply `--top-k` overrides without mutating the original config. *(source: 12_fox_ball/5)*
 - Git log output is parsed using null-byte (`\x00`) delimiters via `--format=%H%x00%aI%x00%s`, matching the test mock format in `_mock_git_log_output`. *(source: 12_fox_ball/6)*
 - The worktree creates a fresh .venv on first uv run invocation, installing all 55 packages, with subsequent runs reusing the cached environment. *(source: fix_02_unnarrrowed_content_block_union/2)*
+- The `tmp_git_repo` fixture is defined in the root `tests/conftest.py` and is inherited by tests in `tests/unit/reporting/` without needing local redefinition. *(source: 15_standup_formatting/1)*
+- Banner unit tests use a `_capture_banner(theme_config, model_config)` helper that creates an AppTheme, replaces its console with a `Console(file=StringIO(), theme=Theme({...}))`, and calls `render_banner()` to capture output for assertions. *(source: 14_cli_banner/1)*
+- Rich Console's internal theme is not accessible via public API. Reconstruct a themed Console for test capture by rebuilding `Theme({role: getattr(config, role) for role in roles})` from ThemeConfig directly rather than copying from existing console. *(source: 14_cli_banner/1)*
+- The `tmp_spec_dir` fixture in `tests/unit/session/conftest.py` must include all files listed in `_SPEC_FILES` to support the full test suite. *(source: 15_session_prompt/2)*
+- Integration tests that parse structured output (JSON/YAML) from subcommands should use the `--quiet` flag to suppress decorative elements like banners. *(source: 14_cli_banner/2)*
 
 ## Anti-Patterns
 
-*(No facts in this category.)*
+- _build_queue_summary() previously had pass for in_progress status, silently skipping those tasks instead of counting them. The fix increments an in_progress counter and includes it in the total sum. *(source: 15_standup_formatting/2)*
 
 ## Fragile Areas
 
@@ -287,3 +312,6 @@
 - The `_dispatch_parallel` on_complete closure captures `attempt_tracker` and `error_tracker` dicts by reference. Changes to these dicts during callback execution affect subsequent callbacks in the same batch, but this is safe because callbacks are serialized under the lock. *(source: 04_orchestrator/4)*
 - Extraction test mocking depends on the exact import path `agent_fox.memory.extraction.anthropic.AsyncAnthropic` — if the extraction module changes how it imports anthropic, all extraction tests require updating. *(source: 05_structured_memory/1)*
 - Hypothesis property tests spawning subprocesses are sensitive to the default 200ms deadline because OS process creation overhead can cause first subprocess invocations to exceed the timeout. Use `deadline=None` in `@settings()` for subprocess-based property tests. *(source: 06_hooks_sync_security/2)*
+- The `_make_standup_report()` test helper in `test_formatters.py` constructs `QueueSummary` and `StandupReport` without new fields and must be updated when adding required fields to these dataclasses. *(source: 15_standup_formatting/1)*
+- The `coordinator.md` template contains JSON examples with literal `{` and `}` braces, serving as the primary test case for literal brace preservation during template interpolation (TS-15-E4). Changes to brace handling must preserve these examples. *(source: 15_session_prompt/1)*
+- Banner rendering in CLI output (14-REQ-4.1) is a fragile area that conflicts with structured output parsing in integration tests. *(source: 14_cli_banner/2)*
