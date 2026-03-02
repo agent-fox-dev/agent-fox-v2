@@ -190,8 +190,8 @@ spec_gen+loop, then report+CLI.
     - [x] No linter warnings: `uv run ruff check agent_fox/fix/spec_gen.py agent_fox/fix/loop.py`
     - [x] Requirements 08-REQ-4.*, 08-REQ-5.* acceptance criteria met
 
-- [ ] 5. Implement report and CLI command
-  - [ ] 5.1 Implement fix report
+- [x] 5. Implement report and CLI command
+  - [x] 5.1 Implement fix report
     - `agent_fox/fix/report.py`: `render_fix_report()` function
     - Use Rich Table to display: passes completed, clusters resolved,
       clusters remaining, sessions consumed, termination reason
@@ -200,7 +200,7 @@ spec_gen+loop, then report+CLI.
       MAX_PASSES, red for COST_LIMIT or INTERRUPTED
     - _Requirements: 08-REQ-6.1, 08-REQ-6.2_
 
-  - [ ] 5.2 Implement CLI command
+  - [x] 5.2 Implement CLI command
     - `agent_fox/cli/fix.py`: `fix_cmd` Click command
     - Accept `--max-passes` option (int, default 3)
     - Load config from Click context
@@ -210,18 +210,18 @@ spec_gen+loop, then report+CLI.
     - Handle empty detect_checks: print error, exit 1
     - _Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.E1_
 
-  - [ ] 5.3 Register CLI command
+  - [x] 5.3 Register CLI command
     - Add `from agent_fox.cli.fix import fix_cmd` to `agent_fox/cli/app.py`
     - Register `main.add_command(fix_cmd)` so `agent-fox fix` is available
     - Verify `agent-fox --help` lists "fix"
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `uv run pytest tests/unit/fix/ -q`
-    - [ ] All property tests pass: `uv run pytest tests/unit/fix/ -q -k "prop"`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/fix/ agent_fox/cli/fix.py`
-    - [ ] CLI is invocable: `uv run agent-fox --help` lists "fix"
-    - [ ] All requirements 08-REQ-* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `uv run pytest tests/unit/fix/ -q`
+    - [x] All property tests pass: `uv run pytest tests/unit/fix/ -q -k "prop"`
+    - [x] No linter warnings: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py`
+    - [x] Type check passes: `uv run mypy agent_fox/fix/ agent_fox/cli/fix.py`
+    - [x] CLI is invocable: `uv run agent-fox --help` lists "fix"
+    - [x] All requirements 08-REQ-* acceptance criteria met
 
 - [ ] 6. Checkpoint -- Error Auto-Fix Complete
   - Ensure all tests pass: `uv run pytest tests/unit/fix/ -q`
