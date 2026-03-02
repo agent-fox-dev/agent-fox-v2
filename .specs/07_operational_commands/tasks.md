@@ -136,12 +136,12 @@ reporting, standup reporting, reset engine, and output formatters.
     - [x] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
     - [x] Requirements 07-REQ-2.* acceptance criteria met
 
-- [ ] 4. Implement reset engine
-  - [ ] 4.1 Create reset data model
+- [x] 4. Implement reset engine
+  - [x] 4.1 Create reset data model
     - `agent_fox/engine/reset.py`: `ResetResult` frozen dataclass
     - _Requirements: 07-REQ-4.1, 07-REQ-5.1_
 
-  - [ ] 4.2 Implement worktree and branch cleanup
+  - [x] 4.2 Implement worktree and branch cleanup
     - `_clean_worktree()`: remove worktree directory if it exists
     - `_clean_branch()`: delete feature branch via `git branch -D` if it
       exists; derive branch name from task ID
@@ -149,20 +149,20 @@ reporting, standup reporting, reset engine, and output formatters.
     - Handle git failures gracefully (log warning, continue)
     - _Requirements: 07-REQ-4.2_
 
-  - [ ] 4.3 Implement reset_all()
+  - [x] 4.3 Implement reset_all()
     - Find all tasks with status failed, blocked, or in_progress
     - Reset each to pending, clean up worktrees and branches
     - Write updated state back to state.jsonl
     - Handle no-op case (nothing to reset)
     - _Requirements: 07-REQ-4.1, 07-REQ-4.2, 07-REQ-4.E1_
 
-  - [ ] 4.4 Implement cascade unblocking
+  - [x] 4.4 Implement cascade unblocking
     - `_find_sole_blocker_dependents()`: for each downstream blocked task,
       check if all predecessors except the reset target are completed;
       if so, include in unblock list
     - _Requirements: 07-REQ-5.2_
 
-  - [ ] 4.5 Implement reset_task()
+  - [x] 4.5 Implement reset_task()
     - Validate task ID exists in plan
     - Reject completed tasks
     - Reset the single task, clean up its worktree and branch
@@ -170,12 +170,12 @@ reporting, standup reporting, reset engine, and output formatters.
     - Write updated state
     - _Requirements: 07-REQ-5.1, 07-REQ-5.2, 07-REQ-5.E1, 07-REQ-5.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/engine/test_reset.py -q`
-    - [ ] Edge case tests pass: TS-07-E6, TS-07-E7, TS-07-E8, TS-07-E9
-    - [ ] Property tests pass: `uv run pytest tests/property/reporting/test_reset_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/reset.py`
-    - [ ] Requirements 07-REQ-4.*, 07-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/engine/test_reset.py -q`
+    - [x] Edge case tests pass: TS-07-E6, TS-07-E7, TS-07-E8, TS-07-E9
+    - [x] Property tests pass: `uv run pytest tests/property/reporting/test_reset_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/reset.py`
+    - [x] Requirements 07-REQ-4.*, 07-REQ-5.* acceptance criteria met
 
 - [ ] 5. Implement formatters and CLI commands
   - [ ] 5.1 Implement output formatters
