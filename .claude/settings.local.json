@@ -23,7 +23,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(gh api:*)",
       "Bash(bash:*)",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(python3:*)"
     ]
   }
 }
