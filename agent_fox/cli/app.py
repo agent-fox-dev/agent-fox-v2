@@ -55,8 +55,10 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 
 
 # Import and register subcommands
+from agent_fox.cli.fix import fix_cmd  # noqa: E402
 from agent_fox.cli.init import init_cmd  # noqa: E402
 from agent_fox.cli.plan import plan_cmd  # noqa: E402
 
+main.add_command(fix_cmd, name="fix")
 main.add_command(init_cmd, name="init")
 main.add_command(plan_cmd, name="plan")
