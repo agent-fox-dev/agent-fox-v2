@@ -148,114 +148,104 @@ class TableFormatter:
         return buf.getvalue()
 
     def format_standup(self, report: StandupReport) -> str:
-        """Render standup report as Rich tables."""
-        buf = StringIO()
-        console = Console(file=buf, force_terminal=False, width=100)
+        """Render standup report as indented plain text.
 
-        # Header
-        console.print(
-            f"\n[bold]Standup Report[/bold] (last {report.window_hours} hours)",
-        )
-        console.print(
-            f"Window: {report.window_start} to {report.window_end}\n",
-        )
+        Output structure:
+            Standup Report — last {hours}h
+            Generated: {timestamp}
 
-        # Agent activity
-        agent_table = Table(
-            title="Agent Activity",
-            show_header=True,
-            header_style="bold",
-        )
-        agent_table.add_column("Metric")
-        agent_table.add_column("Value", justify="right")
-        agent_table.add_row(
-            "Tasks Completed",
-            str(report.agent.tasks_completed),
-        )
-        agent_table.add_row("Sessions Run", str(report.agent.sessions_run))
-        agent_table.add_row(
-            "Input Tokens",
-            f"{report.agent.input_tokens:,}",
-        )
-        agent_table.add_row(
-            "Output Tokens",
-            f"{report.agent.output_tokens:,}",
-        )
-        agent_table.add_row("Cost", f"${report.agent.cost:.2f}")
-        console.print(agent_table)
+            Agent Activity
+              {task_id}: {status}. {n}/{m} sessions. tokens ...
+              ...
 
-        # Human commits
+            Human Commits
+              {sha7} {author}: {subject}
+              ...
+
+            Queue Status
+              {total} total: {done} done | {in_progress} in progress | ...
+              Ready: {id1}, {id2}
+
+            Heads Up — File Overlaps
+              {path} — commits: {sha1}, {sha2} | agents: {task1}, {task2}
+
+            Total Cost: ${all_time}
+
+        Requirements: 15-REQ-1.1, 15-REQ-1.2, 15-REQ-1.3, 15-REQ-2.1,
+                      15-REQ-2.2, 15-REQ-3.1, 15-REQ-4.1, 15-REQ-4.2,
+                      15-REQ-5.1, 15-REQ-6.1, 15-REQ-8.2
+        """
+        lines: list[str] = []
+
+        # Header (15-REQ-1.1, 15-REQ-1.2, 15-REQ-1.3)
+        lines.append(f"Standup Report \u2014 last {report.window_hours}h")
+        lines.append(f"Generated: {report.window_end}")
+        lines.append("")
+
+        # Agent Activity section (15-REQ-2.1, 15-REQ-2.2, 15-REQ-2.E1)
+        lines.append("Agent Activity")
+        if report.task_activities:
+            for ta in report.task_activities:
+                display_id = _display_node_id(ta.task_id)
+                in_tok = _format_tokens(ta.input_tokens)
+                out_tok = _format_tokens(ta.output_tokens)
+                lines.append(
+                    f"  {display_id}: {ta.current_status}. "
+                    f"{ta.completed_sessions}/{ta.total_sessions} sessions. "
+                    f"tokens {in_tok} in / {out_tok} out. "
+                    f"${ta.cost:.2f}"
+                )
+        else:
+            lines.append("  (no agent activity)")
+        lines.append("")
+
+        # Human Commits section (15-REQ-3.1, 15-REQ-3.E1)
+        lines.append("Human Commits")
         if report.human_commits:
-            commits_table = Table(
-                title="Human Commits",
-                show_header=True,
-                header_style="bold",
-            )
-            commits_table.add_column("SHA", max_width=8)
-            commits_table.add_column("Author")
-            commits_table.add_column("Subject")
-            commits_table.add_column("Files", justify="right")
             for commit in report.human_commits:
-                commits_table.add_row(
-                    commit.sha[:8],
-                    commit.author,
-                    commit.subject,
-                    str(len(commit.files_changed)),
-                )
-            console.print(commits_table)
+                sha7 = commit.sha[:7]
+                lines.append(f"  {sha7} {commit.author}: {commit.subject}")
+        else:
+            lines.append("  (no human commits)")
+        lines.append("")
 
-        # File overlaps
-        if report.file_overlaps:
-            overlap_table = Table(
-                title="File Overlaps (agent + human)",
-                show_header=True,
-                header_style="bold",
-            )
-            overlap_table.add_column("File Path")
-            overlap_table.add_column("Agent Tasks")
-            overlap_table.add_column("Human Commits")
-            for overlap in report.file_overlaps:
-                overlap_table.add_row(
-                    overlap.path,
-                    ", ".join(overlap.agent_task_ids),
-                    str(len(overlap.human_commits)),
-                )
-            console.print(overlap_table)
-
-        # Cost breakdown
-        if report.cost_breakdown:
-            cost_table = Table(
-                title="Cost Breakdown",
-                show_header=True,
-                header_style="bold",
-            )
-            cost_table.add_column("Tier")
-            cost_table.add_column("Sessions", justify="right")
-            cost_table.add_column("Cost", justify="right")
-            for cb in report.cost_breakdown:
-                cost_table.add_row(
-                    cb.tier,
-                    str(cb.sessions),
-                    f"${cb.cost:.2f}",
-                )
-            console.print(cost_table)
-
-        # Queue summary
-        queue_table = Table(
-            title="Task Queue",
-            show_header=True,
-            header_style="bold",
+        # Queue Status section (15-REQ-4.1, 15-REQ-4.2, 15-REQ-4.E1)
+        lines.append("Queue Status")
+        q = report.queue
+        lines.append(
+            f"  {q.total} total: {q.completed} done | "
+            f"{q.in_progress} in progress | "
+            f"{q.pending} pending | {q.ready} ready | "
+            f"{q.blocked} blocked | {q.failed} failed"
         )
-        queue_table.add_column("Status")
-        queue_table.add_column("Count", justify="right")
-        queue_table.add_row("Ready", str(report.queue.ready))
-        queue_table.add_row("Pending", str(report.queue.pending))
-        queue_table.add_row("Blocked", str(report.queue.blocked))
-        queue_table.add_row("Failed", str(report.queue.failed))
-        queue_table.add_row("Completed", str(report.queue.completed))
-        console.print(queue_table)
+        if q.ready_task_ids:
+            display_ids = ", ".join(
+                _display_node_id(tid) for tid in q.ready_task_ids
+            )
+            lines.append(f"  Ready: {display_ids}")
+        lines.append("")
 
-        return buf.getvalue()
+        # File Overlaps section — omitted when empty (15-REQ-5.1, 15-REQ-5.E1)
+        if report.file_overlaps:
+            lines.append("Heads Up \u2014 File Overlaps")
+            for overlap in report.file_overlaps:
+                commit_shas = ", ".join(
+                    sha[:7] for sha in overlap.human_commits
+                )
+                agent_ids = ", ".join(
+                    _display_node_id(tid)
+                    for tid in overlap.agent_task_ids
+                )
+                lines.append(
+                    f"  {overlap.path} \u2014 "
+                    f"commits: {commit_shas} | agents: {agent_ids}"
+                )
+            lines.append("")
+
+        # Total Cost line (15-REQ-6.1, 15-REQ-6.E1)
+        lines.append(f"Total Cost: ${report.total_cost:.2f}")
+
+        return "\n".join(lines)
 
 
 class JsonFormatter:
