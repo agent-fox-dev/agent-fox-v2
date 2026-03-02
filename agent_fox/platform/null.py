@@ -8,9 +8,13 @@ Requirements: 10-REQ-2.1, 10-REQ-2.2, 10-REQ-2.3, 10-REQ-2.4, 10-REQ-2.5
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import subprocess  # noqa: F401
 
-from agent_fox.core.errors import IntegrationError  # noqa: F401
+from agent_fox.core.errors import IntegrationError
+
+logger = logging.getLogger(__name__)
 
 
 class NullPlatform:
@@ -31,16 +35,39 @@ class NullPlatform:
         labels: list[str],
     ) -> str:
         """Merge branch directly into develop. Returns empty string."""
-        raise NotImplementedError
+        logger.info("NullPlatform: merging %s into %s", branch, self._develop_branch)
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["git", "checkout", self._develop_branch],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise IntegrationError(
+                f"Failed to checkout {self._develop_branch}: {result.stderr}",
+                branch=self._develop_branch,
+            )
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["git", "merge", "--no-ff", branch],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise IntegrationError(
+                f"Failed to merge {branch}: {result.stderr}",
+                branch=branch,
+            )
+        return ""
 
     async def wait_for_ci(self, pr_url: str, timeout: int) -> bool:
         """No CI to wait for. Always returns True."""
-        raise NotImplementedError
+        return True
 
     async def wait_for_review(self, pr_url: str) -> bool:
         """No review to wait for. Always returns True."""
-        raise NotImplementedError
+        return True
 
     async def merge_pr(self, pr_url: str) -> None:
         """No-op. Merge already happened in create_pr."""
-        raise NotImplementedError
+        pass

@@ -74,13 +74,13 @@ integration wiring.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/platform/ tests/property/platform/`
 
-- [ ] 2. Implement Platform protocol and NullPlatform
-  - [ ] 2.1 Create package structure
+- [x] 2. Implement Platform protocol and NullPlatform
+  - [x] 2.1 Create package structure
     - `agent_fox/platform/__init__.py`: package init with re-exports
       (`Platform`, `create_platform`)
     - _No requirements -- structural setup_
 
-  - [ ] 2.2 Implement Platform protocol
+  - [x] 2.2 Implement Platform protocol
     - `agent_fox/platform/protocol.py`: Platform Protocol class with four
       async methods (`create_pr`, `wait_for_ci`, `wait_for_review`, `merge_pr`)
     - Use `typing.Protocol` with `runtime_checkable` decorator
@@ -88,7 +88,7 @@ integration wiring.
     - _Requirements: 10-REQ-1.1, 10-REQ-1.2, 10-REQ-1.3, 10-REQ-1.4,
       10-REQ-1.5_
 
-  - [ ] 2.3 Implement NullPlatform
+  - [x] 2.3 Implement NullPlatform
     - `agent_fox/platform/null.py`: NullPlatform class
     - `create_pr`: merge branch into develop via `git checkout` + `git merge
       --no-ff`, return empty string
@@ -99,11 +99,11 @@ integration wiring.
     - _Requirements: 10-REQ-2.1, 10-REQ-2.2, 10-REQ-2.3, 10-REQ-2.4,
       10-REQ-2.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/platform/test_protocol.py tests/unit/platform/test_null.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/platform/ -k "null or protocol" -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/platform/`
-    - [ ] Requirements 10-REQ-1.*, 10-REQ-2.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/platform/test_protocol.py tests/unit/platform/test_null.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/platform/ -k "null or protocol" -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/platform/`
+    - [x] Requirements 10-REQ-1.*, 10-REQ-2.* acceptance criteria met
 
 - [ ] 3. Implement GitHubPlatform
   - [ ] 3.1 Implement GitHubPlatform class
