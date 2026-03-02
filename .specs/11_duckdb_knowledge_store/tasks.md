@@ -30,8 +30,8 @@ files.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/unit/knowledge/__init__.py`
     - Create `tests/unit/knowledge/conftest.py` with shared fixtures:
       `knowledge_config` (KnowledgeConfig with tmp_path),
@@ -41,35 +41,35 @@ files.
     - Add `duckdb>=1.0` to test dependencies if not already present
     - Run `uv sync` to install duckdb
 
-  - [ ] 1.2 Write database lifecycle tests
+  - [x] 1.2 Write database lifecycle tests
     - `tests/unit/knowledge/test_db.py`: TS-11-1 (opens and creates
       schema), TS-11-2 (version recorded), TS-11-3 (close releases
       connection), TS-11-4 (context manager), TS-11-6 (schema
       idempotent)
     - _Test Spec: TS-11-1, TS-11-2, TS-11-3, TS-11-4, TS-11-6_
 
-  - [ ] 1.3 Write migration tests
+  - [x] 1.3 Write migration tests
     - `tests/unit/knowledge/test_migrations.py`: TS-11-5 (applies
       pending migrations)
     - _Test Spec: TS-11-5_
 
-  - [ ] 1.4 Write sink protocol and dispatcher tests
+  - [x] 1.4 Write sink protocol and dispatcher tests
     - `tests/unit/knowledge/test_sink.py`: TS-11-11 (dispatcher multi-
       sink), TS-11-12 (protocol structural typing)
     - _Test Spec: TS-11-11, TS-11-12_
 
-  - [ ] 1.5 Write DuckDB sink tests
+  - [x] 1.5 Write DuckDB sink tests
     - `tests/unit/knowledge/test_duckdb_sink.py`: TS-11-7 (always-on
       outcomes), TS-11-8 (debug gating), TS-11-9 (multiple touched
       paths)
     - _Test Spec: TS-11-7, TS-11-8, TS-11-9_
 
-  - [ ] 1.6 Write JSONL sink tests
+  - [x] 1.6 Write JSONL sink tests
     - `tests/unit/knowledge/test_jsonl_sink.py`: TS-11-10 (writes events
       to file)
     - _Test Spec: TS-11-10_
 
-  - [ ] 1.7 Write edge case tests
+  - [x] 1.7 Write edge case tests
     - `tests/unit/knowledge/test_db.py`: TS-11-E1 (parent dir created),
       TS-11-E2 (corrupted DB degrades)
     - `tests/unit/knowledge/test_duckdb_sink.py`: TS-11-E3 (write
@@ -82,7 +82,7 @@ files.
       touched paths)
     - _Test Spec: TS-11-E1..TS-11-E7_
 
-  - [ ] 1.8 Write property tests
+  - [x] 1.8 Write property tests
     - `tests/property/knowledge/test_db_props.py`: TS-11-P1 (schema
       idempotency)
     - `tests/property/knowledge/test_migrations_props.py`: TS-11-P2
@@ -91,10 +91,10 @@ files.
       compliance), TS-11-P4 (debug gating invariant)
     - _Test Spec: TS-11-P1, TS-11-P2, TS-11-P3, TS-11-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement database infrastructure
   - [ ] 2.1 Create knowledge package
