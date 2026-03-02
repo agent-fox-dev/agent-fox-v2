@@ -69,22 +69,22 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Add test_spec.md to context assembly
-  - [ ] 2.1 Update `_SPEC_FILES` in `agent_fox/session/context.py`
+- [x] 2. Add test_spec.md to context assembly
+  - [x] 2.1 Update `_SPEC_FILES` in `agent_fox/session/context.py`
     - Add `("test_spec.md", "## Test Specification")` after `design.md`
       and before `tasks.md`
     - _Requirements: 15-REQ-1.1, 15-REQ-1.2_
 
-  - [ ] 2.2 Update `tmp_spec_dir` fixture if needed
+  - [x] 2.2 Update `tmp_spec_dir` fixture if needed
     - Ensure the fixture in `tests/unit/session/conftest.py` creates a
       `test_spec.md` file so existing context tests continue to pass
     - _Requirements: 15-REQ-1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Context tests pass: `uv run pytest tests/unit/session/test_context.py -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/context.py`
-    - [ ] Requirements 15-REQ-1.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Context tests pass: `uv run pytest tests/unit/session/test_context.py -q`
+    - [x] All existing tests still pass: `uv run pytest tests/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/context.py`
+    - [x] Requirements 15-REQ-1.* acceptance criteria met
 
 - [ ] 3. Rewrite prompt builder with templates
   - [ ] 3.1 Implement template loading and frontmatter stripping

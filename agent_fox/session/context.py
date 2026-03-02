@@ -1,6 +1,7 @@
 """Context assembler: gather spec documents and memory facts for a session.
 
-Requirements: 03-REQ-4.1 through 03-REQ-4.E1, 13-REQ-7.1, 13-REQ-7.2
+Requirements: 03-REQ-4.1 through 03-REQ-4.E1, 13-REQ-7.1, 13-REQ-7.2,
+              15-REQ-1.1, 15-REQ-1.2, 15-REQ-1.E1
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 _SPEC_FILES: list[tuple[str, str]] = [
     ("requirements.md", "## Requirements"),
     ("design.md", "## Design"),
+    ("test_spec.md", "## Test Specification"),
     ("tasks.md", "## Tasks"),
 ]
 
@@ -32,6 +34,7 @@ def assemble_context(
     Reads the following files from spec_dir (if they exist):
     - requirements.md
     - design.md
+    - test_spec.md
     - tasks.md
 
     Appends relevant memory facts (if provided).
