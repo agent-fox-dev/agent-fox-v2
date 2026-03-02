@@ -151,8 +151,8 @@ integration wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/platform/github.py`
     - [x] Requirements 10-REQ-3.* acceptance criteria met
 
-- [ ] 4. Implement factory and integration wiring
-  - [ ] 4.1 Implement create_platform factory
+- [x] 4. Implement factory and integration wiring
+  - [x] 4.1 Implement create_platform factory
     - `agent_fox/platform/factory.py`: `create_platform(config)` function
     - Route "none" to NullPlatform, "github" to GitHubPlatform
     - Pass through config values (ci_timeout, auto_merge) to GitHubPlatform
@@ -160,17 +160,17 @@ integration wiring.
       values
     - _Requirements: 10-REQ-5.1, 10-REQ-5.2, 10-REQ-5.3, 10-REQ-5.E1_
 
-  - [ ] 4.2 Wire up package exports
+  - [x] 4.2 Wire up package exports
     - `agent_fox/platform/__init__.py`: export `Platform`, `create_platform`,
       `NullPlatform`, `GitHubPlatform`
     - Verify imports work cleanly
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest tests/unit/platform/ tests/property/platform/ -q`
-    - [ ] All property tests pass: `uv run pytest tests/property/platform/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/platform/`
-    - [ ] Type check passes: `uv run mypy agent_fox/platform/`
-    - [ ] Requirements 10-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest tests/unit/platform/ tests/property/platform/ -q`
+    - [x] All property tests pass: `uv run pytest tests/property/platform/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/platform/`
+    - [x] Type check passes: `uv run mypy agent_fox/platform/`
+    - [x] Requirements 10-REQ-5.* acceptance criteria met
 
 - [ ] 5. Checkpoint -- Platform Integration Complete
   - Ensure all tests pass: `uv run pytest tests/unit/platform/ tests/property/platform/ -q`

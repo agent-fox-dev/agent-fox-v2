@@ -5,6 +5,8 @@ GitHubPlatform (gh CLI), and the create_platform factory.
 """
 
 from agent_fox.platform.factory import create_platform
+from agent_fox.platform.github import GitHubPlatform
+from agent_fox.platform.null import NullPlatform
 from agent_fox.platform.protocol import Platform
 
-__all__ = ["Platform", "create_platform"]
+__all__ = ["GitHubPlatform", "NullPlatform", "Platform", "create_platform"]
