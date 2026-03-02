@@ -151,7 +151,7 @@ class TestJsonOutputFormat:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["lint-spec", "--format", "json"]
+                main, ["--quiet", "lint-spec", "--format", "json"]
             )
             data = json.loads(result.output)
             assert "findings" in data
@@ -169,7 +169,7 @@ class TestJsonOutputFormat:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["lint-spec", "--format", "json"]
+                main, ["--quiet", "lint-spec", "--format", "json"]
             )
             data = json.loads(result.output)
             assert data["summary"]["total"] == len(data["findings"])
@@ -197,7 +197,7 @@ class TestYamlOutputFormat:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["lint-spec", "--format", "yaml"]
+                main, ["--quiet", "lint-spec", "--format", "yaml"]
             )
             data = yaml.safe_load(result.output)
             assert "findings" in data
@@ -324,7 +324,7 @@ class TestValidDependenciesIntegration:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["lint-spec", "--format", "json"]
+                main, ["--quiet", "lint-spec", "--format", "json"]
             )
             data = json.loads(result.output)
             broken_deps = [

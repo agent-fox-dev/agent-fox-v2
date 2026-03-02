@@ -63,8 +63,8 @@ implements the banner changes, and task group 3 is a checkpoint.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement banner enhancement
-  - [ ] 2.1 Update `agent_fox/ui/banner.py`
+- [x] 2. Implement banner enhancement
+  - [x] 2.1 Update `agent_fox/ui/banner.py`
     - Add `FOX_ART` constant with the canonical fox ASCII art
     - Add `_resolve_coding_model_display(model_config)` helper that returns
       the resolved model ID or the raw config value on failure
@@ -79,7 +79,7 @@ implements the banner changes, and task group 3 is a checkpoint.
     - Remove the old playful/neutral message line
     - _Requirements: 14-REQ-1.1, 14-REQ-1.2, 14-REQ-2.1, 14-REQ-2.2, 14-REQ-2.3, 14-REQ-2.E1, 14-REQ-3.1, 14-REQ-3.2, 14-REQ-3.E1_
 
-  - [ ] 2.2 Update `agent_fox/cli/app.py`
+  - [x] 2.2 Update `agent_fox/cli/app.py`
     - Import `ModelConfig` (if not already imported)
     - Move banner rendering out of the `if ctx.invoked_subcommand is None` block
     - Call `render_banner(theme, config.models, quiet=quiet)` unconditionally
@@ -87,12 +87,12 @@ implements the banner changes, and task group 3 is a checkpoint.
     - Keep the help text display inside the no-subcommand conditional
     - _Requirements: 14-REQ-4.1, 14-REQ-4.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/ui/test_banner.py tests/property/ui/test_banner_props.py -q`
-    - [ ] CLI integration tests pass: `uv run pytest tests/unit/cli/test_app.py -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/ -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 14-REQ-1.*, 14-REQ-2.*, 14-REQ-3.*, 14-REQ-4.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/ui/test_banner.py tests/property/ui/test_banner_props.py -q`
+    - [x] CLI integration tests pass: `uv run pytest tests/unit/cli/test_app.py -q`
+    - [x] All existing tests still pass: `uv run pytest tests/ -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 14-REQ-1.*, 14-REQ-2.*, 14-REQ-3.*, 14-REQ-4.* acceptance criteria met
 
 - [ ] 3. Checkpoint — CLI Banner Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`
