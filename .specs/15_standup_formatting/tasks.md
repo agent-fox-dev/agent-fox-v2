@@ -27,8 +27,8 @@ formatter and updates existing tests for backward compatibility.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for formatter output
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for formatter output
     - Create `tests/unit/reporting/test_standup_formatting.py`
     - Add helper to build a sample `StandupReport` with all new fields
     - Write tests: TS-15-1 (header), TS-15-2 (per-task lines), TS-15-3
@@ -36,34 +36,34 @@ formatter and updates existing tests for backward compatibility.
       TS-15-6 (total cost)
     - _Test Spec: TS-15-1, TS-15-2, TS-15-3, TS-15-4, TS-15-5, TS-15-6_
 
-  - [ ] 1.2 Write utility function tests
+  - [x] 1.2 Write utility function tests
     - In the same test file, add tests for `_format_tokens()` and
       `_display_node_id()`: TS-15-7, TS-15-8
     - _Test Spec: TS-15-7, TS-15-8_
 
-  - [ ] 1.3 Write data model / generator tests
+  - [x] 1.3 Write data model / generator tests
     - Add tests: TS-15-9 (per-task activity generation), TS-15-10 (enriched
       queue summary generation)
     - These tests call `generate_standup()` and assert on new model fields
     - _Test Spec: TS-15-9, TS-15-10_
 
-  - [ ] 1.4 Write edge case tests
+  - [x] 1.4 Write edge case tests
     - TS-15-E1 (no agent activity), TS-15-E2 (no human commits),
       TS-15-E3 (no file overlaps), TS-15-E4 (no ready tasks),
       TS-15-E5 (total cost zero), TS-15-E6 (hours=1)
     - _Test Spec: TS-15-E1 through TS-15-E6_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - Create `tests/property/reporting/test_standup_fmt_props.py`
     - TS-15-P1 (token format), TS-15-P2 (node ID roundtrip),
       TS-15-P3 (session sum), TS-15-P4 (queue total), TS-15-P5 (section
       ordering), TS-15-P6 (empty sections)
     - _Test Spec: TS-15-P1 through TS-15-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/reporting/test_standup_formatting.py tests/property/reporting/test_standup_fmt_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/reporting/test_standup_formatting.py tests/property/reporting/test_standup_fmt_props.py`
 
 - [ ] 2. Enrich data models and generator
   - [ ] 2.1 Add `TaskActivity` dataclass to `standup.py`
