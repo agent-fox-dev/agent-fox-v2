@@ -83,6 +83,14 @@ def _apply_overrides(
     return config
 
 
+def _count_by_status(node_states: dict[str, str]) -> dict[str, int]:
+    """Count tasks grouped by their status value."""
+    counts: dict[str, int] = {}
+    for status in node_states.values():
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
 def _print_summary(state: ExecutionState) -> None:
     """Print a compact execution summary.
 
@@ -98,10 +106,11 @@ def _print_summary(state: ExecutionState) -> None:
         click.echo("No tasks to execute.")
         return
 
-    done = sum(1 for s in state.node_states.values() if s == "completed")
-    in_progress = sum(1 for s in state.node_states.values() if s == "in_progress")
-    pending = sum(1 for s in state.node_states.values() if s == "pending")
-    failed = sum(1 for s in state.node_states.values() if s in ("failed", "blocked"))
+    counts = _count_by_status(state.node_states)
+    done = counts.get("completed", 0)
+    in_progress = counts.get("in_progress", 0)
+    pending = counts.get("pending", 0)
+    failed = counts.get("failed", 0) + counts.get("blocked", 0)
 
     parts = [f"{done}/{total} done"]
     if in_progress:

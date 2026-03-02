@@ -193,6 +193,27 @@ def run_hooks(
     return results
 
 
+def _run_phase_hooks(
+    scripts: list[str],
+    context: HookContext,
+    config: HookConfig,
+    *,
+    no_hooks: bool = False,
+) -> list[HookResult]:
+    """Run a list of hooks for a session phase (pre or post).
+
+    Returns an empty list when *no_hooks* is True or *scripts* is empty.
+    """
+    if no_hooks or not scripts:
+        return []
+    return run_hooks(
+        scripts,
+        context,
+        config=config,
+        cwd=Path(context.workspace) if context.workspace else None,
+    )
+
+
 def run_pre_session_hooks(
     context: HookContext,
     config: HookConfig,
@@ -212,14 +233,7 @@ def run_pre_session_hooks(
     Raises:
         HookError: If any abort-mode hook fails.
     """
-    if no_hooks or not config.pre_code:
-        return []
-    return run_hooks(
-        config.pre_code,
-        context,
-        config=config,
-        cwd=Path(context.workspace) if context.workspace else None,
-    )
+    return _run_phase_hooks(config.pre_code, context, config, no_hooks=no_hooks)
 
 
 def run_post_session_hooks(
@@ -241,14 +255,7 @@ def run_post_session_hooks(
     Raises:
         HookError: If any abort-mode hook fails.
     """
-    if no_hooks or not config.post_code:
-        return []
-    return run_hooks(
-        config.post_code,
-        context,
-        config=config,
-        cwd=Path(context.workspace) if context.workspace else None,
-    )
+    return _run_phase_hooks(config.post_code, context, config, no_hooks=no_hooks)
 
 
 def run_sync_barrier_hooks(
