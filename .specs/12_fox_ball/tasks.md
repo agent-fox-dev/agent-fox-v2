@@ -182,8 +182,8 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - [x] Type check passes: `uv run mypy agent_fox/knowledge/oracle.py agent_fox/cli/ask.py`
     - [x] Requirements 12-REQ-5.*, 12-REQ-6.1, 12-REQ-8.1 acceptance criteria met
 
-- [ ] 6. Implement knowledge source ingestion
-  - [ ] 6.1 Create ingestion module
+- [x] 6. Implement knowledge source ingestion
+  - [x] 6.1 Create ingestion module
     - `agent_fox/knowledge/ingest.py`: `IngestResult` dataclass,
       `KnowledgeIngestor` class
     - `ingest_adrs(adr_dir)`: parse ADR markdown files -> create facts
@@ -197,12 +197,12 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - Git log failure logs warning, returns 0 facts
     - _Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_ingest.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_ingest_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/ingest.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/knowledge/ingest.py`
-    - [ ] Requirements 12-REQ-4.* acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_ingest.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_ingest_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/ingest.py`
+    - [x] Type check passes: `uv run mypy agent_fox/knowledge/ingest.py`
+    - [x] Requirements 12-REQ-4.* acceptance criteria met
 
 - [ ] 7. Checkpoint -- Fox Ball Complete
   - Ensure all tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ tests/unit/cli/test_ask.py -q`
