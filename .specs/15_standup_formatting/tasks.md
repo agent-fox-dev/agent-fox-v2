@@ -109,13 +109,13 @@ formatter and updates existing tests for backward compatibility.
     - [x] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
     - [x] Requirements 15-REQ-2.3, 15-REQ-4.3, 15-REQ-6.2 acceptance criteria met
 
-- [ ] 3. Rewrite formatter and update existing tests
-  - [ ] 3.1 Add utility functions to `formatters.py`
+- [x] 3. Rewrite formatter and update existing tests
+  - [x] 3.1 Add utility functions to `formatters.py`
     - `_format_tokens(count: int) -> str`
     - `_display_node_id(node_id: str) -> str`
     - _Requirements: 15-REQ-7.1, 15-REQ-8.1_
 
-  - [ ] 3.2 Rewrite `TableFormatter.format_standup()`
+  - [x] 3.2 Rewrite `TableFormatter.format_standup()`
     - Replace Rich table rendering with plain-text string building
     - Implement all sections: header, agent activity, human commits,
       queue status, file overlaps (conditional), total cost
@@ -124,19 +124,19 @@ formatter and updates existing tests for backward compatibility.
       15-REQ-2.2, 15-REQ-3.1, 15-REQ-4.1, 15-REQ-4.2, 15-REQ-5.1,
       15-REQ-6.1, 15-REQ-8.2_
 
-  - [ ] 3.3 Update existing test fixtures for new model fields
+  - [x] 3.3 Update existing test fixtures for new model fields
     - Update `_make_standup_report()` in `test_formatters.py` to include
       `task_activities`, `total_cost`, and enriched `QueueSummary`
     - Update any other fixtures in `test_standup.py` or `conftest.py` that
       construct `StandupReport` or `QueueSummary` directly
     - _Test Spec: (regression — existing TS-07-* tests must pass)_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All spec 15 tests pass: `uv run pytest tests/unit/reporting/test_standup_formatting.py tests/property/reporting/test_standup_fmt_props.py -q`
-    - [ ] All existing reporting tests pass: `uv run pytest tests/unit/reporting/ tests/property/reporting/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/formatters.py agent_fox/reporting/standup.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/reporting/formatters.py agent_fox/reporting/standup.py`
-    - [ ] Requirements 15-REQ-1.* through 15-REQ-8.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] All spec 15 tests pass: `uv run pytest tests/unit/reporting/test_standup_formatting.py tests/property/reporting/test_standup_fmt_props.py -q`
+    - [x] All existing reporting tests pass: `uv run pytest tests/unit/reporting/ tests/property/reporting/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/formatters.py agent_fox/reporting/standup.py`
+    - [x] Type check passes: `uv run mypy agent_fox/reporting/formatters.py agent_fox/reporting/standup.py`
+    - [x] Requirements 15-REQ-1.* through 15-REQ-8.* acceptance criteria met
 
 - [ ] 4. Checkpoint — Standup Formatting Complete
   - All tests pass: `uv run pytest tests/unit/reporting/ tests/property/reporting/ -q`
