@@ -1,0 +1,6 @@
+"""DuckDB knowledge store infrastructure for agent-fox.
+
+Provides database lifecycle management, schema creation and versioning,
+the SessionSink protocol, the DuckDB sink, the JSONL sink, and graceful
+degradation.
+"""
