@@ -223,7 +223,7 @@ spec_gen+loop, then report+CLI.
     - [x] CLI is invocable: `uv run agent-fox --help` lists "fix"
     - [x] All requirements 08-REQ-* acceptance criteria met
 
-- [ ] 6. Checkpoint -- Error Auto-Fix Complete
+- [x] 6. Checkpoint -- Error Auto-Fix Complete
   - Ensure all tests pass: `uv run pytest tests/unit/fix/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py tests/unit/fix/`
   - Ensure type check clean: `uv run mypy agent_fox/fix/`

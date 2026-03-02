@@ -82,7 +82,10 @@ def _ai_cluster(
     )
 
     # Extract the text response
-    response_text = response.content[0].text
+    content_block = response.content[0]
+    if not hasattr(content_block, "text"):
+        raise ValueError("AI response did not contain a text block")
+    response_text: str = content_block.text  # type: ignore[union-attr]
 
     # Parse the JSON response
     return _parse_ai_response(response_text, failures)
