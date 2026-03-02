@@ -26,45 +26,45 @@ spec_gen+loop, then report+CLI.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory and conftest
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory and conftest
     - Create `tests/unit/fix/__init__.py`
     - Create `tests/unit/fix/conftest.py` with shared fixtures:
-      `tmp_project` (temp dir with config files), `pytest_check_descriptor`,
+      `tmp_project` (temp dir with config files), `check_descriptor_pytest`,
       `ruff_check_descriptor`, `sample_failure_record`,
       `sample_failure_cluster`, `mock_config` (AgentFoxConfig with defaults)
     - _Fixtures support all test cases below_
 
-  - [ ] 1.2 Write detector tests
+  - [x] 1.2 Write detector tests
     - `tests/unit/fix/test_detector.py`: TS-08-1 (pytest detection),
       TS-08-2 (ruff+mypy detection), TS-08-3 (npm test+lint detection),
       TS-08-4 (make test detection), TS-08-5 (cargo test detection)
     - _Test Spec: TS-08-1, TS-08-2, TS-08-3, TS-08-4, TS-08-5_
 
-  - [ ] 1.3 Write collector tests
+  - [x] 1.3 Write collector tests
     - `tests/unit/fix/test_collector.py`: TS-08-6 (failure capture),
       TS-08-7 (all passing)
     - _Test Spec: TS-08-6, TS-08-7_
 
-  - [ ] 1.4 Write clusterer tests
+  - [x] 1.4 Write clusterer tests
     - `tests/unit/fix/test_clusterer.py`: TS-08-8 (fallback clustering),
       TS-08-9 (AI clustering)
     - _Test Spec: TS-08-8, TS-08-9_
 
-  - [ ] 1.5 Write spec generator tests
+  - [x] 1.5 Write spec generator tests
     - `tests/unit/fix/test_spec_gen.py`: TS-08-10 (spec generation)
     - _Test Spec: TS-08-10_
 
-  - [ ] 1.6 Write loop tests
+  - [x] 1.6 Write loop tests
     - `tests/unit/fix/test_loop.py`: TS-08-11 (all fixed termination),
       TS-08-12 (max passes termination)
     - _Test Spec: TS-08-11, TS-08-12_
 
-  - [ ] 1.7 Write report tests
+  - [x] 1.7 Write report tests
     - `tests/unit/fix/test_report.py`: TS-08-13 (report rendering)
     - _Test Spec: TS-08-13_
 
-  - [ ] 1.8 Write edge case tests
+  - [x] 1.8 Write edge case tests
     - `tests/unit/fix/test_detector.py`: TS-08-E1 (no checks), TS-08-E2
       (unparseable config)
     - `tests/unit/fix/test_collector.py`: TS-08-E3 (timeout)
@@ -73,7 +73,7 @@ spec_gen+loop, then report+CLI.
     - `tests/unit/fix/test_loop.py`: TS-08-E5 (max_passes clamping)
     - _Test Spec: TS-08-E1, TS-08-E2, TS-08-E3, TS-08-E4, TS-08-E5, TS-08-E6_
 
-  - [ ] 1.9 Write property tests
+  - [x] 1.9 Write property tests
     - `tests/unit/fix/test_detector_props.py`: TS-08-P1 (detection
       determinism)
     - `tests/unit/fix/test_collector_props.py`: TS-08-P2 (collector
@@ -83,10 +83,10 @@ spec_gen+loop, then report+CLI.
     - `tests/unit/fix/test_report_props.py`: TS-08-P5 (report consistency)
     - _Test Spec: TS-08-P1, TS-08-P2, TS-08-P3, TS-08-P4, TS-08-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/fix/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/fix/`
 
 - [ ] 2. Implement detector and collector
   - [ ] 2.1 Create fix package
