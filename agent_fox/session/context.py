@@ -10,6 +10,8 @@ from pathlib import Path
 
 import duckdb  # noqa: F401
 
+from agent_fox.knowledge.causal import traverse_causal_chain
+
 logger = logging.getLogger(__name__)
 
 # Spec files to read, in order, with their section headers.
@@ -82,4 +84,81 @@ def select_context_with_causal(
     The causal_budget controls how many of the max_facts slots are
     reserved for causally-linked facts (default: 10 of 50).
     """
-    raise NotImplementedError
+    # 1. Start with keyword facts, trimmed to fit within max_facts
+    keyword_budget = max_facts - causal_budget
+    if keyword_budget < 0:
+        keyword_budget = 0
+    selected_keywords = keyword_facts[:keyword_budget]
+
+    # Track seen IDs for deduplication
+    seen_ids: set[str] = {f["id"] for f in selected_keywords}
+    result: list[dict] = list(selected_keywords)
+
+    # 2. For each keyword fact, traverse causal graph for linked facts
+    causal_candidates: list[tuple[int, dict]] = []  # (abs_depth, fact_dict)
+    for kw_fact in selected_keywords:
+        fact_id = kw_fact["id"]
+        try:
+            chain = traverse_causal_chain(conn, fact_id, max_depth=3)
+        except Exception:
+            logger.debug(
+                "Failed to traverse causal chain for fact %s", fact_id
+            )
+            continue
+        for cf in chain:
+            if cf.fact_id not in seen_ids:
+                causal_candidates.append((
+                    abs(cf.depth),
+                    {
+                        "id": cf.fact_id,
+                        "content": cf.content,
+                        "spec_name": cf.spec_name,
+                        "session_id": cf.session_id,
+                        "commit_sha": cf.commit_sha,
+                    },
+                ))
+
+    # 3. Also query for facts linked to the current spec_name
+    try:
+        rows = conn.execute(
+            "SELECT CAST(id AS VARCHAR), content, spec_name, session_id, "
+            "commit_sha FROM memory_facts WHERE spec_name = ?",
+            [spec_name],
+        ).fetchall()
+        for row in rows:
+            fid = row[0]
+            if fid not in seen_ids:
+                try:
+                    chain = traverse_causal_chain(conn, fid, max_depth=2)
+                except Exception:
+                    continue
+                for cf in chain:
+                    if cf.fact_id not in seen_ids:
+                        causal_candidates.append((
+                            abs(cf.depth),
+                            {
+                                "id": cf.fact_id,
+                                "content": cf.content,
+                                "spec_name": cf.spec_name,
+                                "session_id": cf.session_id,
+                                "commit_sha": cf.commit_sha,
+                            },
+                        ))
+    except Exception:
+        logger.debug("Failed to query facts for spec_name %s", spec_name)
+
+    # 4. Deduplicate and rank causal candidates by proximity (depth)
+    causal_candidates.sort(key=lambda x: x[0])
+
+    # 5. Add causal facts up to the budget and max_facts limit
+    remaining_budget = min(causal_budget, max_facts - len(result))
+    for _depth, fact_dict in causal_candidates:
+        if remaining_budget <= 0:
+            break
+        if fact_dict["id"] not in seen_ids:
+            seen_ids.add(fact_dict["id"])
+            result.append(fact_dict)
+            remaining_budget -= 1
+
+    # Final trim to ensure budget compliance
+    return result[:max_facts]

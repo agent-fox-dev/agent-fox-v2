@@ -169,32 +169,32 @@ integration points.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/patterns.py agent_fox/cli/patterns.py`
     - [x] Requirements 13-REQ-5.* acceptance criteria met
 
-- [ ] 5. Implement extraction enrichment and context enhancement
-  - [ ] 5.1 Enrich extraction prompt
+- [x] 5. Implement extraction enrichment and context enhancement
+  - [x] 5.1 Enrich extraction prompt
     - Extend `agent_fox/memory/extraction.py`:
       `CAUSAL_EXTRACTION_ADDENDUM` template,
       `enrich_extraction_with_causal()` function,
       `parse_causal_links()` function with robust error handling
     - _Requirements: 13-REQ-2.1, 13-REQ-2.2, 13-REQ-2.E1_
 
-  - [ ] 5.2 Implement context enhancement
+  - [x] 5.2 Implement context enhancement
     - Extend `agent_fox/session/context.py`:
       `select_context_with_causal()` function that queries the causal graph
       for linked facts, deduplicates with keyword results, and respects the
       max_facts budget
     - _Requirements: 13-REQ-7.1, 13-REQ-7.2_
 
-  - [ ] 5.3 Ensure fact provenance is populated
+  - [x] 5.3 Ensure fact provenance is populated
     - Verify that the fact storage path (from spec 12) populates
       `spec_name`, `session_id`, and `commit_sha` columns in `memory_facts`.
       Add provenance population if missing.
     - _Requirements: 13-REQ-1.1, 13-REQ-1.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_extraction_causal.py tests/unit/knowledge/test_context_causal.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_context_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/memory/extraction.py agent_fox/session/context.py`
-    - [ ] Requirements 13-REQ-1.*, 13-REQ-2.*, 13-REQ-7.* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_extraction_causal.py tests/unit/knowledge/test_context_causal.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_context_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/memory/extraction.py agent_fox/session/context.py`
+    - [x] Requirements 13-REQ-1.*, 13-REQ-2.*, 13-REQ-7.* acceptance criteria met
 
 - [ ] 6. Checkpoint -- Time Vision Complete
   - All tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ -q`

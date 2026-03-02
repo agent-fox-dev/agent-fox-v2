@@ -129,7 +129,16 @@ def enrich_extraction_with_causal(
     Formats the prior facts as a reference list and appends the causal
     extraction addendum to the prompt.
     """
-    raise NotImplementedError
+    if prior_facts:
+        facts_text = "\n".join(
+            f"- [{fact.get('id', 'unknown')}] {fact.get('content', '')}"
+            for fact in prior_facts
+        )
+    else:
+        facts_text = "(no prior facts available)"
+
+    addendum = CAUSAL_EXTRACTION_ADDENDUM.format(prior_facts=facts_text)
+    return base_prompt + addendum
 
 
 def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
@@ -138,7 +147,27 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     Returns a list of (cause_id, effect_id) tuples. Silently skips
     malformed entries.
     """
-    raise NotImplementedError
+    try:
+        data = json.loads(extraction_response)
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("Failed to parse causal links JSON, returning empty list")
+        return []
+
+    if not isinstance(data, list):
+        logger.warning("Causal links response is not a JSON array")
+        return []
+
+    links: list[tuple[str, str]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        cause_id = item.get("cause_id")
+        effect_id = item.get("effect_id")
+        if isinstance(cause_id, str) and isinstance(effect_id, str):
+            links.append((cause_id, effect_id))
+        else:
+            logger.debug("Skipping malformed causal link entry: %s", item)
+    return links
 
 
 def _parse_extraction_response(
