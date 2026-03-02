@@ -30,6 +30,9 @@
 - The `ReportFormatter` protocol requires `type: ignore[return-value]` in `get_formatter()` because concrete implementations are not explicitly declared as implementing the protocol, causing type checker conflicts. *(source: 07_operational_commands/5)*
 - Using `datetime.utcnow()` in dataclass defaults triggers deprecation warnings in Python 3.12+; use `datetime.now(UTC)` instead when implementing dataclasses. *(source: 11_duckdb_knowledge_store/1)*
 - DuckDB file-based operations (first open, VSS extension install) can exceed hypothesis's default 200ms deadline. Property tests involving KnowledgeDB with file-based storage should use @settings(deadline=None). *(source: 11_duckdb_knowledge_store/2)*
+- When inserting rows with UUID primary keys where one logical entity spans multiple rows (like `SessionOutcome` with multiple `touched_paths`), the first row must use the original UUID while subsequent rows need fresh `uuid4()` calls to avoid primary key conflicts. *(source: 11_duckdb_knowledge_store/3)*
+- The `session_outcomes` table requires full valid UUID strings in test seed data, not abbreviated forms like simple alphanumeric codes. *(source: 13_time_vision/1)*
+- When validating that two fact IDs exist using `SELECT COUNT(*) FROM memory_facts WHERE id IN (?, ?)`, self-referencing links (cause_id == effect_id) return count 1 instead of 2. Validation must expect 1 when both IDs are identical. *(source: 13_time_vision/2)*
 
 ## Patterns
 
@@ -121,6 +124,11 @@
 - The `_initialize_schema` method uses multi-statement DDL with IF NOT EXISTS and a conditional INSERT for idempotent schema creation, matching the conftest's `create_schema` helper. *(source: 11_duckdb_knowledge_store/2)*
 - VSS extension loading uses a try-LOAD/catch-INSTALL-LOAD pattern since the extension may already be installed from a prior session. If VSS is unavailable entirely (e.g., CI), it logs a warning but does not block DB initialization. *(source: 11_duckdb_knowledge_store/2)*
 - get_current_version catches duckdb.CatalogException to handle the case where schema_version table doesn't exist yet, returning 0 as a sentinel for 'no schema'. *(source: 11_duckdb_knowledge_store/2)*
+- The `SinkDispatcher` wraps each individual sink call in error handling, so a single sink failure does not block iteration over remaining sinks. *(source: 11_duckdb_knowledge_store/3)*
+- `JsonlSink` uses lazy initialization via `_ensure_file()` method—the file is only created on first write, not during construction. *(source: 11_duckdb_knowledge_store/3)*
+- The `fact_causes` table uses UUID composite primary key `(cause_id, effect_id)` to enable safe duplicate inserts via `ON CONFLICT DO NOTHING`. *(source: 13_time_vision/1)*
+- Property tests for DuckDB operations create a fresh in-memory connection per hypothesis example via a helper function rather than a fixture, because hypothesis generates multiple examples within a single test invocation. *(source: 13_time_vision/1)*
+- The `traverse_causal_chain()` BFS uses lightweight helpers `_get_direct_effect_ids()` and `_get_direct_cause_ids()` that return only IDs (not full CausalFact objects) to avoid unnecessary joins during traversal. Full fact data is fetched once per visited node via `_fetch_fact()`. *(source: 13_time_vision/2)*
 
 ## Decisions
 
@@ -163,6 +171,10 @@
 - `types-pyyaml>=6.0` was added to dev dependencies to provide mypy with required type stubs for PyYAML library. *(source: 07_operational_commands/5)*
 - Protocol structure tests (hasattr, iscoroutinefunction, isinstance) pass immediately against stubs because the Protocol and class structure are complete implementations, following the project pattern for pure data type tests. *(source: 10_platform_integration/1)*
 - duckdb>=1.0 is added to project dependencies as a core runtime requirement, not dev-only, because the knowledge store is a core runtime feature. *(source: 11_duckdb_knowledge_store/1)*
+- The `causal_db` fixture seeds exactly 5 facts, 3 causal links (aaa->bbb->ccc, aaa->eee), and 6 session outcomes representing two pairs of (src/auth/ change, subsequent test failure) to support pattern detection testing. *(source: 13_time_vision/1)*
+- `open_knowledge_store()` returns None on startup failure to enable graceful degradation, allowing the session runner to continue even when the knowledge store cannot be initialized. *(source: 11_duckdb_knowledge_store/4)*
+- `DuckDBSink` wraps every write operation in try/except blocks to gracefully handle and isolate write failures without blocking the session. *(source: 11_duckdb_knowledge_store/4)*
+- `SinkDispatcher` isolates each sink call so failures in one sink do not propagate to or block other sinks or the session runner. *(source: 11_duckdb_knowledge_store/4)*
 
 ## Conventions
 
@@ -223,6 +235,12 @@
 - The `create_schema` helper in `tests/unit/knowledge/conftest.py` duplicates DDL from `KnowledgeDB._initialize_schema` to allow schema setup without the full `KnowledgeDB.open()` path, and must stay in sync with the real schema. *(source: 11_duckdb_knowledge_store/1)*
 - The platform package `__init__.py` exports all public symbols (`Platform`, `create_platform`, `NullPlatform`, `GitHubPlatform`) in alphabetical order within `__all__` to improve discoverability. *(source: 10_platform_integration/4)*
 - KnowledgeDB.open() re-raises KnowledgeStoreError directly but wraps all other exceptions in KnowledgeStoreError to maintain a consistent error interface. *(source: 11_duckdb_knowledge_store/2)*
+- Sink implementations use best-effort error handling: all write methods wrap DuckDB/file I/O in `try/except Exception` blocks, log via `logger.warning(..., exc_info=True)`, and never propagate exceptions upward. *(source: 11_duckdb_knowledge_store/3)*
+- JSON serialization for JSONL events uses a custom `_json_default` handler that converts `UUID` objects to strings and `datetime` objects to ISO format strings. *(source: 11_duckdb_knowledge_store/3)*
+- Well-known test UUIDs (FACT_AAA through FACT_EEE) are defined as constants in `tests/unit/knowledge/conftest.py` and imported across all Time Vision test files for consistent cross-file referencing. *(source: 13_time_vision/1)*
+- Extraction enrichment stubs (`enrich_extraction_with_causal`, `parse_causal_links`) and context enhancement stubs (`select_context_with_causal`) are added directly to existing modules rather than creating new files, following design.md guidance of extending existing modules. *(source: 13_time_vision/1)*
+- The knowledge package `__init__.py` exports all public types alphabetically in `__all__`, importing from `db`, `duckdb_sink`, `jsonl_sink`, and `sink` submodules. *(source: 11_duckdb_knowledge_store/4)*
+- DuckDB UUID columns need `CAST(column AS VARCHAR)` when reading into Python strings during traversal to ensure consistent string representation across queries. *(source: 13_time_vision/2)*
 
 ## Anti-Patterns
 
