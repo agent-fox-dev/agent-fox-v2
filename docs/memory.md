@@ -49,11 +49,11 @@
 - test_standup_formatting.py imports _format_tokens and _display_node_id at module level from formatters.py, so these functions must exist before test collection — missing them breaks even generator tests (TS-15-9, TS-15-10) that don't directly use them. *(source: 15_standup_formatting/2)*
 - Hypothesis property tests cannot use pytest's function-scoped `monkeypatch` fixture because Hypothesis generates multiple examples per test invocation. Use `unittest.mock.patch.object()` as context manager inside test body instead. *(source: 14_cli_banner/1)*
 - Some CLI integration tests may pass 'vacuously' when current behavior already satisfies expected output (e.g., `--version` doesn't show banner because Click handles it before main function runs). This is acceptable for failing-test tasks; tests verify correct interface and remain valid after implementation. *(source: 14_cli_banner/1)*
-- The `tests/property/reporting/test_standup_fmt_props.py` and `tests/unit/reporting/test_standup_formatting.py` files fail to collect due to unimplemented `_display_node_id` import from a different spec; these are pre-existing failures unrelated to spec 15. *(source: 15_session_prompt/2)*
 - The _format_tokens() and _display_node_id() utility functions were already implemented in task group 2, making task 3.1 effectively redundant—developers should verify existing implementations before implementing similar utilities. *(source: 15_standup_formatting/3)*
 - Rich markup wrapping interprets backslashes as escape characters. Backslashes before closing tags like `[/header]` can escape the bracket and prevent the tag from being recognized. Use `console.print(text, style="header", highlight=False)` to bypass markup parsing. *(source: 14_cli_banner/2)*
 - Rich's `highlight=False` parameter must be used when printing arbitrary text (ASCII art, file paths) to prevent auto-highlighting of detected patterns (numbers, paths, URLs) which inserts extra ANSI escape codes that break substring matching in tests. *(source: 14_cli_banner/2)*
 - Rendering the banner on every CLI invocation breaks integration tests that parse structured output (JSON/YAML) from subcommands. Tests must use the `--quiet` flag to suppress the banner before parsing structured output. *(source: 14_cli_banner/2)*
+- Ruff's I001 (import sorting) rule triggers on lazy imports inside test methods. Suppress with `# noqa: I001` comment suffix on the import line. *(source: 16_code_command/1)*
 
 ## Patterns
 
@@ -170,6 +170,10 @@
 - The `_SPEC_FILES` list in `context.py` controls both the reading order and section headers for assembled context; adding a new entry is the only change needed to include a new spec file type. *(source: 15_session_prompt/2)*
 - New fields in StandupReport and QueueSummary classes use default values (task_activities=[], total_cost=0.0, total=0, in_progress=0, ready_task_ids=[]) to maintain backward compatibility with existing test fixtures. *(source: 15_standup_formatting/3)*
 - The `_TEMPLATE_DIR` module-level variable is designed to be patchable via `patch.object(prompt_mod, "_TEMPLATE_DIR", tmp_path)` for testing missing-template scenarios without modifying actual template files. *(source: 15_session_prompt/3)*
+- CLI command tests patch `Orchestrator` at its import site (`agent_fox.cli.code.Orchestrator`) rather than at its definition location, following the project's mocking-at-import-site pattern. *(source: 16_code_command/1)*
+- Override-capture tests for `Orchestrator.__init__` use `side_effect=capture_fn` with a `(config, **kwargs)` signature to capture the config argument while accepting remaining positional and keyword arguments. *(source: 16_code_command/1)*
+- The `code` command constructs the Orchestrator with keyword arguments for all params except `config` (first positional), enabling test capture functions to use `(config, **kwargs)` signature. *(source: 16_code_command/2)*
+- CLI option overrides use `OrchestratorConfig.model_copy(update={...})` to create a modified config without mutating the original, consistent with KnowledgeConfig override pattern. *(source: 16_code_command/2)*
 
 ## Decisions
 
@@ -219,7 +223,6 @@
 - Pattern detection SQL groups by (changed.touched_path, failed.touched_path) rather than failed.spec_name because the same file change can trigger the same test failure across different specs, producing more meaningful recurring patterns. *(source: 13_time_vision/4)*
 - The `ask` command is registered in `app.py` alphabetically before other commands using `main.add_command(ask_command, name="ask")`. *(source: 12_fox_ball/1)*
 - The `select_context_with_causal()` function limits causal traversal depth to 3 instead of the default 10 to balance context relevance with performance. Deeper connections are unlikely to be directly useful for context selection. *(source: 13_time_vision/5)*
-- Adding new fields to `StandupReport` and `QueueSummary` requires providing default values to ensure backward compatibility with tests that construct these models directly without keyword arguments. *(source: 15_standup_formatting/1)*
 - The `git-flow.md` template uses YAML frontmatter (`---\ninclusion: always\n---`) which serves as the primary test case for frontmatter stripping verification in template processing. *(source: 15_session_prompt/1)*
 - QueueSummary and StandupReport new fields use default values (total=0, in_progress=0, ready_task_ids=list, task_activities=list, total_cost=0.0) to maintain backward compatibility with existing spec 07 tests that construct these models without providing the new fields. *(source: 15_standup_formatting/2)*
 - TableFormatter.format_standup() was refactored to emit plain-text lines joined with newlines instead of Rich Console/Table rendering, while Rich imports remain for format_status(). *(source: 15_standup_formatting/3)*
@@ -301,6 +304,10 @@
 - The `tmp_spec_dir` fixture in `tests/unit/session/conftest.py` must include all files listed in `_SPEC_FILES` to support the full test suite. *(source: 15_session_prompt/2)*
 - Integration tests that parse structured output (JSON/YAML) from subcommands should use the `--quiet` flag to suppress decorative elements like banners. *(source: 14_cli_banner/2)*
 - Template composition joins multiple template sections with `"\n\n"` and appends context under a `## Context` header, following the pattern `{templates}\n\n## Context\n\n{context}\n`. *(source: 15_session_prompt/3)*
+- `Orchestrator.__init__` signature is `(config, plan_path, state_path, session_runner_factory)` with positional arguments. *(source: 16_code_command/1)*
+- Test runner is invoked via `uv run pytest` in this worktree setup, not `.venv/bin/python -m pytest`. *(source: 16_code_command/1)*
+- CLI commands that need non-zero exit codes use `sys.exit(code)` rather than `ctx.exit(code)`, following the `ask` command pattern. *(source: 16_code_command/2)*
+- The `_format_tokens` helper from `agent_fox/reporting/formatters.py` is reused across commands for consistent human-readable token display. *(source: 16_code_command/2)*
 
 ## Anti-Patterns
 
