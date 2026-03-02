@@ -122,28 +122,28 @@ integration points.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py`
     - [x] Requirements 13-REQ-3.* acceptance criteria met
 
-- [ ] 3. Implement temporal queries and timeline rendering
-  - [ ] 3.1 Create temporal module
+- [x] 3. Implement temporal queries and timeline rendering
+  - [x] 3.1 Create temporal module
     - `agent_fox/knowledge/temporal.py`: `TimelineNode` and `Timeline`
       dataclasses, `build_timeline()` function that traverses causal chains
       from seed facts, deduplicates, and sorts by timestamp
     - _Requirements: 13-REQ-4.1, 13-REQ-6.1, 13-REQ-6.2_
 
-  - [ ] 3.2 Implement timeline rendering
+  - [x] 3.2 Implement timeline rendering
     - `agent_fox/knowledge/temporal.py`: `Timeline.render()` method with
       indented text output, provenance display, and TTY-aware color control
     - _Requirements: 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3_
 
-  - [ ] 3.3 Implement temporal query function
+  - [x] 3.3 Implement temporal query function
     - `agent_fox/knowledge/temporal.py`: `temporal_query()` that combines
       vector search results with causal graph traversal to build a timeline
     - _Requirements: 13-REQ-4.1, 13-REQ-4.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_temporal.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_temporal_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/temporal.py`
-    - [ ] Requirements 13-REQ-4.*, 13-REQ-6.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_temporal.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_temporal_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/temporal.py`
+    - [x] Requirements 13-REQ-4.*, 13-REQ-6.* acceptance criteria met
 
 - [ ] 4. Implement pattern detection and CLI command
   - [ ] 4.1 Create patterns module
