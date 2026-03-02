@@ -220,7 +220,7 @@ reporting, standup reporting, reset engine, and output formatters.
     - [x] Requirements 07-REQ-3.* acceptance criteria met
     - [x] CLI commands are invocable: `uv run agent-fox status --help`, `uv run agent-fox standup --help`, `uv run agent-fox reset --help`
 
-- [ ] 6. Checkpoint -- Operational Commands Complete
+- [x] 6. Checkpoint -- Operational Commands Complete
   - Ensure all tests pass: `uv run pytest tests/unit/reporting/ tests/unit/engine/test_reset.py tests/property/reporting/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/reporting/ agent_fox/engine/ agent_fox/cli/status.py agent_fox/cli/standup.py agent_fox/cli/reset.py`
   - Ensure type check clean: `uv run mypy agent_fox/reporting/ agent_fox/engine/reset.py`
