@@ -122,30 +122,30 @@ files.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/`
     - [x] Requirements 11-REQ-1.*, 11-REQ-2.*, 11-REQ-3.* acceptance criteria met
 
-- [ ] 3. Implement sink protocol and sink implementations
-  - [ ] 3.1 Implement SessionSink protocol and event dataclasses
+- [x] 3. Implement sink protocol and sink implementations
+  - [x] 3.1 Implement SessionSink protocol and event dataclasses
     - `agent_fox/knowledge/sink.py`: SessionOutcome, ToolCall, ToolError
       dataclasses; SessionSink Protocol; SinkDispatcher with fault
       isolation
     - _Requirements: 11-REQ-4.1, 11-REQ-4.2, 11-REQ-4.3_
 
-  - [ ] 3.2 Implement DuckDB sink
+  - [x] 3.2 Implement DuckDB sink
     - `agent_fox/knowledge/duckdb_sink.py`: DuckDBSink class with
       always-on session outcomes, debug-gated tool signals, best-effort
       error handling
     - _Requirements: 11-REQ-5.1, 11-REQ-5.2, 11-REQ-5.3, 11-REQ-5.4,
       11-REQ-5.E1_
 
-  - [ ] 3.3 Implement JSONL sink
+  - [x] 3.3 Implement JSONL sink
     - `agent_fox/knowledge/jsonl_sink.py`: JsonlSink class with
       timestamped file creation, JSON line writing, clean close
     - _Requirements: 11-REQ-6.1, 11-REQ-6.2, 11-REQ-6.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_sink.py tests/unit/knowledge/test_duckdb_sink.py tests/unit/knowledge/test_jsonl_sink.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_sink_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/`
-    - [ ] Requirements 11-REQ-4.*, 11-REQ-5.*, 11-REQ-6.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_sink.py tests/unit/knowledge/test_duckdb_sink.py tests/unit/knowledge/test_jsonl_sink.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_sink_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/`
+    - [x] Requirements 11-REQ-4.*, 11-REQ-5.*, 11-REQ-6.* acceptance criteria met
 
 - [ ] 4. Integration and graceful degradation
   - [ ] 4.1 Implement graceful degradation

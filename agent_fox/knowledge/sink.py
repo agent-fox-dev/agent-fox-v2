@@ -85,20 +85,52 @@ class SinkDispatcher:
 
     def add(self, sink: SessionSink) -> None:
         """Add a sink to the dispatch list."""
-        raise NotImplementedError
+        self._sinks.append(sink)
 
     def record_session_outcome(self, outcome: SessionOutcome) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        raise NotImplementedError
+        for sink in self._sinks:
+            try:
+                sink.record_session_outcome(outcome)
+            except Exception:
+                logger.warning(
+                    "Sink %s failed to record session outcome",
+                    type(sink).__name__,
+                    exc_info=True,
+                )
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        raise NotImplementedError
+        for sink in self._sinks:
+            try:
+                sink.record_tool_call(call)
+            except Exception:
+                logger.warning(
+                    "Sink %s failed to record tool call",
+                    type(sink).__name__,
+                    exc_info=True,
+                )
 
     def record_tool_error(self, error: ToolError) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        raise NotImplementedError
+        for sink in self._sinks:
+            try:
+                sink.record_tool_error(error)
+            except Exception:
+                logger.warning(
+                    "Sink %s failed to record tool error",
+                    type(sink).__name__,
+                    exc_info=True,
+                )
 
     def close(self) -> None:
         """Close all sinks."""
-        raise NotImplementedError
+        for sink in self._sinks:
+            try:
+                sink.close()
+            except Exception:
+                logger.warning(
+                    "Sink %s failed to close",
+                    type(sink).__name__,
+                    exc_info=True,
+                )
