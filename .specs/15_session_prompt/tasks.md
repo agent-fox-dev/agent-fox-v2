@@ -86,15 +86,15 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - [x] No linter warnings: `uv run ruff check agent_fox/session/context.py`
     - [x] Requirements 15-REQ-1.* acceptance criteria met
 
-- [ ] 3. Rewrite prompt builder with templates
-  - [ ] 3.1 Implement template loading and frontmatter stripping
+- [x] 3. Rewrite prompt builder with templates
+  - [x] 3.1 Implement template loading and frontmatter stripping
     - Add `_TEMPLATE_DIR`, `_ROLE_TEMPLATES` constants
     - Implement `_strip_frontmatter()` using regex
     - Implement `_load_template()` that reads file, strips frontmatter,
       raises `ConfigError` on missing file
     - _Requirements: 15-REQ-2.1, 15-REQ-4.1, 15-REQ-4.2, 15-REQ-2.E1_
 
-  - [ ] 3.2 Implement placeholder interpolation
+  - [x] 3.2 Implement placeholder interpolation
     - Implement `_interpolate()` that replaces known placeholders
       (`spec_name`, `task_group`, `number`, `specification`) while
       preserving literal braces
@@ -102,7 +102,7 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
       `str.format()` (which would choke on literal braces)
     - _Requirements: 15-REQ-3.1, 15-REQ-3.2, 15-REQ-3.E1_
 
-  - [ ] 3.3 Rewrite `build_system_prompt()`
+  - [x] 3.3 Rewrite `build_system_prompt()`
     - Add `role` parameter defaulting to `"coding"`
     - Validate role against `_ROLE_TEMPLATES`; raise `ValueError` if unknown
     - Load and compose templates for the role
@@ -111,18 +111,18 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - Interpolate placeholders in the composed template
     - _Requirements: 15-REQ-2.2, 15-REQ-2.3, 15-REQ-2.4, 15-REQ-2.5, 15-REQ-2.E2_
 
-  - [ ] 3.4 Rewrite `build_task_prompt()`
+  - [x] 3.4 Rewrite `build_task_prompt()`
     - Validate `task_group >= 1`; raise `ValueError` if invalid
     - Include spec name, task group, checkbox update instructions,
       commit instructions, and quality gate reminder
     - _Requirements: 15-REQ-5.1, 15-REQ-5.2, 15-REQ-5.3, 15-REQ-5.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Prompt tests pass: `uv run pytest tests/unit/session/test_prompt.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/session/test_prompt_props.py -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
-    - [ ] Requirements 15-REQ-2.*, 15-REQ-3.*, 15-REQ-4.*, 15-REQ-5.* met
+  - [x] 3.V Verify task group 3
+    - [x] Prompt tests pass: `uv run pytest tests/unit/session/test_prompt.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/session/test_prompt_props.py -q`
+    - [x] All existing tests still pass: `uv run pytest tests/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
+    - [x] Requirements 15-REQ-2.*, 15-REQ-3.*, 15-REQ-4.*, 15-REQ-5.* met
 
 - [ ] 4. Checkpoint — Session Prompt Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`
