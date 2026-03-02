@@ -442,3 +442,23 @@ class TestResetCompletedTask:
         )
 
         assert len(result.reset_tasks) == 0
+
+    def test_completed_task_populates_skipped_completed(
+        self, tmp_path: Path,
+    ) -> None:
+        """Completed task ID is returned in skipped_completed (07-REQ-5.E2)."""
+        plan_dir = tmp_path / ".agent-fox"
+        state_path = plan_dir / "state.jsonl"
+        worktrees_dir = plan_dir / "worktrees"
+        worktrees_dir.mkdir(parents=True, exist_ok=True)
+        repo_path = tmp_path
+
+        nodes = {"s:1": {"title": "T1"}}
+        plan_path = _write_plan(plan_dir, nodes=nodes)
+        _write_state(state_path, {"s:1": "completed"})
+
+        result = reset_task(
+            "s:1", state_path, plan_path, worktrees_dir, repo_path,
+        )
+
+        assert result.skipped_completed == ["s:1"]

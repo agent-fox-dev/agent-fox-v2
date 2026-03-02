@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent_fox.core.errors import AgentFoxError
@@ -30,6 +30,9 @@ class ResetResult:
     unblocked_tasks: list[str]  # task IDs that were cascade-unblocked
     cleaned_worktrees: list[str]  # worktree directories removed
     cleaned_branches: list[str]  # git branches deleted
+    skipped_completed: list[str] = field(
+        default_factory=list,
+    )  # completed tasks that could not be reset
 
 
 def _load_state_or_raise(state_path: Path) -> ExecutionState:
@@ -331,6 +334,7 @@ def reset_task(
             unblocked_tasks=[],
             cleaned_worktrees=[],
             cleaned_branches=[],
+            skipped_completed=[task_id],
         )
 
     # Reset the task
