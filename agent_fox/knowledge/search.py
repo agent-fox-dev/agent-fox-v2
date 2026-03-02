@@ -70,11 +70,7 @@ class VectorSearch:
         """
         k = top_k if top_k is not None else self._config.ask_top_k
 
-        where_clause = (
-            "WHERE f.superseded_by IS NULL"
-            if exclude_superseded
-            else ""
-        )
+        where_clause = "WHERE f.superseded_by IS NULL" if exclude_superseded else ""
 
         query = f"""
             SELECT

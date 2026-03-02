@@ -113,7 +113,8 @@ def _get_block_reason(
     """
     preds = graph.predecessors(task_id)
     blockers = [
-        p for p in preds
+        p
+        for p in preds
         if node_states.get(p, "pending") not in ("completed", "skipped")
     ]
     if blockers:
@@ -237,7 +238,9 @@ def generate_status(
 
     # Build problem tasks list
     problem_tasks = _build_problem_tasks(
-        graph, node_states, failure_reasons,
+        graph,
+        node_states,
+        failure_reasons,
     )
 
     # Compute per-spec breakdown

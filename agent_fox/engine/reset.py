@@ -149,7 +149,8 @@ def _clean_branch(repo_path: Path, task_id: str) -> str | None:
             return None
         logger.warning(
             "Failed to delete branch %s: %s",
-            branch_name, result.stderr.strip(),
+            branch_name,
+            result.stderr.strip(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning("Git branch delete failed for %s: %s", branch_name, exc)
@@ -216,9 +217,7 @@ def _find_sole_blocker_dependents(
 
         # All non-reset predecessors must be completed
         all_others_completed = all(
-            node_states.get(p, "pending") == "completed"
-            for p in preds
-            if p != task_id
+            node_states.get(p, "pending") == "completed" for p in preds if p != task_id
         )
 
         if all_others_completed:
@@ -316,8 +315,7 @@ def reset_task(
     if task_id not in plan.nodes:
         valid_ids = sorted(plan.nodes.keys())
         raise AgentFoxError(
-            f"Unknown task ID: {task_id}. "
-            f"Valid task IDs: {', '.join(valid_ids)}",
+            f"Unknown task ID: {task_id}. Valid task IDs: {', '.join(valid_ids)}",
             task_id=task_id,
         )
 
@@ -325,7 +323,8 @@ def reset_task(
     current_status = state.node_states.get(task_id, "pending")
     if current_status == "completed":
         logger.warning(
-            "Task %s is already completed and cannot be reset.", task_id,
+            "Task %s is already completed and cannot be reset.",
+            task_id,
         )
         return ResetResult(
             reset_tasks=[],

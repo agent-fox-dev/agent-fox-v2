@@ -70,7 +70,8 @@ def _build_plan(
     # This prevents dangling references when --spec filters to a single spec.
     discovered_names = {s.name for s in specs}
     cross_deps = [
-        dep for dep in cross_deps
+        dep
+        for dep in cross_deps
         if dep.from_spec in discovered_names and dep.to_spec in discovered_names
     ]
 

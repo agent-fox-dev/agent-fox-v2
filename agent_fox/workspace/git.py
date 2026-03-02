@@ -85,7 +85,8 @@ async def delete_branch(
         # Branch does not exist -- treat as no-op
         if "not found" in stderr or "error: branch" in stderr:
             logger.warning(
-                "Branch '%s' does not exist, skipping deletion", branch_name,
+                "Branch '%s' does not exist, skipping deletion",
+                branch_name,
             )
             return
         # Some other failure

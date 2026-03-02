@@ -226,9 +226,7 @@ def traverse_causal_chain(
         if fact is None:
             continue
 
-        relationship = (
-            "root" if depth == 0 else ("cause" if depth < 0 else "effect")
-        )
+        relationship = "root" if depth == 0 else ("cause" if depth < 0 else "effect")
         result.append(
             CausalFact(
                 fact_id=current_id,

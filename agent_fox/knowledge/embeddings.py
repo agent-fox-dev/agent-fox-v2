@@ -67,12 +67,10 @@ class EmbeddingGenerator:
                 model=self._config.embedding_model,
                 input=texts,
             )
-            return [
-                [float(v) for v in item.embedding]
-                for item in response.data
-            ]
+            return [[float(v) for v in item.embedding] for item in response.data]
         except Exception:
             logger.warning(
-                "Batch embedding failed for %d texts", len(texts),
+                "Batch embedding failed for %d texts",
+                len(texts),
             )
             return [None] * len(texts)

@@ -185,7 +185,8 @@ class MemoryStore:
         # Step 2: DuckDB write -- best-effort
         if self._db_conn is None:
             logger.warning(
-                "DuckDB unavailable; fact %s written to JSONL only", fact.id,
+                "DuckDB unavailable; fact %s written to JSONL only",
+                fact.id,
             )
             return
 
@@ -213,11 +214,14 @@ class MemoryStore:
                 self._write_embedding(fact.id, embedding)
             else:
                 logger.warning(
-                    "Embedding generation returned None for fact %s", fact.id,
+                    "Embedding generation returned None for fact %s",
+                    fact.id,
                 )
         except Exception:
             logger.warning(
-                "Embedding write failed for fact %s", fact.id, exc_info=True,
+                "Embedding write failed for fact %s",
+                fact.id,
+                exc_info=True,
             )
 
     def mark_superseded(self, old_fact_id: str, new_fact_id: str) -> None:

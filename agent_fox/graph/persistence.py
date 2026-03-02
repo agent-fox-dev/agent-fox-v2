@@ -90,10 +90,7 @@ def save_plan(graph: TaskGraph, plan_path: Path) -> None:
     """
     data: dict[str, Any] = {
         "metadata": _metadata_to_dict(graph.metadata),
-        "nodes": {
-            nid: _node_to_dict(node)
-            for nid, node in graph.nodes.items()
-        },
+        "nodes": {nid: _node_to_dict(node) for nid, node in graph.nodes.items()},
         "edges": [_edge_to_dict(edge) for edge in graph.edges],
         "order": graph.order,
     }
@@ -134,10 +131,7 @@ def load_plan(plan_path: Path) -> TaskGraph | None:
             nid: _node_from_dict(node_data)
             for nid, node_data in data.get("nodes", {}).items()
         }
-        edges = [
-            _edge_from_dict(edge_data)
-            for edge_data in data.get("edges", [])
-        ]
+        edges = [_edge_from_dict(edge_data) for edge_data in data.get("edges", [])]
         order = data.get("order", [])
 
         return TaskGraph(

@@ -175,7 +175,8 @@ def _filter_sessions_by_window(
                 result.append(session)
         except (ValueError, TypeError):
             logger.warning(
-                "Invalid timestamp in session record: %s", session.timestamp,
+                "Invalid timestamp in session record: %s",
+                session.timestamp,
             )
     return result
 
@@ -257,7 +258,8 @@ def _get_human_commits(
     try:
         result = subprocess.run(
             [
-                "git", "log",
+                "git",
+                "log",
                 f"--since={since_iso}",
                 "--format=%H|%an|%aI|%s",
                 "--name-only",
@@ -318,9 +320,7 @@ def _parse_git_log_output(output: str) -> list[HumanCommit]:
         if stripped and "|" in stripped:
             # Check if it looks like a commit header (40-char hex hash prefix)
             parts = stripped.split("|", 1)
-            if len(parts[0]) == 40 and all(
-                c in "0123456789abcdef" for c in parts[0]
-            ):
+            if len(parts[0]) == 40 and all(c in "0123456789abcdef" for c in parts[0]):
                 headers.append((stripped, i))
 
     for idx, (header, start_line) in enumerate(headers):
@@ -462,7 +462,11 @@ def _build_queue_summary(
     """
     if graph is None:
         return QueueSummary(
-            ready=0, pending=0, blocked=0, failed=0, completed=0,
+            ready=0,
+            pending=0,
+            blocked=0,
+            failed=0,
+            completed=0,
         )
 
     # Get node statuses from state, defaulting to pending
@@ -491,10 +495,7 @@ def _build_queue_summary(
         elif status == "pending":
             # Check if ready (all predecessors completed)
             preds = graph.predecessors(nid)
-            if all(
-                node_states.get(p, "pending") == "completed"
-                for p in preds
-            ):
+            if all(node_states.get(p, "pending") == "completed" for p in preds):
                 ready += 1
             else:
                 pending += 1

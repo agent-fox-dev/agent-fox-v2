@@ -55,9 +55,7 @@ def fix_cmd(ctx: click.Context, max_passes: int) -> None:
 
     # 08-REQ-7.E1: Clamp max_passes (loop also clamps, but warn at CLI level)
     if max_passes < 1:
-        logger.warning(
-            "--max-passes=%d is invalid, clamping to 1", max_passes
-        )
+        logger.warning("--max-passes=%d is invalid, clamping to 1", max_passes)
         max_passes = 1
 
     # Run the fix loop

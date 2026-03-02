@@ -33,9 +33,7 @@ MODEL_REGISTRY: dict[str, ModelEntry] = {
     "claude-sonnet-4-6": ModelEntry(
         "claude-sonnet-4-6", ModelTier.STANDARD, 3.00, 15.00
     ),
-    "claude-opus-4-6": ModelEntry(
-        "claude-opus-4-6", ModelTier.ADVANCED, 15.00, 75.00
-    ),
+    "claude-opus-4-6": ModelEntry("claude-opus-4-6", ModelTier.ADVANCED, 15.00, 75.00),
 }
 
 TIER_DEFAULTS: dict[ModelTier, str] = {
@@ -76,9 +74,7 @@ def resolve_model(name: str) -> ModelEntry:
     )
 
 
-def calculate_cost(
-    input_tokens: int, output_tokens: int, model: ModelEntry
-) -> float:
+def calculate_cost(input_tokens: int, output_tokens: int, model: ModelEntry) -> float:
     """Calculate estimated cost in USD.
 
     Args:

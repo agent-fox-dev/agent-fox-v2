@@ -63,8 +63,8 @@ class KnowledgeIngestor:
         Returns:
             An IngestResult summarizing what was ingested.
         """
-        target_dir = adr_dir if adr_dir is not None else (
-            self._project_root / "docs" / "adr"
+        target_dir = (
+            adr_dir if adr_dir is not None else (self._project_root / "docs" / "adr")
         )
 
         if not target_dir.exists() or not target_dir.is_dir():
@@ -83,7 +83,8 @@ class KnowledgeIngestor:
             filename = md_file.name
 
             if self._is_already_ingested(
-                category="adr", identifier=filename,
+                category="adr",
+                identifier=filename,
             ):
                 facts_skipped += 1
                 continue
@@ -116,12 +117,15 @@ class KnowledgeIngestor:
                 else:
                     embedding_failures += 1
                     logger.warning(
-                        "Embedding returned None for ADR %s", filename,
+                        "Embedding returned None for ADR %s",
+                        filename,
                     )
             except Exception:
                 embedding_failures += 1
                 logger.warning(
-                    "Embedding failed for ADR %s", filename, exc_info=True,
+                    "Embedding failed for ADR %s",
+                    filename,
+                    exc_info=True,
                 )
 
         return IngestResult(
@@ -157,7 +161,8 @@ class KnowledgeIngestor:
         """
         # Build git log command
         cmd = [
-            "git", "log",
+            "git",
+            "log",
             f"--max-count={limit}",
             "--format=%H%x00%aI%x00%s",
         ]
@@ -182,7 +187,8 @@ class KnowledgeIngestor:
 
         if result.returncode != 0:
             logger.warning(
-                "git log returned non-zero exit code: %d", result.returncode,
+                "git log returned non-zero exit code: %d",
+                result.returncode,
             )
             return IngestResult(
                 source_type="git",
@@ -207,7 +213,8 @@ class KnowledgeIngestor:
             sha, date, message = parts
 
             if self._is_already_ingested(
-                category="git", identifier=sha,
+                category="git",
+                identifier=sha,
             ):
                 facts_skipped += 1
                 continue
@@ -237,12 +244,15 @@ class KnowledgeIngestor:
                 else:
                     embedding_failures += 1
                     logger.warning(
-                        "Embedding returned None for commit %s", sha,
+                        "Embedding returned None for commit %s",
+                        sha,
                     )
             except Exception:
                 embedding_failures += 1
                 logger.warning(
-                    "Embedding failed for commit %s", sha, exc_info=True,
+                    "Embedding failed for commit %s",
+                    sha,
+                    exc_info=True,
                 )
 
         return IngestResult(

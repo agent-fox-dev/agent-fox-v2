@@ -36,9 +36,7 @@ def patterns_cmd(ctx: click.Context, min_occurrences: int) -> None:
 
     db = open_knowledge_store(config.knowledge)
     if db is None:
-        click.echo(
-            "No recurring patterns detected. More session history is needed."
-        )
+        click.echo("No recurring patterns detected. More session history is needed.")
         return
 
     try:

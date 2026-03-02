@@ -60,9 +60,7 @@ class TaskGraph:
     edges: list[Edge]  # all dependency edges
     order: list[str]  # topologically sorted node IDs
     metadata: PlanMetadata = field(
-        default_factory=lambda: PlanMetadata(
-            created_at=datetime.now().isoformat()
-        )
+        default_factory=lambda: PlanMetadata(created_at=datetime.now().isoformat())
     )
 
     def predecessors(self, node_id: str) -> list[str]:
@@ -80,8 +78,6 @@ class TaskGraph:
             if node.status != NodeStatus.PENDING:
                 continue
             preds = self.predecessors(node_id)
-            if all(
-                self.nodes[p].status == NodeStatus.COMPLETED for p in preds
-            ):
+            if all(self.nodes[p].status == NodeStatus.COMPLETED for p in preds):
                 ready.append(node_id)
         return ready

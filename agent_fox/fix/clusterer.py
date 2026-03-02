@@ -49,9 +49,7 @@ def cluster_failures(
     try:
         return _ai_cluster(failures, config)
     except Exception:
-        logger.warning(
-            "AI clustering unavailable, falling back to per-check grouping"
-        )
+        logger.warning("AI clustering unavailable, falling back to per-check grouping")
         return _fallback_cluster(failures)
 
 
@@ -114,18 +112,20 @@ def _build_clustering_prompt(failures: list[FailureRecord]) -> str:
         lines.append(f"Output: {output}")
         lines.append("")
 
-    lines.extend([
-        "Respond in JSON format:",
-        "{",
-        '  "groups": [',
-        "    {",
-        '      "label": "Short descriptive label",',
-        '      "failure_indices": [0, 1],',
-        '      "suggested_approach": "Description of how to fix..."',
-        "    }",
-        "  ]",
-        "}",
-    ])
+    lines.extend(
+        [
+            "Respond in JSON format:",
+            "{",
+            '  "groups": [',
+            "    {",
+            '      "label": "Short descriptive label",',
+            '      "failure_indices": [0, 1],',
+            '      "suggested_approach": "Description of how to fix..."',
+            "    }",
+            "  ]",
+            "}",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -192,18 +192,11 @@ def _parse_ai_response(
 
 _CATEGORY_APPROACHES: dict[str, str] = {
     "test": (
-        "Investigate test failures, fix the failing test cases "
-        "or the code under test."
+        "Investigate test failures, fix the failing test cases or the code under test."
     ),
     "lint": "Fix linting violations reported by the checker.",
-    "type": (
-        "Add or fix type annotations to resolve "
-        "type-checking errors."
-    ),
-    "build": (
-        "Resolve build errors by fixing compilation "
-        "or packaging issues."
-    ),
+    "type": ("Add or fix type annotations to resolve type-checking errors."),
+    "build": ("Resolve build errors by fixing compilation or packaging issues."),
 }
 
 _DEFAULT_APPROACH = "Investigate and fix the reported issues."

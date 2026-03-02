@@ -98,7 +98,10 @@ def format_table(findings: list[Finding], console: Console) -> None:
         # Add spec header as a section row
         table.add_row(
             f"[bold underline]{spec_name}[/bold underline]",
-            "", "", "", "",
+            "",
+            "",
+            "",
+            "",
         )
         for f in grouped[spec_name]:
             style = _SEVERITY_STYLES.get(f.severity, "")
@@ -145,9 +148,7 @@ def format_yaml(findings: list[Finding]) -> str:
     try:
         import yaml  # type: ignore[import-untyped]
     except ImportError:
-        logger.warning(
-            "PyYAML is not installed; falling back to JSON output."
-        )
+        logger.warning("PyYAML is not installed; falling back to JSON output.")
         return format_json(findings)
 
     data = {
@@ -159,7 +160,8 @@ def format_yaml(findings: list[Finding]) -> str:
 
 @click.command("lint-spec")
 @click.option(
-    "--format", "output_format",
+    "--format",
+    "output_format",
     type=click.Choice(["table", "json", "yaml"]),
     default="table",
     help="Output format for findings.",

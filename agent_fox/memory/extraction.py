@@ -87,9 +87,7 @@ async def extract_facts(
     try:
         facts = _parse_extraction_response(raw_text, spec_name)
     except ValueError:
-        logger.warning(
-            "Extraction returned invalid JSON, skipping fact extraction"
-        )
+        logger.warning("Extraction returned invalid JSON, skipping fact extraction")
         return []
 
     if not facts:
@@ -211,9 +209,7 @@ def _parse_extraction_response(
         # Validate category -- default to gotcha for unknown values
         category = item.get("category", "gotcha")
         if category not in _VALID_CATEGORIES:
-            logger.warning(
-                "Unknown category '%s', defaulting to 'gotcha'", category
-            )
+            logger.warning("Unknown category '%s', defaulting to 'gotcha'", category)
             category = Category.GOTCHA.value
 
         # Validate confidence -- default to medium for unknown values

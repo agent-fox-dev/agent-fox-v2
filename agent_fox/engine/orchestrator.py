@@ -131,9 +131,7 @@ class Orchestrator:
         attempt_tracker: dict[str, int] = self._init_attempt_tracker(state)
 
         # Track last error per task for retry context
-        error_tracker: dict[str, str | None] = (
-            self._init_error_tracker(state)
-        )
+        error_tracker: dict[str, str | None] = self._init_error_tracker(state)
 
         # 3. Install signal handler
         self._install_signal_handler()
@@ -186,14 +184,20 @@ class Orchestrator:
                 if self._is_parallel and self._parallel_runner is not None:
                     # -- Parallel dispatch --
                     await self._dispatch_parallel(
-                        ready, state, attempt_tracker, error_tracker,
+                        ready,
+                        state,
+                        attempt_tracker,
+                        error_tracker,
                         first_dispatch,
                     )
                     first_dispatch = False
                 else:
                     # -- Serial dispatch (one at a time) --
                     first_dispatch = await self._dispatch_serial(
-                        ready, state, attempt_tracker, error_tracker,
+                        ready,
+                        state,
+                        attempt_tracker,
+                        error_tracker,
                         first_dispatch,
                     )
 
@@ -224,7 +228,9 @@ class Orchestrator:
 
             # Check circuit breaker for this specific launch
             launch_decision = self._circuit.check_launch(
-                node_id, attempt, state,
+                node_id,
+                attempt,
+                state,
             )
             if not launch_decision.allowed:
                 # Check which limit was hit
@@ -235,7 +241,8 @@ class Orchestrator:
                     # Retry limit: block the task
                     attempt_tracker[node_id] = attempt
                     self._block_task(
-                        node_id, state,
+                        node_id,
+                        state,
                         f"Retry limit exceeded for {node_id}",
                     )
                     continue
@@ -257,12 +264,18 @@ class Orchestrator:
 
             # Dispatch session
             record = await self._dispatch_session(
-                node_id, attempt, previous_error,
+                node_id,
+                attempt,
+                previous_error,
             )
 
             # Process the completed session
             self._process_session_result(
-                record, attempt, state, attempt_tracker, error_tracker,
+                record,
+                attempt,
+                state,
+                attempt_tracker,
+                error_tracker,
             )
 
             # Only dispatch one task per loop iteration in serial mode
@@ -298,7 +311,9 @@ class Orchestrator:
 
             # Check circuit breaker for this specific launch
             launch_decision = self._circuit.check_launch(
-                node_id, attempt, state,
+                node_id,
+                attempt,
+                state,
             )
             if not launch_decision.allowed:
                 if (
@@ -308,7 +323,8 @@ class Orchestrator:
                     # Retry limit: block the task
                     attempt_tracker[node_id] = attempt
                     self._block_task(
-                        node_id, state,
+                        node_id,
+                        state,
                         f"Retry limit exceeded for {node_id}",
                     )
                 continue
@@ -431,8 +447,7 @@ class Orchestrator:
             if status == "in_progress":
                 state.node_states[node_id] = "pending"
                 logger.info(
-                    "Task %s was in_progress from prior run; "
-                    "resetting to pending.",
+                    "Task %s was in_progress from prior run; resetting to pending.",
                     node_id,
                 )
 
@@ -472,8 +487,7 @@ class Orchestrator:
             if status == "pending" and node_id not in tracker:
                 # Check if this node had prior attempts
                 prior_attempts = [
-                    r for r in state.session_history
-                    if r.node_id == node_id
+                    r for r in state.session_history if r.node_id == node_id
                 ]
                 if prior_attempts:
                     last = prior_attempts[-1]
@@ -519,9 +533,9 @@ class Orchestrator:
             if attempt >= self._config.max_retries + 1:
                 # Exhausted retries: block task and cascade
                 self._block_task(
-                    node_id, state,
-                    f"Retries exhausted for {node_id}: "
-                    f"{record.error_message}",
+                    node_id,
+                    state,
+                    f"Retries exhausted for {node_id}: {record.error_message}",
                 )
             else:
                 # Will retry: reset to pending
@@ -542,7 +556,9 @@ class Orchestrator:
         Returns a SessionRecord with the session outcome.
         """
         return await self._serial_runner.execute(
-            node_id, attempt, previous_error,
+            node_id,
+            attempt,
+            previous_error,
         )
 
     def _block_task(
@@ -558,7 +574,9 @@ class Orchestrator:
             for blocked_id in cascade_blocked:
                 state.node_states[blocked_id] = "blocked"
                 logger.info(
-                    "Cascade-blocked %s due to %s", blocked_id, node_id,
+                    "Cascade-blocked %s due to %s",
+                    blocked_id,
+                    node_id,
                 )
 
     def _install_signal_handler(self) -> None:
@@ -566,6 +584,7 @@ class Orchestrator:
 
         Double-SIGINT exits immediately (04-REQ-8.E1).
         """
+
         def handler(signum: int, frame: Any) -> None:
             self._interrupt_count += 1
             if self._interrupt_count >= 2:
@@ -603,9 +622,7 @@ class Orchestrator:
         state.run_status = RunStatus.INTERRUPTED
         self._state_manager.save(state)
 
-        summary = (
-            self._graph_sync.summary() if self._graph_sync else {}
-        )
+        summary = self._graph_sync.summary() if self._graph_sync else {}
         completed = summary.get("completed", 0)
         total = sum(summary.values()) if summary else 0
         remaining = total - completed

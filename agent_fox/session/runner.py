@@ -23,18 +23,62 @@ DEFAULT_BASH_ALLOWLIST: list[str] = [
     # Version control
     "git",
     # Package management
-    "uv", "pip", "npm", "npx", "yarn", "pnpm",
+    "uv",
+    "pip",
+    "npm",
+    "npx",
+    "yarn",
+    "pnpm",
     # Build and test
-    "python", "python3", "pytest", "mypy", "ruff",
-    "make", "cargo", "go", "node",
+    "python",
+    "python3",
+    "pytest",
+    "mypy",
+    "ruff",
+    "make",
+    "cargo",
+    "go",
+    "node",
     # File utilities
-    "cat", "head", "tail", "less", "wc", "sort", "uniq",
-    "find", "grep", "rg", "sed", "awk", "tr", "cut",
-    "ls", "tree", "pwd", "basename", "dirname", "realpath",
-    "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod",
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "wc",
+    "sort",
+    "uniq",
+    "find",
+    "grep",
+    "rg",
+    "sed",
+    "awk",
+    "tr",
+    "cut",
+    "ls",
+    "tree",
+    "pwd",
+    "basename",
+    "dirname",
+    "realpath",
+    "cp",
+    "mv",
+    "rm",
+    "mkdir",
+    "rmdir",
+    "touch",
+    "chmod",
     # System info
-    "echo", "printf", "date", "env", "which", "whoami",
-    "uname", "diff", "patch", "tee", "xargs",
+    "echo",
+    "printf",
+    "date",
+    "env",
+    "which",
+    "whoami",
+    "uname",
+    "diff",
+    "patch",
+    "tee",
+    "xargs",
 ]
 
 
@@ -168,9 +212,7 @@ async def _execute_query(
             # 03-REQ-3.E2: Check is_error flag
             if getattr(message, "is_error", False):
                 status = "failed"
-                error_message = (
-                    getattr(message, "result", None) or "Unknown error"
-                )
+                error_message = getattr(message, "result", None) or "Unknown error"
 
     return {
         "input_tokens": input_tokens,

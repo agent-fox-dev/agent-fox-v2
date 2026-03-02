@@ -91,7 +91,9 @@ class ParallelRunner:
         ) -> SessionRecord:
             async with semaphore:
                 record = await self._execute_session(
-                    node_id, attempt, previous_error,
+                    node_id,
+                    attempt,
+                    previous_error,
                 )
 
             # Invoke callback under lock to serialise state writes
@@ -111,7 +113,8 @@ class ParallelRunner:
 
         # Gather results, collecting exceptions rather than raising
         results = await asyncio.gather(
-            *self._in_flight_tasks, return_exceptions=True,
+            *self._in_flight_tasks,
+            return_exceptions=True,
         )
 
         records: list[SessionRecord] = []
@@ -136,7 +139,8 @@ class ParallelRunner:
 
         if self._in_flight_tasks:
             await asyncio.gather(
-                *self._in_flight_tasks, return_exceptions=True,
+                *self._in_flight_tasks,
+                return_exceptions=True,
             )
             self._in_flight_tasks.clear()
 

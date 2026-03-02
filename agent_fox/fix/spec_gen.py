@@ -56,8 +56,7 @@ def _build_requirements_md(cluster: FailureCluster) -> str:
 
     for i, failure in enumerate(cluster.failures):
         lines.append(
-            f"### Failure {i + 1}: {failure.check.name} "
-            f"(exit code {failure.exit_code})"
+            f"### Failure {i + 1}: {failure.check.name} (exit code {failure.exit_code})"
         )
         lines.append("")
         lines.append("```")
@@ -65,12 +64,14 @@ def _build_requirements_md(cluster: FailureCluster) -> str:
         lines.append("```")
         lines.append("")
 
-    lines.extend([
-        "## Requirements",
-        "",
-        "- [ ] All failures listed above must be resolved",
-        "- [ ] Quality checks must pass after the fix",
-    ])
+    lines.extend(
+        [
+            "## Requirements",
+            "",
+            "- [ ] All failures listed above must be resolved",
+            "- [ ] Quality checks must pass after the fix",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -106,14 +107,14 @@ def _build_tasks_md(cluster: FailureCluster) -> str:
     ]
 
     for i, failure in enumerate(cluster.failures):
-        lines.append(
-            f"  - [ ] 1.{i + 1} Resolve {failure.check.name} failure"
-        )
+        lines.append(f"  - [ ] 1.{i + 1} Resolve {failure.check.name} failure")
 
-    lines.extend([
-        "",
-        "- [ ] 2. Verify all quality checks pass",
-    ])
+    lines.extend(
+        [
+            "",
+            "- [ ] 2. Verify all quality checks pass",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -130,10 +131,7 @@ def _build_task_prompt(cluster: FailureCluster) -> str:
     ]
 
     for i, failure in enumerate(cluster.failures):
-        lines.append(
-            f"[{i + 1}] {failure.check.name} "
-            f"(exit code {failure.exit_code}):"
-        )
+        lines.append(f"[{i + 1}] {failure.check.name} (exit code {failure.exit_code}):")
         lines.append(failure.output)
         lines.append("")
 
@@ -167,19 +165,13 @@ def generate_fix_spec(
     (spec_dir / "requirements.md").write_text(
         _build_requirements_md(cluster), encoding="utf-8"
     )
-    (spec_dir / "design.md").write_text(
-        _build_design_md(cluster), encoding="utf-8"
-    )
-    (spec_dir / "tasks.md").write_text(
-        _build_tasks_md(cluster), encoding="utf-8"
-    )
+    (spec_dir / "design.md").write_text(_build_design_md(cluster), encoding="utf-8")
+    (spec_dir / "tasks.md").write_text(_build_tasks_md(cluster), encoding="utf-8")
 
     # Build the task prompt
     task_prompt = _build_task_prompt(cluster)
 
-    logger.info(
-        "Generated fix spec for '%s' at %s", cluster.label, spec_dir
-    )
+    logger.info("Generated fix spec for '%s' at %s", cluster.label, spec_dir)
 
     return FixSpec(
         cluster_label=cluster.label,

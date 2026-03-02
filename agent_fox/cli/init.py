@@ -123,8 +123,7 @@ def init_cmd(ctx: click.Context) -> None:
     # 01-REQ-3.5: check we are in a git repository
     if not _is_git_repo():
         click.echo(
-            "Error: Not inside a git repository. "
-            "Run 'git init' first.",
+            "Error: Not inside a git repository. Run 'git init' first.",
             err=True,
         )
         ctx.exit(1)

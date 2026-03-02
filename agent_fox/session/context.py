@@ -48,7 +48,9 @@ def assemble_context(
         if not filepath.exists():
             # 03-REQ-4.E1: Skip missing files with a warning
             logger.warning(
-                "Spec file '%s' not found in %s, skipping", filename, spec_dir,
+                "Spec file '%s' not found in %s, skipping",
+                filename,
+                spec_dir,
             )
             continue
         content = filepath.read_text(encoding="utf-8")
@@ -101,22 +103,22 @@ def select_context_with_causal(
         try:
             chain = traverse_causal_chain(conn, fact_id, max_depth=3)
         except Exception:
-            logger.debug(
-                "Failed to traverse causal chain for fact %s", fact_id
-            )
+            logger.debug("Failed to traverse causal chain for fact %s", fact_id)
             continue
         for cf in chain:
             if cf.fact_id not in seen_ids:
-                causal_candidates.append((
-                    abs(cf.depth),
-                    {
-                        "id": cf.fact_id,
-                        "content": cf.content,
-                        "spec_name": cf.spec_name,
-                        "session_id": cf.session_id,
-                        "commit_sha": cf.commit_sha,
-                    },
-                ))
+                causal_candidates.append(
+                    (
+                        abs(cf.depth),
+                        {
+                            "id": cf.fact_id,
+                            "content": cf.content,
+                            "spec_name": cf.spec_name,
+                            "session_id": cf.session_id,
+                            "commit_sha": cf.commit_sha,
+                        },
+                    )
+                )
 
     # 3. Also query for facts linked to the current spec_name
     try:
@@ -134,16 +136,18 @@ def select_context_with_causal(
                     continue
                 for cf in chain:
                     if cf.fact_id not in seen_ids:
-                        causal_candidates.append((
-                            abs(cf.depth),
-                            {
-                                "id": cf.fact_id,
-                                "content": cf.content,
-                                "spec_name": cf.spec_name,
-                                "session_id": cf.session_id,
-                                "commit_sha": cf.commit_sha,
-                            },
-                        ))
+                        causal_candidates.append(
+                            (
+                                abs(cf.depth),
+                                {
+                                    "id": cf.fact_id,
+                                    "content": cf.content,
+                                    "spec_name": cf.spec_name,
+                                    "session_id": cf.session_id,
+                                    "commit_sha": cf.commit_sha,
+                                },
+                            )
+                        )
     except Exception:
         logger.debug("Failed to query facts for spec_name %s", spec_name)
 
