@@ -17,6 +17,10 @@
 - When rebasing a feature branch that is checked out in a worktree, `git rebase <onto> <branch>` fails with 'already used by worktree' error. Run `git rebase <onto>` without the branch argument from within the worktree directory instead. *(source: 03_session_and_workspace/4)*
 - The render module must iterate over CATEGORY_TITLES dict keys (not the Category enum) to ensure correct section ordering and prevent unpopulated categories from appearing. *(source: 05_structured_memory/5)*
 - Pre-existing mypy errors in extraction.py (union-attr on response.content[0].text) do not propagate to or affect compaction or render modules. *(source: 05_structured_memory/5)*
+- Test helpers in test_hot_load.py use a prd.md dependency table format (`| Spec | Dependency |`) that differs from the standard parser's expected format (`| This Spec | Depends On |`), requiring the hot_load module to implement broader regex patterns to handle both formats. *(source: 06_hooks_sync_security/4)*
+- `discover_specs()` raises `PlanError` when no specs are found, so callers like `discover_new_specs()` must catch this exception to gracefully handle empty or missing specs directories. *(source: 06_hooks_sync_security/4)*
+- SessionRecord dataclass in `agent_fox/engine/state.py` does not have a `model` field despite design.md mentioning model info for cost breakdown. Model info must be derived from config or session outcome metadata. *(source: 07_operational_commands/1)*
+- `ExecutionState.node_states` may not contain entries for all nodes in the plan (e.g., when state was written before new tasks were added). The `generate_status()` function fills missing entries with 'pending' status. *(source: 07_operational_commands/2)*
 
 ## Patterns
 
@@ -50,7 +54,6 @@
 - The orchestrator determines which RunStatus to set (COST_LIMIT vs SESSION_LIMIT) by re-checking the specific limit conditions after should_stop() returns denied, rather than relying on the reason string from LaunchDecision. *(source: 04_orchestrator/5)*
 - Memory module structure organizes code into layers: types.py (data models), store.py (persistence), extraction.py (LLM integration), filter.py (selection), compaction.py (dedup), render.py (output). *(source: 05_structured_memory/1)*
 - The `make_fact()` helper in conftest.py provides sensible defaults for all Fact dataclass fields, allowing tests to override only the fields they need to customize. *(source: 05_structured_memory/1)*
-- Extraction tests mock the Anthropic client by patching `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with a return value containing `messages.create` as an AsyncMock. *(source: 05_structured_memory/1)*
 - Property test Hypothesis strategies generate ISO 8601 timestamps for `created_at` field using `from_regex()` rather than `datetimes()` to match the string-based dataclass field. *(source: 05_structured_memory/1)*
 - Hook runner tests use real temporary shell scripts (created via `tmp_hook_script`) and marker files to verify execution order and environment variable passing, rather than mocking subprocess. *(source: 06_hooks_sync_security/1)*
 - Hot-load test helpers (`_make_minimal_tasks_md`, `_make_minimal_prd_md`, `_make_graph_with_spec`) create minimal valid spec structures in temp directories for testing graph augmentation. *(source: 06_hooks_sync_security/1)*
@@ -66,6 +69,10 @@
 - Compaction deduplication uses a two-pass approach: first pass identifies the earliest fact per content hash, second pass preserves original ordering among deduplicated survivors. *(source: 05_structured_memory/5)*
 - Supersession resolution collects all superseded IDs (targets of `supersedes` fields) into a set and filters them in a single pass; transitive chains are handled implicitly because intermediate facts are also targets. *(source: 05_structured_memory/5)*
 - The security module uses `PurePosixPath.name` to strip path prefixes from command strings, which works correctly for both absolute paths and plain command names. *(source: 06_hooks_sync_security/3)*
+- Hot-load dependency validation checks against all known specs (existing dependency graph plus newly discovered specs) to properly handle cross-references between new specs and existing ones. *(source: 06_hooks_sync_security/4)*
+- Property test TS-07-P1 validates count consistency invariant end-to-end by calling `generate_status()` with file-based state and plan files, rather than testing only the data model invariant on constructed reports. *(source: 07_operational_commands/1)*
+- The `generate_status()` function loads plan.json via `load_plan()` from `agent_fox.graph.persistence` (returns `TaskGraph | None`) and state.jsonl via `StateManager.load()` (returns `ExecutionState | None`). Missing plan raises `AgentFoxError`; missing state is handled gracefully with all-pending defaults. *(source: 07_operational_commands/2)*
+- Per-spec breakdown uses `Node.spec_name` from the graph to group tasks, falling back to parsing the node_id prefix (before ':') when the node isn't in the graph. *(source: 07_operational_commands/2)*
 
 ## Decisions
 
@@ -97,6 +104,8 @@
 - The `DEFAULT_ALLOWLIST` constant is defined directly in the stub module (not as a NotImplementedError stub) because it is a pure data constant. This means tests that only inspect the constant pass immediately, consistent with the project convention for pure data types. *(source: 06_hooks_sync_security/1)*
 - Sync interval barrier trigger tests (TS-06-E7) test pure arithmetic logic without any module dependency, so they pass immediately against stubs. *(source: 06_hooks_sync_security/1)*
 - `check_command_allowed()` delegates to `extract_command_name()` for command parsing, so empty/whitespace commands raise `SecurityError` from `extract_command_name` rather than returning `(False, msg)` from `check_command_allowed`. *(source: 06_hooks_sync_security/3)*
+- `should_trigger_barrier()` is implemented as a pure boolean check using the formula `sync_interval > 0 and completed_count > 0 and completed_count % sync_interval == 0`, directly matching the specification in design.md. *(source: 06_hooks_sync_security/4)*
+- PyYAML (`pyyaml>=6.0`) was added as a runtime dependency in `pyproject.toml` to enable YAML output formatting. *(source: 07_operational_commands/1)*
 
 ## Conventions
 
@@ -119,14 +128,12 @@
 - Session test fixtures live in `tests/unit/session/conftest.py` and include: `tmp_spec_dir`, `default_config`, `short_timeout_config`, `small_allowlist_config`, and `workspace_info`. *(source: 03_session_and_workspace/1)*
 - `run_git()` is the single low-level function that all other git operations delegate to; it centralizes check/raise semantics so callers don't need to. *(source: 03_session_and_workspace/2)*
 - `merge_fast_forward()` and `rebase_onto()` raise `IntegrationError` (not `WorkspaceError`) since they belong to the harvesting/integration domain rather than workspace management. *(source: 03_session_and_workspace/2)*
-- The allowlist hook returns a dict with {"callback": fn} structure, where the callback is a sync function accepting tool_name and tool_input keyword arguments, returning {"decision": "block", "message": "..."} to block or {} to allow. *(source: 03_session_and_workspace/3)*
 - The effective allowlist is computed as: if config.security.bash_allowlist is set (not None), use it as replacement; otherwise use DEFAULT_BASH_ALLOWLIST + config.security.bash_allowlist_extend. *(source: 03_session_and_workspace/3)*
 - Engine modules are located under agent_fox/engine/ consisting of six files: orchestrator.py, serial.py, parallel.py, circuit.py, state.py, and sync.py. Corresponding unit and property tests mirror this structure in tests/unit/engine/ and tests/property/engine/. *(source: 04_orchestrator/1)*
 - Orchestrator tests use class-based grouping where test class names map to test spec IDs (e.g., TestReadyTasksIdentified → TS-04-2, TestCascadeBlockingLinear → TS-04-6). *(source: 04_orchestrator/1)*
 - Stub modules use raise NotImplementedError in all methods to ensure test failures occur at assertion level rather than import level, enabling proper test collection. *(source: 04_orchestrator/1)*
 - RunStatus uses StrEnum instead of str, Enum per ruff rule UP042. *(source: 04_orchestrator/1)*
 - ruff requires imports sorted in order: stdlib → third-party → first-party → local. Use 'ruff check --fix' to auto-sort. Property test files import hypothesis before agent_fox modules. *(source: 04_orchestrator/1)*
-- Use `datetime.UTC` alias instead of `datetime.timezone.utc` to satisfy ruff linter rule UP017. *(source: 04_orchestrator/2)*
 - Plan edges use source → target notation where source must complete before target. The Orchestrator converts these to GraphSync edges dict format: {target: [source, ...]} mapping each node to its dependency predecessors. *(source: 04_orchestrator/3)*
 - Session runner factories must return either a callable with signature `(node_id, attempt, previous_error) -> SessionRecord` or an object with an `execute()` method. Runner code checks `hasattr(runner, 'execute')` to support both patterns. *(source: 04_orchestrator/4)*
 - Stub modules import external dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` to find the attribute on the module. *(source: 05_structured_memory/1)*
@@ -136,10 +143,12 @@
 - Security property tests use Hypothesis strategies for command-like strings with alphabet restricted to letters, numbers, and common path characters (`_-./`). *(source: 06_hooks_sync_security/1)*
 - Per-hook failure mode is looked up from `config.modes` dict using the script path as key, defaulting to `"abort"` when not found, per requirement 06-REQ-2.3. *(source: 06_hooks_sync_security/2)*
 - Write operations (append_facts, write_facts) catch OSError and log errors without raising, per requirement 05-REQ-3.E2. Read operations (load_all_facts) return empty lists for missing files without logging errors. *(source: 05_structured_memory/2)*
-- Ruff rule UP017 requires using `datetime.UTC` instead of `timezone.utc` when targeting Python 3.12+. *(source: 05_structured_memory/3)*
 - The ruff linter enforces UP017: use `datetime.UTC` instead of `datetime.timezone.utc` for Python 3.12+. *(source: 05_structured_memory/4)*
 - The `make_pre_tool_use_hook()` function returns a plain callable (closure) that accepts `tool_name` and `tool_input` as keyword arguments and returns a dict with `{"decision": "allow"}` or `{"decision": "block", "message": "..."}` keys. *(source: 06_hooks_sync_security/3)*
 - Import `Callable` from `collections.abc` (not `typing`) to satisfy ruff UP035 rule in this project. *(source: 06_hooks_sync_security/3)*
+- Reporting test fixtures are centralized in `tests/unit/reporting/conftest.py` with helper functions: `make_session_record()`, `make_execution_state()`, `write_state_file()`, `write_plan_file()`, and `hours_ago()`. *(source: 07_operational_commands/1)*
+- Reset property tests use `TaskGraph` objects directly (via `agent_fox.graph.types`) and call `save_plan`/`load_plan` from `agent_fox.graph.persistence` rather than writing raw JSON to maintain consistency with the persistence layer. *(source: 07_operational_commands/1)*
+- Problem tasks (failed/blocked) derive their reasons from different sources: failed tasks use the last `error_message` from `SessionRecord` in session_history, while blocked tasks derive their reason from predecessor analysis using `TaskGraph.predecessors()`. *(source: 07_operational_commands/2)*
 
 ## Anti-Patterns
 
