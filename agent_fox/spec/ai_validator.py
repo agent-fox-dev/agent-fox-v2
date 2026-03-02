@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 import anthropic  # noqa: F401
+from anthropic.types import TextBlock
 
 from agent_fox.spec.discovery import SpecInfo  # noqa: F401
 from agent_fox.spec.validator import SEVERITY_HINT, Finding  # noqa: F401
@@ -93,8 +94,20 @@ async def analyze_acceptance_criteria(
         ],
     )
 
-    # Parse the response
-    response_text = response.content[0].text
+    # Parse the response — narrow the content block union to TextBlock
+    first_block = response.content[0]
+    if isinstance(first_block, TextBlock):
+        response_text: str = first_block.text
+    else:
+        # Fallback for types with a .text attribute (e.g. test mocks)
+        maybe_text: str | None = getattr(first_block, "text", None)
+        if maybe_text is None:
+            logger.warning(
+                "AI response for spec '%s' has no text content, skipping",
+                spec_name,
+            )
+            return []
+        response_text = maybe_text
 
     try:
         data = json.loads(response_text)
