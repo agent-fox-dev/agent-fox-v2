@@ -14,6 +14,7 @@ from agent_fox.reporting.standup import (
     HumanCommit,
     _detect_overlaps,
     _get_human_commits,
+    _is_agent_commit,
     generate_standup,
 )
 
@@ -147,6 +148,145 @@ class TestStandupHumanCommits:
         for commit in commits:
             assert commit.author != "agent-fox"
             assert len(commit.sha) == 40
+
+
+# ---------------------------------------------------------------------------
+# Agent commit classification by message pattern
+# Requirement: 07-REQ-2.2 (improved heuristic)
+# ---------------------------------------------------------------------------
+
+
+class TestIsAgentCommit:
+    """Verify _is_agent_commit classifies by author AND message pattern."""
+
+    @staticmethod
+    def _commit(subject: str, author: str = "developer") -> HumanCommit:
+        return HumanCommit(
+            sha="a" * 40,
+            author=author,
+            timestamp="2026-03-01T10:00:00Z",
+            subject=subject,
+            files_changed=[],
+        )
+
+    def test_author_match(self) -> None:
+        """Commits by the agent author are classified as agent commits."""
+        c = self._commit("anything", author="agent-fox")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_feat(self) -> None:
+        c = self._commit("feat: add login flow")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_fix(self) -> None:
+        c = self._commit("fix: resolve null pointer in parser")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_chore(self) -> None:
+        c = self._commit("chore: update orchestrator state and memory")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_test(self) -> None:
+        c = self._commit("test: add failing spec tests for CLI banner")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_refactor(self) -> None:
+        c = self._commit("refactor: extract helper from validator")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_style(self) -> None:
+        c = self._commit("style: apply ruff formatting")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_docs(self) -> None:
+        c = self._commit("docs: update API reference")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_with_scope(self) -> None:
+        c = self._commit("feat(auth): add OAuth2 support")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_conventional_with_bang(self) -> None:
+        c = self._commit("feat!: breaking API change")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_merge_branch(self) -> None:
+        c = self._commit("Merge branch 'feature/15_standup_formatting-4' into develop")
+        assert _is_agent_commit(c, "agent-fox") is True
+
+    def test_human_informal_message(self) -> None:
+        """Informal commit messages are classified as human."""
+        c = self._commit("fixes")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_human_updated_readme(self) -> None:
+        c = self._commit("updated README")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_human_descriptive(self) -> None:
+        c = self._commit("bundle skills and added audits")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_human_short_note(self) -> None:
+        c = self._commit("specs 14,15")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_human_wip(self) -> None:
+        c = self._commit("wip")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_prefix_without_colon_is_human(self) -> None:
+        """Words like 'fix' or 'test' without colon-space are human."""
+        c = self._commit("fix the login bug")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+    def test_prefix_no_space_after_colon_is_human(self) -> None:
+        """'fix:nospace' should not match (colon without space)."""
+        c = self._commit("fix:nospace")
+        assert _is_agent_commit(c, "agent-fox") is False
+
+
+class TestHumanCommitsMessageFiltering:
+    """Verify _get_human_commits excludes agent-patterned messages."""
+
+    def test_conventional_commits_excluded(
+        self, tmp_git_repo: Path,
+    ) -> None:
+        """Commits with conventional prefixes are excluded as agent work."""
+        import subprocess
+
+        # Create a human-style commit
+        f = tmp_git_repo / "notes.txt"
+        f.write_text("some notes\n")
+        subprocess.run(
+            ["git", "add", "."], cwd=tmp_git_repo,
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "added some notes"],
+            cwd=tmp_git_repo, check=True, capture_output=True,
+        )
+
+        # Create an agent-style commit (conventional prefix, same author)
+        f2 = tmp_git_repo / "module.py"
+        f2.write_text("# new module\n")
+        subprocess.run(
+            ["git", "add", "."], cwd=tmp_git_repo,
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "commit", "-m", "feat: add new module"],
+            cwd=tmp_git_repo, check=True, capture_output=True,
+        )
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        commits = _get_human_commits(tmp_git_repo, since, "agent-fox")
+
+        # Should include: "initial" (from fixture) + "added some notes"
+        # Should exclude: "feat: add new module"
+        subjects = [c.subject for c in commits]
+        assert "added some notes" in subjects
+        assert "feat: add new module" not in subjects
 
 
 # ---------------------------------------------------------------------------

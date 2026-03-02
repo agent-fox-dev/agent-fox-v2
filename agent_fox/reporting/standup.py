@@ -6,6 +6,7 @@ Requirements: 07-REQ-2.1, 07-REQ-2.2, 07-REQ-2.3, 07-REQ-2.4, 07-REQ-2.5
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -318,6 +319,34 @@ def _collect_agent_files(
     return {}
 
 
+# Conventional-commit prefix pattern used by coding agents.
+_CONVENTIONAL_PREFIX_RE = re.compile(
+    r"^(feat|fix|refactor|test|chore|style|docs|ci|build|perf|revert)"
+    r"(\([^)]+\))?!?:\s",
+)
+
+# Merge-commit pattern produced by git merge (used by agent workflows).
+_MERGE_BRANCH_RE = re.compile(r"^Merge branch\s+'")
+
+
+def _is_agent_commit(commit: HumanCommit, agent_author: str) -> bool:
+    """Determine whether a commit was made by an agent.
+
+    Checks two signals:
+    1. Author name matches the configured agent identity.
+    2. Commit subject uses a conventional-commit prefix or is a
+       merge-branch commit — patterns agents follow but humans
+       typically do not.
+    """
+    if commit.author == agent_author:
+        return True
+    if _CONVENTIONAL_PREFIX_RE.match(commit.subject):
+        return True
+    if _MERGE_BRANCH_RE.match(commit.subject):
+        return True
+    return False
+
+
 def _get_human_commits(
     repo_path: Path,
     since: datetime,
@@ -362,8 +391,8 @@ def _get_human_commits(
 
     all_commits = _parse_git_log_output(result.stdout)
 
-    # Filter out agent commits
-    return [c for c in all_commits if c.author != agent_author]
+    # Filter out agent commits (by author identity AND commit message patterns)
+    return [c for c in all_commits if not _is_agent_commit(c, agent_author)]
 
 
 def _parse_git_log_output(output: str) -> list[HumanCommit]:
