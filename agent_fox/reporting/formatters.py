@@ -69,10 +69,12 @@ class TableFormatter:
         for status, count in sorted(report.counts.items()):
             style = status_styles.get(status, "")
             progress_table.add_row(
-                Text(status, style=style), str(count),
+                Text(status, style=style),
+                str(count),
             )
         progress_table.add_row(
-            Text("TOTAL", style="bold"), str(report.total_tasks),
+            Text("TOTAL", style="bold"),
+            str(report.total_tasks),
         )
         console.print(progress_table)
 
@@ -87,7 +89,8 @@ class TableFormatter:
         cost_table.add_row("Input Tokens", f"{report.input_tokens:,}")
         cost_table.add_row("Output Tokens", f"{report.output_tokens:,}")
         cost_table.add_row(
-            "Estimated Cost", f"${report.estimated_cost:.2f}",
+            "Estimated Cost",
+            f"${report.estimated_cost:.2f}",
         )
         console.print(cost_table)
 
@@ -121,8 +124,7 @@ class TableFormatter:
 
         # Header
         console.print(
-            f"\n[bold]Standup Report[/bold] "
-            f"(last {report.window_hours} hours)",
+            f"\n[bold]Standup Report[/bold] (last {report.window_hours} hours)",
         )
         console.print(
             f"Window: {report.window_start} to {report.window_end}\n",
@@ -137,14 +139,17 @@ class TableFormatter:
         agent_table.add_column("Metric")
         agent_table.add_column("Value", justify="right")
         agent_table.add_row(
-            "Tasks Completed", str(report.agent.tasks_completed),
+            "Tasks Completed",
+            str(report.agent.tasks_completed),
         )
         agent_table.add_row("Sessions Run", str(report.agent.sessions_run))
         agent_table.add_row(
-            "Input Tokens", f"{report.agent.input_tokens:,}",
+            "Input Tokens",
+            f"{report.agent.input_tokens:,}",
         )
         agent_table.add_row(
-            "Output Tokens", f"{report.agent.output_tokens:,}",
+            "Output Tokens",
+            f"{report.agent.output_tokens:,}",
         )
         agent_table.add_row("Cost", f"${report.agent.cost:.2f}")
         console.print(agent_table)
@@ -199,7 +204,9 @@ class TableFormatter:
             cost_table.add_column("Cost", justify="right")
             for cb in report.cost_breakdown:
                 cost_table.add_row(
-                    cb.tier, str(cb.sessions), f"${cb.cost:.2f}",
+                    cb.tier,
+                    str(cb.sessions),
+                    f"${cb.cost:.2f}",
                 )
             console.print(cost_table)
 
@@ -239,13 +246,17 @@ class YamlFormatter:
     def format_status(self, report: StatusReport) -> str:
         """Serialize status report as YAML."""
         return yaml.dump(
-            asdict(report), default_flow_style=False, sort_keys=False,
+            asdict(report),
+            default_flow_style=False,
+            sort_keys=False,
         )
 
     def format_standup(self, report: StandupReport) -> str:
         """Serialize standup report as YAML."""
         return yaml.dump(
-            asdict(report), default_flow_style=False, sort_keys=False,
+            asdict(report),
+            default_flow_style=False,
+            sort_keys=False,
         )
 
 

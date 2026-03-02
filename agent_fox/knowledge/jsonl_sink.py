@@ -69,38 +69,47 @@ class JsonlSink:
 
     def record_session_outcome(self, outcome: SessionOutcome) -> None:
         """Write session outcome as a JSON line."""
-        self._write_event("session_outcome", {
-            "id": outcome.id,
-            "spec_name": outcome.spec_name,
-            "task_group": outcome.task_group,
-            "node_id": outcome.node_id,
-            "touched_paths": outcome.touched_paths,
-            "status": outcome.status,
-            "input_tokens": outcome.input_tokens,
-            "output_tokens": outcome.output_tokens,
-            "duration_ms": outcome.duration_ms,
-            "created_at": outcome.created_at,
-        })
+        self._write_event(
+            "session_outcome",
+            {
+                "id": outcome.id,
+                "spec_name": outcome.spec_name,
+                "task_group": outcome.task_group,
+                "node_id": outcome.node_id,
+                "touched_paths": outcome.touched_paths,
+                "status": outcome.status,
+                "input_tokens": outcome.input_tokens,
+                "output_tokens": outcome.output_tokens,
+                "duration_ms": outcome.duration_ms,
+                "created_at": outcome.created_at,
+            },
+        )
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Write tool call as a JSON line."""
-        self._write_event("tool_call", {
-            "id": call.id,
-            "session_id": call.session_id,
-            "node_id": call.node_id,
-            "tool_name": call.tool_name,
-            "called_at": call.called_at,
-        })
+        self._write_event(
+            "tool_call",
+            {
+                "id": call.id,
+                "session_id": call.session_id,
+                "node_id": call.node_id,
+                "tool_name": call.tool_name,
+                "called_at": call.called_at,
+            },
+        )
 
     def record_tool_error(self, error: ToolError) -> None:
         """Write tool error as a JSON line."""
-        self._write_event("tool_error", {
-            "id": error.id,
-            "session_id": error.session_id,
-            "node_id": error.node_id,
-            "tool_name": error.tool_name,
-            "failed_at": error.failed_at,
-        })
+        self._write_event(
+            "tool_error",
+            {
+                "id": error.id,
+                "session_id": error.session_id,
+                "node_id": error.node_id,
+                "tool_name": error.tool_name,
+                "failed_at": error.failed_at,
+            },
+        )
 
     def close(self) -> None:
         """Flush and close the JSONL file handle."""

@@ -70,9 +70,7 @@ def resolve_order(graph: TaskGraph) -> list[str]:
 
     # Cycle detection: if not all nodes are in the order, there's a cycle
     if len(order) != len(graph.nodes):
-        cycle_nodes = [
-            node_id for node_id in graph.nodes if node_id not in set(order)
-        ]
+        cycle_nodes = [node_id for node_id in graph.nodes if node_id not in set(order)]
         raise PlanError(
             f"Dependency cycle detected involving nodes: "
             f"{', '.join(sorted(cycle_nodes))}"

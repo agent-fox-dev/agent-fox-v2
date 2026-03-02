@@ -136,9 +136,7 @@ def temporal_query(
     seed_fact_ids = _vector_search(conn, query_embedding, top_k=top_k)
 
     if not seed_fact_ids:
-        logger.info(
-            "No similar facts found for temporal query: %s", question
-        )
+        logger.info("No similar facts found for temporal query: %s", question)
         return Timeline(query=question)
 
     # Build timeline from seed facts

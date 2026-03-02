@@ -65,9 +65,7 @@ def _serialize_state(state: ExecutionState) -> dict:
 
 def _deserialize_state(data: dict) -> ExecutionState:
     """Reconstruct an ExecutionState from a JSON dict."""
-    history = [
-        SessionRecord(**record) for record in data.get("session_history", [])
-    ]
+    history = [SessionRecord(**record) for record in data.get("session_history", [])]
 
     return ExecutionState(
         plan_hash=data["plan_hash"],
@@ -122,7 +120,9 @@ class StateManager:
             return _deserialize_state(data)
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             logger.warning(
-                "Corrupted state file %s: %s", self._state_path, exc,
+                "Corrupted state file %s: %s",
+                self._state_path,
+                exc,
             )
             return None
 

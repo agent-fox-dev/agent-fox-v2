@@ -53,7 +53,9 @@ async def harvest(
 
     # Capture the list of changed files before switching branches
     changed_files = await get_changed_files(
-        repo_root, workspace.branch, dev_branch,
+        repo_root,
+        workspace.branch,
+        dev_branch,
     )
 
     # Step 2: Checkout the development branch in the main repo
@@ -104,7 +106,9 @@ async def harvest(
     # Retry the merge after successful rebase
     # After rebase, the changed files may differ slightly, so re-fetch
     changed_files = await get_changed_files(
-        repo_root, workspace.branch, dev_branch,
+        repo_root,
+        workspace.branch,
+        dev_branch,
     )
     await merge_fast_forward(repo_root, workspace.branch)
     logger.info(

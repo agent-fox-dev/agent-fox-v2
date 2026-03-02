@@ -36,9 +36,7 @@ MIGRATIONS: list[Migration] = [
 def get_current_version(conn: duckdb.DuckDBPyConnection) -> int:
     """Return the current schema version, or 0 if no version table."""
     try:
-        result = conn.execute(
-            "SELECT MAX(version) FROM schema_version"
-        ).fetchone()
+        result = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
     except duckdb.CatalogException:
         # schema_version table does not exist yet
         return 0

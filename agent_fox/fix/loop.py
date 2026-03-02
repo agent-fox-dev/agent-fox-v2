@@ -73,9 +73,7 @@ async def run_fix_loop(
     """
     # Clamp max_passes to >= 1 (08-REQ-7.E1)
     if max_passes < 1:
-        logger.warning(
-            "max_passes=%d is invalid, clamping to 1", max_passes
-        )
+        logger.warning("max_passes=%d is invalid, clamping to 1", max_passes)
         max_passes = 1
 
     # Step 1: Detect available quality checks (once)
@@ -138,9 +136,7 @@ async def run_fix_loop(
         clusters_remaining = 0
     else:
         clusters_remaining = current_clusters_count
-        clusters_resolved = max(
-            0, total_clusters_seen - current_clusters_count
-        )
+        clusters_resolved = max(0, total_clusters_seen - current_clusters_count)
 
     return FixResult(
         passes_completed=passes_completed,

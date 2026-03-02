@@ -91,8 +91,7 @@ def _inspect_pyproject(path: Path) -> list[CheckDescriptor]:
     pytest_section = tool.get("pytest", {})
     has_pytest = "pytest" in tool
     has_ini_options = (
-        isinstance(pytest_section, dict)
-        and "ini_options" in pytest_section
+        isinstance(pytest_section, dict) and "ini_options" in pytest_section
     )
 
     if has_pytest or has_ini_options:

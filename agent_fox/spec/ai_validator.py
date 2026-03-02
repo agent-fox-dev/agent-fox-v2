@@ -171,8 +171,7 @@ async def run_ai_validation(
             findings.extend(spec_findings)
         except Exception as exc:
             logger.warning(
-                "AI analysis unavailable for spec '%s': %s. "
-                "Skipping AI checks.",
+                "AI analysis unavailable for spec '%s': %s. Skipping AI checks.",
                 spec.name,
                 exc,
             )

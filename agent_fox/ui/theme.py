@@ -94,9 +94,7 @@ class AppTheme:
             raw_style = getattr(self.config, role)
             styles[role] = _validate_style(raw_style, role)
 
-        rich_theme = Theme(
-            {role: style for role, style in styles.items() if style}
-        )
+        rich_theme = Theme({role: style for role, style in styles.items() if style})
         self.console = Console(theme=rich_theme)
 
     def styled(self, text: str, role: str) -> str:

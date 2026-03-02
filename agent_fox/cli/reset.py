@@ -33,8 +33,7 @@ def _display_result(result: ResetResult) -> None:
 
     if result.unblocked_tasks:
         click.echo(
-            f"\nUnblocked {len(result.unblocked_tasks)} "
-            f"downstream task(s):",
+            f"\nUnblocked {len(result.unblocked_tasks)} downstream task(s):",
         )
         for task_id in result.unblocked_tasks:
             click.echo(f"  - {task_id}")
@@ -106,8 +105,7 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
 
         if not resettable:
             click.echo(
-                "Nothing to reset. "
-                "No failed, blocked, or in-progress tasks found.",
+                "Nothing to reset. No failed, blocked, or in-progress tasks found.",
             )
             return
 

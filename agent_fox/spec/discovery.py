@@ -47,9 +47,7 @@ def discover_specs(
     """
     # 02-REQ-1.E1: missing or empty .specs/ directory
     if not specs_dir.is_dir():
-        raise PlanError(
-            f"No specifications found: '{specs_dir}' does not exist"
-        )
+        raise PlanError(f"No specifications found: '{specs_dir}' does not exist")
 
     # Scan for subdirectories matching NN_name pattern
     specs: list[SpecInfo] = []
@@ -83,9 +81,7 @@ def discover_specs(
 
     # 02-REQ-1.E1: no specs found at all
     if not specs:
-        raise PlanError(
-            f"No specifications found in '{specs_dir}'"
-        )
+        raise PlanError(f"No specifications found in '{specs_dir}'")
 
     # 02-REQ-1.1: sort by numeric prefix
     specs.sort(key=lambda s: s.prefix)
@@ -97,8 +93,7 @@ def discover_specs(
             # 02-REQ-1.E2: filter matches nothing
             available = ", ".join(s.name for s in specs)
             raise PlanError(
-                f"Spec '{filter_spec}' not found. "
-                f"Available specs: {available}"
+                f"Spec '{filter_spec}' not found. Available specs: {available}"
             )
         return filtered
 

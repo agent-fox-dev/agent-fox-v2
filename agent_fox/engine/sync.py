@@ -116,12 +116,8 @@ class GraphSync:
         blocked tasks that are not completed).
         """
         has_ready = bool(self.ready_tasks())
-        has_in_progress = any(
-            s == "in_progress" for s in self.node_states.values()
-        )
-        all_completed = all(
-            s == "completed" for s in self.node_states.values()
-        )
+        has_in_progress = any(s == "in_progress" for s in self.node_states.values())
+        all_completed = all(s == "completed" for s in self.node_states.values())
 
         if has_ready or has_in_progress or all_completed:
             return False

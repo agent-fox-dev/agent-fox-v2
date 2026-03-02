@@ -32,14 +32,13 @@ MAX_SUBTASKS_PER_GROUP = 6
 # Regex patterns for parsing
 _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
 _REQUIREMENT_ID = re.compile(r"\[\d{2}-REQ-\d+\.\d+\]")
-_DEP_TABLE_HEADER = re.compile(
-    r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNORECASE
-)
+_DEP_TABLE_HEADER = re.compile(r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNORECASE)
 _TABLE_SEP = re.compile(r"^\s*\|[\s\-|]+\|\s*$")
 _GROUP_REF = re.compile(r"\bgroup\s+(\d+)\b", re.IGNORECASE)
 
 
 # -- Finding data model -------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -54,6 +53,7 @@ class Finding:
 
 
 # -- Static validation rules ---------------------------------------------------
+
 
 def check_missing_files(spec_name: str, spec_path: Path) -> list[Finding]:
     """Check for missing expected files in a spec folder.
@@ -92,8 +92,7 @@ def check_oversized_groups(
     for group in task_groups:
         # Count non-verification subtasks: exclude N.V pattern
         non_verify_count = sum(
-            1 for st in group.subtasks
-            if not re.match(rf"^{group.number}\.V$", st.id)
+            1 for st in group.subtasks if not re.match(rf"^{group.number}\.V$", st.id)
         )
         if non_verify_count > MAX_SUBTASKS_PER_GROUP:
             findings.append(
@@ -125,8 +124,7 @@ def check_missing_verification(
     findings: list[Finding] = []
     for group in task_groups:
         has_verify = any(
-            re.match(rf"^{group.number}\.V$", st.id)
-            for st in group.subtasks
+            re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks
         )
         if not has_verify:
             findings.append(
@@ -267,8 +265,7 @@ def check_broken_dependencies(
                         rule="broken-dependency",
                         severity=SEVERITY_ERROR,
                         message=(
-                            f"Dependency references non-existent spec "
-                            f"'{to_spec}'"
+                            f"Dependency references non-existent spec '{to_spec}'"
                         ),
                         line=line_num,
                     )
@@ -339,9 +336,7 @@ def check_untraced_requirements(
                     file="test_spec.md",
                     rule="untraced-requirement",
                     severity=SEVERITY_WARNING,
-                    message=(
-                        f"Requirement {req_id} is not referenced in test_spec.md"
-                    ),
+                    message=(f"Requirement {req_id} is not referenced in test_spec.md"),
                     line=None,
                 )
             )
@@ -360,6 +355,7 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 
 
 # -- Validation orchestrator ---------------------------------------------------
+
 
 def validate_specs(
     specs_dir: Path,
@@ -423,18 +419,13 @@ def validate_specs(
 
         # 3. Acceptance criteria check
         if (spec.path / "requirements.md").is_file():
-            findings.extend(
-                check_missing_acceptance_criteria(spec.name, spec.path)
-            )
+            findings.extend(check_missing_acceptance_criteria(spec.name, spec.path))
 
         # 4. Traceability check
-        if (
-            (spec.path / "requirements.md").is_file()
-            and (spec.path / "test_spec.md").is_file()
-        ):
-            findings.extend(
-                check_untraced_requirements(spec.name, spec.path)
-            )
+        if (spec.path / "requirements.md").is_file() and (
+            spec.path / "test_spec.md"
+        ).is_file():
+            findings.extend(check_untraced_requirements(spec.name, spec.path))
 
         # 5. Dependency check
         if (spec.path / "prd.md").is_file():

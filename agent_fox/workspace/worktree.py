@@ -45,9 +45,7 @@ async def create_worktree(
     Raises:
         WorkspaceError: If worktree creation fails.
     """
-    worktree_path = (
-        repo_root / ".agent-fox" / "worktrees" / spec_name / str(task_group)
-    )
+    worktree_path = repo_root / ".agent-fox" / "worktrees" / spec_name / str(task_group)
     branch_name = f"feature/{spec_name}/{task_group}"
 
     # Clean up stale worktree if it exists (03-REQ-1.E1)

@@ -20,28 +20,66 @@ from agent_fox.core.errors import SecurityError  # noqa: F401
 logger = logging.getLogger("agent_fox.hooks.security")
 
 # Default allowlist: ~46 standard development commands
-DEFAULT_ALLOWLIST: frozenset[str] = frozenset({
-    # Version control
-    "git",
-    # Python ecosystem
-    "python", "python3", "uv", "pip", "pytest", "ruff", "mypy",
-    # JavaScript ecosystem
-    "npm", "npx", "node",
-    # Build tools
-    "make", "cargo", "go", "rustc", "gcc",
-    # File utilities
-    "ls", "cat", "mkdir", "cp", "mv", "rm", "find", "grep",
-    "sed", "awk", "echo", "head", "tail", "wc", "sort", "diff",
-    "touch", "chmod",
-    # Network utilities
-    "curl", "wget",
-    # Archive utilities
-    "tar", "gzip",
-    # System utilities
-    "which", "env", "printenv", "date",
-    # Shell builtins / control
-    "cd", "pwd", "test", "true", "false",
-})
+DEFAULT_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        # Version control
+        "git",
+        # Python ecosystem
+        "python",
+        "python3",
+        "uv",
+        "pip",
+        "pytest",
+        "ruff",
+        "mypy",
+        # JavaScript ecosystem
+        "npm",
+        "npx",
+        "node",
+        # Build tools
+        "make",
+        "cargo",
+        "go",
+        "rustc",
+        "gcc",
+        # File utilities
+        "ls",
+        "cat",
+        "mkdir",
+        "cp",
+        "mv",
+        "rm",
+        "find",
+        "grep",
+        "sed",
+        "awk",
+        "echo",
+        "head",
+        "tail",
+        "wc",
+        "sort",
+        "diff",
+        "touch",
+        "chmod",
+        # Network utilities
+        "curl",
+        "wget",
+        # Archive utilities
+        "tar",
+        "gzip",
+        # System utilities
+        "which",
+        "env",
+        "printenv",
+        "date",
+        # Shell builtins / control
+        "cd",
+        "pwd",
+        "test",
+        "true",
+        "false",
+    }
+)
 
 
 def build_effective_allowlist(config: SecurityConfig) -> frozenset[str]:

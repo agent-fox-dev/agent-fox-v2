@@ -30,9 +30,7 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
     new_nodes = {nid: copy.copy(node) for nid, node in graph.nodes.items()}
 
     # Identify optional nodes
-    optional_ids = {
-        nid for nid, node in new_nodes.items() if node.optional
-    }
+    optional_ids = {nid for nid, node in new_nodes.items() if node.optional}
 
     # If no optional nodes, resolve order and return with fast_mode metadata
     if not optional_ids:
@@ -58,12 +56,8 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
     # For each optional node, rewire dependencies and remove its edges
     for opt_id in optional_ids:
         # Find predecessors and successors of this optional node
-        preds = [
-            (s, t, k) for s, t, k in new_edges if t == opt_id
-        ]
-        succs = [
-            (s, t, k) for s, t, k in new_edges if s == opt_id
-        ]
+        preds = [(s, t, k) for s, t, k in new_edges if t == opt_id]
+        succs = [(s, t, k) for s, t, k in new_edges if s == opt_id]
 
         # Add rewired edges: each predecessor -> each successor
         for pred_s, _, _ in preds:
@@ -71,10 +65,7 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
                 new_edges.add((pred_s, succ_t, "intra_spec"))
 
         # Remove all edges involving this optional node
-        new_edges = {
-            (s, t, k) for s, t, k in new_edges
-            if s != opt_id and t != opt_id
-        }
+        new_edges = {(s, t, k) for s, t, k in new_edges if s != opt_id and t != opt_id}
 
         # Set the optional node's status to SKIPPED
         new_nodes[opt_id].status = NodeStatus.SKIPPED
@@ -84,8 +75,7 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
 
     # Build the new graph; compute order using only non-optional nodes
     order_nodes = {
-        nid: node for nid, node in new_nodes.items()
-        if nid not in optional_ids
+        nid: node for nid, node in new_nodes.items() if nid not in optional_ids
     }
     order_graph = TaskGraph(
         nodes=order_nodes,
