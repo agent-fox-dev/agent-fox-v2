@@ -11,11 +11,14 @@ Requirements: 12-REQ-5.1, 12-REQ-5.2, 12-REQ-5.3, 12-REQ-6.1,
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 import anthropic  # noqa: F401
 
 from agent_fox.core.config import KnowledgeConfig
+from agent_fox.core.errors import KnowledgeStoreError
+from agent_fox.core.models import resolve_model
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
 from agent_fox.knowledge.search import SearchResult, VectorSearch
 
@@ -80,19 +83,90 @@ class Oracle:
             KnowledgeStoreError: If the query embedding fails
                 (embedding API unavailable).
         """
-        raise NotImplementedError
+        # Step 1: Embed the question
+        query_embedding = self._embedder.embed_text(question)
+        if query_embedding is None:
+            raise KnowledgeStoreError(
+                "Failed to embed question. The embedding API may be "
+                "unavailable. Please retry."
+            )
+
+        # Step 2: Vector search for top-k similar facts
+        results = self._search.search(query_embedding)
+
+        # Step 3: Assemble context with provenance
+        context = self._assemble_context(results)
+
+        # Step 4: Synthesize answer via single API call (not streaming)
+        prompt = self._build_synthesis_prompt(question, context)
+        model = resolve_model(self._config.ask_synthesis_model)
+
+        response = self.client.messages.create(
+            model=model.model_id,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        response_text = response.content[0].text  # type: ignore[union-attr]
+
+        # Step 5: Parse the response
+        return self._parse_synthesis_response(response_text, results)
 
     def _assemble_context(self, results: list[SearchResult]) -> str:
-        """Build a context string from search results with provenance."""
-        raise NotImplementedError
+        """Build a context string from search results with provenance.
+
+        Each fact is formatted with its source metadata so the
+        synthesis model can cite sources and detect contradictions.
+        """
+        if not results:
+            return "No relevant facts found."
+
+        parts: list[str] = []
+        for i, r in enumerate(results, 1):
+            provenance_parts: list[str] = []
+            if r.spec_name:
+                provenance_parts.append(f"spec: {r.spec_name}")
+            if r.session_id:
+                provenance_parts.append(f"session: {r.session_id}")
+            if r.commit_sha:
+                provenance_parts.append(f"commit: {r.commit_sha}")
+            provenance = ", ".join(provenance_parts) if provenance_parts else "unknown"
+
+            parts.append(
+                f"[Fact {i}] (id: {r.fact_id}, {provenance}, "
+                f"similarity: {r.similarity:.2f})\n{r.content}"
+            )
+
+        return "\n\n".join(parts)
 
     def _build_synthesis_prompt(
         self,
         question: str,
         context: str,
     ) -> str:
-        """Build the prompt for the synthesis model."""
-        raise NotImplementedError
+        """Build the prompt for the synthesis model.
+
+        Instructs the model to:
+        - Answer the question using only the provided facts.
+        - Cite sources by fact ID and provenance.
+        - Flag any contradictions between facts.
+        - Indicate confidence level (high/medium/low).
+        - Not hallucinate beyond the provided context.
+        """
+        return (
+            "You are a knowledge oracle for a software project. Answer the "
+            "question below using ONLY the provided facts. Do not hallucinate "
+            "or add information beyond what the facts contain.\n\n"
+            "Instructions:\n"
+            "1. Provide a clear, grounded answer based on the facts.\n"
+            "2. Cite which facts support your answer.\n"
+            "3. If any facts contradict each other, flag each contradiction "
+            "on its own line starting with 'CONTRADICTION:' followed by a "
+            "description of the conflicting facts.\n"
+            "4. Do not invent information that is not in the facts.\n\n"
+            f"## Facts\n\n{context}\n\n"
+            f"## Question\n\n{question}"
+        )
 
     def _determine_confidence(self, results: list[SearchResult]) -> str:
         """Determine confidence based on result count and similarity.
@@ -101,12 +175,48 @@ class Oracle:
         - "medium": 1-2 results with similarity > 0.5
         - "low": fewer or lower-similarity results
         """
-        raise NotImplementedError
+        high_quality = [r for r in results if r.similarity > 0.7]
+        if len(high_quality) >= 3:
+            return "high"
+
+        medium_quality = [r for r in results if r.similarity > 0.5]
+        if len(medium_quality) >= 1:
+            return "medium"
+
+        return "low"
 
     def _parse_synthesis_response(
         self,
         response_text: str,
         results: list[SearchResult],
     ) -> OracleAnswer:
-        """Parse the synthesis model's response into an OracleAnswer."""
-        raise NotImplementedError
+        """Parse the synthesis model's response into an OracleAnswer.
+
+        Extracts the answer text, source citations, contradiction
+        flags, and confidence indicator.
+        """
+        # Extract contradiction markers anywhere in the text.
+        # The synthesis model may place "CONTRADICTION:" at the start of a
+        # line or inline within a sentence.
+        contradictions: list[str] = []
+        for match in re.finditer(
+            r"CONTRADICTION:\s*([^\n.]*(?:\.[^\n]*)?)", response_text, re.IGNORECASE
+        ):
+            desc = match.group(1).strip()
+            if desc:
+                contradictions.append(desc)
+            else:
+                contradictions.append(match.group(0).strip())
+
+        # Build the answer text by removing contradiction markers
+        answer = re.sub(
+            r"CONTRADICTION:\s*[^\n]*", "", response_text, flags=re.IGNORECASE
+        ).strip()
+        confidence = self._determine_confidence(results)
+
+        return OracleAnswer(
+            answer=answer,
+            sources=results,
+            contradictions=contradictions if contradictions else None,
+            confidence=confidence,
+        )

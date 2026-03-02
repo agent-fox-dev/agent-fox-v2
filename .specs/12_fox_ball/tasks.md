@@ -145,8 +145,8 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - [x] Type check passes: `uv run mypy agent_fox/memory/store.py`
     - [x] Requirements 12-REQ-1.*, 12-REQ-7.1 acceptance criteria met
 
-- [ ] 5. Implement oracle and CLI ask command
-  - [ ] 5.1 Create oracle module
+- [x] 5. Implement oracle and CLI ask command
+  - [x] 5.1 Create oracle module
     - `agent_fox/knowledge/oracle.py`: `OracleAnswer` dataclass,
       `Oracle` class
     - `ask(question)`: full RAG pipeline (embed -> search -> assemble
@@ -164,7 +164,7 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - _Requirements: 12-REQ-5.1, 12-REQ-5.2, 12-REQ-5.3, 12-REQ-6.1,
       12-REQ-8.1_
 
-  - [ ] 5.2 Create CLI ask command
+  - [x] 5.2 Create CLI ask command
     - `agent_fox/cli/ask.py`: Click command `ask` with question argument
       and `--top-k` option
     - Register command in `agent_fox/cli/app.py`
@@ -176,11 +176,11 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - Handle embedding failure on query (error message, exit 1)
     - _Requirements: 12-REQ-5.1, 12-REQ-5.E1, 12-REQ-5.E2, 12-REQ-2.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_oracle.py tests/unit/cli/test_ask.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/oracle.py agent_fox/cli/ask.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/knowledge/oracle.py agent_fox/cli/ask.py`
-    - [ ] Requirements 12-REQ-5.*, 12-REQ-6.1, 12-REQ-8.1 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_oracle.py tests/unit/cli/test_ask.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/oracle.py agent_fox/cli/ask.py`
+    - [x] Type check passes: `uv run mypy agent_fox/knowledge/oracle.py agent_fox/cli/ask.py`
+    - [x] Requirements 12-REQ-5.*, 12-REQ-6.1, 12-REQ-8.1 acceptance criteria met
 
 - [ ] 6. Implement knowledge source ingestion
   - [ ] 6.1 Create ingestion module
