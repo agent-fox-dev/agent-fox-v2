@@ -28,6 +28,8 @@
 - PyYAML type stubs (`types-PyYAML`) are not installed, so yaml imports require `type: ignore[import-untyped]` comment to pass mypy type checking. *(source: 09_spec_validation/4)*
 - Pre-existing mypy errors exist in clusterer.py:85 related to Anthropic SDK's union content block types (response.content[0].text). These originated from task group 3's AI clustering, not recent changes. *(source: 08_error_autofix/5)*
 - The `ReportFormatter` protocol requires `type: ignore[return-value]` in `get_formatter()` because concrete implementations are not explicitly declared as implementing the protocol, causing type checker conflicts. *(source: 07_operational_commands/5)*
+- Using `datetime.utcnow()` in dataclass defaults triggers deprecation warnings in Python 3.12+; use `datetime.now(UTC)` instead when implementing dataclasses. *(source: 11_duckdb_knowledge_store/1)*
+- DuckDB file-based operations (first open, VSS extension install) can exceed hypothesis's default 200ms deadline. Property tests involving KnowledgeDB with file-based storage should use @settings(deadline=None). *(source: 11_duckdb_knowledge_store/2)*
 
 ## Patterns
 
@@ -79,7 +81,6 @@
 - The `generate_status()` function loads plan.json via `load_plan()` from `agent_fox.graph.persistence` (returns `TaskGraph | None`) and state.jsonl via `StateManager.load()` (returns `ExecutionState | None`). Missing plan raises `AgentFoxError`; missing state is handled gracefully with all-pending defaults. *(source: 07_operational_commands/2)*
 - Per-spec breakdown uses `Node.spec_name` from the graph to group tasks, falling back to parsing the node_id prefix (before ':') when the node isn't in the graph. *(source: 07_operational_commands/2)*
 - The fix module uses `StrEnum` (not plain `str, Enum`) for enum definitions like `CheckCategory` and `TerminationReason`, consistent with existing enums such as `NodeStatus` in `graph/types.py`. *(source: 08_error_autofix/1)*
-- Collector tests mock external dependencies at their import site (e.g., `agent_fox.fix.collector.subprocess.run` rather than `subprocess.run`) to match the project's mocking convention. *(source: 08_error_autofix/1)*
 - The fix module's detector uses `tomllib` (stdlib 3.11+) for TOML parsing and `json` (stdlib) for JSON parsing, with format-specific exceptions caught per file to implement skip-and-warn behavior. *(source: 08_error_autofix/2)*
 - The collector mocks patch external dependencies at their import site (e.g., `agent_fox.fix.collector.subprocess.run`), following the project convention for mocking. *(source: 08_error_autofix/2)*
 - TOML's nested sections like `[tool.pytest.ini_options]` are parsed as nested dicts by `tomllib`, so checking for `[tool.pytest]` covers all its subsections including `[tool.pytest.ini_options]`. *(source: 08_error_autofix/2)*
@@ -109,6 +110,17 @@
 - The `TableFormatter` renders output to a `StringIO` buffer by creating a dedicated `Console(file=buf)` instance, then returns the buffer contents as a string rather than printing directly. *(source: 07_operational_commands/5)*
 - CLI commands locate the `.agent-fox/` configuration directory using `Path.cwd()`, following the established pattern used across other CLI modules. *(source: 07_operational_commands/5)*
 - CI timeout tests patch _CI_POLL_INTERVAL to 0 and use a small timeout (1 second) to avoid slow tests while verifying the timeout behavior. *(source: 10_platform_integration/1)*
+- NullPlatform uses `asyncio.to_thread(subprocess.run, ...)` to run git commands asynchronously while remaining mockable via `unittest.mock.patch('agent_fox.platform.null.subprocess.run')` because asyncio.to_thread calls the patched reference. *(source: 10_platform_integration/2)*
+- GitHubPlatform uses `asyncio.to_thread(subprocess.run, ...)` for all `gh` CLI calls via the `_run_gh()` helper, matching the NullPlatform pattern for async subprocess execution. *(source: 10_platform_integration/3)*
+- CI timeout tests patch `_CI_POLL_INTERVAL` to 0 and use a small timeout (1 second) to avoid slow tests while verifying timeout behavior. *(source: 10_platform_integration/3)*
+- Migration tests mock `MIGRATIONS` by patching the module-level variable directly via `patch("agent_fox.knowledge.migrations.MIGRATIONS", [test_migration])`, not the list's dunder methods (which fail with TypeError on immutable types). *(source: 11_duckdb_knowledge_store/1)*
+- Protocol structure tests like `isinstance(DuckDBSink(...), SessionSink)` pass immediately against stubs because Protocol and class structure are complete implementations, following the project's pattern for pure data type tests. *(source: 11_duckdb_knowledge_store/1)*
+- Test conftest provides three connection fixtures: `in_memory_conn` (bare connection), `schema_conn` (connection with schema), and `knowledge_config` (config pointing to tmp_path for file-based tests). *(source: 11_duckdb_knowledge_store/1)*
+- The `create_platform()` factory uses early imports of `GitHubPlatform` and `NullPlatform` at the module level in `factory.py` rather than lazy imports, because both modules are lightweight and the factory serves as the canonical entry point for platform instantiation. *(source: 10_platform_integration/4)*
+- Factory tests for GitHubPlatform patch both `shutil.which` and `subprocess.run` at the `agent_fox.platform.github` module level inline rather than using fixtures, because the factory creates the instance internally and requires mocks to be active during construction. *(source: 10_platform_integration/4)*
+- The `_initialize_schema` method uses multi-statement DDL with IF NOT EXISTS and a conditional INSERT for idempotent schema creation, matching the conftest's `create_schema` helper. *(source: 11_duckdb_knowledge_store/2)*
+- VSS extension loading uses a try-LOAD/catch-INSTALL-LOAD pattern since the extension may already be installed from a prior session. If VSS is unavailable entirely (e.g., CI), it logs a warning but does not block DB initialization. *(source: 11_duckdb_knowledge_store/2)*
+- get_current_version catches duckdb.CatalogException to handle the case where schema_version table doesn't exist yet, returning 0 as a sentinel for 'no schema'. *(source: 11_duckdb_knowledge_store/2)*
 
 ## Decisions
 
@@ -150,6 +162,7 @@
 - Cleanup function removes both directories (via shutil.rmtree) and individual files from the output directory to support idempotent cleanup operations. *(source: 08_error_autofix/4)*
 - `types-pyyaml>=6.0` was added to dev dependencies to provide mypy with required type stubs for PyYAML library. *(source: 07_operational_commands/5)*
 - Protocol structure tests (hasattr, iscoroutinefunction, isinstance) pass immediately against stubs because the Protocol and class structure are complete implementations, following the project pattern for pure data type tests. *(source: 10_platform_integration/1)*
+- duckdb>=1.0 is added to project dependencies as a core runtime requirement, not dev-only, because the knowledge store is a core runtime feature. *(source: 11_duckdb_knowledge_store/1)*
 
 ## Conventions
 
@@ -203,7 +216,13 @@
 - CLI commands are registered in `agent_fox/cli/app.py` using `main.add_command(cmd, name="name")` with module-level imports annotated with `# noqa: E402` to suppress linting warnings. *(source: 07_operational_commands/5)*
 - Stub modules import their dependencies with `# noqa: F401` to enable mocking via unittest.mock.patch() at the module's import path (e.g., agent_fox.platform.null.subprocess.run). *(source: 10_platform_integration/1)*
 - The github_platform fixture patches both shutil.which and subprocess.run at the agent_fox.platform.github module level, and the _verify_gh_available() call in __init__ requires the mock to be active before instantiation. *(source: 10_platform_integration/1)*
-- asyncio_mode = "auto" in pyproject.toml means async test methods do not need @pytest.mark.asyncio decorators — pytest-asyncio detects them automatically. *(source: 10_platform_integration/1)*
+- Protocol classes with method signatures in `protocol.py` are considered fully implemented following the project pattern for pure structural type definitions, even in early task phases. *(source: 10_platform_integration/2)*
+- The `github_platform` test fixture in conftest.py patches both `shutil.which` and `subprocess.run` at the `agent_fox.platform.github` module level; `_verify_gh_available()` in `__init__` requires the mock to be active before instantiation. *(source: 10_platform_integration/3)*
+- Stub modules import their dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` at the module's import path (e.g., `agent_fox.platform.github.subprocess.run`). *(source: 10_platform_integration/3)*
+- Stub modules import their dependencies with `# noqa: F401` to enable mocking via unittest.mock.patch() at the module's import path (e.g., patching `agent_fox.knowledge.migrations.duckdb`). *(source: 11_duckdb_knowledge_store/1)*
+- The `create_schema` helper in `tests/unit/knowledge/conftest.py` duplicates DDL from `KnowledgeDB._initialize_schema` to allow schema setup without the full `KnowledgeDB.open()` path, and must stay in sync with the real schema. *(source: 11_duckdb_knowledge_store/1)*
+- The platform package `__init__.py` exports all public symbols (`Platform`, `create_platform`, `NullPlatform`, `GitHubPlatform`) in alphabetical order within `__all__` to improve discoverability. *(source: 10_platform_integration/4)*
+- KnowledgeDB.open() re-raises KnowledgeStoreError directly but wraps all other exceptions in KnowledgeStoreError to maintain a consistent error interface. *(source: 11_duckdb_knowledge_store/2)*
 
 ## Anti-Patterns
 
