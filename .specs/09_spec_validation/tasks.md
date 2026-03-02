@@ -166,8 +166,8 @@ command to make those tests pass.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/`
     - [x] Requirements 09-REQ-7.*, 09-REQ-8.* acceptance criteria met
 
-- [ ] 4. Implement CLI command and output formatting
-  - [ ] 4.1 Implement output formatters
+- [x] 4. Implement CLI command and output formatting
+  - [x] 4.1 Implement output formatters
     - `agent_fox/cli/lint_spec.py`: `format_table()`, `format_json()`,
       `format_yaml()` functions
     - Table: Rich table grouped by spec, with summary line
@@ -175,7 +175,7 @@ command to make those tests pass.
     - YAML: same structure as JSON, serialized as YAML
     - _Requirements: 09-REQ-9.1, 09-REQ-9.2, 09-REQ-9.3_
 
-  - [ ] 4.2 Implement `lint-spec` CLI command
+  - [x] 4.2 Implement `lint-spec` CLI command
     - Register `lint-spec` as a Click command on the main group
     - Accept `--format` (table/json/yaml, default table) and `--ai` flag
     - Discover specs, run static validation, optionally run AI validation
@@ -183,17 +183,17 @@ command to make those tests pass.
     - Set exit code: 1 if any errors, 0 otherwise
     - _Requirements: 09-REQ-9.4, 09-REQ-9.5, 09-REQ-1.E1_
 
-  - [ ] 4.3 Register command in CLI app
+  - [x] 4.3 Register command in CLI app
     - Add `lint_spec` command to the `main` Click group in
       `agent_fox/cli/app.py`
     - Verify `agent-fox lint-spec --help` works
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest tests/unit/spec/ tests/property/spec/ tests/integration/test_lint_spec.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/cli/lint_spec.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/spec/ agent_fox/cli/lint_spec.py`
-    - [ ] CLI is invocable: `uv run agent-fox lint-spec --help`
-    - [ ] Requirements 09-REQ-9.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest tests/unit/spec/ tests/property/spec/ tests/integration/test_lint_spec.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/cli/lint_spec.py`
+    - [x] Type check passes: `uv run mypy agent_fox/spec/ agent_fox/cli/lint_spec.py`
+    - [x] CLI is invocable: `uv run agent-fox lint-spec --help`
+    - [x] Requirements 09-REQ-9.* acceptance criteria met
 
 - [ ] 5. Checkpoint -- Specification Validation Complete
   - Ensure all tests pass: `uv run pytest tests/unit/spec/ tests/property/spec/ tests/integration/test_lint_spec.py -q`
