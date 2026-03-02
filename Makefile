@@ -1,0 +1,69 @@
+.PHONY: install uninstall clean test test-unit test-property test-integration lint format check clean-branches install-skills uninstall-skills bundle-skills
+
+install:
+	uv tool install --editable .
+
+uninstall:
+	uv tool uninstall agent-fox
+
+clean:
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name '*.pyc' -delete 2>/dev/null || true
+	find . -type f -name '*.pyo' -delete 2>/dev/null || true
+	rm -rf .pytest_cache/ *.egg-info/ dist/ .ruff_cache/ .mypy_cache/ .hypothesis/
+
+test:
+	uv run pytest -q
+
+test-unit:
+	uv run pytest tests/unit/ -q
+
+test-property:
+	uv run pytest tests/property/ -q
+
+test-integration:
+	uv run pytest tests/integration/ -q
+
+lint:
+	uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/
+
+format:
+	uv run ruff format agent_fox/ tests/
+
+check: lint test
+
+clean-branches:
+	@git branch --list 'feature/*' | xargs -r git branch -d
+
+SKILLS_DIR := $(CURDIR)/skills
+SKILLS_TEMPLATES_DIR := $(CURDIR)/agent_fox/_templates/skills
+CLAUDE_SKILLS_DIR := $(HOME)/.claude/skills
+
+bundle-skills:
+	@mkdir -p $(SKILLS_TEMPLATES_DIR)
+	@for skill in $(SKILLS_DIR)/*/SKILL.md; do \
+		name=$$(basename "$$(dirname "$$skill")"); \
+		awk 'BEGIN{fm=0} /^---$$/{fm++; next} fm>=2' "$$skill" > "$(SKILLS_TEMPLATES_DIR)/$$name"; \
+		echo "copied: $$skill -> $(SKILLS_TEMPLATES_DIR)/$$name"; \
+	done
+
+install-skills:
+	@mkdir -p $(CLAUDE_SKILLS_DIR)
+	@for skill in $(SKILLS_DIR)/*/; do \
+		name=$$(basename "$$skill"); \
+		if [ -L "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
+			echo "skip: $$name (already linked)"; \
+		else \
+			ln -s "$$skill" "$(CLAUDE_SKILLS_DIR)/$$name"; \
+			echo "linked: $$name -> $$skill"; \
+		fi; \
+	done
+
+uninstall-skills:
+	@for skill in $(SKILLS_DIR)/*/; do \
+		name=$$(basename "$$skill"); \
+		if [ -L "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
+			rm "$(CLAUDE_SKILLS_DIR)/$$name"; \
+			echo "unlinked: $$name"; \
+		fi; \
+	done
