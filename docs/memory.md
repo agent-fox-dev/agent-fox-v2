@@ -33,6 +33,11 @@
 - When inserting rows with UUID primary keys where one logical entity spans multiple rows (like `SessionOutcome` with multiple `touched_paths`), the first row must use the original UUID while subsequent rows need fresh `uuid4()` calls to avoid primary key conflicts. *(source: 11_duckdb_knowledge_store/3)*
 - The `session_outcomes` table requires full valid UUID strings in test seed data, not abbreviated forms like simple alphanumeric codes. *(source: 13_time_vision/1)*
 - When validating that two fact IDs exist using `SELECT COUNT(*) FROM memory_facts WHERE id IN (?, ?)`, self-referencing links (cause_id == effect_id) return count 1 instead of 2. Validation must expect 1 when both IDs are identical. *(source: 13_time_vision/2)*
+- The open_knowledge_store() function returns None when the store is unavailable, so CLI commands must explicitly handle this None case rather than assuming a valid store object. *(source: 13_time_vision/4)*
+- EmbeddingGenerator uses @property for the Anthropic client, so test mocking must set `generator._client` directly rather than using `patch.object(generator, "client")` which fails on properties. *(source: 12_fox_ball/1)*
+- The `CAUSAL_EXTRACTION_ADDENDUM` template uses double-brace `{{` and `}}` escaping for JSON examples because it's formatted with `.format()`. Only `{prior_facts}` gets substituted during formatting, not the escaped braces. *(source: 13_time_vision/5)*
+- The Anthropic Python SDK (v0.84.0) does not expose `embeddings` as a typed attribute on the `Anthropic` class, requiring `# type: ignore[attr-defined]` for mypy compliance even though the API works at runtime. *(source: 12_fox_ball/2)*
+- Tests using MagicMock pass despite mypy type errors because MagicMock dynamically creates attributes, masking the underlying SDK typing issue. *(source: 12_fox_ball/2)*
 
 ## Patterns
 
@@ -112,7 +117,6 @@
 - The _REASON_LABELS dict maps TerminationReason enum values to (human_label, rich_style) tuples for consistent color-coded display in reports. *(source: 08_error_autofix/5)*
 - The `TableFormatter` renders output to a `StringIO` buffer by creating a dedicated `Console(file=buf)` instance, then returns the buffer contents as a string rather than printing directly. *(source: 07_operational_commands/5)*
 - CLI commands locate the `.agent-fox/` configuration directory using `Path.cwd()`, following the established pattern used across other CLI modules. *(source: 07_operational_commands/5)*
-- CI timeout tests patch _CI_POLL_INTERVAL to 0 and use a small timeout (1 second) to avoid slow tests while verifying the timeout behavior. *(source: 10_platform_integration/1)*
 - NullPlatform uses `asyncio.to_thread(subprocess.run, ...)` to run git commands asynchronously while remaining mockable via `unittest.mock.patch('agent_fox.platform.null.subprocess.run')` because asyncio.to_thread calls the patched reference. *(source: 10_platform_integration/2)*
 - GitHubPlatform uses `asyncio.to_thread(subprocess.run, ...)` for all `gh` CLI calls via the `_run_gh()` helper, matching the NullPlatform pattern for async subprocess execution. *(source: 10_platform_integration/3)*
 - CI timeout tests patch `_CI_POLL_INTERVAL` to 0 and use a small timeout (1 second) to avoid slow tests while verifying timeout behavior. *(source: 10_platform_integration/3)*
@@ -129,6 +133,14 @@
 - The `fact_causes` table uses UUID composite primary key `(cause_id, effect_id)` to enable safe duplicate inserts via `ON CONFLICT DO NOTHING`. *(source: 13_time_vision/1)*
 - Property tests for DuckDB operations create a fresh in-memory connection per hypothesis example via a helper function rather than a fixture, because hypothesis generates multiple examples within a single test invocation. *(source: 13_time_vision/1)*
 - The `traverse_causal_chain()` BFS uses lightweight helpers `_get_direct_effect_ids()` and `_get_direct_cause_ids()` that return only IDs (not full CausalFact objects) to avoid unnecessary joins during traversal. Full fact data is fetched once per visited node via `_fetch_fact()`. *(source: 13_time_vision/2)*
+- The `build_timeline()` function reuses `traverse_causal_chain()` from `causal.py` for each seed fact, deduplicates results by fact_id using a seen set, then sorts all collected CausalFacts by `(created_at, depth)` — matching the sort key already used in `traverse_causal_chain()`. *(source: 13_time_vision/3)*
+- `Timeline.render()` uses a connector-prefix approach with `**` for root facts, `->` for effects, and `<-` for causes, combined with `"  " * depth` indentation to produce plain text output compatible with pipe workflows per REQ-6.3. *(source: 13_time_vision/3)*
+- `temporal_query()` delegates vector search to a private `_vector_search()` helper that uses `array_cosine_similarity` on the `memory_embeddings` table, wrapped in try/except to gracefully return an empty list if vector search is unavailable. *(source: 13_time_vision/3)*
+- DuckDB supports INTERVAL 1 DAY syntax in JOINs for temporal proximity matching between session outcomes. *(source: 13_time_vision/4)*
+- Dual-write tests use lazy imports inside test methods (e.g., `from agent_fox.memory.store import MemoryStore`) with `# type: ignore[attr-error]` to allow tests to exist before the implementation class is created. *(source: 12_fox_ball/1)*
+- Property-based tests for dual-write and ingestion should use `tempfile.TemporaryDirectory()` within each hypothesis example rather than pytest fixtures, because hypothesis generates multiple examples in a single test invocation. *(source: 12_fox_ball/1)*
+- Fact provenance metadata is split between the dataclass level and the database layer: `spec_name` is populated during extraction in `_parse_extraction_response()`, while `session_id` and `commit_sha` are added at the database persistence layer, not stored in the Fact dataclass. *(source: 13_time_vision/5)*
+- EmbeddingGenerator handles single-text embedding requests by wrapping the input as `[text]` for the batch-oriented `embeddings.create()` API, then extracting the result from `response.data[0].embedding`. *(source: 12_fox_ball/2)*
 
 ## Decisions
 
@@ -175,6 +187,9 @@
 - `open_knowledge_store()` returns None on startup failure to enable graceful degradation, allowing the session runner to continue even when the knowledge store cannot be initialized. *(source: 11_duckdb_knowledge_store/4)*
 - `DuckDBSink` wraps every write operation in try/except blocks to gracefully handle and isolate write failures without blocking the session. *(source: 11_duckdb_knowledge_store/4)*
 - `SinkDispatcher` isolates each sink call so failures in one sink do not propagate to or block other sinks or the session runner. *(source: 11_duckdb_knowledge_store/4)*
+- Pattern detection SQL groups by (changed.touched_path, failed.touched_path) rather than failed.spec_name because the same file change can trigger the same test failure across different specs, producing more meaningful recurring patterns. *(source: 13_time_vision/4)*
+- The `ask` command is registered in `app.py` alphabetically before other commands using `main.add_command(ask_command, name="ask")`. *(source: 12_fox_ball/1)*
+- The `select_context_with_causal()` function limits causal traversal depth to 3 instead of the default 10 to balance context relevance with performance. Deeper connections are unlikely to be directly useful for context selection. *(source: 13_time_vision/5)*
 
 ## Conventions
 
@@ -226,8 +241,6 @@
 - AI issue types "vague" and "implementation-leak" are mapped to rules "vague-criterion" and "implementation-leak" respectively, both with severity level "hint". *(source: 09_spec_validation/3)*
 - CLI commands use asyncio.run() to bridge from synchronous Click handlers to async functions like run_fix_loop(). *(source: 08_error_autofix/5)*
 - CLI commands are registered in `agent_fox/cli/app.py` using `main.add_command(cmd, name="name")` with module-level imports annotated with `# noqa: E402` to suppress linting warnings. *(source: 07_operational_commands/5)*
-- Stub modules import their dependencies with `# noqa: F401` to enable mocking via unittest.mock.patch() at the module's import path (e.g., agent_fox.platform.null.subprocess.run). *(source: 10_platform_integration/1)*
-- The github_platform fixture patches both shutil.which and subprocess.run at the agent_fox.platform.github module level, and the _verify_gh_available() call in __init__ requires the mock to be active before instantiation. *(source: 10_platform_integration/1)*
 - Protocol classes with method signatures in `protocol.py` are considered fully implemented following the project pattern for pure structural type definitions, even in early task phases. *(source: 10_platform_integration/2)*
 - The `github_platform` test fixture in conftest.py patches both `shutil.which` and `subprocess.run` at the `agent_fox.platform.github` module level; `_verify_gh_available()` in `__init__` requires the mock to be active before instantiation. *(source: 10_platform_integration/3)*
 - Stub modules import their dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` at the module's import path (e.g., `agent_fox.platform.github.subprocess.run`). *(source: 10_platform_integration/3)*
@@ -241,6 +254,11 @@
 - Extraction enrichment stubs (`enrich_extraction_with_causal`, `parse_causal_links`) and context enhancement stubs (`select_context_with_causal`) are added directly to existing modules rather than creating new files, following design.md guidance of extending existing modules. *(source: 13_time_vision/1)*
 - The knowledge package `__init__.py` exports all public types alphabetically in `__all__`, importing from `db`, `duckdb_sink`, `jsonl_sink`, and `sink` submodules. *(source: 11_duckdb_knowledge_store/4)*
 - DuckDB UUID columns need `CAST(column AS VARCHAR)` when reading into Python strings during traversal to ensure consistent string representation across queries. *(source: 13_time_vision/2)*
+- The `_causal_fact_to_node()` helper maps `CausalFact.created_at` to `TimelineNode.timestamp`, maintaining clean separation between the two dataclass hierarchies while preserving temporal data. *(source: 13_time_vision/3)*
+- CLI commands must be imported at module level with '# noqa: E402' comment, then registered via main.add_command(cmd, name="name") in alphabetical order in app.py. *(source: 13_time_vision/4)*
+- Test fixtures for packages should extend the existing `conftest.py` within that package rather than creating a separate conftest file, maintaining one conftest per package. *(source: 12_fox_ball/1)*
+- Deterministic test embeddings are generated using `make_deterministic_embedding(seed)` with formula `math.sin(seed * (i+1) * 0.1)` normalized to unit length, ensuring reproducible yet unique vectors per seed. *(source: 12_fox_ball/1)*
+- CLI ask tests must patch at the module level (e.g., `agent_fox.cli.ask.Oracle`) because stub modules import symbols with `# noqa: F401` comments to make them patchable. *(source: 12_fox_ball/1)*
 
 ## Anti-Patterns
 
