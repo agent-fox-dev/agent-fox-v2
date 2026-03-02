@@ -27,7 +27,12 @@ from agent_fox.reporting.formatters import _format_tokens
 from agent_fox.session.context import assemble_context
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 from agent_fox.session.runner import run_session
-from agent_fox.workspace.worktree import create_worktree
+from agent_fox.workspace.harvester import harvest
+from agent_fox.workspace.worktree import (
+    WorkspaceInfo,
+    create_worktree,
+    destroy_worktree,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -143,14 +148,16 @@ class _NodeSessionRunner:
 
         Creates an isolated worktree, assembles context from spec files,
         builds system/task prompts, runs the session via claude-code-sdk,
-        and converts the outcome to a SessionRecord with cost calculation.
+        harvests changes back into develop on success, and cleans up
+        the worktree.
 
         16-REQ-5.E1: Catches all exceptions and returns a failed
         SessionRecord so the orchestrator can apply retry logic.
         """
-        try:
-            repo_root = Path.cwd()
+        repo_root = Path.cwd()
+        workspace: WorkspaceInfo | None = None
 
+        try:
             # Create isolated worktree
             workspace = await create_worktree(
                 repo_root,
@@ -200,6 +207,10 @@ class _NodeSessionRunner:
                 model_entry,
             )
 
+            # 03-REQ-7.1: Harvest changes into develop on success
+            if outcome.status == "completed":
+                await harvest(repo_root, workspace)
+
             return SessionRecord(
                 node_id=node_id,
                 attempt=attempt,
@@ -230,6 +241,18 @@ class _NodeSessionRunner:
                 error_message=str(exc),
                 timestamp=datetime.now(UTC).isoformat(),
             )
+
+        finally:
+            # 03-REQ-2.1: Always clean up the worktree
+            if workspace is not None:
+                try:
+                    await destroy_worktree(repo_root, workspace)
+                except Exception:
+                    logger.warning(
+                        "Failed to clean up worktree for %s",
+                        node_id,
+                        exc_info=True,
+                    )
 
 
 @click.command("code")
