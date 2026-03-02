@@ -24,8 +24,8 @@ implements the banner changes, and task group 3 is a checkpoint.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create banner unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create banner unit test file
     - Create `tests/unit/ui/test_banner.py`
     - Implement TS-14-1: fox art present in output
     - Implement TS-14-2: fox art styled with header role
@@ -36,20 +36,20 @@ implements the banner changes, and task group 3 is a checkpoint.
     - Use `Console(file=StringIO())` to capture Rich output
     - _Test Spec: TS-14-1, TS-14-2, TS-14-3, TS-14-4, TS-14-7, TS-14-8_
 
-  - [ ] 1.2 Create banner edge case tests
+  - [x] 1.2 Create banner edge case tests
     - Add to `tests/unit/ui/test_banner.py`
     - Implement TS-14-E1: model resolution failure shows raw value
     - Implement TS-14-E2: `Path.cwd()` OSError shows `(unknown)`
     - _Test Spec: TS-14-E1, TS-14-E2_
 
-  - [ ] 1.3 Create CLI integration tests for banner
+  - [x] 1.3 Create CLI integration tests for banner
     - Add to `tests/unit/cli/test_app.py` (or a new section)
     - Implement TS-14-5: banner appears with subcommand invocation
     - Implement TS-14-6: `--quiet` suppresses banner
     - Implement TS-14-E3: `--version` skips banner
     - _Test Spec: TS-14-5, TS-14-6, TS-14-E3_
 
-  - [ ] 1.4 Create banner property tests
+  - [x] 1.4 Create banner property tests
     - Create `tests/property/ui/test_banner_props.py`
     - Implement TS-14-P1: fox art always present
     - Implement TS-14-P2: version line always present for valid models
@@ -58,10 +58,10 @@ implements the banner changes, and task group 3 is a checkpoint.
     - Implement TS-14-P5: cwd always present
     - _Test Spec: TS-14-P1, TS-14-P2, TS-14-P3, TS-14-P4, TS-14-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement banner enhancement
   - [ ] 2.1 Update `agent_fox/ui/banner.py`
