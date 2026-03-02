@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo  # noqa: F401
-from agent_fox.spec.parser import TaskGroupDef  # noqa: F401
+from agent_fox.spec.parser import TaskGroupDef, parse_tasks  # noqa: F401
 
 # -- Severity constants -------------------------------------------------------
 
@@ -367,9 +367,83 @@ def validate_specs(
 ) -> list[Finding]:
     """Run all static validation rules against all discovered specs.
 
+    1. For each spec, run check_missing_files.
+    2. For specs with tasks.md, parse task groups and run:
+       - check_oversized_groups
+       - check_missing_verification
+    3. For specs with requirements.md, run:
+       - check_missing_acceptance_criteria
+    4. For specs with requirements.md and test_spec.md, run:
+       - check_untraced_requirements
+    5. Build known_specs map, then for each spec with prd.md, run:
+       - check_broken_dependencies
+    6. Sort all findings by spec_name, file, severity order.
+    7. Return the complete findings list.
+
     Requirements: 09-REQ-1.1, 09-REQ-1.2, 09-REQ-1.3
     """
-    raise NotImplementedError
+    findings: list[Finding] = []
+
+    # Build known_specs map: spec_name -> list of group numbers
+    known_specs: dict[str, list[int]] = {}
+
+    # Parse task groups for all specs that have tasks.md
+    parsed_groups: dict[str, list[TaskGroupDef]] = {}
+    for spec in discovered_specs:
+        tasks_path = spec.path / "tasks.md"
+        if tasks_path.is_file():
+            try:
+                groups = parse_tasks(tasks_path)
+                parsed_groups[spec.name] = groups
+                known_specs[spec.name] = [g.number for g in groups]
+            except Exception:
+                findings.append(
+                    Finding(
+                        spec_name=spec.name,
+                        file="tasks.md",
+                        rule="parse-error",
+                        severity=SEVERITY_WARNING,
+                        message="Failed to parse tasks.md",
+                        line=None,
+                    )
+                )
+        else:
+            known_specs[spec.name] = []
+
+    # Run all rules against each spec
+    for spec in discovered_specs:
+        # 1. Missing files check
+        findings.extend(check_missing_files(spec.name, spec.path))
+
+        # 2. Task-based checks (oversized groups, missing verification)
+        if spec.name in parsed_groups:
+            groups = parsed_groups[spec.name]
+            findings.extend(check_oversized_groups(spec.name, groups))
+            findings.extend(check_missing_verification(spec.name, groups))
+
+        # 3. Acceptance criteria check
+        if (spec.path / "requirements.md").is_file():
+            findings.extend(
+                check_missing_acceptance_criteria(spec.name, spec.path)
+            )
+
+        # 4. Traceability check
+        if (
+            (spec.path / "requirements.md").is_file()
+            and (spec.path / "test_spec.md").is_file()
+        ):
+            findings.extend(
+                check_untraced_requirements(spec.name, spec.path)
+            )
+
+        # 5. Dependency check
+        if (spec.path / "prd.md").is_file():
+            findings.extend(
+                check_broken_dependencies(spec.name, spec.path, known_specs)
+            )
+
+    # 6. Sort findings
+    return sort_findings(findings)
 
 
 def compute_exit_code(findings: list[Finding]) -> int:

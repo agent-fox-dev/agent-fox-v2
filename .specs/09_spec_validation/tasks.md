@@ -137,21 +137,21 @@ command to make those tests pass.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/validator.py`
     - [x] Requirements 09-REQ-2.* through 09-REQ-6.* acceptance criteria met
 
-- [ ] 3. Implement requirement traceability and AI analysis
-  - [ ] 3.1 Implement `check_untraced_requirements`
+- [x] 3. Implement requirement traceability and AI analysis
+  - [x] 3.1 Implement `check_untraced_requirements`
     - Collect requirement IDs from requirements.md via regex
     - Collect requirement references from test_spec.md via regex
     - Return Warning findings for IDs not found in test references
     - _Requirements: 09-REQ-7.1, 09-REQ-7.2_
 
-  - [ ] 3.2 Implement `validate_specs` orchestrator
+  - [x] 3.2 Implement `validate_specs` orchestrator
     - Wire all static rules together: discovery, file checks, task checks,
       requirement checks, dependency checks, traceability checks
     - Build known_specs map from discovered specs
     - Sort findings by spec name, file, severity
     - _Requirements: 09-REQ-1.1, 09-REQ-1.2, 09-REQ-1.3_
 
-  - [ ] 3.3 Implement AI validator
+  - [x] 3.3 Implement AI validator
     - `agent_fox/spec/ai_validator.py`: `analyze_acceptance_criteria()` and
       `run_ai_validation()` functions
     - Construct a structured prompt asking the model to identify vague and
@@ -160,11 +160,11 @@ command to make those tests pass.
     - Handle API errors gracefully (log warning, return empty list)
     - _Requirements: 09-REQ-8.1, 09-REQ-8.2, 09-REQ-8.3, 09-REQ-8.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Traceability unit tests pass: `uv run pytest tests/unit/spec/test_validator.py -q`
-    - [ ] AI validator tests pass: `uv run pytest tests/unit/spec/test_ai_validator.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/`
-    - [ ] Requirements 09-REQ-7.*, 09-REQ-8.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Traceability unit tests pass: `uv run pytest tests/unit/spec/test_validator.py -q`
+    - [x] AI validator tests pass: `uv run pytest tests/unit/spec/test_ai_validator.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/`
+    - [x] Requirements 09-REQ-7.*, 09-REQ-8.* acceptance criteria met
 
 - [ ] 4. Implement CLI command and output formatting
   - [ ] 4.1 Implement output formatters
