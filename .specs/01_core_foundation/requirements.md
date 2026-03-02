@@ -43,7 +43,8 @@ my terminal.
 #### Edge Cases
 
 1. [01-REQ-1.E1] IF the CLI is invoked with an unknown subcommand, THEN THE
-   CLI SHALL print an error listing available commands and exit with code 2.
+   CLI SHALL print an error identifying the unknown command and exit with
+   code 2.
 
 ---
 

@@ -352,7 +352,7 @@ SHALL clamp it to the nearest valid bound rather than rejecting the file.
 | Config numeric out of range | Clamp to valid bound, log warning | 01-REQ-2.E3 |
 | Unrecognized config keys | Log warning, ignore | 01-REQ-2.6 |
 | Init outside git repo | Exit with error, code 1 | 01-REQ-3.E1 |
-| Unknown CLI subcommand | List available commands, exit code 2 | 01-REQ-1.E1 |
+| Unknown CLI subcommand | Print error identifying unknown command, exit code 2 | 01-REQ-1.E1 |
 | Unknown model ID | Raise ConfigError with valid options | 01-REQ-5.E1 |
 | Invalid theme color | Fall back to default, log warning | 01-REQ-7.E1 |
 | Unhandled exception at CLI | Log traceback at DEBUG, print message, exit 1 | 01-REQ-4.E1 |
