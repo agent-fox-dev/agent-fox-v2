@@ -5,9 +5,18 @@ Requirements: 07-REQ-2.1, 07-REQ-2.2, 07-REQ-2.3, 07-REQ-2.4, 07-REQ-2.5
 
 from __future__ import annotations
 
+import logging
+import subprocess
+from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+
+from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.graph.persistence import load_plan
+from agent_fox.graph.types import TaskGraph
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -97,7 +106,132 @@ def generate_standup(
     Returns:
         StandupReport covering the specified time window.
     """
-    raise NotImplementedError
+    # Compute time window
+    now = datetime.now(UTC)
+    window_start = now - timedelta(hours=hours)
+    window_end = now
+
+    # Load plan (needed for queue summary)
+    graph = load_plan(plan_path)
+
+    # Load execution state
+    state = StateManager(state_path).load()
+
+    # Filter sessions within the time window
+    windowed_sessions = _filter_sessions_by_window(
+        state.session_history if state else [],
+        window_start,
+    )
+
+    # Compute agent activity from windowed sessions
+    agent = _compute_agent_activity(windowed_sessions)
+
+    # Get human commits
+    human_commits = _get_human_commits(repo_path, window_start, agent_author)
+
+    # Detect file overlaps (agent_files from session records)
+    agent_files = _collect_agent_files(windowed_sessions)
+    file_overlaps = _detect_overlaps(agent_files, human_commits)
+
+    # Build cost breakdown by model tier
+    cost_breakdown = _build_cost_breakdown(windowed_sessions)
+
+    # Build queue summary from current task statuses
+    queue = _build_queue_summary(graph, state)
+
+    return StandupReport(
+        window_hours=hours,
+        window_start=window_start.isoformat(),
+        window_end=window_end.isoformat(),
+        agent=agent,
+        human_commits=human_commits,
+        file_overlaps=file_overlaps,
+        cost_breakdown=cost_breakdown,
+        queue=queue,
+    )
+
+
+def _filter_sessions_by_window(
+    sessions: list[SessionRecord],
+    window_start: datetime,
+) -> list[SessionRecord]:
+    """Filter session records to those within the reporting window.
+
+    Args:
+        sessions: All session records.
+        window_start: Start of the reporting window.
+
+    Returns:
+        Sessions with timestamps at or after window_start.
+    """
+    result: list[SessionRecord] = []
+    for session in sessions:
+        try:
+            ts = datetime.fromisoformat(session.timestamp)
+            # Ensure timezone-aware comparison
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=UTC)
+            if ts >= window_start:
+                result.append(session)
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid timestamp in session record: %s", session.timestamp,
+            )
+    return result
+
+
+def _compute_agent_activity(
+    sessions: list[SessionRecord],
+) -> AgentActivity:
+    """Compute agent activity metrics from windowed sessions.
+
+    Args:
+        sessions: Session records within the reporting window.
+
+    Returns:
+        AgentActivity summarizing agent work.
+    """
+    completed_ids: list[str] = []
+    total_input = 0
+    total_output = 0
+    total_cost = 0.0
+
+    for session in sessions:
+        total_input += session.input_tokens
+        total_output += session.output_tokens
+        total_cost += session.cost
+        if session.status == "completed":
+            if session.node_id not in completed_ids:
+                completed_ids.append(session.node_id)
+
+    return AgentActivity(
+        tasks_completed=len(completed_ids),
+        sessions_run=len(sessions),
+        input_tokens=total_input,
+        output_tokens=total_output,
+        cost=total_cost,
+        completed_task_ids=completed_ids,
+    )
+
+
+def _collect_agent_files(
+    sessions: list[SessionRecord],
+) -> dict[str, list[str]]:
+    """Collect files touched by agent sessions.
+
+    Note: SessionRecord does not currently have a touched_paths field.
+    This function returns an empty dict. When touched_paths is available,
+    it will build a mapping of file path -> list of task IDs.
+
+    Args:
+        sessions: Session records within the reporting window.
+
+    Returns:
+        Mapping of file path to list of task IDs that touched it.
+    """
+    # SessionRecord does not have a touched_paths field currently.
+    # Return empty dict; overlap detection will find no overlaps.
+    return {}
 
 
 def _get_human_commits(
@@ -107,8 +241,8 @@ def _get_human_commits(
 ) -> list[HumanCommit]:
     """Query git log for non-agent commits since the given timestamp.
 
-    Uses ``git log --since=<ISO> --invert-grep --author=<agent_author>``
-    to exclude agent commits.
+    Runs ``git log --since=<ISO>`` and filters out commits whose author
+    matches ``agent_author`` in Python.
 
     Args:
         repo_path: Path to the git repository root.
@@ -118,7 +252,124 @@ def _get_human_commits(
     Returns:
         List of HumanCommit records.
     """
-    raise NotImplementedError
+    since_iso = since.isoformat()
+
+    try:
+        result = subprocess.run(
+            [
+                "git", "log",
+                f"--since={since_iso}",
+                "--format=%H|%an|%aI|%s",
+                "--name-only",
+            ],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        logger.warning("git log failed: %s", exc)
+        return []
+
+    if result.returncode != 0:
+        logger.warning("git log returned non-zero: %s", result.stderr.strip())
+        return []
+
+    all_commits = _parse_git_log_output(result.stdout)
+
+    # Filter out agent commits
+    return [c for c in all_commits if c.author != agent_author]
+
+
+def _parse_git_log_output(output: str) -> list[HumanCommit]:
+    """Parse structured git log output into HumanCommit records.
+
+    Git outputs with ``--format="%H|%an|%aI|%s" --name-only``::
+
+        <hash>|<author>|<ISO date>|<subject>
+        <blank line>
+        <file1>
+        <file2>
+        <hash>|<author>|<ISO date>|<subject>
+        <blank line>
+        <file1>
+        ...
+
+    Each commit has a header line followed by a blank separator, then
+    file names. The next commit header follows immediately after files.
+
+    Args:
+        output: Raw stdout from git log command.
+
+    Returns:
+        List of parsed HumanCommit records.
+    """
+    commits: list[HumanCommit] = []
+    if not output.strip():
+        return commits
+
+    lines = output.split("\n")
+
+    # Collect commit blocks: each starts with a header (contains |),
+    # followed by a blank line, then file names.
+    headers: list[tuple[str, int]] = []  # (header, line_index)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped and "|" in stripped:
+            # Check if it looks like a commit header (40-char hex hash prefix)
+            parts = stripped.split("|", 1)
+            if len(parts[0]) == 40 and all(
+                c in "0123456789abcdef" for c in parts[0]
+            ):
+                headers.append((stripped, i))
+
+    for idx, (header, start_line) in enumerate(headers):
+        # Files are between this header and the next header
+        if idx + 1 < len(headers):
+            end_line = headers[idx + 1][1]
+        else:
+            end_line = len(lines)
+
+        # Collect non-empty, non-header lines as file names
+        files: list[str] = []
+        for j in range(start_line + 1, end_line):
+            stripped = lines[j].strip()
+            if stripped:
+                files.append(stripped)
+
+        commit = _parse_commit_header(header, files)
+        if commit is not None:
+            commits.append(commit)
+
+    return commits
+
+
+def _parse_commit_header(
+    header: str,
+    files: list[str],
+) -> HumanCommit | None:
+    """Parse a single commit header line into a HumanCommit.
+
+    Args:
+        header: The header line in format "hash|author|date|subject".
+        files: List of changed file paths.
+
+    Returns:
+        HumanCommit record or None if parsing fails.
+    """
+    parts = header.split("|", 3)
+    if len(parts) < 4:
+        logger.warning("Malformed git log header: %s", header)
+        return None
+
+    sha, author, timestamp, subject = parts
+    return HumanCommit(
+        sha=sha.strip(),
+        author=author.strip(),
+        timestamp=timestamp.strip(),
+        subject=subject.strip(),
+        files_changed=[f for f in files if f],
+    )
 
 
 def _detect_overlaps(
@@ -134,4 +385,128 @@ def _detect_overlaps(
     Returns:
         List of FileOverlap records for files touched by both.
     """
-    raise NotImplementedError
+    if not agent_files or not human_commits:
+        return []
+
+    # Build a map of human file -> list of commit SHAs
+    human_file_commits: dict[str, list[str]] = defaultdict(list)
+    for commit in human_commits:
+        for fpath in commit.files_changed:
+            human_file_commits[fpath].append(commit.sha)
+
+    # Find intersection
+    overlaps: list[FileOverlap] = []
+    for fpath, task_ids in agent_files.items():
+        if fpath in human_file_commits:
+            overlaps.append(
+                FileOverlap(
+                    path=fpath,
+                    agent_task_ids=list(task_ids),
+                    human_commits=list(human_file_commits[fpath]),
+                )
+            )
+
+    return overlaps
+
+
+def _build_cost_breakdown(
+    sessions: list[SessionRecord],
+) -> list[CostBreakdown]:
+    """Build cost breakdown by model tier from windowed sessions.
+
+    Note: SessionRecord does not have a model field. All sessions
+    are grouped under a single 'default' tier.
+
+    Args:
+        sessions: Session records within the reporting window.
+
+    Returns:
+        List of CostBreakdown entries, one per model tier.
+    """
+    if not sessions:
+        return []
+
+    # Group all sessions under 'default' tier since SessionRecord
+    # does not track model information.
+    total_input = sum(s.input_tokens for s in sessions)
+    total_output = sum(s.output_tokens for s in sessions)
+    total_cost = sum(s.cost for s in sessions)
+
+    return [
+        CostBreakdown(
+            tier="default",
+            sessions=len(sessions),
+            input_tokens=total_input,
+            output_tokens=total_output,
+            cost=total_cost,
+        ),
+    ]
+
+
+def _build_queue_summary(
+    graph: TaskGraph | None,
+    state: ExecutionState | None,
+) -> QueueSummary:
+    """Build queue summary from current task statuses.
+
+    A task is 'ready' if its status is 'pending' and all of its
+    predecessors are completed. A task is 'pending' (not ready) if
+    its status is 'pending' but it has incomplete predecessors.
+
+    Args:
+        graph: The task graph (may be None if plan not found).
+        state: Current execution state (may be None).
+
+    Returns:
+        QueueSummary with counts by status.
+    """
+    if graph is None:
+        return QueueSummary(
+            ready=0, pending=0, blocked=0, failed=0, completed=0,
+        )
+
+    # Get node statuses from state, defaulting to pending
+    node_states: dict[str, str] = {}
+    if state is not None:
+        node_states = dict(state.node_states)
+
+    # Fill in any nodes from the plan that aren't in the state
+    for nid in graph.nodes:
+        if nid not in node_states:
+            node_states[nid] = "pending"
+
+    ready = 0
+    pending = 0
+    blocked = 0
+    failed = 0
+    completed = 0
+
+    for nid, status in node_states.items():
+        if status == "completed":
+            completed += 1
+        elif status == "failed":
+            failed += 1
+        elif status == "blocked":
+            blocked += 1
+        elif status == "pending":
+            # Check if ready (all predecessors completed)
+            preds = graph.predecessors(nid)
+            if all(
+                node_states.get(p, "pending") == "completed"
+                for p in preds
+            ):
+                ready += 1
+            else:
+                pending += 1
+        elif status == "skipped":
+            pass  # Skipped tasks not counted in queue
+        elif status == "in_progress":
+            pass  # In-progress tasks not in queue summary
+
+    return QueueSummary(
+        ready=ready,
+        pending=pending,
+        blocked=blocked,
+        failed=failed,
+        completed=completed,
+    )

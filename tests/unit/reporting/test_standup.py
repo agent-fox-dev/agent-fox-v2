@@ -141,7 +141,9 @@ class TestStandupHumanCommits:
         since = datetime.now(UTC) - timedelta(hours=24)
         commits = _get_human_commits(tmp_git_repo, since, "agent-fox")
 
-        assert len(commits) == 2
+        # 3 human commits: initial (from fixture) + 2 created above;
+        # the agent commit is excluded.
+        assert len(commits) == 3
         for commit in commits:
             assert commit.author != "agent-fox"
             assert len(commit.sha) == 40

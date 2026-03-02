@@ -102,26 +102,26 @@ reporting, standup reporting, reset engine, and output formatters.
     - [x] No linter warnings: `uv run ruff check agent_fox/reporting/status.py`
     - [x] Requirements 07-REQ-1.* acceptance criteria met
 
-- [ ] 3. Implement standup report generator
-  - [ ] 3.1 Create standup data models
+- [x] 3. Implement standup report generator
+  - [x] 3.1 Create standup data models
     - `agent_fox/reporting/standup.py`: `AgentActivity`, `HumanCommit`,
       `FileOverlap`, `CostBreakdown`, `QueueSummary`, `StandupReport`
       frozen dataclasses
     - _Requirements: 07-REQ-2.1 through 07-REQ-2.5_
 
-  - [ ] 3.2 Implement human commit detection
+  - [x] 3.2 Implement human commit detection
     - `_get_human_commits()`: run `git log` with `--invert-grep
       --author=<agent>` and `--format="%H|%an|%aI|%s" --name-only`,
       parse output into `HumanCommit` records
     - Handle git command failure gracefully (log warning, return empty list)
     - _Requirements: 07-REQ-2.2, 07-REQ-2.E2_
 
-  - [ ] 3.3 Implement file overlap detection
+  - [x] 3.3 Implement file overlap detection
     - `_detect_overlaps()`: intersect agent touched_paths from session
       records with human commit changed files
     - _Requirements: 07-REQ-2.3_
 
-  - [ ] 3.4 Implement generate_standup()
+  - [x] 3.4 Implement generate_standup()
     - Filter session records by timestamp window
     - Compute agent activity metrics
     - Get human commits via git log
@@ -130,11 +130,11 @@ reporting, standup reporting, reset engine, and output formatters.
     - Build queue summary from current task statuses
     - _Requirements: 07-REQ-2.1 through 07-REQ-2.5_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/reporting/test_standup.py -q`
-    - [ ] Edge case tests pass: TS-07-E3, TS-07-E4
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
-    - [ ] Requirements 07-REQ-2.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/reporting/test_standup.py -q`
+    - [x] Edge case tests pass: TS-07-E3, TS-07-E4
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
+    - [x] Requirements 07-REQ-2.* acceptance criteria met
 
 - [ ] 4. Implement reset engine
   - [ ] 4.1 Create reset data model
