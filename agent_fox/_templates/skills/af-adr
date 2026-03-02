@@ -1,0 +1,284 @@
+
+# Architecture Decision Record (ADR) Skill
+
+This skill guides creation of high-quality Architecture Decision Records that are
+useful now AND in the future — to your team, to new joiners, and to your future self.
+
+
+## Step 1 — Gather Context Before Writing
+
+Before creating the ADR, make sure you understand:
+
+1. **The decision itself** — What was chosen? (e.g. "Use Redis for session storage")
+2. **The problem** — What need or constraint drove this decision?
+3. **The alternatives** — What other options were considered?
+4. **The reasons** — Why was this option chosen over the others?
+5. **The trade-offs** — What are the known downsides or risks?
+6. **Affected stakeholders** — Who is impacted (teams, systems, users)?
+7. **Decision status** — Is this Proposed, Accepted, Deprecated, or Superseded?
+
+If the user hasn't provided enough information on any of these, ask targeted questions.
+Do NOT invent details — a vague but honest ADR is better than a confident but inaccurate one.
+
+### Source of Truth: The Code Wins
+
+**Explore the codebase:** run `ls`, read key source files, understand the
+   module structure and how components interact.
+
+**The code is the single source of truth.** Read the code in depth, understand
+how the system works. Don't skim.Documentation (READMEs, wikis, inline comments,
+commit messages, etc.) frequently diverges from what was actually implemented.
+When documentation and code disagree, **the code is always right**.
+Use documentation as a starting hint, but verify every claim against the
+actual implementation before including it in the ADR.
+
+**Important:** Only read files tracked by git. Skip anything matched by
+`.gitignore`. When in doubt, run `git ls-files` to see what's tracked.
+
+
+## Step 2 — Determine File Location and Name
+
+### Directory
+
+Look for an existing ADR directory in this priority order:
+
+1. `docs/adr/`
+2. `doc/adr/`
+3. `adr/`
+4. `docs/decisions/`
+5. `decisions/`
+
+If none exists, create `docs/adr/` and note this in your response.
+
+### Numbering
+Scan existing ADR files to determine the next sequential number.
+Use zero-padded two-digit numbers: `01`, `02`, etc.
+
+### File name format
+```
+{NN}-{imperative-verb-phrase}.md
+```
+
+Examples:
+- `01-use-postgresql-for-primary-database.md`
+- `02-adopt-hexagonal-architecture.md`
+- `03-replace-rest-with-grpc-for-internal-services.md`
+
+Rules:
+- Present-tense imperative verb (use, adopt, replace, migrate, define, choose)
+- Lowercase with hyphens only — no spaces, no underscores
+- Be specific: `use-redis-for-session-cache` beats `cache-decision`
+
+
+## Step 3 — Write the ADR Using This Template
+
+```markdown
+Title: {NNNN}. {Title in sentence case}
+Date: {YYYY-MM-DD}
+Status: {Proposed | Accepted | Deprecated | Superseded by [ADR-NNNN](NNNN-filename.md)}
+## Context
+
+{Describe the situation, forces, and constraints that make this decision necessary.
+Include: the problem being solved, relevant technical constraints, organizational
+or team context, any external drivers (compliance, performance SLAs, partner APIs).
+Write this as if explaining to a smart engineer who just joined the team and has
+no background on the situation. This section should NOT mention the decision itself —
+only the forces that make a decision necessary.}
+
+## Decision Drivers
+
+- {Key requirement or constraint 1}
+- {Key requirement or constraint 2}
+- {Key non-functional requirement (e.g. performance, security, maintainability)}
+- {Team skill or operational consideration}
+
+## Options Considered
+
+### Option A: {Name}
+{Brief description}
+
+**Pros:**
+- {Advantage}
+
+**Cons:**
+- {Disadvantage or risk}
+
+### Option B: {Name}
+{Brief description}
+
+**Pros:**
+- {Advantage}
+
+**Cons:**
+- {Disadvantage or risk}
+
+### Option C: {Name} *(if applicable)*
+{Repeat pattern}
+
+## Decision
+
+We will **{chosen option}** because {primary rationale — connect directly to the
+decision drivers above. Be specific. Avoid vague language like "it's the best fit".
+Say WHY it's the best fit for YOUR situation.}
+
+## Consequences
+
+### Positive
+- {Benefit 1}
+- {Benefit 2}
+
+### Negative / Trade-offs
+- {Known downside or accepted risk}
+- {Technical debt incurred, if any}
+
+### Neutral / Follow-up actions
+- {Related ADR that will now be needed — link if it exists}
+- {Migration step, infrastructure work, or team training required}
+- {Review date or trigger condition for revisiting this decision}
+
+## References
+
+- {Link to relevant RFC, spike, design doc, or ticket}
+- {External documentation, benchmark results, or prior art}
+```
+
+
+## Step 4 — Quality Checklist Before Saving
+
+Go through each item before writing the file:
+
+- [ ] **Context explains WHY a decision is needed** — not what was decided
+- [ ] **At least two real alternatives** are documented with honest trade-offs
+- [ ] **Decision rationale connects to the drivers** — not generic praise
+- [ ] **Consequences include negatives** — a one-sided ADR is not trustworthy
+- [ ] **No vague language**: avoid "best practice", "industry standard", "obvious choice" without evidence
+- [ ] **Timestamps are present** — future readers need to understand when this was written
+- [ ] **Status is set** — every ADR must have a status
+- [ ] **File name uses imperative verb phrase** in lowercase-with-hyphens
+
+
+## Best Practices (Apply These Always)
+
+**Write for your future self at 2am during an incident.**
+The person reading this ADR may be stressed, may not have context, and may be
+deciding whether to change something. Make the "why" unmistakably clear.
+
+**One decision per ADR.**
+If you're deciding two things, write two ADRs. Cross-reference them.
+
+**Immutability by default.**
+Don't edit the substance of an accepted ADR. Instead:
+- Add a dated note at the bottom if new information comes in
+- Create a new ADR and mark this one as "Superseded by [ADR-NNNN]"
+
+**Document rejected options with the same care as the chosen one.**
+Future engineers will re-evaluate the same alternatives. Save them the time.
+
+**Be specific about your context.**
+"We chose X because of our team size of 8 engineers and our 99.5% SLA" is far
+more useful than "X scales better."
+
+**Avoid abbreviations and internal jargon** in the Context section — this is your
+most likely entry point for new team members.
+
+
+## Domain-Specific Guidance
+
+### Safety-Critical / Mixed-Criticality Systems (ASIL, ISO 26262, etc.)
+Add these additional sections when the decision has safety implications:
+
+```markdown
+## Safety & Compliance Impact
+
+- ASIL level affected: {None | A | B | C | D}
+- Compliance frameworks impacted: {ISO 26262, IEC 61508, etc.}
+- Safety argument: {How does this decision support or affect the safety case?}
+- Requires safety review by: {name/role}
+```
+
+### API / Interface Decisions
+Include backward compatibility stance, versioning strategy, and contract owners.
+
+### Build vs. Buy vs. OSS Decisions
+Include: license type, support model, community health, total cost of ownership
+estimate, and vendor lock-in risk.
+
+### Infrastructure / Cloud Decisions
+Include: cost impact (estimated), regional availability, disaster recovery implications,
+and operational team readiness.
+
+
+## Example Output
+
+For reference, a complete minimal ADR looks like this:
+
+```markdown
+Title: 04. Use NATS as the message broker for vehicle service events
+Date: 2025-03-12
+Status: Accepted
+## Context
+
+Our mixed-criticality automotive demo requires reliable, low-latency message passing
+between Android Automotive OS applications and ASIL-B services running on RHIVOS.
+We need a broker that supports both cloud-native and embedded deployment patterns,
+has predictable latency under load, and can be self-hosted to meet automotive
+data residency requirements. The team has no existing broker infrastructure.
+
+## Decision Drivers
+
+- Sub-10ms P99 latency requirement for door lock event propagation
+- Must run on-vehicle (edge) without cloud connectivity
+- Small operational footprint — no Zookeeper or heavy dependencies
+- Team has existing Go expertise (NATS has a first-class Go client)
+
+## Options Considered
+
+### Option A: Apache Kafka
+Mature, widely adopted, strong ecosystem.
+
+**Pros:** Battle-tested at scale, rich tooling, strong ordering guarantees.
+**Cons:** Heavy operational burden (Zookeeper/KRaft), high memory footprint,
+not designed for edge/embedded deployment, overkill for our message volume.
+
+### Option B: NATS
+Lightweight, cloud-native and edge-capable message broker written in Go.
+
+**Pros:** ~20MB binary, JetStream for persistence, runs on-vehicle,
+excellent Go client, CNCF project with active development.
+**Cons:** Smaller ecosystem than Kafka, JetStream is relatively newer.
+
+### Option C: MQTT (Mosquitto)
+Purpose-built for IoT/embedded messaging.
+
+**Pros:** Extremely lightweight, well-understood in automotive.
+**Cons:** No built-in persistence without extensions, weaker stream semantics,
+less suited to service-to-service RPC patterns we also need.
+
+## Decision
+
+We will **use NATS with JetStream** because it is the only evaluated option that
+satisfies our latency requirement, runs on-vehicle without a cloud dependency,
+and aligns with our team's Go expertise. The JetStream persistence layer covers
+our audit trail requirement for parking transaction events.
+
+## Consequences
+
+### Positive
+- Single broker handles both pub/sub events and request/reply patterns
+- On-vehicle deployment eliminates cloud round-trip for safety-critical paths
+
+### Negative / Trade-offs
+- Team must learn JetStream consumer group patterns (estimated 1-week ramp-up)
+- Smaller community means fewer off-the-shelf integrations
+
+### Neutral / Follow-up actions
+- ADR-0005 will address NATS authentication and TLS configuration
+- Integration testing harness needed before demo milestone (sprint 4)
+- Revisit if message volume exceeds 50k/sec sustained
+
+## References
+
+- NATS benchmark vs Kafka: https://nats.io/blog/nats-benchmarking/
+- JetStream documentation: https://docs.nats.io/nats-concepts/jetstream
+- Spike results: docs/spikes/2025-03-08-nats-latency-test.md
+```
