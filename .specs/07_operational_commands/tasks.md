@@ -177,8 +177,8 @@ reporting, standup reporting, reset engine, and output formatters.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/reset.py`
     - [x] Requirements 07-REQ-4.*, 07-REQ-5.* acceptance criteria met
 
-- [ ] 5. Implement formatters and CLI commands
-  - [ ] 5.1 Implement output formatters
+- [x] 5. Implement formatters and CLI commands
+  - [x] 5.1 Implement output formatters
     - `agent_fox/reporting/formatters.py`: `OutputFormat` enum,
       `ReportFormatter` protocol, `TableFormatter` (Rich tables),
       `JsonFormatter` (json.dumps), `YamlFormatter` (yaml.dump)
@@ -186,7 +186,7 @@ reporting, standup reporting, reset engine, and output formatters.
     - `write_output()` function with file writing support
     - _Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-3.4_
 
-  - [ ] 5.2 Implement status CLI command
+  - [x] 5.2 Implement status CLI command
     - `agent_fox/cli/status.py`: `status` Click command registered on
       `main` group
     - `--format` option (table/json/yaml)
@@ -194,14 +194,14 @@ reporting, standup reporting, reset engine, and output formatters.
       formatter, print to stdout
     - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-3.1_
 
-  - [ ] 5.3 Implement standup CLI command
+  - [x] 5.3 Implement standup CLI command
     - `agent_fox/cli/standup.py`: `standup` Click command registered on
       `main` group
     - `--hours`, `--format`, `--output` options
     - Load config, call `generate_standup()`, format, output to stdout or file
     - _Requirements: 07-REQ-2.1, 07-REQ-3.1, 07-REQ-3.4_
 
-  - [ ] 5.4 Implement reset CLI command
+  - [x] 5.4 Implement reset CLI command
     - `agent_fox/cli/reset.py`: `reset` Click command registered on
       `main` group
     - Optional `TASK_ID` argument, `--yes` flag
@@ -211,14 +211,14 @@ reporting, standup reporting, reset engine, and output formatters.
     - Display result summary
     - _Requirements: 07-REQ-4.3, 07-REQ-4.4, 07-REQ-5.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `uv run pytest tests/unit/reporting/ tests/unit/engine/test_reset.py -q`
-    - [ ] All property tests pass: `uv run pytest tests/property/reporting/ -q`
-    - [ ] All edge case tests pass
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/ agent_fox/engine/reset.py agent_fox/cli/status.py agent_fox/cli/standup.py agent_fox/cli/reset.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/reporting/ agent_fox/engine/reset.py agent_fox/cli/status.py agent_fox/cli/standup.py agent_fox/cli/reset.py`
-    - [ ] Requirements 07-REQ-3.* acceptance criteria met
-    - [ ] CLI commands are invocable: `uv run agent-fox status --help`, `uv run agent-fox standup --help`, `uv run agent-fox reset --help`
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `uv run pytest tests/unit/reporting/ tests/unit/engine/test_reset.py -q`
+    - [x] All property tests pass: `uv run pytest tests/property/reporting/ -q`
+    - [x] All edge case tests pass
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/ agent_fox/engine/reset.py agent_fox/cli/status.py agent_fox/cli/standup.py agent_fox/cli/reset.py`
+    - [x] Type check passes: `uv run mypy agent_fox/reporting/ agent_fox/engine/reset.py agent_fox/cli/status.py agent_fox/cli/standup.py agent_fox/cli/reset.py`
+    - [x] Requirements 07-REQ-3.* acceptance criteria met
+    - [x] CLI commands are invocable: `uv run agent-fox status --help`, `uv run agent-fox standup --help`, `uv run agent-fox reset --help`
 
 - [ ] 6. Checkpoint -- Operational Commands Complete
   - Ensure all tests pass: `uv run pytest tests/unit/reporting/ tests/unit/engine/test_reset.py tests/property/reporting/ -q`
