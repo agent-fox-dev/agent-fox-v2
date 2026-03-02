@@ -124,7 +124,7 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - [x] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
     - [x] Requirements 15-REQ-2.*, 15-REQ-3.*, 15-REQ-4.*, 15-REQ-5.* met
 
-- [ ] 4. Checkpoint — Session Prompt Complete
+- [x] 4. Checkpoint — Session Prompt Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/session/ tests/`
   - Ask the user if questions arise.
