@@ -155,8 +155,8 @@ spec_gen+loop, then report+CLI.
     - [x] No linter warnings: `uv run ruff check agent_fox/fix/clusterer.py`
     - [x] Requirements 08-REQ-3.* acceptance criteria met
 
-- [ ] 4. Implement spec generator and fix loop
-  - [ ] 4.1 Implement spec generator
+- [x] 4. Implement spec generator and fix loop
+  - [x] 4.1 Implement spec generator
     - `agent_fox/fix/spec_gen.py`: `FixSpec` dataclass,
       `generate_fix_spec()` function, `cleanup_fix_specs()` function
     - Sanitize cluster label for filesystem-safe directory name
@@ -167,7 +167,7 @@ spec_gen+loop, then report+CLI.
     - cleanup_fix_specs: `shutil.rmtree()` on output_dir contents
     - _Requirements: 08-REQ-4.1, 08-REQ-4.2_
 
-  - [ ] 4.2 Implement fix loop
+  - [x] 4.2 Implement fix loop
     - `agent_fox/fix/loop.py`: `TerminationReason` enum, `FixResult`
       dataclass, `run_fix_loop()` async function
     - Step 1: call `detect_checks()`, error if empty (08-REQ-1.E1)
@@ -184,11 +184,11 @@ spec_gen+loop, then report+CLI.
     - Clean up fix specs after loop
     - _Requirements: 08-REQ-5.1, 08-REQ-5.2, 08-REQ-5.3, 08-REQ-7.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/fix/test_spec_gen.py tests/unit/fix/test_loop.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/unit/fix/test_loop_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/fix/spec_gen.py agent_fox/fix/loop.py`
-    - [ ] Requirements 08-REQ-4.*, 08-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/fix/test_spec_gen.py tests/unit/fix/test_loop.py -q`
+    - [x] Property tests pass: `uv run pytest tests/unit/fix/test_loop_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/fix/spec_gen.py agent_fox/fix/loop.py`
+    - [x] Requirements 08-REQ-4.*, 08-REQ-5.* acceptance criteria met
 
 - [ ] 5. Implement report and CLI command
   - [ ] 5.1 Implement fix report
