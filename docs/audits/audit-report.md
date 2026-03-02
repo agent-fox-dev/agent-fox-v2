@@ -8,8 +8,8 @@
 
 | Category | Count |
 |----------|-------|
-| Compliant | 335 |
-| Drifted | 42 |
+| Compliant | 336 |
+| Drifted | 41 |
 | Unimplemented | 0 |
 | Superseded | 0 |
 | In-progress (expected gaps) | 0 |
@@ -22,6 +22,7 @@
 | 01-REQ-1.2 | 01_core_foundation | Subcommand registration via `main.add_command()` |
 | 01-REQ-1.3 | 01_core_foundation | Banner and help text shown when invoked without subcommand |
 | 01-REQ-1.4 | 01_core_foundation | Console script entry point in pyproject.toml |
+| 01-REQ-1.E1 | 01_core_foundation | Unknown subcommand prints error and exits with code 2 |
 | 01-REQ-2.1 | 01_core_foundation | Config loads from TOML, validates with pydantic, merges defaults |
 | 01-REQ-2.2 | 01_core_foundation | Invalid config fields produce ConfigError with clear messages |
 | 01-REQ-2.3 | 01_core_foundation | Missing fields use documented defaults |
@@ -355,17 +356,6 @@
 | 13-REQ-7.2 | 13_time_vision | Causal facts additive within 50-fact budget (at function level) |
 
 ## Drifted Requirements
-
-### 01-REQ-1.E1: Unknown subcommand error listing
-
-**Spec says:** "IF the CLI is invoked with an unknown subcommand, THEN THE CLI SHALL print an error listing available commands and exit with code 2."
-**Code does:** Uses standard `click.Group` rather than custom `BannerGroup` from design.md. Click's default says "No such command 'foo'" but does not list available commands. Exit code 2 is correct.
-**Drift type:** structural
-**Suggested mitigation:** Change spec
-**Priority:** low
-**Rationale:** Default Click behavior is industry standard. The spec's custom BannerGroup is an enhancement the code reasonably omitted. Users can run `--help` to see commands.
-
----
 
 ### 01-REQ-2.5: CLI-to-config override mechanism
 
@@ -849,7 +839,6 @@
 
 | Requirement | Mitigation | Priority |
 |-------------|-----------|----------|
-| 01-REQ-1.E1 | Change spec | low |
 | 01-REQ-2.5 | Change spec | low |
 | 01-REQ-2.E2 | Get well spec | high |
 | 01-REQ-4.E1 | Get well spec | medium |
