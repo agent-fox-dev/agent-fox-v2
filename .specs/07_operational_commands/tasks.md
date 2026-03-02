@@ -75,32 +75,32 @@ reporting, standup reporting, reset engine, and output formatters.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/reporting/ tests/unit/engine/test_reset.py tests/property/reporting/`
 
-- [ ] 2. Implement status report generator
-  - [ ] 2.1 Create report data models
+- [x] 2. Implement status report generator
+  - [x] 2.1 Create report data models
     - `agent_fox/reporting/__init__.py`
     - `agent_fox/reporting/status.py`: `TaskSummary` and `StatusReport`
       frozen dataclasses
     - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3_
 
-  - [ ] 2.2 Implement state and plan loading helpers
+  - [x] 2.2 Implement state and plan loading helpers
     - Helper functions to load `state.jsonl` and `plan.json`, reconstruct
       node statuses, compute cumulative tokens and cost
     - Handle missing state file (return empty state with all tasks pending)
     - Handle missing plan file (raise AgentFoxError)
     - _Requirements: 07-REQ-1.E1, 07-REQ-1.E2_
 
-  - [ ] 2.3 Implement generate_status()
+  - [x] 2.3 Implement generate_status()
     - Read state and plan, compute counts by status, aggregate tokens/cost,
       build problem tasks list with reasons from block_reasons and
       session error messages
     - Compute per-spec breakdown
     - _Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/reporting/test_status.py -q`
-    - [ ] Edge case tests pass: TS-07-E1, TS-07-E2
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/status.py`
-    - [ ] Requirements 07-REQ-1.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/reporting/test_status.py -q`
+    - [x] Edge case tests pass: TS-07-E1, TS-07-E2
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/status.py`
+    - [x] Requirements 07-REQ-1.* acceptance criteria met
 
 - [ ] 3. Implement standup report generator
   - [ ] 3.1 Create standup data models
