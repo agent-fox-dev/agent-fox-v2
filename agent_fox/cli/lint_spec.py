@@ -56,21 +56,30 @@ def _build_summary(findings: list[Finding]) -> dict:
     }
 
 
+_SEVERITY_MARKERS = {
+    SEVERITY_ERROR: "\u2717",    # ✗
+    SEVERITY_WARNING: "\u26a0",  # ⚠
+    SEVERITY_HINT: "\u2139",     # ℹ
+}
+
+
 def format_table(findings: list[Finding]) -> str:
     """Render findings as compact text lines grouped by spec.
 
     Output structure:
-        Spec Validation
-          {spec_name}
-            {severity}  {file}:{line}  {rule}  {message}
+        Spec Validation \u2014 N findings
+
+        {spec_name} (N findings)
+          {marker} {file}:{line}  {rule} \u2014 {message}
           ...
+
         Summary: N error(s) | N warning(s) | N hint(s)
     """
     if not findings:
         return "No findings.\n"
 
     lines: list[str] = []
-    lines.append("Spec Validation")
+    lines.append(f"Spec Validation \u2014 {len(findings)} findings")
 
     # Group findings by spec name, preserving encounter order
     specs_seen: list[str] = []
@@ -82,12 +91,15 @@ def format_table(findings: list[Finding]) -> str:
         grouped[f.spec_name].append(f)
 
     for spec_name in specs_seen:
-        lines.append(f"  {spec_name}")
-        for f in grouped[spec_name]:
+        spec_findings = grouped[spec_name]
+        lines.append("")
+        lines.append(f"{spec_name} ({len(spec_findings)} findings)")
+        for f in spec_findings:
+            marker = _SEVERITY_MARKERS.get(f.severity, "?")
             loc = f.file
             if f.line is not None:
                 loc = f"{f.file}:{f.line}"
-            lines.append(f"    {f.severity}  {loc}  {f.rule}  {f.message}")
+            lines.append(f"  {marker} {loc}  {f.rule} \u2014 {f.message}")
 
     # Summary line
     summary = _build_summary(findings)
@@ -98,7 +110,8 @@ def format_table(findings: list[Finding]) -> str:
         parts.append(f"{summary['warning']} warning(s)")
     if summary["hint"] > 0:
         parts.append(f"{summary['hint']} hint(s)")
-    lines.append(f"\nSummary: {' | '.join(parts)}")
+    lines.append("")
+    lines.append(f"Summary: {' | '.join(parts)}")
 
     return "\n".join(lines) + "\n"
 
