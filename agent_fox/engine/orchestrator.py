@@ -245,6 +245,7 @@ class Orchestrator:
                         state,
                         f"Retry limit exceeded for {node_id}",
                     )
+                    self._state_manager.save(state)
                     continue
                 # Cost or session limit: let the main loop handle it
                 break
@@ -327,6 +328,7 @@ class Orchestrator:
                         state,
                         f"Retry limit exceeded for {node_id}",
                     )
+                    self._state_manager.save(state)
                 continue
 
             attempt_tracker[node_id] = attempt
@@ -443,13 +445,17 @@ class Orchestrator:
         as failed. They are reset to pending and will be re-dispatched
         with an error message indicating prior interruption.
         """
+        any_reset = False
         for node_id, status in state.node_states.items():
             if status == "in_progress":
                 state.node_states[node_id] = "pending"
+                any_reset = True
                 logger.info(
                     "Task %s was in_progress from prior run; resetting to pending.",
                     node_id,
                 )
+        if any_reset:
+            self._state_manager.save(state)
 
     def _init_attempt_tracker(
         self,

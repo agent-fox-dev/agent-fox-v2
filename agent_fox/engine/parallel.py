@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from agent_fox.engine.state import SessionRecord
@@ -90,11 +91,29 @@ class ParallelRunner:
             previous_error: str | None,
         ) -> SessionRecord:
             async with semaphore:
-                record = await self._execute_session(
-                    node_id,
-                    attempt,
-                    previous_error,
-                )
+                try:
+                    record = await self._execute_session(
+                        node_id,
+                        attempt,
+                        previous_error,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Task %s failed with exception: %s",
+                        node_id,
+                        exc,
+                    )
+                    record = SessionRecord(
+                        node_id=node_id,
+                        attempt=attempt,
+                        status="failed",
+                        input_tokens=0,
+                        output_tokens=0,
+                        cost=0.0,
+                        duration_ms=0,
+                        error_message=str(exc),
+                        timestamp=datetime.now(UTC).isoformat(),
+                    )
 
             # Invoke callback under lock to serialise state writes
             async with self._state_lock:
