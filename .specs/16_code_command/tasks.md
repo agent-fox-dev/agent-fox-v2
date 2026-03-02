@@ -89,7 +89,7 @@ failing tests, task group 2 implements the command and makes all tests pass.
     - [x] Type check passes: `.venv/bin/python -m mypy agent_fox/cli/code.py`
     - [x] Requirements 16-REQ-1.* through 16-REQ-5.* acceptance criteria met
 
-- [ ] 3. Checkpoint — Code Command Complete
+- [x] 3. Checkpoint — Code Command Complete
   - Ensure all tests pass: `.venv/bin/python -m pytest tests/unit/cli/test_code.py tests/property/cli/test_code_props.py -q`
   - Verify `agent-fox code --help` works
   - Verify `agent-fox code` with a mock/real plan
