@@ -147,27 +147,27 @@ files.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/`
     - [x] Requirements 11-REQ-4.*, 11-REQ-5.*, 11-REQ-6.* acceptance criteria met
 
-- [ ] 4. Integration and graceful degradation
-  - [ ] 4.1 Implement graceful degradation
+- [x] 4. Integration and graceful degradation
+  - [x] 4.1 Implement graceful degradation
     - Verify `open_knowledge_store()` returns None on corrupted file
     - Verify DuckDB sink swallows write failures
     - Verify SinkDispatcher continues when a sink fails
     - _Requirements: 11-REQ-7.1, 11-REQ-7.2, 11-REQ-7.3_
 
-  - [ ] 4.2 Wire up public API in `__init__.py`
+  - [x] 4.2 Wire up public API in `__init__.py`
     - Export: KnowledgeDB, open_knowledge_store, SessionSink,
       SinkDispatcher, SessionOutcome, ToolCall, ToolError, DuckDBSink,
       JsonlSink
     - Ensure all imports resolve cleanly
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ -q`
-    - [ ] All edge case tests pass (TS-11-E1 through TS-11-E7)
-    - [ ] All property tests pass (TS-11-P1 through TS-11-P4)
-    - [ ] No regressions: `uv run pytest tests/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/`
-    - [ ] Type check passes: `uv run mypy agent_fox/knowledge/`
-    - [ ] Requirements 11-REQ-7.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ -q`
+    - [x] All edge case tests pass (TS-11-E1 through TS-11-E7)
+    - [x] All property tests pass (TS-11-P1 through TS-11-P4)
+    - [x] No regressions: `uv run pytest tests/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/`
+    - [x] Type check passes: `uv run mypy agent_fox/knowledge/`
+    - [x] Requirements 11-REQ-7.* acceptance criteria met
 
 - [ ] 5. Checkpoint -- DuckDB Knowledge Store Complete
   - Ensure all tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ -q`
