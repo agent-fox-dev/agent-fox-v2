@@ -79,6 +79,19 @@ def standup_report_strategy(draw: st.DrawFn) -> StandupReport:
         for i in range(n_commits)
     ]
 
+    # Agent commits: sometimes empty
+    n_agent_commits = draw(st.integers(min_value=0, max_value=3))
+    agent_commits = [
+        HumanCommit(
+            sha="c" * 40,
+            author=f"dev{i}",
+            timestamp="2026-03-01T09:00:00Z",
+            subject=f"feat: agent change {i}",
+            files_changed=[f"src/mod{i}.py"],
+        )
+        for i in range(n_agent_commits)
+    ]
+
     # File overlaps: sometimes empty
     n_overlaps = draw(st.integers(min_value=0, max_value=3))
     overlaps = [
@@ -128,6 +141,7 @@ def standup_report_strategy(draw: st.DrawFn) -> StandupReport:
         ),
         task_activities=activities,
         human_commits=commits,
+        agent_commits=agent_commits,
         file_overlaps=overlaps,
         cost_breakdown=[],
         queue=queue,
@@ -280,15 +294,16 @@ class TestSectionOrdering:
     @given(report=standup_report_strategy())
     @settings(max_examples=50)
     def test_section_order(self, report: StandupReport) -> None:
-        """Agent Activity < Human Commits < Queue Status < Total Cost."""
+        """Sections appear in the expected fixed order."""
         output = TableFormatter().format_standup(report)
 
-        idx_agent = output.index("Agent Activity")
+        idx_activity = output.index("Agent Activity")
+        idx_agent_commits = output.index("Agent Commits")
         idx_human = output.index("Human Commits")
         idx_queue = output.index("Queue Status")
         idx_cost = output.index("Total Cost")
 
-        assert idx_agent < idx_human < idx_queue < idx_cost
+        assert idx_activity < idx_agent_commits < idx_human < idx_queue < idx_cost
 
         if "Heads Up" in output:
             idx_overlap = output.index("Heads Up")
@@ -313,6 +328,9 @@ class TestEmptySectionsHandling:
 
         if len(report.task_activities) == 0:
             assert "(no agent activity)" in output
+
+        if len(report.agent_commits) == 0:
+            assert "(no agent commits)" in output
 
         if len(report.human_commits) == 0:
             assert "(no human commits)" in output

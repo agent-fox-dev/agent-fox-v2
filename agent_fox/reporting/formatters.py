@@ -199,6 +199,16 @@ class TableFormatter:
             lines.append("  (no agent activity)")
         lines.append("")
 
+        # Agent Commits section
+        lines.append("Agent Commits")
+        if report.agent_commits:
+            for commit in report.agent_commits:
+                sha7 = commit.sha[:7]
+                lines.append(f"  {sha7} {commit.subject}")
+        else:
+            lines.append("  (no agent commits)")
+        lines.append("")
+
         # Human Commits section (15-REQ-3.1, 15-REQ-3.E1)
         lines.append("Human Commits")
         if report.human_commits:

@@ -102,6 +102,7 @@ class StandupReport:
     window_end: str  # ISO 8601
     agent: AgentActivity
     human_commits: list[HumanCommit]
+    agent_commits: list[HumanCommit]
     file_overlaps: list[FileOverlap]
     cost_breakdown: list[CostBreakdown]
     queue: QueueSummary
@@ -156,8 +157,10 @@ def generate_standup(
         node_states = dict(state.node_states)
     task_activities = _compute_task_activities(windowed_sessions, node_states)
 
-    # Get human commits
-    human_commits = _get_human_commits(repo_path, window_start, agent_author)
+    # Partition git commits into human and agent
+    human_commits, agent_commits = _partition_commits(
+        repo_path, window_start, agent_author,
+    )
 
     # Detect file overlaps (agent_files from session records)
     agent_files = _collect_agent_files(windowed_sessions)
@@ -178,6 +181,7 @@ def generate_standup(
         window_end=window_end.isoformat(),
         agent=agent,
         human_commits=human_commits,
+        agent_commits=agent_commits,
         file_overlaps=file_overlaps,
         cost_breakdown=cost_breakdown,
         queue=queue,
@@ -347,23 +351,23 @@ def _is_agent_commit(commit: HumanCommit, agent_author: str) -> bool:
     return False
 
 
-def _get_human_commits(
+def _partition_commits(
     repo_path: Path,
     since: datetime,
     agent_author: str,
-) -> list[HumanCommit]:
-    """Query git log for non-agent commits since the given timestamp.
+) -> tuple[list[HumanCommit], list[HumanCommit]]:
+    """Query git log and partition commits into human and agent lists.
 
-    Runs ``git log --since=<ISO>`` and filters out commits whose author
-    matches ``agent_author`` in Python.
+    Runs ``git log --since=<ISO>`` and classifies each commit using
+    author identity and commit message patterns.
 
     Args:
         repo_path: Path to the git repository root.
         since: Start of reporting window.
-        agent_author: Author name to exclude.
+        agent_author: Author name used by the agent.
 
     Returns:
-        List of HumanCommit records.
+        Tuple of (human_commits, agent_commits).
     """
     since_iso = since.isoformat()
 
@@ -383,16 +387,36 @@ def _get_human_commits(
         )
     except OSError as exc:
         logger.warning("git log failed: %s", exc)
-        return []
+        return [], []
 
     if result.returncode != 0:
         logger.warning("git log returned non-zero: %s", result.stderr.strip())
-        return []
+        return [], []
 
     all_commits = _parse_git_log_output(result.stdout)
 
-    # Filter out agent commits (by author identity AND commit message patterns)
-    return [c for c in all_commits if not _is_agent_commit(c, agent_author)]
+    human: list[HumanCommit] = []
+    agent: list[HumanCommit] = []
+    for c in all_commits:
+        if _is_agent_commit(c, agent_author):
+            agent.append(c)
+        else:
+            human.append(c)
+    return human, agent
+
+
+def _get_human_commits(
+    repo_path: Path,
+    since: datetime,
+    agent_author: str,
+) -> list[HumanCommit]:
+    """Query git log for non-agent commits since the given timestamp.
+
+    Convenience wrapper around :func:`_partition_commits` that returns
+    only the human commits list.
+    """
+    human, _agent = _partition_commits(repo_path, since, agent_author)
+    return human
 
 
 def _parse_git_log_output(output: str) -> list[HumanCommit]:

@@ -43,6 +43,7 @@ def _make_sample_report(
     window_end: str = "2026-03-02T12:30:00+00:00",
     task_activities: list[TaskActivity] | None = None,
     human_commits: list[HumanCommit] | None = None,
+    agent_commits: list[HumanCommit] | None = None,
     file_overlaps: list[FileOverlap] | None = None,
     queue: QueueSummary | None = None,
     total_cost: float = 34.64,
@@ -77,6 +78,16 @@ def _make_sample_report(
                 timestamp="2026-03-01T08:00:00Z",
                 subject="updated README",
                 files_changed=["README.md"],
+            ),
+        ]
+    if agent_commits is None:
+        agent_commits = [
+            HumanCommit(
+                sha="5cfee2a1234567890abcdef1234567890abcdef0",
+                author="Michael Kuehl",
+                timestamp="2026-03-01T09:00:00Z",
+                subject="feat: rewrite prompt builder with templates",
+                files_changed=["agent_fox/engine/prompt.py"],
             ),
         ]
     if file_overlaps is None:
@@ -115,6 +126,7 @@ def _make_sample_report(
         ),
         task_activities=task_activities,
         human_commits=human_commits,
+        agent_commits=agent_commits,
         file_overlaps=file_overlaps,
         cost_breakdown=[
             CostBreakdown(
@@ -197,6 +209,41 @@ class TestPerTaskActivityLines:
             "tokens 14.5k in / 9.3k out. $0.31"
         )
         assert expected in output
+
+
+# ---------------------------------------------------------------------------
+# Agent Commits Lines
+# ---------------------------------------------------------------------------
+
+
+class TestAgentCommitsLines:
+    """Agent commit lines show 7-char SHA and subject (no author)."""
+
+    def test_agent_commits_section_header(self) -> None:
+        """Output contains 'Agent Commits' section header."""
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        assert "Agent Commits" in output
+
+    def test_agent_commit_line_format(self) -> None:
+        """Agent commit line shows truncated SHA and subject."""
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        assert "  5cfee2a feat: rewrite prompt builder with templates" in output
+
+    def test_no_agent_commits_placeholder(self) -> None:
+        """Output contains '(no agent commits)' when empty."""
+        report = _make_sample_report(agent_commits=[])
+        output = TableFormatter().format_standup(report)
+        assert "  (no agent commits)" in output
+
+    def test_agent_commits_before_human_commits(self) -> None:
+        """Agent Commits section appears before Human Commits."""
+        report = _make_sample_report()
+        output = TableFormatter().format_standup(report)
+        idx_agent = output.index("Agent Commits")
+        idx_human = output.index("Human Commits")
+        assert idx_agent < idx_human
 
 
 # ---------------------------------------------------------------------------

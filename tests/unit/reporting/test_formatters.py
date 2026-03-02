@@ -82,6 +82,15 @@ def _make_standup_report() -> StandupReport:
                 files_changed=["src/main.py"],
             ),
         ],
+        agent_commits=[
+            HumanCommit(
+                sha="b" * 40,
+                author="dev",
+                timestamp="2026-03-01T09:00:00Z",
+                subject="feat: add login flow",
+                files_changed=["src/auth.py"],
+            ),
+        ],
         file_overlaps=[
             FileOverlap(
                 path="src/main.py",
