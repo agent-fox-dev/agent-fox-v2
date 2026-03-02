@@ -162,9 +162,9 @@ def generate_standup(
         repo_path, window_start, agent_author,
     )
 
-    # Detect file overlaps (agent_files from session records)
-    agent_files = _collect_agent_files(windowed_sessions)
-    file_overlaps = _detect_overlaps(agent_files, human_commits)
+    # Detect file overlaps — currently empty because SessionRecord
+    # does not track touched_paths yet.
+    file_overlaps = _detect_overlaps({}, human_commits)
 
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
@@ -301,26 +301,6 @@ def _compute_task_activities(
         )
 
     return activities
-
-
-def _collect_agent_files(
-    sessions: list[SessionRecord],
-) -> dict[str, list[str]]:
-    """Collect files touched by agent sessions.
-
-    Note: SessionRecord does not currently have a touched_paths field.
-    This function returns an empty dict. When touched_paths is available,
-    it will build a mapping of file path -> list of task IDs.
-
-    Args:
-        sessions: Session records within the reporting window.
-
-    Returns:
-        Mapping of file path to list of task IDs that touched it.
-    """
-    # SessionRecord does not have a touched_paths field currently.
-    # Return empty dict; overlap detection will find no overlaps.
-    return {}
 
 
 # Conventional-commit prefix pattern used by coding agents.

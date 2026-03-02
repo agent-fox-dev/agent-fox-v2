@@ -204,7 +204,38 @@ class Orchestrator:
         finally:
             self._restore_signal_handler()
 
-        return state  # pragma: no cover
+    def _check_launch(
+        self,
+        node_id: str,
+        attempt: int,
+        state: ExecutionState,
+        attempt_tracker: dict[str, int],
+    ) -> str:
+        """Check whether *node_id* may be launched.
+
+        Returns ``"allowed"`` if the task is cleared to run.
+        Returns ``"blocked"`` when a retry-limit violation caused the
+        task to be blocked in place.
+        Returns ``"limited"`` on a cost/session-limit violation (the
+        caller should stop dispatching so the main loop can react).
+        """
+        decision = self._circuit.check_launch(node_id, attempt, state)
+        if decision.allowed:
+            return "allowed"
+
+        if (
+            self._config.max_retries is not None
+            and attempt > self._config.max_retries + 1
+        ):
+            attempt_tracker[node_id] = attempt
+            self._block_task(
+                node_id,
+                state,
+                f"Retry limit exceeded for {node_id}",
+            )
+            self._state_manager.save(state)
+            return "blocked"
+        return "limited"
 
     async def _dispatch_serial(
         self,
@@ -226,28 +257,12 @@ class Orchestrator:
 
             attempt = attempt_tracker.get(node_id, 0) + 1
 
-            # Check circuit breaker for this specific launch
-            launch_decision = self._circuit.check_launch(
-                node_id,
-                attempt,
-                state,
+            verdict = self._check_launch(
+                node_id, attempt, state, attempt_tracker,
             )
-            if not launch_decision.allowed:
-                # Check which limit was hit
-                if (
-                    self._config.max_retries is not None
-                    and attempt > self._config.max_retries + 1
-                ):
-                    # Retry limit: block the task
-                    attempt_tracker[node_id] = attempt
-                    self._block_task(
-                        node_id,
-                        state,
-                        f"Retry limit exceeded for {node_id}",
-                    )
-                    self._state_manager.save(state)
-                    continue
-                # Cost or session limit: let the main loop handle it
+            if verdict == "blocked":
+                continue
+            if verdict == "limited":
                 break
 
             attempt_tracker[node_id] = attempt
@@ -310,25 +325,10 @@ class Orchestrator:
 
             attempt = attempt_tracker.get(node_id, 0) + 1
 
-            # Check circuit breaker for this specific launch
-            launch_decision = self._circuit.check_launch(
-                node_id,
-                attempt,
-                state,
+            verdict = self._check_launch(
+                node_id, attempt, state, attempt_tracker,
             )
-            if not launch_decision.allowed:
-                if (
-                    self._config.max_retries is not None
-                    and attempt > self._config.max_retries + 1
-                ):
-                    # Retry limit: block the task
-                    attempt_tracker[node_id] = attempt
-                    self._block_task(
-                        node_id,
-                        state,
-                        f"Retry limit exceeded for {node_id}",
-                    )
-                    self._state_manager.save(state)
+            if verdict != "allowed":
                 continue
 
             attempt_tracker[node_id] = attempt

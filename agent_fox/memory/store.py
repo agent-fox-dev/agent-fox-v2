@@ -37,14 +37,7 @@ def append_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: List of Fact objects to append.
         path: Path to the JSONL file.
     """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as f:
-            for fact in facts:
-                line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
-                f.write(line + "\n")
-    except OSError:
-        logger.error("Failed to write facts to %s", path, exc_info=True)
+    _write_jsonl(facts, path, mode="a")
 
 
 def load_all_facts(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
@@ -96,9 +89,14 @@ def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: The complete list of facts to write.
         path: Path to the JSONL file.
     """
+    _write_jsonl(facts, path, mode="w")
+
+
+def _write_jsonl(facts: list[Fact], path: Path, *, mode: str) -> None:
+    """Write facts to a JSONL file using the given open mode ('a' or 'w')."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as f:
+        with path.open(mode, encoding="utf-8") as f:
             for fact in facts:
                 line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
                 f.write(line + "\n")

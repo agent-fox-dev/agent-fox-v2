@@ -24,7 +24,13 @@ _AGENT_FOX_DIR = ".agent-fox"
 def _display_result(result: ResetResult) -> None:
     """Display a summary of the reset operation."""
     if not result.reset_tasks:
-        click.echo("Nothing to reset. All tasks are in a valid state.")
+        if result.skipped_completed:
+            click.echo(
+                "Warning: Completed tasks cannot be reset.",
+                err=True,
+            )
+        else:
+            click.echo("Nothing to reset. All tasks are in a valid state.")
         return
 
     click.echo(f"Reset {len(result.reset_tasks)} task(s) to pending:")
