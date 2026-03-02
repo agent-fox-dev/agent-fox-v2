@@ -26,8 +26,8 @@ command to make those tests pass.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test fixtures
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test fixtures
     - Create `tests/fixtures/specs/complete_spec/` with all 5 expected files
       (minimal valid content)
     - Create `tests/fixtures/specs/incomplete_spec/` with only `prd.md` and
@@ -48,7 +48,7 @@ command to make those tests pass.
     - Create `tests/fixtures/specs/valid_deps_spec/` with `prd.md` referencing
       `01_core_foundation` group 1 (valid reference)
 
-  - [ ] 1.2 Write static rule unit tests
+  - [x] 1.2 Write static rule unit tests
     - `tests/unit/spec/test_validator.py`:
       - TS-09-1 (missing files detected)
       - TS-09-2 (all files present)
@@ -64,7 +64,7 @@ command to make those tests pass.
       - TS-09-12 (findings sorted correctly)
     - _Test Spec: TS-09-1 through TS-09-12_
 
-  - [ ] 1.3 Write AI validator unit tests
+  - [x] 1.3 Write AI validator unit tests
     - `tests/unit/spec/test_ai_validator.py`:
       - TS-09-E3 (AI unavailable graceful fallback)
       - Test that AI findings have severity `"hint"` and correct rule names
@@ -72,7 +72,7 @@ command to make those tests pass.
       - Test response parsing handles valid and malformed AI responses
     - _Test Spec: TS-09-E3_
 
-  - [ ] 1.4 Write property tests
+  - [x] 1.4 Write property tests
     - `tests/property/spec/test_validator_props.py`:
       - TS-09-P1 (error findings imply non-zero exit)
       - TS-09-P2 (no errors imply zero exit)
@@ -81,7 +81,7 @@ command to make those tests pass.
       - TS-09-P5 (Finding immutability)
     - _Test Spec: TS-09-P1 through TS-09-P5_
 
-  - [ ] 1.5 Write CLI integration tests
+  - [x] 1.5 Write CLI integration tests
     - `tests/integration/test_lint_spec.py`:
       - TS-09-E1 (no specs directory)
       - TS-09-E2 (empty specs directory)
@@ -92,10 +92,10 @@ command to make those tests pass.
       - TS-09-E8 (valid dependencies produce no findings)
     - _Test Spec: TS-09-E1 through TS-09-E8_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement static validation rules
   - [ ] 2.1 Create Finding data model
