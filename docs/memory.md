@@ -41,6 +41,7 @@
 - DuckDB's `array_cosine_distance(a, b)` returns distance (0 = identical), so similarity scores must be computed as `1 - array_cosine_distance(...)` to get a higher-is-better ranking. *(source: 12_fox_ball/3)*
 - Query embedding parameters must be explicitly cast with `?::FLOAT[1024]` in DuckDB SQL for the cosine distance function to accept Python lists. *(source: 12_fox_ball/3)*
 - DuckDB UUID columns require `CAST(column AS VARCHAR)` when reading into Python strings to ensure consistent string representation across different queries. *(source: 12_fox_ball/3)*
+- Test mocks created with `MagicMock(text=...)` are not instances of `TextBlock`, so the isinstance guard's else-branch with getattr fallback will be exercised by test mocks rather than real SDK responses. This is intentional design for backward compatibility. *(source: fix_02_unnarrrowed_content_block_union/1)*
 
 ## Patterns
 
@@ -71,16 +72,12 @@
 - CircuitBreaker.should_stop() checks only global limits (cost ceiling, session limit) at the top of the orchestrator's main loop, while check_launch() checks all three limits (cost, session, retry) per-task during dispatch. *(source: 04_orchestrator/5)*
 - The orchestrator determines which RunStatus to set (COST_LIMIT vs SESSION_LIMIT) by re-checking the specific limit conditions after should_stop() returns denied, rather than relying on the reason string from LaunchDecision. *(source: 04_orchestrator/5)*
 - Memory module structure organizes code into layers: types.py (data models), store.py (persistence), extraction.py (LLM integration), filter.py (selection), compaction.py (dedup), render.py (output). *(source: 05_structured_memory/1)*
-- The `make_fact()` helper in conftest.py provides sensible defaults for all Fact dataclass fields, allowing tests to override only the fields they need to customize. *(source: 05_structured_memory/1)*
-- Property test Hypothesis strategies generate ISO 8601 timestamps for `created_at` field using `from_regex()` rather than `datetimes()` to match the string-based dataclass field. *(source: 05_structured_memory/1)*
 - Hook runner tests use real temporary shell scripts (created via `tmp_hook_script`) and marker files to verify execution order and environment variable passing, rather than mocking subprocess. *(source: 06_hooks_sync_security/1)*
 - Hot-load test helpers (`_make_minimal_tasks_md`, `_make_minimal_prd_md`, `_make_graph_with_spec`) create minimal valid spec structures in temp directories for testing graph augmentation. *(source: 06_hooks_sync_security/1)*
 - The `make_pre_tool_use_hook()` function returns a callable (not a dict with callback), matching the design.md interface where the hook directly receives `tool_name` and `tool_input` keyword arguments. *(source: 06_hooks_sync_security/1)*
 - Hook runner uses `subprocess.run()` with `capture_output=True, text=True` for stdout/stderr handling, enforces timeout via `subprocess.TimeoutExpired`, and handles missing scripts via `FileNotFoundError`, producing `HookResult` with exit codes: -1 for timeout, 127 for not found, 126 for OS errors. *(source: 06_hooks_sync_security/2)*
 - The `build_hook_env()` function copies `os.environ` and adds AF_* prefixed environment variables, ensuring hook scripts inherit the full environment including PATH. *(source: 06_hooks_sync_security/2)*
 - The store module uses manual dict serialization (_fact_to_dict/_dict_to_fact) rather than dataclasses.asdict() to maintain explicit control over field mapping, consistent with the persistence pattern used in the orchestrator module. *(source: 05_structured_memory/2)*
-- The store uses append mode ('a') for append_facts and write mode ('w') for write_facts, ensuring multiple appends accumulate while compaction can fully replace file contents. *(source: 05_structured_memory/2)*
-- Extraction module uses a two-layer error pattern where `_parse_extraction_response()` raises ValueError for invalid JSON and `extract_facts()` catches it to log a warning and return an empty list, keeping parsing logic testable independently. *(source: 05_structured_memory/3)*
 - Extraction tests mock `agent_fox.memory.extraction.anthropic.AsyncAnthropic` with response structured as `response.content[0].text` containing the raw JSON string for test assertions. *(source: 05_structured_memory/3)*
 - The filter module matches facts on spec_name OR keyword overlap (union), not both (intersection). A fact with only a matching spec_name is relevant even with zero keyword matches. *(source: 05_structured_memory/4)*
 - Recency bonus computation uses `datetime.fromisoformat()` to parse ISO 8601 timestamps from the Fact `created_at` field, with fallback to `now` for unparseable values. *(source: 05_structured_memory/4)*
@@ -153,6 +150,9 @@
 - KnowledgeIngestor writes directly to DuckDB tables (memory_facts, memory_embeddings) rather than going through MemoryStore, since it operates on the DuckDB connection directly without JSONL dual-write. *(source: 12_fox_ball/6)*
 - ADR ingestion uses `spec_name` column to store the ADR filename for duplicate detection, while git commit ingestion uses `commit_sha` column. *(source: 12_fox_ball/6)*
 - Ingestion embedding failures are tracked in `IngestResult.embedding_failures` but never raise exceptions, following the project's best-effort embedding pattern. *(source: 12_fox_ball/6)*
+- Anthropic SDK content block response narrowing uses `isinstance(block, TextBlock)` checks with a `getattr` fallback for test mocks that don't inherit from TextBlock. This pattern is established across multiple files like `extraction.py` and `ai_validator.py`. *(source: fix_02_unnarrrowed_content_block_union/1)*
+- AI validator tests use MagicMock(text=...) for response content blocks, which exercises the getattr fallback branch rather than the isinstance(TextBlock) branch since MagicMock is not a TextBlock instance. *(source: fix_02_unnarrrowed_content_block_union/2)*
+- isinstance guard additions to validator logic don't break existing tests because MagicMock objects trigger the getattr fallback path, allowing all 8 existing validator tests to pass without modification. *(source: fix_02_unnarrrowed_content_block_union/2)*
 
 ## Decisions
 
@@ -232,7 +232,6 @@
 - ruff requires imports sorted in order: stdlib → third-party → first-party → local. Use 'ruff check --fix' to auto-sort. Property test files import hypothesis before agent_fox modules. *(source: 04_orchestrator/1)*
 - Plan edges use source → target notation where source must complete before target. The Orchestrator converts these to GraphSync edges dict format: {target: [source, ...]} mapping each node to its dependency predecessors. *(source: 04_orchestrator/3)*
 - Session runner factories must return either a callable with signature `(node_id, attempt, previous_error) -> SessionRecord` or an object with an `execute()` method. Runner code checks `hasattr(runner, 'execute')` to support both patterns. *(source: 04_orchestrator/4)*
-- Stub modules import external dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` to find the attribute on the module. *(source: 05_structured_memory/1)*
 - Test file structure mirrors module organization with tests/unit/memory/test_{module}.py for unit tests and tests/property/memory/test_{module}_props.py for property tests. *(source: 05_structured_memory/1)*
 - Hook test fixtures live in `tests/unit/hooks/conftest.py`. The `tmp_hook_script` fixture is a factory function that creates executable shell scripts with controlled content and exit codes. *(source: 06_hooks_sync_security/1)*
 - Test file structure mirrors module organization: `tests/unit/hooks/test_runner.py` for `agent_fox/hooks/runner.py`, `tests/unit/hooks/test_security.py` for `agent_fox/hooks/security.py`, `tests/unit/hooks/test_hot_load.py` for `agent_fox/engine/hot_load.py`. *(source: 06_hooks_sync_security/1)*
@@ -245,14 +244,12 @@
 - Reporting test fixtures are centralized in `tests/unit/reporting/conftest.py` with helper functions: `make_session_record()`, `make_execution_state()`, `write_state_file()`, `write_plan_file()`, and `hours_ago()`. *(source: 07_operational_commands/1)*
 - Reset property tests use `TaskGraph` objects directly (via `agent_fox.graph.types`) and call `save_plan`/`load_plan` from `agent_fox.graph.persistence` rather than writing raw JSON to maintain consistency with the persistence layer. *(source: 07_operational_commands/1)*
 - Problem tasks (failed/blocked) derive their reasons from different sources: failed tasks use the last `error_message` from `SessionRecord` in session_history, while blocked tasks derive their reason from predecessor analysis using `TaskGraph.predecessors()`. *(source: 07_operational_commands/2)*
-- Stub modules in `agent_fox/fix/` import external dependencies with `# noqa: F401` comments (e.g., `subprocess`, `anthropic`) to enable mocking via `unittest.mock.patch()` in tests. *(source: 08_error_autofix/1)*
 - Property tests for the fix module are located in `tests/unit/fix/test_*_props.py` alongside unit tests, following the task specification. Earlier project specs have tests in `tests/property/`. *(source: 08_error_autofix/1)*
 - The `detect_checks()` function returns an empty list when no checks are found; the caller (CLI or loop) is responsible for raising errors. This separates detection logic from error policy. *(source: 08_error_autofix/2)*
 - The broken_deps_spec fixture encodes group references in the third column of the dependency table using `(group N)` syntax. The validator parses this with regex `\bgroup\s+(\d+)\b` to validate group existence. *(source: 09_spec_validation/2)*
 - The `check_untraced_requirements` function is listed under task 3.1 in tasks.md but is needed for the 2.V verification (test_validator.py includes TS-09-11). Implement it alongside the task group 2 rules to pass all unit tests. *(source: 09_spec_validation/2)*
 - AI issue types "vague" and "implementation-leak" are mapped to rules "vague-criterion" and "implementation-leak" respectively, both with severity level "hint". *(source: 09_spec_validation/3)*
 - CLI commands use asyncio.run() to bridge from synchronous Click handlers to async functions like run_fix_loop(). *(source: 08_error_autofix/5)*
-- CLI commands are registered in `agent_fox/cli/app.py` using `main.add_command(cmd, name="name")` with module-level imports annotated with `# noqa: E402` to suppress linting warnings. *(source: 07_operational_commands/5)*
 - Protocol classes with method signatures in `protocol.py` are considered fully implemented following the project pattern for pure structural type definitions, even in early task phases. *(source: 10_platform_integration/2)*
 - The `github_platform` test fixture in conftest.py patches both `shutil.which` and `subprocess.run` at the `agent_fox.platform.github` module level; `_verify_gh_available()` in `__init__` requires the mock to be active before instantiation. *(source: 10_platform_integration/3)*
 - Stub modules import their dependencies with `# noqa: F401` to enable mocking via `unittest.mock.patch()` at the module's import path (e.g., `agent_fox.platform.github.subprocess.run`). *(source: 10_platform_integration/3)*
@@ -275,6 +272,7 @@
 - CLI ask command uses `sys.exit(1)` for error exits rather than `ctx.exit(1)`, because Click's `ctx.exit()` doesn't always set the exit code correctly when combined with `click.echo(err=True)`. *(source: 12_fox_ball/5)*
 - KnowledgeConfig supports `model_copy(update={...})` (Pydantic v2) for creating config variants with overridden fields, used by CLI to apply `--top-k` overrides without mutating the original config. *(source: 12_fox_ball/5)*
 - Git log output is parsed using null-byte (`\x00`) delimiters via `--format=%H%x00%aI%x00%s`, matching the test mock format in `_mock_git_log_output`. *(source: 12_fox_ball/6)*
+- The worktree creates a fresh .venv on first uv run invocation, installing all 55 packages, with subsequent runs reusing the cached environment. *(source: fix_02_unnarrrowed_content_block_union/2)*
 
 ## Anti-Patterns
 
