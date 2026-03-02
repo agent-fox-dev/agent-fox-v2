@@ -105,8 +105,8 @@ integration wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/platform/`
     - [x] Requirements 10-REQ-1.*, 10-REQ-2.* acceptance criteria met
 
-- [ ] 3. Implement GitHubPlatform
-  - [ ] 3.1 Implement GitHubPlatform class
+- [x] 3. Implement GitHubPlatform
+  - [x] 3.1 Implement GitHubPlatform class
     - `agent_fox/platform/github.py`: GitHubPlatform class
     - Constructor: accept `ci_timeout`, `auto_merge`, `base_branch` parameters;
       verify `gh` CLI availability and authentication
@@ -116,7 +116,7 @@ integration wiring.
       `asyncio.to_thread(subprocess.run, ...)`
     - _Requirements: 10-REQ-3.1, 10-REQ-3.E1_
 
-  - [ ] 3.2 Implement create_pr
+  - [x] 3.2 Implement create_pr
     - Execute `gh pr create` with `--head`, `--base`, `--title`, `--body`,
       `--label` arguments
     - Parse PR URL from stdout
@@ -124,7 +124,7 @@ integration wiring.
     - Raise `IntegrationError` on failure
     - _Requirements: 10-REQ-3.2, 10-REQ-3.E2_
 
-  - [ ] 3.3 Implement wait_for_ci
+  - [x] 3.3 Implement wait_for_ci
     - Poll `gh pr checks --json name,state,conclusion` at `_CI_POLL_INTERVAL`
       (30s) intervals
     - Parse JSON output; check if all checks completed
@@ -133,7 +133,7 @@ integration wiring.
     - Handle parse errors and command failures gracefully (log warning, retry)
     - _Requirements: 10-REQ-3.3, 10-REQ-3.E3, 10-REQ-3.E4_
 
-  - [ ] 3.4 Implement wait_for_review
+  - [x] 3.4 Implement wait_for_review
     - Poll `gh pr view --json reviewDecision` at `_REVIEW_POLL_INTERVAL`
       (60s) intervals
     - Return True if reviewDecision is "APPROVED"
@@ -141,15 +141,15 @@ integration wiring.
     - Handle parse errors and command failures gracefully (log warning, retry)
     - _Requirements: 10-REQ-3.4, 10-REQ-3.E5_
 
-  - [ ] 3.5 Implement merge_pr
+  - [x] 3.5 Implement merge_pr
     - Execute `gh pr merge <url> --merge`
     - Raise `IntegrationError` on failure
     - _Requirements: 10-REQ-3.5, 10-REQ-3.E6_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/platform/test_github.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/platform/github.py`
-    - [ ] Requirements 10-REQ-3.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/platform/test_github.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/platform/github.py`
+    - [x] Requirements 10-REQ-3.* acceptance criteria met
 
 - [ ] 4. Implement factory and integration wiring
   - [ ] 4.1 Implement create_platform factory

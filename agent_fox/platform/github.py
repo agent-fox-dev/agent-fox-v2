@@ -10,12 +10,18 @@ Requirements: 10-REQ-3.1, 10-REQ-3.2, 10-REQ-3.3, 10-REQ-3.4, 10-REQ-3.5,
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 import shutil  # noqa: F401
 import subprocess  # noqa: F401
+import time
 
-from agent_fox.core.errors import IntegrationError  # noqa: F401
+from agent_fox.core.errors import IntegrationError
 
-_CI_POLL_INTERVAL = 30   # seconds between CI check polls
+logger = logging.getLogger(__name__)
+
+_CI_POLL_INTERVAL = 30  # seconds between CI check polls
 _REVIEW_POLL_INTERVAL = 60  # seconds between review status polls
 
 
@@ -39,7 +45,30 @@ class GitHubPlatform:
 
     def _verify_gh_available(self) -> None:
         """Check that gh CLI is installed and authenticated."""
-        raise NotImplementedError
+        if shutil.which("gh") is None:
+            raise IntegrationError(
+                "The 'gh' CLI is not installed. Install it from "
+                "https://cli.github.com/ and run 'gh auth login'.",
+            )
+        result = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise IntegrationError(
+                "The 'gh' CLI is not authenticated. Run 'gh auth login' first.",
+                details=result.stderr,
+            )
+
+    async def _run_gh(self, args: list[str]) -> subprocess.CompletedProcess[str]:
+        """Run a gh CLI command asynchronously."""
+        return await asyncio.to_thread(
+            subprocess.run,
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+        )
 
     async def create_pr(
         self,
@@ -49,16 +78,94 @@ class GitHubPlatform:
         labels: list[str],
     ) -> str:
         """Create a GitHub PR using gh pr create."""
-        raise NotImplementedError
+        cmd = [
+            "pr",
+            "create",
+            "--head",
+            branch,
+            "--base",
+            self._base_branch,
+            "--title",
+            title,
+            "--body",
+            body,
+        ]
+        for label in labels:
+            cmd.extend(["--label", label])
+        result = await self._run_gh(cmd)
+        if result.returncode != 0:
+            raise IntegrationError(
+                f"Failed to create PR for branch {branch}: {result.stderr}",
+                branch=branch,
+                command="gh pr create",
+            )
+        pr_url = result.stdout.strip()
+        logger.info("Created PR: %s", pr_url)
+        if self._auto_merge:
+            await self._run_gh(["pr", "merge", pr_url, "--auto", "--merge"])
+        return pr_url
 
     async def wait_for_ci(self, pr_url: str, timeout: int) -> bool:
         """Poll gh pr checks until all pass, any fail, or timeout."""
-        raise NotImplementedError
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            result = await self._run_gh(
+                ["pr", "checks", pr_url, "--json", "name,state,conclusion"],
+            )
+            if result.returncode != 0:
+                logger.warning("Failed to fetch CI checks: %s", result.stderr)
+                await asyncio.sleep(_CI_POLL_INTERVAL)
+                continue
+            try:
+                checks = json.loads(result.stdout)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse CI checks output")
+                await asyncio.sleep(_CI_POLL_INTERVAL)
+                continue
+            if not checks:
+                # No checks configured; treat as pass
+                return True
+            all_complete = all(c.get("state") == "completed" for c in checks)
+            if all_complete:
+                any_failed = any(
+                    c.get("conclusion") not in ("success", "skipped", "neutral")
+                    for c in checks
+                )
+                return not any_failed
+            await asyncio.sleep(_CI_POLL_INTERVAL)
+        logger.warning("CI timeout after %d seconds for %s", timeout, pr_url)
+        return False
 
     async def wait_for_review(self, pr_url: str) -> bool:
         """Poll gh pr view until approved or changes requested."""
-        raise NotImplementedError
+        while True:
+            result = await self._run_gh(
+                ["pr", "view", pr_url, "--json", "reviewDecision"],
+            )
+            if result.returncode != 0:
+                logger.warning("Failed to fetch review status: %s", result.stderr)
+                await asyncio.sleep(_REVIEW_POLL_INTERVAL)
+                continue
+            try:
+                data = json.loads(result.stdout)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse review status output")
+                await asyncio.sleep(_REVIEW_POLL_INTERVAL)
+                continue
+            decision = data.get("reviewDecision", "")
+            if decision == "APPROVED":
+                return True
+            if decision == "CHANGES_REQUESTED":
+                return False
+            await asyncio.sleep(_REVIEW_POLL_INTERVAL)
 
     async def merge_pr(self, pr_url: str) -> None:
         """Merge a PR using gh pr merge."""
-        raise NotImplementedError
+        result = await self._run_gh(["pr", "merge", pr_url, "--merge"])
+        if result.returncode != 0:
+            raise IntegrationError(
+                f"Failed to merge PR {pr_url}: {result.stderr}",
+                pr_url=pr_url,
+                command="gh pr merge",
+            )
+        logger.info("Merged PR: %s", pr_url)
