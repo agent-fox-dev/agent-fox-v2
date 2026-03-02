@@ -1,7 +1,7 @@
 """Extract facts from session transcripts using an LLM.
 
 Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1,
-              05-REQ-1.E2, 05-REQ-2.2
+              05-REQ-1.E2, 05-REQ-2.2, 13-REQ-2.1, 13-REQ-2.2, 13-REQ-2.E1
 """
 
 from __future__ import annotations
@@ -96,6 +96,49 @@ async def extract_facts(
         logger.debug("Extraction returned zero facts for spec %s", spec_name)
 
     return facts
+
+
+CAUSAL_EXTRACTION_ADDENDUM = """
+## Causal Relationships
+
+Review the facts you have extracted above. For each fact, consider whether
+it was CAUSED BY a prior fact from the knowledge base, or whether it CAUSES
+a change that affects other known facts.
+
+For each causal relationship you identify, output a JSON object:
+{{
+    "cause_id": "<UUID of the cause fact>",
+    "effect_id": "<UUID of the effect fact>"
+}}
+
+Only include relationships where the causal connection is clear and direct.
+Do not speculate. If no causal relationships are apparent, output an empty
+list.
+
+Prior facts for reference:
+{prior_facts}
+"""
+
+
+def enrich_extraction_with_causal(
+    base_prompt: str,
+    prior_facts: list[dict],
+) -> str:
+    """Append causal extraction instructions to the base extraction prompt.
+
+    Formats the prior facts as a reference list and appends the causal
+    extraction addendum to the prompt.
+    """
+    raise NotImplementedError
+
+
+def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
+    """Parse causal link pairs from the extraction model's response.
+
+    Returns a list of (cause_id, effect_id) tuples. Silently skips
+    malformed entries.
+    """
+    raise NotImplementedError
 
 
 def _parse_extraction_response(

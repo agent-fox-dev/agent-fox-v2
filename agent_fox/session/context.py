@@ -1,12 +1,14 @@
 """Context assembler: gather spec documents and memory facts for a session.
 
-Requirements: 03-REQ-4.1 through 03-REQ-4.E1
+Requirements: 03-REQ-4.1 through 03-REQ-4.E1, 13-REQ-7.1, 13-REQ-7.2
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
+
+import duckdb  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -57,3 +59,27 @@ def assemble_context(
 
     # 03-REQ-4.3: Return formatted string with section headers
     return "\n\n---\n\n".join(sections)
+
+
+def select_context_with_causal(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    touched_files: list[str],
+    *,
+    keyword_facts: list[dict],
+    max_facts: int = 50,
+    causal_budget: int = 10,
+) -> list[dict]:
+    """Select session context facts with causal enhancement.
+
+    1. Start with keyword_facts from the existing selection (REQ-061).
+    2. For each keyword fact, query the causal graph for linked facts.
+    3. Also query for facts causally linked to the current spec_name.
+    4. Deduplicate and rank: keyword matches first, then causal links
+       ordered by proximity (depth).
+    5. Trim to max_facts total.
+
+    The causal_budget controls how many of the max_facts slots are
+    reserved for causally-linked facts (default: 10 of 50).
+    """
+    raise NotImplementedError

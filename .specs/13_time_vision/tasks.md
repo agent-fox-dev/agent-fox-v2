@@ -33,8 +33,8 @@ integration points.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test fixtures
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test fixtures
     - `tests/unit/knowledge/conftest.py`: shared `causal_db` fixture with
       in-memory DuckDB, schema creation, seeded facts, seeded causal links,
       and seeded session outcomes (as defined in test_spec.md fixtures)
@@ -42,37 +42,37 @@ integration points.
       `seed_facts(conn)`, `seed_causal_links(conn)`,
       `seed_session_outcomes(conn)`
 
-  - [ ] 1.2 Write causal graph tests
+  - [x] 1.2 Write causal graph tests
     - `tests/unit/knowledge/test_causal.py`:
       TS-13-1 (add link), TS-13-2 (reject non-existent), TS-13-3 (get causes),
       TS-13-4 (get effects), TS-13-5 (traverse forward), TS-13-6 (traverse
       backward), TS-13-7 (max depth), TS-13-8 (isolated fact)
     - _Test Spec: TS-13-1 through TS-13-8_
 
-  - [ ] 1.3 Write temporal query and timeline tests
+  - [x] 1.3 Write temporal query and timeline tests
     - `tests/unit/knowledge/test_temporal.py`:
       TS-13-9 (build timeline), TS-13-10 (render plain text)
     - _Test Spec: TS-13-9, TS-13-10_
 
-  - [ ] 1.4 Write pattern detection tests
+  - [x] 1.4 Write pattern detection tests
     - `tests/unit/knowledge/test_patterns.py`:
       TS-13-11 (detect patterns), TS-13-12 (insufficient data),
       TS-13-13 (render patterns)
     - _Test Spec: TS-13-11, TS-13-12, TS-13-13_
 
-  - [ ] 1.5 Write extraction enrichment tests
+  - [x] 1.5 Write extraction enrichment tests
     - `tests/unit/knowledge/test_extraction_causal.py`:
       TS-13-14 (enrich prompt), TS-13-15 (parse links),
       TS-13-16 (malformed input)
     - _Test Spec: TS-13-14, TS-13-15, TS-13-16_
 
-  - [ ] 1.6 Write context enhancement tests
+  - [x] 1.6 Write context enhancement tests
     - `tests/unit/knowledge/test_context_causal.py`:
       TS-13-17 (adds causal facts), TS-13-18 (respects budget),
       TS-13-19 (fact provenance)
     - _Test Spec: TS-13-17, TS-13-18, TS-13-19_
 
-  - [ ] 1.7 Write edge case tests
+  - [x] 1.7 Write edge case tests
     - Add to relevant test files:
       TS-13-E1 (duplicate link) in `test_causal.py`
       TS-13-E2 (empty extraction) in `test_extraction_causal.py`
@@ -81,7 +81,7 @@ integration points.
       TS-13-E5 (patterns empty store) in `test_patterns.py`
     - _Test Spec: TS-13-E1 through TS-13-E5_
 
-  - [ ] 1.8 Write property tests
+  - [x] 1.8 Write property tests
     - `tests/property/knowledge/test_causal_props.py`:
       TS-13-P1 (idempotency), TS-13-P2 (depth bound), TS-13-P6 (referential
       integrity)
@@ -93,10 +93,10 @@ integration points.
       TS-13-P5 (budget compliance)
     - _Test Spec: TS-13-P1 through TS-13-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement causal graph operations
   - [ ] 2.1 Create causal module
