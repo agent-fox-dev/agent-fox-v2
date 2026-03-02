@@ -417,7 +417,7 @@ Print progress for each issue:
 #### Failure handling
 
 If creating an issue fails for any reason (network error, permissions,
-authentication, rate limiting), **silently skip that issue and continue** with
+authentication, rate limiting), **silently skip GitHub issue creation and continue** with
 the remaining drift items. Do not warn, do not halt, do not retry.
 
 After all issues are processed (or skipped), continue to the next step.
