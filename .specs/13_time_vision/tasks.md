@@ -98,29 +98,29 @@ integration points.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement causal graph operations
-  - [ ] 2.1 Create causal module
+- [x] 2. Implement causal graph operations
+  - [x] 2.1 Create causal module
     - `agent_fox/knowledge/causal.py`: `CausalLink` and `CausalFact`
       dataclasses, `add_causal_link()` function with referential integrity
       check and idempotent insert
     - _Requirements: 13-REQ-3.1, 13-REQ-3.E1, 13-REQ-2.E2_
 
-  - [ ] 2.2 Implement cause/effect queries
+  - [x] 2.2 Implement cause/effect queries
     - `agent_fox/knowledge/causal.py`: `get_causes()` and `get_effects()`
       functions with DuckDB joins to `memory_facts`
     - _Requirements: 13-REQ-3.2, 13-REQ-3.3_
 
-  - [ ] 2.3 Implement causal chain traversal
+  - [x] 2.3 Implement causal chain traversal
     - `agent_fox/knowledge/causal.py`: `traverse_causal_chain()` with BFS,
       configurable max depth, direction control, cycle detection via visited
       set
     - _Requirements: 13-REQ-3.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_causal.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_causal_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py`
-    - [ ] Requirements 13-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_causal.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_causal_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py`
+    - [x] Requirements 13-REQ-3.* acceptance criteria met
 
 - [ ] 3. Implement temporal queries and timeline rendering
   - [ ] 3.1 Create temporal module
