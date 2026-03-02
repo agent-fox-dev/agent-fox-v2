@@ -169,6 +169,7 @@
 - For 'write failing tests' tasks, use lazy imports (inside test methods) for symbols that don't exist yet, while importing existing symbols at module level. This keeps tests collectable by pytest while ensuring they fail at runtime (FAILED) rather than during collection (ERROR). *(source: 14_cli_banner/1)*
 - The `_SPEC_FILES` list in `context.py` controls both the reading order and section headers for assembled context; adding a new entry is the only change needed to include a new spec file type. *(source: 15_session_prompt/2)*
 - New fields in StandupReport and QueueSummary classes use default values (task_activities=[], total_cost=0.0, total=0, in_progress=0, ready_task_ids=[]) to maintain backward compatibility with existing test fixtures. *(source: 15_standup_formatting/3)*
+- The `_TEMPLATE_DIR` module-level variable is designed to be patchable via `patch.object(prompt_mod, "_TEMPLATE_DIR", tmp_path)` for testing missing-template scenarios without modifying actual template files. *(source: 15_session_prompt/3)*
 
 ## Decisions
 
@@ -223,6 +224,7 @@
 - QueueSummary and StandupReport new fields use default values (total=0, in_progress=0, ready_task_ids=list, task_activities=list, total_cost=0.0) to maintain backward compatibility with existing spec 07 tests that construct these models without providing the new fields. *(source: 15_standup_formatting/2)*
 - TableFormatter.format_standup() was refactored to emit plain-text lines joined with newlines instead of Rich Console/Table rendering, while Rich imports remain for format_status(). *(source: 15_standup_formatting/3)*
 - Test fixtures in test_formatters.py and test_standup.py did not require updates due to default values on new fields, eliminating the need for retroactive test maintenance. *(source: 15_standup_formatting/3)*
+- Template interpolation uses regex replacement with `re.compile(r"\{(key1|key2|...)\}")` targeting only known keys instead of `str.format()` or `string.Template`, because templates contain literal `{` and `}` in JSON examples and code blocks. *(source: 15_session_prompt/3)*
 
 ## Conventions
 
@@ -298,6 +300,7 @@
 - Rich Console's internal theme is not accessible via public API. Reconstruct a themed Console for test capture by rebuilding `Theme({role: getattr(config, role) for role in roles})` from ThemeConfig directly rather than copying from existing console. *(source: 14_cli_banner/1)*
 - The `tmp_spec_dir` fixture in `tests/unit/session/conftest.py` must include all files listed in `_SPEC_FILES` to support the full test suite. *(source: 15_session_prompt/2)*
 - Integration tests that parse structured output (JSON/YAML) from subcommands should use the `--quiet` flag to suppress decorative elements like banners. *(source: 14_cli_banner/2)*
+- Template composition joins multiple template sections with `"\n\n"` and appends context under a `## Context` header, following the pattern `{templates}\n\n## Context\n\n{context}\n`. *(source: 15_session_prompt/3)*
 
 ## Anti-Patterns
 
