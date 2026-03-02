@@ -162,11 +162,15 @@ class TestTokenFormatConsistency:
     @given(n=st.integers(min_value=0, max_value=10_000_000))
     @settings(max_examples=200)
     def test_token_format_pattern(self, n: int) -> None:
-        """Result matches integer pattern (<1000) or Xk pattern (>=1000)."""
+        """Result matches integer (<1000), Xk (>=1000), or XM (>=1M)."""
         result = _format_tokens(n)
         if n < 1000:
             assert re.fullmatch(r"\d+", result), f"Expected int, got {result}"
             assert result == str(n)
+        elif n >= 1_000_000:
+            assert re.fullmatch(r"\d+\.\dM", result), (
+                f"Expected XM, got {result}"
+            )
         else:
             assert re.fullmatch(r"\d+\.\dk", result), (
                 f"Expected Xk, got {result}"

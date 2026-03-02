@@ -9,14 +9,11 @@ import json
 import logging
 from dataclasses import asdict
 from enum import StrEnum
-from io import StringIO
 from pathlib import Path
 from typing import Protocol
 
 import yaml
 from rich.console import Console
-from rich.table import Table
-from rich.text import Text
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.reporting.standup import StandupReport
@@ -32,10 +29,13 @@ def _format_tokens(count: int) -> str:
         count: Raw token count.
 
     Returns:
-        "12.9k" for counts >= 1000, "345" for counts < 1000.
+        "1.5M" for counts >= 1_000_000, "12.9k" for counts >= 1000,
+        "345" for counts < 1000.
 
     Requirements: 15-REQ-7.1
     """
+    if count >= 1_000_000:
+        return f"{count / 1_000_000:.1f}M"
     if count >= 1000:
         return f"{count / 1000:.1f}k"
     return str(count)
@@ -75,77 +75,51 @@ class TableFormatter:
         self._console = console or Console()
 
     def format_status(self, report: StatusReport) -> str:
-        """Render status report as Rich tables."""
-        buf = StringIO()
-        console = Console(file=buf, force_terminal=False, width=100)
+        """Render status report as compact text lines."""
+        lines: list[str] = []
 
-        # Progress summary table
-        progress_table = Table(
-            title="Task Progress",
-            show_header=True,
-            header_style="bold",
+        # Tasks line
+        done = report.counts.get("completed", 0)
+        in_progress = report.counts.get("in_progress", 0)
+        pending = report.counts.get("pending", 0)
+        failed = report.counts.get("failed", 0)
+        lines.append(
+            f"Tasks: {done}/{report.total_tasks} done | "
+            f"{in_progress} in progress | "
+            f"{pending} pending | "
+            f"{failed} failed"
         )
-        progress_table.add_column("Status", style="bold")
-        progress_table.add_column("Count", justify="right")
 
-        status_styles = {
-            "completed": "green",
-            "failed": "red",
-            "blocked": "yellow",
-            "in_progress": "cyan",
-            "pending": "dim",
-            "skipped": "dim",
-        }
-        for status, count in sorted(report.counts.items()):
-            style = status_styles.get(status, "")
-            progress_table.add_row(
-                Text(status, style=style),
-                str(count),
+        # Memory line
+        if report.memory_total > 0:
+            cat_parts = ", ".join(
+                f"{count} {cat}"
+                for cat, count in sorted(report.memory_by_category.items())
             )
-        progress_table.add_row(
-            Text("TOTAL", style="bold"),
-            str(report.total_tasks),
-        )
-        console.print(progress_table)
+            lines.append(
+                f"Memory: {report.memory_total} facts ({cat_parts})"
+            )
+        else:
+            lines.append("Memory: 0 facts")
 
-        # Token and cost summary
-        cost_table = Table(
-            title="Resource Usage",
-            show_header=True,
-            header_style="bold",
+        # Tokens line
+        in_tok = _format_tokens(report.input_tokens)
+        out_tok = _format_tokens(report.output_tokens)
+        lines.append(
+            f"Tokens: {in_tok} in / {out_tok} out | "
+            f"${report.estimated_cost:.2f}"
         )
-        cost_table.add_column("Metric")
-        cost_table.add_column("Value", justify="right")
-        cost_table.add_row("Input Tokens", f"{report.input_tokens:,}")
-        cost_table.add_row("Output Tokens", f"{report.output_tokens:,}")
-        cost_table.add_row(
-            "Estimated Cost",
-            f"${report.estimated_cost:.2f}",
-        )
-        console.print(cost_table)
 
-        # Problem tasks
+        # Problem tasks (compact)
         if report.problem_tasks:
-            problem_table = Table(
-                title="Problem Tasks",
-                show_header=True,
-                header_style="bold",
-            )
-            problem_table.add_column("Task ID")
-            problem_table.add_column("Title")
-            problem_table.add_column("Status")
-            problem_table.add_column("Reason")
+            lines.append("")
+            lines.append("Problems:")
             for task in report.problem_tasks:
-                status_style = "red" if task.status == "failed" else "yellow"
-                problem_table.add_row(
-                    task.task_id,
-                    task.title,
-                    Text(task.status, style=status_style),
-                    task.reason,
+                lines.append(
+                    f"  {task.task_id}: {task.status} — {task.reason}"
                 )
-            console.print(problem_table)
 
-        return buf.getvalue()
+        return "\n".join(lines) + "\n"
 
     def format_standup(self, report: StandupReport) -> str:
         """Render standup report as indented plain text.

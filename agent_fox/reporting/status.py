@@ -6,14 +6,15 @@ Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
-from dataclasses import dataclass
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
+from agent_fox.memory.store import load_all_facts
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,8 @@ class StatusReport:
     estimated_cost: float  # USD
     problem_tasks: list[TaskSummary]
     per_spec: dict[str, dict[str, int]]  # spec_name -> {status -> count}
+    memory_total: int = 0
+    memory_by_category: dict[str, int] = field(default_factory=dict)
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
@@ -246,6 +249,12 @@ def generate_status(
     # Compute per-spec breakdown
     per_spec = _compute_per_spec(graph, node_states)
 
+    # Memory facts summary
+    memory_path = state_path.parent / "memory.jsonl"
+    facts = load_all_facts(memory_path)
+    memory_total = len(facts)
+    memory_by_category = dict(Counter(f.category for f in facts))
+
     return StatusReport(
         counts=counts,
         total_tasks=total_tasks,
@@ -254,4 +263,6 @@ def generate_status(
         estimated_cost=estimated_cost,
         problem_tasks=problem_tasks,
         per_spec=per_spec,
+        memory_total=memory_total,
+        memory_by_category=memory_by_category,
     )
