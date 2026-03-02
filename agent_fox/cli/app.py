@@ -46,11 +46,13 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
 
-    # 01-REQ-1.3: show banner when invoked without a subcommand
+    # 14-REQ-4.1: render banner on every invocation (suppressed by --quiet)
+    theme_config = config.theme if config else ThemeConfig()
+    theme = create_theme(theme_config)
+    render_banner(theme, config.models, quiet=quiet)
+
+    # 01-REQ-1.3: show help when invoked without a subcommand
     if ctx.invoked_subcommand is None:
-        theme_config = config.theme if config else ThemeConfig()
-        theme = create_theme(theme_config)
-        render_banner(theme)
         click.echo(ctx.get_help())
 
 
