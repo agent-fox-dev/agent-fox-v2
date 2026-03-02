@@ -21,6 +21,7 @@
 - `discover_specs()` raises `PlanError` when no specs are found, so callers like `discover_new_specs()` must catch this exception to gracefully handle empty or missing specs directories. *(source: 06_hooks_sync_security/4)*
 - SessionRecord dataclass in `agent_fox/engine/state.py` does not have a `model` field despite design.md mentioning model info for cost breakdown. Model info must be derived from config or session outcome metadata. *(source: 07_operational_commands/1)*
 - `ExecutionState.node_states` may not contain entries for all nodes in the plan (e.g., when state was written before new tasks were added). The `generate_status()` function fills missing entries with 'pending' status. *(source: 07_operational_commands/2)*
+- Pytest fixture names starting with `pytest_` collide with pytest's internal plugin hook system and raise `PluginValidationError: unknown hook`. Use alternative naming conventions like `check_descriptor_pytest` instead. *(source: 08_error_autofix/1)*
 
 ## Patterns
 
@@ -71,6 +72,8 @@
 - Property test TS-07-P1 validates count consistency invariant end-to-end by calling `generate_status()` with file-based state and plan files, rather than testing only the data model invariant on constructed reports. *(source: 07_operational_commands/1)*
 - The `generate_status()` function loads plan.json via `load_plan()` from `agent_fox.graph.persistence` (returns `TaskGraph | None`) and state.jsonl via `StateManager.load()` (returns `ExecutionState | None`). Missing plan raises `AgentFoxError`; missing state is handled gracefully with all-pending defaults. *(source: 07_operational_commands/2)*
 - Per-spec breakdown uses `Node.spec_name` from the graph to group tasks, falling back to parsing the node_id prefix (before ':') when the node isn't in the graph. *(source: 07_operational_commands/2)*
+- The fix module uses `StrEnum` (not plain `str, Enum`) for enum definitions like `CheckCategory` and `TerminationReason`, consistent with existing enums such as `NodeStatus` in `graph/types.py`. *(source: 08_error_autofix/1)*
+- Collector tests mock external dependencies at their import site (e.g., `agent_fox.fix.collector.subprocess.run` rather than `subprocess.run`) to match the project's mocking convention. *(source: 08_error_autofix/1)*
 
 ## Decisions
 
@@ -147,6 +150,8 @@
 - Reporting test fixtures are centralized in `tests/unit/reporting/conftest.py` with helper functions: `make_session_record()`, `make_execution_state()`, `write_state_file()`, `write_plan_file()`, and `hours_ago()`. *(source: 07_operational_commands/1)*
 - Reset property tests use `TaskGraph` objects directly (via `agent_fox.graph.types`) and call `save_plan`/`load_plan` from `agent_fox.graph.persistence` rather than writing raw JSON to maintain consistency with the persistence layer. *(source: 07_operational_commands/1)*
 - Problem tasks (failed/blocked) derive their reasons from different sources: failed tasks use the last `error_message` from `SessionRecord` in session_history, while blocked tasks derive their reason from predecessor analysis using `TaskGraph.predecessors()`. *(source: 07_operational_commands/2)*
+- Stub modules in `agent_fox/fix/` import external dependencies with `# noqa: F401` comments (e.g., `subprocess`, `anthropic`) to enable mocking via `unittest.mock.patch()` in tests. *(source: 08_error_autofix/1)*
+- Property tests for the fix module are located in `tests/unit/fix/test_*_props.py` alongside unit tests, following the task specification. Earlier project specs have tests in `tests/property/`. *(source: 08_error_autofix/1)*
 
 ## Anti-Patterns
 
