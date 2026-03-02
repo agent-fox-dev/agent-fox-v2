@@ -14,13 +14,17 @@ from agent_fox.workspace.worktree import WorkspaceInfo
 def tmp_spec_dir(tmp_path: Path) -> Path:
     """Create a temporary spec directory with sample spec files.
 
-    Contains requirements.md, design.md, and tasks.md with known content.
+    Contains requirements.md, design.md, test_spec.md, and tasks.md
+    with known content.
     """
     spec_dir = tmp_path / "specs" / "test_spec"
     spec_dir.mkdir(parents=True)
 
     (spec_dir / "requirements.md").write_text("# Requirements\nREQ content here\n")
     (spec_dir / "design.md").write_text("# Design\nDesign content here\n")
+    (spec_dir / "test_spec.md").write_text(
+        "# Test Specification\nTest spec content here\n"
+    )
     (spec_dir / "tasks.md").write_text("# Tasks\nTask content here\n")
 
     return spec_dir

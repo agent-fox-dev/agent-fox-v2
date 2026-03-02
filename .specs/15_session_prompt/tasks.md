@@ -25,8 +25,8 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Update context assembly tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Update context assembly tests
     - Add tests to `tests/unit/session/test_context.py`
     - Implement TS-15-1: context includes test_spec.md content
     - Implement TS-15-2: test_spec appears between design and tasks
@@ -34,7 +34,7 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - Update the `tmp_spec_dir` fixture to include a `test_spec.md` file
     - _Test Spec: TS-15-1, TS-15-2, TS-15-E1_
 
-  - [ ] 1.2 Update prompt builder tests
+  - [x] 1.2 Update prompt builder tests
     - Rewrite `tests/unit/session/test_prompt.py` for new signatures
     - Implement TS-15-3: coding role loads coding.md + git-flow.md
     - Implement TS-15-4: coordinator role loads coordinator.md
@@ -46,7 +46,7 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - Implement TS-15-10: task prompt contains quality instructions
     - _Test Spec: TS-15-3, TS-15-4, TS-15-5, TS-15-6, TS-15-7, TS-15-8, TS-15-9, TS-15-10_
 
-  - [ ] 1.3 Write prompt builder edge case tests
+  - [x] 1.3 Write prompt builder edge case tests
     - Add to `tests/unit/session/test_prompt.py`
     - Implement TS-15-E2: missing template raises ConfigError
     - Implement TS-15-E3: unknown role raises ValueError
@@ -55,7 +55,7 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - Implement TS-15-E6: template without frontmatter unchanged
     - _Test Spec: TS-15-E2, TS-15-E3, TS-15-E4, TS-15-E5, TS-15-E6_
 
-  - [ ] 1.4 Write property tests
+  - [x] 1.4 Write property tests
     - Create `tests/property/session/test_prompt_props.py`
     - Implement TS-15-P1: test spec always in context when present
     - Implement TS-15-P2: template content always present for valid roles
@@ -64,10 +64,10 @@ implements the prompt builder rewrite, and task group 4 is a checkpoint.
     - Implement TS-15-P5: task prompt completeness
     - _Test Spec: TS-15-P1, TS-15-P2, TS-15-P3, TS-15-P4, TS-15-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Add test_spec.md to context assembly
   - [ ] 2.1 Update `_SPEC_FILES` in `agent_fox/session/context.py`
