@@ -172,7 +172,7 @@ integration wiring.
     - [x] Type check passes: `uv run mypy agent_fox/platform/`
     - [x] Requirements 10-REQ-5.* acceptance criteria met
 
-- [ ] 5. Checkpoint -- Platform Integration Complete
+- [x] 5. Checkpoint -- Platform Integration Complete
   - Ensure all tests pass: `uv run pytest tests/unit/platform/ tests/property/platform/ -q`
   - Ensure linter clean: `uv run ruff check agent_fox/platform/ tests/unit/platform/ tests/property/platform/`
   - Ensure type check clean: `uv run mypy agent_fox/platform/`
