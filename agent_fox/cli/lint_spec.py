@@ -9,12 +9,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import sys
 from pathlib import Path
 
 import click
-from rich.console import Console
-from rich.table import Table
 
 from agent_fox.core.errors import PlanError
 from agent_fox.spec.discovery import SpecInfo, discover_specs
@@ -29,13 +26,6 @@ from agent_fox.spec.validator import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Severity display styles for Rich table output
-_SEVERITY_STYLES = {
-    SEVERITY_ERROR: "bold red",
-    SEVERITY_WARNING: "yellow",
-    SEVERITY_HINT: "dim cyan",
-}
 
 
 def _findings_to_dicts(findings: list[Finding]) -> list[dict]:
@@ -66,16 +56,21 @@ def _build_summary(findings: list[Finding]) -> dict:
     }
 
 
-def format_table(findings: list[Finding], console: Console) -> None:
-    """Render findings as a Rich table grouped by spec.
+def format_table(findings: list[Finding]) -> str:
+    """Render findings as compact text lines grouped by spec.
 
-    Table columns: Severity, File, Rule, Message, Line
-    Groups: one section per spec, with a header row.
-    Footer: summary counts (N errors, N warnings, N hints).
+    Output structure:
+        Spec Validation
+          {spec_name}
+            {severity}  {file}:{line}  {rule}  {message}
+          ...
+        Summary: N error(s) | N warning(s) | N hint(s)
     """
     if not findings:
-        console.print("[green]No findings.[/green]")
-        return
+        return "No findings.\n"
+
+    lines: list[str] = []
+    lines.append("Spec Validation")
 
     # Group findings by spec name, preserving encounter order
     specs_seen: list[str] = []
@@ -86,45 +81,26 @@ def format_table(findings: list[Finding], console: Console) -> None:
             grouped[f.spec_name] = []
         grouped[f.spec_name].append(f)
 
-    # Create the table
-    table = Table(title="Specification Validation Results", show_lines=True)
-    table.add_column("Severity", style="bold", width=8)
-    table.add_column("File", width=20)
-    table.add_column("Rule", width=28)
-    table.add_column("Message")
-    table.add_column("Line", width=6, justify="right")
-
     for spec_name in specs_seen:
-        # Add spec header as a section row
-        table.add_row(
-            f"[bold underline]{spec_name}[/bold underline]",
-            "",
-            "",
-            "",
-            "",
-        )
+        lines.append(f"  {spec_name}")
         for f in grouped[spec_name]:
-            style = _SEVERITY_STYLES.get(f.severity, "")
-            table.add_row(
-                f"[{style}]{f.severity}[/{style}]",
-                f.file,
-                f.rule,
-                f.message,
-                str(f.line) if f.line is not None else "-",
-            )
-
-    console.print(table)
+            loc = f.file
+            if f.line is not None:
+                loc = f"{f.file}:{f.line}"
+            lines.append(f"    {f.severity}  {loc}  {f.rule}  {f.message}")
 
     # Summary line
     summary = _build_summary(findings)
     parts = []
     if summary["error"] > 0:
-        parts.append(f"[bold red]{summary['error']} error(s)[/bold red]")
+        parts.append(f"{summary['error']} error(s)")
     if summary["warning"] > 0:
-        parts.append(f"[yellow]{summary['warning']} warning(s)[/yellow]")
+        parts.append(f"{summary['warning']} warning(s)")
     if summary["hint"] > 0:
-        parts.append(f"[dim cyan]{summary['hint']} hint(s)[/dim cyan]")
-    console.print(f"\nSummary: {', '.join(parts)}")
+        parts.append(f"{summary['hint']} hint(s)")
+    lines.append(f"\nSummary: {' | '.join(parts)}")
+
+    return "\n".join(lines) + "\n"
 
 
 def format_json(findings: list[Finding]) -> str:
@@ -224,5 +200,4 @@ def _output_findings(findings: list[Finding], output_format: str) -> None:
     elif output_format == "yaml":
         click.echo(format_yaml(findings))
     else:
-        console = Console(file=sys.stdout)
-        format_table(findings, console)
+        click.echo(format_table(findings), nl=False)
