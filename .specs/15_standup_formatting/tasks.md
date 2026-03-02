@@ -138,7 +138,7 @@ formatter and updates existing tests for backward compatibility.
     - [x] Type check passes: `uv run mypy agent_fox/reporting/formatters.py agent_fox/reporting/standup.py`
     - [x] Requirements 15-REQ-1.* through 15-REQ-8.* acceptance criteria met
 
-- [ ] 4. Checkpoint — Standup Formatting Complete
+- [x] 4. Checkpoint — Standup Formatting Complete
   - All tests pass: `uv run pytest tests/unit/reporting/ tests/property/reporting/ -q`
   - All lints clean: `uv run ruff check agent_fox/reporting/`
   - Type check clean: `uv run mypy agent_fox/reporting/`
