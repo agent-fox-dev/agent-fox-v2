@@ -25,6 +25,36 @@ from agent_fox.reporting.status import StatusReport
 logger = logging.getLogger(__name__)
 
 
+def _format_tokens(count: int) -> str:
+    """Format token count for human readability.
+
+    Args:
+        count: Raw token count.
+
+    Returns:
+        "12.9k" for counts >= 1000, "345" for counts < 1000.
+
+    Requirements: 15-REQ-7.1
+    """
+    if count >= 1000:
+        return f"{count / 1000:.1f}k"
+    return str(count)
+
+
+def _display_node_id(node_id: str) -> str:
+    """Convert internal node ID to display format.
+
+    Args:
+        node_id: Internal format "spec_name:group_number".
+
+    Returns:
+        Display format "spec_name/group_number".
+
+    Requirements: 15-REQ-8.1
+    """
+    return node_id.replace(":", "/")
+
+
 class OutputFormat(StrEnum):
     TABLE = "table"
     JSON = "json"

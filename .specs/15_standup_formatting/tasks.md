@@ -65,49 +65,49 @@ formatter and updates existing tests for backward compatibility.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/reporting/test_standup_formatting.py tests/property/reporting/test_standup_fmt_props.py`
 
-- [ ] 2. Enrich data models and generator
-  - [ ] 2.1 Add `TaskActivity` dataclass to `standup.py`
+- [x] 2. Enrich data models and generator
+  - [x] 2.1 Add `TaskActivity` dataclass to `standup.py`
     - Frozen dataclass with fields: `task_id`, `current_status`,
       `completed_sessions`, `total_sessions`, `input_tokens`,
       `output_tokens`, `cost`
     - _Requirements: 15-REQ-2.3_
 
-  - [ ] 2.2 Enrich `QueueSummary` dataclass
+  - [x] 2.2 Enrich `QueueSummary` dataclass
     - Add `total: int`, `in_progress: int`, `ready_task_ids: list[str]`
       fields (with defaults for backward compatibility)
     - _Requirements: 15-REQ-4.3_
 
-  - [ ] 2.3 Enrich `StandupReport` dataclass
+  - [x] 2.3 Enrich `StandupReport` dataclass
     - Add `task_activities: list[TaskActivity]` field (default empty list)
     - Add `total_cost: float` field (default 0.0)
     - _Requirements: 15-REQ-2.3, 15-REQ-6.2_
 
-  - [ ] 2.4 Implement `_compute_task_activities()` function
+  - [x] 2.4 Implement `_compute_task_activities()` function
     - Group windowed sessions by `node_id`
     - For each group: count completed vs total sessions, sum tokens and cost
     - Look up `current_status` from execution state `node_states`
     - Return `list[TaskActivity]` sorted by task_id
     - _Requirements: 15-REQ-2.2, 15-REQ-2.3_
 
-  - [ ] 2.5 Update `_build_queue_summary()` to populate new fields
+  - [x] 2.5 Update `_build_queue_summary()` to populate new fields
     - Compute `total` as sum of all task counts
     - Track `in_progress` tasks
     - Collect `ready_task_ids` list
     - _Requirements: 15-REQ-4.1, 15-REQ-4.3_
 
-  - [ ] 2.6 Update `generate_standup()` to populate new report fields
+  - [x] 2.6 Update `generate_standup()` to populate new report fields
     - Call `_compute_task_activities()` with windowed sessions and node states
     - Pass `total_cost` from `ExecutionState.total_cost` (0.0 if no state)
     - Pass enriched `QueueSummary` with new fields
     - _Requirements: 15-REQ-2.3, 15-REQ-4.3, 15-REQ-6.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Generator tests pass: `uv run pytest tests/unit/reporting/test_standup_formatting.py::TestPerTaskActivityGeneration tests/unit/reporting/test_standup_formatting.py::TestEnrichedQueueSummary -q`
-    - [ ] Existing standup tests still pass: `uv run pytest tests/unit/reporting/test_standup.py -q`
-    - [ ] Existing formatter tests still pass: `uv run pytest tests/unit/reporting/test_formatters.py -q`
-    - [ ] Property tests for data model pass: `uv run pytest tests/property/reporting/test_standup_fmt_props.py::test_per_task_session_sum tests/property/reporting/test_standup_fmt_props.py::test_queue_total_equals_component_sum -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
-    - [ ] Requirements 15-REQ-2.3, 15-REQ-4.3, 15-REQ-6.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Generator tests pass: `uv run pytest tests/unit/reporting/test_standup_formatting.py::TestPerTaskActivityGeneration tests/unit/reporting/test_standup_formatting.py::TestEnrichedQueueSummary -q`
+    - [x] Existing standup tests still pass: `uv run pytest tests/unit/reporting/test_standup.py -q`
+    - [x] Existing formatter tests still pass: `uv run pytest tests/unit/reporting/test_formatters.py -q`
+    - [x] Property tests for data model pass: `uv run pytest tests/property/reporting/test_standup_fmt_props.py::test_per_task_session_sum tests/property/reporting/test_standup_fmt_props.py::test_queue_total_equals_component_sum -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/standup.py`
+    - [x] Requirements 15-REQ-2.3, 15-REQ-4.3, 15-REQ-6.2 acceptance criteria met
 
 - [ ] 3. Rewrite formatter and update existing tests
   - [ ] 3.1 Add utility functions to `formatters.py`

@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import subprocess
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -63,6 +63,22 @@ class CostBreakdown:
 
 
 @dataclass(frozen=True)
+class TaskActivity:
+    """Per-task session summary within the reporting window.
+
+    Requirements: 15-REQ-2.3
+    """
+
+    task_id: str  # internal format "spec:group"
+    current_status: str  # from ExecutionState node_states
+    completed_sessions: int  # sessions with status "completed"
+    total_sessions: int  # all sessions for this task in window
+    input_tokens: int
+    output_tokens: int
+    cost: float
+
+
+@dataclass(frozen=True)
 class QueueSummary:
     """Current task queue status."""
 
@@ -71,6 +87,9 @@ class QueueSummary:
     blocked: int
     failed: int
     completed: int
+    total: int = 0  # NEW: sum of all tasks
+    in_progress: int = 0  # NEW: tasks currently executing
+    ready_task_ids: list[str] = field(default_factory=list)  # NEW: IDs of ready tasks
 
 
 @dataclass(frozen=True)
@@ -85,6 +104,10 @@ class StandupReport:
     file_overlaps: list[FileOverlap]
     cost_breakdown: list[CostBreakdown]
     queue: QueueSummary
+    task_activities: list[TaskActivity] = field(
+        default_factory=list,
+    )  # per-task breakdown
+    total_cost: float = 0.0  # all-time total from ExecutionState
 
 
 def generate_standup(
@@ -126,6 +149,12 @@ def generate_standup(
     # Compute agent activity from windowed sessions
     agent = _compute_agent_activity(windowed_sessions)
 
+    # Compute per-task activity breakdowns
+    node_states: dict[str, str] = {}
+    if state is not None:
+        node_states = dict(state.node_states)
+    task_activities = _compute_task_activities(windowed_sessions, node_states)
+
     # Get human commits
     human_commits = _get_human_commits(repo_path, window_start, agent_author)
 
@@ -139,6 +168,9 @@ def generate_standup(
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
 
+    # All-time total cost from execution state
+    all_time_cost = state.total_cost if state is not None else 0.0
+
     return StandupReport(
         window_hours=hours,
         window_start=window_start.isoformat(),
@@ -148,6 +180,8 @@ def generate_standup(
         file_overlaps=file_overlaps,
         cost_breakdown=cost_breakdown,
         queue=queue,
+        task_activities=task_activities,
+        total_cost=all_time_cost,
     )
 
 
@@ -213,6 +247,55 @@ def _compute_agent_activity(
         cost=total_cost,
         completed_task_ids=completed_ids,
     )
+
+
+def _compute_task_activities(
+    sessions: list[SessionRecord],
+    node_states: dict[str, str],
+) -> list[TaskActivity]:
+    """Compute per-task activity breakdowns from windowed sessions.
+
+    Groups sessions by node_id and for each group counts completed vs
+    total sessions, sums tokens and cost, and looks up the current status
+    from the execution state node_states.
+
+    Args:
+        sessions: Session records within the reporting window.
+        node_states: Mapping of node_id to current status from ExecutionState.
+
+    Returns:
+        List of TaskActivity entries, sorted by task_id.
+
+    Requirements: 15-REQ-2.2, 15-REQ-2.3
+    """
+    groups: dict[str, list[SessionRecord]] = defaultdict(list)
+    for session in sessions:
+        groups[session.node_id].append(session)
+
+    activities: list[TaskActivity] = []
+    for task_id in sorted(groups):
+        task_sessions = groups[task_id]
+        completed_count = sum(
+            1 for s in task_sessions if s.status == "completed"
+        )
+        total_input = sum(s.input_tokens for s in task_sessions)
+        total_output = sum(s.output_tokens for s in task_sessions)
+        total_cost = sum(s.cost for s in task_sessions)
+        current_status = node_states.get(task_id, "pending")
+
+        activities.append(
+            TaskActivity(
+                task_id=task_id,
+                current_status=current_status,
+                completed_sessions=completed_count,
+                total_sessions=len(task_sessions),
+                input_tokens=total_input,
+                output_tokens=total_output,
+                cost=total_cost,
+            )
+        )
+
+    return activities
 
 
 def _collect_agent_files(
@@ -467,6 +550,9 @@ def _build_queue_summary(
             blocked=0,
             failed=0,
             completed=0,
+            total=0,
+            in_progress=0,
+            ready_task_ids=[],
         )
 
     # Get node statuses from state, defaulting to pending
@@ -484,6 +570,8 @@ def _build_queue_summary(
     blocked = 0
     failed = 0
     completed = 0
+    in_progress = 0
+    ready_task_ids: list[str] = []
 
     for nid, status in node_states.items():
         if status == "completed":
@@ -497,12 +585,15 @@ def _build_queue_summary(
             preds = graph.predecessors(nid)
             if all(node_states.get(p, "pending") == "completed" for p in preds):
                 ready += 1
+                ready_task_ids.append(nid)
             else:
                 pending += 1
         elif status == "skipped":
             pass  # Skipped tasks not counted in queue
         elif status == "in_progress":
-            pass  # In-progress tasks not in queue summary
+            in_progress += 1
+
+    total = ready + pending + in_progress + blocked + failed + completed
 
     return QueueSummary(
         ready=ready,
@@ -510,4 +601,7 @@ def _build_queue_summary(
         blocked=blocked,
         failed=failed,
         completed=completed,
+        total=total,
+        in_progress=in_progress,
+        ready_task_ids=ready_task_ids,
     )
