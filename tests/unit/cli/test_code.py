@@ -1,0 +1,411 @@
+"""Tests for the CLI code command.
+
+Test Spec: TS-16-1 through TS-16-8, TS-16-E1 through TS-16-E4
+Requirements: 16-REQ-1.1 through 16-REQ-5.2
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+
+from agent_fox.cli.app import main
+from agent_fox.core.config import OrchestratorConfig
+from agent_fox.engine.state import ExecutionState
+
+
+def _make_execution_state(
+    *,
+    run_status: str = "completed",
+    node_states: dict[str, str] | None = None,
+    total_input_tokens: int = 100_000,
+    total_output_tokens: int = 50_000,
+    total_cost: float = 2.50,
+    total_sessions: int = 3,
+) -> ExecutionState:
+    """Build a mock ExecutionState for testing."""
+    if node_states is None:
+        node_states = {
+            "spec_a:1": "completed",
+            "spec_a:2": "completed",
+            "spec_a:3": "completed",
+        }
+    return ExecutionState(
+        plan_hash="abc123",
+        node_states=node_states,
+        run_status=run_status,
+        total_input_tokens=total_input_tokens,
+        total_output_tokens=total_output_tokens,
+        total_cost=total_cost,
+        total_sessions=total_sessions,
+        started_at="2026-03-02T00:00:00+00:00",
+        updated_at="2026-03-02T01:00:00+00:00",
+    )
+
+
+@pytest.fixture
+def cli_runner() -> CliRunner:
+    """Provide a Click CLI test runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def mock_plan_file(tmp_path: Path) -> Path:
+    """Create a temporary plan.json file."""
+    plan_dir = tmp_path / ".agent-fox"
+    plan_dir.mkdir(parents=True)
+    plan_file = plan_dir / "plan.json"
+    plan_file.write_text('{"nodes": {"a": {}}, "edges": []}')
+    return plan_file
+
+
+class TestCommandRegistered:
+    """TS-16-1: Command is registered.
+
+    Requirement: 16-REQ-1.1
+    """
+
+    def test_code_help_accessible(self, cli_runner: CliRunner) -> None:
+        """The code command is accessible via the main CLI group."""
+        result = cli_runner.invoke(main, ["code", "--help"])
+        assert result.exit_code == 0
+        assert "Execute the task plan" in result.output
+
+
+class TestSuccessfulExecution:
+    """TS-16-2: Successful execution prints summary.
+
+    Requirements: 16-REQ-1.2, 16-REQ-1.3, 16-REQ-1.4, 16-REQ-3.1,
+                  16-REQ-3.2, 16-REQ-4.1, 16-REQ-5.1, 16-REQ-5.2
+    """
+
+    def test_completed_run_exits_zero(self, cli_runner: CliRunner) -> None:
+        """A completed run exits with code 0."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            # Plan file exists
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 0
+
+    def test_summary_contains_task_counts(self, cli_runner: CliRunner) -> None:
+        """Output contains task counts in the summary."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "3/3 done" in result.output
+
+    def test_summary_contains_cost(self, cli_runner: CliRunner) -> None:
+        """Output contains cost in the summary."""
+        state = _make_execution_state(run_status="completed", total_cost=2.50)
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "$2.50" in result.output
+
+    def test_summary_contains_status(self, cli_runner: CliRunner) -> None:
+        """Output contains run status."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "completed" in result.output
+
+
+class TestParallelOverride:
+    """TS-16-3: Parallel override applied.
+
+    Requirements: 16-REQ-2.1, 16-REQ-2.5
+    """
+
+    def test_parallel_override_applied(self, cli_runner: CliRunner) -> None:
+        """The --parallel option overrides the config value."""
+        state = _make_execution_state()
+        captured_config: list[OrchestratorConfig] = []
+
+        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
+            captured_config.append(config)
+            mock = MagicMock()
+            mock.run = AsyncMock(return_value=state)
+            return mock
+
+        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            cli_runner.invoke(main, ["code", "--parallel", "4"])
+
+        assert len(captured_config) == 1
+        assert captured_config[0].parallel == 4
+
+
+class TestMaxCostOverride:
+    """TS-16-4: Max-cost override applied.
+
+    Requirements: 16-REQ-2.3, 16-REQ-2.5
+    """
+
+    def test_max_cost_override_applied(self, cli_runner: CliRunner) -> None:
+        """The --max-cost option overrides the config value."""
+        state = _make_execution_state()
+        captured_config: list[OrchestratorConfig] = []
+
+        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
+            captured_config.append(config)
+            mock = MagicMock()
+            mock.run = AsyncMock(return_value=state)
+            return mock
+
+        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
+
+        assert len(captured_config) == 1
+        assert captured_config[0].max_cost == 10.0
+
+
+class TestMaxSessionsOverride:
+    """TS-16-5: Max-sessions override applied.
+
+    Requirements: 16-REQ-2.4, 16-REQ-2.5
+    """
+
+    def test_max_sessions_override_applied(self, cli_runner: CliRunner) -> None:
+        """The --max-sessions option overrides the config value."""
+        state = _make_execution_state()
+        captured_config: list[OrchestratorConfig] = []
+
+        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
+            captured_config.append(config)
+            mock = MagicMock()
+            mock.run = AsyncMock(return_value=state)
+            return mock
+
+        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            cli_runner.invoke(main, ["code", "--max-sessions", "20"])
+
+        assert len(captured_config) == 1
+        assert captured_config[0].max_sessions == 20
+
+
+class TestStalledExitCode:
+    """TS-16-6: Stalled execution exits with code 2.
+
+    Requirement: 16-REQ-4.3
+    """
+
+    def test_stalled_exits_code_2(self, cli_runner: CliRunner) -> None:
+        """A stalled run exits with code 2."""
+        state = _make_execution_state(
+            run_status="stalled",
+            node_states={"a:1": "blocked"},
+        )
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 2
+
+    def test_stalled_output_contains_status(self, cli_runner: CliRunner) -> None:
+        """Output mentions stalled status."""
+        state = _make_execution_state(
+            run_status="stalled",
+            node_states={"a:1": "blocked"},
+        )
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "stalled" in result.output
+
+
+class TestCostLimitExitCode:
+    """TS-16-7: Cost limit exits with code 3.
+
+    Requirement: 16-REQ-4.4
+    """
+
+    def test_cost_limit_exits_code_3(self, cli_runner: CliRunner) -> None:
+        """A cost-limited run exits with code 3."""
+        state = _make_execution_state(run_status="cost_limit")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 3
+
+
+class TestInterruptedExitCode:
+    """TS-16-8: Interrupted execution exits with code 130.
+
+    Requirement: 16-REQ-4.5
+    """
+
+    def test_interrupted_exits_code_130(self, cli_runner: CliRunner) -> None:
+        """An interrupted run exits with code 130."""
+        state = _make_execution_state(run_status="interrupted")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 130
+
+
+class TestMissingPlanFile:
+    """TS-16-E1: Missing plan file.
+
+    Requirement: 16-REQ-1.E1
+    """
+
+    def test_missing_plan_exits_code_1(self, cli_runner: CliRunner) -> None:
+        """The command exits with code 1 when no plan exists."""
+        with patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = False
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 1
+
+    def test_missing_plan_mentions_plan(self, cli_runner: CliRunner) -> None:
+        """Error message mentions the plan."""
+        with patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = False
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "plan" in result.output.lower()
+
+
+class TestUnexpectedException:
+    """TS-16-E2: Unexpected exception.
+
+    Requirement: 16-REQ-1.E2
+    """
+
+    def test_exception_exits_code_1(self, cli_runner: CliRunner) -> None:
+        """Unexpected exceptions exit with code 1."""
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 1
+
+    def test_exception_shows_error_message(self, cli_runner: CliRunner) -> None:
+        """User-friendly error message is shown."""
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "error" in result.output.lower()
+
+
+class TestEmptyPlan:
+    """TS-16-E3: Empty plan (zero tasks).
+
+    Requirement: 16-REQ-3.E1
+    """
+
+    def test_empty_plan_exits_code_0(self, cli_runner: CliRunner) -> None:
+        """An empty plan exits with code 0."""
+        state = _make_execution_state(
+            run_status="completed",
+            node_states={},
+            total_sessions=0,
+        )
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 0
+
+    def test_empty_plan_shows_message(self, cli_runner: CliRunner) -> None:
+        """Output contains 'No tasks to execute.' message."""
+        state = _make_execution_state(
+            run_status="completed",
+            node_states={},
+            total_sessions=0,
+        )
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert "No tasks to execute" in result.output
+
+
+class TestUnknownRunStatus:
+    """TS-16-E4: Unknown run status.
+
+    Requirement: 16-REQ-4.E1
+    """
+
+    def test_unknown_status_exits_code_1(self, cli_runner: CliRunner) -> None:
+        """An unrecognized run status exits with code 1."""
+        state = _make_execution_state(
+            run_status="unknown_status",
+            node_states={"a:1": "completed"},
+        )
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
+             patch("agent_fox.cli.code.Path") as MockPath:
+            MockPath.return_value.exists.return_value = True
+            result = cli_runner.invoke(main, ["code"])
+
+        assert result.exit_code == 1

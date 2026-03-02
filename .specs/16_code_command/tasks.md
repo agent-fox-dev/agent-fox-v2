@@ -24,46 +24,46 @@ failing tests, task group 2 implements the command and makes all tests pass.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/unit/cli/test_code.py` with shared fixtures:
       mock orchestrator, mock config, mock plan file, CliRunner
     - Create `tests/property/cli/test_code_props.py`
     - _Test Spec: TS-16-1 through TS-16-8_
 
-  - [ ] 1.2 Write command registration and invocation tests
+  - [x] 1.2 Write command registration and invocation tests
     - TS-16-1: Command is registered and help is accessible
     - TS-16-2: Successful execution prints summary and exits 0
     - _Test Spec: TS-16-1, TS-16-2_
 
-  - [ ] 1.3 Write CLI option override tests
+  - [x] 1.3 Write CLI option override tests
     - TS-16-3: --parallel override applied
     - TS-16-4: --max-cost override applied
     - TS-16-5: --max-sessions override applied
     - _Test Spec: TS-16-3, TS-16-4, TS-16-5_
 
-  - [ ] 1.4 Write exit code tests
+  - [x] 1.4 Write exit code tests
     - TS-16-6: Stalled exits 2
     - TS-16-7: Cost limit exits 3
     - TS-16-8: Interrupted exits 130
     - _Test Spec: TS-16-6, TS-16-7, TS-16-8_
 
-  - [ ] 1.5 Write edge case tests
+  - [x] 1.5 Write edge case tests
     - TS-16-E1: Missing plan file exits 1
     - TS-16-E2: Unexpected exception exits 1
     - TS-16-E3: Empty plan prints message, exits 0
     - TS-16-E4: Unknown run status exits 1
     - _Test Spec: TS-16-E1, TS-16-E2, TS-16-E3, TS-16-E4_
 
-  - [ ] 1.6 Write property tests
+  - [x] 1.6 Write property tests
     - TS-16-P1: Exit code mapping consistency
     - TS-16-P2: Override preservation
     - _Test Spec: TS-16-P1, TS-16-P2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `.venv/bin/python -m ruff check tests/unit/cli/test_code.py tests/property/cli/test_code_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `.venv/bin/python -m ruff check tests/unit/cli/test_code.py tests/property/cli/test_code_props.py`
 
 - [ ] 2. Implement the code command
   - [ ] 2.1 Create `agent_fox/cli/code.py`
