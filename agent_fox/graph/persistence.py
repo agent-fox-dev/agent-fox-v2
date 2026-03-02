@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import asdict
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -15,22 +17,24 @@ from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGrap
 logger = logging.getLogger(__name__)
 
 
-def _node_to_dict(node: Node) -> dict[str, Any]:
-    """Serialize a Node to a JSON-compatible dictionary."""
-    return {
-        "id": node.id,
-        "spec_name": node.spec_name,
-        "group_number": node.group_number,
-        "title": node.title,
-        "optional": node.optional,
-        "status": str(node.status),
-        "subtask_count": node.subtask_count,
-        "body": node.body,
-    }
+def _serialize(obj: object) -> dict[str, Any]:
+    """Convert a dataclass to a JSON-safe dict (stringifies enums)."""
+    raw = asdict(obj)  # type: ignore[arg-type]
+
+    def _fixup(value: object) -> object:
+        if isinstance(value, Enum):
+            return str(value)
+        if isinstance(value, dict):
+            return {k: _fixup(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [_fixup(v) for v in value]
+        return value
+
+    return _fixup(raw)  # type: ignore[return-value]
 
 
 def _node_from_dict(data: dict[str, Any]) -> Node:
-    """Deserialize a Node from a dictionary."""
+    """Deserialize a Node from a dictionary (handles defaults for older plans)."""
     return Node(
         id=data["id"],
         spec_name=data["spec_name"],
@@ -43,36 +47,8 @@ def _node_from_dict(data: dict[str, Any]) -> Node:
     )
 
 
-def _edge_to_dict(edge: Edge) -> dict[str, str]:
-    """Serialize an Edge to a JSON-compatible dictionary."""
-    return {
-        "source": edge.source,
-        "target": edge.target,
-        "kind": edge.kind,
-    }
-
-
-def _edge_from_dict(data: dict[str, str]) -> Edge:
-    """Deserialize an Edge from a dictionary."""
-    return Edge(
-        source=data["source"],
-        target=data["target"],
-        kind=data["kind"],
-    )
-
-
-def _metadata_to_dict(metadata: PlanMetadata) -> dict[str, Any]:
-    """Serialize PlanMetadata to a JSON-compatible dictionary."""
-    return {
-        "created_at": metadata.created_at,
-        "fast_mode": metadata.fast_mode,
-        "filtered_spec": metadata.filtered_spec,
-        "version": metadata.version,
-    }
-
-
 def _metadata_from_dict(data: dict[str, Any]) -> PlanMetadata:
-    """Deserialize PlanMetadata from a dictionary."""
+    """Deserialize PlanMetadata from a dictionary (handles defaults for older plans)."""
     return PlanMetadata(
         created_at=data.get("created_at", ""),
         fast_mode=data.get("fast_mode", False),
@@ -88,12 +64,7 @@ def save_plan(graph: TaskGraph, plan_path: Path) -> None:
         graph: The task graph to persist.
         plan_path: Path to the plan.json file.
     """
-    data: dict[str, Any] = {
-        "metadata": _metadata_to_dict(graph.metadata),
-        "nodes": {nid: _node_to_dict(node) for nid, node in graph.nodes.items()},
-        "edges": [_edge_to_dict(edge) for edge in graph.edges],
-        "order": graph.order,
-    }
+    data = _serialize(graph)
 
     # Ensure parent directory exists
     plan_path.parent.mkdir(parents=True, exist_ok=True)
@@ -131,7 +102,7 @@ def load_plan(plan_path: Path) -> TaskGraph | None:
             nid: _node_from_dict(node_data)
             for nid, node_data in data.get("nodes", {}).items()
         }
-        edges = [_edge_from_dict(edge_data) for edge_data in data.get("edges", [])]
+        edges = [Edge(**e) for e in data.get("edges", [])]
         order = data.get("order", [])
 
         return TaskGraph(

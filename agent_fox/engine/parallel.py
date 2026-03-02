@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from agent_fox.engine.serial import invoke_runner
 from agent_fox.engine.state import SessionRecord
 
 logger = logging.getLogger(__name__)
@@ -169,32 +170,6 @@ class ParallelRunner:
         attempt: int,
         previous_error: str | None,
     ) -> SessionRecord:
-        """Execute a single session via the factory-created runner.
-
-        Supports both callable runners and runners with an ``execute()``
-        method, mirroring the SerialRunner's dual-support pattern.
-        """
+        """Execute a single session via the factory-created runner."""
         runner = self._session_runner_factory(node_id)
-
-        # Support both callable runners and runners with execute() method
-        if hasattr(runner, "execute") and callable(runner.execute):
-            result = await runner.execute(node_id, attempt, previous_error)
-        else:
-            result = await runner(node_id, attempt, previous_error)
-
-        # If the result is already a SessionRecord, return it directly
-        if isinstance(result, SessionRecord):
-            return result
-
-        # Otherwise, convert from MockSessionOutcome or similar
-        return SessionRecord(
-            node_id=result.node_id,
-            attempt=attempt,
-            status=result.status,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
-            cost=result.cost,
-            duration_ms=result.duration_ms,
-            error_message=result.error_message,
-            timestamp=getattr(result, "timestamp", ""),
-        )
+        return await invoke_runner(runner, node_id, attempt, previous_error)

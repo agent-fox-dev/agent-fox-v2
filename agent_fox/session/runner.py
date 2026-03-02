@@ -6,7 +6,9 @@ Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.E1,
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import Coroutine
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,10 +16,18 @@ from claude_code_sdk import ClaudeCodeOptions, query  # noqa: F401
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
-from agent_fox.session.timeout import with_timeout  # noqa: F401
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
+
+
+async def with_timeout[T](
+    coro: Coroutine[None, None, T],
+    timeout_minutes: int,
+) -> T:
+    """Run *coro* with a timeout (minutes → seconds)."""
+    return await asyncio.wait_for(coro, timeout=timeout_minutes * 60)
+
 
 DEFAULT_BASH_ALLOWLIST: list[str] = [
     # Version control

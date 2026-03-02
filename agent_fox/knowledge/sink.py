@@ -87,50 +87,31 @@ class SinkDispatcher:
         """Add a sink to the dispatch list."""
         self._sinks.append(sink)
 
-    def record_session_outcome(self, outcome: SessionOutcome) -> None:
-        """Dispatch to all sinks. Logs and swallows individual failures."""
+    def _dispatch(self, method: str, *args: object) -> None:
+        """Call *method* on every sink, logging and swallowing failures."""
         for sink in self._sinks:
             try:
-                sink.record_session_outcome(outcome)
+                getattr(sink, method)(*args)
             except Exception:
                 logger.warning(
-                    "Sink %s failed to record session outcome",
+                    "Sink %s failed on %s",
                     type(sink).__name__,
+                    method,
                     exc_info=True,
                 )
+
+    def record_session_outcome(self, outcome: SessionOutcome) -> None:
+        """Dispatch to all sinks. Logs and swallows individual failures."""
+        self._dispatch("record_session_outcome", outcome)
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_call(call)
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to record tool call",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("record_tool_call", call)
 
     def record_tool_error(self, error: ToolError) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_error(error)
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to record tool error",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("record_tool_error", error)
 
     def close(self) -> None:
         """Close all sinks."""
-        for sink in self._sinks:
-            try:
-                sink.close()
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to close",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("close")

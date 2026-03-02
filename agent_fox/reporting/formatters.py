@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 import yaml
 from rich.console import Console
@@ -232,36 +233,47 @@ class TableFormatter:
         return "\n".join(lines)
 
 
-class JsonFormatter:
+class StructuredFormatter:
+    """Formatter that serializes reports via a pluggable serializer."""
+
+    def __init__(
+        self,
+        serializer: Callable[[dict[str, Any]], str],
+    ) -> None:
+        self._serializer = serializer
+
+    def format_status(self, report: StatusReport) -> str:
+        """Serialize status report."""
+        return self._serializer(asdict(report))
+
+    def format_standup(self, report: StandupReport) -> str:
+        """Serialize standup report."""
+        return self._serializer(asdict(report))
+
+
+def _json_serializer(data: dict[str, Any]) -> str:
+    return json.dumps(data, indent=2)
+
+
+def _yaml_serializer(data: dict[str, Any]) -> str:
+    return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+
+def JsonFormatter() -> StructuredFormatter:  # noqa: N802
     """JSON formatter for machine-readable output."""
-
-    def format_status(self, report: StatusReport) -> str:
-        """Serialize status report as JSON."""
-        return json.dumps(asdict(report), indent=2)
-
-    def format_standup(self, report: StandupReport) -> str:
-        """Serialize standup report as JSON."""
-        return json.dumps(asdict(report), indent=2)
+    return StructuredFormatter(_json_serializer)
 
 
-class YamlFormatter:
+def YamlFormatter() -> StructuredFormatter:  # noqa: N802
     """YAML formatter for human-readable structured output."""
+    return StructuredFormatter(_yaml_serializer)
 
-    def format_status(self, report: StatusReport) -> str:
-        """Serialize status report as YAML."""
-        return yaml.dump(
-            asdict(report),
-            default_flow_style=False,
-            sort_keys=False,
-        )
 
-    def format_standup(self, report: StandupReport) -> str:
-        """Serialize standup report as YAML."""
-        return yaml.dump(
-            asdict(report),
-            default_flow_style=False,
-            sort_keys=False,
-        )
+_FORMATTERS: dict[OutputFormat, Callable[..., ReportFormatter]] = {
+    OutputFormat.TABLE: lambda console: TableFormatter(console),  # type: ignore[dict-item]
+    OutputFormat.JSON: lambda _: JsonFormatter(),  # type: ignore[dict-item]
+    OutputFormat.YAML: lambda _: YamlFormatter(),  # type: ignore[dict-item]
+}
 
 
 def get_formatter(
@@ -277,14 +289,11 @@ def get_formatter(
     Returns:
         A formatter implementing ReportFormatter.
     """
-    if fmt == OutputFormat.TABLE:
-        return TableFormatter(console)  # type: ignore[return-value]
-    if fmt == OutputFormat.JSON:
-        return JsonFormatter()  # type: ignore[return-value]
-    if fmt == OutputFormat.YAML:
-        return YamlFormatter()  # type: ignore[return-value]
-    msg = f"Unknown output format: {fmt}"
-    raise ValueError(msg)
+    factory = _FORMATTERS.get(fmt)
+    if factory is None:
+        msg = f"Unknown output format: {fmt}"
+        raise ValueError(msg)
+    return factory(console)
 
 
 def write_output(
