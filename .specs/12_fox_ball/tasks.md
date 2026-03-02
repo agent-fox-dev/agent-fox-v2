@@ -204,7 +204,7 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - [x] Type check passes: `uv run mypy agent_fox/knowledge/ingest.py`
     - [x] Requirements 12-REQ-4.* acceptance criteria met
 
-- [ ] 7. Checkpoint -- Fox Ball Complete
+- [x] 7. Checkpoint -- Fox Ball Complete
   - Ensure all tests pass: `uv run pytest tests/unit/knowledge/ tests/property/knowledge/ tests/unit/cli/test_ask.py -q`
   - Ensure linter clean: `uv run ruff check agent_fox/knowledge/ agent_fox/cli/ask.py agent_fox/memory/`
   - Ensure type check clean: `uv run mypy agent_fox/knowledge/ agent_fox/cli/ask.py agent_fox/memory/`
