@@ -43,7 +43,15 @@ class EmbeddingGenerator:
         success, or None if the API call fails. Failures are logged
         as warnings, never raised.
         """
-        raise NotImplementedError
+        try:
+            response = self.client.embeddings.create(  # type: ignore[attr-defined]
+                model=self._config.embedding_model,
+                input=[text],
+            )
+            return [float(v) for v in response.data[0].embedding]
+        except Exception:
+            logger.warning("Embedding failed for text (length=%d)", len(text))
+            return None
 
     def embed_batch(self, texts: list[str]) -> list[list[float] | None]:
         """Generate embeddings for multiple texts in a single API call.
@@ -52,4 +60,19 @@ class EmbeddingGenerator:
         a list of floats or None if that text failed to embed.
         API failures are logged as warnings.
         """
-        raise NotImplementedError
+        if not texts:
+            return []
+        try:
+            response = self.client.embeddings.create(  # type: ignore[attr-defined]
+                model=self._config.embedding_model,
+                input=texts,
+            )
+            return [
+                [float(v) for v in item.embedding]
+                for item in response.data
+            ]
+        except Exception:
+            logger.warning(
+                "Batch embedding failed for %d texts", len(texts),
+            )
+            return [None] * len(texts)

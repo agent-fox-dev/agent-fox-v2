@@ -89,8 +89,8 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/ tests/property/knowledge/`
 
-- [ ] 2. Implement embedding generator
-  - [ ] 2.1 Create embeddings module
+- [x] 2. Implement embedding generator
+  - [x] 2.1 Create embeddings module
     - `agent_fox/knowledge/embeddings.py`: `EmbeddingGenerator` class
     - `embed_text(text)`: single text -> 1024-dim vector or None
     - `embed_batch(texts)`: list of texts -> parallel list of vectors/None
@@ -98,11 +98,11 @@ embeddings, search, dual-write, oracle + CLI, and finally ingestion.
     - Graceful error handling: catch API errors, log warning, return None
     - _Requirements: 12-REQ-2.1, 12-REQ-2.2, 12-REQ-2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_embeddings.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/embeddings.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/knowledge/embeddings.py`
-    - [ ] Requirements 12-REQ-2.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_embeddings.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/embeddings.py`
+    - [x] Type check passes: `uv run mypy agent_fox/knowledge/embeddings.py`
+    - [x] Requirements 12-REQ-2.* acceptance criteria met
 
 - [ ] 3. Implement vector search
   - [ ] 3.1 Create search module
