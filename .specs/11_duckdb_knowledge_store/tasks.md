@@ -96,19 +96,19 @@ files.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement database infrastructure
-  - [ ] 2.1 Create knowledge package
+- [x] 2. Implement database infrastructure
+  - [x] 2.1 Create knowledge package
     - `agent_fox/knowledge/__init__.py`: package init, public exports
     - Add `duckdb>=1.0` to project dependencies in `pyproject.toml`
     - Run `uv sync`
 
-  - [ ] 2.2 Implement schema migration system
+  - [x] 2.2 Implement schema migration system
     - `agent_fox/knowledge/migrations.py`: Migration dataclass,
       MIGRATIONS registry, `get_current_version()`,
       `apply_pending_migrations()`, `record_version()`
     - _Requirements: 11-REQ-3.1, 11-REQ-3.2, 11-REQ-3.3, 11-REQ-3.E1_
 
-  - [ ] 2.3 Implement database connection manager
+  - [x] 2.3 Implement database connection manager
     - `agent_fox/knowledge/db.py`: KnowledgeDB class with open/close,
       context manager, VSS setup, schema creation, parent dir creation,
       `open_knowledge_store()` graceful wrapper
@@ -116,11 +116,11 @@ files.
     - _Requirements: 11-REQ-1.1, 11-REQ-1.2, 11-REQ-1.3, 11-REQ-1.E1,
       11-REQ-1.E2, 11-REQ-2.1, 11-REQ-2.2, 11-REQ-2.3, 11-REQ-7.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_db.py tests/unit/knowledge/test_migrations.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_db_props.py tests/property/knowledge/test_migrations_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/`
-    - [ ] Requirements 11-REQ-1.*, 11-REQ-2.*, 11-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_db.py tests/unit/knowledge/test_migrations.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_db_props.py tests/property/knowledge/test_migrations_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/`
+    - [x] Requirements 11-REQ-1.*, 11-REQ-2.*, 11-REQ-3.* acceptance criteria met
 
 - [ ] 3. Implement sink protocol and sink implementations
   - [ ] 3.1 Implement SessionSink protocol and event dataclasses

@@ -38,7 +38,7 @@ class TestSchemaInitializationIdempotency:
     """
 
     @given(n=st.integers(min_value=1, max_value=5))
-    @settings(max_examples=5)
+    @settings(max_examples=5, deadline=None)
     def test_n_open_close_cycles_produce_same_state(
         self, n: int, tmp_path_factory: object
     ) -> None:

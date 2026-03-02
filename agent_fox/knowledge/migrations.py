@@ -35,7 +35,16 @@ MIGRATIONS: list[Migration] = [
 
 def get_current_version(conn: duckdb.DuckDBPyConnection) -> int:
     """Return the current schema version, or 0 if no version table."""
-    raise NotImplementedError
+    try:
+        result = conn.execute(
+            "SELECT MAX(version) FROM schema_version"
+        ).fetchone()
+    except duckdb.CatalogException:
+        # schema_version table does not exist yet
+        return 0
+    if result is None or result[0] is None:
+        return 0
+    return int(result[0])
 
 
 def apply_pending_migrations(conn: duckdb.DuckDBPyConnection) -> None:
@@ -44,7 +53,26 @@ def apply_pending_migrations(conn: duckdb.DuckDBPyConnection) -> None:
     Each migration runs in its own transaction. On failure, raises
     KnowledgeStoreError with the failing version and cause.
     """
-    raise NotImplementedError
+    current = get_current_version(conn)
+
+    for migration in MIGRATIONS:
+        if migration.version <= current:
+            continue
+        try:
+            migration.apply(conn)
+            record_version(conn, migration.version, migration.description)
+            logger.info(
+                "Applied migration v%d: %s",
+                migration.version,
+                migration.description,
+            )
+        except KnowledgeStoreError:
+            raise
+        except Exception as exc:
+            raise KnowledgeStoreError(
+                f"Migration to version {migration.version} failed: {exc}",
+                version=migration.version,
+            ) from exc
 
 
 def record_version(
@@ -53,4 +81,7 @@ def record_version(
     description: str,
 ) -> None:
     """Insert a row into schema_version."""
-    raise NotImplementedError
+    conn.execute(
+        "INSERT INTO schema_version (version, description) VALUES (?, ?)",
+        [version, description],
+    )
