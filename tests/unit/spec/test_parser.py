@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.spec.parser import TaskGroupDef, parse_tasks
+from agent_fox.spec.parser import TaskGroupDef, parse_cross_deps, parse_tasks
 
 
 class TestParseTaskGroups:
@@ -150,3 +150,101 @@ class TestNonContiguousGroupNumbers:
         groups = parse_tasks(tasks_md_non_contiguous)
 
         assert len(groups) == 3
+
+
+class TestParseCrossDepStandardFormat:
+    """Parse cross-spec dependencies from standard table format."""
+
+    def test_parses_standard_dep(self, prd_md_standard_deps: Path) -> None:
+        """Standard format yields spec-level deps with sentinel groups."""
+        deps = parse_cross_deps(prd_md_standard_deps)
+
+        assert len(deps) == 1
+        assert deps[0].from_spec == "02_beta"
+        assert deps[0].to_spec == "01_alpha"
+
+    def test_standard_uses_sentinel_groups(
+        self, prd_md_standard_deps: Path
+    ) -> None:
+        """Standard format uses 0 sentinel for both group numbers."""
+        deps = parse_cross_deps(prd_md_standard_deps)
+
+        assert deps[0].from_group == 0
+        assert deps[0].to_group == 0
+
+    def test_no_deps_returns_empty(self, prd_md_no_deps: Path) -> None:
+        """prd.md without dependency table returns empty list."""
+        deps = parse_cross_deps(prd_md_no_deps)
+
+        assert deps == []
+
+
+class TestParseCrossDepAlternativeFormat:
+    """Parse cross-spec dependencies from alternative table format.
+
+    Alternative format: | Spec | From Group | To Group | Relationship |
+    Used by specs 14-17 for group-level dependency granularity.
+    """
+
+    def test_parses_alt_format_deps(self, prd_md_alt_format: Path) -> None:
+        """Alternative format yields correct number of deps."""
+        deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
+
+        assert len(deps) == 2
+
+    def test_alt_format_first_dep_specs(
+        self, prd_md_alt_format: Path
+    ) -> None:
+        """First dep has correct from_spec and to_spec."""
+        deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
+
+        assert deps[0].from_spec == "14_cli_banner"
+        assert deps[0].to_spec == "01_core_foundation"
+
+    def test_alt_format_first_dep_groups(
+        self, prd_md_alt_format: Path
+    ) -> None:
+        """First dep has correct group numbers (not sentinels)."""
+        deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
+
+        # "From Group" 4 = group in dependency spec → to_group
+        assert deps[0].to_group == 4
+        # "To Group" 1 = group in this spec → from_group
+        assert deps[0].from_group == 1
+
+    def test_alt_format_second_dep(self, prd_md_alt_format: Path) -> None:
+        """Second dep has correct specs and groups."""
+        deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
+
+        assert deps[1].from_spec == "14_cli_banner"
+        assert deps[1].to_spec == "03_session"
+        assert deps[1].to_group == 3
+        assert deps[1].from_group == 2
+
+    def test_alt_format_single_dep(
+        self, prd_md_alt_format_single: Path
+    ) -> None:
+        """Single-row alternative table parses correctly."""
+        deps = parse_cross_deps(
+            prd_md_alt_format_single, spec_name="17_init_settings"
+        )
+
+        assert len(deps) == 1
+        assert deps[0].from_spec == "17_init_settings"
+        assert deps[0].to_spec == "01_core_foundation"
+        assert deps[0].to_group == 3
+        assert deps[0].from_group == 1
+
+    def test_alt_format_without_spec_name_warns(
+        self, prd_md_alt_format: Path
+    ) -> None:
+        """Alternative format without spec_name logs warning and skips."""
+        deps = parse_cross_deps(prd_md_alt_format)
+
+        assert deps == []
+
+    def test_nonexistent_prd_returns_empty(self, tmp_path: Path) -> None:
+        """Non-existent prd.md returns empty list."""
+        deps = parse_cross_deps(tmp_path / "nonexistent.md", spec_name="foo")
+
+        assert deps == []
