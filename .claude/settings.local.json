@@ -23,7 +23,8 @@
       "Read",
       "Glob",
       "Edit",
-      "Write"
+      "Write",
+      "Bash(xargs:*)"
     ]
   }
 }

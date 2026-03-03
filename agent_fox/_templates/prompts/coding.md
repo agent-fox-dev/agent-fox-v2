@@ -85,7 +85,8 @@ Hard constraints:
 
 Create or update project documentation as part of the same task when you add or change user-facing behavior, public APIs, configuration, or architecture.
 
-- **Doc locations:** ADRs in `docs/adr/{decision}.md`; other docs in `docs/{topic}.md`. Update root `README.md`, `examples/README.md` or similar, when features or usage change. Put reviews, corrections, and errata in `.docs/errata/`.
+- **Doc locations:** ADRs in `docs/adr/{decision}.md`; other docs in `docs/{topic}.md`. Update root `README.md`, `examples/README.md` or similar,
+when features or usage change. Put reviews, corrections, and errata in `.docs/errata/`.
 - **When to touch docs:** Use the following as a guide. Plan which artifacts to create or update in Step 4 and deliver them in Step 5.
 
 | Change type | Create or update |
