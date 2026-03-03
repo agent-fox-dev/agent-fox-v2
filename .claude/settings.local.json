@@ -2,28 +2,28 @@
   "permissions": {
     "allow": [
       "Bash(bash:*)",
-      "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(grep:*)",
       "Bash(git:*)",
       "Bash(python:*)",
+      "Bash(python3:*)",
       "Bash(uv:*)",
-      "Bash(edit:*)",
       "Bash(make:*)",
-      "Bash(find:*)",
       "Bash(sort:*)",
       "Bash(awk:*)",
-      "Bash(head:*)",
-      "Bash(gh:*)",
       "Bash(ruff:*)",
+      "Bash(gh:*)",
       "Bash(claude:*)",
       "Bash(source .venv/bin/activate:*)",
+      "Bash(agent-fox:*)",
       "WebSearch",
       "WebFetch(domain:pypi.org)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(gh:*)",
-      "Bash(agent-fox:*)"
+      "Grep",
+      "Read",
+      "Glob",
+      "Edit",
+      "Write"
     ]
   }
 }
