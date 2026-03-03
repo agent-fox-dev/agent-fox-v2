@@ -23,9 +23,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent_fox.core.config import OrchestratorConfig
+from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.circuit import CircuitBreaker
+from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
@@ -35,6 +36,9 @@ from agent_fox.engine.state import (
     StateManager,
 )
 from agent_fox.engine.sync import GraphSync
+from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
+from agent_fox.hooks.runner import run_sync_barrier_hooks
+from agent_fox.memory.render import render_summary
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +213,10 @@ class Orchestrator:
         plan_path: Path,
         state_path: Path,
         session_runner_factory: Callable[..., Any],
+        *,
+        hook_config: HookConfig | None = None,
+        specs_dir: Path | None = None,
+        no_hooks: bool = False,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -217,6 +225,11 @@ class Orchestrator:
         self._graph_sync: GraphSync | None = None
         self._signal = _SignalHandler()
         self._is_parallel = config.parallel > 1
+        self._hook_config = hook_config
+        self._specs_dir = specs_dir
+        self._no_hooks = no_hooks
+        self._plan_nodes: dict = {}
+        self._edges_list: list[dict] = []
         self._serial_runner = SerialRunner(
             session_runner_factory=session_runner_factory,
             inter_session_delay=float(config.inter_session_delay),
@@ -254,6 +267,10 @@ class Orchestrator:
                 started_at=datetime.now(UTC).isoformat(),
                 updated_at=datetime.now(UTC).isoformat(),
             )
+
+        # Store plan data for sync barrier hot-loading
+        self._plan_nodes = nodes
+        self._edges_list = edges_list
 
         edges_dict = _build_edges_dict(nodes, edges_list)
         plan_hash = self._compute_plan_hash()
@@ -408,6 +425,10 @@ class Orchestrator:
                 error_tracker,
             )
 
+            # 06-REQ-6.1: Check sync barrier after task completion
+            if record.status == "completed":
+                self._run_sync_barrier_if_needed(state)
+
             # Re-evaluate ready tasks after each completion
             break
 
@@ -451,6 +472,9 @@ class Orchestrator:
                 attempt_tracker,
                 error_tracker,
             )
+            # 06-REQ-6.1: Check sync barrier after task completion
+            if record.status == "completed":
+                self._run_sync_barrier_if_needed(state)
 
         await self._parallel_runner.execute_batch(batch, on_complete)
 
@@ -485,6 +509,115 @@ class Orchestrator:
                 state.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
+
+    def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
+        """Check and run sync barrier actions if triggered.
+
+        After each task completion, checks whether the completed count
+        crosses a sync_interval boundary. On trigger: runs sync barrier
+        hooks, hot-loads new specs, and regenerates the memory summary.
+
+        Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
+        """
+        if self._config.sync_interval == 0:
+            return
+
+        completed_count = sum(1 for s in state.node_states.values() if s == "completed")
+
+        if not should_trigger_barrier(completed_count, self._config.sync_interval):
+            return
+
+        barrier_number = completed_count // self._config.sync_interval
+        logger.info(
+            "Sync barrier %d triggered at %d completed tasks",
+            barrier_number,
+            completed_count,
+        )
+
+        # 06-REQ-6.1: Run sync barrier hooks
+        if self._hook_config is not None:
+            run_sync_barrier_hooks(
+                barrier_number=barrier_number,
+                config=self._hook_config,
+                no_hooks=self._no_hooks,
+            )
+
+        # 06-REQ-6.3: Hot-load new specs
+        if self._specs_dir is not None and self._config.hot_load:
+            try:
+                self._hot_load_new_specs(state)
+            except Exception:
+                logger.warning("Hot-loading specs failed at barrier", exc_info=True)
+
+        # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
+        try:
+            render_summary()
+        except Exception:
+            logger.warning("Memory summary regeneration failed", exc_info=True)
+
+    def _hot_load_new_specs(self, state: ExecutionState) -> None:
+        """Discover and incorporate new specs into the running graph."""
+        assert self._specs_dir is not None  # noqa: S101
+        assert self._graph_sync is not None  # noqa: S101
+
+        graph = self._build_task_graph(state)
+        updated_graph, new_spec_names = hot_load_specs(graph, self._specs_dir)
+
+        if not new_spec_names:
+            return
+
+        logger.info(
+            "Hot-loaded %d new spec(s): %s",
+            len(new_spec_names),
+            ", ".join(new_spec_names),
+        )
+
+        # Add new nodes to plan data and state
+        for nid, node in updated_graph.nodes.items():
+            if nid not in self._plan_nodes:
+                self._plan_nodes[nid] = {
+                    "id": nid,
+                    "spec_name": node.spec_name,
+                    "group_number": node.group_number,
+                    "title": node.title,
+                    "optional": node.optional,
+                    "status": "pending",
+                    "subtask_count": node.subtask_count,
+                    "body": node.body,
+                }
+                state.node_states[nid] = "pending"
+
+        # Rebuild edges and GraphSync with new nodes/edges
+        self._edges_list = [
+            {"source": e.source, "target": e.target, "kind": e.kind}
+            for e in updated_graph.edges
+        ]
+        edges_dict = _build_edges_dict(self._plan_nodes, self._edges_list)
+        self._graph_sync = GraphSync(state.node_states, edges_dict)
+
+    def _build_task_graph(self, state: ExecutionState) -> TaskGraph:
+        """Build a TaskGraph from current plan data and execution state."""
+        graph_nodes = {}
+        for nid, data in self._plan_nodes.items():
+            graph_nodes[nid] = Node(
+                id=nid,
+                spec_name=data["spec_name"],
+                group_number=data["group_number"],
+                title=data.get("title", ""),
+                optional=data.get("optional", False),
+                status=NodeStatus(state.node_states.get(nid, "pending")),
+                subtask_count=data.get("subtask_count", 0),
+                body=data.get("body", ""),
+            )
+        graph_edges = [
+            Edge(
+                source=e["source"],
+                target=e["target"],
+                kind=e.get("kind", "intra_spec"),
+            )
+            for e in self._edges_list
+        ]
+        return TaskGraph(nodes=graph_nodes, edges=graph_edges, order=[])
 
     def _block_task(
         self,

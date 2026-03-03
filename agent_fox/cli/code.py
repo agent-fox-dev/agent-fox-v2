@@ -369,6 +369,9 @@ def code_cmd(
             plan_path=plan_path,
             state_path=state_path,
             session_runner_factory=session_runner_factory,
+            hook_config=config.hooks,
+            specs_dir=Path(".specs"),
+            no_hooks=no_hooks,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
