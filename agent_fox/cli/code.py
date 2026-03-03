@@ -29,10 +29,17 @@ from agent_fox.hooks.runner import (
     run_post_session_hooks,
     run_pre_session_hooks,
 )
+from agent_fox.knowledge.db import open_knowledge_store
+from agent_fox.knowledge.duckdb_sink import DuckDBSink
+from agent_fox.knowledge.sink import SessionOutcome as SinkSessionOutcome
+from agent_fox.knowledge.sink import SinkDispatcher
+from agent_fox.memory.extraction import extract_facts
+from agent_fox.memory.filter import select_relevant_facts
+from agent_fox.memory.store import append_facts, load_all_facts
 from agent_fox.reporting.formatters import format_tokens
 from agent_fox.session.context import assemble_context
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
-from agent_fox.session.runner import run_session
+from agent_fox.session.runner import SessionOutcome, run_session
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.worktree import (
     WorkspaceInfo,
@@ -153,11 +160,13 @@ class _NodeSessionRunner:
         *,
         hook_config: HookConfig | None = None,
         no_hooks: bool = False,
+        sink_dispatcher: SinkDispatcher | None = None,
     ) -> None:
         self._node_id = node_id
         self._config = config
         self._hook_config = hook_config
         self._no_hooks = no_hooks
+        self._sink = sink_dispatcher
         # Parse node_id format: "{spec_name}:{group_number}"
         parts = node_id.rsplit(":", 1)
         self._spec_name = parts[0]
@@ -169,9 +178,39 @@ class _NodeSessionRunner:
         attempt: int,
         previous_error: str | None,
     ) -> tuple[str, str]:
-        """Assemble context and build system/task prompts."""
+        """Assemble context and build system/task prompts.
+
+        Loads relevant memory facts from the JSONL store and passes
+        them to assemble_context for inclusion in session context.
+
+        Requirements: 05-REQ-4.1, 05-REQ-4.2
+        """
         spec_dir = repo_root / ".specs" / self._spec_name
-        context = assemble_context(spec_dir, self._task_group)
+
+        # 05-REQ-4.1: Load and select relevant facts for context injection
+        memory_facts: list[str] | None = None
+        try:
+            all_facts = load_all_facts()
+            if all_facts:
+                relevant = select_relevant_facts(
+                    all_facts,
+                    self._spec_name,
+                    task_keywords=[self._spec_name],
+                )
+                if relevant:
+                    memory_facts = [f.content for f in relevant]
+        except Exception:
+            logger.warning(
+                "Failed to load memory facts for %s, continuing without",
+                self._spec_name,
+                exc_info=True,
+            )
+
+        context = assemble_context(
+            spec_dir,
+            self._task_group,
+            memory_facts=memory_facts,
+        )
 
         system_prompt = build_system_prompt(
             context=context,
@@ -237,6 +276,11 @@ class _NodeSessionRunner:
         Handles IntegrationError separately from session failures so
         the orchestrator gets an accurate error message about merge
         problems vs coding problems.
+
+        On success, also extracts knowledge facts from the session
+        summary and records the session outcome to sinks.
+
+        Requirements: 05-REQ-1.1, 11-REQ-4.2
         """
         outcome = await run_session(
             workspace=workspace,
@@ -276,6 +320,13 @@ class _NodeSessionRunner:
                     exc,
                 )
 
+        # 11-REQ-4.2: Record session outcome to sinks (always, best-effort)
+        self._record_session_to_sink(outcome, node_id)
+
+        # 05-REQ-1.1: Extract facts from session summary (on success only)
+        if status == "completed":
+            await self._extract_session_knowledge(workspace, node_id)
+
         return SessionRecord(
             node_id=node_id,
             attempt=attempt,
@@ -287,6 +338,71 @@ class _NodeSessionRunner:
             error_message=error_message,
             timestamp=datetime.now(UTC).isoformat(),
         )
+
+    def _record_session_to_sink(
+        self,
+        outcome: SessionOutcome,
+        node_id: str,
+    ) -> None:
+        """Record a session outcome to the sink dispatcher (best-effort)."""
+        if self._sink is None:
+            return
+        try:
+            sink_outcome = SinkSessionOutcome(
+                spec_name=outcome.spec_name,
+                task_group=str(outcome.task_group),
+                node_id=node_id,
+                touched_paths=outcome.files_touched,
+                status=outcome.status,
+                input_tokens=outcome.input_tokens,
+                output_tokens=outcome.output_tokens,
+                duration_ms=outcome.duration_ms,
+            )
+            self._sink.record_session_outcome(sink_outcome)
+        except Exception:
+            logger.warning(
+                "Failed to record session outcome to sink for %s",
+                node_id,
+                exc_info=True,
+            )
+
+    async def _extract_session_knowledge(
+        self,
+        workspace: WorkspaceInfo,
+        node_id: str,
+    ) -> None:
+        """Extract facts from the session summary artifact (best-effort).
+
+        Uses .session-summary.json as the transcript source. Extracted
+        facts are appended to the JSONL store.
+
+        Requirements: 05-REQ-1.1, 05-REQ-1.E1
+        """
+        summary = self._read_session_artifacts(workspace)
+        if not summary:
+            logger.debug("No session summary for %s, skipping extraction", node_id)
+            return
+
+        transcript = summary.get("summary", "")
+        if not transcript:
+            return
+
+        try:
+            model_name = self._config.models.memory_extraction
+            facts = await extract_facts(transcript, self._spec_name, model_name)
+            if facts:
+                append_facts(facts)
+                logger.info(
+                    "Extracted %d facts from session %s",
+                    len(facts),
+                    node_id,
+                )
+        except Exception:
+            logger.warning(
+                "Fact extraction failed for %s, continuing",
+                node_id,
+                exc_info=True,
+            )
 
     async def execute(
         self,
@@ -463,6 +579,12 @@ def code_cmd(
     full_config: AgentFoxConfig = config
     hook_cfg: HookConfig | None = config.hooks
 
+    # 11-REQ-4.2: Create DuckDB sink for session outcome recording
+    sink_dispatcher = SinkDispatcher()
+    knowledge_db = open_knowledge_store(config.knowledge)
+    if knowledge_db is not None:
+        sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
+
     def session_runner_factory(node_id: str) -> _NodeSessionRunner:
         """Create a session runner for the given node.
 
@@ -478,6 +600,7 @@ def code_cmd(
             full_config,
             hook_config=hook_cfg,
             no_hooks=no_hooks,
+            sink_dispatcher=sink_dispatcher,
         )
 
     try:
@@ -504,6 +627,11 @@ def code_cmd(
         logger.debug("Unexpected error during execution", exc_info=True)
         click.echo(f"Error: unexpected error: {exc}", err=True)
         sys.exit(1)
+    finally:
+        # Clean up knowledge store connection
+        sink_dispatcher.close()
+        if knowledge_db is not None:
+            knowledge_db.close()
 
     # 16-REQ-3.1: print summary
     _print_summary(state)
