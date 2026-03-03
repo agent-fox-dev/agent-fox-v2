@@ -25,8 +25,15 @@ _GROUP_PATTERN = re.compile(r"^- \[([ x\-])\] (\* )?(\d+)\. (.+)$")
 #   - [x] 2.3 Subtask title
 _SUBTASK_PATTERN = re.compile(r"^\s+- \[([ x\-])\] (\d+\.\d+) (.+)$")
 
-# Cross-spec dependency table header detection
+# Cross-spec dependency table header detection — standard format:
+#   | This Spec | Depends On | What It Uses |
 _DEP_TABLE_HEADER = re.compile(r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNORECASE)
+
+# Alternative dependency table format with group-level granularity:
+#   | Spec | From Group | To Group | Relationship |
+_DEP_TABLE_HEADER_ALT = re.compile(
+    r"\|\s*Spec\s*\|\s*From Group\s*\|\s*To Group\s*\|", re.IGNORECASE
+)
 
 # Table separator row (e.g., |---|---|---|)
 _TABLE_SEP = re.compile(r"^\s*\|[\s\-|]+\|\s*$")
@@ -155,16 +162,59 @@ def parse_tasks(tasks_path: Path) -> list[TaskGroupDef]:
     return groups
 
 
-def parse_cross_deps(prd_path: Path) -> list[CrossSpecDep]:
-    """Parse cross-spec dependency table from a spec's prd.md.
+def _parse_table_rows(lines: list[str], start: int) -> list[list[str]]:
+    """Parse markdown table data rows starting after the header line.
 
-    Looks for a markdown table with columns matching
-    ``| This Spec | Depends On |``. Each data row yields a CrossSpecDep
-    with spec-level dependency (from_group=0 and to_group=0 as sentinels,
-    to be resolved by the builder to first/last group numbers).
+    Skips separator rows and stops at the first non-table line.
+    Returns a list of cell lists (one per data row).
+    """
+    rows: list[list[str]] = []
+    for line in lines[start:]:
+        if _TABLE_SEP.match(line):
+            continue
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            break
+        cells = [c.strip() for c in stripped.split("|")]
+        cells = [c for c in cells if c]
+        if cells:
+            rows.append(cells)
+    return rows
+
+
+def _safe_int(value: str, default: int = 0) -> int:
+    """Parse an integer from a string, returning *default* on failure."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def parse_cross_deps(
+    prd_path: Path,
+    spec_name: str | None = None,
+) -> list[CrossSpecDep]:
+    """Parse cross-spec dependency tables from a spec's prd.md.
+
+    Recognises two table formats:
+
+    **Standard format** (``| This Spec | Depends On |``):
+    Yields spec-level dependencies with sentinel group numbers (0/0),
+    resolved by the builder to the first/last groups.
+
+    **Alternative format** (``| Spec | From Group | To Group |``):
+    Yields group-level dependencies. Requires *spec_name* so the
+    parser knows which spec is declaring the dependency. The columns
+    map as follows:
+
+    - *Spec* — the dependency spec (``to_spec``)
+    - *From Group* — the group in the dependency spec (``to_group``)
+    - *To Group* — the group in this spec (``from_group``)
 
     Args:
         prd_path: Path to the spec's prd.md file.
+        spec_name: Name of the spec whose prd.md is being parsed.
+            Required for the alternative table format.
 
     Returns:
         List of CrossSpecDep declarations. Empty if no table found.
@@ -176,44 +226,50 @@ def parse_cross_deps(prd_path: Path) -> list[CrossSpecDep]:
     lines = text.splitlines()
 
     deps: list[CrossSpecDep] = []
-    in_table = False
-    header_found = False
 
-    for line in lines:
-        # Look for the dependency table header
-        if not header_found:
-            if _DEP_TABLE_HEADER.search(line):
-                header_found = True
-                in_table = True
-            continue
-
-        # Skip separator row
-        if in_table and _TABLE_SEP.match(line):
-            continue
-
-        # Parse data rows
-        if in_table:
-            # Stop at end of table (non-table line)
-            stripped = line.strip()
-            if not stripped.startswith("|"):
-                break
-
-            # Split cells by pipe
-            cells = [c.strip() for c in stripped.split("|")]
-            # Filter out empty strings from leading/trailing pipes
-            cells = [c for c in cells if c]
-
-            if len(cells) >= 2:
+    for i, line in enumerate(lines):
+        # --- Standard format: | This Spec | Depends On | ... ---
+        if _DEP_TABLE_HEADER.search(line):
+            for cells in _parse_table_rows(lines, i + 1):
+                if len(cells) < 2:
+                    continue
                 from_spec = cells[0].strip()
                 to_spec = cells[1].strip()
-                if from_spec and to_spec:
-                    deps.append(
-                        CrossSpecDep(
-                            from_spec=from_spec,
-                            from_group=0,  # sentinel: resolve to first group
-                            to_spec=to_spec,
-                            to_group=0,  # sentinel: resolve to last group
-                        )
+                if not from_spec or not to_spec:
+                    continue
+                deps.append(
+                    CrossSpecDep(
+                        from_spec=from_spec,
+                        from_group=0,  # sentinel: resolve to first group
+                        to_spec=to_spec,
+                        to_group=0,  # sentinel: resolve to last group
                     )
+                )
+
+        # --- Alternative format: | Spec | From Group | To Group | ... ---
+        elif _DEP_TABLE_HEADER_ALT.search(line):
+            if spec_name is None:
+                logger.warning(
+                    "Alternative dependency table found in '%s' but "
+                    "spec_name not provided; skipping.",
+                    prd_path,
+                )
+                continue
+            for cells in _parse_table_rows(lines, i + 1):
+                if len(cells) < 3:
+                    continue
+                dep_spec = cells[0].strip()
+                dep_group = _safe_int(cells[1].strip())
+                this_group = _safe_int(cells[2].strip())
+                if not dep_spec:
+                    continue
+                deps.append(
+                    CrossSpecDep(
+                        from_spec=spec_name,
+                        from_group=this_group,
+                        to_spec=dep_spec,
+                        to_group=dep_group,
+                    )
+                )
 
     return deps

@@ -96,6 +96,27 @@ PRD_MD_NO_DEPS = """\
 This is the first specification with no dependencies.
 """
 
+PRD_MD_ALT_FORMAT = """\
+# PRD: CLI Banner Enhancement
+
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 4 | 1 | Imports CLI framework, theme system |
+| 03_session | 3 | 2 | Uses session context for banner data |
+"""
+
+PRD_MD_ALT_FORMAT_SINGLE = """\
+# PRD: Init Settings
+
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 3 | 1 | Extends the init command implemented in group 3 |
+"""
+
 
 # -- Fixture: specs directory with multiple specs, all with tasks.md --------
 
@@ -197,3 +218,35 @@ def tasks_md_empty(tmp_path: Path) -> Path:
     tasks_path = tmp_path / "tasks.md"
     tasks_path.write_text(TASKS_MD_EMPTY)
     return tasks_path
+
+
+@pytest.fixture
+def prd_md_standard_deps(tmp_path: Path) -> Path:
+    """Create a prd.md with standard dependency table format."""
+    prd_path = tmp_path / "prd.md"
+    prd_path.write_text(PRD_MD_WITH_DEPS)
+    return prd_path
+
+
+@pytest.fixture
+def prd_md_alt_format(tmp_path: Path) -> Path:
+    """Create a prd.md with alternative dependency table format."""
+    prd_path = tmp_path / "prd.md"
+    prd_path.write_text(PRD_MD_ALT_FORMAT)
+    return prd_path
+
+
+@pytest.fixture
+def prd_md_alt_format_single(tmp_path: Path) -> Path:
+    """Create a prd.md with alternative format, single dependency."""
+    prd_path = tmp_path / "prd.md"
+    prd_path.write_text(PRD_MD_ALT_FORMAT_SINGLE)
+    return prd_path
+
+
+@pytest.fixture
+def prd_md_no_deps(tmp_path: Path) -> Path:
+    """Create a prd.md with no dependency table."""
+    prd_path = tmp_path / "prd.md"
+    prd_path.write_text(PRD_MD_NO_DEPS)
+    return prd_path

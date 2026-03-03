@@ -63,7 +63,7 @@ def _build_plan(
         # Parse cross-spec deps from prd.md if present
         if spec.has_prd:
             prd_path = spec.path / "prd.md"
-            deps = parse_cross_deps(prd_path)
+            deps = parse_cross_deps(prd_path, spec_name=spec.name)
             cross_deps.extend(deps)
 
     # Filter cross-deps to only reference specs present in the discovered set.

@@ -149,7 +149,7 @@ def _validate_and_parse_specs(
         dep_names = _parse_dep_specs_from_prd(prd_path)
 
         if not dep_names:
-            cross_deps = parse_cross_deps(prd_path)
+            cross_deps = parse_cross_deps(prd_path, spec_name=spec_info.name)
             dep_names = [d.to_spec for d in cross_deps]
 
         # 06-REQ-7.E1: Validate all dependencies exist
