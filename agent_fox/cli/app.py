@@ -11,6 +11,8 @@ Requirements: 01-REQ-1.1, 01-REQ-1.2, 01-REQ-1.3, 01-REQ-1.4,
 from __future__ import annotations
 
 import logging
+import sys
+from pathlib import Path
 
 import click
 
@@ -24,7 +26,34 @@ from agent_fox.ui.theme import create_theme
 logger = logging.getLogger(__name__)
 
 
-@click.group(invoke_without_command=True)
+class BannerGroup(click.Group):
+    """Custom Click group with a top-level exception handler.
+
+    Wraps subcommand dispatch so that any unhandled exception is caught,
+    logged at DEBUG level, and reported as a user-friendly error message
+    with exit code 1.
+
+    Requirements: 01-REQ-4.E1
+    """
+
+    def invoke(self, ctx: click.Context) -> None:
+        try:
+            super().invoke(ctx)
+        except click.exceptions.Exit:
+            raise
+        except click.ClickException:
+            raise
+        except AgentFoxError as exc:
+            logger.debug("Unhandled AgentFoxError", exc_info=True)
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(1)
+        except Exception as exc:
+            logger.debug("Unexpected error", exc_info=True)
+            click.echo(f"Error: unexpected error: {exc}", err=True)
+            sys.exit(1)
+
+
+@click.group(cls=BannerGroup, invoke_without_command=True)
 @click.version_option(version=__version__)
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress info messages")
@@ -35,7 +64,7 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     setup_logging(verbose=verbose, quiet=quiet)
 
     try:
-        config = load_config()
+        config = load_config(Path(".agent-fox/config.toml"))
     except AgentFoxError as exc:
         logger.debug("Config load failed", exc_info=True)
         click.echo(f"Error: {exc}", err=True)
