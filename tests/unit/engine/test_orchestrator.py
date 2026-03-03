@@ -6,17 +6,19 @@ Test Spec: TS-04-1 (linear chain), TS-04-3 (retry with error),
            TS-04-E1 (missing plan), TS-04-E2 (empty plan)
 Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
               04-REQ-2.1 through 04-REQ-2.3, 04-REQ-7.1, 04-REQ-7.2,
-              04-REQ-7.E1, 04-REQ-8.1, 04-REQ-8.3, 04-REQ-10.E1
+              04-REQ-7.E1, 04-REQ-8.1, 04-REQ-8.3, 04-REQ-10.E1,
+              06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from agent_fox.core.config import OrchestratorConfig
+from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.orchestrator import Orchestrator
 from agent_fox.engine.state import StateManager
@@ -732,3 +734,265 @@ class TestEmptyPlan:
         await orchestrator.run()
 
         assert len(mock_runner.calls) == 0
+
+
+class TestSyncBarrierTriggering:
+    """TS-06-1: Sync barriers fire at configured intervals.
+
+    Verify the orchestrator triggers sync barriers after the correct
+    number of task completions, calling hooks, hot-load, and render.
+    Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
+    """
+
+    @pytest.mark.asyncio
+    async def test_sync_barrier_fires_at_interval(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """Sync barrier fires after sync_interval completions."""
+        # 5 tasks, sync_interval=5 => barrier fires once (at task 5)
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task 1"},
+                "spec:2": {"title": "Task 2"},
+                "spec:3": {"title": "Task 3"},
+                "spec:4": {"title": "Task 4"},
+                "spec:5": {"title": "Task 5"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+                {"source": "spec:2", "target": "spec:3", "kind": "intra_spec"},
+                {"source": "spec:3", "target": "spec:4", "kind": "intra_spec"},
+                {"source": "spec:4", "target": "spec:5", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2", "spec:3", "spec:4", "spec:5"],
+        )
+
+        config = OrchestratorConfig(
+            parallel=1, sync_interval=5, inter_session_delay=0,
+        )
+        hook_config = HookConfig()
+
+        with (
+            patch(
+                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+            ) as mock_hooks,
+            patch(
+                "agent_fox.engine.orchestrator.render_summary",
+            ) as mock_render,
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                state_path=tmp_state_path,
+                session_runner_factory=lambda nid: mock_runner,
+                hook_config=hook_config,
+                specs_dir=tmp_plan_dir.parent / ".specs",
+                no_hooks=False,
+            )
+
+            state = await orchestrator.run()
+
+        assert state.total_sessions == 5
+        # Barrier fires once at completion 5
+        assert mock_hooks.call_count == 1
+        assert mock_render.call_count == 1
+        # Barrier number should be 1 (5 // 5)
+        call_kwargs = mock_hooks.call_args
+        assert call_kwargs[1]["barrier_number"] == 1
+
+    @pytest.mark.asyncio
+    async def test_sync_barrier_fires_multiple_times(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """Sync barrier fires at each interval crossing."""
+        # 6 tasks, sync_interval=3 => barrier fires at task 3 and 6
+        nodes = {f"spec:{i}": {"title": f"Task {i}"} for i in range(1, 7)}
+        edges = [
+            {"source": f"spec:{i}", "target": f"spec:{i+1}", "kind": "intra_spec"}
+            for i in range(1, 6)
+        ]
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes=nodes,
+            edges=edges,
+            order=[f"spec:{i}" for i in range(1, 7)],
+        )
+
+        config = OrchestratorConfig(
+            parallel=1, sync_interval=3, inter_session_delay=0,
+        )
+
+        with (
+            patch(
+                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+            ) as mock_hooks,
+            patch(
+                "agent_fox.engine.orchestrator.render_summary",
+            ) as mock_render,
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                state_path=tmp_state_path,
+                session_runner_factory=lambda nid: mock_runner,
+                hook_config=HookConfig(),
+                specs_dir=tmp_plan_dir.parent / ".specs",
+            )
+
+            state = await orchestrator.run()
+
+        assert state.total_sessions == 6
+        assert mock_hooks.call_count == 2
+        assert mock_render.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_barrier_disabled_when_interval_zero(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """No barrier fires when sync_interval=0 (disabled)."""
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task 1"},
+                "spec:2": {"title": "Task 2"},
+                "spec:3": {"title": "Task 3"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+                {"source": "spec:2", "target": "spec:3", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2", "spec:3"],
+        )
+
+        config = OrchestratorConfig(
+            parallel=1, sync_interval=0, inter_session_delay=0,
+        )
+
+        with (
+            patch(
+                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+            ) as mock_hooks,
+            patch(
+                "agent_fox.engine.orchestrator.render_summary",
+            ) as mock_render,
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                state_path=tmp_state_path,
+                session_runner_factory=lambda nid: mock_runner,
+                hook_config=HookConfig(),
+            )
+
+            state = await orchestrator.run()
+
+        assert state.total_sessions == 3
+        assert mock_hooks.call_count == 0
+        assert mock_render.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_sync_barrier_skips_hooks_when_no_hooks(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """Sync barrier passes no_hooks=True to hook runner."""
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task 1"},
+                "spec:2": {"title": "Task 2"},
+                "spec:3": {"title": "Task 3"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+                {"source": "spec:2", "target": "spec:3", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2", "spec:3"],
+        )
+
+        config = OrchestratorConfig(
+            parallel=1, sync_interval=3, inter_session_delay=0,
+        )
+
+        with (
+            patch(
+                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+            ) as mock_hooks,
+            patch(
+                "agent_fox.engine.orchestrator.render_summary",
+            ),
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                state_path=tmp_state_path,
+                session_runner_factory=lambda nid: mock_runner,
+                hook_config=HookConfig(),
+                no_hooks=True,
+            )
+
+            await orchestrator.run()
+
+        assert mock_hooks.call_count == 1
+        assert mock_hooks.call_args[1]["no_hooks"] is True
+
+    @pytest.mark.asyncio
+    async def test_sync_barrier_without_hook_config(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """Barrier still renders summary when no hook_config provided."""
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task 1"},
+                "spec:2": {"title": "Task 2"},
+                "spec:3": {"title": "Task 3"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+                {"source": "spec:2", "target": "spec:3", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2", "spec:3"],
+        )
+
+        config = OrchestratorConfig(
+            parallel=1, sync_interval=3, inter_session_delay=0,
+        )
+
+        with (
+            patch(
+                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+            ) as mock_hooks,
+            patch(
+                "agent_fox.engine.orchestrator.render_summary",
+            ) as mock_render,
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                state_path=tmp_state_path,
+                session_runner_factory=lambda nid: mock_runner,
+                # No hook_config or specs_dir
+            )
+
+            await orchestrator.run()
+
+        # Hooks NOT called (no hook_config)
+        assert mock_hooks.call_count == 0
+        # Summary still rendered
+        assert mock_render.call_count == 1
