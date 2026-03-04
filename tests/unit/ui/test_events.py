@@ -30,6 +30,43 @@ class TestAbbreviateArgBasename:
         assert result == "config.py"
 
 
+class TestAbbreviateArgTrailingComponents:
+    """TS-18-6, TS-18-11, TS-18-12, TS-18-13: Trailing path component abbreviation.
+
+    Requirements: 18-REQ-2.E2
+    """
+
+    def test_long_path_abbreviated_to_trailing_components(self) -> None:
+        """TS-18-6: Long path abbreviated to trailing components."""
+        result = abbreviate_arg(
+            "/Users/dev/workspace/project/src/agent_fox/core/config.py",
+            max_len=30,
+        )
+        assert result == "…/agent_fox/core/config.py"
+        assert len(result) <= 30
+
+    def test_path_falls_back_to_basename_when_tight(self) -> None:
+        """TS-18-11: Falls back to basename when tight."""
+        result = abbreviate_arg(
+            "/a/very_long_directory_name/config.py", max_len=15
+        )
+        assert result == "config.py"
+
+    def test_path_keeps_maximum_context(self) -> None:
+        """TS-18-12: Abbreviation keeps as many trailing path components as possible."""
+        result = abbreviate_arg(
+            "/home/user/project/src/components/Button.tsx", max_len=40
+        )
+        assert "components/Button.tsx" in result
+        assert result.startswith("…/")
+        assert len(result) <= 40
+
+    def test_short_path_returned_as_is(self) -> None:
+        """TS-18-13: Paths that already fit within max_len are returned unchanged."""
+        result = abbreviate_arg("src/config.py", max_len=30)
+        assert result == "src/config.py"
+
+
 class TestAbbreviateArgTruncation:
     """TS-18-7: Abbreviate long string with ellipsis."""
 

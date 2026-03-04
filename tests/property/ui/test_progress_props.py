@@ -119,6 +119,29 @@ class TestQuietNoOutput:
         )
 
 
+class TestAbbreviatedPathFitsMaxLen:
+    """TS-18-P6: Abbreviated path always fits within max_len.
+
+    Property 6: For any file path, abbreviation result length never exceeds max_len.
+    """
+
+    @given(
+        path=st.from_regex(
+            r"[a-zA-Z0-9_.]{1,50}(/[a-zA-Z0-9_.]{1,50}){1,6}",
+            fullmatch=True,
+        ),
+        max_len=st.integers(min_value=4, max_value=100),
+    )
+    @settings(max_examples=200)
+    def test_abbreviated_path_fits(self, path: str, max_len: int) -> None:
+        """abbreviate_arg(path, max_len) length never exceeds max_len."""
+        result = abbreviate_arg(path, max_len)
+        assert len(result) <= max_len, (
+            f"Result length {len(result)} exceeds max_len {max_len} "
+            f"for path {path!r}: {result!r}"
+        )
+
+
 class TestPermanentLinesContainNodeId:
     """TS-18-P4: Permanent lines contain node ID.
 
