@@ -211,8 +211,8 @@ def generate_status(
     if state is not None:
         node_states = dict(state.node_states)
     else:
-        # No state file: all tasks are pending
-        node_states = {nid: "pending" for nid in graph.nodes}
+        # No state file: seed from plan.json node statuses
+        node_states = {nid: node.status.value for nid, node in graph.nodes.items()}
 
     # Ensure all plan nodes have a status (even if state is partial)
     for nid in graph.nodes:

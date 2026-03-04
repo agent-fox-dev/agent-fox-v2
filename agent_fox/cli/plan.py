@@ -21,7 +21,7 @@ from agent_fox.graph.builder import build_graph
 from agent_fox.graph.fast_mode import apply_fast_mode
 from agent_fox.graph.persistence import load_plan, save_plan
 from agent_fox.graph.resolver import resolve_order
-from agent_fox.graph.types import PlanMetadata, TaskGraph
+from agent_fox.graph.types import NodeStatus, PlanMetadata, TaskGraph
 from agent_fox.spec.discovery import SpecInfo, discover_specs
 from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
 
@@ -132,11 +132,27 @@ def _print_summary(graph: TaskGraph, specs: list[SpecInfo]) -> None:
     else:
         click.echo("Fast mode:     off")
 
+    # Separate completed from remaining tasks
+    completed = [
+        nid for nid in graph.order
+        if graph.nodes[nid].status == NodeStatus.COMPLETED
+    ]
+    remaining = [
+        nid for nid in graph.order
+        if graph.nodes[nid].status != NodeStatus.COMPLETED
+    ]
+
+    if completed:
+        click.echo(f"Completed:     {len(completed)}/{total_nodes}")
+
     click.echo()
-    click.echo("Execution order:")
-    for i, node_id in enumerate(graph.order, 1):
-        node = graph.nodes[node_id]
-        click.echo(f"  {i}. {node_id} — {node.title}")
+    if remaining:
+        click.echo("Execution order:")
+        for i, node_id in enumerate(remaining, 1):
+            node = graph.nodes[node_id]
+            click.echo(f"  {i}. {node_id} — {node.title}")
+    else:
+        click.echo("All tasks completed.")
 
 
 @click.command("plan")

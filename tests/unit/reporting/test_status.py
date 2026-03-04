@@ -223,7 +223,7 @@ class TestStatusNoStateFile:
         self,
         tmp_plan_dir: Path,
     ) -> None:
-        """All tasks show as pending with zero cost when no state file exists."""
+        """All-pending plan tasks show as pending with zero cost when no state file."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
@@ -241,6 +241,25 @@ class TestStatusNoStateFile:
         assert report.output_tokens == 0
         assert report.estimated_cost == 0.0
         assert len(report.problem_tasks) == 0
+
+    def test_no_state_file_reads_completed_from_plan(
+        self,
+        tmp_plan_dir: Path,
+    ) -> None:
+        """Completed nodes in plan.json are reflected when no state file exists."""
+        nodes = {
+            "spec_a:1": {"title": "Task 1", "status": "completed"},
+            "spec_a:2": {"title": "Task 2", "status": "completed"},
+            "spec_a:3": {"title": "Task 3"},
+        }
+        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        nonexistent_state = Path("/nonexistent/state.jsonl")
+
+        report = generate_status(nonexistent_state, plan_path)
+
+        assert report.counts.get("completed", 0) == 2
+        assert report.counts.get("pending", 0) == 1
+        assert report.total_tasks == 3
 
 
 # ---------------------------------------------------------------------------
