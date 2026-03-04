@@ -192,6 +192,35 @@ class TestHarvesterUnresolvableConflict:
             await harvest(tmp_worktree_repo, ws)
 
     @pytest.mark.asyncio
+    async def test_conflict_error_includes_details(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """IntegrationError message includes conflict file details."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+
+        add_commit_to_branch(
+            ws.path,
+            "shared.py",
+            "feature content\n",
+        )
+
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        add_commit_to_branch(
+            tmp_worktree_repo,
+            "shared.py",
+            "develop content\n",
+        )
+
+        with pytest.raises(IntegrationError, match="shared.py"):
+            await harvest(tmp_worktree_repo, ws)
+
+    @pytest.mark.asyncio
     async def test_conflict_leaves_develop_unchanged(
         self,
         tmp_worktree_repo: Path,

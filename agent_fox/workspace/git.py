@@ -171,7 +171,7 @@ async def merge_commit(
     Raises:
         IntegrationError: If the merge fails (conflicts).
     """
-    returncode, _stdout, stderr = await run_git(
+    returncode, stdout, stderr = await run_git(
         ["merge", "--no-edit", branch],
         cwd=repo_path,
         check=False,
@@ -179,8 +179,10 @@ async def merge_commit(
     if returncode != 0:
         # Abort the failed merge to leave the repo in a clean state
         await run_git(["merge", "--abort"], cwd=repo_path, check=False)
+        # git merge writes conflict details to stdout, not stderr
+        detail = stderr.strip() or stdout.strip()
         raise IntegrationError(
-            f"Merge of '{branch}' failed: {stderr.strip()}",
+            f"Merge of '{branch}' failed: {detail}",
             branch=branch,
         )
 
@@ -195,14 +197,16 @@ async def rebase_onto(
     Raises:
         IntegrationError: If rebase fails (conflicts).
     """
-    returncode, _stdout, stderr = await run_git(
+    returncode, stdout, stderr = await run_git(
         ["rebase", onto, branch],
         cwd=repo_path,
         check=False,
     )
     if returncode != 0:
+        # git rebase may write conflict details to stdout or stderr
+        detail = stderr.strip() or stdout.strip()
         raise IntegrationError(
-            f"Rebase of '{branch}' onto '{onto}' failed: {stderr.strip()}",
+            f"Rebase of '{branch}' onto '{onto}' failed: {detail}",
             branch=branch,
             onto=onto,
         )
