@@ -78,36 +78,36 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ui/events.py`
 
-- [ ] 3. Implement ProgressDisplay
-  - [ ] 3.1 Create `agent_fox/ui/progress.py`
+- [x] 3. Implement ProgressDisplay
+  - [x] 3.1 Create `agent_fox/ui/progress.py`
     - `ProgressDisplay.__init__(theme, quiet)`: store theme, quiet flag, create asyncio.Lock
     - Detect TTY via `theme.console.is_terminal`
     - _Requirements: 18-REQ-1.E1, 18-REQ-1.E2_
 
-  - [ ] 3.2 Implement `start()` and `stop()`
+  - [x] 3.2 Implement `start()` and `stop()`
     - TTY mode: create and start `rich.live.Live` with a `Spinner("dots")`
     - Non-TTY/quiet: no-op
     - `stop()`: stop Live, clear line
     - _Requirements: 18-REQ-1.1, 18-REQ-1.3_
 
-  - [ ] 3.3 Implement `on_activity(event)`
+  - [x] 3.3 Implement `on_activity(event)`
     - Acquire lock, update stored activity text
     - Format: `[{node_id}] {tool_name} {argument}`
     - Truncate to terminal width (default 80 if unknown)
     - Refresh the Live renderable
     - _Requirements: 18-REQ-3.1, 18-REQ-3.2, 18-REQ-3.3, 18-REQ-3.4, 18-REQ-3.E1, 18-REQ-6.1, 18-REQ-6.2_
 
-  - [ ] 3.4 Implement `on_task_event(event)`
+  - [x] 3.4 Implement `on_task_event(event)`
     - Acquire lock, format permanent line with icon + node_id + status + duration
     - TTY: print above Live area via `live.console.print()`
     - Non-TTY: plain `console.print()` without ANSI
     - _Requirements: 18-REQ-4.1, 18-REQ-4.2, 18-REQ-4.3, 18-REQ-4.4, 18-REQ-4.E1, 18-REQ-6.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Progress display tests pass: `uv run pytest tests/unit/ui/test_progress.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/ui/test_progress_props.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ui/progress.py`
+  - [x] 3.V Verify task group 3
+    - [x] Progress display tests pass: `uv run pytest tests/unit/ui/test_progress.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/ui/test_progress_props.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ui/progress.py`
 
 - [ ] 4. Wire activity callback into session runner
   - [ ] 4.1 Add `activity_callback` parameter to `run_session()` and `_execute_query()`
