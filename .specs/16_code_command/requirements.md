@@ -95,12 +95,17 @@ separately.
 #### Acceptance Criteria
 
 1. [16-REQ-3.1] AFTER execution completes (any outcome), THE command SHALL
-   print a compact summary containing: task counts (done/total, in progress,
-   pending, failed), token usage (input and output, human-readable), estimated
-   cost, and run status.
+   print a compact summary with each metric on its own line:
+   - **Tasks:** `done/total done` followed by comma-separated conditional
+     parts (`N in progress`, `N pending`, `N failed`). Zero-count categories
+     SHALL be omitted for readability.
+   - **Tokens:** human-readable input and output counts
+     (`Tokens: 12.3k in / 4.5k out`).
+   - **Cost:** estimated cost in USD (`Cost:   $1.23`).
+   - **Status:** run status string (`Status: completed`).
 
-2. [16-REQ-3.2] THE summary format SHALL match the compact text style used by
-   `agent-fox status` (no Rich tables).
+2. [16-REQ-3.2] THE summary format SHALL use compact plain text (no Rich
+   tables), with each metric labelled on its own line.
 
 #### Edge Cases
 

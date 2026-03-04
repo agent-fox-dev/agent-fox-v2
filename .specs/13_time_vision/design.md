@@ -99,26 +99,26 @@ def add_causal_link(
     ...
 
 
-def get_causes(
+def _get_direct_cause_ids(
     conn: duckdb.DuckDBPyConnection,
     fact_id: str,
-) -> list[CausalFact]:
-    """Return all direct causes of the given fact.
+) -> list[str]:
+    """Return IDs of direct causes (for traversal).
 
-    Queries fact_causes WHERE effect_id = fact_id, joining with
-    memory_facts for content and provenance.
+    Queries fact_causes WHERE effect_id = fact_id. Used internally
+    by traverse_causal_chain(); not part of the public API.
     """
     ...
 
 
-def get_effects(
+def _get_direct_effect_ids(
     conn: duckdb.DuckDBPyConnection,
     fact_id: str,
-) -> list[CausalFact]:
-    """Return all direct effects of the given fact.
+) -> list[str]:
+    """Return IDs of direct effects (for traversal).
 
-    Queries fact_causes WHERE cause_id = fact_id, joining with
-    memory_facts for content and provenance.
+    Queries fact_causes WHERE cause_id = fact_id. Used internally
+    by traverse_causal_chain(); not part of the public API.
     """
     ...
 
@@ -177,11 +177,12 @@ class Timeline:
     query: str = ""
 
     def render(self, *, use_color: bool = True) -> str:
-        """Render the timeline as indented text.
+        """Render the timeline as indented plain text.
 
         Each node is rendered with indentation proportional to its depth.
-        When use_color is False (stdout is not a TTY), no ANSI escape
-        codes are included.
+        Output is always plain text (no ANSI escape codes). The use_color
+        parameter is accepted for interface compatibility but is reserved
+        for future use.
         """
         ...
 
@@ -250,9 +251,10 @@ def detect_patterns(
     """Detect recurring cause-effect patterns.
 
     Analysis algorithm:
-    1. Query session_outcomes for all sessions, grouping by spec_name
-       and touched_path.
-    2. For each pair of (path_changed, subsequent_failure), count
+    1. Query session_outcomes for all sessions, grouping by
+       changed.touched_path and failed.touched_path to detect
+       file-to-file co-occurrence patterns.
+    2. For each pair of (path_changed, path_failed), count
        co-occurrences across sessions.
     3. Cross-reference with fact_causes to find causal chains that
        connect the change to the failure.
@@ -497,10 +499,10 @@ def traverse_causal_chain(conn, fact_id, *, max_depth=10, direction="both"):
 **Pattern detection query:**
 
 ```sql
--- Find (path_changed, spec_with_failure) co-occurrences
+-- Find (path_changed, path_failed) co-occurrences (file-to-file patterns)
 SELECT
     changed.touched_path AS trigger_path,
-    failed.spec_name     AS failed_spec,
+    failed.touched_path  AS failed_path,
     COUNT(*)             AS occurrences,
     MAX(failed.created_at) AS last_seen
 FROM session_outcomes changed
@@ -511,7 +513,8 @@ JOIN session_outcomes failed
     AND failed.status = 'failed'
     AND changed.status = 'completed'
 WHERE changed.touched_path IS NOT NULL
-GROUP BY changed.touched_path, failed.spec_name
+  AND failed.touched_path IS NOT NULL
+GROUP BY changed.touched_path, failed.touched_path
 HAVING COUNT(*) >= ?
 ORDER BY occurrences DESC, last_seen DESC;
 ```

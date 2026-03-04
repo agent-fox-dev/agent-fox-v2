@@ -83,10 +83,16 @@ follow causal chains.
    list of (cause_id, effect_id) tuples and inserts them into the
    `fact_causes` table using `INSERT OR IGNORE` for idempotent batch
    insertion.
-2. [13-REQ-3.2] THE system SHALL provide a function to query the direct
-   causes of a given fact (all rows where `effect_id` matches the fact).
-3. [13-REQ-3.3] THE system SHALL provide a function to query the direct
-   effects of a given fact (all rows where `cause_id` matches the fact).
+2. [13-REQ-3.2] THE system SHALL support querying the direct causes of a
+   given fact (all rows where `effect_id` matches the fact). Direct cause
+   queries are handled internally by `traverse_causal_chain()` with
+   `max_depth=1, direction="causes"` via private helper
+   `_get_direct_cause_ids()`. The public API is `traverse_causal_chain()`.
+3. [13-REQ-3.3] THE system SHALL support querying the direct effects of a
+   given fact (all rows where `cause_id` matches the fact). Direct effect
+   queries are handled internally by `traverse_causal_chain()` with
+   `max_depth=1, direction="effects"` via private helper
+   `_get_direct_effect_ids()`. The public API is `traverse_causal_chain()`.
 4. [13-REQ-3.4] THE system SHALL provide a function to traverse a causal
    chain from a given fact, following cause-effect links up to a configurable
    maximum depth (default: 10), returning all facts in the chain with their
@@ -112,9 +118,11 @@ answers grounded in the causal graph.
    THE system SHALL use vector similarity search to find relevant facts, then
    traverse the causal graph from those facts to construct a timeline of
    causally linked events.
-2. [13-REQ-4.2] THE temporal query result SHALL include both the causal
-   timeline and a synthesized natural-language answer from the synthesis model,
-   grounded in the timeline's facts.
+2. [13-REQ-4.2] THE `temporal_query()` function SHALL return a `Timeline`
+   object containing the causal chain. Synthesis of a natural-language answer
+   from the timeline is the responsibility of the caller (e.g., the `ask`
+   command), not of `temporal_query()` itself. This separation keeps the
+   temporal module focused on graph traversal and timeline construction.
 
 ---
 
@@ -128,8 +136,9 @@ happens.
 
 1. [13-REQ-5.1] THE system SHALL provide a batch computation that analyzes
    historical co-occurrences in the `fact_causes` table and
-   `session_outcomes` table to identify recurring patterns (e.g., "changes
-   to src/auth/ -> test_payments.py failures").
+   `session_outcomes` table to identify recurring file-to-file patterns by
+   grouping on `changed.touched_path` and `failed.touched_path` (e.g.,
+   "changes to src/auth/login.py -> tests/test_payments.py failures").
 2. [13-REQ-5.2] Each detected pattern SHALL include: the trigger condition,
    the observed effect, the number of occurrences, the last occurrence
    timestamp, and a confidence indicator.
@@ -159,8 +168,11 @@ glance.
 2. [13-REQ-6.2] THE indentation depth SHALL correspond to the node's
    position in the causal chain (root at depth 0, direct effects at depth 1,
    etc.).
-3. [13-REQ-6.3] THE timeline format SHALL be plain text suitable for piping
-   to other tools (no ANSI escape codes when stdout is not a TTY).
+3. [13-REQ-6.3] THE timeline format SHALL always be plain text with no ANSI
+   escape codes, suitable for piping to other tools. The `use_color`
+   parameter is accepted for interface compatibility but is reserved for
+   future use; the current implementation always emits plain text regardless
+   of its value.
 
 ---
 
