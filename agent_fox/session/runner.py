@@ -13,9 +13,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from claude_code_sdk import ClaudeCodeOptions, query  # noqa: F401
+from claude_code_sdk.types import (
+    PermissionResultAllow,
+    PermissionResultDeny,
+    ToolPermissionContext,
+)
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
+from agent_fox.hooks.security import make_pre_tool_use_hook
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
@@ -27,69 +33,6 @@ async def with_timeout[T](
 ) -> T:
     """Run *coro* with a timeout (minutes → seconds)."""
     return await asyncio.wait_for(coro, timeout=timeout_minutes * 60)
-
-
-DEFAULT_BASH_ALLOWLIST: list[str] = [
-    # Version control
-    "git",
-    # Package management
-    "uv",
-    "pip",
-    "npm",
-    "npx",
-    "yarn",
-    "pnpm",
-    # Build and test
-    "python",
-    "python3",
-    "pytest",
-    "mypy",
-    "ruff",
-    "make",
-    "cargo",
-    "go",
-    "node",
-    # File utilities
-    "cat",
-    "head",
-    "tail",
-    "less",
-    "wc",
-    "sort",
-    "uniq",
-    "find",
-    "grep",
-    "rg",
-    "sed",
-    "awk",
-    "tr",
-    "cut",
-    "ls",
-    "tree",
-    "pwd",
-    "basename",
-    "dirname",
-    "realpath",
-    "cp",
-    "mv",
-    "rm",
-    "mkdir",
-    "rmdir",
-    "touch",
-    "chmod",
-    # System info
-    "echo",
-    "printf",
-    "date",
-    "env",
-    "which",
-    "whoami",
-    "uname",
-    "diff",
-    "patch",
-    "tee",
-    "xargs",
-]
 
 
 @dataclass(frozen=True)
@@ -200,12 +143,28 @@ async def _execute_query(
     error_message: str | None = None
     status = "completed"
 
-    # 03-REQ-3.1, 03-REQ-3.4: Call query with options
+    # 03-REQ-3.4: Build the allowlist hook from security config
+    allowlist_hook = make_pre_tool_use_hook(config.security)
+
+    async def _can_use_tool(
+        tool_name: str,
+        tool_input: dict[str, Any],
+        _ctx: ToolPermissionContext,
+    ) -> PermissionResultAllow | PermissionResultDeny:
+        result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
+        if result.get("decision") == "block":
+            return PermissionResultDeny(
+                message=result.get("message", "Blocked by allowlist")
+            )
+        return PermissionResultAllow()
+
+    # 03-REQ-3.1, 03-REQ-3.4: Call query with options + allowlist hook
     options = ClaudeCodeOptions(
         cwd=cwd,
         model=model_id,
         system_prompt=system_prompt,
         permission_mode="bypassPermissions",
+        can_use_tool=_can_use_tool,
     )
     async for message in query(
         prompt=task_prompt,
@@ -231,63 +190,3 @@ async def _execute_query(
         "error_message": error_message,
         "status": status,
     }
-
-
-def build_allowlist_hook(
-    config: AgentFoxConfig,
-) -> dict:
-    """Build a PreToolUse hook configuration for the command allowlist.
-
-    Returns a dict suitable for ClaudeAgentOptions.hooks with a
-    PreToolUse matcher that intercepts Bash tool invocations and
-    blocks commands not on the effective allowlist.
-
-    The effective allowlist is:
-    - config.security.bash_allowlist (if set, replaces defaults)
-    - OR: DEFAULT_ALLOWLIST + config.security.bash_allowlist_extend
-    """
-    # 03-REQ-8.2: Compute effective allowlist
-    if config.security.bash_allowlist is not None:
-        effective_allowlist = set(config.security.bash_allowlist)
-    else:
-        effective_allowlist = set(
-            DEFAULT_BASH_ALLOWLIST + config.security.bash_allowlist_extend,
-        )
-
-    def hook_callback(
-        *,
-        tool_name: str,
-        tool_input: dict[str, Any],
-    ) -> dict[str, Any]:
-        """PreToolUse hook that enforces the command allowlist.
-
-        03-REQ-8.1: Intercept Bash tool invocations and extract
-        the command name (first token of the command string).
-        """
-        # Non-Bash tools pass through
-        if tool_name != "Bash":
-            return {}
-
-        command = tool_input.get("command", "")
-
-        # 03-REQ-8.E1: Block empty or unparseable commands
-        stripped = command.strip()
-        if not stripped:
-            return {
-                "decision": "block",
-                "message": "Empty command is not allowed.",
-            }
-
-        # Extract first token (command name)
-        first_token = stripped.split()[0]
-
-        # 03-REQ-8.2: Block if not on allowlist
-        if first_token not in effective_allowlist:
-            return {
-                "decision": "block",
-                "message": f"Command '{first_token}' is not on the allowlist.",
-            }
-
-        return {}
-
-    return {"callback": hook_callback}
