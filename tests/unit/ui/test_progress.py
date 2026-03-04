@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from io import StringIO
 
-from agent_fox.ui.events import ActivityEvent, TaskEvent
-from agent_fox.ui.progress import ProgressDisplay
 from rich.console import Console
 from rich.theme import Theme
 
 from agent_fox.core.config import ThemeConfig
+from agent_fox.ui.events import ActivityEvent, TaskEvent
+from agent_fox.ui.progress import ProgressDisplay
 from agent_fox.ui.theme import AppTheme, create_theme
 
 _STYLE_ROLES = ("header", "success", "error", "warning", "info", "tool", "muted")

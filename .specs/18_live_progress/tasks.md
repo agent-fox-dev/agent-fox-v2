@@ -23,13 +23,13 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/unit/ui/test_events.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/unit/ui/test_events.py`
     - Tests for `abbreviate_arg()`: basename extraction, truncation with ellipsis, idempotence
     - Tests for `ActivityEvent` and `TaskEvent` construction
     - _Test Spec: TS-18-6, TS-18-7_
 
-  - [ ] 1.2 Create test file `tests/unit/ui/test_progress.py`
+  - [x] 1.2 Create test file `tests/unit/ui/test_progress.py`
     - Tests for `ProgressDisplay` lifecycle (start/stop)
     - Tests for `on_activity()` updating display text
     - Tests for `on_task_event()` printing permanent lines (completed, failed, blocked)
@@ -37,23 +37,23 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
     - Tests for non-TTY behavior
     - _Test Spec: TS-18-1, TS-18-2, TS-18-3, TS-18-4, TS-18-5, TS-18-E1, TS-18-E2, TS-18-E4_
 
-  - [ ] 1.3 Create test file `tests/property/ui/test_progress_props.py`
+  - [x] 1.3 Create test file `tests/property/ui/test_progress_props.py`
     - Property: spinner line never exceeds terminal width
     - Property: abbreviation idempotence
     - Property: quiet mode produces no output
     - Property: permanent lines contain node ID
     - _Test Spec: TS-18-P1, TS-18-P2, TS-18-P3, TS-18-P4_
 
-  - [ ] 1.4 Add activity callback tests to `tests/unit/session/test_runner.py`
+  - [x] 1.4 Add activity callback tests to `tests/unit/session/test_runner.py`
     - Test: callback invoked for tool-use messages
     - Test: session works without callback
     - Test: callback exception does not crash session
     - _Test Spec: TS-18-8, TS-18-9, TS-18-E3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement event types and abbreviation
   - [ ] 2.1 Create `agent_fox/ui/events.py`
