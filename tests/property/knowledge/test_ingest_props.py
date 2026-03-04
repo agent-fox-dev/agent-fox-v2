@@ -42,11 +42,11 @@ def _create_n_adr_files(adr_dir: Path, n: int) -> None:
     """Create N unique ADR markdown files."""
     adr_dir.mkdir(parents=True, exist_ok=True)
     for i in range(n):
-        name = f"{i+1:03d}-decision-{i+1}.md"
-        content = f"# ADR {i+1}: Decision {i+1}\n\n"
+        name = f"{i + 1:03d}-decision-{i + 1}.md"
+        content = f"# ADR {i + 1}: Decision {i + 1}\n\n"
         content += "## Status\n\nAccepted\n\n"
-        content += f"## Context\n\nContext for decision {i+1}.\n\n"
-        content += f"## Decision\n\nWe decided on approach {i+1}.\n"
+        content += f"## Context\n\nContext for decision {i + 1}.\n\n"
+        content += f"## Decision\n\nWe decided on approach {i + 1}.\n"
         (adr_dir / name).write_text(content)
 
 

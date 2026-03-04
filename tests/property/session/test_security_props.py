@@ -35,7 +35,8 @@ class TestAllowlistBlocksNonAllowlisted:
     @given(first_token=first_token_strategy)
     @settings(max_examples=50)
     def test_non_allowlisted_command_blocked(
-        self, first_token: str,
+        self,
+        first_token: str,
     ) -> None:
         """Commands with a first token not in the allowlist are blocked."""
         # Only test tokens that are NOT in the default allowlist
@@ -57,7 +58,9 @@ class TestAllowlistBlocksNonAllowlisted:
     )
     @settings(max_examples=50)
     def test_allowlisted_command_not_blocked(
-        self, cmd: str, args: str,
+        self,
+        cmd: str,
+        args: str,
     ) -> None:
         """Commands with a first token in the allowlist are not blocked."""
         config = AgentFoxConfig()
@@ -82,9 +85,7 @@ def _invoke_hook_sync(
     """
     callback = hook.get("callback")
     if callback is None:
-        raise ValueError(
-            f"Hook dict does not contain a 'callback' key: {hook!r}"
-        )
+        raise ValueError(f"Hook dict does not contain a 'callback' key: {hook!r}")
 
     tool_input = {"command": command} if tool_name == "Bash" else {}
 

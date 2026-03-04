@@ -296,8 +296,7 @@ def insert_fact_with_embedding(
                                   created_at, superseded_by)
         VALUES (?, ?, ?, ?, ?, ?, 'high', CURRENT_TIMESTAMP, ?)
         """,
-        [fact_id, content, category, spec_name, session_id, commit_sha,
-         superseded_by],
+        [fact_id, content, category, spec_name, session_id, commit_sha, superseded_by],
     )
     conn.execute(
         "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[1024])",
@@ -330,7 +329,9 @@ def mock_embedder() -> MagicMock:
     embedder = MagicMock(spec=EmbeddingGenerator)
     embedder.embed_text.return_value = MOCK_EMBEDDING_1
     embedder.embed_batch.return_value = [
-        MOCK_EMBEDDING_1, MOCK_EMBEDDING_2, MOCK_EMBEDDING_3,
+        MOCK_EMBEDDING_1,
+        MOCK_EMBEDDING_2,
+        MOCK_EMBEDDING_3,
     ]
     return embedder
 

@@ -48,9 +48,11 @@ class TestExitCodeMappingConsistency:
             f"status '{status}', got {result}"
         )
 
-    @given(status=st.text(min_size=1, max_size=50).filter(
-        lambda s: s not in _KNOWN_STATUSES
-    ))
+    @given(
+        status=st.text(min_size=1, max_size=50).filter(
+            lambda s: s not in _KNOWN_STATUSES
+        )
+    )
     @settings(max_examples=50)
     def test_unknown_statuses_default_to_1(self, status: str) -> None:
         """Unknown run statuses default to exit code 1."""

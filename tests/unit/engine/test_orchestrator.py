@@ -178,20 +178,25 @@ class TestRetryWithError:
 
         mock = MockSessionRunner()
         # First attempt fails, second succeeds
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1",
-                status="failed",
-                error_message="syntax error in line 42",
-            ),
-            MockSessionOutcome(
-                node_id="spec:1",
-                status="completed",
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="syntax error in line 42",
+                ),
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="completed",
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_retries=2, inter_session_delay=0,
+            parallel=1,
+            max_retries=2,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -229,23 +234,31 @@ class TestBlockedAfterRetries:
         )
 
         mock = MockSessionRunner()
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="error 1",
-            ),
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="error 2",
-            ),
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="error 3",
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="error 1",
+                ),
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="error 2",
+                ),
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="error 3",
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_retries=2, inter_session_delay=0,
+            parallel=1,
+            max_retries=2,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -304,14 +317,17 @@ class TestGracefulShutdown:
             ) -> MockSessionOutcome:
                 nonlocal call_count
                 result = await super().execute(
-                    node_id, attempt, previous_error,
+                    node_id,
+                    attempt,
+                    previous_error,
                 )
                 call_count += 1
                 return result
 
         mock = InterruptingRunner()
         config = OrchestratorConfig(
-            parallel=1, inter_session_delay=0,
+            parallel=1,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -360,15 +376,21 @@ class TestStalledExecution:
         )
 
         mock = MockSessionRunner()
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="fail",
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="fail",
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_retries=0, inter_session_delay=0,
+            parallel=1,
+            max_retries=0,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -421,7 +443,9 @@ class TestResumeWithInProgressTask:
 
         mock = MockSessionRunner()
         config = OrchestratorConfig(
-            parallel=1, max_retries=2, inter_session_delay=0,
+            parallel=1,
+            max_retries=2,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -469,24 +493,41 @@ class TestCostLimitStopsOrchestrator:
 
         mock = MockSessionRunner()
         # A costs $0.30, B costs $0.25 (total $0.55 exceeds max_cost $0.50)
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="completed", cost=0.30,
-            ),
-        ])
-        mock.configure("spec:2", [
-            MockSessionOutcome(
-                node_id="spec:2", status="completed", cost=0.25,
-            ),
-        ])
-        mock.configure("spec:3", [
-            MockSessionOutcome(
-                node_id="spec:3", status="completed", cost=0.10,
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="completed",
+                    cost=0.30,
+                ),
+            ],
+        )
+        mock.configure(
+            "spec:2",
+            [
+                MockSessionOutcome(
+                    node_id="spec:2",
+                    status="completed",
+                    cost=0.25,
+                ),
+            ],
+        )
+        mock.configure(
+            "spec:3",
+            [
+                MockSessionOutcome(
+                    node_id="spec:3",
+                    status="completed",
+                    cost=0.10,
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_cost=0.50, inter_session_delay=0,
+            parallel=1,
+            max_cost=0.50,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -516,14 +557,21 @@ class TestCostLimitStopsOrchestrator:
         )
 
         mock = MockSessionRunner()
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="completed", cost=1.00,
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="completed",
+                    cost=1.00,
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_cost=0.50, inter_session_delay=0,
+            parallel=1,
+            max_cost=0.50,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -567,7 +615,9 @@ class TestSessionLimitStopsOrchestrator:
 
         mock = MockSessionRunner()
         config = OrchestratorConfig(
-            parallel=1, max_sessions=3, inter_session_delay=0,
+            parallel=1,
+            max_sessions=3,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -579,9 +629,7 @@ class TestSessionLimitStopsOrchestrator:
         state = await orchestrator.run()
 
         assert state.total_sessions == 3
-        completed = [
-            n for n, s in state.node_states.items() if s == "completed"
-        ]
+        completed = [n for n, s in state.node_states.items() if s == "completed"]
         assert len(completed) == 3
         assert state.run_status == "session_limit"
 
@@ -606,7 +654,9 @@ class TestSessionLimitStopsOrchestrator:
 
         mock = MockSessionRunner()
         config = OrchestratorConfig(
-            parallel=1, max_sessions=3, inter_session_delay=0,
+            parallel=1,
+            max_sessions=3,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -617,9 +667,7 @@ class TestSessionLimitStopsOrchestrator:
 
         state = await orchestrator.run()
 
-        pending = [
-            n for n, s in state.node_states.items() if s == "pending"
-        ]
+        pending = [n for n, s in state.node_states.items() if s == "pending"]
         assert len(pending) == 2
 
 
@@ -772,7 +820,9 @@ class TestSyncBarrierTriggering:
         )
 
         config = OrchestratorConfig(
-            parallel=1, sync_interval=5, inter_session_delay=0,
+            parallel=1,
+            sync_interval=5,
+            inter_session_delay=0,
         )
         hook_config = HookConfig()
 
@@ -815,7 +865,7 @@ class TestSyncBarrierTriggering:
         # 6 tasks, sync_interval=3 => barrier fires at task 3 and 6
         nodes = {f"spec:{i}": {"title": f"Task {i}"} for i in range(1, 7)}
         edges = [
-            {"source": f"spec:{i}", "target": f"spec:{i+1}", "kind": "intra_spec"}
+            {"source": f"spec:{i}", "target": f"spec:{i + 1}", "kind": "intra_spec"}
             for i in range(1, 6)
         ]
         plan_path = write_plan_file(
@@ -826,7 +876,9 @@ class TestSyncBarrierTriggering:
         )
 
         config = OrchestratorConfig(
-            parallel=1, sync_interval=3, inter_session_delay=0,
+            parallel=1,
+            sync_interval=3,
+            inter_session_delay=0,
         )
 
         with (
@@ -875,7 +927,9 @@ class TestSyncBarrierTriggering:
         )
 
         config = OrchestratorConfig(
-            parallel=1, sync_interval=0, inter_session_delay=0,
+            parallel=1,
+            sync_interval=0,
+            inter_session_delay=0,
         )
 
         with (
@@ -923,7 +977,9 @@ class TestSyncBarrierTriggering:
         )
 
         config = OrchestratorConfig(
-            parallel=1, sync_interval=3, inter_session_delay=0,
+            parallel=1,
+            sync_interval=3,
+            inter_session_delay=0,
         )
 
         with (
@@ -971,7 +1027,9 @@ class TestSyncBarrierTriggering:
         )
 
         config = OrchestratorConfig(
-            parallel=1, sync_interval=3, inter_session_delay=0,
+            parallel=1,
+            sync_interval=3,
+            inter_session_delay=0,
         )
 
         with (
@@ -1037,9 +1095,7 @@ class TestInProgressStatePersistence:
             for line in tmp_state_path.read_text().strip().split("\n")
             if line.strip()
         ]
-        assert len(lines) >= 2, (
-            f"Expected at least 2 state snapshots, got {len(lines)}"
-        )
+        assert len(lines) >= 2, f"Expected at least 2 state snapshots, got {len(lines)}"
 
         # First line should show in_progress for spec:1
         first_state = json.loads(lines[0])
@@ -1108,15 +1164,21 @@ class TestPlanJsonStatusSync:
         )
 
         mock = MockSessionRunner()
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="fail",
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="fail",
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=1, max_retries=0, inter_session_delay=0,
+            parallel=1,
+            max_retries=0,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -1237,15 +1299,21 @@ class TestParallelDispatchWithDependencies:
         )
 
         mock = MockSessionRunner()
-        mock.configure("spec:1", [
-            MockSessionOutcome(
-                node_id="spec:1", status="failed",
-                error_message="fail",
-            ),
-        ])
+        mock.configure(
+            "spec:1",
+            [
+                MockSessionOutcome(
+                    node_id="spec:1",
+                    status="failed",
+                    error_message="fail",
+                ),
+            ],
+        )
 
         config = OrchestratorConfig(
-            parallel=4, max_retries=0, inter_session_delay=0,
+            parallel=4,
+            max_retries=0,
+            inter_session_delay=0,
         )
         orchestrator = Orchestrator(
             config=config,

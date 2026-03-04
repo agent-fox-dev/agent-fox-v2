@@ -91,7 +91,10 @@ class TestStandupAgentActivity:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert report.agent.sessions_run == 2
@@ -108,7 +111,8 @@ class TestStandupHumanCommits:
     """TS-07-5: Standup includes non-agent commits from git log."""
 
     def test_human_commits_exclude_agent(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """Human commits exclude agent-authored commits."""
         import subprocess
@@ -118,27 +122,39 @@ class TestStandupHumanCommits:
             f = tmp_git_repo / f"human_{i}.py"
             f.write_text(f"# human change {i}\n")
             subprocess.run(
-                ["git", "add", "."], cwd=tmp_git_repo,
-                check=True, capture_output=True,
+                ["git", "add", "."],
+                cwd=tmp_git_repo,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "commit", "-m", f"Human commit {i}"],
                 cwd=tmp_git_repo,
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
         # Create 1 agent commit
         f = tmp_git_repo / "agent_file.py"
         f.write_text("# agent change\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
-            ["git", "commit", "-m", "Agent commit",
-             "--author", "agent-fox <agent-fox@test.com>"],
+            [
+                "git",
+                "commit",
+                "-m",
+                "Agent commit",
+                "--author",
+                "agent-fox <agent-fox@test.com>",
+            ],
             cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         since = datetime.now(UTC) - timedelta(hours=24)
@@ -252,7 +268,8 @@ class TestHumanCommitsMessageFiltering:
     """Verify partition_commits excludes agent-patterned messages."""
 
     def test_conventional_commits_excluded(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """Commits with conventional prefixes are excluded as agent work."""
         import subprocess
@@ -261,24 +278,32 @@ class TestHumanCommitsMessageFiltering:
         f = tmp_git_repo / "notes.txt"
         f.write_text("some notes\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "commit", "-m", "added some notes"],
-            cwd=tmp_git_repo, check=True, capture_output=True,
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
 
         # Create an agent-style commit (conventional prefix, same author)
         f2 = tmp_git_repo / "module.py"
         f2.write_text("# new module\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "commit", "-m", "feat: add new module"],
-            cwd=tmp_git_repo, check=True, capture_output=True,
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
 
         since = datetime.now(UTC) - timedelta(hours=24)
@@ -415,7 +440,10 @@ class TestStandupQueueSummary:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert report.queue.completed == 3
@@ -478,7 +506,10 @@ class TestStandupCostBreakdown:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         # The report must have a cost breakdown with at least one entry
@@ -524,7 +555,10 @@ class TestStandupNoAgentActivity:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=1,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=1,
         )
 
         assert report.agent.sessions_run == 0
@@ -543,7 +577,8 @@ class TestStandupNoGitCommits:
     """TS-07-E4: Standup handles empty git history gracefully."""
 
     def test_no_commits_returns_empty_list(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """No human commits when git history is outside the window."""
         # The initial commit from tmp_git_repo fixture is very recent,

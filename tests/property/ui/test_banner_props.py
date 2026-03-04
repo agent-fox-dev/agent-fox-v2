@@ -59,9 +59,7 @@ def _capture_banner(
     """Capture render_banner output via a StringIO-backed console."""
     theme = create_theme(theme_config)
     buf = StringIO()
-    rich_theme = Theme(
-        {role: getattr(theme_config, role) for role in _STYLE_ROLES}
-    )
+    rich_theme = Theme({role: getattr(theme_config, role) for role in _STYLE_ROLES})
     theme.console = Console(file=buf, theme=rich_theme, width=120)
     render_banner(theme, model_config, quiet=quiet)
     return buf.getvalue()
@@ -76,17 +74,14 @@ class TestFoxArtAlwaysPresent:
 
     @given(playful=st.booleans())
     @settings(max_examples=10)
-    def test_fox_art_present_for_any_playful_mode(
-        self, playful: bool
-    ) -> None:
+    def test_fox_art_present_for_any_playful_mode(self, playful: bool) -> None:
         """Fox art appears regardless of playful mode setting."""
         theme_config = ThemeConfig(playful=playful)
         output = _capture_banner(theme_config, ModelConfig())
 
         for line in EXPECTED_FOX_ART.splitlines():
             assert line in output, (
-                f"Fox art line {line!r} missing from output with "
-                f"playful={playful}"
+                f"Fox art line {line!r} missing from output with playful={playful}"
             )
 
 
@@ -99,9 +94,7 @@ class TestVersionLineAlwaysPresent:
 
     @given(model_name=st.sampled_from(_VALID_MODEL_NAMES))
     @settings(max_examples=20)
-    def test_version_model_line_for_valid_models(
-        self, model_name: str
-    ) -> None:
+    def test_version_model_line_for_valid_models(self, model_name: str) -> None:
         """Version/model line appears with correct resolved model ID."""
         model_config = ModelConfig(coding=model_name)
         output = _capture_banner(ThemeConfig(), model_config)
@@ -109,8 +102,7 @@ class TestVersionLineAlwaysPresent:
         resolved_id = _MODEL_RESOLUTION[model_name]
         expected = f"agent-fox v{__version__}  model: {resolved_id}"
         assert expected in output, (
-            f"Expected {expected!r} for coding={model_name!r}, "
-            f"got:\n{output}"
+            f"Expected {expected!r} for coding={model_name!r}, got:\n{output}"
         )
 
 
@@ -124,9 +116,7 @@ class TestModelFallbackNeverCrashes:
 
     @given(coding_name=st.text(min_size=0, max_size=50))
     @settings(max_examples=50)
-    def test_arbitrary_model_name_never_crashes(
-        self, coding_name: str
-    ) -> None:
+    def test_arbitrary_model_name_never_crashes(self, coding_name: str) -> None:
         """Banner never raises, even with gibberish model names."""
         model_config = ModelConfig(coding=coding_name)
         # Should not raise

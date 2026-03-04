@@ -28,9 +28,7 @@ class TestTraverseCausalChainForward:
         self, causal_db: duckdb.DuckDBPyConnection
     ) -> None:
         """Traversing effects from aaa returns the full chain."""
-        chain = traverse_causal_chain(
-            causal_db, fact_id=FACT_AAA, direction="effects"
-        )
+        chain = traverse_causal_chain(causal_db, fact_id=FACT_AAA, direction="effects")
         assert len(chain) == 4
         depths = {f.fact_id: f.depth for f in chain}
         assert depths[FACT_AAA] == 0
@@ -49,9 +47,7 @@ class TestTraverseCausalChainBackward:
         self, causal_db: duckdb.DuckDBPyConnection
     ) -> None:
         """Traversing causes from ccc returns the upstream chain."""
-        chain = traverse_causal_chain(
-            causal_db, fact_id=FACT_CCC, direction="causes"
-        )
+        chain = traverse_causal_chain(causal_db, fact_id=FACT_CCC, direction="causes")
         assert len(chain) == 3
         depths = {f.fact_id: f.depth for f in chain}
         assert depths[FACT_CCC] == 0

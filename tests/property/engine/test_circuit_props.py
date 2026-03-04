@@ -62,14 +62,14 @@ class TestRetryBound:
                 )
             else:
                 assert not decision.allowed, (
-                    f"Attempt {attempt} should be denied with "
-                    f"max_retries={max_retries}"
+                    f"Attempt {attempt} should be denied with max_retries={max_retries}"
                 )
 
     @given(max_retries=st.integers(min_value=0, max_value=5))
     @settings(max_examples=50)
     def test_exactly_max_plus_one_attempts_allowed(
-        self, max_retries: int,
+        self,
+        max_retries: int,
     ) -> None:
         """Exactly max_retries + 1 attempts are allowed."""
         config = OrchestratorConfig(max_retries=max_retries)

@@ -28,7 +28,9 @@ class TestFixLoopAllFixed:
 
     @pytest.mark.asyncio
     async def test_all_passing_terminates_immediately(
-        self, tmp_project: Path, mock_config: AgentFoxConfig,
+        self,
+        tmp_project: Path,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """When all checks pass on first run, loop terminates with ALL_FIXED."""
         pytest_check = CheckDescriptor(
@@ -63,7 +65,9 @@ class TestFixLoopMaxPasses:
 
     @pytest.mark.asyncio
     async def test_max_passes_terminates_with_remaining(
-        self, tmp_project: Path, mock_config: AgentFoxConfig,
+        self,
+        tmp_project: Path,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """Loop stops after max_passes even if failures remain."""
         pytest_check = CheckDescriptor(
@@ -121,7 +125,9 @@ class TestMaxPassesClamping:
 
     @pytest.mark.asyncio
     async def test_zero_clamped_to_one(
-        self, tmp_project: Path, mock_config: AgentFoxConfig,
+        self,
+        tmp_project: Path,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """max_passes=0 is clamped to 1, so at least one pass runs."""
         pytest_check = CheckDescriptor(
@@ -169,7 +175,9 @@ class TestMaxPassesClamping:
 
     @pytest.mark.asyncio
     async def test_negative_clamped_to_one(
-        self, tmp_project: Path, mock_config: AgentFoxConfig,
+        self,
+        tmp_project: Path,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """max_passes=-1 is clamped to 1."""
         pytest_check = CheckDescriptor(

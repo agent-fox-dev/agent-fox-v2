@@ -66,7 +66,8 @@ class TestContextAlwaysIncludesTestSpec:
     @given(task_group=st.integers(min_value=1, max_value=20))
     @settings(max_examples=20)
     def test_test_spec_between_design_and_tasks(
-        self, task_group: int,
+        self,
+        task_group: int,
     ) -> None:
         """## Test Specification always between ## Design and ## Tasks."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,7 +98,9 @@ class TestTemplateContentPresent:
     )
     @settings(max_examples=50)
     def test_role_specific_content_present(
-        self, role: str, spec_name: str,
+        self,
+        role: str,
+        spec_name: str,
     ) -> None:
         """System prompt contains role-specific keywords."""
         result = build_system_prompt("ctx", 1, spec_name, role=role)
@@ -126,7 +129,9 @@ class TestInterpolationNeverCrashes:
     )
     @settings(max_examples=100)
     def test_no_exception_and_spec_name_present(
-        self, spec_name: str, task_group: int,
+        self,
+        spec_name: str,
+        task_group: int,
     ) -> None:
         """No exception raised and result contains spec_name."""
         result = build_system_prompt("ctx", task_group, spec_name)
@@ -169,7 +174,9 @@ class TestTaskPromptCompleteness:
     )
     @settings(max_examples=50)
     def test_task_prompt_has_required_elements(
-        self, task_group: int, spec_name: str,
+        self,
+        task_group: int,
+        spec_name: str,
     ) -> None:
         """Task prompt contains spec name, task group, and 'commit'."""
         result = build_task_prompt(task_group, spec_name)

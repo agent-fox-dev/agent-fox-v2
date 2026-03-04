@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import IO
 from uuid import UUID
@@ -45,7 +45,7 @@ class JsonlSink:
         if self._path is not None:
             return self._path
         self._directory.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{self._session_id}.jsonl"
         self._path = self._directory / filename
         self._file_handle = open(self._path, "a")  # noqa: SIM115

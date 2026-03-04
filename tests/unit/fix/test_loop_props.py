@@ -31,7 +31,9 @@ class TestLoopTerminationBound:
     @settings(max_examples=10, deadline=None)
     @pytest.mark.asyncio
     async def test_passes_never_exceed_max(
-        self, max_passes: int, tmp_path_factory,
+        self,
+        max_passes: int,
+        tmp_path_factory,
     ) -> None:
         """passes_completed is always <= max_passes."""
         tmp_dir = tmp_path_factory.mktemp("loop")

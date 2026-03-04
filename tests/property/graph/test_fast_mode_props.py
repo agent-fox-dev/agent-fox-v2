@@ -22,6 +22,7 @@ from agent_fox.spec.parser import TaskGroupDef
 
 # -- Helpers -----------------------------------------------------------------
 
+
 def _is_reachable(graph: TaskGraph, source: str, target: str) -> bool:
     """Check if target is reachable from source via edges."""
     visited: set[str] = set()
@@ -40,6 +41,7 @@ def _is_reachable(graph: TaskGraph, source: str, target: str) -> bool:
 
 
 # -- Strategies for graphs with optional nodes --------------------------------
+
 
 @st.composite
 def graphs_with_optional_nodes(draw: st.DrawFn) -> TaskGraph:
@@ -61,22 +63,26 @@ def graphs_with_optional_nodes(draw: st.DrawFn) -> TaskGraph:
 
     nodes: list[Node] = []
     for i in range(1, n + 1):
-        nodes.append(Node(
-            id=f"{spec_name}:{i}",
-            spec_name=spec_name,
-            group_number=i,
-            title=f"Task {i}",
-            optional=i in optional_indices,
-        ))
+        nodes.append(
+            Node(
+                id=f"{spec_name}:{i}",
+                spec_name=spec_name,
+                group_number=i,
+                title=f"Task {i}",
+                optional=i in optional_indices,
+            )
+        )
 
     # Create a chain of edges
     edges: list[Edge] = []
     for i in range(1, n):
-        edges.append(Edge(
-            source=f"{spec_name}:{i}",
-            target=f"{spec_name}:{i + 1}",
-            kind="intra_spec",
-        ))
+        edges.append(
+            Edge(
+                source=f"{spec_name}:{i}",
+                target=f"{spec_name}:{i + 1}",
+                kind="intra_spec",
+            )
+        )
 
     node_map = {node.id: node for node in nodes}
     return TaskGraph(
@@ -100,9 +106,7 @@ class TestFastModeDependencyPreservation:
     def test_reachability_preserved(self, graph: TaskGraph) -> None:
         """After removing optional nodes, reachability is preserved."""
         # Record predecessors and successors of optional nodes
-        optional_ids = {
-            nid for nid, node in graph.nodes.items() if node.optional
-        }
+        optional_ids = {nid for nid, node in graph.nodes.items() if node.optional}
         pred_succ_pairs: list[tuple[str, str]] = []
         for opt_id in optional_ids:
             preds = graph.predecessors(opt_id)
@@ -132,40 +136,40 @@ class TestNodeIdUniqueness:
         groups_per_spec=st.integers(min_value=1, max_value=5),
     )
     @settings(max_examples=50)
-    def test_node_ids_unique(
-        self, num_specs: int, groups_per_spec: int
-    ) -> None:
+    def test_node_ids_unique(self, num_specs: int, groups_per_spec: int) -> None:
         """All node IDs in a built graph are unique."""
         specs: list[SpecInfo] = []
         task_groups: dict[str, list[TaskGroupDef]] = {}
 
         for s in range(1, num_specs + 1):
             spec_name = f"{s:02d}_spec_{s}"
-            specs.append(SpecInfo(
-                name=spec_name,
-                prefix=s,
-                path=Path(f".specs/{spec_name}"),
-                has_tasks=True,
-                has_prd=False,
-            ))
+            specs.append(
+                SpecInfo(
+                    name=spec_name,
+                    prefix=s,
+                    path=Path(f".specs/{spec_name}"),
+                    has_tasks=True,
+                    has_prd=False,
+                )
+            )
             groups: list[TaskGroupDef] = []
             for g in range(1, groups_per_spec + 1):
-                groups.append(TaskGroupDef(
-                    number=g,
-                    title=f"Task {g}",
-                    optional=False,
-                    completed=False,
-                    subtasks=(),
-                    body=f"Body {g}",
-                ))
+                groups.append(
+                    TaskGroupDef(
+                        number=g,
+                        title=f"Task {g}",
+                        optional=False,
+                        completed=False,
+                        subtasks=(),
+                        body=f"Body {g}",
+                    )
+                )
             task_groups[spec_name] = groups
 
         graph = build_graph(specs, task_groups, [])
 
         ids = list(graph.nodes.keys())
-        assert len(ids) == len(set(ids)), (
-            f"Duplicate node IDs found: {ids}"
-        )
+        assert len(ids) == len(set(ids)), f"Duplicate node IDs found: {ids}"
         assert len(ids) == num_specs * groups_per_spec
 
 
@@ -179,19 +183,14 @@ class TestFastModeSkippedCount:
 
     @given(graph=graphs_with_optional_nodes())
     @settings(max_examples=50)
-    def test_skipped_count_matches_optional(
-        self, graph: TaskGraph
-    ) -> None:
+    def test_skipped_count_matches_optional(self, graph: TaskGraph) -> None:
         """Number of SKIPPED nodes equals number of optional nodes."""
-        optional_count = sum(
-            1 for n in graph.nodes.values() if n.optional
-        )
+        optional_count = sum(1 for n in graph.nodes.values() if n.optional)
 
         result = apply_fast_mode(graph)
 
         skipped_count = sum(
-            1 for n in result.nodes.values()
-            if n.status == NodeStatus.SKIPPED
+            1 for n in result.nodes.values() if n.status == NodeStatus.SKIPPED
         )
         assert skipped_count == optional_count
 
@@ -200,9 +199,7 @@ class TestFastModeSkippedCount:
     def test_order_length_matches(self, graph: TaskGraph) -> None:
         """Ordering length equals total nodes minus optional nodes."""
         total = len(graph.nodes)
-        optional_count = sum(
-            1 for n in graph.nodes.values() if n.optional
-        )
+        optional_count = sum(1 for n in graph.nodes.values() if n.optional)
 
         result = apply_fast_mode(graph)
 

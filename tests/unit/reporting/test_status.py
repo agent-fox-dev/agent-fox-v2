@@ -30,7 +30,9 @@ class TestStatusTaskCounts:
     """TS-07-1: Status displays task counts by status."""
 
     def test_counts_match_task_states(
-        self, tmp_state_path: Path, tmp_plan_dir: Path,
+        self,
+        tmp_state_path: Path,
+        tmp_plan_dir: Path,
     ) -> None:
         """Task counts grouped by status match the execution state."""
         # Preconditions: 3 completed, 1 failed, 1 blocked, 2 pending = 7 total
@@ -67,7 +69,9 @@ class TestStatusTaskCounts:
         assert report.total_tasks == 7
 
     def test_total_tasks_equals_node_count(
-        self, tmp_state_path: Path, tmp_plan_dir: Path,
+        self,
+        tmp_state_path: Path,
+        tmp_plan_dir: Path,
     ) -> None:
         """total_tasks equals the number of nodes in the plan."""
         nodes = {
@@ -101,7 +105,9 @@ class TestStatusTokensAndCost:
     """TS-07-2: Status displays token usage and cost."""
 
     def test_cumulative_tokens_and_cost(
-        self, tmp_state_path: Path, tmp_plan_dir: Path,
+        self,
+        tmp_state_path: Path,
+        tmp_plan_dir: Path,
     ) -> None:
         """Status report includes cumulative token and cost data."""
         nodes = {
@@ -159,7 +165,9 @@ class TestStatusProblemTasks:
     """TS-07-3: Status lists blocked and failed tasks."""
 
     def test_problem_tasks_includes_failed_and_blocked(
-        self, tmp_state_path: Path, tmp_plan_dir: Path,
+        self,
+        tmp_state_path: Path,
+        tmp_plan_dir: Path,
     ) -> None:
         """Problem tasks list contains failed and blocked tasks with reasons."""
         nodes = {
@@ -212,7 +220,8 @@ class TestStatusNoStateFile:
     """TS-07-E1: Status works with plan-only (no execution yet)."""
 
     def test_no_state_file_shows_all_pending(
-        self, tmp_plan_dir: Path,
+        self,
+        tmp_plan_dir: Path,
     ) -> None:
         """All tasks show as pending with zero cost when no state file exists."""
         nodes = {

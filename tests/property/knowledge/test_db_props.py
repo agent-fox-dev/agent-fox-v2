@@ -65,9 +65,7 @@ class TestSchemaInitializationIdempotency:
             assert version_count is not None
             assert version_count[0] == 1
 
-            tables = {
-                r[0] for r in db.connection.execute("SHOW TABLES").fetchall()
-            }
+            tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES
 
             db.close()

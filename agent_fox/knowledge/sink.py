@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
@@ -27,7 +27,7 @@ class SessionOutcome:
     input_tokens: int = 0
     output_tokens: int = 0
     duration_ms: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class ToolCall:
     session_id: str = ""
     node_id: str = ""
     tool_name: str = ""
-    called_at: datetime = field(default_factory=datetime.utcnow)
+    called_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,7 @@ class ToolError:
     session_id: str = ""
     node_id: str = ""
     tool_name: str = ""
-    failed_at: datetime = field(default_factory=datetime.utcnow)
+    failed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @runtime_checkable

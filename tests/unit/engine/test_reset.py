@@ -92,7 +92,8 @@ class TestFullReset:
     """TS-07-11: Full reset resets failed, blocked, and in_progress tasks."""
 
     def test_resets_incomplete_tasks(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Failed, blocked, and in_progress tasks are reset to pending."""
         plan_dir = tmp_path / ".agent-fox"
@@ -109,13 +110,16 @@ class TestFullReset:
             "s:5": {"title": "T5"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {
-            "s:1": "completed",
-            "s:2": "completed",
-            "s:3": "failed",
-            "s:4": "blocked",
-            "s:5": "in_progress",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "completed",
+                "s:2": "completed",
+                "s:3": "failed",
+                "s:4": "blocked",
+                "s:5": "in_progress",
+            },
+        )
 
         # Create worktree directories for tasks that will be reset
         (worktrees_dir / "s" / "3").mkdir(parents=True)
@@ -132,7 +136,8 @@ class TestFullReset:
         assert "s:5" in result.reset_tasks
 
     def test_completed_tasks_not_reset(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Completed tasks are never included in reset_tasks."""
         plan_dir = tmp_path / ".agent-fox"
@@ -147,11 +152,14 @@ class TestFullReset:
             "s:3": {"title": "T3"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {
-            "s:1": "completed",
-            "s:2": "completed",
-            "s:3": "failed",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "completed",
+                "s:2": "completed",
+                "s:3": "failed",
+            },
+        )
 
         result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
 
@@ -159,7 +167,8 @@ class TestFullReset:
         assert "s:2" not in result.reset_tasks
 
     def test_worktree_directories_cleaned(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Worktree directories for reset tasks are removed."""
         plan_dir = tmp_path / ".agent-fox"
@@ -193,7 +202,8 @@ class TestSingleTaskReset:
     """TS-07-12: Single-task reset with cascade unblock."""
 
     def test_reset_single_task(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Single task is reset to pending."""
         plan_dir = tmp_path / ".agent-fox"
@@ -207,17 +217,21 @@ class TestSingleTaskReset:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {
-            "s:1": "failed",
-            "s:2": "pending",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "failed",
+                "s:2": "pending",
+            },
+        )
 
         result = reset_task("s:1", state_path, plan_path, worktrees_dir, repo_path)
 
         assert "s:1" in result.reset_tasks
 
     def test_cascade_unblocks_downstream(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Downstream tasks are unblocked when sole blocker is reset.
 
@@ -247,18 +261,27 @@ class TestSingleTaskReset:
             {"source": "s:4", "target": "s:3", "kind": "intra_spec"},
         ]
         plan_path = _write_plan(
-            plan_dir, nodes=nodes, edges=edges,
+            plan_dir,
+            nodes=nodes,
+            edges=edges,
             order=["s:4", "s:1", "s:2", "s:3"],
         )
-        _write_state(state_path, {
-            "s:1": "failed",
-            "s:2": "blocked",
-            "s:3": "blocked",
-            "s:4": "completed",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "failed",
+                "s:2": "blocked",
+                "s:3": "blocked",
+                "s:4": "completed",
+            },
+        )
 
         result = reset_task(
-            "s:1", state_path, plan_path, worktrees_dir, repo_path,
+            "s:1",
+            state_path,
+            plan_path,
+            worktrees_dir,
+            repo_path,
         )
 
         assert "s:1" in result.reset_tasks
@@ -266,7 +289,8 @@ class TestSingleTaskReset:
         assert "s:3" in result.unblocked_tasks
 
     def test_no_cascade_when_other_blockers_exist(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Downstream task is NOT unblocked if other blockers remain.
 
@@ -292,17 +316,26 @@ class TestSingleTaskReset:
             {"source": "s:2", "target": "s:3", "kind": "intra_spec"},
         ]
         plan_path = _write_plan(
-            plan_dir, nodes=nodes, edges=edges,
+            plan_dir,
+            nodes=nodes,
+            edges=edges,
             order=["s:1", "s:2", "s:3"],
         )
-        _write_state(state_path, {
-            "s:1": "failed",
-            "s:2": "failed",
-            "s:3": "blocked",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "failed",
+                "s:2": "failed",
+                "s:3": "blocked",
+            },
+        )
 
         result = reset_task(
-            "s:1", state_path, plan_path, worktrees_dir, repo_path,
+            "s:1",
+            state_path,
+            plan_path,
+            worktrees_dir,
+            repo_path,
         )
 
         assert "s:1" in result.reset_tasks
@@ -319,7 +352,8 @@ class TestResetNothingToReset:
     """TS-07-E6: Reset exits cleanly when nothing to reset."""
 
     def test_empty_result_when_all_completed_or_pending(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Reset returns empty result when no incomplete tasks exist."""
         plan_dir = tmp_path / ".agent-fox"
@@ -333,10 +367,13 @@ class TestResetNothingToReset:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {
-            "s:1": "completed",
-            "s:2": "pending",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "completed",
+                "s:2": "pending",
+            },
+        )
 
         result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
 
@@ -353,7 +390,8 @@ class TestResetNoStateFile:
     """TS-07-E7: Reset fails when no execution state exists."""
 
     def test_no_state_raises_error(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """AgentFoxError raised when no state file exists."""
         plan_dir = tmp_path / ".agent-fox"
@@ -382,7 +420,8 @@ class TestResetUnknownTask:
     """TS-07-E8: Single-task reset fails for nonexistent task ID."""
 
     def test_unknown_task_raises_error(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """AgentFoxError raised with valid task IDs in message."""
         plan_dir = tmp_path / ".agent-fox"
@@ -396,22 +435,26 @@ class TestResetUnknownTask:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {
-            "s:1": "completed",
-            "s:2": "pending",
-        })
+        _write_state(
+            state_path,
+            {
+                "s:1": "completed",
+                "s:2": "pending",
+            },
+        )
 
         with pytest.raises(AgentFoxError) as exc_info:
             reset_task(
-                "nonexistent:99", state_path, plan_path,
-                worktrees_dir, repo_path,
+                "nonexistent:99",
+                state_path,
+                plan_path,
+                worktrees_dir,
+                repo_path,
             )
 
         # Error message should list valid task IDs
         error_msg = str(exc_info.value)
-        assert any(
-            valid_id in error_msg for valid_id in ["s:1", "s:2"]
-        )
+        assert any(valid_id in error_msg for valid_id in ["s:1", "s:2"])
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +467,8 @@ class TestResetCompletedTask:
     """TS-07-E9: Resetting a completed task is rejected."""
 
     def test_completed_task_returns_empty_result(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Resetting a completed task makes no changes."""
         plan_dir = tmp_path / ".agent-fox"
@@ -438,13 +482,18 @@ class TestResetCompletedTask:
         _write_state(state_path, {"s:1": "completed"})
 
         result = reset_task(
-            "s:1", state_path, plan_path, worktrees_dir, repo_path,
+            "s:1",
+            state_path,
+            plan_path,
+            worktrees_dir,
+            repo_path,
         )
 
         assert len(result.reset_tasks) == 0
 
     def test_completed_task_populates_skipped_completed(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Completed task ID is returned in skipped_completed (07-REQ-5.E2)."""
         plan_dir = tmp_path / ".agent-fox"
@@ -458,7 +507,11 @@ class TestResetCompletedTask:
         _write_state(state_path, {"s:1": "completed"})
 
         result = reset_task(
-            "s:1", state_path, plan_path, worktrees_dir, repo_path,
+            "s:1",
+            state_path,
+            plan_path,
+            worktrees_dir,
+            repo_path,
         )
 
         assert result.skipped_completed == ["s:1"]

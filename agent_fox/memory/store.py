@@ -256,7 +256,7 @@ class MemoryStore:
 
         self._db_conn.execute(
             """
-            INSERT INTO memory_facts
+            INSERT OR IGNORE INTO memory_facts
                 (id, content, category, spec_name, session_id,
                  commit_sha, confidence, created_at)
             VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)

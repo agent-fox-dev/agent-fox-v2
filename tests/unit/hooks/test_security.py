@@ -35,11 +35,44 @@ class TestDefaultAllowlist:
     def test_contains_core_commands(self) -> None:
         """DEFAULT_ALLOWLIST contains all documented commands."""
         expected = {
-            "git", "python", "python3", "uv", "npm", "node", "pytest",
-            "ruff", "mypy", "make", "cargo", "go", "ls", "cat", "mkdir",
-            "cp", "mv", "rm", "find", "grep", "sed", "awk", "echo",
-            "curl", "wget", "tar", "gzip", "which", "env", "printenv",
-            "date", "head", "tail", "wc", "sort", "diff", "touch", "chmod",
+            "git",
+            "python",
+            "python3",
+            "uv",
+            "npm",
+            "node",
+            "pytest",
+            "ruff",
+            "mypy",
+            "make",
+            "cargo",
+            "go",
+            "ls",
+            "cat",
+            "mkdir",
+            "cp",
+            "mv",
+            "rm",
+            "find",
+            "grep",
+            "sed",
+            "awk",
+            "echo",
+            "curl",
+            "wget",
+            "tar",
+            "gzip",
+            "which",
+            "env",
+            "printenv",
+            "date",
+            "head",
+            "tail",
+            "wc",
+            "sort",
+            "diff",
+            "touch",
+            "chmod",
         }
         assert expected.issubset(DEFAULT_ALLOWLIST)
 
@@ -255,7 +288,9 @@ class TestBothAllowlistOptions:
         with caplog.at_level(logging.WARNING, logger="agent_fox.hooks.security"):
             build_effective_allowlist(config)
 
-        assert any("bash_allowlist" in record.message.lower()
-                    or "precedence" in record.message.lower()
-                    or "ignor" in record.message.lower()
-                    for record in caplog.records)
+        assert any(
+            "bash_allowlist" in record.message.lower()
+            or "precedence" in record.message.lower()
+            or "ignor" in record.message.lower()
+            for record in caplog.records
+        )

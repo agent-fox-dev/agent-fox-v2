@@ -120,6 +120,7 @@ PRD_MD_ALT_FORMAT_SINGLE = """\
 
 # -- Fixture: specs directory with multiple specs, all with tasks.md --------
 
+
 @pytest.fixture
 def specs_dir_sorted(tmp_path: Path) -> Path:
     """Create .specs/ with 03_foo, 01_bar, 02_baz, each with tasks.md.
@@ -175,6 +176,7 @@ def specs_dir_missing_tasks(tmp_path: Path) -> Path:
 
 
 # -- Fixture: tasks.md files for parser tests --------------------------------
+
 
 @pytest.fixture
 def tasks_md_standard(tmp_path: Path) -> Path:

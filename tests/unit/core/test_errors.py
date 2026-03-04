@@ -47,9 +47,7 @@ class TestErrorHierarchy:
         assert issubclass(error_class, AgentFoxError)
 
     @pytest.mark.parametrize("error_class", ALL_ERROR_CLASSES)
-    def test_instance_caught_by_base(
-        self, error_class: type[AgentFoxError]
-    ) -> None:
+    def test_instance_caught_by_base(self, error_class: type[AgentFoxError]) -> None:
         """Each error instance can be caught by `except AgentFoxError`."""
         instance = error_class("test error message")
         assert isinstance(instance, AgentFoxError)

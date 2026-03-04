@@ -153,7 +153,8 @@ class TestStatusCountConsistency:
         """For any execution state, count sum == total_tasks."""
         tmp_path = tmp_path_factory.mktemp("status")
         state_path, plan_path = _write_plan_and_state(
-            str(tmp_path), node_states,
+            str(tmp_path),
+            node_states,
         )
 
         report = generate_status(state_path, plan_path)
@@ -174,7 +175,8 @@ class TestJsonRoundtripFidelity:
     @given(report=valid_status_reports())
     @settings(max_examples=50)
     def test_json_roundtrip_preserves_data(
-        self, report: StatusReport,
+        self,
+        report: StatusReport,
     ) -> None:
         """Formatting as JSON and parsing back produces equivalent dict."""
         formatter = JsonFormatter()

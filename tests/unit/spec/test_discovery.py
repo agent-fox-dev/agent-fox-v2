@@ -102,16 +102,12 @@ class TestNoSpecsDirectory:
 class TestFilterMatchesNothing:
     """TS-02-E2: Spec filter matches nothing raises PlanError."""
 
-    def test_unknown_filter_raises_plan_error(
-        self, specs_dir_two_specs: Path
-    ) -> None:
+    def test_unknown_filter_raises_plan_error(self, specs_dir_two_specs: Path) -> None:
         """Unknown --spec value raises PlanError."""
         with pytest.raises(PlanError):
             discover_specs(specs_dir_two_specs, filter_spec="99_nonexistent")
 
-    def test_error_lists_available_specs(
-        self, specs_dir_two_specs: Path
-    ) -> None:
+    def test_error_lists_available_specs(self, specs_dir_two_specs: Path) -> None:
         """PlanError message contains at least one available spec name."""
         with pytest.raises(PlanError) as exc_info:
             discover_specs(specs_dir_two_specs, filter_spec="99_nonexistent")
@@ -132,9 +128,7 @@ class TestSpecWithoutTasksMd:
         alpha = [s for s in specs if s.name == "01_alpha"][0]
         assert alpha.has_tasks is False
 
-    def test_spec_with_tasks_has_true_flag(
-        self, specs_dir_missing_tasks: Path
-    ) -> None:
+    def test_spec_with_tasks_has_true_flag(self, specs_dir_missing_tasks: Path) -> None:
         """Spec with tasks.md has has_tasks=True."""
         specs = discover_specs(specs_dir_missing_tasks)
 

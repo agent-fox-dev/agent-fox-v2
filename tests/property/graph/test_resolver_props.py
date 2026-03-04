@@ -17,6 +17,7 @@ from agent_fox.graph.types import Edge, Node, PlanMetadata, TaskGraph
 
 # -- Hypothesis strategies for generating DAGs --------------------------------
 
+
 def _node_strategy(node_id: str, spec_name: str, group_number: int) -> Node:
     """Create a node with given parameters."""
     return Node(
@@ -48,11 +49,13 @@ def acyclic_graphs(draw: st.DrawFn) -> TaskGraph:
     for i in range(1, n + 1):
         for j in range(i + 1, n + 1):
             if draw(st.booleans()):
-                edges.append(Edge(
-                    source=f"{spec_name}:{i}",
-                    target=f"{spec_name}:{j}",
-                    kind="intra_spec",
-                ))
+                edges.append(
+                    Edge(
+                        source=f"{spec_name}:{i}",
+                        target=f"{spec_name}:{j}",
+                        kind="intra_spec",
+                    )
+                )
 
     node_map = {n.id: n for n in nodes}
     return TaskGraph(

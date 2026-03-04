@@ -145,9 +145,7 @@ class TestFilterEnforcesBudget:
             for i in range(20)
         ]
 
-        result = select_relevant_facts(
-            facts, "spec_01", ["test"], budget=5
-        )
+        result = select_relevant_facts(facts, "spec_01", ["test"], budget=5)
 
         assert len(result) == 5
 
@@ -168,9 +166,7 @@ class TestFilterNoMatchingFacts:
             ),
         ]
 
-        result = select_relevant_facts(
-            facts, "unrelated_spec", ["no_match"]
-        )
+        result = select_relevant_facts(facts, "unrelated_spec", ["no_match"])
 
         assert result == []
 

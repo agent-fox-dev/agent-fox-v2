@@ -22,7 +22,9 @@ class TestFixSpecGeneration:
     """
 
     def test_creates_spec_directory(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """generate_fix_spec creates a directory under output_dir."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)
@@ -30,35 +32,45 @@ class TestFixSpecGeneration:
         assert spec.spec_dir.is_dir()
 
     def test_creates_requirements_md(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """Generated spec directory contains requirements.md."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)
         assert (spec.spec_dir / "requirements.md").exists()
 
     def test_creates_design_md(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """Generated spec directory contains design.md."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)
         assert (spec.spec_dir / "design.md").exists()
 
     def test_creates_tasks_md(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """Generated spec directory contains tasks.md."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)
         assert (spec.spec_dir / "tasks.md").exists()
 
     def test_task_prompt_non_empty(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """Returned FixSpec has a non-empty task_prompt."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)
         assert len(spec.task_prompt) > 0
 
     def test_cluster_label_in_spec(
-        self, tmp_path: Path, sample_failure_cluster: FailureCluster,
+        self,
+        tmp_path: Path,
+        sample_failure_cluster: FailureCluster,
     ) -> None:
         """Returned FixSpec preserves the cluster label."""
         spec = generate_fix_spec(sample_failure_cluster, tmp_path, pass_number=1)

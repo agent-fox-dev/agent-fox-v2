@@ -13,9 +13,7 @@ from agent_fox.graph.types import NodeStatus, TaskGraph
 class TestFastModeRemovesOptional:
     """TS-02-8: Fast mode removes optional tasks."""
 
-    def test_optional_node_skipped(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_optional_node_skipped(self, graph_with_optional: TaskGraph) -> None:
         """Optional node B gets SKIPPED status."""
         result = apply_fast_mode(graph_with_optional)
 
@@ -29,9 +27,7 @@ class TestFastModeRemovesOptional:
 
         assert "spec:2" not in result.order
 
-    def test_ordering_count_after_removal(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_ordering_count_after_removal(self, graph_with_optional: TaskGraph) -> None:
         """Ordering contains only required nodes."""
         result = apply_fast_mode(graph_with_optional)
 
@@ -46,33 +42,24 @@ class TestFastModeRemovesOptional:
         assert result.nodes["spec:1"].status == NodeStatus.PENDING
         assert result.nodes["spec:3"].status == NodeStatus.PENDING
 
-    def test_fast_mode_metadata_flag(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_fast_mode_metadata_flag(self, graph_with_optional: TaskGraph) -> None:
         """Fast mode sets the metadata flag to True."""
         result = apply_fast_mode(graph_with_optional)
 
         assert result.metadata.fast_mode is True
 
-    def test_no_optional_nodes_unchanged(
-        self, simple_acyclic_graph: TaskGraph
-    ) -> None:
+    def test_no_optional_nodes_unchanged(self, simple_acyclic_graph: TaskGraph) -> None:
         """Graph with no optional nodes is unchanged."""
         result = apply_fast_mode(simple_acyclic_graph)
 
         assert len(result.order) == 3
-        assert all(
-            n.status == NodeStatus.PENDING
-            for n in result.nodes.values()
-        )
+        assert all(n.status == NodeStatus.PENDING for n in result.nodes.values())
 
 
 class TestFastModeRewiresDeps:
     """TS-02-9: Fast mode rewires dependencies."""
 
-    def test_direct_edge_created(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_direct_edge_created(self, graph_with_optional: TaskGraph) -> None:
         """Removing optional B creates edge A -> C."""
         result = apply_fast_mode(graph_with_optional)
 
@@ -93,9 +80,7 @@ class TestFastModeRewiresDeps:
                 f"Edge {edge} still references removed node spec:2"
             )
 
-    def test_returns_task_graph(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_returns_task_graph(self, graph_with_optional: TaskGraph) -> None:
         """apply_fast_mode returns a TaskGraph instance."""
         result = apply_fast_mode(graph_with_optional)
 

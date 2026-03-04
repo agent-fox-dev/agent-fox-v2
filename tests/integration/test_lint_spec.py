@@ -65,9 +65,7 @@ class TestNoSpecsDirectory:
     Verify lint-spec reports error when .specs/ does not exist.
     """
 
-    def test_exits_with_code_one(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_exits_with_code_one(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """lint-spec exits with code 1 when no .specs/ directory."""
         # Create minimal project without .specs/
         agent_fox_dir = tmp_path / ".agent-fox"
@@ -95,10 +93,7 @@ class TestNoSpecsDirectory:
         try:
             result = cli_runner.invoke(main, ["lint-spec"])
             output_lower = result.output.lower()
-            assert (
-                "no specifications" in output_lower
-                or "error" in output_lower
-            )
+            assert "no specifications" in output_lower or "error" in output_lower
         finally:
             os.chdir(original_dir)
 
@@ -113,9 +108,7 @@ class TestEmptySpecsDirectory:
     Verify lint-spec reports error when .specs/ exists but is empty.
     """
 
-    def test_exits_with_code_one(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_exits_with_code_one(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """lint-spec exits with code 1 when .specs/ is empty."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir()
@@ -141,9 +134,7 @@ class TestJsonOutputFormat:
     Verify --format json produces valid JSON with correct structure.
     """
 
-    def test_json_output_is_valid(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_json_output_is_valid(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """--format json produces valid JSON output."""
         _setup_project_with_specs(tmp_path, ["incomplete_spec"])
 
@@ -187,9 +178,7 @@ class TestYamlOutputFormat:
     Verify --format yaml produces valid YAML with correct structure.
     """
 
-    def test_yaml_output_is_valid(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_yaml_output_is_valid(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """--format yaml produces valid YAML output."""
         _setup_project_with_specs(tmp_path, ["incomplete_spec"])
 
@@ -282,7 +271,11 @@ class TestValidDependenciesIntegration:
         target = specs_dir / "01_core_foundation"
         target.mkdir()
         for filename in [
-            "prd.md", "requirements.md", "design.md", "test_spec.md", "tasks.md"
+            "prd.md",
+            "requirements.md",
+            "design.md",
+            "test_spec.md",
+            "tasks.md",
         ]:
             (target / filename).write_text(f"# {filename}\n")
         (target / "tasks.md").write_text(
@@ -299,9 +292,7 @@ class TestValidDependenciesIntegration:
         # Create referencing spec (02_dependent) with valid dep
         referencing = specs_dir / "02_dependent"
         referencing.mkdir()
-        for filename in [
-            "requirements.md", "design.md", "test_spec.md", "tasks.md"
-        ]:
+        for filename in ["requirements.md", "design.md", "test_spec.md", "tasks.md"]:
             (referencing / filename).write_text(f"# {filename}\n")
         (referencing / "prd.md").write_text(
             "# PRD\n\n## Dependencies\n\n"

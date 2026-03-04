@@ -44,7 +44,9 @@ class TestHookModeDeterminism:
     @given(exit_code=st.integers(min_value=1, max_value=127))
     @settings(max_examples=20, deadline=None)
     def test_abort_mode_always_raises(
-        self, exit_code: int, tmp_path_factory,
+        self,
+        exit_code: int,
+        tmp_path_factory,
     ) -> None:
         """Abort mode always raises HookError for non-zero exit codes."""
         base = tmp_path_factory.mktemp("abort")
@@ -66,7 +68,9 @@ class TestHookModeDeterminism:
     @given(exit_code=st.integers(min_value=1, max_value=127))
     @settings(max_examples=20, deadline=None)
     def test_warn_mode_never_raises(
-        self, exit_code: int, tmp_path_factory,
+        self,
+        exit_code: int,
+        tmp_path_factory,
     ) -> None:
         """Warn mode never raises for non-zero exit codes."""
         base = tmp_path_factory.mktemp("warn")
@@ -87,7 +91,8 @@ class TestHookModeDeterminism:
         assert result.exit_code == exit_code
 
     def test_success_never_raises_either_mode(
-        self, tmp_path_factory,
+        self,
+        tmp_path_factory,
     ) -> None:
         """A successful hook (exit 0) never raises in either mode."""
         for mode in ("abort", "warn"):

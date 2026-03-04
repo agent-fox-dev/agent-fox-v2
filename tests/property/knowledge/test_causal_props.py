@@ -49,9 +49,7 @@ class TestTraversalDepthBound:
         max_depth=st.integers(min_value=1, max_value=20),
     )
     @settings(max_examples=30, deadline=None)
-    def test_no_fact_exceeds_max_depth(
-        self, fact_id: str, max_depth: int
-    ) -> None:
+    def test_no_fact_exceeds_max_depth(self, fact_id: str, max_depth: int) -> None:
         """All returned facts have abs(depth) <= max_depth."""
         conn = _make_causal_db()
         try:

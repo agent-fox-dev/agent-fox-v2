@@ -80,8 +80,7 @@ class TestParseCausalLinksMalformed:
     def test_skips_malformed_entries(self) -> None:
         """Malformed entries are silently skipped, valid ones returned."""
         response = (
-            '[{"cause_id": "aaa", "effect_id": "bbb"}, '
-            '{"bad": "entry"}, "not json"]'
+            '[{"cause_id": "aaa", "effect_id": "bbb"}, {"bad": "entry"}, "not json"]'
         )
         links = parse_causal_links(response)
         assert len(links) == 1

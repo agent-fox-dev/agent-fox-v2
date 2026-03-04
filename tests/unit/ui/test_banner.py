@@ -55,9 +55,7 @@ def _capture_banner(
     theme = create_theme(theme_config)
     buf = StringIO()
     # Rebuild a Rich Theme from config values to preserve styled output
-    rich_theme = Theme(
-        {role: getattr(theme_config, role) for role in _STYLE_ROLES}
-    )
+    rich_theme = Theme({role: getattr(theme_config, role) for role in _STYLE_ROLES})
     theme.console = Console(
         file=buf,
         theme=rich_theme,
@@ -100,9 +98,7 @@ class TestBannerFoxArtStyling:
 
     def test_fox_art_uses_header_style(self) -> None:
         """Fox art is rendered using the header role markup."""
-        output = _capture_banner(
-            ThemeConfig(), ModelConfig(), force_terminal=True
-        )
+        output = _capture_banner(ThemeConfig(), ModelConfig(), force_terminal=True)
 
         # The header style for default theme is "bold #ff8c00" (bold orange).
         # When rendered with force_terminal, Rich embeds ANSI bold + color codes.
@@ -164,9 +160,7 @@ class TestBannerVersionModelStyling:
 
     def test_version_line_uses_header_style(self) -> None:
         """Version/model line is rendered with header role styling."""
-        output = _capture_banner(
-            ThemeConfig(), ModelConfig(), force_terminal=True
-        )
+        output = _capture_banner(ThemeConfig(), ModelConfig(), force_terminal=True)
 
         # Check that the version line appears in styled output with ANSI codes
         assert f"agent-fox v{__version__}" in output
@@ -181,9 +175,7 @@ class TestBannerCwdStyling:
 
     def test_cwd_uses_muted_style(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """CWD line is rendered with muted role styling."""
-        monkeypatch.setattr(
-            Path, "cwd", staticmethod(lambda: Path("/tmp/styled-cwd"))
-        )
+        monkeypatch.setattr(Path, "cwd", staticmethod(lambda: Path("/tmp/styled-cwd")))
 
         config = ThemeConfig(muted="dim", header="bold #ff8c00")
 
@@ -228,9 +220,7 @@ class TestBannerCwdOSError:
     Requirement: 14-REQ-3.E1
     """
 
-    def test_cwd_oserror_shows_unknown(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_cwd_oserror_shows_unknown(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If Path.cwd() raises OSError, display '(unknown)'."""
 
         def _raise_oserror() -> Path:
@@ -244,9 +234,7 @@ class TestBannerCwdOSError:
             f"Expected '(unknown)' in banner output, got:\n{output}"
         )
 
-    def test_cwd_oserror_no_exception(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_cwd_oserror_no_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No exception propagates when Path.cwd() raises OSError."""
 
         def _raise_oserror() -> Path:

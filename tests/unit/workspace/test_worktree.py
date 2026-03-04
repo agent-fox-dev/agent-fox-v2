@@ -27,7 +27,8 @@ class TestWorktreeCreation:
 
     @pytest.mark.asyncio
     async def test_creates_worktree_directory(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Creating a worktree produces the expected directory."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -39,7 +40,8 @@ class TestWorktreeCreation:
 
     @pytest.mark.asyncio
     async def test_creates_feature_branch(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Creating a worktree creates the feature branch in the repo."""
         _ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -48,7 +50,8 @@ class TestWorktreeCreation:
 
     @pytest.mark.asyncio
     async def test_returns_correct_workspace_info(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """WorkspaceInfo has correct branch, spec_name, and task_group."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -58,7 +61,8 @@ class TestWorktreeCreation:
 
     @pytest.mark.asyncio
     async def test_worktree_has_branch_checked_out(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """The worktree has the feature branch checked out."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -80,7 +84,8 @@ class TestWorktreeDestruction:
 
     @pytest.mark.asyncio
     async def test_removes_worktree_directory(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Destroying a worktree removes its directory."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -89,7 +94,8 @@ class TestWorktreeDestruction:
 
     @pytest.mark.asyncio
     async def test_removes_feature_branch(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Destroying a worktree removes its feature branch."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -99,7 +105,8 @@ class TestWorktreeDestruction:
 
     @pytest.mark.asyncio
     async def test_removes_empty_spec_directory(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Destroying the only worktree in a spec removes the spec dir."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -113,7 +120,8 @@ class TestStaleWorktreeRemoval:
 
     @pytest.mark.asyncio
     async def test_recreate_stale_worktree_succeeds(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Re-creating an existing worktree does not raise."""
         _ws1 = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -127,14 +135,17 @@ class TestStaleWorktreeRemoval:
             capture_output=True,
         )
         add_commit_to_branch(
-            tmp_worktree_repo, "new_file.txt", "new content\n",
+            tmp_worktree_repo,
+            "new_file.txt",
+            "new content\n",
         )
         ws2 = await create_worktree(tmp_worktree_repo, "test_spec", 1)
         assert ws2.path.is_dir()
 
     @pytest.mark.asyncio
     async def test_recreated_worktree_has_fresh_branch_point(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Re-created worktree points to the current develop tip."""
         _ws1 = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -148,7 +159,9 @@ class TestStaleWorktreeRemoval:
             capture_output=True,
         )
         add_commit_to_branch(
-            tmp_worktree_repo, "new_file.txt", "new content\n",
+            tmp_worktree_repo,
+            "new_file.txt",
+            "new content\n",
         )
         develop_tip = get_branch_tip(tmp_worktree_repo, "develop")
         ws2 = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -161,7 +174,8 @@ class TestWorktreeCreationGitError:
 
     @pytest.mark.asyncio
     async def test_raises_workspace_error_on_git_failure(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """A git failure during worktree creation raises WorkspaceError."""
         with patch(
@@ -178,7 +192,8 @@ class TestDestroyNonExistentWorktree:
 
     @pytest.mark.asyncio
     async def test_destroy_nonexistent_does_not_raise(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Destroying a non-existent worktree succeeds silently."""
         ws = WorkspaceInfo(

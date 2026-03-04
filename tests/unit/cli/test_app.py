@@ -69,12 +69,9 @@ class TestCLIUnknownSubcommand:
         # Click typically says "No such command" or similar
         combined = result.output + (result.stderr or "")
         has_error_msg = (
-            "no such command" in combined.lower()
-            or "nonexistent" in combined.lower()
+            "no such command" in combined.lower() or "nonexistent" in combined.lower()
         )
-        assert has_error_msg, (
-            f"Expected error about unknown command, got: {combined!r}"
-        )
+        assert has_error_msg, f"Expected error about unknown command, got: {combined!r}"
 
 
 class TestBannerOnSubcommand:
@@ -140,9 +137,7 @@ class TestVersionFlagSkipsBanner:
     Requirement: 14-REQ-4.E1
     """
 
-    def test_version_flag_shows_version_not_banner(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_version_flag_shows_version_not_banner(self, cli_runner: CliRunner) -> None:
         """--version output contains version string but no fox art."""
         result = cli_runner.invoke(main, ["--version"])
 
@@ -161,9 +156,7 @@ class TestConfigAutoDiscovery:
     load_config() was called without a path argument.
     """
 
-    def test_load_config_receives_config_path(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_load_config_receives_config_path(self, cli_runner: CliRunner) -> None:
         """load_config is called with Path('.agent-fox/config.toml')."""
         with patch(
             "agent_fox.cli.app.load_config",
@@ -247,9 +240,7 @@ class TestTopLevelExceptionHandler:
         finally:
             main.commands.pop("boom", None)
 
-    def test_click_exception_propagates_normally(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_click_exception_propagates_normally(self, cli_runner: CliRunner) -> None:
         """ClickException is handled by Click itself (not caught by our handler)."""
         cmd = _make_failing_subcommand(click.ClickException("click error"))
         main.add_command(cmd, name="boom")

@@ -293,9 +293,7 @@ class TestVerificationPresentNoFinding:
 
     def test_with_verify_no_finding(self) -> None:
         """Task group with verification step produces no findings."""
-        subtasks = _make_subtasks(3, group_number=2) + [
-            _make_verification_subtask(2)
-        ]
+        subtasks = _make_subtasks(3, group_number=2) + [_make_verification_subtask(2)]
         group = TaskGroupDef(
             number=2,
             title="With verify",
@@ -359,9 +357,7 @@ class TestBrokenDependencyNonExistentSpec:
         """Reference to non-existent spec produces at least 1 error finding."""
         fixture_path = FIXTURES_DIR / "broken_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         broken = [f for f in findings if f.rule == "broken-dependency"]
         assert len(broken) >= 1
@@ -370,9 +366,7 @@ class TestBrokenDependencyNonExistentSpec:
         """Broken dependency finding has severity 'error'."""
         fixture_path = FIXTURES_DIR / "broken_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         broken = [f for f in findings if f.rule == "broken-dependency"]
         assert broken[0].severity == "error"
@@ -381,9 +375,7 @@ class TestBrokenDependencyNonExistentSpec:
         """Broken dependency finding message mentions the missing spec name."""
         fixture_path = FIXTURES_DIR / "broken_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         broken = [f for f in findings if "99_nonexistent" in f.message]
         assert len(broken) >= 1
@@ -403,9 +395,7 @@ class TestBrokenDependencyNonExistentGroup:
         """Reference to non-existent group produces at least 1 error."""
         fixture_path = FIXTURES_DIR / "broken_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         group_findings = [f for f in findings if "99" in f.message]
         assert len(group_findings) >= 1
@@ -414,9 +404,7 @@ class TestBrokenDependencyNonExistentGroup:
         """Missing group finding has severity 'error'."""
         fixture_path = FIXTURES_DIR / "broken_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         group_findings = [f for f in findings if "99" in f.message]
         assert group_findings[0].severity == "error"
@@ -506,8 +494,6 @@ class TestValidDependenciesNoFindings:
         """Valid dependency reference produces no findings."""
         fixture_path = FIXTURES_DIR / "valid_deps_spec"
         known_specs = {"01_core_foundation": [1, 2, 3]}
-        findings = check_broken_dependencies(
-            "test_spec", fixture_path, known_specs
-        )
+        findings = check_broken_dependencies("test_spec", fixture_path, known_specs)
 
         assert len(findings) == 0

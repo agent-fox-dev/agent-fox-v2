@@ -89,8 +89,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             # Plan file exists
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -103,8 +105,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -116,8 +120,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -129,8 +135,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -154,8 +162,10 @@ class TestParallelOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--parallel", "4"])
 
@@ -180,8 +190,10 @@ class TestMaxCostOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
 
@@ -206,8 +218,10 @@ class TestMaxSessionsOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-sessions", "20"])
 
@@ -230,8 +244,10 @@ class TestStalledExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -246,8 +262,10 @@ class TestStalledExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -266,8 +284,10 @@ class TestCostLimitExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -286,8 +306,10 @@ class TestInterruptedExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -328,8 +350,10 @@ class TestUnexpectedException:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -340,8 +364,10 @@ class TestUnexpectedException:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -364,8 +390,10 @@ class TestEmptyPlan:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -381,8 +409,10 @@ class TestEmptyPlan:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -404,8 +434,10 @@ class TestUnknownRunStatus:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 

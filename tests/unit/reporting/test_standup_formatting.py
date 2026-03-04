@@ -195,8 +195,7 @@ class TestPerTaskActivityLines:
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
         expected = (
-            "  s_a/1: completed. 1/1 sessions. "
-            "tokens 12.9k in / 29.5k out. $0.80"
+            "  s_a/1: completed. 1/1 sessions. tokens 12.9k in / 29.5k out. $0.80"
         )
         assert expected in output
 
@@ -204,10 +203,7 @@ class TestPerTaskActivityLines:
         """Second task line matches expected format."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = (
-            "  s_a/2: completed. 1/2 sessions. "
-            "tokens 14.5k in / 9.3k out. $0.31"
-        )
+        expected = "  s_a/2: completed. 1/2 sessions. tokens 14.5k in / 9.3k out. $0.31"
         assert expected in output
 
 
@@ -456,7 +452,10 @@ class TestPerTaskActivityGeneration:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert len(report.task_activities) == 2
@@ -513,7 +512,10 @@ class TestEnrichedQueueSummary:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert report.queue.total == 5

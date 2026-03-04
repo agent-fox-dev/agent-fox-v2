@@ -14,7 +14,8 @@ class TestAllowlistHookEnforcement:
     """TS-03-12: Allowlist hook blocks disallowed commands."""
 
     def test_blocks_disallowed_command(
-        self, small_allowlist_config: AgentFoxConfig,
+        self,
+        small_allowlist_config: AgentFoxConfig,
     ) -> None:
         """A command not on the allowlist is blocked."""
         hook = build_allowlist_hook(small_allowlist_config)
@@ -25,7 +26,8 @@ class TestAllowlistHookEnforcement:
         assert result.get("decision") == "block"
 
     def test_allows_allowlisted_command(
-        self, small_allowlist_config: AgentFoxConfig,
+        self,
+        small_allowlist_config: AgentFoxConfig,
     ) -> None:
         """A command on the allowlist is allowed."""
         hook = build_allowlist_hook(small_allowlist_config)
@@ -35,7 +37,8 @@ class TestAllowlistHookEnforcement:
         assert result.get("decision") != "block"
 
     def test_allows_second_allowlisted_command(
-        self, small_allowlist_config: AgentFoxConfig,
+        self,
+        small_allowlist_config: AgentFoxConfig,
     ) -> None:
         """Both allowlisted commands are permitted."""
         hook = build_allowlist_hook(small_allowlist_config)
@@ -44,7 +47,8 @@ class TestAllowlistHookEnforcement:
         assert result.get("decision") != "block"
 
     def test_blocks_command_not_on_default_when_replaced(
-        self, small_allowlist_config: AgentFoxConfig,
+        self,
+        small_allowlist_config: AgentFoxConfig,
     ) -> None:
         """When bash_allowlist is set, default allowlist commands are blocked."""
         hook = build_allowlist_hook(small_allowlist_config)
@@ -54,7 +58,8 @@ class TestAllowlistHookEnforcement:
         assert result.get("decision") == "block"
 
     def test_non_bash_tool_not_blocked(
-        self, small_allowlist_config: AgentFoxConfig,
+        self,
+        small_allowlist_config: AgentFoxConfig,
     ) -> None:
         """Non-Bash tool invocations are not blocked by the hook."""
         hook = build_allowlist_hook(small_allowlist_config)
@@ -75,7 +80,8 @@ class TestAllowlistHookEmptyCommand:
         assert result.get("decision") == "block"
 
     def test_blocks_whitespace_command(
-        self, default_config: AgentFoxConfig,
+        self,
+        default_config: AgentFoxConfig,
     ) -> None:
         """A whitespace-only command string is blocked."""
         hook = build_allowlist_hook(default_config)
@@ -102,9 +108,7 @@ def _invoke_hook(
     callback = hook.get("callback")
     if callback is None:
         # Try alternative hook structure
-        raise ValueError(
-            f"Hook dict does not contain a 'callback' key: {hook!r}"
-        )
+        raise ValueError(f"Hook dict does not contain a 'callback' key: {hook!r}")
 
     tool_input = {"command": command} if tool_name == "Bash" else {}
 

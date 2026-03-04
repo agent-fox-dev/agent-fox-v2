@@ -70,9 +70,7 @@ class TestInitCreatesStructure:
         )
         assert "develop" in result.stdout
 
-    def test_init_exits_zero(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_exits_zero(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init exits with code 0 on success."""
         result = cli_runner.invoke(main, ["init"])
 

@@ -57,7 +57,9 @@ class TestCollectorCompleteness:
     )
     @settings(max_examples=30, deadline=None)
     def test_every_check_accounted_for(
-        self, checks_and_codes: list, tmp_path_factory,
+        self,
+        checks_and_codes: list,
+        tmp_path_factory,
     ) -> None:
         """Every input check appears in exactly one of failures or passed."""
         tmp_dir = tmp_path_factory.mktemp("col")

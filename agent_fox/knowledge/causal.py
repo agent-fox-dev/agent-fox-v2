@@ -52,6 +52,28 @@ def store_causal_links(
     inserted = 0
     for cause_id, effect_id in links:
         try:
+            # Check referential integrity: both fact IDs must exist.
+            existing = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT id::VARCHAR FROM memory_facts "
+                    "WHERE id IN (?::UUID, ?::UUID)",
+                    [cause_id, effect_id],
+                ).fetchall()
+            }
+            if cause_id not in existing or effect_id not in existing:
+                missing = []
+                if cause_id not in existing:
+                    missing.append(f"cause={cause_id}")
+                if effect_id not in existing:
+                    missing.append(f"effect={effect_id}")
+                logger.warning(
+                    "Skipping causal link %s -> %s: missing fact(s) %s",
+                    cause_id,
+                    effect_id,
+                    ", ".join(missing),
+                )
+                continue
             conn.execute(
                 "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
                 "VALUES (?::UUID, ?::UUID)",

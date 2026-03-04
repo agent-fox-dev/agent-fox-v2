@@ -148,7 +148,8 @@ def _write_plan_from_graph(plan_dir: Path, graph: TaskGraph) -> Path:
 
 
 def _write_state(
-    state_path: Path, node_states: dict[str, str],
+    state_path: Path,
+    node_states: dict[str, str],
 ) -> None:
     """Write a minimal ExecutionState to state.jsonl."""
     state = ExecutionState(
@@ -214,9 +215,7 @@ class TestResetPreservesCompleted:
 
         _write_state(state_path, node_states)
 
-        completed_ids = {
-            nid for nid, s in node_states.items() if s == "completed"
-        }
+        completed_ids = {nid for nid, s in node_states.items() if s == "completed"}
 
         result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
 
@@ -250,16 +249,15 @@ class TestCascadeUnblockCorrectness:
         )
 
         unblockable = _find_sole_blocker_dependents(
-            blocker_id, graph, state,
+            blocker_id,
+            graph,
+            state,
         )
 
         for downstream_id in unblockable:
             preds = graph.predecessors(downstream_id)
             for pred in preds:
-                assert (
-                    node_states[pred] == "completed"
-                    or pred == blocker_id
-                ), (
+                assert node_states[pred] == "completed" or pred == blocker_id, (
                     f"Downstream {downstream_id} was unblocked but predecessor "
                     f"{pred} has status {node_states[pred]}, not completed, "
                     f"and is not the reset target {blocker_id}"

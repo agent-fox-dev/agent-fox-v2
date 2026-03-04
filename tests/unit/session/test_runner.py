@@ -57,7 +57,9 @@ class TestSessionRunnerSuccess:
 
     @pytest.mark.asyncio
     async def test_returns_completed_status(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Successful session returns status 'completed'."""
         result_msg = MockResultMessage(
@@ -75,7 +77,10 @@ class TestSessionRunnerSuccess:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -83,7 +88,9 @@ class TestSessionRunnerSuccess:
 
     @pytest.mark.asyncio
     async def test_captures_token_usage(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures input and output token counts."""
         result_msg = MockResultMessage(
@@ -101,7 +108,10 @@ class TestSessionRunnerSuccess:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -110,7 +120,9 @@ class TestSessionRunnerSuccess:
 
     @pytest.mark.asyncio
     async def test_captures_duration(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures duration in milliseconds."""
         result_msg = MockResultMessage(
@@ -128,7 +140,10 @@ class TestSessionRunnerSuccess:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -136,7 +151,9 @@ class TestSessionRunnerSuccess:
 
     @pytest.mark.asyncio
     async def test_no_error_message_on_success(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Successful session has no error message."""
         result_msg = MockResultMessage(
@@ -154,7 +171,10 @@ class TestSessionRunnerSuccess:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -162,7 +182,9 @@ class TestSessionRunnerSuccess:
 
     @pytest.mark.asyncio
     async def test_outcome_has_correct_spec_and_group(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Outcome spec_name and task_group match the workspace."""
         result_msg = MockResultMessage(
@@ -180,7 +202,10 @@ class TestSessionRunnerSuccess:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -193,7 +218,9 @@ class TestSessionRunnerSDKError:
 
     @pytest.mark.asyncio
     async def test_sdk_error_returns_failed_status(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """An SDK ProcessError results in a failed outcome."""
         with patch(
@@ -201,7 +228,10 @@ class TestSessionRunnerSDKError:
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -209,7 +239,9 @@ class TestSessionRunnerSDKError:
 
     @pytest.mark.asyncio
     async def test_sdk_error_captures_message(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """The SDK error message is captured in the outcome."""
         with patch(
@@ -217,7 +249,10 @@ class TestSessionRunnerSDKError:
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -230,7 +265,9 @@ class TestSessionRunnerTimeout:
 
     @pytest.mark.asyncio
     async def test_timeout_returns_timeout_status(
-        self, workspace_info: WorkspaceInfo, short_timeout_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        short_timeout_config: AgentFoxConfig,
     ) -> None:
         """A timed-out session returns status 'timeout'."""
 
@@ -240,15 +277,21 @@ class TestSessionRunnerTimeout:
             await asyncio.sleep(3600)
             yield MockResultMessage()  # Never reached
 
-        with patch(
-            "agent_fox.session.runner.query",
-            side_effect=mock_query_hangs,
-        ), patch(
-            "agent_fox.session.runner.with_timeout",
-            side_effect=asyncio.TimeoutError,
+        with (
+            patch(
+                "agent_fox.session.runner.query",
+                side_effect=mock_query_hangs,
+            ),
+            patch(
+                "agent_fox.session.runner.with_timeout",
+                side_effect=asyncio.TimeoutError,
+            ),
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 short_timeout_config,
             )
 
@@ -260,7 +303,9 @@ class TestSessionRunnerIsError:
 
     @pytest.mark.asyncio
     async def test_is_error_returns_failed_status(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """A ResultMessage with is_error=True produces a failed outcome."""
         result_msg = MockResultMessage(
@@ -279,7 +324,10 @@ class TestSessionRunnerIsError:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 
@@ -287,7 +335,9 @@ class TestSessionRunnerIsError:
 
     @pytest.mark.asyncio
     async def test_is_error_captures_error_message(
-        self, workspace_info: WorkspaceInfo, default_config: AgentFoxConfig,
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
     ) -> None:
         """Error details are captured from a ResultMessage with is_error."""
         result_msg = MockResultMessage(
@@ -306,7 +356,10 @@ class TestSessionRunnerIsError:
             side_effect=mock_query,
         ):
             outcome = await run_session(
-                workspace_info, "03:1", "sys prompt", "task prompt",
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
                 default_config,
             )
 

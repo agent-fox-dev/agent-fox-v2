@@ -168,13 +168,9 @@ class TestTokenFormatConsistency:
             assert re.fullmatch(r"\d+", result), f"Expected int, got {result}"
             assert result == str(n)
         elif n >= 1_000_000:
-            assert re.fullmatch(r"\d+\.\dM", result), (
-                f"Expected XM, got {result}"
-            )
+            assert re.fullmatch(r"\d+\.\dM", result), f"Expected XM, got {result}"
         else:
-            assert re.fullmatch(r"\d+\.\dk", result), (
-                f"Expected Xk, got {result}"
-            )
+            assert re.fullmatch(r"\d+\.\dk", result), f"Expected Xk, got {result}"
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +189,9 @@ class TestDisplayNodeIdRoundtrip:
     )
     @settings(max_examples=200)
     def test_colon_replaced_by_slash(
-        self, spec: str, group: int,
+        self,
+        spec: str,
+        group: int,
     ) -> None:
         """node_id 'spec:group' becomes 'spec/group'."""
         node_id = f"{spec}:{group}"
@@ -219,7 +217,8 @@ class TestPerTaskSessionSum:
     )
     @settings(max_examples=100)
     def test_session_sum_property(
-        self, activities: list[TaskActivity],
+        self,
+        activities: list[TaskActivity],
     ) -> None:
         """sum(ta.total_sessions) is consistent with total sessions."""
         # This property is about the _compute_task_activities function.

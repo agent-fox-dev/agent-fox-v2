@@ -31,17 +31,19 @@ def _make_plan_json(nodes: dict[str, dict[str, str]]) -> str:
             "subtask_count": 0,
             "body": "",
         }
-    return json.dumps({
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": full_nodes,
-        "edges": [],
-        "order": list(nodes.keys()),
-    })
+    return json.dumps(
+        {
+            "metadata": {
+                "created_at": "2026-01-01T00:00:00",
+                "fast_mode": False,
+                "filtered_spec": None,
+                "version": "0.1.0",
+            },
+            "nodes": full_nodes,
+            "edges": [],
+            "order": list(nodes.keys()),
+        }
+    )
 
 
 def _setup_project(tmp_path: Path, node_states: dict[str, str]) -> None:

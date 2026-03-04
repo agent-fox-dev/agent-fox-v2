@@ -16,9 +16,7 @@ from agent_fox.spec.parser import TaskGroupDef, parse_cross_deps, parse_tasks
 class TestParseTaskGroups:
     """TS-02-3: Parse task groups from tasks.md."""
 
-    def test_parses_correct_group_count(
-        self, tasks_md_standard: Path
-    ) -> None:
+    def test_parses_correct_group_count(self, tasks_md_standard: Path) -> None:
         """Parser extracts the correct number of task groups."""
         groups = parse_tasks(tasks_md_standard)
 
@@ -30,9 +28,7 @@ class TestParseTaskGroups:
 
         assert groups[0].number == 1
 
-    def test_first_group_subtask_count(
-        self, tasks_md_standard: Path
-    ) -> None:
+    def test_first_group_subtask_count(self, tasks_md_standard: Path) -> None:
         """First group has 3 subtasks."""
         groups = parse_tasks(tasks_md_standard)
 
@@ -51,9 +47,7 @@ class TestParseTaskGroups:
 
         assert groups[1].number == 2
 
-    def test_returns_task_group_def_objects(
-        self, tasks_md_standard: Path
-    ) -> None:
+    def test_returns_task_group_def_objects(self, tasks_md_standard: Path) -> None:
         """Parser returns TaskGroupDef dataclass instances."""
         groups = parse_tasks(tasks_md_standard)
 
@@ -79,27 +73,21 @@ class TestParseTaskGroups:
 class TestParseOptionalMarker:
     """TS-02-4: Parse optional task marker."""
 
-    def test_optional_group_detected(
-        self, tasks_md_with_optional: Path
-    ) -> None:
+    def test_optional_group_detected(self, tasks_md_with_optional: Path) -> None:
         """Group marked with * has optional=True."""
         groups = parse_tasks(tasks_md_with_optional)
 
         optional_group = [g for g in groups if g.number == 3][0]
         assert optional_group.optional is True
 
-    def test_optional_group_title(
-        self, tasks_md_with_optional: Path
-    ) -> None:
+    def test_optional_group_title(self, tasks_md_with_optional: Path) -> None:
         """Optional group title is parsed correctly (without the *)."""
         groups = parse_tasks(tasks_md_with_optional)
 
         optional_group = [g for g in groups if g.number == 3][0]
         assert optional_group.title == "Polish and cleanup"
 
-    def test_non_optional_groups(
-        self, tasks_md_with_optional: Path
-    ) -> None:
+    def test_non_optional_groups(self, tasks_md_with_optional: Path) -> None:
         """Groups without * have optional=False."""
         groups = parse_tasks(tasks_md_with_optional)
 
@@ -143,9 +131,7 @@ class TestNonContiguousGroupNumbers:
         numbers = [g.number for g in groups]
         assert numbers == [1, 3, 5]
 
-    def test_non_contiguous_count(
-        self, tasks_md_non_contiguous: Path
-    ) -> None:
+    def test_non_contiguous_count(self, tasks_md_non_contiguous: Path) -> None:
         """All 3 non-contiguous groups are found."""
         groups = parse_tasks(tasks_md_non_contiguous)
 
@@ -163,9 +149,7 @@ class TestParseCrossDepStandardFormat:
         assert deps[0].from_spec == "02_beta"
         assert deps[0].to_spec == "01_alpha"
 
-    def test_standard_uses_sentinel_groups(
-        self, prd_md_standard_deps: Path
-    ) -> None:
+    def test_standard_uses_sentinel_groups(self, prd_md_standard_deps: Path) -> None:
         """Standard format uses 0 sentinel for both group numbers."""
         deps = parse_cross_deps(prd_md_standard_deps)
 
@@ -192,18 +176,14 @@ class TestParseCrossDepAlternativeFormat:
 
         assert len(deps) == 2
 
-    def test_alt_format_first_dep_specs(
-        self, prd_md_alt_format: Path
-    ) -> None:
+    def test_alt_format_first_dep_specs(self, prd_md_alt_format: Path) -> None:
         """First dep has correct from_spec and to_spec."""
         deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
 
         assert deps[0].from_spec == "14_cli_banner"
         assert deps[0].to_spec == "01_core_foundation"
 
-    def test_alt_format_first_dep_groups(
-        self, prd_md_alt_format: Path
-    ) -> None:
+    def test_alt_format_first_dep_groups(self, prd_md_alt_format: Path) -> None:
         """First dep has correct group numbers (not sentinels)."""
         deps = parse_cross_deps(prd_md_alt_format, spec_name="14_cli_banner")
 
@@ -221,13 +201,9 @@ class TestParseCrossDepAlternativeFormat:
         assert deps[1].to_group == 3
         assert deps[1].from_group == 2
 
-    def test_alt_format_single_dep(
-        self, prd_md_alt_format_single: Path
-    ) -> None:
+    def test_alt_format_single_dep(self, prd_md_alt_format_single: Path) -> None:
         """Single-row alternative table parses correctly."""
-        deps = parse_cross_deps(
-            prd_md_alt_format_single, spec_name="17_init_settings"
-        )
+        deps = parse_cross_deps(prd_md_alt_format_single, spec_name="17_init_settings")
 
         assert len(deps) == 1
         assert deps[0].from_spec == "17_init_settings"
@@ -235,9 +211,7 @@ class TestParseCrossDepAlternativeFormat:
         assert deps[0].to_group == 3
         assert deps[0].from_group == 1
 
-    def test_alt_format_without_spec_name_warns(
-        self, prd_md_alt_format: Path
-    ) -> None:
+    def test_alt_format_without_spec_name_warns(self, prd_md_alt_format: Path) -> None:
         """Alternative format without spec_name logs warning and skips."""
         deps = parse_cross_deps(prd_md_alt_format)
 

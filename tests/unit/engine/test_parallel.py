@@ -41,7 +41,8 @@ class MockParallelSessionRunner:
         async with self._lock:
             self._concurrent_count += 1
             self.max_concurrent = max(
-                self.max_concurrent, self._concurrent_count,
+                self.max_concurrent,
+                self._concurrent_count,
             )
 
         await asyncio.sleep(self._delay)
@@ -202,7 +203,8 @@ class TestSerializedStateWrites:
             # The runner's lock should ensure this is never >1
             concurrent_callbacks += 1
             max_concurrent_callbacks = max(
-                max_concurrent_callbacks, concurrent_callbacks,
+                max_concurrent_callbacks,
+                concurrent_callbacks,
             )
             await asyncio.sleep(0.02)  # Simulate state write work
             concurrent_callbacks -= 1

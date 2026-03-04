@@ -46,18 +46,17 @@ def session_records(draw: st.DrawFn) -> SessionRecord:
 @st.composite
 def valid_execution_states(draw: st.DrawFn) -> ExecutionState:
     """Generate a valid ExecutionState."""
-    node_ids = draw(st.lists(
-        st.sampled_from(["A", "B", "C", "D", "E"]),
-        min_size=1,
-        max_size=5,
-        unique=True,
-    ))
+    node_ids = draw(
+        st.lists(
+            st.sampled_from(["A", "B", "C", "D", "E"]),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        )
+    )
 
     statuses = ["pending", "completed", "blocked", "in_progress", "failed"]
-    node_states = {
-        nid: draw(st.sampled_from(statuses))
-        for nid in node_ids
-    }
+    node_states = {nid: draw(st.sampled_from(statuses)) for nid in node_ids}
 
     history = draw(st.lists(session_records(), min_size=0, max_size=5))
 
@@ -66,17 +65,27 @@ def valid_execution_states(draw: st.DrawFn) -> ExecutionState:
     total_output = sum(r.output_tokens for r in history)
     total_sessions = len(history)
 
-    run_status = draw(st.sampled_from([
-        "running", "completed", "interrupted", "cost_limit",
-        "session_limit", "stalled",
-    ]))
+    run_status = draw(
+        st.sampled_from(
+            [
+                "running",
+                "completed",
+                "interrupted",
+                "cost_limit",
+                "session_limit",
+                "stalled",
+            ]
+        )
+    )
 
     return ExecutionState(
-        plan_hash=draw(st.text(
-            alphabet=st.characters(whitelist_categories=("Ll", "Nd")),
-            min_size=8,
-            max_size=64,
-        )),
+        plan_hash=draw(
+            st.text(
+                alphabet=st.characters(whitelist_categories=("Ll", "Nd")),
+                min_size=8,
+                max_size=64,
+            )
+        ),
         node_states=node_states,
         session_history=history,
         total_input_tokens=total_input,
@@ -103,7 +112,9 @@ class TestStateSaveLoadRoundtrip:
     @given(state=valid_execution_states())
     @settings(max_examples=50)
     def test_roundtrip_preserves_plan_hash(
-        self, state: ExecutionState, tmp_path_factory: pytest.TempPathFactory,
+        self,
+        state: ExecutionState,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """Plan hash is preserved through save/load."""
         tmp_path = tmp_path_factory.mktemp("state")
@@ -119,7 +130,9 @@ class TestStateSaveLoadRoundtrip:
     @given(state=valid_execution_states())
     @settings(max_examples=50)
     def test_roundtrip_preserves_node_states(
-        self, state: ExecutionState, tmp_path_factory: pytest.TempPathFactory,
+        self,
+        state: ExecutionState,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """Node states dict is preserved through save/load."""
         tmp_path = tmp_path_factory.mktemp("state")
@@ -135,7 +148,9 @@ class TestStateSaveLoadRoundtrip:
     @given(state=valid_execution_states())
     @settings(max_examples=50)
     def test_roundtrip_preserves_totals(
-        self, state: ExecutionState, tmp_path_factory: pytest.TempPathFactory,
+        self,
+        state: ExecutionState,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """Cumulative totals are preserved through save/load."""
         tmp_path = tmp_path_factory.mktemp("state")
@@ -152,7 +167,9 @@ class TestStateSaveLoadRoundtrip:
     @given(state=valid_execution_states())
     @settings(max_examples=50)
     def test_roundtrip_preserves_session_history_length(
-        self, state: ExecutionState, tmp_path_factory: pytest.TempPathFactory,
+        self,
+        state: ExecutionState,
+        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """Session history length is preserved through save/load."""
         tmp_path = tmp_path_factory.mktemp("state")

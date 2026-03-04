@@ -43,23 +43,38 @@ class TestVectorSearchSortedResults:
         """Verify results are sorted by descending cosine similarity."""
         # Insert 5 facts with different embeddings
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Fact about DuckDB", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Fact about DuckDB",
+            MOCK_EMBEDDING_1,
             spec_name="11_duckdb",
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_BBB, "Fact about embeddings", MOCK_EMBEDDING_2,
+            schema_conn,
+            FACT_BBB,
+            "Fact about embeddings",
+            MOCK_EMBEDDING_2,
             spec_name="12_fox_ball",
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_CCC, "Fact about JSONL", MOCK_EMBEDDING_3,
+            schema_conn,
+            FACT_CCC,
+            "Fact about JSONL",
+            MOCK_EMBEDDING_3,
             spec_name="05_memory",
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_DDD, "Fact about testing", MOCK_EMBEDDING_4,
+            schema_conn,
+            FACT_DDD,
+            "Fact about testing",
+            MOCK_EMBEDDING_4,
             spec_name="10_testing",
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_EEE, "Fact about auth", MOCK_EMBEDDING_5,
+            schema_conn,
+            FACT_EEE,
+            "Fact about auth",
+            MOCK_EMBEDDING_5,
             spec_name="07_auth",
         )
 
@@ -75,7 +90,10 @@ class TestVectorSearchSortedResults:
     ) -> None:
         """Verify each result has fact_id, content, spec_name, and similarity."""
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Test fact content", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Test fact content",
+            MOCK_EMBEDDING_1,
             spec_name="test_spec",
         )
 
@@ -95,13 +113,22 @@ class TestVectorSearchSortedResults:
     ) -> None:
         """Verify search respects the top_k parameter."""
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Fact 1", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Fact 1",
+            MOCK_EMBEDDING_1,
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_BBB, "Fact 2", MOCK_EMBEDDING_2,
+            schema_conn,
+            FACT_BBB,
+            "Fact 2",
+            MOCK_EMBEDDING_2,
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_CCC, "Fact 3", MOCK_EMBEDDING_3,
+            schema_conn,
+            FACT_CCC,
+            "Fact 3",
+            MOCK_EMBEDDING_3,
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
@@ -122,14 +149,22 @@ class TestVectorSearchExcludesUnembedded:
         """Verify facts without embeddings are not in search results."""
         # 2 facts with embeddings
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Embedded fact 1", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Embedded fact 1",
+            MOCK_EMBEDDING_1,
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_BBB, "Embedded fact 2", MOCK_EMBEDDING_2,
+            schema_conn,
+            FACT_BBB,
+            "Embedded fact 2",
+            MOCK_EMBEDDING_2,
         )
         # 1 fact without embedding
         insert_fact_without_embedding(
-            schema_conn, FACT_CCC, "Unembedded fact",
+            schema_conn,
+            FACT_CCC,
+            "Unembedded fact",
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
@@ -152,15 +187,24 @@ class TestVectorSearchExcludesSuperseded:
         """Verify facts with superseded_by set are excluded from default search."""
         # Old fact (superseded by CCC)
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Old: we use SQLite", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Old: we use SQLite",
+            MOCK_EMBEDDING_1,
             superseded_by=FACT_CCC,
         )
         # Non-superseded facts
         insert_fact_with_embedding(
-            schema_conn, FACT_BBB, "Embeddings are 1024-dim", MOCK_EMBEDDING_2,
+            schema_conn,
+            FACT_BBB,
+            "Embeddings are 1024-dim",
+            MOCK_EMBEDDING_2,
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_CCC, "New: we use DuckDB", MOCK_EMBEDDING_3,
+            schema_conn,
+            FACT_CCC,
+            "New: we use DuckDB",
+            MOCK_EMBEDDING_3,
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
@@ -177,11 +221,17 @@ class TestVectorSearchExcludesSuperseded:
     ) -> None:
         """Verify superseded facts are included when exclude_superseded=False."""
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Old: we use SQLite", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Old: we use SQLite",
+            MOCK_EMBEDDING_1,
             superseded_by=FACT_CCC,
         )
         insert_fact_with_embedding(
-            schema_conn, FACT_CCC, "New: we use DuckDB", MOCK_EMBEDDING_3,
+            schema_conn,
+            FACT_CCC,
+            "New: we use DuckDB",
+            MOCK_EMBEDDING_3,
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
@@ -238,6 +288,9 @@ class TestHasEmbeddings:
         assert searcher.has_embeddings() is False
 
         insert_fact_with_embedding(
-            schema_conn, FACT_AAA, "Test fact", MOCK_EMBEDDING_1,
+            schema_conn,
+            FACT_AAA,
+            "Test fact",
+            MOCK_EMBEDDING_1,
         )
         assert searcher.has_embeddings() is True

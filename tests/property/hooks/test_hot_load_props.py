@@ -16,12 +16,7 @@ from agent_fox.graph.types import Node, NodeStatus, PlanMetadata, TaskGraph
 
 def _make_tasks_md() -> str:
     """Create minimal tasks.md content."""
-    return (
-        "# Tasks\n"
-        "\n"
-        "- [ ] 1. Test task\n"
-        "  - [ ] 1.1 Subtask\n"
-    )
+    return "# Tasks\n\n- [ ] 1. Test task\n  - [ ] 1.1 Subtask\n"
 
 
 def _make_prd_md() -> str:

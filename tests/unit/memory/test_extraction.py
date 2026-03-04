@@ -89,15 +89,11 @@ class TestExtractionValidResponse:
             )
 
         assert all(f.id is not None and len(f.id) > 0 for f in facts)
-        assert all(
-            f.created_at is not None and len(f.created_at) > 0 for f in facts
-        )
+        assert all(f.created_at is not None and len(f.created_at) > 0 for f in facts)
 
     def test_parse_valid_response(self) -> None:
         """Verify _parse_extraction_response parses valid JSON correctly."""
-        facts = _parse_extraction_response(
-            VALID_LLM_RESPONSE, "02_planning_engine"
-        )
+        facts = _parse_extraction_response(VALID_LLM_RESPONSE, "02_planning_engine")
         assert len(facts) == 2
         assert facts[0].category in [c.value for c in Category]
         assert facts[0].spec_name == "02_planning_engine"
@@ -114,9 +110,7 @@ class TestExtractionInvalidJSON:
         """Verify invalid JSON response returns empty list."""
         mock_client = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = [
-            AsyncMock(text=INVALID_JSON_LLM_RESPONSE)
-        ]
+        mock_response.content = [AsyncMock(text=INVALID_JSON_LLM_RESPONSE)]
         mock_client.messages.create = AsyncMock(return_value=mock_response)
 
         with patch(
@@ -137,9 +131,7 @@ class TestExtractionInvalidJSON:
         """Verify invalid JSON response logs a warning."""
         mock_client = AsyncMock()
         mock_response = AsyncMock()
-        mock_response.content = [
-            AsyncMock(text=INVALID_JSON_LLM_RESPONSE)
-        ]
+        mock_response.content = [AsyncMock(text=INVALID_JSON_LLM_RESPONSE)]
         mock_client.messages.create = AsyncMock(return_value=mock_response)
 
         with (
@@ -191,9 +183,7 @@ class TestExtractionUnknownCategory:
 
     def test_unknown_category_defaults_to_gotcha(self) -> None:
         """Verify unknown category in LLM output is replaced with gotcha."""
-        facts = _parse_extraction_response(
-            UNKNOWN_CATEGORY_LLM_RESPONSE, "spec_01"
-        )
+        facts = _parse_extraction_response(UNKNOWN_CATEGORY_LLM_RESPONSE, "spec_01")
         assert len(facts) == 1
         assert facts[0].category == "gotcha"
 
@@ -201,12 +191,8 @@ class TestExtractionUnknownCategory:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Verify unknown category logs a warning."""
-        with caplog.at_level(
-            logging.WARNING, logger="agent_fox.memory.extraction"
-        ):
-            _parse_extraction_response(
-                UNKNOWN_CATEGORY_LLM_RESPONSE, "spec_01"
-            )
+        with caplog.at_level(logging.WARNING, logger="agent_fox.memory.extraction"):
+            _parse_extraction_response(UNKNOWN_CATEGORY_LLM_RESPONSE, "spec_01")
 
         assert any(
             "unknown" in r.message.lower() or "category" in r.message.lower()

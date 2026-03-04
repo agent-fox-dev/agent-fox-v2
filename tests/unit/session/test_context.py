@@ -20,28 +20,32 @@ class TestContextAssemblySpecDocs:
     """TS-03-4: Context assembly includes spec documents."""
 
     def test_includes_requirements_content(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context includes requirements.md content."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
         assert "REQ content here" in ctx
 
     def test_includes_design_content(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context includes design.md content."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
         assert "Design content here" in ctx
 
     def test_includes_tasks_content(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context includes tasks.md content."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
         assert "Task content here" in ctx
 
     def test_has_section_headers(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context has section headers separating documents."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
@@ -55,22 +59,26 @@ class TestContextAssemblyMemoryFacts:
     """TS-03-5: Context assembly includes memory facts."""
 
     def test_includes_memory_facts(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Memory facts appear in the assembled context."""
         ctx = assemble_context(
-            tmp_spec_dir, task_group=1,
+            tmp_spec_dir,
+            task_group=1,
             memory_facts=["Fact 1", "Fact 2"],
         )
         assert "Fact 1" in ctx
         assert "Fact 2" in ctx
 
     def test_memory_facts_in_labeled_section(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Memory facts appear in a clearly labeled section."""
         ctx = assemble_context(
-            tmp_spec_dir, task_group=1,
+            tmp_spec_dir,
+            task_group=1,
             memory_facts=["Important fact"],
         )
         # The memory section should have some label
@@ -92,7 +100,8 @@ class TestContextAssemblyMissingFile:
         assert "REQ content" in ctx
 
     def test_returns_nonempty_with_partial_files(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Context is non-empty even when some files are missing."""
         spec_dir = tmp_path / "specs" / "partial"
@@ -110,14 +119,16 @@ class TestContextIncludesTestSpec:
     """
 
     def test_context_includes_test_spec_content(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context includes test_spec.md content."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
         assert "Test spec content here" in ctx
 
     def test_context_has_test_specification_header(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """Assembled context includes the ## Test Specification header."""
         ctx = assemble_context(tmp_spec_dir, task_group=2)
@@ -131,7 +142,8 @@ class TestTestSpecOrdering:
     """
 
     def test_test_spec_between_design_and_tasks(
-        self, tmp_spec_dir: Path,
+        self,
+        tmp_spec_dir: Path,
     ) -> None:
         """## Test Specification appears after ## Design and before ## Tasks."""
         ctx = assemble_context(tmp_spec_dir, task_group=1)
@@ -160,7 +172,9 @@ class TestMissingTestSpecFile:
         assert "## Test Specification" not in ctx
 
     def test_missing_test_spec_logs_warning(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture,
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """A warning is logged when test_spec.md is missing."""
         spec_dir = tmp_path / "specs" / "no_test_spec"

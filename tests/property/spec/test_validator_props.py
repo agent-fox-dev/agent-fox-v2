@@ -38,14 +38,16 @@ finding_strategy = st.builds(
         max_size=20,
     ),
     file=st.sampled_from(EXPECTED_FILES),
-    rule=st.sampled_from([
-        "missing-file",
-        "oversized-group",
-        "missing-verification",
-        "missing-acceptance-criteria",
-        "broken-dependency",
-        "untraced-requirement",
-    ]),
+    rule=st.sampled_from(
+        [
+            "missing-file",
+            "oversized-group",
+            "missing-verification",
+            "missing-acceptance-criteria",
+            "broken-dependency",
+            "untraced-requirement",
+        ]
+    ),
     severity=severity_strategy,
     message=st.text(min_size=1, max_size=100),
     line=st.one_of(st.none(), st.integers(min_value=1, max_value=1000)),
@@ -102,17 +104,13 @@ class TestNoErrorsImplyZeroExit:
 
     @given(
         findings=st.lists(
-            finding_strategy.filter(
-                lambda f: f.severity != SEVERITY_ERROR
-            ),
+            finding_strategy.filter(lambda f: f.severity != SEVERITY_ERROR),
             min_size=0,
             max_size=10,
         )
     )
     @settings(max_examples=50)
-    def test_no_errors_produce_exit_code_zero(
-        self, findings: list[Finding]
-    ) -> None:
+    def test_no_errors_produce_exit_code_zero(self, findings: list[Finding]) -> None:
         """Findings list with no errors produces exit code 0."""
         exit_code = compute_exit_code(findings)
         assert exit_code == 0

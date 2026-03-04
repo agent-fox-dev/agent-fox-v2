@@ -55,7 +55,10 @@ class TestFactoryReturnsGitHubPlatform:
             patch(
                 "agent_fox.platform.github.subprocess.run",
                 return_value=__import__("subprocess").CompletedProcess(
-                    args=[], returncode=0, stdout="", stderr="",
+                    args=[],
+                    returncode=0,
+                    stdout="",
+                    stderr="",
                 ),
             ),
         ):
