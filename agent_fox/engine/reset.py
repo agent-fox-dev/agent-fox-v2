@@ -178,6 +178,21 @@ def _cleanup_task(
     return wt, br
 
 
+def _collect_cleanup(
+    task_id: str,
+    worktrees_dir: Path,
+    repo_path: Path,
+    cleaned_worktrees: list[str],
+    cleaned_branches: list[str],
+) -> None:
+    """Clean up artifacts for a task and append results to the lists."""
+    wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
+    if wt:
+        cleaned_worktrees.append(wt)
+    if br:
+        cleaned_branches.append(br)
+
+
 def _find_sole_blocker_dependents(
     task_id: str,
     plan: TaskGraph,
@@ -261,12 +276,13 @@ def reset_all(
         if status in _RESETTABLE_STATUSES:
             reset_tasks.append(task_id)
 
-            # Clean up artifacts
-            wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
-            if wt:
-                cleaned_worktrees.append(wt)
-            if br:
-                cleaned_branches.append(br)
+            _collect_cleanup(
+                task_id,
+                worktrees_dir,
+                repo_path,
+                cleaned_worktrees,
+                cleaned_branches,
+            )
 
     # Update state: set all reset tasks to pending
     if reset_tasks:
@@ -339,12 +355,13 @@ def reset_task(
     cleaned_worktrees: list[str] = []
     cleaned_branches: list[str] = []
 
-    # Clean up artifacts for the target task
-    wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
-    if wt:
-        cleaned_worktrees.append(wt)
-    if br:
-        cleaned_branches.append(br)
+    _collect_cleanup(
+        task_id,
+        worktrees_dir,
+        repo_path,
+        cleaned_worktrees,
+        cleaned_branches,
+    )
 
     # Update state for the target task
     state.node_states[task_id] = "pending"
@@ -355,11 +372,13 @@ def reset_task(
     # Reset unblocked tasks to pending and clean up their artifacts
     for unblocked_id in unblocked_tasks:
         state.node_states[unblocked_id] = "pending"
-        uwt, ubr = _cleanup_task(unblocked_id, worktrees_dir, repo_path)
-        if uwt:
-            cleaned_worktrees.append(uwt)
-        if ubr:
-            cleaned_branches.append(ubr)
+        _collect_cleanup(
+            unblocked_id,
+            worktrees_dir,
+            repo_path,
+            cleaned_worktrees,
+            cleaned_branches,
+        )
 
     # Persist updated state
     StateManager(state_path).save(state)

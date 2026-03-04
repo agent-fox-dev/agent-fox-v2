@@ -22,6 +22,21 @@ logger = logging.getLogger(__name__)
 MAX_PARALLELISM = 8
 
 
+def _failure_record(node_id: str, attempt: int, exc: Exception) -> SessionRecord:
+    """Build a SessionRecord for a failed task."""
+    return SessionRecord(
+        node_id=node_id,
+        attempt=attempt,
+        status="failed",
+        input_tokens=0,
+        output_tokens=0,
+        cost=0.0,
+        duration_ms=0,
+        error_message=str(exc),
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+
+
 class ParallelRunner:
     """Runs up to N tasks concurrently via asyncio.
 
@@ -101,17 +116,7 @@ class ParallelRunner:
                 node_id,
                 exc,
             )
-            return SessionRecord(
-                node_id=node_id,
-                attempt=attempt,
-                status="failed",
-                input_tokens=0,
-                output_tokens=0,
-                cost=0.0,
-                duration_ms=0,
-                error_message=str(exc),
-                timestamp=datetime.now(UTC).isoformat(),
-            )
+            return _failure_record(node_id, attempt, exc)
 
     def track_tasks(self, tasks: list[asyncio.Task[SessionRecord]]) -> None:
         """Update the set of in-flight tasks (for SIGINT cancellation)."""
@@ -159,17 +164,7 @@ class ParallelRunner:
                         node_id,
                         exc,
                     )
-                    record = SessionRecord(
-                        node_id=node_id,
-                        attempt=attempt,
-                        status="failed",
-                        input_tokens=0,
-                        output_tokens=0,
-                        cost=0.0,
-                        duration_ms=0,
-                        error_message=str(exc),
-                        timestamp=datetime.now(UTC).isoformat(),
-                    )
+                    record = _failure_record(node_id, attempt, exc)
 
             # Invoke callback under lock to serialise state writes
             async with self._state_lock:

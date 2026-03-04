@@ -185,7 +185,7 @@ class MemoryStore:
         exists in DuckDB without an embedding.
         """
         # Step 1: JSONL write -- never skipped
-        self._write_to_jsonl(fact)
+        append_facts([fact], self._jsonl_path)
 
         # Step 2: DuckDB write -- best-effort
         if self._db_conn is None:
@@ -252,10 +252,6 @@ class MemoryStore:
         )
 
     # -- Private helpers -----------------------------------------------------
-
-    def _write_to_jsonl(self, fact: Fact) -> None:
-        """Append a fact to the JSONL store."""
-        append_facts([fact], self._jsonl_path)
 
     def _write_to_duckdb(self, fact: Fact) -> None:
         """Insert a fact into the DuckDB ``memory_facts`` table."""
