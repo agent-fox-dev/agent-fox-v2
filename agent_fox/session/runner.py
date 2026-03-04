@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Coroutine
+from collections.abc import AsyncIterator, Coroutine
 from typing import Any
 
 from claude_code_sdk import ClaudeCodeOptions, query  # noqa: F401
@@ -144,6 +144,9 @@ async def _execute_query(
         return PermissionResultAllow()
 
     # 03-REQ-3.1, 03-REQ-3.4: Call query with options + allowlist hook
+    # can_use_tool requires streaming mode (AsyncIterable prompt), so we
+    # wrap the string prompt in an async generator that yields a single
+    # user message in the stream-json format.
     options = ClaudeCodeOptions(
         cwd=cwd,
         model=model_id,
@@ -151,8 +154,15 @@ async def _execute_query(
         permission_mode="bypassPermissions",
         can_use_tool=_can_use_tool,
     )
+
+    async def _prompt_stream() -> AsyncIterator[dict[str, Any]]:
+        yield {
+            "type": "user",
+            "message": {"role": "user", "content": task_prompt},
+        }
+
     async for message in query(
-        prompt=task_prompt,
+        prompt=_prompt_stream(),
         options=options,
     ):
         # 03-REQ-3.2: Collect the ResultMessage
