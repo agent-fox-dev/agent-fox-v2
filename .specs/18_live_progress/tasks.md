@@ -159,7 +159,7 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/`
 
-- [ ] 6. Checkpoint -- Live Progress Complete
+- [x] 6. Checkpoint -- Live Progress Complete
   - Ensure all 977+ existing tests still pass plus all new tests
   - Run full linter check
   - Manual smoke test: `agent-fox code --quiet` (no spinner), regular run (spinner visible)
