@@ -34,13 +34,16 @@ def _create_nodes_and_intra_edges(
         prev_node_id: str | None = None
         for group in sorted_groups:
             node_id = f"{spec.name}:{group.number}"
+            initial_status = (
+                NodeStatus.COMPLETED if group.completed else NodeStatus.PENDING
+            )
             nodes[node_id] = Node(
                 id=node_id,
                 spec_name=spec.name,
                 group_number=group.number,
                 title=group.title,
                 optional=group.optional,
-                status=NodeStatus.PENDING,
+                status=initial_status,
                 subtask_count=len(group.subtasks),
                 body=group.body,
             )

@@ -168,6 +168,28 @@ class StateManager:
 
     @staticmethod
     def compute_plan_hash(plan_path: Path) -> str:
-        """Compute SHA-256 hash of plan.json for change detection."""
-        content = plan_path.read_bytes()
-        return hashlib.sha256(content).hexdigest()
+        """Compute SHA-256 hash of plan.json structural content.
+
+        Hashes only the structural fields (node IDs, edges, order) and
+        excludes mutable fields like node ``status`` so that updating
+        statuses via ``_sync_plan_statuses`` does not invalidate the
+        hash on restart.
+        """
+        data = json.loads(plan_path.read_text(encoding="utf-8"))
+
+        # Build a canonical representation of structural content only.
+        # Node dicts are stripped of ``status`` (mutable at runtime).
+        nodes = data.get("nodes", {})
+        structural_nodes = {}
+        for nid, node in sorted(nodes.items()):
+            structural_nodes[nid] = {
+                k: v for k, v in sorted(node.items()) if k != "status"
+            }
+
+        canonical = {
+            "nodes": structural_nodes,
+            "edges": data.get("edges", []),
+            "order": data.get("order", []),
+        }
+        content = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(content.encode()).hexdigest()

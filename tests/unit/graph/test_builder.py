@@ -31,13 +31,18 @@ def _make_spec(name: str, prefix: int) -> SpecInfo:
     )
 
 
-def _make_group(number: int, title: str, optional: bool = False) -> TaskGroupDef:
+def _make_group(
+    number: int,
+    title: str,
+    optional: bool = False,
+    completed: bool = False,
+) -> TaskGroupDef:
     """Create a TaskGroupDef for testing."""
     return TaskGroupDef(
         number=number,
         title=title,
         optional=optional,
-        completed=False,
+        completed=completed,
         subtasks=(),
         body=f"Body of task {number}",
     )
@@ -79,7 +84,7 @@ class TestBuildGraphIntraSpec:
         assert "my_spec:3" in graph.nodes
 
     def test_all_nodes_pending_status(self) -> None:
-        """All nodes start with PENDING status."""
+        """All uncompleted nodes start with PENDING status."""
         specs = [_make_spec("my_spec", 1)]
         groups = {
             "my_spec": [
@@ -92,6 +97,21 @@ class TestBuildGraphIntraSpec:
         graph = build_graph(specs, groups, [])
 
         assert all(n.status == NodeStatus.PENDING for n in graph.nodes.values())
+
+    def test_completed_group_produces_completed_node(self) -> None:
+        """A task group marked completed=[x] produces a COMPLETED node."""
+        specs = [_make_spec("my_spec", 1)]
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A", completed=True),
+                _make_group(2, "Task B"),
+            ]
+        }
+
+        graph = build_graph(specs, groups, [])
+
+        assert graph.nodes["my_spec:1"].status == NodeStatus.COMPLETED
+        assert graph.nodes["my_spec:2"].status == NodeStatus.PENDING
 
     def test_sequential_intra_spec_edges(self) -> None:
         """Intra-spec edges connect group N to N+1."""

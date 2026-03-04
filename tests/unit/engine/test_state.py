@@ -318,11 +318,34 @@ class TestPlanHashMismatch:
     ) -> None:
         """Different file content produces different hashes."""
         path1 = tmp_path / "plan1.json"
-        path1.write_text('{"nodes": {"A": {}}}')
+        path1.write_text('{"nodes": {"A": {"id": "A"}}, "edges": [], "order": ["A"]}')
 
         path2 = tmp_path / "plan2.json"
-        path2.write_text('{"nodes": {"B": {}}}')
+        path2.write_text('{"nodes": {"B": {"id": "B"}}, "edges": [], "order": ["B"]}')
 
         assert StateManager.compute_plan_hash(path1) != StateManager.compute_plan_hash(
+            path2
+        )
+
+    def test_status_change_does_not_change_hash(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Changing a node's status does not change the plan hash."""
+        path1 = tmp_path / "plan1.json"
+        path1.write_text(json.dumps({
+            "nodes": {"A": {"id": "A", "status": "pending"}},
+            "edges": [],
+            "order": ["A"],
+        }))
+
+        path2 = tmp_path / "plan2.json"
+        path2.write_text(json.dumps({
+            "nodes": {"A": {"id": "A", "status": "completed"}},
+            "edges": [],
+            "order": ["A"],
+        }))
+
+        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(
             path2
         )

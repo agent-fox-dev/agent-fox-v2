@@ -466,6 +466,113 @@ class TestResumeWithInProgressTask:
         assert len(b_calls) >= 1
 
 
+class TestResumeAfterStatusSync:
+    """Plan hash stability after _sync_plan_statuses writes to plan.json.
+
+    Verify that updating node statuses in plan.json does not invalidate
+    the plan hash, allowing the orchestrator to resume correctly.
+    """
+
+    @pytest.mark.asyncio
+    async def test_resume_after_status_sync_skips_completed(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+    ) -> None:
+        """After plan.json status sync, resume skips completed tasks."""
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task A"},
+                "spec:2": {"title": "Task B"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2"],
+        )
+
+        # Compute hash, then mutate plan.json status (simulates shutdown sync)
+        plan_hash = StateManager.compute_plan_hash(plan_path)
+        plan_data = json.loads(plan_path.read_text())
+        plan_data["nodes"]["spec:1"]["status"] = "completed"
+        plan_path.write_text(json.dumps(plan_data, indent=2))
+
+        # Hash should still match despite status change
+        assert StateManager.compute_plan_hash(plan_path) == plan_hash
+
+        # Pre-populate state with spec:1 completed
+        _write_state(
+            tmp_state_path,
+            plan_hash=plan_hash,
+            node_states={"spec:1": "completed", "spec:2": "pending"},
+            total_sessions=1,
+        )
+
+        mock = MockSessionRunner()
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        orchestrator = Orchestrator(
+            config=config,
+            plan_path=plan_path,
+            state_path=tmp_state_path,
+            session_runner_factory=lambda nid: mock,
+        )
+
+        state = await orchestrator.run()
+
+        # Only spec:2 should have been dispatched
+        dispatched = [call[0] for call in mock.calls]
+        assert "spec:1" not in dispatched
+        assert "spec:2" in dispatched
+        assert state.node_states["spec:1"] == "completed"
+        assert state.node_states["spec:2"] == "completed"
+
+
+class TestFreshStartWithCompletedNodes:
+    """Fresh start seeds node states from plan.json statuses.
+
+    When no state.jsonl exists, the orchestrator should read node
+    statuses from plan.json (which reflect tasks.md [x] markers)
+    rather than hardcoding everything to pending.
+    """
+
+    @pytest.mark.asyncio
+    async def test_completed_nodes_in_plan_are_skipped(
+        self,
+        tmp_plan_dir: Path,
+        tmp_state_path: Path,
+    ) -> None:
+        """Nodes marked completed in plan.json are skipped on fresh start."""
+        plan_path = write_plan_file(
+            tmp_plan_dir,
+            nodes={
+                "spec:1": {"title": "Task A", "status": "completed"},
+                "spec:2": {"title": "Task B"},
+            },
+            edges=[
+                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
+            ],
+            order=["spec:1", "spec:2"],
+        )
+
+        # No state.jsonl — fresh start
+        mock = MockSessionRunner()
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        orchestrator = Orchestrator(
+            config=config,
+            plan_path=plan_path,
+            state_path=tmp_state_path,
+            session_runner_factory=lambda nid: mock,
+        )
+
+        state = await orchestrator.run()
+
+        dispatched = [call[0] for call in mock.calls]
+        assert "spec:1" not in dispatched
+        assert "spec:2" in dispatched
+        assert state.node_states["spec:1"] == "completed"
+
+
 class TestCostLimitStopsOrchestrator:
     """TS-04-10: Cost limit stops new launches (orchestrator integration).
 

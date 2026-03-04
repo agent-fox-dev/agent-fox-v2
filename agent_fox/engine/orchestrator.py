@@ -107,10 +107,22 @@ def _load_or_init_state(
                     existing.node_states[nid] = "pending"
             return existing
 
+    # Seed node states from plan.json: honour statuses already set by the
+    # graph builder (e.g. "completed" from tasks.md [x] markers) instead
+    # of resetting everything to "pending".
+    node_states: dict[str, str] = {}
+    for nid, node_data in nodes.items():
+        status = "pending"
+        if isinstance(node_data, dict):
+            plan_status = node_data.get("status", "pending")
+            if plan_status in ("completed", "skipped"):
+                status = plan_status
+        node_states[nid] = status
+
     now = datetime.now(UTC).isoformat()
     return ExecutionState(
         plan_hash=plan_hash,
-        node_states={nid: "pending" for nid in nodes},
+        node_states=node_states,
         started_at=now,
         updated_at=now,
     )
