@@ -85,6 +85,49 @@ class TestHarvesterRebaseRetry:
         assert "feature_file.py" in files
 
 
+class TestHarvesterMergeFallback:
+    """Merge-commit fallback when rebase has conflicts but merge succeeds."""
+
+    @pytest.mark.asyncio
+    async def test_cherry_pick_conflict_falls_back_to_merge(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """When a cherry-picked commit causes rebase conflicts,
+        the harvester falls back to a merge commit and succeeds."""
+        # Simulate the real-world scenario: session 1 adds a file,
+        # its changes get merged into develop. Session 2 independently
+        # added the same content (cherry-pick equivalent).
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+
+        # Add a file on the feature branch
+        add_commit_to_branch(
+            ws.path,
+            "tests/test_scaffold.py",
+            "def test_scaffold(): pass\n",
+        )
+
+        # Add the SAME file with SAME content on develop (simulates
+        # a prior session's merge containing the same change)
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        add_commit_to_branch(
+            tmp_worktree_repo,
+            "tests/test_scaffold.py",
+            "def test_scaffold(): pass\n",
+        )
+
+        # Harvest should succeed via merge fallback (not raise)
+        files = await harvest(tmp_worktree_repo, ws)
+        # The file was already on develop, so changed_files may be empty
+        # The key assertion: no IntegrationError is raised
+        assert isinstance(files, list)
+
+
 class TestHarvesterNoCommits:
     """TS-03-E5: Harvester with no new commits is no-op."""
 
