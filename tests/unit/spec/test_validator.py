@@ -480,6 +480,207 @@ class TestFindingsSortedCorrectly:
         assert sorted_findings[3].spec_name == "b_spec"
 
 
+# -- TS-F3-3: Completed group skips oversized check ----------------------------
+
+
+class TestCompletedGroupSkipsOversized:
+    """TS-F3-3: Completed groups produce no oversized-group findings.
+
+    Requirements: F3-REQ-2.1
+    """
+
+    def test_completed_group_no_oversized_finding(self) -> None:
+        """Completed group with 8 subtasks produces no findings."""
+        group = TaskGroupDef(
+            number=1,
+            title="Done group",
+            optional=False,
+            completed=True,
+            subtasks=tuple(_make_subtasks(8)),
+            body="",
+        )
+        findings = check_oversized_groups("test_spec", [group])
+
+        assert findings == []
+
+
+# -- TS-F3-4: Completed group skips verification check -------------------------
+
+
+class TestCompletedGroupSkipsVerification:
+    """TS-F3-4: Completed groups produce no missing-verification findings.
+
+    Requirements: F3-REQ-2.2
+    """
+
+    def test_completed_group_no_verification_finding(self) -> None:
+        """Completed group without N.V produces no findings."""
+        group = TaskGroupDef(
+            number=1,
+            title="Done group",
+            optional=False,
+            completed=True,
+            subtasks=tuple(_make_subtasks(3)),
+            body="",
+        )
+        findings = check_missing_verification("test_spec", [group])
+
+        assert findings == []
+
+
+# -- TS-F3-5: Incomplete group still checked -----------------------------------
+
+
+class TestIncompleteGroupStillChecked:
+    """TS-F3-5: Incomplete groups are still validated.
+
+    Requirements: F3-REQ-2.3
+    """
+
+    def test_incomplete_group_oversized(self) -> None:
+        """Incomplete group with 8 subtasks still produces oversized finding."""
+        group = TaskGroupDef(
+            number=1,
+            title="WIP group",
+            optional=False,
+            completed=False,
+            subtasks=tuple(_make_subtasks(8)),
+            body="",
+        )
+        findings = check_oversized_groups("test_spec", [group])
+
+        assert len(findings) == 1
+
+    def test_incomplete_group_missing_verification(self) -> None:
+        """Incomplete group without N.V still produces verification finding."""
+        group = TaskGroupDef(
+            number=1,
+            title="WIP group",
+            optional=False,
+            completed=False,
+            subtasks=tuple(_make_subtasks(3)),
+            body="",
+        )
+        findings = check_missing_verification("test_spec", [group])
+
+        assert len(findings) == 1
+
+
+# -- TS-F3-6: Alt table — non-existent spec detected --------------------------
+
+
+class TestAltTableNonExistentSpec:
+    """TS-F3-6: Alternative table referencing unknown spec produces ERROR.
+
+    Requirements: F3-REQ-3.2
+    """
+
+    def test_bad_spec_produces_error(self, tmp_path: Path) -> None:
+        """Alt table with non-existent spec produces broken-dependency error."""
+        from tests.unit.spec.conftest import PRD_MD_ALT_BAD_SPEC
+
+        spec_path = tmp_path / "test_spec"
+        spec_path.mkdir()
+        (spec_path / "prd.md").write_text(PRD_MD_ALT_BAD_SPEC)
+
+        known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
+        findings = check_broken_dependencies(
+            "test_spec", spec_path, known_specs,
+            current_spec_groups=[1, 2, 3],
+        )
+
+        broken = [f for f in findings if f.rule == "broken-dependency"]
+        assert len(broken) >= 1
+        assert any("99_nonexistent" in f.message for f in broken)
+
+
+# -- TS-F3-7: Alt table — non-existent from-group detected --------------------
+
+
+class TestAltTableNonExistentFromGroup:
+    """TS-F3-7: Alt table referencing non-existent from-group produces ERROR.
+
+    Requirements: F3-REQ-3.3
+    """
+
+    def test_bad_from_group_produces_error(self, tmp_path: Path) -> None:
+        """Alt table with non-existent from-group produces broken-dependency."""
+        from tests.unit.spec.conftest import PRD_MD_ALT_BAD_FROM_GROUP
+
+        spec_path = tmp_path / "test_spec"
+        spec_path.mkdir()
+        (spec_path / "prd.md").write_text(PRD_MD_ALT_BAD_FROM_GROUP)
+
+        known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
+        findings = check_broken_dependencies(
+            "test_spec", spec_path, known_specs,
+            current_spec_groups=[1],
+        )
+
+        broken = [f for f in findings if f.rule == "broken-dependency"]
+        assert len(broken) >= 1
+        assert any("7" in f.message for f in broken)
+
+
+# -- TS-F3-8: Alt table — non-existent to-group detected ----------------------
+
+
+class TestAltTableNonExistentToGroup:
+    """TS-F3-8: Alt table referencing non-existent to-group produces ERROR.
+
+    Requirements: F3-REQ-3.4
+    """
+
+    def test_bad_to_group_produces_error(self, tmp_path: Path) -> None:
+        """Alt table with non-existent to-group produces broken-dependency."""
+        from tests.unit.spec.conftest import PRD_MD_ALT_BAD_TO_GROUP
+
+        spec_path = tmp_path / "test_spec"
+        spec_path.mkdir()
+        (spec_path / "prd.md").write_text(PRD_MD_ALT_BAD_TO_GROUP)
+
+        known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
+        findings = check_broken_dependencies(
+            "test_spec", spec_path, known_specs,
+            current_spec_groups=[1, 2, 3],
+        )
+
+        broken = [f for f in findings if f.rule == "broken-dependency"]
+        assert len(broken) >= 1
+        assert any("99" in f.message for f in broken)
+
+
+# -- TS-F3-E2: Both table formats validated ------------------------------------
+
+
+class TestBothTableFormatsValidated:
+    """TS-F3-E2: prd.md with both standard and alt tables has both validated.
+
+    Requirements: F3-REQ-3.E1
+    """
+
+    def test_both_formats_produce_findings(self, tmp_path: Path) -> None:
+        """Both table formats produce broken-dependency findings."""
+        from tests.unit.spec.conftest import PRD_MD_BOTH_FORMATS_BROKEN
+
+        spec_path = tmp_path / "test_spec"
+        spec_path.mkdir()
+        (spec_path / "prd.md").write_text(PRD_MD_BOTH_FORMATS_BROKEN)
+
+        known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
+        findings = check_broken_dependencies(
+            "test_spec", spec_path, known_specs,
+            current_spec_groups=[1],
+        )
+
+        broken = [f for f in findings if f.rule == "broken-dependency"]
+        # Should have findings from both tables
+        std_findings = [f for f in broken if "99_missing_std" in f.message]
+        alt_findings = [f for f in broken if "99_missing_alt" in f.message]
+        assert len(std_findings) >= 1
+        assert len(alt_findings) >= 1
+
+
 # -- TS-09-E8: Valid dependencies produce no findings --------------------------
 
 

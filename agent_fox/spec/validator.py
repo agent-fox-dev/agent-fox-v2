@@ -33,6 +33,9 @@ MAX_SUBTASKS_PER_GROUP = 6
 _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
 _REQUIREMENT_ID = re.compile(r"\[\d{2}-REQ-\d+\.\d+\]")
 _DEP_TABLE_HEADER = re.compile(r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNORECASE)
+_DEP_TABLE_HEADER_ALT = re.compile(
+    r"\|\s*Spec\s*\|\s*From Group\s*\|\s*To Group\s*\|", re.IGNORECASE
+)
 _TABLE_SEP = re.compile(r"^\s*\|[\s\-|]+\|\s*$")
 _GROUP_REF = re.compile(r"\bgroup\s+(\d+)\b", re.IGNORECASE)
 
@@ -90,6 +93,8 @@ def check_oversized_groups(
     """
     findings: list[Finding] = []
     for group in task_groups:
+        if group.completed:
+            continue
         # Count non-verification subtasks: exclude N.V pattern
         non_verify_count = sum(
             1 for st in group.subtasks if not re.match(rf"^{group.number}\.V$", st.id)
@@ -123,6 +128,8 @@ def check_missing_verification(
     """
     findings: list[Finding] = []
     for group in task_groups:
+        if group.completed:
+            continue
         has_verify = any(
             re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks
         )
@@ -205,77 +212,153 @@ def check_missing_acceptance_criteria(
     return findings
 
 
+def _safe_int(value: str, default: int = 0) -> int:
+    """Parse an integer from a string, returning *default* on failure."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 def check_broken_dependencies(
     spec_name: str,
     spec_path: Path,
     known_specs: dict[str, list[int]],
+    current_spec_groups: list[int] | None = None,
 ) -> list[Finding]:
     """Check for dependency references to non-existent specs or task groups.
 
     Rule: broken-dependency
     Severity: error
-    Parses the dependency table from prd.md and validates each reference
-    against the known_specs dict (mapping spec name to list of group numbers).
+    Parses dependency tables from prd.md (both standard and alternative
+    formats) and validates each reference against the known_specs dict
+    (mapping spec name to list of group numbers).
+
+    Args:
+        spec_name: Name of the spec being validated.
+        spec_path: Path to the spec folder.
+        known_specs: Mapping of spec name to list of group numbers.
+        current_spec_groups: Group numbers in the current spec (for
+            validating To Group in alt format). If None, uses
+            known_specs[spec_name] if available.
     """
     prd_path = spec_path / "prd.md"
     if not prd_path.is_file():
         return []
 
+    if current_spec_groups is None:
+        current_spec_groups = known_specs.get(spec_name, [])
+
     text = prd_path.read_text(encoding="utf-8")
     lines = text.splitlines()
 
     findings: list[Finding] = []
-    in_table = False
-    header_found = False
 
-    for line_num, line in enumerate(lines, start=1):
-        # Look for the dependency table header
-        if not header_found:
-            if _DEP_TABLE_HEADER.search(line):
-                header_found = True
-                in_table = True
-            continue
+    i = 0
+    while i < len(lines):
+        line = lines[i]
 
-        # Skip separator row
-        if in_table and _TABLE_SEP.match(line):
-            continue
+        # --- Standard format: | This Spec | Depends On | ... ---
+        if _DEP_TABLE_HEADER.search(line):
+            i += 1
+            while i < len(lines):
+                row = lines[i]
+                row_num = i + 1
+                if _TABLE_SEP.match(row):
+                    i += 1
+                    continue
+                stripped = row.strip()
+                if not stripped.startswith("|"):
+                    break
+                cells = [c.strip() for c in stripped.split("|")]
+                cells = [c for c in cells if c]
+                if len(cells) < 2:
+                    i += 1
+                    continue
 
-        # Parse data rows
-        if in_table:
-            stripped = line.strip()
-            if not stripped.startswith("|"):
-                break
+                to_spec = cells[1].strip()
+                description = cells[2].strip() if len(cells) >= 3 else ""
 
-            # Split cells by pipe
-            cells = [c.strip() for c in stripped.split("|")]
-            cells = [c for c in cells if c]
-
-            if len(cells) < 2:
-                continue
-
-            to_spec = cells[1].strip()
-            description = cells[2].strip() if len(cells) >= 3 else ""
-
-            # Check if the target spec exists
-            if to_spec not in known_specs:
-                findings.append(
-                    Finding(
-                        spec_name=spec_name,
-                        file="prd.md",
-                        rule="broken-dependency",
-                        severity=SEVERITY_ERROR,
-                        message=(
-                            f"Dependency references non-existent spec '{to_spec}'"
-                        ),
-                        line=line_num,
+                if to_spec not in known_specs:
+                    findings.append(
+                        Finding(
+                            spec_name=spec_name,
+                            file="prd.md",
+                            rule="broken-dependency",
+                            severity=SEVERITY_ERROR,
+                            message=(
+                                f"Dependency references non-existent spec "
+                                f"'{to_spec}'"
+                            ),
+                            line=row_num,
+                        )
                     )
-                )
-            else:
-                # Check for group references in the description column
-                group_matches = _GROUP_REF.findall(description)
-                for group_num_str in group_matches:
-                    group_num = int(group_num_str)
-                    if group_num not in known_specs[to_spec]:
+                else:
+                    group_matches = _GROUP_REF.findall(description)
+                    for group_num_str in group_matches:
+                        group_num = int(group_num_str)
+                        if group_num not in known_specs[to_spec]:
+                            findings.append(
+                                Finding(
+                                    spec_name=spec_name,
+                                    file="prd.md",
+                                    rule="broken-dependency",
+                                    severity=SEVERITY_ERROR,
+                                    message=(
+                                        f"Dependency references non-existent "
+                                        f"task group {group_num} in spec "
+                                        f"'{to_spec}'"
+                                    ),
+                                    line=row_num,
+                                )
+                            )
+                i += 1
+            continue
+
+        # --- Alternative format: | Spec | From Group | To Group | ... ---
+        if _DEP_TABLE_HEADER_ALT.search(line):
+            i += 1
+            while i < len(lines):
+                row = lines[i]
+                row_num = i + 1
+                if _TABLE_SEP.match(row):
+                    i += 1
+                    continue
+                stripped = row.strip()
+                if not stripped.startswith("|"):
+                    break
+                cells = [c.strip() for c in stripped.split("|")]
+                cells = [c for c in cells if c]
+                if len(cells) < 3:
+                    i += 1
+                    continue
+
+                dep_spec = cells[0].strip()
+                from_group = _safe_int(cells[1].strip())
+                to_group = _safe_int(cells[2].strip())
+
+                if not dep_spec:
+                    i += 1
+                    continue
+
+                # Check spec exists
+                if dep_spec not in known_specs:
+                    findings.append(
+                        Finding(
+                            spec_name=spec_name,
+                            file="prd.md",
+                            rule="broken-dependency",
+                            severity=SEVERITY_ERROR,
+                            message=(
+                                f"Dependency references non-existent spec "
+                                f"'{dep_spec}'"
+                            ),
+                            line=row_num,
+                        )
+                    )
+                else:
+                    # Check from-group exists in dependency spec
+                    if from_group and from_group not in known_specs[dep_spec]:
                         findings.append(
                             Finding(
                                 spec_name=spec_name,
@@ -284,12 +367,33 @@ def check_broken_dependencies(
                                 severity=SEVERITY_ERROR,
                                 message=(
                                     f"Dependency references non-existent "
-                                    f"task group {group_num} in spec "
-                                    f"'{to_spec}'"
+                                    f"task group {from_group} in spec "
+                                    f"'{dep_spec}'"
                                 ),
-                                line=line_num,
+                                line=row_num,
                             )
                         )
+
+                # Check to-group exists in current spec
+                if to_group and to_group not in current_spec_groups:
+                    findings.append(
+                        Finding(
+                            spec_name=spec_name,
+                            file="prd.md",
+                            rule="broken-dependency",
+                            severity=SEVERITY_ERROR,
+                            message=(
+                                f"Dependency references non-existent "
+                                f"task group {to_group} in current spec"
+                            ),
+                            line=row_num,
+                        )
+                    )
+
+                i += 1
+            continue
+
+        i += 1
 
     return findings
 

@@ -138,6 +138,68 @@ class TestNonContiguousGroupNumbers:
         assert len(groups) == 3
 
 
+# -- TS-F3-1: Verification step subtask parsed --------------------------------
+
+
+class TestVerificationSubtaskParsed:
+    """TS-F3-1: Subtask with ID N.V is included in parsed group subtasks.
+
+    Requirements: F3-REQ-1.1
+    """
+
+    def test_verify_subtask_present(self, tasks_md_with_verify: Path) -> None:
+        """1.V subtask is parsed and present in the group."""
+        groups = parse_tasks(tasks_md_with_verify)
+
+        verify = [st for st in groups[0].subtasks if st.id == "1.V"]
+        assert len(verify) == 1
+
+    def test_verify_subtask_completed(self, tasks_md_with_verify: Path) -> None:
+        """1.V subtask has completed=True (marked [x])."""
+        groups = parse_tasks(tasks_md_with_verify)
+
+        verify = [st for st in groups[0].subtasks if st.id == "1.V"]
+        assert verify[0].completed is True
+
+
+# -- TS-F3-2: Numeric subtask IDs still parsed (regression) -------------------
+
+
+class TestNumericAndVerifySubtasksParsed:
+    """TS-F3-2: Numeric subtask IDs continue to parse alongside N.V.
+
+    Requirements: F3-REQ-1.2
+    """
+
+    def test_all_three_ids_present(self, tasks_md_with_verify: Path) -> None:
+        """Subtasks 1.1, 1.2, and 1.V are all parsed."""
+        groups = parse_tasks(tasks_md_with_verify)
+
+        ids = [st.id for st in groups[0].subtasks]
+        assert "1.1" in ids
+        assert "1.2" in ids
+        assert "1.V" in ids
+
+
+# -- TS-F3-E1: Unknown subtask suffix ignored ---------------------------------
+
+
+class TestUnknownSubtaskSuffixIgnored:
+    """TS-F3-E1: Subtask with ID like 1.X is not parsed.
+
+    Requirements: F3-REQ-1.E1
+    """
+
+    def test_unknown_suffix_not_parsed(
+        self, tasks_md_with_unknown_suffix: Path
+    ) -> None:
+        """1.X is NOT included in parsed subtasks."""
+        groups = parse_tasks(tasks_md_with_unknown_suffix)
+
+        ids = [st.id for st in groups[0].subtasks]
+        assert "1.X" not in ids
+
+
 class TestParseCrossDepStandardFormat:
     """Parse cross-spec dependencies from standard table format."""
 

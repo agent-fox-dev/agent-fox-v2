@@ -117,6 +117,88 @@ PRD_MD_ALT_FORMAT_SINGLE = """\
 | 01_core_foundation | 3 | 1 | Extends the init command implemented in group 3 |
 """
 
+# -- TS-F3 fixtures: tasks.md with N.V verification subtasks ----------------
+
+TASKS_MD_WITH_VERIFY = """\
+# Implementation Plan: Test Spec
+
+## Tasks
+
+- [ ] 1. Write failing tests
+  - [ ] 1.1 Create test fixtures
+  - [ ] 1.2 Write unit tests
+  - [x] 1.V Verify task group 1
+"""
+
+TASKS_MD_WITH_VERIFY_AND_NUMERIC = """\
+# Implementation Plan: Test Spec
+
+## Tasks
+
+- [ ] 1. Write failing tests
+  - [ ] 1.1 Create test fixtures
+  - [ ] 1.2 Write unit tests
+  - [x] 1.V Verify task group 1
+"""
+
+TASKS_MD_WITH_UNKNOWN_SUFFIX = """\
+# Implementation Plan: Test Spec
+
+## Tasks
+
+- [ ] 1. Write failing tests
+  - [ ] 1.1 Create test fixtures
+  - [ ] 1.X Some unknown step
+"""
+
+# -- TS-F3 fixtures: prd.md with alt table referencing bad specs/groups -----
+
+PRD_MD_ALT_BAD_SPEC = """\
+# PRD: Test
+
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 99_nonexistent | 1 | 1 | Does not exist |
+"""
+
+PRD_MD_ALT_BAD_FROM_GROUP = """\
+# PRD: Test
+
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 7 | 1 | Group 7 does not exist in 01_core_foundation |
+"""
+
+PRD_MD_ALT_BAD_TO_GROUP = """\
+# PRD: Test
+
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 1 | 99 | Group 99 does not exist in current spec |
+"""
+
+PRD_MD_BOTH_FORMATS_BROKEN = """\
+# PRD: Test
+
+## Dependencies (standard)
+
+| This Spec | Depends On | What It Uses |
+|-----------|-----------|--------------|
+| test_spec | 99_missing_std | From standard table |
+
+## Dependencies (alternative)
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 99_missing_alt | 1 | 1 | From alt table |
+"""
+
 
 # -- Fixture: specs directory with multiple specs, all with tasks.md --------
 
@@ -252,3 +334,22 @@ def prd_md_no_deps(tmp_path: Path) -> Path:
     prd_path = tmp_path / "prd.md"
     prd_path.write_text(PRD_MD_NO_DEPS)
     return prd_path
+
+
+# -- TS-F3 fixtures ---------------------------------------------------------
+
+
+@pytest.fixture
+def tasks_md_with_verify(tmp_path: Path) -> Path:
+    """Create a tasks.md with a 1.V verification subtask."""
+    tasks_path = tmp_path / "tasks.md"
+    tasks_path.write_text(TASKS_MD_WITH_VERIFY)
+    return tasks_path
+
+
+@pytest.fixture
+def tasks_md_with_unknown_suffix(tmp_path: Path) -> Path:
+    """Create a tasks.md with a 1.X unknown subtask suffix."""
+    tasks_path = tmp_path / "tasks.md"
+    tasks_path.write_text(TASKS_MD_WITH_UNKNOWN_SUFFIX)
+    return tasks_path
