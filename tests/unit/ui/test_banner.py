@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from rich.console import Console
@@ -116,10 +117,20 @@ class TestBannerVersionModel:
     Requirements: 14-REQ-2.1, 14-REQ-2.2
     """
 
-    def test_version_and_model_line_format(self) -> None:
-        """Banner output contains version and resolved model ID line."""
-        # coding="ADVANCED" -> resolves to claude-opus-4-6
-        output = _capture_banner(ThemeConfig(), ModelConfig())
+    def test_version_and_model_line_with_revision(self) -> None:
+        """Banner output contains version, revision, and resolved model ID."""
+        with patch("agent_fox.ui.banner._get_git_revision", return_value="abc1234"):
+            output = _capture_banner(ThemeConfig(), ModelConfig())
+
+        expected = f"agent-fox v{__version__} (abc1234).  model: claude-opus-4-6"
+        assert expected in output, (
+            f"Expected {expected!r} in banner output, got:\n{output}"
+        )
+
+    def test_version_and_model_line_without_revision(self) -> None:
+        """Banner omits revision gracefully when git is unavailable."""
+        with patch("agent_fox.ui.banner._get_git_revision", return_value=None):
+            output = _capture_banner(ThemeConfig(), ModelConfig())
 
         expected = f"agent-fox v{__version__}  model: claude-opus-4-6"
         assert expected in output, (

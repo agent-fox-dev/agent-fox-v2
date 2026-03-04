@@ -10,6 +10,7 @@ Requirements: 01-REQ-1.3, 14-REQ-1.1, 14-REQ-1.2, 14-REQ-2.1,
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from agent_fox import __version__
@@ -21,6 +22,22 @@ FOX_ART = r"""   /\_/\  _
   / o.o \/ \
  ( > ^ < )  )
   \_^/\_/--'"""
+
+
+def _get_git_revision() -> str | None:
+    """Return the short git revision hash, or None if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
 
 
 def _resolve_coding_model_display(model_config: ModelConfig) -> str:
@@ -61,7 +78,11 @@ def render_banner(
 
     # 14-REQ-2.1, 14-REQ-2.2, 14-REQ-2.3, 14-REQ-2.E1: Version + model line
     model_display = _resolve_coding_model_display(model_config)
-    version_line = f"agent-fox v{__version__}  model: {model_display}"
+    revision = _get_git_revision()
+    version_part = f"agent-fox v{__version__}"
+    if revision:
+        version_part += f" ({revision})."
+    version_line = f"{version_part}  model: {model_display}"
     console.print(version_line, style="header", highlight=False)
 
     # 14-REQ-3.1, 14-REQ-3.2, 14-REQ-3.E1: Working directory with fallback

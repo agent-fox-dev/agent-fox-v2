@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -97,10 +98,11 @@ class TestVersionLineAlwaysPresent:
     def test_version_model_line_for_valid_models(self, model_name: str) -> None:
         """Version/model line appears with correct resolved model ID."""
         model_config = ModelConfig(coding=model_name)
-        output = _capture_banner(ThemeConfig(), model_config)
+        with patch("agent_fox.ui.banner._get_git_revision", return_value="abc1234"):
+            output = _capture_banner(ThemeConfig(), model_config)
 
         resolved_id = _MODEL_RESOLUTION[model_name]
-        expected = f"agent-fox v{__version__}  model: {resolved_id}"
+        expected = f"agent-fox v{__version__} (abc1234).  model: {resolved_id}"
         assert expected in output, (
             f"Expected {expected!r} for coding={model_name!r}, got:\n{output}"
         )
