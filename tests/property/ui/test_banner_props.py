@@ -41,10 +41,10 @@ _VALID_MODEL_NAMES = [
 
 # Expected resolved model IDs for each valid input
 _MODEL_RESOLUTION: dict[str, str] = {
-    "SIMPLE": "claude-haiku-4-5-20251001",
+    "SIMPLE": "claude-haiku-4-5",
     "STANDARD": "claude-sonnet-4-6",
     "ADVANCED": "claude-opus-4-6",
-    "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001",
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5",
     "claude-sonnet-4-6": "claude-sonnet-4-6",
     "claude-opus-4-6": "claude-opus-4-6",
 }

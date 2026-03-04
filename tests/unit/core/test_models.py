@@ -82,10 +82,10 @@ class TestCostCalculation:
         """Cost with only input tokens is correct."""
         model = resolve_model("SIMPLE")
 
-        # Haiku: $0.80/M input
+        # Haiku: $1.00/M input
         cost = calculate_cost(1_000_000, 0, model)
 
-        assert abs(cost - 0.80) < 0.01
+        assert abs(cost - 1.00) < 0.01
 
 
 class TestUnknownModelID:
