@@ -29,13 +29,9 @@ def make_session_record(
     error_message: str | None = None,
     timestamp: str | None = None,
     model: str = "STANDARD",
+    files_touched: list[str] | None = None,
 ) -> SessionRecord:
-    """Create a SessionRecord with sensible defaults.
-
-    Note: The ``model`` parameter is stored separately; the actual
-    SessionRecord dataclass does not have a model field. The caller
-    must track model info if needed for cost breakdown tests.
-    """
+    """Create a SessionRecord with sensible defaults."""
     if timestamp is None:
         timestamp = datetime.now(UTC).isoformat()
     return SessionRecord(
@@ -48,6 +44,8 @@ def make_session_record(
         duration_ms=duration_ms,
         error_message=error_message,
         timestamp=timestamp,
+        model=model,
+        files_touched=files_touched or [],
     )
 
 

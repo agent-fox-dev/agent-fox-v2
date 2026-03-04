@@ -42,6 +42,8 @@ async def invoke_runner(
         duration_ms=result.duration_ms,
         error_message=result.error_message,
         timestamp=getattr(result, "timestamp", ""),
+        model=getattr(result, "model", ""),
+        files_touched=getattr(result, "files_touched", []),
     )
 
 

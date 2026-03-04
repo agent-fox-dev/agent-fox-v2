@@ -288,6 +288,7 @@ class NodeSessionRunner:
             error_message=error_message,
             timestamp=datetime.now(UTC).isoformat(),
             model=model_entry.model_id,
+            files_touched=touched_files,
         )
 
     def _record_session_to_sink(

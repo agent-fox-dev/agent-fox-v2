@@ -164,9 +164,9 @@ def generate_standup(
         agent_author,
     )
 
-    # Detect file overlaps — currently empty because SessionRecord
-    # does not track touched_paths yet.
-    file_overlaps = _detect_overlaps({}, human_commits)
+    # Build agent file map from session records' files_touched
+    agent_files = _build_agent_file_map(windowed_sessions)
+    file_overlaps = _detect_overlaps(agent_files, human_commits)
 
     # Build cost breakdown by model tier
     cost_breakdown = _build_cost_breakdown(windowed_sessions)
@@ -340,38 +340,64 @@ def _detect_overlaps(
     return overlaps
 
 
-def _build_cost_breakdown(
+def _build_agent_file_map(
     sessions: list[SessionRecord],
-) -> list[CostBreakdown]:
-    """Build cost breakdown by model tier from windowed sessions.
+) -> dict[str, list[str]]:
+    """Build a mapping of file path to agent task IDs from session records.
 
-    Note: SessionRecord does not have a model field. All sessions
-    are grouped under a single 'default' tier.
+    Aggregates ``files_touched`` across all windowed sessions, mapping
+    each file path to the list of task IDs (node_ids) that touched it.
 
     Args:
         sessions: Session records within the reporting window.
 
     Returns:
-        List of CostBreakdown entries, one per model tier.
+        Dict mapping file path to list of task IDs that touched it.
+    """
+    file_map: dict[str, list[str]] = defaultdict(list)
+    for session in sessions:
+        for fpath in session.files_touched:
+            if session.node_id not in file_map[fpath]:
+                file_map[fpath].append(session.node_id)
+    return dict(file_map)
+
+
+def _build_cost_breakdown(
+    sessions: list[SessionRecord],
+) -> list[CostBreakdown]:
+    """Build cost breakdown by model tier from windowed sessions.
+
+    Groups sessions by their ``model`` field. Sessions without a model
+    value are grouped under "default".
+
+    Args:
+        sessions: Session records within the reporting window.
+
+    Returns:
+        List of CostBreakdown entries, one per model tier, sorted by tier.
     """
     if not sessions:
         return []
 
-    # Group all sessions under 'default' tier since SessionRecord
-    # does not track model information.
-    total_input = sum(s.input_tokens for s in sessions)
-    total_output = sum(s.output_tokens for s in sessions)
-    total_cost = sum(s.cost for s in sessions)
+    groups: dict[str, list[SessionRecord]] = defaultdict(list)
+    for session in sessions:
+        tier = session.model or "default"
+        groups[tier].append(session)
 
-    return [
-        CostBreakdown(
-            tier="default",
-            sessions=len(sessions),
-            input_tokens=total_input,
-            output_tokens=total_output,
-            cost=total_cost,
-        ),
-    ]
+    breakdowns: list[CostBreakdown] = []
+    for tier in sorted(groups):
+        tier_sessions = groups[tier]
+        breakdowns.append(
+            CostBreakdown(
+                tier=tier,
+                sessions=len(tier_sessions),
+                input_tokens=sum(s.input_tokens for s in tier_sessions),
+                output_tokens=sum(s.output_tokens for s in tier_sessions),
+                cost=sum(s.cost for s in tier_sessions),
+            ),
+        )
+
+    return breakdowns
 
 
 def _build_queue_summary(
