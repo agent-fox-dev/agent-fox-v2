@@ -109,32 +109,32 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ui/progress.py`
 
-- [ ] 4. Wire activity callback into session runner
-  - [ ] 4.1 Add `activity_callback` parameter to `run_session()` and `_execute_query()`
+- [x] 4. Wire activity callback into session runner
+  - [x] 4.1 Add `activity_callback` parameter to `run_session()` and `_execute_query()`
     - Optional `ActivityCallback | None = None`, default None
     - Thread through to the SDK message loop
     - _Requirements: 18-REQ-2.3_
 
-  - [ ] 4.2 Implement `_extract_activity()` in `agent_fox/session/runner.py`
+  - [x] 4.2 Implement `_extract_activity()` in `agent_fox/session/runner.py`
     - Inspect SDK message: if tool-use, extract tool name + first arg
     - Call `abbreviate_arg()` on the argument
     - If unknown message type, return thinking event
     - _Requirements: 18-REQ-2.1, 18-REQ-2.2_
 
-  - [ ] 4.3 Call activity callback in the message loop
+  - [x] 4.3 Call activity callback in the message loop
     - For non-result messages, call `_extract_activity()` and invoke callback
     - Wrap callback invocation in try/except to prevent session disruption
     - _Requirements: 18-REQ-2.1, 18-REQ-2.E1_
 
-  - [ ] 4.4 Thread callback through `NodeSessionRunner`
+  - [x] 4.4 Thread callback through `NodeSessionRunner`
     - Add `activity_callback` parameter to `NodeSessionRunner.__init__()`
     - Pass to `run_session()` in `_run_and_harvest()`
     - _Requirements: 18-REQ-5.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Runner callback tests pass: `uv run pytest tests/unit/session/test_runner.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/runner.py agent_fox/engine/session_lifecycle.py`
+  - [x] 4.V Verify task group 4
+    - [x] Runner callback tests pass: `uv run pytest tests/unit/session/test_runner.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/runner.py agent_fox/engine/session_lifecycle.py`
 
 - [ ] 5. Wire task callback into orchestrator and code command
   - [ ] 5.1 Add `task_callback` parameter to `Orchestrator.__init__()`
