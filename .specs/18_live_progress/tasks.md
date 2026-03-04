@@ -164,6 +164,47 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
   - Run full linter check
   - Manual smoke test: `agent-fox code --quiet` (no spinner), regular run (spinner visible)
 
+- [ ] 7. Write failing tests for path truncation update
+  - [ ] 7.1 Add unit tests for trailing path component abbreviation
+    - Test: long absolute path abbreviated to trailing components with `…/` prefix
+    - Test: path where only basename fits falls back to basename
+    - Test: path that already fits within max_len returned as-is
+    - Test: path with many components keeps maximum context
+    - _Test Spec: TS-18-6, TS-18-11, TS-18-12, TS-18-13_
+
+  - [ ] 7.2 Add property test for path abbreviation length invariant
+    - For any path containing `/` and any `max_len >= 4`, result length <= max_len
+    - _Test Spec: TS-18-P6_
+
+  - [ ] 7.V Verify task group 7
+    - [ ] New tests exist and are syntactically valid
+    - [ ] New tests FAIL against current basename-only implementation
+    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+
+- [ ] 8. Implement trailing path component abbreviation
+  - [ ] 8.1 Rewrite `abbreviate_arg()` path handling in `agent_fox/ui/events.py`
+    - Split path on separator, collect components from the right
+    - Build candidate with `…/` prefix, dropping leftmost components until it fits
+    - If path already fits within max_len, return it as-is
+    - Fall back to basename only when even `…/parent/basename` exceeds max_len
+    - _Requirements: 18-REQ-2.E2_
+
+  - [ ] 8.2 Verify idempotence still holds with new algorithm
+    - Abbreviated path containing `…/` must remain stable when re-abbreviated
+    - _Property 2: Abbreviation Idempotence_
+
+  - [ ] 8.V Verify task group 8
+    - [ ] New path truncation tests pass: `uv run pytest tests/unit/ui/test_events.py -q`
+    - [ ] Property tests pass: `uv run pytest tests/property/ui/test_progress_props.py -q`
+    - [ ] All existing tests still pass: `uv run pytest -q`
+    - [ ] No linter warnings: `uv run ruff check agent_fox/ui/events.py`
+    - [ ] Requirements 18-REQ-2.E2 acceptance criteria met
+
+- [ ] 9. Checkpoint -- Path Truncation Update Complete
+  - Ensure all tests pass (existing + new)
+  - Run full linter check
+  - Verify abbreviation idempotence property still holds
+
 ## Traceability
 
 | Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
@@ -177,7 +218,7 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
 | 18-REQ-2.2 | TS-18-3 | 4.2 | tests/unit/ui/test_progress.py |
 | 18-REQ-2.3 | TS-18-9 | 4.1 | tests/unit/session/test_runner.py |
 | 18-REQ-2.E1 | TS-18-E3 | 4.3 | tests/unit/session/test_runner.py |
-| 18-REQ-2.E2 | TS-18-6 | 2.2 | tests/unit/ui/test_events.py |
+| 18-REQ-2.E2 | TS-18-6, TS-18-11, TS-18-12, TS-18-13, TS-18-P6 | 8.1 | tests/unit/ui/test_events.py, tests/property/ui/test_progress_props.py |
 | 18-REQ-2.E3 | TS-18-7 | 2.2 | tests/unit/ui/test_events.py |
 | 18-REQ-3.1 | TS-18-2 | 3.3 | tests/unit/ui/test_progress.py |
 | 18-REQ-3.2 | TS-18-2 | 3.3 | tests/unit/ui/test_progress.py |
@@ -202,3 +243,4 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
 | Property 3 | TS-18-P3 | 3.1 | tests/property/ui/test_progress_props.py |
 | Property 4 | TS-18-P4 | 3.4 | tests/property/ui/test_progress_props.py |
 | Property 5 | TS-18-P5 | 4.1 | tests/unit/session/test_runner.py |
+| Property 6 | TS-18-P6 | 8.1 | tests/property/ui/test_progress_props.py |

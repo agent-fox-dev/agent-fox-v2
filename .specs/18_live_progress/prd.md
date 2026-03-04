@@ -63,6 +63,17 @@ milestones scrolling up while the spinner continues below.
    session.
 3. **Permanent events:** Only task completion and failure produce permanent
    lines. Task starts, sync barriers, and cost updates do not.
+4. **Path truncation:** File paths should be truncated meaningfully by keeping
+   as many trailing path components as fit within `max_len`, prefixed with `…/`.
+   For example, `/Users/dev/workspace/project/agent_fox/ui/events.py` with
+   `max_len=30` becomes `…/agent_fox/ui/events.py`. If even one parent
+   directory plus basename exceeds `max_len`, fall back to basename only.
+   This preserves directory context so that two files with the same name in
+   different directories remain distinguishable.
+5. **Local SDK activity:** When the coding agent SDK performs local operations
+   (Read, Write, Edit, Bash, etc.), these are shown on the spinner line with
+   their tool name and abbreviated argument, same as model-driven tool calls.
+   "Thinking ..." is shown when the model is processing (no tool invocation).
 
 ## Dependencies
 

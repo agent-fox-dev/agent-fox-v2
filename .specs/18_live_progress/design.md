@@ -79,8 +79,18 @@ TaskCallback = Callable[[TaskEvent], None]
 def abbreviate_arg(raw: str, max_len: int = 30) -> str:
     """Shorten a tool argument for display.
 
-    - File paths: return basename only.
+    - File paths: keep as many trailing path components as fit within
+      max_len, prefixed with ``…/``. Falls back to basename only if
+      even parent + basename exceeds max_len.
     - Other strings: truncate to max_len with ellipsis.
+
+    Algorithm for paths:
+    1. Split on ``/`` (or ``\\``). Collect components from the right.
+    2. Build candidate = ``…/`` + ``comp_n/.../basename``.
+    3. While candidate length > max_len, drop the leftmost included
+       component.
+    4. If only the basename remains and it still exceeds max_len,
+       truncate the basename itself with ``...``.
     """
 ```
 
@@ -274,6 +284,13 @@ SHALL have length <= terminal width.
 equal `abbreviate_arg(s)`.
 
 **Validates:** 18-REQ-2.E2, 18-REQ-2.E3
+
+### Property 6: Abbreviated Path Fits Within max_len
+
+*For any* file path string and `max_len >= 4`, `abbreviate_arg(path, max_len)`
+SHALL produce a result with `len(result) <= max_len`.
+
+**Validates:** 18-REQ-2.E2
 
 ### Property 3: Quiet Produces No Output
 

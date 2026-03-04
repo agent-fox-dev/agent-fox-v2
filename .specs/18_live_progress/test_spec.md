@@ -136,24 +136,93 @@ ASSERT "failed" IN output
 
 ---
 
-### TS-18-6: Abbreviate file path to basename
+### TS-18-6: Abbreviate file path with trailing components
 
 **Requirement:** 18-REQ-2.E2
 **Type:** unit
-**Description:** File paths are abbreviated to basename only.
+**Description:** File paths are abbreviated to trailing components that fit within max_len.
 
 **Preconditions:** None.
 
 **Input:**
-- `"/Users/dev/workspace/project/src/agent_fox/core/config.py"`
+- `"/Users/dev/workspace/project/src/agent_fox/core/config.py"`, `max_len=30`
 
 **Expected:**
-- `"config.py"`
+- `"…/agent_fox/core/config.py"` (27 chars, fits within 30)
 
 **Assertion pseudocode:**
 ```
-result = abbreviate_arg("/Users/dev/workspace/project/src/agent_fox/core/config.py")
+result = abbreviate_arg("/Users/dev/workspace/project/src/agent_fox/core/config.py", max_len=30)
+ASSERT result == "…/agent_fox/core/config.py"
+ASSERT len(result) <= 30
+```
+
+---
+
+### TS-18-11: Abbreviate path falls back to basename when tight
+
+**Requirement:** 18-REQ-2.E2
+**Type:** unit
+**Description:** When even parent + basename exceeds max_len, fall back to basename.
+
+**Preconditions:** None.
+
+**Input:**
+- `"/a/very_long_directory_name/config.py"`, `max_len=15`
+
+**Expected:**
+- `"config.py"` (basename only, since `…/very_long_directory_name/config.py` exceeds 15)
+
+**Assertion pseudocode:**
+```
+result = abbreviate_arg("/a/very_long_directory_name/config.py", max_len=15)
 ASSERT result == "config.py"
+```
+
+---
+
+### TS-18-12: Abbreviate path keeps maximum context
+
+**Requirement:** 18-REQ-2.E2
+**Type:** unit
+**Description:** Abbreviation keeps as many trailing path components as possible.
+
+**Preconditions:** None.
+
+**Input:**
+- `"/home/user/project/src/components/Button.tsx"`, `max_len=40`
+
+**Expected:**
+- `"…/src/components/Button.tsx"` (fits within 40, includes src/)
+
+**Assertion pseudocode:**
+```
+result = abbreviate_arg("/home/user/project/src/components/Button.tsx", max_len=40)
+ASSERT "components/Button.tsx" IN result
+ASSERT result.startswith("…/")
+ASSERT len(result) <= 40
+```
+
+---
+
+### TS-18-13: Short path returned as-is
+
+**Requirement:** 18-REQ-2.E2
+**Type:** unit
+**Description:** Paths that already fit within max_len are returned unchanged.
+
+**Preconditions:** None.
+
+**Input:**
+- `"src/config.py"`, `max_len=30`
+
+**Expected:**
+- `"src/config.py"` (13 chars, already fits)
+
+**Assertion pseudocode:**
+```
+result = abbreviate_arg("src/config.py", max_len=30)
+ASSERT result == "src/config.py"
 ```
 
 ---
@@ -480,6 +549,25 @@ ASSERT outcome_without.status == outcome_with.status
 ASSERT outcome_without.input_tokens == outcome_with.input_tokens
 ```
 
+### TS-18-P6: Abbreviated Path Always Fits Within max_len
+
+**Property:** Property 6 from design.md
+**Validates:** 18-REQ-2.E2
+**Type:** property
+**Description:** For any file path, abbreviation result length never exceeds max_len.
+
+**For any:** `path: str` containing `/` (length 1..300), `max_len: int` (4..100)
+**Invariant:** `len(abbreviate_arg(path, max_len)) <= max_len`
+
+**Assertion pseudocode:**
+```
+FOR ANY path IN paths_with_slash(1..300), max_len IN integers(4..100):
+    result = abbreviate_arg(path, max_len)
+    ASSERT len(result) <= max_len
+```
+
+---
+
 ## Coverage Matrix
 
 | Requirement | Test Spec Entry | Type |
@@ -493,7 +581,7 @@ ASSERT outcome_without.input_tokens == outcome_with.input_tokens
 | 18-REQ-2.2 | TS-18-3 | unit |
 | 18-REQ-2.3 | TS-18-9 | unit |
 | 18-REQ-2.E1 | TS-18-E3 | unit |
-| 18-REQ-2.E2 | TS-18-6 | unit |
+| 18-REQ-2.E2 | TS-18-6, TS-18-11, TS-18-12, TS-18-13, TS-18-P6 | unit, property |
 | 18-REQ-2.E3 | TS-18-7 | unit |
 | 18-REQ-3.1 | TS-18-2 | unit |
 | 18-REQ-3.2 | TS-18-2 | unit |
@@ -518,3 +606,4 @@ ASSERT outcome_without.input_tokens == outcome_with.input_tokens
 | Property 3 | TS-18-P3 | property |
 | Property 4 | TS-18-P4 | property |
 | Property 5 | TS-18-P5 | property |
+| Property 6 | TS-18-P6 | property |

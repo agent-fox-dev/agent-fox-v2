@@ -64,9 +64,13 @@ using, so I know the fox is making progress.
    activity event emission SHALL stop gracefully without affecting session
    execution.
 2. [18-REQ-2.E2] IF the tool-use argument is a file path, THEN the
-   activity event SHALL abbreviate it to the basename only.
-3. [18-REQ-2.E3] IF the tool-use argument exceeds 30 characters after
-   abbreviation, THEN it SHALL be truncated with an ellipsis.
+   activity event SHALL abbreviate it by keeping as many trailing path
+   components as fit within `max_len`, prefixed with `…/`. IF even a
+   single parent directory plus basename exceeds `max_len`, THEN the
+   system SHALL fall back to basename only.
+3. [18-REQ-2.E3] IF the tool-use argument exceeds `max_len` characters
+   after abbreviation (non-path strings), THEN it SHALL be truncated
+   with an ellipsis.
 
 ### Requirement 3: Spinner Line Rendering
 
