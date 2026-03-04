@@ -8,8 +8,6 @@ Requirements: 18-REQ-2.1, 18-REQ-2.E2, 18-REQ-2.E3, 18-REQ-4.1
 
 from __future__ import annotations
 
-import ntpath
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -40,20 +38,73 @@ TaskCallback = Callable[[TaskEvent], None]
 def abbreviate_arg(raw: str, max_len: int = 30) -> str:
     """Shorten a tool argument for display.
 
-    - File paths (containing / or \\): return basename only.
-    - Other strings: truncate to max_len with ellipsis.
+    - File paths: keep as many trailing path components as fit within
+      max_len, prefixed with ``…/``. Falls back to basename only if
+      even ``…/parent/basename`` exceeds max_len. If the path already
+      fits within max_len, return it as-is.
+    - Other strings: truncate to max_len with ``...`` suffix.
     - Empty strings: return as-is.
+
+    Algorithm for paths:
+    1. If the full path already fits, return it unchanged.
+    2. Split on separator. Collect components from the right.
+    3. Build candidate = ``…/`` + ``comp_n/.../basename``.
+    4. While candidate length > max_len, drop the leftmost included
+       component.
+    5. If only the basename remains and it still exceeds max_len,
+       truncate the basename itself with ``...``.
     """
     if not raw:
         return raw
 
-    # Detect file paths and extract basename
-    if "/" in raw or "\\" in raw:
-        # Use ntpath for Windows-style paths (backslash), os.path for Unix
-        basename = ntpath.basename(raw) if "\\" in raw else os.path.basename(raw)
-        return basename
+    # Detect file paths
+    is_path = "/" in raw or "\\" in raw
+    if is_path:
+        # If the path already fits, return as-is
+        if len(raw) <= max_len:
+            return raw
 
-    # Truncate long strings
+        # Split on the appropriate separator
+        if "\\" in raw:
+            parts = [p for p in raw.replace("\\", "/").split("/") if p]
+        else:
+            parts = [p for p in raw.split("/") if p]
+
+        if not parts:
+            return raw
+
+        basename = parts[-1]
+
+        # Try to fit as many trailing components as possible with …/ prefix
+        # Start with all components except the first, then drop from the left
+        prefix = "…/"
+
+        # Try adding components from the right
+        # Start with just the basename
+        included = [basename]
+        for i in range(len(parts) - 2, -1, -1):
+            candidate_parts = [parts[i]] + included
+            candidate = prefix + "/".join(candidate_parts)
+            if len(candidate) <= max_len:
+                included = candidate_parts
+            else:
+                break
+
+        if len(included) > 1 or (len(included) == 1 and included[0] != basename):
+            result = prefix + "/".join(included)
+            if len(result) <= max_len:
+                return result
+
+        # Fall back to basename only
+        if len(basename) <= max_len:
+            return basename
+
+        # Basename itself exceeds max_len — truncate it
+        if max_len >= 4:
+            return basename[: max_len - 3] + "..."
+        return basename[:max_len]
+
+    # Truncate long non-path strings
     if len(raw) > max_len:
         return raw[: max_len - 3] + "..."
 

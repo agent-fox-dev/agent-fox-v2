@@ -10,24 +10,28 @@ from agent_fox.ui.events import ActivityEvent, TaskEvent, abbreviate_arg
 
 
 class TestAbbreviateArgBasename:
-    """TS-18-6: Abbreviate file path to basename."""
+    """TS-18-6: Abbreviate file path — trailing components."""
 
-    def test_unix_path_returns_basename(self) -> None:
-        """File paths are abbreviated to basename only."""
+    def test_unix_path_abbreviated_with_trailing_components(self) -> None:
+        """Long Unix paths abbreviated to trailing components."""
         result = abbreviate_arg(
             "/Users/dev/workspace/project/src/agent_fox/core/config.py"
         )
-        assert result == "config.py"
+        # Default max_len=30; "…/src/agent_fox/core/config.py" is 30 chars (… is 1 char)
+        assert result == "…/src/agent_fox/core/config.py"
+        assert len(result) <= 30
 
-    def test_windows_path_returns_basename(self) -> None:
-        """Windows-style paths are also abbreviated."""
+    def test_windows_path_fits_returned_as_is(self) -> None:
+        """Windows-style path that fits within max_len returned as-is."""
         result = abbreviate_arg(r"C:\Users\dev\project\config.py")
-        assert result == "config.py"
+        # 30 chars == default max_len, fits
+        assert result == r"C:\Users\dev\project\config.py"
 
-    def test_relative_path_returns_basename(self) -> None:
-        """Relative paths are abbreviated to basename."""
+    def test_relative_path_fits_returned_as_is(self) -> None:
+        """Relative paths that fit within max_len are returned unchanged."""
         result = abbreviate_arg("src/agent_fox/core/config.py")
-        assert result == "config.py"
+        # 29 chars < 30, fits
+        assert result == "src/agent_fox/core/config.py"
 
 
 class TestAbbreviateArgTrailingComponents:
@@ -42,7 +46,8 @@ class TestAbbreviateArgTrailingComponents:
             "/Users/dev/workspace/project/src/agent_fox/core/config.py",
             max_len=30,
         )
-        assert result == "…/agent_fox/core/config.py"
+        # "…/src/agent_fox/core/config.py" is exactly 30 chars (… is 1 char)
+        assert result == "…/src/agent_fox/core/config.py"
         assert len(result) <= 30
 
     def test_path_falls_back_to_basename_when_tight(self) -> None:

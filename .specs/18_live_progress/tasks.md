@@ -181,24 +181,24 @@ runner, then wire into the orchestrator, and finally integrate into `code_cmd`.
     - [x] New tests FAIL against current basename-only implementation
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 8. Implement trailing path component abbreviation
-  - [ ] 8.1 Rewrite `abbreviate_arg()` path handling in `agent_fox/ui/events.py`
+- [x] 8. Implement trailing path component abbreviation
+  - [x] 8.1 Rewrite `abbreviate_arg()` path handling in `agent_fox/ui/events.py`
     - Split path on separator, collect components from the right
     - Build candidate with `…/` prefix, dropping leftmost components until it fits
     - If path already fits within max_len, return it as-is
     - Fall back to basename only when even `…/parent/basename` exceeds max_len
     - _Requirements: 18-REQ-2.E2_
 
-  - [ ] 8.2 Verify idempotence still holds with new algorithm
+  - [x] 8.2 Verify idempotence still holds with new algorithm
     - Abbreviated path containing `…/` must remain stable when re-abbreviated
     - _Property 2: Abbreviation Idempotence_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] New path truncation tests pass: `uv run pytest tests/unit/ui/test_events.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/ui/test_progress_props.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ui/events.py`
-    - [ ] Requirements 18-REQ-2.E2 acceptance criteria met
+  - [x] 8.V Verify task group 8
+    - [x] New path truncation tests pass: `uv run pytest tests/unit/ui/test_events.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/ui/test_progress_props.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ui/events.py`
+    - [x] Requirements 18-REQ-2.E2 acceptance criteria met
 
 - [ ] 9. Checkpoint -- Path Truncation Update Complete
   - Ensure all tests pass (existing + new)
