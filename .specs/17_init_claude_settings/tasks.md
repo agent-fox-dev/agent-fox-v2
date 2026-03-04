@@ -63,13 +63,13 @@ Task group 1 writes failing tests, task group 2 implements the feature.
     - [x] All spec tests pass (implementation already existed from prior work)
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/cli/test_claude_settings.py tests/property/cli/test_claude_settings_props.py`
 
-- [ ] 2. Implement Claude settings setup
-  - [ ] 2.1 Add `CANONICAL_PERMISSIONS` constant to `agent_fox/cli/init.py`
+- [x] 2. Implement Claude settings setup
+  - [x] 2.1 Add `CANONICAL_PERMISSIONS` constant to `agent_fox/cli/init.py`
     - Define the list of canonical permission strings as a module-level constant
     - Place it near the existing `_GITIGNORE_ENTRIES` constant
     - _Requirements: 17-REQ-1.3_
 
-  - [ ] 2.2 Implement `_ensure_claude_settings()` function
+  - [x] 2.2 Implement `_ensure_claude_settings()` function
     - Create `.claude/` directory if needed (`mkdir(parents=True, exist_ok=True)`)
     - If file doesn't exist: write canonical permissions as formatted JSON
     - If file exists: read, parse, merge missing entries, preserve existing, write back
@@ -78,26 +78,26 @@ Task group 1 writes failing tests, task group 2 implements the feature.
     - _Requirements: 17-REQ-1.1, 17-REQ-1.2, 17-REQ-2.1, 17-REQ-2.2, 17-REQ-2.3_
     - _Requirements: 17-REQ-2.E1, 17-REQ-2.E2, 17-REQ-2.E3_
 
-  - [ ] 2.3 Wire `_ensure_claude_settings()` into `init_cmd()`
+  - [x] 2.3 Wire `_ensure_claude_settings()` into `init_cmd()`
     - Add call in the fresh-init path (after `_update_gitignore`)
     - Add call in the already-initialized path (after `_update_gitignore`)
     - _Requirements: 17-REQ-1.1_
 
-  - [ ] 2.4 Add integration test for init command
+  - [x] 2.4 Add integration test for init command
     - Extend `tests/integration/test_init.py` with a test that runs
       `agent-fox init` and verifies `.claude/settings.local.json` is created
       with canonical permissions
     - _Requirements: 17-REQ-1.1, 17-REQ-1.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All unit tests pass: `uv run pytest tests/unit/cli/test_claude_settings.py -q`
-    - [ ] All property tests pass: `uv run pytest tests/property/cli/test_claude_settings_props.py -q`
-    - [ ] Integration tests pass: `uv run pytest tests/integration/test_init.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/cli/init.py tests/unit/cli/test_claude_settings.py tests/property/cli/test_claude_settings_props.py`
-    - [ ] Requirements 17-REQ-1.1, 17-REQ-1.2, 17-REQ-1.3 acceptance criteria met
-    - [ ] Requirements 17-REQ-2.1, 17-REQ-2.2, 17-REQ-2.3 acceptance criteria met
-    - [ ] Edge cases 17-REQ-1.E1, 17-REQ-2.E1, 17-REQ-2.E2, 17-REQ-2.E3 handled
+  - [x] 2.V Verify task group 2
+    - [x] All unit tests pass: `uv run pytest tests/unit/cli/test_claude_settings.py -q`
+    - [x] All property tests pass: `uv run pytest tests/property/cli/test_claude_settings_props.py -q`
+    - [x] Integration tests pass: `uv run pytest tests/integration/test_init.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/cli/init.py tests/unit/cli/test_claude_settings.py tests/property/cli/test_claude_settings_props.py`
+    - [x] Requirements 17-REQ-1.1, 17-REQ-1.2, 17-REQ-1.3 acceptance criteria met
+    - [x] Requirements 17-REQ-2.1, 17-REQ-2.2, 17-REQ-2.3 acceptance criteria met
+    - [x] Edge cases 17-REQ-1.E1, 17-REQ-2.E1, 17-REQ-2.E2, 17-REQ-2.E3 handled
 
 ### Checkbox States
 

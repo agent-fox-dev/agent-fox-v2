@@ -151,6 +151,61 @@ class TestInitGitignore:
         assert "!.agent-fox/memory.jsonl" in gitignore
 
 
+class TestInitClaudeSettings:
+    """Integration tests for Claude settings creation (Spec 17).
+
+    Requirements: 17-REQ-1.1, 17-REQ-1.2
+    """
+
+    def test_init_creates_claude_settings(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """init creates .claude/settings.local.json with canonical permissions."""
+        import json
+
+        from agent_fox.cli.init import CANONICAL_PERMISSIONS
+
+        result = cli_runner.invoke(main, ["init"])
+
+        assert result.exit_code == 0
+        settings_path = tmp_git_repo / ".claude" / "settings.local.json"
+        assert settings_path.exists()
+
+        data = json.loads(settings_path.read_text())
+        assert "permissions" in data
+        assert "allow" in data["permissions"]
+        for perm in CANONICAL_PERMISSIONS:
+            assert perm in data["permissions"]["allow"]
+
+    def test_reinit_merges_claude_settings(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """Re-running init merges missing canonical permissions."""
+        import json
+
+        from agent_fox.cli.init import CANONICAL_PERMISSIONS
+
+        # First init
+        cli_runner.invoke(main, ["init"])
+
+        # Modify settings to have only a subset + custom entry
+        settings_path = tmp_git_repo / ".claude" / "settings.local.json"
+        custom = {"permissions": {"allow": ["Read", "Bash(custom:*)"]}}
+        settings_path.write_text(json.dumps(custom, indent=2) + "\n")
+
+        # Re-init
+        result = cli_runner.invoke(main, ["init"])
+        assert result.exit_code == 0
+
+        data = json.loads(settings_path.read_text())
+        allow = data["permissions"]["allow"]
+        # Custom entry preserved
+        assert "Bash(custom:*)" in allow
+        # All canonical entries present
+        for perm in CANONICAL_PERMISSIONS:
+            assert perm in allow
+
+
 class TestInitOutsideGitRepo:
     """TS-01-E4: Init outside git repo fails gracefully."""
 
