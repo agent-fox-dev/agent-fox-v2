@@ -14,6 +14,7 @@ import subprocess
 from pathlib import Path
 
 from agent_fox import __version__
+from agent_fox._build_info import GIT_REVISION
 from agent_fox.core.config import ModelConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.ui.theme import AppTheme
@@ -25,13 +26,31 @@ FOX_ART = r"""   /\_/\  _
 
 
 def _get_git_revision() -> str | None:
-    """Return the short git revision hash, or None if unavailable."""
+    """Return the short git revision of the *agent-fox* package.
+
+    Resolution order:
+    1. Build-time stamp in ``_build_info.GIT_REVISION`` (set by
+       ``make stamp-version`` before a non-editable install).
+    2. Live ``git rev-parse`` executed inside the package source tree
+       (works for editable / dev installs where the source *is* a git
+       checkout).
+
+    The previous implementation ran ``git rev-parse`` in the CWD,
+    which returned the revision of whatever repo the user was working
+    in — not agent-fox's own revision.
+    """
+    if GIT_REVISION is not None:
+        return GIT_REVISION
+
+    # Editable-install fallback: resolve from the package source dir.
+    package_dir = str(Path(__file__).resolve().parent.parent)
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
             timeout=5,
+            cwd=package_dir,
         )
         if result.returncode == 0:
             return result.stdout.strip()
