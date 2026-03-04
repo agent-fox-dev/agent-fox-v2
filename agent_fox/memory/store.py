@@ -106,7 +106,7 @@ def _write_jsonl(facts: list[Fact], path: Path, *, mode: str) -> None:
 
 def _fact_to_dict(fact: Fact) -> dict:
     """Serialize a Fact to a JSON-compatible dictionary."""
-    return {
+    d: dict = {
         "id": fact.id,
         "content": fact.content,
         "category": fact.category,
@@ -116,6 +116,11 @@ def _fact_to_dict(fact: Fact) -> dict:
         "created_at": fact.created_at,
         "supersedes": fact.supersedes,
     }
+    if fact.session_id is not None:
+        d["session_id"] = fact.session_id
+    if fact.commit_sha is not None:
+        d["commit_sha"] = fact.commit_sha
+    return d
 
 
 def _dict_to_fact(data: dict) -> Fact:
@@ -129,6 +134,8 @@ def _dict_to_fact(data: dict) -> Fact:
         confidence=data["confidence"],
         created_at=data["created_at"],
         supersedes=data.get("supersedes"),
+        session_id=data.get("session_id"),
+        commit_sha=data.get("commit_sha"),
     )
 
 

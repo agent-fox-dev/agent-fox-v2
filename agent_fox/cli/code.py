@@ -350,9 +350,10 @@ class _NodeSessionRunner:
         status = outcome.status
 
         # 03-REQ-7.1: Harvest changes into develop on success
+        touched_files: list[str] = []
         if outcome.status == "completed":
             try:
-                await harvest(repo_root, workspace)
+                touched_files = await harvest(repo_root, workspace)
             except IntegrationError as exc:
                 # Coding session succeeded but merge to develop failed.
                 # Mark as failed with a clear integration error so the
@@ -370,7 +371,7 @@ class _NodeSessionRunner:
                 )
 
         # 11-REQ-4.2: Record session outcome to sinks (always, best-effort)
-        self._record_session_to_sink(outcome, node_id)
+        self._record_session_to_sink(outcome, node_id, touched_files=touched_files)
 
         # 05-REQ-1.1: Extract facts from session summary (on success only)
         if status == "completed":
@@ -386,12 +387,14 @@ class _NodeSessionRunner:
             duration_ms=outcome.duration_ms,
             error_message=error_message,
             timestamp=datetime.now(UTC).isoformat(),
+            model=model_entry.model_id,
         )
 
     def _record_session_to_sink(
         self,
         outcome: SessionOutcome,
         node_id: str,
+        touched_files: list[str] | None = None,
     ) -> None:
         """Record a session outcome to the sink dispatcher (best-effort)."""
         if self._sink is None:
@@ -401,7 +404,7 @@ class _NodeSessionRunner:
                 spec_name=outcome.spec_name,
                 task_group=str(outcome.task_group),
                 node_id=node_id,
-                touched_paths=outcome.files_touched,
+                touched_paths=touched_files or outcome.files_touched,
                 status=outcome.status,
                 input_tokens=outcome.input_tokens,
                 output_tokens=outcome.output_tokens,
@@ -442,7 +445,9 @@ class _NodeSessionRunner:
 
         try:
             model_name = self._config.models.memory_extraction
-            facts = await extract_facts(transcript, self._spec_name, model_name)
+            facts = await extract_facts(
+                transcript, self._spec_name, model_name, session_id=node_id
+            )
             if facts:
                 append_facts(facts)
                 logger.info(
