@@ -73,7 +73,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -104,7 +104,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -136,7 +136,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -167,7 +167,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -198,7 +198,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -224,7 +224,7 @@ class TestSessionRunnerSDKError:
     ) -> None:
         """An SDK ProcessError results in a failed outcome."""
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
@@ -245,7 +245,7 @@ class TestSessionRunnerSDKError:
     ) -> None:
         """The SDK error message is captured in the outcome."""
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
@@ -277,14 +277,19 @@ class TestSessionRunnerTimeout:
             await asyncio.sleep(3600)
             yield MockResultMessage()  # Never reached
 
+        async def mock_with_timeout(coro, timeout_minutes):
+            del timeout_minutes
+            coro.close()
+            raise TimeoutError()
+
         with (
             patch(
-                "agent_fox.session.runner.query",
+                "agent_fox.session.runner._query_messages",
                 side_effect=mock_query_hangs,
             ),
             patch(
                 "agent_fox.session.runner.with_timeout",
-                side_effect=asyncio.TimeoutError,
+                side_effect=mock_with_timeout,
             ),
         ):
             outcome = await run_session(
@@ -320,7 +325,7 @@ class TestSessionRunnerIsError:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -352,7 +357,7 @@ class TestSessionRunnerIsError:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner.query",
+            "agent_fox.session.runner._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -364,3 +369,101 @@ class TestSessionRunnerIsError:
             )
 
         assert outcome.error_message is not None
+
+
+class TestSessionRunnerResultHandling:
+    """Regression tests for result parsing and timeout partial metrics."""
+
+    @pytest.mark.asyncio
+    async def test_dict_usage_tokens_are_captured(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Dict-shaped usage from current SDK versions is parsed correctly."""
+        result_msg = MockResultMessage(
+            is_error=False,
+            duration_ms=4321,
+            usage={  # type: ignore[arg-type]
+                "input_tokens": 12,
+                "output_tokens": 34,
+            },
+        )
+
+        async def mock_query(*args, **kwargs):
+            yield result_msg
+
+        with patch(
+            "agent_fox.session.runner._query_messages",
+            side_effect=mock_query,
+        ):
+            outcome = await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+            )
+
+        assert outcome.status == "completed"
+        assert outcome.input_tokens == 12
+        assert outcome.output_tokens == 34
+        assert outcome.duration_ms == 4321
+
+    @pytest.mark.asyncio
+    async def test_missing_result_message_returns_failed(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """A stream with no ResultMessage is treated as a failed session."""
+
+        async def mock_query(*args, **kwargs):
+            yield MockAssistantMessage()
+
+        with patch(
+            "agent_fox.session.runner._query_messages",
+            side_effect=mock_query,
+        ):
+            outcome = await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+            )
+
+        assert outcome.status == "failed"
+        assert outcome.error_message is not None
+        assert "without a result message" in outcome.error_message.lower()
+
+    @pytest.mark.asyncio
+    async def test_timeout_preserves_partial_metrics(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Timeout outcome includes partial metrics already observed."""
+
+        async def mock_execute_query(*, state, **kwargs):
+            state.input_tokens = 55
+            state.output_tokens = 89
+            state.duration_ms = 1300
+            raise TimeoutError()
+
+        with patch(
+            "agent_fox.session.runner._execute_query",
+            side_effect=mock_execute_query,
+        ):
+            outcome = await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+            )
+
+        assert outcome.status == "timeout"
+        assert outcome.input_tokens == 55
+        assert outcome.output_tokens == 89
+        assert outcome.duration_ms == 1300

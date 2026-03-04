@@ -72,7 +72,9 @@ def _apply_overrides(
     if max_sessions is not None:
         overrides["max_sessions"] = max_sessions
     if overrides:
-        return config.model_copy(update=overrides)
+        merged = config.model_dump()
+        merged.update(overrides)
+        return OrchestratorConfig.model_validate(merged)
     return config
 
 

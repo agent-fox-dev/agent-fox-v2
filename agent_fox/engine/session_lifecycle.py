@@ -270,8 +270,21 @@ class NodeSessionRunner:
                     exc,
                 )
 
+        sink_outcome = outcome
+        if status != outcome.status or error_message != outcome.error_message:
+            sink_outcome = dataclasses.replace(
+                sink_outcome,
+                status=status,
+                error_message=error_message,
+            )
+        if touched_files:
+            sink_outcome = dataclasses.replace(
+                sink_outcome,
+                touched_paths=touched_files,
+            )
+
         # 11-REQ-4.2: Record session outcome to sinks (always, best-effort)
-        self._record_session_to_sink(outcome, node_id, touched_files=touched_files)
+        self._record_session_to_sink(sink_outcome, node_id)
 
         # 05-REQ-1.1: Extract facts from session summary (on success only)
         if status == "completed":
@@ -295,16 +308,12 @@ class NodeSessionRunner:
         self,
         outcome: SessionOutcome,
         node_id: str,
-        touched_files: list[str] | None = None,
     ) -> None:
         """Record a session outcome to the sink dispatcher (best-effort)."""
         if self._sink is None:
             return
         try:
-            sink_outcome = outcome
-            if touched_files:
-                sink_outcome = dataclasses.replace(outcome, touched_paths=touched_files)
-            self._sink.record_session_outcome(sink_outcome)
+            self._sink.record_session_outcome(outcome)
         except Exception:
             logger.warning(
                 "Failed to record session outcome to sink for %s",
