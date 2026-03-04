@@ -28,6 +28,19 @@ from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
 logger = logging.getLogger(__name__)
 
 
+def _cache_matches_request(
+    graph: TaskGraph,
+    *,
+    fast: bool,
+    filter_spec: str | None,
+) -> bool:
+    """Return True when cached plan metadata matches CLI request flags."""
+    return (
+        graph.metadata.fast_mode == fast
+        and graph.metadata.filtered_spec == filter_spec
+    )
+
+
 def _build_plan(
     specs_dir: Path,
     filter_spec: str | None,
@@ -154,14 +167,27 @@ def plan_cmd(
     if not reanalyze and plan_path.exists():
         existing = load_plan(plan_path)
         if existing is not None:
-            logger.info("Using cached plan from %s", plan_path)
-            # Re-discover specs for summary display
-            try:
-                specs = discover_specs(specs_dir, filter_spec=filter_spec)
-            except PlanError:
-                specs = []
-            _print_summary(existing, specs)
-            return
+            if _cache_matches_request(
+                existing,
+                fast=fast,
+                filter_spec=filter_spec,
+            ):
+                logger.info("Using cached plan from %s", plan_path)
+                # Re-discover specs for summary display
+                try:
+                    specs = discover_specs(specs_dir, filter_spec=filter_spec)
+                except PlanError:
+                    specs = []
+                _print_summary(existing, specs)
+                return
+            logger.info(
+                "Cached plan metadata mismatch; rebuilding "
+                "(cached fast=%s spec=%s, requested fast=%s spec=%s)",
+                existing.metadata.fast_mode,
+                existing.metadata.filtered_spec,
+                fast,
+                filter_spec,
+            )
 
     # Build fresh plan
     try:

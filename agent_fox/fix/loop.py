@@ -87,10 +87,14 @@ async def run_fix_loop(
     # Track loop state
     passes_completed = 0
     sessions_consumed = 0
+    total_cost = 0.0
     total_clusters_seen = 0
     termination_reason = TerminationReason.MAX_PASSES
     current_failures: list[FailureRecord] = []
     current_clusters_count = 0
+
+    # 08-REQ-5.2: cost limit from orchestrator config
+    cost_limit = config.orchestrator.max_cost
 
     fix_specs_dir = project_root / _FIX_SPECS_DIR
 
@@ -117,11 +121,23 @@ async def run_fix_loop(
 
             # Step 2d: Generate fix specs for each cluster
             # Step 2e: Run coding sessions for each fix spec
+            cost_limit_hit = False
             for cluster in clusters:
+                # 08-REQ-5.2: check cost limit before launching session
+                if cost_limit is not None and total_cost >= cost_limit:
+                    logger.warning(
+                        "Cost limit reached ($%.2f >= $%.2f), stopping",
+                        total_cost,
+                        cost_limit,
+                    )
+                    cost_limit_hit = True
+                    break
+
                 fix_spec = generate_fix_spec(cluster, fix_specs_dir, pass_num)
                 if session_runner is not None:
                     try:
-                        await session_runner(fix_spec)
+                        session_cost = await session_runner(fix_spec)
+                        total_cost += session_cost
                     except Exception:
                         logger.warning(
                             "Fix session failed for '%s'",
@@ -133,9 +149,21 @@ async def run_fix_loop(
             # Clean up fix specs after each pass
             cleanup_fix_specs(fix_specs_dir)
 
+            if cost_limit_hit:
+                termination_reason = TerminationReason.COST_LIMIT
+                break
+
         else:
-            # Loop exhausted max_passes without fixing everything
-            termination_reason = TerminationReason.MAX_PASSES
+            # Loop exhausted max_passes: run a final check to verify
+            # the outcome of the last pass (08-REQ-5.1).
+            final_failures, _passed = run_checks(checks, project_root)
+            if not final_failures:
+                termination_reason = TerminationReason.ALL_FIXED
+                current_failures = []
+                current_clusters_count = 0
+            else:
+                termination_reason = TerminationReason.MAX_PASSES
+                current_failures = final_failures
 
     except KeyboardInterrupt:
         termination_reason = TerminationReason.INTERRUPTED

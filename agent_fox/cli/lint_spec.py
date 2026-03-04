@@ -14,6 +14,7 @@ from pathlib import Path
 import click
 
 from agent_fox.core.errors import PlanError
+from agent_fox.core.models import resolve_model
 from agent_fox.spec.discovery import SpecInfo, discover_specs
 from agent_fox.spec.validator import (
     SEVERITY_ERROR,
@@ -191,9 +192,9 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
         try:
             from agent_fox.spec.ai_validator import run_ai_validation
 
-            ai_findings = asyncio.run(
-                run_ai_validation(discovered, "claude-sonnet-4-20250514")
-            )
+            # 09-REQ-8.1: use STANDARD tier via model registry
+            standard_model = resolve_model("STANDARD").model_id
+            ai_findings = asyncio.run(run_ai_validation(discovered, standard_model))
             findings = sort_findings(findings + ai_findings)
         except Exception as exc:
             logger.warning("AI validation failed: %s", exc)

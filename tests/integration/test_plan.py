@@ -204,6 +204,23 @@ class TestPlanCLIEndToEnd:
 
         assert result.exit_code == 0
 
+    def test_plan_fast_rebuilds_when_cached_plan_was_non_fast(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """Running --fast after a cached normal plan rebuilds with fast metadata."""
+        _setup_project(tmp_git_repo)
+
+        first = cli_runner.invoke(main, ["plan"])
+        assert first.exit_code == 0
+
+        second = cli_runner.invoke(main, ["plan", "--fast"])
+        assert second.exit_code == 0
+
+        plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
+        loaded = load_plan(plan_path)
+        assert loaded is not None
+        assert loaded.metadata.fast_mode is True
+
     def test_plan_with_spec_filter(
         self, cli_runner: CliRunner, tmp_git_repo: Path
     ) -> None:
@@ -213,6 +230,33 @@ class TestPlanCLIEndToEnd:
         result = cli_runner.invoke(main, ["plan", "--spec", "01_test"])
 
         assert result.exit_code == 0
+
+    def test_plan_spec_rebuilds_when_cached_plan_is_unfiltered(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """Running --spec after cached unfiltered plan rebuilds and filters nodes."""
+        _setup_project(tmp_git_repo)
+
+        second_spec = tmp_git_repo / ".specs" / "02_other"
+        second_spec.mkdir(parents=True)
+        (second_spec / "tasks.md").write_text(
+            "# Tasks\n\n"
+            "- [ ] 1. Add second feature\n"
+            "  - [ ] 1.1 Implement\n"
+        )
+
+        first = cli_runner.invoke(main, ["plan"])
+        assert first.exit_code == 0
+
+        second = cli_runner.invoke(main, ["plan", "--spec", "01_test"])
+        assert second.exit_code == 0
+
+        plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
+        loaded = load_plan(plan_path)
+        assert loaded is not None
+        assert loaded.metadata.filtered_spec == "01_test"
+        assert loaded.nodes
+        assert {node.spec_name for node in loaded.nodes.values()} == {"01_test"}
 
     def test_plan_with_reanalyze(
         self, cli_runner: CliRunner, tmp_git_repo: Path

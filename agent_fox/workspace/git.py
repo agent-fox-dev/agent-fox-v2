@@ -84,7 +84,7 @@ async def delete_branch(
     if returncode != 0:
         # Branch does not exist -- treat as no-op
         if "not found" in stderr or "error: branch" in stderr:
-            logger.warning(
+            logger.debug(
                 "Branch '%s' does not exist, skipping deletion",
                 branch_name,
             )
@@ -159,6 +159,34 @@ async def merge_fast_forward(
         )
 
 
+async def merge_commit(
+    repo_path: Path,
+    branch: str,
+) -> None:
+    """Merge branch into HEAD with a merge commit.
+
+    Falls back to a regular (non-fast-forward) merge when a
+    fast-forward is not possible.
+
+    Raises:
+        IntegrationError: If the merge fails (conflicts).
+    """
+    returncode, stdout, stderr = await run_git(
+        ["merge", "--no-edit", branch],
+        cwd=repo_path,
+        check=False,
+    )
+    if returncode != 0:
+        # Abort the failed merge to leave the repo in a clean state
+        await run_git(["merge", "--abort"], cwd=repo_path, check=False)
+        # git merge writes conflict details to stdout, not stderr
+        detail = stderr.strip() or stdout.strip()
+        raise IntegrationError(
+            f"Merge of '{branch}' failed: {detail}",
+            branch=branch,
+        )
+
+
 async def rebase_onto(
     repo_path: Path,
     branch: str,
@@ -169,14 +197,16 @@ async def rebase_onto(
     Raises:
         IntegrationError: If rebase fails (conflicts).
     """
-    returncode, _stdout, stderr = await run_git(
-        ["rebase", "--reapply-cherry-picks", onto, branch],
+    returncode, stdout, stderr = await run_git(
+        ["rebase", onto, branch],
         cwd=repo_path,
         check=False,
     )
     if returncode != 0:
+        # git rebase may write conflict details to stdout or stderr
+        detail = stderr.strip() or stdout.strip()
         raise IntegrationError(
-            f"Rebase of '{branch}' onto '{onto}' failed: {stderr.strip()}",
+            f"Rebase of '{branch}' onto '{onto}' failed: {detail}",
             branch=branch,
             onto=onto,
         )

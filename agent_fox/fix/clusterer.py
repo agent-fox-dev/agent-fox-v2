@@ -64,8 +64,8 @@ def _ai_cluster(
 
     Falls back to _fallback_cluster on any error (API, parse, validation).
     """
-    # Resolve the STANDARD model for clustering
-    model_entry = resolve_model(config.models.coordinator)
+    # 08-REQ-3.1: use STANDARD tier for clustering
+    model_entry = resolve_model("STANDARD")
 
     # Build the clustering prompt
     prompt = _build_clustering_prompt(failures)

@@ -17,6 +17,7 @@ flowchart LR
     Banner --> Models[Model Registry<br/>models.py]
     Banner --> Config[Config System<br/>config.py]
     Banner --> CWD[Path.cwd]
+    Banner --> Git[git rev-parse]
 ```
 
 ### Module Responsibilities
@@ -74,6 +75,14 @@ FOX_ART = r"""   /\_/\  _
   \_^/\_/--'"""
 ```
 
+### Git Revision Helper
+
+```python
+def _get_git_revision() -> str | None:
+    """Return the short git revision hash, or None if unavailable."""
+    ...
+```
+
 ### Model Resolution for Banner
 
 ```python
@@ -113,7 +122,9 @@ SHALL contain all four lines of `FOX_ART` unchanged.
 
 *For any* valid `ModelConfig` where `models.coding` resolves to a known model,
 the banner output SHALL contain a line matching the pattern
-`agent-fox v{__version__}  model: {model_id}`.
+`agent-fox v{__version__} ({revision}).  model: {model_id}` when a git
+revision is available, or `agent-fox v{__version__}  model: {model_id}` when
+it is not.
 
 **Validates: Requirements 14-REQ-2.1, 14-REQ-2.2**
 
@@ -144,6 +155,7 @@ SHALL contain the string representation of `Path.cwd()`.
 | Error Condition | Behavior | Requirement |
 |----------------|----------|-------------|
 | Invalid header theme style | Fall back to default header style | 14-REQ-1.E1 (via 01-REQ-7.E1) |
+| Git revision unavailable | Omit revision from version line | 14-REQ-2.4 |
 | Coding model not resolvable | Display raw config value | 14-REQ-2.E1 |
 | `Path.cwd()` raises OSError | Display `(unknown)` | 14-REQ-3.E1 |
 | `--quiet` flag set | Suppress banner entirely | 14-REQ-4.2 |

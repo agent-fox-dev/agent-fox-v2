@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 
@@ -90,6 +91,7 @@ async def extract_facts(
         facts = _parse_extraction_response(raw_text, spec_name, session_id)
     except ValueError:
         logger.warning("Extraction returned invalid JSON, skipping fact extraction")
+        logger.debug("Raw extraction response was: %s", raw_text[:500])
         return []
 
     if not facts:
@@ -170,6 +172,33 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     return links
 
 
+def _strip_markdown_fences(text: str) -> str:
+    """Strip markdown code fences and surrounding prose from LLM output.
+
+    Handles ```json ... ```, ``` ... ```, and plain text wrapping a JSON
+    array.  Returns the inner text if fences are found, otherwise attempts
+    to locate a top-level JSON array bracket pair.
+    """
+    # 1. Strip ```json ... ``` or ``` ... ``` fences
+    fence_match = re.search(
+        r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL
+    )
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    # 2. If the raw text isn't already valid JSON, try to extract [...]
+    stripped = text.strip()
+    if stripped.startswith("["):
+        return stripped
+
+    bracket_match = re.search(r"(\[.*\])", text, re.DOTALL)
+    if bracket_match:
+        return bracket_match.group(1).strip()
+
+    # 3. Give up — return original text so json.loads produces a clear error
+    return stripped
+
+
 def _parse_extraction_response(
     raw_response: str,
     spec_name: str,
@@ -190,8 +219,9 @@ def _parse_extraction_response(
     Raises:
         ValueError: If the response is not valid JSON.
     """
+    cleaned = _strip_markdown_fences(raw_response)
     try:
-        data = json.loads(raw_response)
+        data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in extraction response: {exc}") from exc
 

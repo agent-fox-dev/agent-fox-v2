@@ -6,6 +6,7 @@ Requirements: 13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 
 import duckdb
@@ -14,6 +15,8 @@ from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.search import SearchResult
 
 logger = logging.getLogger("agent_fox.knowledge.temporal")
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]?")
 
 
 @dataclass(frozen=True)
@@ -59,11 +62,15 @@ class Timeline:
             else:
                 connector = "** "
 
-            line_1 = f"{indent}{connector}{node.content}"
-            ts = node.timestamp or "unknown"
-            spec = node.spec_name or "n/a"
-            session = node.session_id or "n/a"
-            commit = node.commit_sha or "n/a"
+            # 13-REQ-6.3: always emit plain text (strip any ANSI
+            # escapes that may be embedded in stored data).
+            content = _ANSI_RE.sub("", node.content)
+            ts = _ANSI_RE.sub("", node.timestamp or "unknown")
+            spec = _ANSI_RE.sub("", node.spec_name or "n/a")
+            session = _ANSI_RE.sub("", node.session_id or "n/a")
+            commit = _ANSI_RE.sub("", node.commit_sha or "n/a")
+
+            line_1 = f"{indent}{connector}{content}"
             line_2 = f"{indent}   [{ts}] spec:{spec} session:{session} commit:{commit}"
             lines.append(line_1)
             lines.append(line_2)

@@ -72,7 +72,9 @@ def _apply_overrides(
     if max_sessions is not None:
         overrides["max_sessions"] = max_sessions
     if overrides:
-        return config.model_copy(update=overrides)
+        merged = config.model_dump()
+        merged.update(overrides)
+        return OrchestratorConfig.model_validate(merged)
     return config
 
 
@@ -103,7 +105,8 @@ def _print_summary(state: ExecutionState) -> None:
     done = counts.get("completed", 0)
     in_progress = counts.get("in_progress", 0)
     pending = counts.get("pending", 0)
-    failed = counts.get("failed", 0) + counts.get("blocked", 0)
+    failed = counts.get("failed", 0)
+    blocked = counts.get("blocked", 0)
 
     parts = [f"{done}/{total} done"]
     if in_progress:
@@ -112,6 +115,8 @@ def _print_summary(state: ExecutionState) -> None:
         parts.append(f"{pending} pending")
     if failed:
         parts.append(f"{failed} failed")
+    if blocked:
+        parts.append(f"{blocked} blocked")
 
     click.echo(f"Tasks:  {', '.join(parts)}")
     click.echo(

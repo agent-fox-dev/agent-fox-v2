@@ -180,13 +180,13 @@ class ModelEntry:
     output_price_per_m: float  # USD per million output tokens
 
 MODEL_REGISTRY: dict[str, ModelEntry] = {
-    "claude-haiku-4-5-20251001": ModelEntry("claude-haiku-4-5-20251001", ModelTier.SIMPLE, 0.80, 4.00),
+    "claude-haiku-4-5": ModelEntry("claude-haiku-4-5", ModelTier.SIMPLE, 1.00, 5.00),
     "claude-sonnet-4-6": ModelEntry("claude-sonnet-4-6", ModelTier.STANDARD, 3.00, 15.00),
-    "claude-opus-4-6": ModelEntry("claude-opus-4-6", ModelTier.ADVANCED, 15.00, 75.00),
+    "claude-opus-4-6": ModelEntry("claude-opus-4-6", ModelTier.ADVANCED, 5.00, 25.00),
 }
 
 TIER_DEFAULTS: dict[ModelTier, str] = {
-    ModelTier.SIMPLE: "claude-haiku-4-5-20251001",
+    ModelTier.SIMPLE: "claude-haiku-4-5",
     ModelTier.STANDARD: "claude-sonnet-4-6",
     ModelTier.ADVANCED: "claude-opus-4-6",
 }

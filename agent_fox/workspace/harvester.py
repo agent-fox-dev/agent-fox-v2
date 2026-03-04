@@ -14,6 +14,7 @@ from agent_fox.workspace.git import (
     checkout_branch,
     get_changed_files,
     has_new_commits,
+    merge_commit,
     merge_fast_forward,
     rebase_onto,
 )
@@ -83,16 +84,29 @@ async def harvest(
     try:
         await rebase_onto(workspace.path, workspace.branch, dev_branch)
     except IntegrationError:
-        # Step 5: Abort rebase on failure (03-REQ-7.E1)
-        logger.warning(
-            "Rebase of '%s' onto '%s' failed, aborting",
+        # Rebase failed (conflicts) — abort and fall back to merge commit
+        logger.info(
+            "Rebase of '%s' onto '%s' had conflicts, "
+            "falling back to merge commit",
             workspace.branch,
             dev_branch,
         )
         await abort_rebase(workspace.path)
-        raise
+        # Step 5: Fall back to regular merge (03-REQ-7.E1)
+        await merge_commit(repo_root, workspace.branch)
+        changed_files = await get_changed_files(
+            repo_root,
+            workspace.branch,
+            dev_branch,
+        )
+        logger.info(
+            "Merge commit of '%s' into '%s' succeeded",
+            workspace.branch,
+            dev_branch,
+        )
+        return changed_files
 
-    # Retry the merge after successful rebase
+    # Retry the fast-forward merge after successful rebase
     # After rebase, the changed files may differ slightly, so re-fetch
     changed_files = await get_changed_files(
         repo_root,

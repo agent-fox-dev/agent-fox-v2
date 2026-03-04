@@ -15,12 +15,16 @@ import pytest
 
 from agent_fox.memory.extraction import (
     _parse_extraction_response,
+    _strip_markdown_fences,
     extract_facts,
 )
 from agent_fox.memory.types import Category
 from tests.unit.memory.conftest import (
     EMPTY_LLM_RESPONSE,
+    FENCED_JSON_LLM_RESPONSE,
+    FENCED_NO_LANG_LLM_RESPONSE,
     INVALID_JSON_LLM_RESPONSE,
+    PROSE_WRAPPED_JSON_LLM_RESPONSE,
     UNKNOWN_CATEGORY_LLM_RESPONSE,
     VALID_LLM_RESPONSE,
 )
@@ -198,3 +202,94 @@ class TestExtractionUnknownCategory:
             "unknown" in r.message.lower() or "category" in r.message.lower()
             for r in caplog.records
         )
+
+
+class TestStripMarkdownFences:
+    """Tests for _strip_markdown_fences helper."""
+
+    def test_strips_json_code_fence(self) -> None:
+        result = _strip_markdown_fences('```json\n[{"a": 1}]\n```')
+        assert result == '[{"a": 1}]'
+
+    def test_strips_plain_code_fence(self) -> None:
+        result = _strip_markdown_fences('```\n[{"a": 1}]\n```')
+        assert result == '[{"a": 1}]'
+
+    def test_extracts_array_from_prose(self) -> None:
+        text = 'Here are results:\n[{"a": 1}]\nDone!'
+        result = _strip_markdown_fences(text)
+        assert result == '[{"a": 1}]'
+
+    def test_returns_clean_json_unchanged(self) -> None:
+        text = '[{"a": 1}]'
+        result = _strip_markdown_fences(text)
+        assert result == '[{"a": 1}]'
+
+    def test_returns_garbage_unchanged(self) -> None:
+        text = "not json at all"
+        result = _strip_markdown_fences(text)
+        assert result == "not json at all"
+
+
+class TestExtractionMarkdownFenced:
+    """Extraction correctly handles LLM responses wrapped in markdown fences."""
+
+    @pytest.mark.asyncio
+    async def test_fenced_json_response_parses(self) -> None:
+        """Verify ```json ... ``` fenced response is parsed correctly."""
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.content = [AsyncMock(text=FENCED_JSON_LLM_RESPONSE)]
+        mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "agent_fox.memory.extraction.create_async_anthropic_client",
+            return_value=mock_client,
+        ):
+            facts = await extract_facts(
+                transcript="session transcript",
+                spec_name="spec_01",
+            )
+
+        assert len(facts) == 1
+        assert "pin dependency" in facts[0].content.lower()
+
+    @pytest.mark.asyncio
+    async def test_fenced_no_lang_response_parses(self) -> None:
+        """Verify ``` ... ``` fenced response (no language) is parsed."""
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.content = [AsyncMock(text=FENCED_NO_LANG_LLM_RESPONSE)]
+        mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "agent_fox.memory.extraction.create_async_anthropic_client",
+            return_value=mock_client,
+        ):
+            facts = await extract_facts(
+                transcript="session transcript",
+                spec_name="spec_01",
+            )
+
+        assert len(facts) == 1
+        assert "structured logging" in facts[0].content.lower()
+
+    @pytest.mark.asyncio
+    async def test_prose_wrapped_response_parses(self) -> None:
+        """Verify JSON wrapped in explanatory prose is parsed."""
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.content = [AsyncMock(text=PROSE_WRAPPED_JSON_LLM_RESPONSE)]
+        mock_client.messages.create = AsyncMock(return_value=mock_response)
+
+        with patch(
+            "agent_fox.memory.extraction.create_async_anthropic_client",
+            return_value=mock_client,
+        ):
+            facts = await extract_facts(
+                transcript="session transcript",
+                spec_name="spec_01",
+            )
+
+        assert len(facts) == 1
+        assert "mock external" in facts[0].content.lower()

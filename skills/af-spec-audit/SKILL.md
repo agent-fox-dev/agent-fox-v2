@@ -347,9 +347,9 @@ Use this exact structure:
 
 ### Output
 
-1. **Save** the report as `docs/audits/audit-report.md`. If the `docs/audits` directory
-   does not exist, create it first. If a previous `docs/audits/audit-report.md`
-   exists, overwrite it with the new report.
+1. **Save** the report as `docs/audits/audit-report-{YYYY-MM-DD}.md` (using
+   today's date as the timestamp). If the `docs/audits/` directory does not
+   exist, create it first.
 2. **Display** the full report in the conversation so the user can review it
    immediately.
 
