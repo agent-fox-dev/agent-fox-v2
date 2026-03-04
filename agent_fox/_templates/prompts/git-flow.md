@@ -22,12 +22,8 @@ git fetch origin
 git status --short --branch
 ```
 
-If you need to incorporate recent develop changes:
-
-```bash
-git fetch origin
-git rebase origin/develop
-```
+Do **not** rebase onto develop yourself — the orchestrator handles
+rebasing and merging into develop after the session ends.
 
 ## Commit Policy
 
