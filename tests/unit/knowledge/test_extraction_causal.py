@@ -99,6 +99,24 @@ class TestParseCausalLinksEmpty:
         assert len(links) == 0
 
 
+class TestParseCausalLinksMarkdownFences:
+    """parse_causal_links strips markdown fences before parsing."""
+
+    def test_parses_json_inside_code_fence(self) -> None:
+        """JSON wrapped in ```json fences is parsed correctly."""
+        response = '```json\n[{"cause_id": "aaa", "effect_id": "bbb"}]\n```'
+        links = parse_causal_links(response)
+        assert len(links) == 1
+        assert links[0] == ("aaa", "bbb")
+
+    def test_parses_json_inside_plain_fence(self) -> None:
+        """JSON wrapped in ``` fences (no language tag) is parsed correctly."""
+        response = '```\n[{"cause_id": "x1", "effect_id": "x2"}]\n```'
+        links = parse_causal_links(response)
+        assert len(links) == 1
+        assert links[0] == ("x1", "x2")
+
+
 class TestParseCausalLinksInvalidJSON:
     """TS-13-E3: Extraction returns completely invalid JSON.
 

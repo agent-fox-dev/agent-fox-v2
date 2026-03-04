@@ -149,8 +149,9 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     Returns a list of (cause_id, effect_id) tuples. Silently skips
     malformed entries.
     """
+    cleaned = _strip_markdown_fences(extraction_response)
     try:
-        data = json.loads(extraction_response)
+        data = json.loads(cleaned)
     except (json.JSONDecodeError, ValueError):
         logger.warning("Failed to parse causal links JSON, returning empty list")
         return []
