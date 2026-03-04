@@ -26,6 +26,8 @@ from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.reporting.formatters import format_tokens
+from agent_fox.ui.progress import ProgressDisplay
+from agent_fox.ui.theme import create_theme
 
 logger = logging.getLogger(__name__)
 
@@ -163,6 +165,7 @@ def code_cmd(
     """Execute the task plan."""
     # 16-REQ-1.2: load config from Click context
     config = ctx.obj["config"]
+    quiet: bool = ctx.obj.get("quiet", False)
 
     # 16-REQ-1.E1: check plan file exists
     plan_path = Path(".agent-fox/plan.json")
@@ -194,6 +197,10 @@ def code_cmd(
     if knowledge_db is not None:
         sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
 
+    # 18-REQ-5.1: Create progress display
+    theme = create_theme(config.theme)
+    progress = ProgressDisplay(theme, quiet=quiet)
+
     def session_runner_factory(node_id: str) -> NodeSessionRunner:
         """Create a session runner for the given node.
 
@@ -211,8 +218,11 @@ def code_cmd(
             no_hooks=no_hooks,
             sink_dispatcher=sink_dispatcher,
             knowledge_db=knowledge_db,
+            activity_callback=progress.activity_callback,
         )
 
+    # 18-REQ-5.1, 18-REQ-5.E1: Wrap execution with progress start/stop
+    progress.start()
     try:
         # 16-REQ-1.3: construct Orchestrator
         orchestrator = Orchestrator(
@@ -223,6 +233,7 @@ def code_cmd(
             hook_config=config.hooks,
             specs_dir=Path(".specs"),
             no_hooks=no_hooks,
+            task_callback=progress.task_callback,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
@@ -238,6 +249,7 @@ def code_cmd(
         click.echo(f"Error: unexpected error: {exc}", err=True)
         sys.exit(1)
     finally:
+        progress.stop()
         # Clean up knowledge store connection
         sink_dispatcher.close()
         if knowledge_db is not None:

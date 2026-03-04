@@ -1,7 +1,8 @@
 """Session runner: execute coding sessions via the claude-code-sdk.
 
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.E1,
-              03-REQ-8.1 through 03-REQ-8.E1
+              03-REQ-8.1 through 03-REQ-8.E1,
+              18-REQ-2.1, 18-REQ-2.2, 18-REQ-2.3, 18-REQ-2.E1
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.hooks.security import make_pre_tool_use_hook
 from agent_fox.knowledge.sink import SessionOutcome
+from agent_fox.ui.events import ActivityCallback, ActivityEvent, abbreviate_arg
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,8 @@ async def run_session(
     system_prompt: str,
     task_prompt: str,
     config: AgentFoxConfig,
+    *,
+    activity_callback: ActivityCallback | None = None,
 ) -> SessionOutcome:
     """Execute a coding session in the given workspace.
 
@@ -95,6 +99,8 @@ async def run_session(
                 cwd=str(workspace.path),
                 config=config,
                 state=execution_state,
+                node_id=node_id,
+                activity_callback=activity_callback,
             ),
             timeout_minutes=config.orchestrator.session_timeout,
         )
@@ -141,6 +147,8 @@ async def _execute_query(
     cwd: str,
     config: AgentFoxConfig,
     state: _QueryExecutionState | None = None,
+    node_id: str = "",
+    activity_callback: ActivityCallback | None = None,
 ) -> dict[str, Any]:
     """Execute the SDK query and collect results from messages.
 
@@ -173,6 +181,15 @@ async def _execute_query(
     )
 
     async for message in _query_messages(task_prompt=task_prompt, options=options):
+        # 18-REQ-2.1, 18-REQ-2.E1: Emit activity events for non-result messages
+        if activity_callback is not None and not _is_result_message(message):
+            event = _extract_activity(node_id, message)
+            if event is not None:
+                try:
+                    activity_callback(event)
+                except Exception:
+                    logger.debug("Activity callback raised; ignoring")
+
         # 03-REQ-3.2: Collect the ResultMessage.
         if not _is_result_message(message):
             continue
@@ -208,6 +225,32 @@ async def _execute_query(
         "error_message": query_state.error_message,
         "status": query_state.status,
     }
+
+
+def _extract_activity(node_id: str, message: Any) -> ActivityEvent | None:
+    """Extract an ActivityEvent from an SDK message.
+
+    - Tool-use messages: extract tool name and abbreviated first argument.
+    - Other messages: emit a thinking event.
+    """
+    msg_type = getattr(message, "type", None)
+    tool_name = getattr(message, "tool_name", None)
+
+    if tool_name or msg_type == "tool_use":
+        name = tool_name or "tool"
+        # Extract first argument value from tool_input
+        tool_input = getattr(message, "tool_input", None)
+        arg = ""
+        if isinstance(tool_input, dict):
+            # Use the first value from the input dict
+            for v in tool_input.values():
+                if isinstance(v, str):
+                    arg = abbreviate_arg(v)
+                    break
+        return ActivityEvent(node_id=node_id, tool_name=name, argument=arg)
+
+    # For thinking/assistant/other messages
+    return ActivityEvent(node_id=node_id, tool_name="thinking...", argument="")
 
 
 async def _query_messages(

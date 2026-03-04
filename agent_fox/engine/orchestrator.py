@@ -40,6 +40,7 @@ from agent_fox.engine.sync import GraphSync
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.runner import run_sync_barrier_hooks
 from agent_fox.memory.render import render_summary
+from agent_fox.ui.events import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
 
@@ -230,6 +231,7 @@ class Orchestrator:
         hook_config: HookConfig | None = None,
         specs_dir: Path | None = None,
         no_hooks: bool = False,
+        task_callback: TaskCallback | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -241,6 +243,7 @@ class Orchestrator:
         self._hook_config = hook_config
         self._specs_dir = specs_dir
         self._no_hooks = no_hooks
+        self._task_callback = task_callback
         self._plan_nodes: dict = {}
         self._edges_list: list[dict] = []
         self._plan_data: dict = {}  # Full plan data for plan.json updates
@@ -583,9 +586,30 @@ class Orchestrator:
             self._graph_sync.mark_completed(node_id)
             state.node_states[node_id] = "completed"
             error_tracker.pop(node_id, None)
+            # 18-REQ-5.4: Emit task completion event
+            if self._task_callback is not None:
+                duration_s = (record.duration_ms or 0) / 1000
+                self._task_callback(
+                    TaskEvent(
+                        node_id=node_id,
+                        status="completed",
+                        duration_s=duration_s,
+                    )
+                )
         else:
             error_tracker[node_id] = record.error_message
             if attempt >= self._config.max_retries + 1:
+                # 18-REQ-5.4: Emit task failure event
+                if self._task_callback is not None:
+                    duration_s = (record.duration_ms or 0) / 1000
+                    self._task_callback(
+                        TaskEvent(
+                            node_id=node_id,
+                            status="failed",
+                            duration_s=duration_s,
+                            error_message=record.error_message,
+                        )
+                    )
                 self._block_task(
                     node_id,
                     state,
@@ -719,10 +743,29 @@ class Orchestrator:
             cascade_blocked = self._graph_sync.mark_blocked(node_id, reason)
             state.node_states[node_id] = "blocked"
             state.blocked_reasons[node_id] = reason
+            # 18-REQ-5.4: Emit blocked event
+            if self._task_callback is not None:
+                self._task_callback(
+                    TaskEvent(
+                        node_id=node_id,
+                        status="blocked",
+                        duration_s=0,
+                        error_message=reason,
+                    )
+                )
             for blocked_id in cascade_blocked:
                 state.node_states[blocked_id] = "blocked"
                 cascade_reason = f"Blocked by upstream task {node_id}"
                 state.blocked_reasons[blocked_id] = cascade_reason
+                if self._task_callback is not None:
+                    self._task_callback(
+                        TaskEvent(
+                            node_id=blocked_id,
+                            status="blocked",
+                            duration_s=0,
+                            error_message=cascade_reason,
+                        )
+                    )
                 logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:

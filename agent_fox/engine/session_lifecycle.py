@@ -37,6 +37,7 @@ from agent_fox.memory.store import append_facts, load_all_facts
 from agent_fox.session.context import assemble_context, select_context_with_causal
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 from agent_fox.session.runner import run_session
+from agent_fox.ui.events import ActivityCallback
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.worktree import (
     WorkspaceInfo,
@@ -67,6 +68,7 @@ class NodeSessionRunner:
         no_hooks: bool = False,
         sink_dispatcher: SinkDispatcher | None = None,
         knowledge_db: KnowledgeDB | None = None,
+        activity_callback: ActivityCallback | None = None,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -74,6 +76,7 @@ class NodeSessionRunner:
         self._no_hooks = no_hooks
         self._sink = sink_dispatcher
         self._knowledge_db = knowledge_db
+        self._activity_callback = activity_callback
         # Parse node_id format: "{spec_name}:{group_number}"
         parts = node_id.rsplit(":", 1)
         self._spec_name = parts[0]
@@ -237,6 +240,7 @@ class NodeSessionRunner:
             system_prompt=system_prompt,
             task_prompt=task_prompt,
             config=self._config,
+            activity_callback=self._activity_callback,
         )
 
         model_entry = resolve_model(self._config.models.coding)

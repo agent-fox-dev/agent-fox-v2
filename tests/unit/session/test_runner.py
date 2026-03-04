@@ -1,9 +1,12 @@
 """Session runner tests.
 
 Test Spec: TS-03-7 (success), TS-03-8 (SDK error), TS-03-9 (timeout),
-           TS-03-E3 (is_error result)
+           TS-03-E3 (is_error result),
+           TS-18-8 (activity callback invoked),
+           TS-18-9 (session works without callback),
+           TS-18-E3 (callback exception does not crash session)
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.1, 03-REQ-6.2,
-              03-REQ-6.E1
+              03-REQ-6.E1, 18-REQ-2.1, 18-REQ-2.3, 18-REQ-2.E1
 """
 
 from __future__ import annotations
@@ -467,3 +470,139 @@ class TestSessionRunnerResultHandling:
         assert outcome.input_tokens == 55
         assert outcome.output_tokens == 89
         assert outcome.duration_ms == 1300
+
+
+# -- Mock tool-use message for activity callback tests ---
+
+
+@dataclass
+class MockToolUseMessage:
+    """Mock for SDK tool-use message."""
+
+    type: str = "tool_use"
+    tool_name: str = "Read"
+    tool_input: dict[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.tool_input is None:
+            self.tool_input = {"file_path": "/some/path/config.py"}
+
+
+class TestSessionRunnerActivityCallback:
+    """TS-18-8: Session runner activity callback invoked."""
+
+    @pytest.mark.asyncio
+    async def test_callback_invoked_for_tool_use(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """run_session invokes the activity callback for tool-use messages."""
+        from agent_fox.ui.events import ActivityEvent
+
+        events: list[ActivityEvent] = []
+
+        tool_msg = MockToolUseMessage(
+            tool_name="Read",
+            tool_input={"file_path": "/some/path/config.py"},
+        )
+        result_msg = MockResultMessage(
+            is_error=False,
+            duration_ms=5000,
+            usage=MockUsage(input_tokens=100, output_tokens=200),
+        )
+
+        async def mock_query(*args, **kwargs):
+            yield tool_msg
+            yield result_msg
+
+        with patch(
+            "agent_fox.session.runner._query_messages",
+            side_effect=mock_query,
+        ):
+            await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+                activity_callback=lambda e: events.append(e),
+            )
+
+        assert len(events) >= 1
+        assert isinstance(events[0], ActivityEvent)
+
+
+class TestSessionRunnerNoCallback:
+    """TS-18-9: Session runner works without callback."""
+
+    @pytest.mark.asyncio
+    async def test_no_callback_works(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """run_session without activity_callback behaves identically."""
+        result_msg = MockResultMessage(
+            is_error=False,
+            duration_ms=5000,
+            usage=MockUsage(input_tokens=100, output_tokens=200),
+        )
+
+        async def mock_query(*args, **kwargs):
+            yield MockAssistantMessage()
+            yield result_msg
+
+        with patch(
+            "agent_fox.session.runner._query_messages",
+            side_effect=mock_query,
+        ):
+            outcome = await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+            )
+
+        assert outcome.status == "completed"
+
+
+class TestSessionRunnerCallbackException:
+    """TS-18-E3: Activity callback exception does not crash session."""
+
+    @pytest.mark.asyncio
+    async def test_callback_exception_does_not_crash(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Exceptions in activity_callback are caught."""
+        tool_msg = MockToolUseMessage()
+        result_msg = MockResultMessage(
+            is_error=False,
+            duration_ms=5000,
+            usage=MockUsage(input_tokens=100, output_tokens=200),
+        )
+
+        def raising_cb(event):
+            raise ZeroDivisionError("boom")
+
+        async def mock_query(*args, **kwargs):
+            yield tool_msg
+            yield result_msg
+
+        with patch(
+            "agent_fox.session.runner._query_messages",
+            side_effect=mock_query,
+        ):
+            outcome = await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+                activity_callback=raising_cb,
+            )
+
+        assert outcome.status == "completed"
