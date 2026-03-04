@@ -41,6 +41,7 @@ class SessionRecord:
     error_message: str | None
     timestamp: str  # ISO 8601
     model: str = ""  # Model ID used for this session
+    files_touched: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -57,6 +58,7 @@ class ExecutionState:
     started_at: str = ""  # ISO 8601
     updated_at: str = ""  # ISO 8601
     run_status: str = "running"
+    blocked_reasons: dict[str, str] = field(default_factory=dict)
 
 
 def _serialize_state(state: ExecutionState) -> dict:
@@ -79,6 +81,7 @@ def _deserialize_state(data: dict) -> ExecutionState:
         started_at=data.get("started_at", ""),
         updated_at=data.get("updated_at", ""),
         run_status=data.get("run_status", "running"),
+        blocked_reasons=data.get("blocked_reasons", {}),
     )
 
 

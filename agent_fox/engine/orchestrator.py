@@ -706,8 +706,11 @@ class Orchestrator:
         if self._graph_sync is not None:
             cascade_blocked = self._graph_sync.mark_blocked(node_id, reason)
             state.node_states[node_id] = "blocked"
+            state.blocked_reasons[node_id] = reason
             for blocked_id in cascade_blocked:
                 state.node_states[blocked_id] = "blocked"
+                cascade_reason = f"Blocked by upstream task {node_id}"
+                state.blocked_reasons[blocked_id] = cascade_reason
                 logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:

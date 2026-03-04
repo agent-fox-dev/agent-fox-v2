@@ -6,10 +6,13 @@ Requirements: 02-REQ-4.1, 02-REQ-4.2, 02-REQ-3.E2
 from __future__ import annotations
 
 import heapq
+import logging
 from collections import defaultdict
 
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.types import TaskGraph
+
+logger = logging.getLogger(__name__)
 
 
 def _sort_key(node_id: str) -> tuple[str, int]:
@@ -40,6 +43,7 @@ def resolve_order(graph: TaskGraph) -> list[str]:
         PlanError: If the graph contains a cycle, listing involved nodes.
     """
     if not graph.nodes:
+        logger.warning("No task groups found; empty execution order.")
         return []
 
     # Build adjacency list and compute in-degrees
