@@ -2,8 +2,8 @@
 
 <p align="center">
     <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.jpg">
-        <img src="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.jpg" width="200">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.png">
+        <img src="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.png" width="200">
     </picture>
 </p>
 
