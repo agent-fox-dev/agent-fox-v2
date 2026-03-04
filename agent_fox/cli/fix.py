@@ -15,11 +15,50 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.detector import detect_checks
 from agent_fox.fix.loop import TerminationReason, run_fix_loop
 from agent_fox.fix.report import render_fix_report
+from agent_fox.fix.spec_gen import FixSpec
+from agent_fox.session.runner import run_session
+from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _build_fix_session_runner(
+    config: AgentFoxConfig, project_root: Path
+) -> TerminationReason | None:
+    """Build a session runner callable for the fix loop.
+
+    Returns an async callable that takes a FixSpec and runs a
+    coding session in the project root directory.
+    """
+
+    async def _run(fix_spec: FixSpec) -> float:
+        workspace = WorkspaceInfo(
+            path=project_root,
+            branch="",
+            spec_name=f"fix:{fix_spec.cluster_label}",
+            task_group=0,
+        )
+        system_prompt = (
+            "You are an auto-fix coding agent. Fix the quality check "
+            "failures described below. Make minimal, targeted changes."
+        )
+        outcome = await run_session(
+            workspace=workspace,
+            node_id=f"fix:{fix_spec.cluster_label}",
+            system_prompt=system_prompt,
+            task_prompt=fix_spec.task_prompt,
+            config=config,
+        )
+        from agent_fox.core.models import calculate_cost, resolve_model
+
+        model_entry = resolve_model(config.models.coding)
+        return calculate_cost(outcome.input_tokens, outcome.output_tokens, model_entry)
+
+    return _run  # type: ignore[return-value]
 
 
 @click.command("fix")
@@ -29,8 +68,14 @@ logger = logging.getLogger(__name__)
     default=3,
     help="Maximum number of fix passes (default: 3).",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Generate fix specs only, do not run sessions.",
+)
 @click.pass_context
-def fix_cmd(ctx: click.Context, max_passes: int) -> None:
+def fix_cmd(ctx: click.Context, max_passes: int, dry_run: bool) -> None:
     """Detect and auto-fix quality check failures.
 
     Runs quality checks (tests, lint, type-check, build), groups failures
@@ -58,12 +103,16 @@ def fix_cmd(ctx: click.Context, max_passes: int) -> None:
         logger.warning("--max-passes=%d is invalid, clamping to 1", max_passes)
         max_passes = 1
 
+    # Build session runner (None in dry-run mode)
+    runner = None if dry_run else _build_fix_session_runner(config, project_root)
+
     # Run the fix loop
     result = asyncio.run(
         run_fix_loop(
             project_root=project_root,
             config=config,
             max_passes=max_passes,
+            session_runner=runner,
         )
     )
 
