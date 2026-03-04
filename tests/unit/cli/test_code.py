@@ -459,14 +459,14 @@ class TestNodeSessionRunnerHarvestError:
         """Integration error produces a failed record mentioning harvest."""
         from agent_fox.cli.code import _NodeSessionRunner
         from agent_fox.core.errors import IntegrationError
-        from agent_fox.session.runner import SessionOutcome
+        from agent_fox.knowledge.sink import SessionOutcome
 
         config = AgentFoxConfig()
         runner = _NodeSessionRunner("test_spec:1", config)
 
         mock_outcome = SessionOutcome(
             spec_name="test_spec",
-            task_group=1,
+            task_group="1",
             node_id="test_spec:1",
             status="completed",
             input_tokens=100,

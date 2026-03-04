@@ -32,8 +32,7 @@ from agent_fox.hooks.runner import (
 from agent_fox.knowledge.causal import store_causal_links
 from agent_fox.knowledge.db import KnowledgeDB, open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
-from agent_fox.knowledge.sink import SessionOutcome as SinkSessionOutcome
-from agent_fox.knowledge.sink import SinkDispatcher
+from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.memory.extraction import (
     enrich_extraction_with_causal,
     extract_facts,
@@ -44,7 +43,7 @@ from agent_fox.memory.store import append_facts, load_all_facts
 from agent_fox.reporting.formatters import format_tokens
 from agent_fox.session.context import assemble_context, select_context_with_causal
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
-from agent_fox.session.runner import SessionOutcome, run_session
+from agent_fox.session.runner import run_session
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.worktree import (
     WorkspaceInfo,
@@ -400,16 +399,11 @@ class _NodeSessionRunner:
         if self._sink is None:
             return
         try:
-            sink_outcome = SinkSessionOutcome(
-                spec_name=outcome.spec_name,
-                task_group=str(outcome.task_group),
-                node_id=node_id,
-                touched_paths=touched_files or outcome.files_touched,
-                status=outcome.status,
-                input_tokens=outcome.input_tokens,
-                output_tokens=outcome.output_tokens,
-                duration_ms=outcome.duration_ms,
-            )
+            import dataclasses
+
+            sink_outcome = outcome
+            if touched_files:
+                sink_outcome = dataclasses.replace(outcome, touched_paths=touched_files)
             self._sink.record_session_outcome(sink_outcome)
         except Exception:
             logger.warning(

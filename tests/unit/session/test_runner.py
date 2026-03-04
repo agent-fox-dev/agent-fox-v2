@@ -210,7 +210,7 @@ class TestSessionRunnerSuccess:
             )
 
         assert outcome.spec_name == workspace_info.spec_name
-        assert outcome.task_group == workspace_info.task_group
+        assert outcome.task_group == str(workspace_info.task_group)
 
 
 class TestSessionRunnerSDKError:

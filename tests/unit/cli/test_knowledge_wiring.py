@@ -17,7 +17,7 @@ import pytest
 from agent_fox.cli.code import _NodeSessionRunner
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.memory.types import Fact
-from agent_fox.session.runner import SessionOutcome
+from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 
@@ -33,7 +33,7 @@ def _make_workspace(tmp_path: Path) -> WorkspaceInfo:
 def _make_outcome(*, status: str = "completed") -> SessionOutcome:
     return SessionOutcome(
         spec_name="test_spec",
-        task_group=1,
+        task_group="1",
         node_id="test_spec:1",
         status=status,
         input_tokens=100,

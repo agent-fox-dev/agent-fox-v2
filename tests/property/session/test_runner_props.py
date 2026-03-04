@@ -10,7 +10,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.session.runner import SessionOutcome
+from agent_fox.knowledge.sink import SessionOutcome
 
 # Strategy for valid status values
 status_strategy = st.sampled_from(["completed", "failed", "timeout"])
@@ -28,7 +28,7 @@ class TestSessionOutcomeFieldsWellFormed:
             min_size=1,
             max_size=50,
         ),
-        task_group=st.integers(min_value=0, max_value=1000),
+        task_group=st.from_regex(r"[0-9]{1,4}", fullmatch=True),
         node_id=st.text(min_size=1, max_size=20),
         status=status_strategy,
         input_tokens=st.integers(min_value=0, max_value=10_000_000),
@@ -39,7 +39,7 @@ class TestSessionOutcomeFieldsWellFormed:
     def test_outcome_fields_valid(
         self,
         spec_name: str,
-        task_group: int,
+        task_group: str,
         node_id: str,
         status: str,
         input_tokens: int,
@@ -58,7 +58,7 @@ class TestSessionOutcomeFieldsWellFormed:
         )
 
         assert len(outcome.spec_name) > 0
-        assert outcome.task_group >= 0
+        assert outcome.task_group.isdigit()
         assert outcome.status in ("completed", "failed", "timeout")
         assert outcome.input_tokens >= 0
         assert outcome.output_tokens >= 0
@@ -70,7 +70,7 @@ class TestSessionOutcomeFieldsWellFormed:
         """Status is always one of the three valid values."""
         outcome = SessionOutcome(
             spec_name="test",
-            task_group=1,
+            task_group="1",
             node_id="test:1",
             status=status,
         )

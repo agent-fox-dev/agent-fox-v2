@@ -27,6 +27,7 @@ class SessionOutcome:
     input_tokens: int = 0
     output_tokens: int = 0
     duration_ms: int = 0
+    error_message: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 

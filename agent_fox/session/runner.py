@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Coroutine
-from dataclasses import dataclass, field
 from typing import Any
 
 from claude_code_sdk import ClaudeCodeOptions, query  # noqa: F401
@@ -22,6 +21,7 @@ from claude_code_sdk.types import (
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.hooks.security import make_pre_tool_use_hook
+from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
@@ -33,21 +33,6 @@ async def with_timeout[T](
 ) -> T:
     """Run *coro* with a timeout (minutes → seconds)."""
     return await asyncio.wait_for(coro, timeout=timeout_minutes * 60)
-
-
-@dataclass(frozen=True)
-class SessionOutcome:
-    """Result of a coding session."""
-
-    spec_name: str
-    task_group: int
-    node_id: str
-    status: str  # "completed" | "failed" | "timeout"
-    files_touched: list[str] = field(default_factory=list)
-    input_tokens: int = 0
-    output_tokens: int = 0
-    duration_ms: int = 0
-    error_message: str | None = None
 
 
 async def run_session(
@@ -115,7 +100,7 @@ async def run_session(
 
     return SessionOutcome(
         spec_name=workspace.spec_name,
-        task_group=workspace.task_group,
+        task_group=str(workspace.task_group),
         node_id=node_id,
         status=status,
         input_tokens=input_tokens,
