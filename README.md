@@ -11,8 +11,8 @@
 commits.**
 
 agent-fox is an autonomous coding-agent orchestrator. It reads your
-specifications, builds a dependency graph of tasks, and drives a Claude coding
-agent through each one.
+specifications, builds a dependency graph of tasks, and drives 
+Claude coding agents through each one.
 
 ## Before agent-fox
 
@@ -32,6 +32,36 @@ extracts learnings into structured memory, and merges clean commits to
 `develop`. 
 
 You come back to a finished feature branch and a standup report.
+
+## Quick start
+
+```bash
+# Initialize your project
+agent-fox init
+
+# Create the task graph
+agent-fox plan 
+
+# Run autonomous coding sessions with 4 agents in parallel
+agent-fox code --parallel 4
+
+# Check progress
+agent-fox status
+```
+
+Your project needs specs under `.specs/` before running `plan` or `code`.
+
+Use the `/af-spec` skill in Claude Code to generate them from a PRD,
+a GitHub issue or a plain-English description:
+
+```
+/af-spec [path-to-prd-or-prompt-or-github-issue-url]
+```
+
+agent-fox ships with a set of [Claude Code skills](docs/skills.md) that assist
+with spec authoring, architecture decisions, code simplification, and more.
+
+See the [CLI reference](docs/cli-reference.md) for all command options.
 
 ## Development
 
