@@ -621,6 +621,8 @@ class Orchestrator:
         if self._specs_dir is not None and self._config.hot_load:
             try:
                 self._hot_load_new_specs(state)
+                # Persist immediately so a crash doesn't lose new specs
+                self._sync_plan_statuses(state)
             except Exception:
                 logger.warning("Hot-loading specs failed at barrier", exc_info=True)
 
