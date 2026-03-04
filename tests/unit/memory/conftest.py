@@ -110,3 +110,40 @@ UNKNOWN_CATEGORY_LLM_RESPONSE = """[
     "keywords": ["testing"]
   }
 ]"""
+
+# -- Markdown-fenced LLM responses ------------------------------------------
+
+FENCED_JSON_LLM_RESPONSE = """```json
+[
+  {
+    "content": "Always pin dependency versions in requirements.txt.",
+    "category": "convention",
+    "confidence": "high",
+    "keywords": ["dependencies", "pinning"]
+  }
+]
+```"""
+
+FENCED_NO_LANG_LLM_RESPONSE = """```
+[
+  {
+    "content": "Use structured logging for production services.",
+    "category": "pattern",
+    "confidence": "medium",
+    "keywords": ["logging", "structured"]
+  }
+]
+```"""
+
+PROSE_WRAPPED_JSON_LLM_RESPONSE = """Here are the learnings I extracted:
+
+[
+  {
+    "content": "Mock external APIs at the HTTP boundary.",
+    "category": "pattern",
+    "confidence": "high",
+    "keywords": ["mocking", "api", "testing"]
+  }
+]
+
+I hope this helps!"""
