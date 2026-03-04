@@ -20,9 +20,7 @@ class TestRenderMarkdownByCategory:
     Requirements: 05-REQ-6.1, 05-REQ-6.2
     """
 
-    def test_renders_sections_by_category(
-        self, tmp_path: Path
-    ) -> None:
+    def test_renders_sections_by_category(self, tmp_path: Path) -> None:
         """Verify output has section headings for each populated category."""
         memory_path = tmp_path / "memory.jsonl"
         output_path = tmp_path / "docs" / "memory.md"
@@ -52,9 +50,7 @@ class TestRenderMarkdownByCategory:
         assert "## Gotchas" in content
         assert "## Patterns" in content
 
-    def test_renders_fact_content_and_attribution(
-        self, tmp_path: Path
-    ) -> None:
+    def test_renders_fact_content_and_attribution(self, tmp_path: Path) -> None:
         """Verify each fact includes content, spec name, and confidence."""
         memory_path = tmp_path / "memory.jsonl"
         output_path = tmp_path / "docs" / "memory.md"
@@ -119,9 +115,7 @@ class TestRenderEmptyKnowledgeBase:
         content = output_path.read_text()
         assert "No facts have been recorded yet" in content
 
-    def test_renders_no_facts_for_empty_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_renders_no_facts_for_empty_file(self, tmp_path: Path) -> None:
         """Verify render produces 'no facts' for an empty JSONL file."""
         memory_path = tmp_path / "memory.jsonl"
         memory_path.write_text("")

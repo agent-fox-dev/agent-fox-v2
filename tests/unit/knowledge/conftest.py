@@ -174,8 +174,17 @@ def seed_causal_links(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+FACT_S20 = "20202020-2020-2020-2020-202020202020"
+FACT_S21 = "21212121-2121-2121-2121-212121212121"
+
+
 def seed_session_outcomes(conn: duckdb.DuckDBPyConnection) -> None:
-    """Insert session outcomes for pattern detection tests."""
+    """Insert session outcomes for pattern detection tests.
+
+    Also inserts additional facts + causal links for the second
+    occurrence pair (20/1 -> 21/1) so pattern detection can find
+    co-occurrences validated against the causal graph.
+    """
     conn.execute(
         """
         INSERT INTO session_outcomes (id, spec_name, task_group, node_id,
@@ -194,6 +203,24 @@ def seed_session_outcomes(conn: duckdb.DuckDBPyConnection) -> None:
             ('66666666-6666-6666-6666-666666666666', '21_user_tests_v2', '1', '21/1',
              'tests/test_user_model.py', 'failed', '2026-01-05 10:00:00')
         """,
+    )
+    # Add facts and causal link for the second occurrence (20/1 -> 21/1)
+    # so pattern detection can validate against the causal graph.
+    conn.execute(
+        """
+        INSERT INTO memory_facts (id, content, spec_name, session_id,
+                                  category, confidence, created_at)
+        VALUES
+            (?, 'Auth refactored again', '20_auth_v3', '20/1',
+             'decision', 'high', '2026-01-05 09:00:00'),
+            (?, 'User model tests broke again', '21_user_tests_v2', '21/1',
+             'gotcha', 'high', '2026-01-05 10:00:00')
+        """,
+        [FACT_S20, FACT_S21],
+    )
+    conn.execute(
+        "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?, ?)",
+        [FACT_S20, FACT_S21],
     )
 
 
@@ -296,8 +323,7 @@ def insert_fact_with_embedding(
                                   created_at, superseded_by)
         VALUES (?, ?, ?, ?, ?, ?, 'high', CURRENT_TIMESTAMP, ?)
         """,
-        [fact_id, content, category, spec_name, session_id, commit_sha,
-         superseded_by],
+        [fact_id, content, category, spec_name, session_id, commit_sha, superseded_by],
     )
     conn.execute(
         "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[1024])",
@@ -330,7 +356,9 @@ def mock_embedder() -> MagicMock:
     embedder = MagicMock(spec=EmbeddingGenerator)
     embedder.embed_text.return_value = MOCK_EMBEDDING_1
     embedder.embed_batch.return_value = [
-        MOCK_EMBEDDING_1, MOCK_EMBEDDING_2, MOCK_EMBEDDING_3,
+        MOCK_EMBEDDING_1,
+        MOCK_EMBEDDING_2,
+        MOCK_EMBEDDING_3,
     ]
     return embedder
 

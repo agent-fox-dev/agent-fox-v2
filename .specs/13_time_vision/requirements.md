@@ -78,9 +78,11 @@ follow causal chains.
 
 #### Acceptance Criteria
 
-1. [13-REQ-3.1] THE system SHALL provide a function to add a causal link
-   (cause_id -> effect_id) to the `fact_causes` table, enforcing that both
-   IDs reference existing facts in `memory_facts`.
+1. [13-REQ-3.1] THE system SHALL provide a function
+   `store_causal_links(conn, links: list[tuple[str, str]])` that accepts a
+   list of (cause_id, effect_id) tuples and inserts them into the
+   `fact_causes` table using `INSERT OR IGNORE` for idempotent batch
+   insertion.
 2. [13-REQ-3.2] THE system SHALL provide a function to query the direct
    causes of a given fact (all rows where `effect_id` matches the fact).
 3. [13-REQ-3.3] THE system SHALL provide a function to query the direct

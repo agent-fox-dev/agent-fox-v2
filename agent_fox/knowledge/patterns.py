@@ -65,6 +65,15 @@ def detect_patterns(
         AND failed.created_at <= changed.created_at + INTERVAL 1 DAY
         AND failed.status = 'failed'
         AND changed.status = 'completed'
+    -- Validate against causal graph: require a causal link between
+    -- facts from the triggering and failing sessions.
+    JOIN memory_facts mf_cause
+        ON mf_cause.session_id = changed.node_id
+    JOIN memory_facts mf_effect
+        ON mf_effect.session_id = failed.node_id
+    JOIN fact_causes fc
+        ON fc.cause_id = mf_cause.id
+        AND fc.effect_id = mf_effect.id
     WHERE changed.touched_path IS NOT NULL
       AND failed.touched_path IS NOT NULL
     GROUP BY changed.touched_path, failed.touched_path

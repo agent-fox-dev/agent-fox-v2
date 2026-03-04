@@ -36,14 +36,15 @@ my terminal.
    specs can add commands (init, plan, code, etc.) without modifying the
    entry point.
 3. [01-REQ-1.3] THE CLI SHALL display a themed banner with the project name
-   and version when invoked without a subcommand.
+   and version on every CLI invocation (see 14-REQ-4.1).
 4. [01-REQ-1.4] THE CLI SHALL be installable as a console script entry point
    via `pyproject.toml` (`agent-fox = "agent_fox.cli.app:main"`).
 
 #### Edge Cases
 
 1. [01-REQ-1.E1] IF the CLI is invoked with an unknown subcommand, THEN THE
-   CLI SHALL print an error listing available commands and exit with code 2.
+   CLI SHALL print an error identifying the unknown command and exit with
+   code 2.
 
 ---
 
@@ -67,7 +68,11 @@ customize behavior without editing code.
    PRD Section 6 (parallelism, sync interval, models, timeouts, hooks, platform,
    theme, etc.) with their specified defaults.
 5. [01-REQ-2.5] WHERE a command-line option overrides a configuration value,
-   THE system SHALL prefer the command-line value.
+   THE system SHALL prefer the command-line value. Overrides are applied
+   per-command (e.g., via `_apply_overrides()` in the command handler) rather
+   than in the core `load_config()` function. Each CLI command that accepts
+   override options applies them to the loaded config object before use,
+   without modifying the persisted config file.
 6. [01-REQ-2.6] WHEN the configuration file contains unrecognized keys, THE
    system SHALL log a warning and ignore them (forward compatibility).
 

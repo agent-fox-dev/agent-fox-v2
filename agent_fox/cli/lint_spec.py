@@ -57,9 +57,9 @@ def _build_summary(findings: list[Finding]) -> dict:
 
 
 _SEVERITY_MARKERS = {
-    SEVERITY_ERROR: "\u2717",    # ✗
+    SEVERITY_ERROR: "\u2717",  # ✗
     SEVERITY_WARNING: "\u26a0",  # ⚠
-    SEVERITY_HINT: "\u2139",     # ℹ
+    SEVERITY_HINT: "\u2139",  # ℹ
 }
 
 

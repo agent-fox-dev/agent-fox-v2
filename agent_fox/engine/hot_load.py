@@ -107,51 +107,20 @@ def discover_new_specs(
     return sorted(new_specs, key=lambda s: s.prefix)
 
 
-def hot_load_specs(
-    graph: TaskGraph,
-    specs_dir: Path,
-) -> tuple[TaskGraph, list[str]]:
-    """Incorporate newly discovered specs into the task graph.
-
-    1. Discover new spec folders not in graph.nodes.
-    2. Parse tasks.md for each new spec.
-    3. Parse cross-spec dependencies from each new spec's prd.md.
-    4. Create nodes and edges for the new specs.
-    5. Re-compute topological ordering.
-    6. Return updated graph and list of new spec names.
-
-    Args:
-        graph: The current task graph.
-        specs_dir: Path to the .specs/ directory.
+def _validate_and_parse_specs(
+    new_spec_infos: list[SpecInfo],
+    all_spec_names: set[str],
+) -> tuple[list[SpecInfo], dict[str, list], dict[str, list[str]]]:
+    """Parse and validate new specs, filtering out invalid ones.
 
     Returns:
-        Tuple of (updated TaskGraph, list of newly added spec names).
-        If no new specs are found, returns the original graph unchanged
-        and an empty list.
+        Tuple of (valid_specs, spec_task_groups, spec_deps).
     """
-    # Step 1: Get known spec names from existing graph nodes
-    known_specs: set[str] = set()
-    for node in graph.nodes.values():
-        known_specs.add(node.spec_name)
-
-    # Step 2: Discover new specs
-    new_spec_infos = discover_new_specs(specs_dir, known_specs)
-
-    if not new_spec_infos:
-        # 06-REQ-7.E2: no new specs, return unchanged
-        return graph, []
-
-    # Step 3: Parse tasks and dependencies for each new spec,
-    # validating dependencies before adding
     valid_specs: list[SpecInfo] = []
     spec_task_groups: dict[str, list] = {}
     spec_deps: dict[str, list[str]] = {}
 
-    # All spec names that exist in the system (existing + newly discovered)
-    all_spec_names = known_specs | {s.name for s in new_spec_infos}
-
     for spec_info in new_spec_infos:
-        # Skip specs without tasks.md
         if not spec_info.has_tasks:
             logger.warning(
                 "New spec '%s' has no tasks.md, skipping",
@@ -159,7 +128,6 @@ def hot_load_specs(
             )
             continue
 
-        # Parse tasks
         tasks_path = spec_info.path / "tasks.md"
         try:
             task_groups = parse_tasks(tasks_path)
@@ -177,13 +145,11 @@ def hot_load_specs(
             )
             continue
 
-        # Parse cross-spec dependencies from prd.md
         prd_path = spec_info.path / "prd.md"
         dep_names = _parse_dep_specs_from_prd(prd_path)
 
-        # Also try the standard parser for compatibility
         if not dep_names:
-            cross_deps = parse_cross_deps(prd_path)
+            cross_deps = parse_cross_deps(prd_path, spec_name=spec_info.name)
             dep_names = [d.to_spec for d in cross_deps]
 
         # 06-REQ-7.E1: Validate all dependencies exist
@@ -201,12 +167,23 @@ def hot_load_specs(
         spec_task_groups[spec_info.name] = task_groups
         spec_deps[spec_info.name] = dep_names
 
-    if not valid_specs:
-        return graph, []
+    return valid_specs, spec_task_groups, spec_deps
 
-    # Step 4: Build new nodes and edges
-    new_nodes: dict[str, Node] = dict(graph.nodes)
-    new_edges: list[Edge] = list(graph.edges)
+
+def _build_nodes_and_edges(
+    valid_specs: list[SpecInfo],
+    spec_task_groups: dict[str, list],
+    spec_deps: dict[str, list[str]],
+    existing_nodes: dict[str, Node],
+    existing_edges: list[Edge],
+) -> tuple[dict[str, Node], list[Edge], list[str]]:
+    """Create nodes and edges for validated new specs.
+
+    Returns:
+        Tuple of (all_nodes, all_edges, added_spec_names).
+    """
+    new_nodes: dict[str, Node] = dict(existing_nodes)
+    new_edges: list[Edge] = list(existing_edges)
     added_spec_names: list[str] = []
 
     for spec_info in valid_specs:
@@ -227,7 +204,6 @@ def hot_load_specs(
                 body=group.body,
             )
 
-            # Intra-spec sequential edges
             if prev_node_id is not None:
                 new_edges.append(
                     Edge(
@@ -238,15 +214,12 @@ def hot_load_specs(
                 )
             prev_node_id = node_id
 
-        # Cross-spec edges: new spec depends on other specs
         dep_names = spec_deps.get(spec_info.name, [])
         if dep_names:
-            # First group of the new spec depends on last group of each dep
             first_group = min(g.number for g in sorted_groups)
             target_id = f"{spec_info.name}:{first_group}"
 
             for dep_name in dep_names:
-                # Find the last group of the dependency spec
                 dep_groups = [
                     n.group_number
                     for n in new_nodes.values()
@@ -264,11 +237,57 @@ def hot_load_specs(
 
         added_spec_names.append(spec_info.name)
 
-    # Step 5: Create updated graph and re-compute topological ordering
+    return new_nodes, new_edges, added_spec_names
+
+
+def hot_load_specs(
+    graph: TaskGraph,
+    specs_dir: Path,
+) -> tuple[TaskGraph, list[str]]:
+    """Incorporate newly discovered specs into the task graph.
+
+    1. Discover new spec folders not in graph.nodes.
+    2. Parse and validate tasks and dependencies.
+    3. Create nodes and edges for the new specs.
+    4. Re-compute topological ordering.
+
+    Args:
+        graph: The current task graph.
+        specs_dir: Path to the .specs/ directory.
+
+    Returns:
+        Tuple of (updated TaskGraph, list of newly added spec names).
+        If no new specs are found, returns the original graph unchanged
+        and an empty list.
+    """
+    known_specs = {node.spec_name for node in graph.nodes.values()}
+    new_spec_infos = discover_new_specs(specs_dir, known_specs)
+
+    if not new_spec_infos:
+        # 06-REQ-7.E2: no new specs, return unchanged
+        return graph, []
+
+    all_spec_names = known_specs | {s.name for s in new_spec_infos}
+    valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(
+        new_spec_infos,
+        all_spec_names,
+    )
+
+    if not valid_specs:
+        return graph, []
+
+    new_nodes, new_edges, added_spec_names = _build_nodes_and_edges(
+        valid_specs,
+        spec_task_groups,
+        spec_deps,
+        graph.nodes,
+        graph.edges,
+    )
+
     updated_graph = TaskGraph(
         nodes=new_nodes,
         edges=new_edges,
-        order=[],  # will be computed by resolver
+        order=[],
         metadata=graph.metadata,
     )
 

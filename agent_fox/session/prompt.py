@@ -20,9 +20,7 @@ from agent_fox.core.errors import ConfigError
 # ---------------------------------------------------------------------------
 
 # Template directory relative to this file (package-relative resolution)
-_TEMPLATE_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "_templates" / "prompts"
-)
+_TEMPLATE_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "prompts"
 
 # Role-to-template mapping
 _ROLE_TEMPLATES: dict[str, list[str]] = {
@@ -127,9 +125,7 @@ def build_system_prompt(
     """
     if role not in _ROLE_TEMPLATES:
         valid = ", ".join(sorted(_ROLE_TEMPLATES))
-        raise ValueError(
-            f"Unknown prompt role {role!r}. Valid roles: {valid}"
-        )
+        raise ValueError(f"Unknown prompt role {role!r}. Valid roles: {valid}")
 
     # Derive number and specification from spec_name (e.g. "03_session")
     parts = spec_name.split("_", 1)
@@ -178,9 +174,7 @@ def build_task_prompt(
     Requirement: 15-REQ-5.1, 15-REQ-5.2, 15-REQ-5.3, 15-REQ-5.E1
     """
     if task_group < 1:
-        raise ValueError(
-            f"task_group must be >= 1, got {task_group}"
-        )
+        raise ValueError(f"task_group must be >= 1, got {task_group}")
 
     return (
         f"Implement task group {task_group} from specification "

@@ -15,7 +15,7 @@ from agent_fox.workspace.git import (
     get_changed_files,
     has_new_commits,
     merge_fast_forward,
-    run_git,
+    rebase_onto,
 )
 from agent_fox.workspace.worktree import WorkspaceInfo
 
@@ -81,18 +81,7 @@ async def harvest(
     # is checked out there. Using `git rebase <onto>` (without a branch
     # argument) rebases the currently checked-out branch.
     try:
-        returncode, _stdout, stderr = await run_git(
-            ["rebase", dev_branch],
-            cwd=workspace.path,
-            check=False,
-        )
-        if returncode != 0:
-            raise IntegrationError(
-                f"Rebase of '{workspace.branch}' onto "
-                f"'{dev_branch}' failed: {stderr.strip()}",
-                branch=workspace.branch,
-                onto=dev_branch,
-            )
+        await rebase_onto(workspace.path, workspace.branch, dev_branch)
     except IntegrationError:
         # Step 5: Abort rebase on failure (03-REQ-7.E1)
         logger.warning(

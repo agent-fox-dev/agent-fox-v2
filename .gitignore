@@ -16,3 +16,8 @@ build/
 .session-summary.json
 .session-learnings.md
 .hypothesis/
+
+# hacking
+stuff.md
+stuff.json
+hack/** 

@@ -8,7 +8,8 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent_fox.core.errors import AgentFoxError
@@ -30,49 +31,48 @@ class ResetResult:
     unblocked_tasks: list[str]  # task IDs that were cascade-unblocked
     cleaned_worktrees: list[str]  # worktree directories removed
     cleaned_branches: list[str]  # git branches deleted
+    skipped_completed: list[str] = field(
+        default_factory=list,
+    )  # completed tasks that could not be reset
+
+
+def _load_or_raise[T](
+    path: Path,
+    loader: Callable[[Path], T | None],
+    error_msg: str,
+) -> T:
+    """Load a resource from *path*, raising AgentFoxError if missing.
+
+    Args:
+        path: File to load.
+        loader: Callable that returns None on failure.
+        error_msg: Human-friendly message if loading fails.
+
+    Raises:
+        AgentFoxError: If *loader* returns None.
+    """
+    result = loader(path)
+    if result is None:
+        raise AgentFoxError(error_msg, path=str(path))
+    return result
 
 
 def _load_state_or_raise(state_path: Path) -> ExecutionState:
-    """Load execution state from state.jsonl, raising if missing.
-
-    Args:
-        state_path: Path to .agent-fox/state.jsonl.
-
-    Returns:
-        The loaded ExecutionState.
-
-    Raises:
-        AgentFoxError: If the state file does not exist or is corrupted.
-    """
-    manager = StateManager(state_path)
-    state = manager.load()
-    if state is None:
-        raise AgentFoxError(
-            "No execution state found. Run `agent-fox code` first.",
-            path=str(state_path),
-        )
-    return state
+    """Load execution state from state.jsonl, raising if missing."""
+    return _load_or_raise(
+        state_path,
+        lambda p: StateManager(p).load(),
+        "No execution state found. Run `agent-fox code` first.",
+    )
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
-    """Load the task graph from plan.json, raising on failure.
-
-    Args:
-        plan_path: Path to .agent-fox/plan.json.
-
-    Returns:
-        The loaded TaskGraph.
-
-    Raises:
-        AgentFoxError: If the plan file cannot be read.
-    """
-    graph = load_plan(plan_path)
-    if graph is None:
-        raise AgentFoxError(
-            "No plan file found. Run `agent-fox plan` first.",
-            path=str(plan_path),
-        )
-    return graph
+    """Load the task graph from plan.json, raising on failure."""
+    return _load_or_raise(
+        plan_path,
+        load_plan,
+        "No plan file found. Run `agent-fox plan` first.",
+    )
 
 
 def _task_id_to_worktree_path(worktrees_dir: Path, task_id: str) -> Path:
@@ -178,6 +178,21 @@ def _cleanup_task(
     return wt, br
 
 
+def _collect_cleanup(
+    task_id: str,
+    worktrees_dir: Path,
+    repo_path: Path,
+    cleaned_worktrees: list[str],
+    cleaned_branches: list[str],
+) -> None:
+    """Clean up artifacts for a task and append results to the lists."""
+    wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
+    if wt:
+        cleaned_worktrees.append(wt)
+    if br:
+        cleaned_branches.append(br)
+
+
 def _find_sole_blocker_dependents(
     task_id: str,
     plan: TaskGraph,
@@ -261,12 +276,13 @@ def reset_all(
         if status in _RESETTABLE_STATUSES:
             reset_tasks.append(task_id)
 
-            # Clean up artifacts
-            wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
-            if wt:
-                cleaned_worktrees.append(wt)
-            if br:
-                cleaned_branches.append(br)
+            _collect_cleanup(
+                task_id,
+                worktrees_dir,
+                repo_path,
+                cleaned_worktrees,
+                cleaned_branches,
+            )
 
     # Update state: set all reset tasks to pending
     if reset_tasks:
@@ -331,6 +347,7 @@ def reset_task(
             unblocked_tasks=[],
             cleaned_worktrees=[],
             cleaned_branches=[],
+            skipped_completed=[task_id],
         )
 
     # Reset the task
@@ -338,12 +355,13 @@ def reset_task(
     cleaned_worktrees: list[str] = []
     cleaned_branches: list[str] = []
 
-    # Clean up artifacts for the target task
-    wt, br = _cleanup_task(task_id, worktrees_dir, repo_path)
-    if wt:
-        cleaned_worktrees.append(wt)
-    if br:
-        cleaned_branches.append(br)
+    _collect_cleanup(
+        task_id,
+        worktrees_dir,
+        repo_path,
+        cleaned_worktrees,
+        cleaned_branches,
+    )
 
     # Update state for the target task
     state.node_states[task_id] = "pending"
@@ -354,11 +372,13 @@ def reset_task(
     # Reset unblocked tasks to pending and clean up their artifacts
     for unblocked_id in unblocked_tasks:
         state.node_states[unblocked_id] = "pending"
-        uwt, ubr = _cleanup_task(unblocked_id, worktrees_dir, repo_path)
-        if uwt:
-            cleaned_worktrees.append(uwt)
-        if ubr:
-            cleaned_branches.append(ubr)
+        _collect_cleanup(
+            unblocked_id,
+            worktrees_dir,
+            repo_path,
+            cleaned_worktrees,
+            cleaned_branches,
+        )
 
     # Persist updated state
     StateManager(state_path).save(state)

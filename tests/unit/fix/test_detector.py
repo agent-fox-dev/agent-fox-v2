@@ -24,9 +24,7 @@ class TestDetectPytestFromPyprojectToml:
     def test_detects_pytest_ini_options(self, tmp_project: Path) -> None:
         """Detector finds pytest when pyproject.toml has [tool.pytest.ini_options]."""
         pyproject = tmp_project / "pyproject.toml"
-        pyproject.write_text(
-            '[tool.pytest.ini_options]\ntestpaths = ["tests"]\n'
-        )
+        pyproject.write_text('[tool.pytest.ini_options]\ntestpaths = ["tests"]\n')
 
         checks = detect_checks(tmp_project)
 
@@ -161,7 +159,8 @@ class TestUnparseableConfigFile:
     """
 
     def test_invalid_toml_skipped_other_files_detected(
-        self, tmp_project: Path,
+        self,
+        tmp_project: Path,
     ) -> None:
         """Invalid pyproject.toml is skipped; valid package.json still detected."""
         # Write invalid TOML

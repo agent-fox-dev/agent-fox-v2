@@ -57,9 +57,7 @@ class TestContextBudgetEnforcement:
     @given(
         facts=st.lists(fact_strategy(), min_size=0, max_size=200),
         spec_name=st.text(min_size=1, max_size=30),
-        keywords=st.lists(
-            st.text(min_size=1, max_size=20), min_size=0, max_size=10
-        ),
+        keywords=st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=10),
         budget=st.integers(min_value=1, max_value=100),
     )
     @settings(max_examples=100)

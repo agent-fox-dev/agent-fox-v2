@@ -138,9 +138,7 @@ class TestLoadFromNonexistentFile:
     Requirement: 05-REQ-4.E2
     """
 
-    def test_load_from_nonexistent_file_returns_empty(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_from_nonexistent_file_returns_empty(self, tmp_path: Path) -> None:
         """Verify loading from a nonexistent file returns empty list."""
         result = load_all_facts(path=tmp_path / "nonexistent.jsonl")
         assert result == []
@@ -149,7 +147,5 @@ class TestLoadFromNonexistentFile:
         self, tmp_path: Path
     ) -> None:
         """Verify load_facts_by_spec from nonexistent file returns empty."""
-        result = load_facts_by_spec(
-            "spec_01", path=tmp_path / "nonexistent.jsonl"
-        )
+        result = load_facts_by_spec("spec_01", path=tmp_path / "nonexistent.jsonl")
         assert result == []

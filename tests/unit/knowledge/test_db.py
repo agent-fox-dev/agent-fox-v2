@@ -44,9 +44,7 @@ class TestDatabaseOpensAndCreatesSchema:
         assert Path(knowledge_config.store_path).exists()
         db.close()
 
-    def test_creates_all_schema_tables(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_creates_all_schema_tables(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify all 7 schema tables are created on first open."""
         db = KnowledgeDB(knowledge_config)
         db.open()
@@ -82,9 +80,7 @@ class TestDatabaseConnectionClosesCleanly:
     Requirement: 11-REQ-1.3
     """
 
-    def test_close_releases_connection(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_close_releases_connection(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify close() releases connection and subsequent access raises."""
         db = KnowledgeDB(knowledge_config)
         db.open()
@@ -134,9 +130,7 @@ class TestSchemaInitializationIdempotent:
 
         db2 = KnowledgeDB(knowledge_config)
         db2.open()
-        count = db2.connection.execute(
-            "SELECT COUNT(*) FROM schema_version"
-        ).fetchone()
+        count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
         assert count[0] == 1
         db2.close()

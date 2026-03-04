@@ -9,6 +9,7 @@ Requirements: 08-REQ-5.1, 08-REQ-5.2, 08-REQ-5.3, 08-REQ-7.E1
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -17,7 +18,10 @@ from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.clusterer import cluster_failures
 from agent_fox.fix.collector import FailureRecord, run_checks
 from agent_fox.fix.detector import detect_checks
-from agent_fox.fix.spec_gen import cleanup_fix_specs, generate_fix_spec
+from agent_fox.fix.spec_gen import FixSpec, cleanup_fix_specs, generate_fix_spec
+
+# A session runner callable: takes a FixSpec and returns cost consumed.
+FixSessionRunner = Callable[[FixSpec], Awaitable[float]]
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,7 @@ async def run_fix_loop(
     project_root: Path,
     config: AgentFoxConfig,
     max_passes: int = 3,
+    session_runner: FixSessionRunner | None = None,
 ) -> FixResult:
     """Run the iterative fix loop.
 
@@ -111,14 +116,19 @@ async def run_fix_loop(
             total_clusters_seen += len(clusters)
 
             # Step 2d: Generate fix specs for each cluster
+            # Step 2e: Run coding sessions for each fix spec
             for cluster in clusters:
-                generate_fix_spec(cluster, fix_specs_dir, pass_num)
+                fix_spec = generate_fix_spec(cluster, fix_specs_dir, pass_num)
+                if session_runner is not None:
+                    try:
+                        await session_runner(fix_spec)
+                    except Exception:
+                        logger.warning(
+                            "Fix session failed for '%s'",
+                            cluster.label,
+                            exc_info=True,
+                        )
                 sessions_consumed += 1
-
-            # Step 2e: Run coding sessions for each cluster
-            # (Session runner integration is handled at the CLI level;
-            #  the loop structure supports it but sessions are not
-            #  executed inline in the current implementation.)
 
             # Clean up fix specs after each pass
             cleanup_fix_specs(fix_specs_dir)

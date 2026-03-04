@@ -10,11 +10,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from agent_fox.reporting.git_activity import (
+    is_agent_commit,
+    partition_commits,
+)
 from agent_fox.reporting.standup import (
     HumanCommit,
     _detect_overlaps,
-    _get_human_commits,
-    _is_agent_commit,
     generate_standup,
 )
 
@@ -89,7 +91,10 @@ class TestStandupAgentActivity:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert report.agent.sessions_run == 2
@@ -106,7 +111,8 @@ class TestStandupHumanCommits:
     """TS-07-5: Standup includes non-agent commits from git log."""
 
     def test_human_commits_exclude_agent(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """Human commits exclude agent-authored commits."""
         import subprocess
@@ -116,36 +122,48 @@ class TestStandupHumanCommits:
             f = tmp_git_repo / f"human_{i}.py"
             f.write_text(f"# human change {i}\n")
             subprocess.run(
-                ["git", "add", "."], cwd=tmp_git_repo,
-                check=True, capture_output=True,
+                ["git", "add", "."],
+                cwd=tmp_git_repo,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "commit", "-m", f"Human commit {i}"],
                 cwd=tmp_git_repo,
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
         # Create 1 agent commit
         f = tmp_git_repo / "agent_file.py"
         f.write_text("# agent change\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
-            ["git", "commit", "-m", "Agent commit",
-             "--author", "agent-fox <agent-fox@test.com>"],
+            [
+                "git",
+                "commit",
+                "-m",
+                "Agent commit",
+                "--author",
+                "agent-fox <agent-fox@test.com>",
+            ],
             cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        commits = _get_human_commits(tmp_git_repo, since, "agent-fox")
+        human, _agent = partition_commits(tmp_git_repo, since, "agent-fox")
 
         # 3 human commits: initial (from fixture) + 2 created above;
         # the agent commit is excluded.
-        assert len(commits) == 3
-        for commit in commits:
+        assert len(human) == 3
+        for commit in human:
             assert commit.author != "agent-fox"
             assert len(commit.sha) == 40
 
@@ -157,7 +175,7 @@ class TestStandupHumanCommits:
 
 
 class TestIsAgentCommit:
-    """Verify _is_agent_commit classifies by author AND message pattern."""
+    """Verify is_agent_commit classifies by author AND message pattern."""
 
     @staticmethod
     def _commit(subject: str, author: str = "developer") -> HumanCommit:
@@ -172,85 +190,86 @@ class TestIsAgentCommit:
     def test_author_match(self) -> None:
         """Commits by the agent author are classified as agent commits."""
         c = self._commit("anything", author="agent-fox")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_feat(self) -> None:
         c = self._commit("feat: add login flow")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_fix(self) -> None:
         c = self._commit("fix: resolve null pointer in parser")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_chore(self) -> None:
         c = self._commit("chore: update orchestrator state and memory")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_test(self) -> None:
         c = self._commit("test: add failing spec tests for CLI banner")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_refactor(self) -> None:
         c = self._commit("refactor: extract helper from validator")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_style(self) -> None:
         c = self._commit("style: apply ruff formatting")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_docs(self) -> None:
         c = self._commit("docs: update API reference")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_with_scope(self) -> None:
         c = self._commit("feat(auth): add OAuth2 support")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_conventional_with_bang(self) -> None:
         c = self._commit("feat!: breaking API change")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_merge_branch(self) -> None:
         c = self._commit("Merge branch 'feature/15_standup_formatting-4' into develop")
-        assert _is_agent_commit(c, "agent-fox") is True
+        assert is_agent_commit(c, "agent-fox") is True
 
     def test_human_informal_message(self) -> None:
         """Informal commit messages are classified as human."""
         c = self._commit("fixes")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_human_updated_readme(self) -> None:
         c = self._commit("updated README")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_human_descriptive(self) -> None:
         c = self._commit("bundle skills and added audits")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_human_short_note(self) -> None:
         c = self._commit("specs 14,15")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_human_wip(self) -> None:
         c = self._commit("wip")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_prefix_without_colon_is_human(self) -> None:
         """Words like 'fix' or 'test' without colon-space are human."""
         c = self._commit("fix the login bug")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
     def test_prefix_no_space_after_colon_is_human(self) -> None:
         """'fix:nospace' should not match (colon without space)."""
         c = self._commit("fix:nospace")
-        assert _is_agent_commit(c, "agent-fox") is False
+        assert is_agent_commit(c, "agent-fox") is False
 
 
 class TestHumanCommitsMessageFiltering:
-    """Verify _get_human_commits excludes agent-patterned messages."""
+    """Verify partition_commits excludes agent-patterned messages."""
 
     def test_conventional_commits_excluded(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """Commits with conventional prefixes are excluded as agent work."""
         import subprocess
@@ -259,32 +278,40 @@ class TestHumanCommitsMessageFiltering:
         f = tmp_git_repo / "notes.txt"
         f.write_text("some notes\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "commit", "-m", "added some notes"],
-            cwd=tmp_git_repo, check=True, capture_output=True,
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
 
         # Create an agent-style commit (conventional prefix, same author)
         f2 = tmp_git_repo / "module.py"
         f2.write_text("# new module\n")
         subprocess.run(
-            ["git", "add", "."], cwd=tmp_git_repo,
-            check=True, capture_output=True,
+            ["git", "add", "."],
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "commit", "-m", "feat: add new module"],
-            cwd=tmp_git_repo, check=True, capture_output=True,
+            cwd=tmp_git_repo,
+            check=True,
+            capture_output=True,
         )
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        commits = _get_human_commits(tmp_git_repo, since, "agent-fox")
+        human, _agent = partition_commits(tmp_git_repo, since, "agent-fox")
 
         # Should include: "initial" (from fixture) + "added some notes"
         # Should exclude: "feat: add new module"
-        subjects = [c.subject for c in commits]
+        subjects = [c.subject for c in human]
         assert "added some notes" in subjects
         assert "feat: add new module" not in subjects
 
@@ -413,7 +440,10 @@ class TestStandupQueueSummary:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         assert report.queue.completed == 3
@@ -476,7 +506,10 @@ class TestStandupCostBreakdown:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=24,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=24,
         )
 
         # The report must have a cost breakdown with at least one entry
@@ -522,7 +555,10 @@ class TestStandupNoAgentActivity:
         write_state_file(tmp_state_path, state)
 
         report = generate_standup(
-            tmp_state_path, plan_path, tmp_path, hours=1,
+            tmp_state_path,
+            plan_path,
+            tmp_path,
+            hours=1,
         )
 
         assert report.agent.sessions_run == 0
@@ -541,13 +577,14 @@ class TestStandupNoGitCommits:
     """TS-07-E4: Standup handles empty git history gracefully."""
 
     def test_no_commits_returns_empty_list(
-        self, tmp_git_repo: Path,
+        self,
+        tmp_git_repo: Path,
     ) -> None:
         """No human commits when git history is outside the window."""
         # The initial commit from tmp_git_repo fixture is very recent,
         # so use a very short window that excludes it by setting `since`
         # to the future.
         since = datetime.now(UTC) + timedelta(hours=1)
-        commits = _get_human_commits(tmp_git_repo, since, "agent-fox")
+        human, _agent = partition_commits(tmp_git_repo, since, "agent-fox")
 
-        assert len(commits) == 0
+        assert len(human) == 0

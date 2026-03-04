@@ -14,7 +14,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from agent_fox.core.errors import AgentFoxError
+from agent_fox.cli import handle_agent_fox_errors
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
@@ -48,6 +48,7 @@ _AGENT_FOX_DIR = ".agent-fox"
     help="Write report to file instead of stdout",
 )
 @click.pass_context
+@handle_agent_fox_errors
 def standup_cmd(ctx: click.Context, hours: int, fmt: str, output: str | None) -> None:
     """Generate daily activity report."""
     project_root = Path.cwd()
@@ -55,17 +56,12 @@ def standup_cmd(ctx: click.Context, hours: int, fmt: str, output: str | None) ->
     state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
 
-    try:
-        report = generate_standup(
-            state_path=state_path,
-            plan_path=plan_path,
-            repo_path=project_root,
-            hours=hours,
-        )
-    except AgentFoxError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    report = generate_standup(
+        state_path=state_path,
+        plan_path=plan_path,
+        repo_path=project_root,
+        hours=hours,
+    )
 
     console = Console()
     output_format = OutputFormat(fmt)
@@ -73,8 +69,4 @@ def standup_cmd(ctx: click.Context, hours: int, fmt: str, output: str | None) ->
     content = formatter.format_standup(report)
 
     output_path = Path(output) if output else None
-    try:
-        write_output(content, output_path=output_path, console=console)
-    except AgentFoxError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
+    write_output(content, output_path=output_path, console=console)

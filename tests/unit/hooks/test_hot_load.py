@@ -71,7 +71,8 @@ class TestHotLoadDiscoversNewSpecs:
     """
 
     def test_discovers_new_spec_folder(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """New spec folders are discovered and added to the graph."""
         # Create existing spec
@@ -92,12 +93,12 @@ class TestHotLoadDiscoversNewSpecs:
 
         assert "07_new_feature" in new_specs
         assert any(
-            n.spec_name == "07_new_feature"
-            for n in updated_graph.nodes.values()
+            n.spec_name == "07_new_feature" for n in updated_graph.nodes.values()
         )
 
     def test_updated_graph_has_more_nodes(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """Graph ordering includes new nodes after hot-load."""
         existing = tmp_specs_dir / "01_existing"
@@ -118,7 +119,8 @@ class TestHotLoadDiscoversNewSpecs:
         assert len(updated_graph.order) > original_order_len
 
     def test_preserves_existing_nodes(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """Hot-load does not remove or modify existing nodes."""
         existing = tmp_specs_dir / "01_existing"
@@ -146,7 +148,8 @@ class TestHotLoadNoNewSpecs:
     """
 
     def test_no_new_specs_returns_same_graph(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """No new specs found returns original graph unchanged."""
         existing = tmp_specs_dir / "01_existing"
@@ -162,7 +165,8 @@ class TestHotLoadNoNewSpecs:
         assert updated_graph.nodes == graph.nodes
 
     def test_no_new_specs_returns_empty_list(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """Empty list is returned when no new specs are found."""
         existing = tmp_specs_dir / "01_existing"
@@ -191,9 +195,7 @@ class TestDiscoverNewSpecs:
             _make_minimal_tasks_md()
         )
 
-        new_specs = discover_new_specs(
-            tmp_specs_dir, known_specs={"01_existing"}
-        )
+        new_specs = discover_new_specs(tmp_specs_dir, known_specs={"01_existing"})
 
         assert len(new_specs) == 1
         assert new_specs[0].name == "07_new_feature"
@@ -205,9 +207,7 @@ class TestDiscoverNewSpecs:
             _make_minimal_tasks_md()
         )
 
-        new_specs = discover_new_specs(
-            tmp_specs_dir, known_specs={"01_existing"}
-        )
+        new_specs = discover_new_specs(tmp_specs_dir, known_specs={"01_existing"})
 
         assert new_specs == []
 
@@ -222,7 +222,9 @@ class TestNewSpecInvalidDependency:
     """
 
     def test_invalid_dep_skipped_with_warning(
-        self, tmp_specs_dir: Path, caplog,
+        self,
+        tmp_specs_dir: Path,
+        caplog,
     ) -> None:
         """New spec referencing nonexistent dependency is skipped."""
         existing = tmp_specs_dir / "01_existing"
@@ -233,9 +235,7 @@ class TestNewSpecInvalidDependency:
         broken = tmp_specs_dir / "99_broken"
         broken.mkdir()
         (broken / "tasks.md").write_text(_make_minimal_tasks_md())
-        (broken / "prd.md").write_text(
-            _make_minimal_prd_md(deps=["50_nonexistent"])
-        )
+        (broken / "prd.md").write_text(_make_minimal_prd_md(deps=["50_nonexistent"]))
 
         graph = _make_graph_with_spec("01_existing")
 
@@ -246,7 +246,8 @@ class TestNewSpecInvalidDependency:
         assert updated_graph.nodes == graph.nodes
 
     def test_valid_spec_still_added_alongside_broken(
-        self, tmp_specs_dir: Path,
+        self,
+        tmp_specs_dir: Path,
     ) -> None:
         """Valid new specs are still added even if another has invalid deps."""
         existing = tmp_specs_dir / "01_existing"
@@ -264,9 +265,7 @@ class TestNewSpecInvalidDependency:
         broken = tmp_specs_dir / "99_broken"
         broken.mkdir()
         (broken / "tasks.md").write_text(_make_minimal_tasks_md())
-        (broken / "prd.md").write_text(
-            _make_minimal_prd_md(deps=["50_nonexistent"])
-        )
+        (broken / "prd.md").write_text(_make_minimal_prd_md(deps=["50_nonexistent"]))
 
         graph = _make_graph_with_spec("01_existing")
 
@@ -287,9 +286,7 @@ class TestSyncIntervalZero:
         sync_interval = 0
         for completed in range(1, 101):
             triggered = (
-                sync_interval > 0
-                and completed > 0
-                and completed % sync_interval == 0
+                sync_interval > 0 and completed > 0 and completed % sync_interval == 0
             )
             assert triggered is False, (
                 f"Barrier should never trigger with interval=0, "
@@ -302,9 +299,7 @@ class TestSyncIntervalZero:
         triggered_at = []
         for completed in range(1, 21):
             triggered = (
-                sync_interval > 0
-                and completed > 0
-                and completed % sync_interval == 0
+                sync_interval > 0 and completed > 0 and completed % sync_interval == 0
             )
             if triggered:
                 triggered_at.append(completed)

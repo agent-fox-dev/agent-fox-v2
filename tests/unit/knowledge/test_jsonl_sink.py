@@ -23,9 +23,7 @@ class TestJsonlSinkWritesEvents:
     def test_writes_all_event_types(self, tmp_path: Path) -> None:
         """Verify session outcome, tool call, and tool error are written."""
         sink = JsonlSink(directory=tmp_path, session_id="test-session")
-        sink.record_session_outcome(
-            SessionOutcome(spec_name="s1", status="completed")
-        )
+        sink.record_session_outcome(SessionOutcome(spec_name="s1", status="completed"))
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="read"))
         sink.close()
@@ -42,9 +40,7 @@ class TestJsonlSinkWritesEvents:
     def test_event_types_are_correct(self, tmp_path: Path) -> None:
         """Verify each event has the correct event_type field."""
         sink = JsonlSink(directory=tmp_path, session_id="test-session-2")
-        sink.record_session_outcome(
-            SessionOutcome(spec_name="s1", status="completed")
-        )
+        sink.record_session_outcome(SessionOutcome(spec_name="s1", status="completed"))
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="read"))
         sink.close()
@@ -69,9 +65,7 @@ class TestJsonlSinkEmptyTouchedPaths:
     def test_empty_touched_paths_written(self, tmp_path: Path) -> None:
         """Verify session outcome with empty touched_paths produces valid JSON."""
         sink = JsonlSink(directory=tmp_path, session_id="test")
-        sink.record_session_outcome(
-            SessionOutcome(status="failed", touched_paths=[])
-        )
+        sink.record_session_outcome(SessionOutcome(status="failed", touched_paths=[]))
         sink.close()
 
         jsonl_files = list(tmp_path.glob("*.jsonl"))

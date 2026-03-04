@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 import yaml
 from rich.console import Console
@@ -22,7 +23,7 @@ from agent_fox.reporting.status import StatusReport
 logger = logging.getLogger(__name__)
 
 
-def _format_tokens(count: int) -> str:
+def format_tokens(count: int) -> str:
     """Format token count for human readability.
 
     Args:
@@ -96,18 +97,15 @@ class TableFormatter:
                 f"{count} {cat}"
                 for cat, count in sorted(report.memory_by_category.items())
             )
-            lines.append(
-                f"Memory: {report.memory_total} facts ({cat_parts})"
-            )
+            lines.append(f"Memory: {report.memory_total} facts ({cat_parts})")
         else:
             lines.append("Memory: 0 facts")
 
         # Tokens line
-        in_tok = _format_tokens(report.input_tokens)
-        out_tok = _format_tokens(report.output_tokens)
+        in_tok = format_tokens(report.input_tokens)
+        out_tok = format_tokens(report.output_tokens)
         lines.append(
-            f"Tokens: {in_tok} in / {out_tok} out | "
-            f"${report.estimated_cost:.2f}"
+            f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}"
         )
 
         # Problem tasks (compact)
@@ -115,9 +113,7 @@ class TableFormatter:
             lines.append("")
             lines.append("Problems:")
             for task in report.problem_tasks:
-                lines.append(
-                    f"  {task.task_id}: {task.status} — {task.reason}"
-                )
+                lines.append(f"  {task.task_id}: {task.status} — {task.reason}")
 
         return "\n".join(lines) + "\n"
 
@@ -161,8 +157,8 @@ class TableFormatter:
         if report.task_activities:
             for ta in report.task_activities:
                 display_id = _display_node_id(ta.task_id)
-                in_tok = _format_tokens(ta.input_tokens)
-                out_tok = _format_tokens(ta.output_tokens)
+                in_tok = format_tokens(ta.input_tokens)
+                out_tok = format_tokens(ta.output_tokens)
                 lines.append(
                     f"  {display_id}: {ta.current_status}. "
                     f"{ta.completed_sessions}/{ta.total_sessions} sessions. "
@@ -203,9 +199,7 @@ class TableFormatter:
             f"{q.blocked} blocked | {q.failed} failed"
         )
         if q.ready_task_ids:
-            display_ids = ", ".join(
-                _display_node_id(tid) for tid in q.ready_task_ids
-            )
+            display_ids = ", ".join(_display_node_id(tid) for tid in q.ready_task_ids)
             lines.append(f"  Ready: {display_ids}")
         lines.append("")
 
@@ -213,12 +207,9 @@ class TableFormatter:
         if report.file_overlaps:
             lines.append("Heads Up \u2014 File Overlaps")
             for overlap in report.file_overlaps:
-                commit_shas = ", ".join(
-                    sha[:7] for sha in overlap.human_commits
-                )
+                commit_shas = ", ".join(sha[:7] for sha in overlap.human_commits)
                 agent_ids = ", ".join(
-                    _display_node_id(tid)
-                    for tid in overlap.agent_task_ids
+                    _display_node_id(tid) for tid in overlap.agent_task_ids
                 )
                 lines.append(
                     f"  {overlap.path} \u2014 "
@@ -232,36 +223,47 @@ class TableFormatter:
         return "\n".join(lines)
 
 
-class JsonFormatter:
+class StructuredFormatter:
+    """Formatter that serializes reports via a pluggable serializer."""
+
+    def __init__(
+        self,
+        serializer: Callable[[dict[str, Any]], str],
+    ) -> None:
+        self._serializer = serializer
+
+    def format_status(self, report: StatusReport) -> str:
+        """Serialize status report."""
+        return self._serializer(asdict(report))
+
+    def format_standup(self, report: StandupReport) -> str:
+        """Serialize standup report."""
+        return self._serializer(asdict(report))
+
+
+def _json_serializer(data: dict[str, Any]) -> str:
+    return json.dumps(data, indent=2)
+
+
+def _yaml_serializer(data: dict[str, Any]) -> str:
+    return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+
+def JsonFormatter() -> StructuredFormatter:  # noqa: N802
     """JSON formatter for machine-readable output."""
-
-    def format_status(self, report: StatusReport) -> str:
-        """Serialize status report as JSON."""
-        return json.dumps(asdict(report), indent=2)
-
-    def format_standup(self, report: StandupReport) -> str:
-        """Serialize standup report as JSON."""
-        return json.dumps(asdict(report), indent=2)
+    return StructuredFormatter(_json_serializer)
 
 
-class YamlFormatter:
+def YamlFormatter() -> StructuredFormatter:  # noqa: N802
     """YAML formatter for human-readable structured output."""
+    return StructuredFormatter(_yaml_serializer)
 
-    def format_status(self, report: StatusReport) -> str:
-        """Serialize status report as YAML."""
-        return yaml.dump(
-            asdict(report),
-            default_flow_style=False,
-            sort_keys=False,
-        )
 
-    def format_standup(self, report: StandupReport) -> str:
-        """Serialize standup report as YAML."""
-        return yaml.dump(
-            asdict(report),
-            default_flow_style=False,
-            sort_keys=False,
-        )
+_FORMATTERS: dict[OutputFormat, Callable[..., ReportFormatter]] = {
+    OutputFormat.TABLE: lambda console: TableFormatter(console),  # type: ignore[dict-item]
+    OutputFormat.JSON: lambda _: JsonFormatter(),  # type: ignore[dict-item]
+    OutputFormat.YAML: lambda _: YamlFormatter(),  # type: ignore[dict-item]
+}
 
 
 def get_formatter(
@@ -277,14 +279,11 @@ def get_formatter(
     Returns:
         A formatter implementing ReportFormatter.
     """
-    if fmt == OutputFormat.TABLE:
-        return TableFormatter(console)  # type: ignore[return-value]
-    if fmt == OutputFormat.JSON:
-        return JsonFormatter()  # type: ignore[return-value]
-    if fmt == OutputFormat.YAML:
-        return YamlFormatter()  # type: ignore[return-value]
-    msg = f"Unknown output format: {fmt}"
-    raise ValueError(msg)
+    factory = _FORMATTERS.get(fmt)
+    if factory is None:
+        msg = f"Unknown output format: {fmt}"
+        raise ValueError(msg)
+    return factory(console)
 
 
 def write_output(

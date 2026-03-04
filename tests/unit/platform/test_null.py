@@ -24,16 +24,23 @@ class TestNullPlatformCreatePr:
     """
 
     async def test_returns_empty_string(
-        self, null_platform: NullPlatform, mock_subprocess: MagicMock,
+        self,
+        null_platform: NullPlatform,
+        mock_subprocess: MagicMock,
     ) -> None:
         """create_pr returns an empty string (no PR URL)."""
         result = await null_platform.create_pr(
-            "feature/test", "Title", "Body", ["label"],
+            "feature/test",
+            "Title",
+            "Body",
+            ["label"],
         )
         assert result == ""
 
     async def test_calls_git_checkout_develop(
-        self, null_platform: NullPlatform, mock_subprocess: MagicMock,
+        self,
+        null_platform: NullPlatform,
+        mock_subprocess: MagicMock,
     ) -> None:
         """create_pr calls git checkout develop."""
         await null_platform.create_pr("feature/test", "Title", "Body", [])
@@ -42,7 +49,9 @@ class TestNullPlatformCreatePr:
         assert checkout_call[0][0] == ["git", "checkout", "develop"]
 
     async def test_calls_git_merge_no_ff(
-        self, null_platform: NullPlatform, mock_subprocess: MagicMock,
+        self,
+        null_platform: NullPlatform,
+        mock_subprocess: MagicMock,
     ) -> None:
         """create_pr calls git merge --no-ff with the branch name."""
         await null_platform.create_pr("feature/test", "Title", "Body", [])
@@ -63,7 +72,8 @@ class TestNullPlatformWaitForCi:
         assert result is True
 
     async def test_returns_true_with_any_timeout(
-        self, null_platform: NullPlatform,
+        self,
+        null_platform: NullPlatform,
     ) -> None:
         """wait_for_ci returns True regardless of timeout value."""
         result = await null_platform.wait_for_ci("", 0)
@@ -101,35 +111,54 @@ class TestNullPlatformMergeConflict:
     """
 
     async def test_raises_on_merge_failure(
-        self, null_platform: NullPlatform, mock_subprocess: MagicMock,
+        self,
+        null_platform: NullPlatform,
+        mock_subprocess: MagicMock,
     ) -> None:
         """create_pr raises IntegrationError when git merge fails."""
 
         def _side_effect(args, **kwargs):
             if args[0:2] == ["git", "merge"]:
                 return subprocess.CompletedProcess(
-                    args=args, returncode=1, stdout="", stderr="CONFLICT",
+                    args=args,
+                    returncode=1,
+                    stdout="",
+                    stderr="CONFLICT",
                 )
             return subprocess.CompletedProcess(
-                args=args, returncode=0, stdout="", stderr="",
+                args=args,
+                returncode=0,
+                stdout="",
+                stderr="",
             )
 
         mock_subprocess.side_effect = _side_effect
 
         with pytest.raises(IntegrationError, match="feature/conflict"):
             await null_platform.create_pr(
-                "feature/conflict", "Title", "Body", [],
+                "feature/conflict",
+                "Title",
+                "Body",
+                [],
             )
 
     async def test_raises_on_checkout_failure(
-        self, null_platform: NullPlatform, mock_subprocess: MagicMock,
+        self,
+        null_platform: NullPlatform,
+        mock_subprocess: MagicMock,
     ) -> None:
         """create_pr raises IntegrationError when git checkout fails."""
         mock_subprocess.return_value = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="error: pathspec",
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="error: pathspec",
         )
 
         with pytest.raises(IntegrationError, match="develop"):
             await null_platform.create_pr(
-                "feature/test", "Title", "Body", [],
+                "feature/test",
+                "Title",
+                "Body",
+                [],
             )

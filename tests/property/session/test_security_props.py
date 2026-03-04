@@ -11,7 +11,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.session.runner import DEFAULT_BASH_ALLOWLIST, build_allowlist_hook
+from agent_fox.hooks.security import DEFAULT_ALLOWLIST, make_pre_tool_use_hook
 
 # Strategy for command-like strings: a first token (no spaces) followed
 # by optional arguments
@@ -35,71 +35,39 @@ class TestAllowlistBlocksNonAllowlisted:
     @given(first_token=first_token_strategy)
     @settings(max_examples=50)
     def test_non_allowlisted_command_blocked(
-        self, first_token: str,
+        self,
+        first_token: str,
     ) -> None:
         """Commands with a first token not in the allowlist are blocked."""
         # Only test tokens that are NOT in the default allowlist
-        assume(first_token not in DEFAULT_BASH_ALLOWLIST)
+        assume(first_token not in DEFAULT_ALLOWLIST)
         assume(first_token.strip())  # skip empty/whitespace
 
         config = AgentFoxConfig()
-        hook = build_allowlist_hook(config)
+        hook = make_pre_tool_use_hook(config.security)
 
         command = f"{first_token} --some-arg value"
-        result = _invoke_hook_sync(hook, tool_name="Bash", command=command)
+        result = hook(tool_name="Bash", tool_input={"command": command})
         assert result.get("decision") == "block", (
             f"Command '{command}' should be blocked but was not"
         )
 
     @given(
-        cmd=st.sampled_from(DEFAULT_BASH_ALLOWLIST),
+        cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
         args=st.text(max_size=30),
     )
     @settings(max_examples=50)
     def test_allowlisted_command_not_blocked(
-        self, cmd: str, args: str,
+        self,
+        cmd: str,
+        args: str,
     ) -> None:
         """Commands with a first token in the allowlist are not blocked."""
         config = AgentFoxConfig()
-        hook = build_allowlist_hook(config)
+        hook = make_pre_tool_use_hook(config.security)
 
         command = f"{cmd} {args}".strip()
-        result = _invoke_hook_sync(hook, tool_name="Bash", command=command)
+        result = hook(tool_name="Bash", tool_input={"command": command})
         assert result.get("decision") != "block", (
             f"Command '{command}' should be allowed but was blocked"
         )
-
-
-def _invoke_hook_sync(
-    hook: dict,
-    *,
-    tool_name: str,
-    command: str,
-) -> dict:
-    """Synchronously invoke a hook callback for testing.
-
-    Handles both sync and async callbacks.
-    """
-    callback = hook.get("callback")
-    if callback is None:
-        raise ValueError(
-            f"Hook dict does not contain a 'callback' key: {hook!r}"
-        )
-
-    tool_input = {"command": command} if tool_name == "Bash" else {}
-
-    import asyncio
-    import inspect
-
-    if inspect.iscoroutinefunction(callback):
-        loop = asyncio.new_event_loop()
-        try:
-            result = loop.run_until_complete(
-                callback(tool_name=tool_name, tool_input=tool_input),
-            )
-        finally:
-            loop.close()
-    else:
-        result = callback(tool_name=tool_name, tool_input=tool_input)
-
-    return result if isinstance(result, dict) else {}

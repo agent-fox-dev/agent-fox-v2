@@ -60,8 +60,9 @@ model in the banner, so that I know which version and model are in use.
 #### Edge Cases
 
 1. [14-REQ-2.E1] IF the configured coding model cannot be resolved, THEN THE
-   banner SHALL display the raw config value (e.g., `model: ADVANCED`) instead
-   of the resolved model ID.
+   banner SHALL catch `Exception` (broad catch to handle any resolution
+   failure) and display the raw config value (e.g., `model: ADVANCED`)
+   instead of the resolved model ID.
 
 ---
 

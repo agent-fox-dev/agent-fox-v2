@@ -120,7 +120,8 @@ class TestStatePersistence:
         assert len(lines) == 2
 
     def test_record_session_updates_totals(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """record_session() updates cumulative token/cost/session totals."""
         manager = StateManager(tmp_state_path)
@@ -154,7 +155,8 @@ class TestResumeFromState:
     """
 
     def test_load_returns_last_saved_state(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Loading returns the state from the last JSON line."""
         manager = StateManager(tmp_state_path)
@@ -179,7 +181,8 @@ class TestResumeFromState:
         assert loaded.total_sessions == 2
 
     def test_load_returns_none_when_no_file(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Loading returns None when state file does not exist."""
         manager = StateManager(tmp_state_path)
@@ -189,7 +192,8 @@ class TestResumeFromState:
         assert loaded is None
 
     def test_completed_tasks_preserved_on_load(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Completed task statuses are preserved when loaded."""
         manager = StateManager(tmp_state_path)
@@ -211,7 +215,8 @@ class TestResumeFromState:
         assert loaded.node_states["C"] == "pending"
 
     def test_session_history_preserved_on_load(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Session history entries are preserved on load."""
         manager = StateManager(tmp_state_path)
@@ -238,7 +243,8 @@ class TestCorruptedState:
     """
 
     def test_corrupted_json_returns_none(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Corrupted JSON returns None (warning logged, fresh start)."""
         tmp_state_path.write_text("{{not valid json}}\n")
@@ -249,7 +255,8 @@ class TestCorruptedState:
         assert loaded is None
 
     def test_empty_file_returns_none(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Empty state file returns None."""
         tmp_state_path.write_text("")
@@ -260,7 +267,8 @@ class TestCorruptedState:
         assert loaded is None
 
     def test_partial_json_returns_none(
-        self, tmp_state_path: Path,
+        self,
+        tmp_state_path: Path,
     ) -> None:
         """Partially written JSON line returns None."""
         tmp_state_path.write_text('{"plan_hash": "abc", "node_states":')
@@ -278,7 +286,8 @@ class TestPlanHashMismatch:
     """
 
     def test_compute_plan_hash_returns_string(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """compute_plan_hash() returns a hex string."""
         plan_path = tmp_path / "plan.json"
@@ -299,11 +308,13 @@ class TestPlanHashMismatch:
         path2 = tmp_path / "plan2.json"
         path2.write_text(content)
 
-        assert StateManager.compute_plan_hash(path1) == \
-            StateManager.compute_plan_hash(path2)
+        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(
+            path2
+        )
 
     def test_different_content_different_hash(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         """Different file content produces different hashes."""
         path1 = tmp_path / "plan1.json"
@@ -312,5 +323,6 @@ class TestPlanHashMismatch:
         path2 = tmp_path / "plan2.json"
         path2.write_text('{"nodes": {"B": {}}}')
 
-        assert StateManager.compute_plan_hash(path1) != \
-            StateManager.compute_plan_hash(path2)
+        assert StateManager.compute_plan_hash(path1) != StateManager.compute_plan_hash(
+            path2
+        )

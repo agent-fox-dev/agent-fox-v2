@@ -14,7 +14,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from agent_fox.core.errors import AgentFoxError
+from agent_fox.cli import handle_agent_fox_errors
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
@@ -36,6 +36,7 @@ _AGENT_FOX_DIR = ".agent-fox"
     help="Output format (default: table)",
 )
 @click.pass_context
+@handle_agent_fox_errors
 def status_cmd(ctx: click.Context, fmt: str) -> None:
     """Show execution progress dashboard."""
     project_root = Path.cwd()
@@ -43,12 +44,7 @@ def status_cmd(ctx: click.Context, fmt: str) -> None:
     state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
 
-    try:
-        report = generate_status(state_path, plan_path)
-    except AgentFoxError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    report = generate_status(state_path, plan_path)
 
     console = Console()
     output_format = OutputFormat(fmt)

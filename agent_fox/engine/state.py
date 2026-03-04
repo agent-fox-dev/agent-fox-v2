@@ -40,6 +40,7 @@ class SessionRecord:
     duration_ms: int
     error_message: str | None
     timestamp: str  # ISO 8601
+    model: str = ""  # Model ID used for this session
 
 
 @dataclass

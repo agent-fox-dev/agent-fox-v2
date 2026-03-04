@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 from agent_fox.reporting.formatters import (
     TableFormatter,
     _display_node_id,
-    _format_tokens,
+    format_tokens,
 )
 from agent_fox.reporting.standup import (
     AgentActivity,
@@ -157,24 +157,20 @@ def standup_report_strategy(draw: st.DrawFn) -> StandupReport:
 
 
 class TestTokenFormatConsistency:
-    """TS-15-P1: _format_tokens always matches the expected pattern."""
+    """TS-15-P1: format_tokens always matches the expected pattern."""
 
     @given(n=st.integers(min_value=0, max_value=10_000_000))
     @settings(max_examples=200)
     def test_token_format_pattern(self, n: int) -> None:
         """Result matches integer (<1000), Xk (>=1000), or XM (>=1M)."""
-        result = _format_tokens(n)
+        result = format_tokens(n)
         if n < 1000:
             assert re.fullmatch(r"\d+", result), f"Expected int, got {result}"
             assert result == str(n)
         elif n >= 1_000_000:
-            assert re.fullmatch(r"\d+\.\dM", result), (
-                f"Expected XM, got {result}"
-            )
+            assert re.fullmatch(r"\d+\.\dM", result), f"Expected XM, got {result}"
         else:
-            assert re.fullmatch(r"\d+\.\dk", result), (
-                f"Expected Xk, got {result}"
-            )
+            assert re.fullmatch(r"\d+\.\dk", result), f"Expected Xk, got {result}"
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +189,9 @@ class TestDisplayNodeIdRoundtrip:
     )
     @settings(max_examples=200)
     def test_colon_replaced_by_slash(
-        self, spec: str, group: int,
+        self,
+        spec: str,
+        group: int,
     ) -> None:
         """node_id 'spec:group' becomes 'spec/group'."""
         node_id = f"{spec}:{group}"
@@ -219,7 +217,8 @@ class TestPerTaskSessionSum:
     )
     @settings(max_examples=100)
     def test_session_sum_property(
-        self, activities: list[TaskActivity],
+        self,
+        activities: list[TaskActivity],
     ) -> None:
         """sum(ta.total_sessions) is consistent with total sessions."""
         # This property is about the _compute_task_activities function.

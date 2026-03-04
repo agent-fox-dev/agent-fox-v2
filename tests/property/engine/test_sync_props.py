@@ -196,3 +196,40 @@ class TestReadyTaskCorrectness:
                 f"Ready task {ready_node} should be pending but is "
                 f"{sync.node_states[ready_node]}"
             )
+
+
+class TestBatchIndependence:
+    """TS-04-P3: Batch independence for parallel dispatch.
+
+    For any graph state, no task in the ready set depends on another task
+    in the same ready set. This guarantees that all ready tasks can be
+    safely dispatched in parallel without ordering constraints.
+
+    This is a structural invariant of ``ready_tasks()`` — if task A is
+    ready, all its dependencies are completed (not pending), so no other
+    pending (and therefore ready) task is a dependency of A.
+    """
+
+    @given(data=random_dag_with_completed_set())
+    @settings(max_examples=100)
+    def test_ready_tasks_are_pairwise_independent(
+        self,
+        data: tuple[dict[str, str], dict[str, list[str]], set[str]],
+    ) -> None:
+        """No ready task depends on another ready task."""
+        node_states, edges, completed_set = data
+
+        sync = GraphSync(dict(node_states), dict(edges))
+        for nid in completed_set:
+            sync.mark_completed(nid)
+
+        ready = sync.ready_tasks()
+        ready_set = set(ready)
+
+        for ready_node in ready:
+            deps = edges.get(ready_node, [])
+            for dep in deps:
+                assert dep not in ready_set, (
+                    f"Ready task {ready_node} depends on {dep} which is "
+                    f"also in the ready set — batch is not independent"
+                )

@@ -117,8 +117,8 @@ to complete the task correctly.
 #### Acceptance Criteria
 
 1. [03-REQ-4.1] THE context assembler SHALL locate and read the specification
-   documents for the target spec: `requirements.md`, `design.md`, and
-   `tasks.md` from the `.specs/{spec_name}/` directory.
+   documents for the target spec: `requirements.md`, `design.md`,
+   `test_spec.md`, and `tasks.md` from the `.specs/{spec_name}/` directory.
 2. [03-REQ-4.2] THE context assembler SHALL accept a list of memory facts
    (strings) relevant to the current task and include them in the assembled
    context.
@@ -140,10 +140,13 @@ instruct the coding agent on what to build, where, and how.
 
 #### Acceptance Criteria
 
-1. [03-REQ-5.1] THE prompt builder SHALL construct a system prompt that
-   includes: the agent's role, the assembled context (spec docs + memory),
-   the target task group number, and instructions to follow the spec's
-   acceptance criteria.
+1. [03-REQ-5.1] THE prompt builder SHALL construct a system prompt by loading
+   templates from `_templates/prompts/`, interpolating placeholders (e.g.,
+   context, task group, spec name) and accepting a `role` parameter (default
+   `"coding"`). The resulting prompt includes: the agent's role, the assembled
+   context (spec docs + memory), the target task group number, and
+   instructions to follow the spec's acceptance criteria. See spec 15
+   (session prompt) for the authoritative template definitions.
 2. [03-REQ-5.2] THE prompt builder SHALL construct a task prompt that
    identifies the specific task group to implement, references the tasks.md
    subtask list, and instructs the agent to commit changes on the feature

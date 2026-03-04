@@ -120,12 +120,14 @@ review granularity that fits my workflow.
 
 #### Acceptance Criteria
 
-1. [10-REQ-4.1] WHEN `PlatformConfig.pr_granularity` is "session", THE system
-   SHALL create one pull request per task group (one PR per completed coding
-   session).
-2. [10-REQ-4.2] WHEN `PlatformConfig.pr_granularity` is "spec", THE system
-   SHALL batch all task groups within a specification into a single pull
-   request, created after the last task group in that spec completes.
+1. [10-REQ-4.1] THE platform module SHALL provide building-block primitives
+   (`create_pr`, `wait_for_ci`, `wait_for_review`, `merge_pr`) that can be
+   called by the orchestrator to implement any PR granularity policy. The
+   platform module itself does not implement granularity logic.
+2. [10-REQ-4.2] PR granularity policy -- deciding when to create PRs (e.g.,
+   one PR per task group "session" vs. one PR per specification "spec") --
+   SHALL be an orchestrator-level concern. The orchestrator uses the platform
+   primitives to enact the configured `PlatformConfig.pr_granularity` value.
 
 ---
 

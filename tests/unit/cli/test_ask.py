@@ -52,10 +52,12 @@ class TestAskCommandRendersAnswer:
         runner = CliRunner()
         mock_answer = _make_oracle_answer()
 
-        with patch("agent_fox.cli.ask.Oracle") as MockOracle, \
-             patch("agent_fox.cli.ask.open_knowledge_store") as mock_open, \
-             patch("agent_fox.cli.ask.EmbeddingGenerator"), \
-             patch("agent_fox.cli.ask.VectorSearch") as MockSearch:
+        with (
+            patch("agent_fox.cli.ask.Oracle") as MockOracle,
+            patch("agent_fox.cli.ask.open_knowledge_store") as mock_open,
+            patch("agent_fox.cli.ask.EmbeddingGenerator"),
+            patch("agent_fox.cli.ask.VectorSearch") as MockSearch,
+        ):
             mock_db = MagicMock()
             mock_db.connection = MagicMock()
             mock_open.return_value = mock_db
@@ -75,10 +77,12 @@ class TestAskCommandRendersAnswer:
         runner = CliRunner()
         mock_answer = _make_oracle_answer(confidence="high")
 
-        with patch("agent_fox.cli.ask.Oracle") as MockOracle, \
-             patch("agent_fox.cli.ask.open_knowledge_store") as mock_open, \
-             patch("agent_fox.cli.ask.EmbeddingGenerator"), \
-             patch("agent_fox.cli.ask.VectorSearch") as MockSearch:
+        with (
+            patch("agent_fox.cli.ask.Oracle") as MockOracle,
+            patch("agent_fox.cli.ask.open_knowledge_store") as mock_open,
+            patch("agent_fox.cli.ask.EmbeddingGenerator"),
+            patch("agent_fox.cli.ask.VectorSearch") as MockSearch,
+        ):
             mock_db = MagicMock()
             mock_db.connection = MagicMock()
             mock_open.return_value = mock_db
@@ -104,9 +108,11 @@ class TestAskCommandEmptyStore:
         """Verify informational message for empty knowledge store."""
         runner = CliRunner()
 
-        with patch("agent_fox.cli.ask.open_knowledge_store") as mock_open, \
-             patch("agent_fox.cli.ask.EmbeddingGenerator"), \
-             patch("agent_fox.cli.ask.VectorSearch") as MockSearch:
+        with (
+            patch("agent_fox.cli.ask.open_knowledge_store") as mock_open,
+            patch("agent_fox.cli.ask.EmbeddingGenerator"),
+            patch("agent_fox.cli.ask.VectorSearch") as MockSearch,
+        ):
             mock_db = MagicMock()
             mock_db.connection = MagicMock()
             mock_open.return_value = mock_db

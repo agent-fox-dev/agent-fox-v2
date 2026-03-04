@@ -24,7 +24,8 @@ class TestFallbackClusteringByCheck:
     """
 
     def test_fallback_produces_one_cluster_per_check(
-        self, mock_config: AgentFoxConfig,
+        self,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """When AI is unavailable, fallback creates one cluster per check."""
         pytest_check = CheckDescriptor(
@@ -39,7 +40,8 @@ class TestFallbackClusteringByCheck:
         )
         pytest_failure = make_failure_record(check=pytest_check, output="test failed")
         ruff_failure = make_failure_record(
-            check=ruff_check, output="lint error",
+            check=ruff_check,
+            output="lint error",
         )
 
         with patch(
@@ -47,7 +49,8 @@ class TestFallbackClusteringByCheck:
             side_effect=ConnectionError("no API"),
         ):
             clusters = cluster_failures(
-                [pytest_failure, ruff_failure], mock_config,
+                [pytest_failure, ruff_failure],
+                mock_config,
             )
 
         assert len(clusters) == 2
@@ -56,7 +59,8 @@ class TestFallbackClusteringByCheck:
         assert any("pytest" in label.lower() for label in labels)
 
     def test_fallback_preserves_all_failures(
-        self, mock_config: AgentFoxConfig,
+        self,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """Fallback clustering preserves every failure record."""
         check = CheckDescriptor(
@@ -86,7 +90,8 @@ class TestAIClusteringSemanticGroups:
     """
 
     def test_ai_clustering_parses_response(
-        self, mock_config: AgentFoxConfig,
+        self,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """AI clustering parses a valid model response into semantic clusters."""
         pytest_check = CheckDescriptor(
@@ -103,20 +108,23 @@ class TestAIClusteringSemanticGroups:
         f2 = make_failure_record(check=pytest_check, output="ImportError: missing lib")
         f3 = make_failure_record(check=ruff_check, output="unused import os")
 
-        ai_response = json.dumps({
-            "groups": [
-                {
-                    "label": "Missing import",
-                    "failure_indices": [0, 1],
-                    "suggested_approach": "Add missing import statements",
-                },
-                {
-                    "label": "Style violation",
-                    "failure_indices": [2],
-                    "suggested_approach": "Fix formatting and remove unused imports",
-                },
-            ],
-        })
+        ai_response = json.dumps(
+            {
+                "groups": [
+                    {
+                        "label": "Missing import",
+                        "failure_indices": [0, 1],
+                        "suggested_approach": "Add missing import statements",
+                    },
+                    {
+                        "label": "Style violation",
+                        "failure_indices": [2],
+                        "suggested_approach": "Fix formatting and remove unused "
+                        "imports",
+                    },
+                ],
+            }
+        )
 
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -143,7 +151,8 @@ class TestAIClusteringUnparseableResponse:
     """
 
     def test_invalid_json_falls_back(
-        self, mock_config: AgentFoxConfig,
+        self,
+        mock_config: AgentFoxConfig,
     ) -> None:
         """Invalid AI JSON response triggers fallback clustering."""
         pytest_check = CheckDescriptor(

@@ -42,3 +42,5 @@ class Fact:
     confidence: str  # "high" | "medium" | "low"
     created_at: str  # ISO 8601 timestamp
     supersedes: str | None = None  # UUID of the fact this one replaces
+    session_id: str | None = None  # Node ID of the session that produced this fact
+    commit_sha: str | None = None  # Git commit SHA associated with this fact

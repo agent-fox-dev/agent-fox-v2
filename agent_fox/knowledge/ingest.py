@@ -48,6 +48,25 @@ class KnowledgeIngestor:
         self._embedder = embedder
         self._project_root = project_root
 
+    def _store_embedding(self, fact_id: str, text: str, label: str) -> bool:
+        """Generate and store an embedding for *fact_id* (best-effort).
+
+        Returns True on success, False on failure (logged as warning).
+        """
+        try:
+            embedding = self._embedder.embed_text(text)
+            if embedding is not None:
+                self._conn.execute(
+                    "INSERT INTO memory_embeddings (id, embedding) "
+                    "VALUES (?::UUID, ?::FLOAT[1024])",
+                    [fact_id, embedding],
+                )
+                return True
+            logger.warning("Embedding returned None for %s", label)
+        except Exception:
+            logger.warning("Embedding failed for %s", label, exc_info=True)
+        return False
+
     def ingest_adrs(self, adr_dir: Path | None = None) -> IngestResult:
         """Ingest ADRs from docs/adr/ as facts.
 
@@ -105,28 +124,8 @@ class KnowledgeIngestor:
             )
             facts_added += 1
 
-            # Generate and store embedding (best-effort)
-            try:
-                embedding = self._embedder.embed_text(content)
-                if embedding is not None:
-                    self._conn.execute(
-                        "INSERT INTO memory_embeddings (id, embedding) "
-                        "VALUES (?::UUID, ?::FLOAT[1024])",
-                        [fact_id, embedding],
-                    )
-                else:
-                    embedding_failures += 1
-                    logger.warning(
-                        "Embedding returned None for ADR %s",
-                        filename,
-                    )
-            except Exception:
+            if not self._store_embedding(fact_id, content, f"ADR {filename}"):
                 embedding_failures += 1
-                logger.warning(
-                    "Embedding failed for ADR %s",
-                    filename,
-                    exc_info=True,
-                )
 
         return IngestResult(
             source_type="adr",
@@ -164,7 +163,7 @@ class KnowledgeIngestor:
             "git",
             "log",
             f"--max-count={limit}",
-            "--format=%H%x00%aI%x00%s",
+            "--format=%H%x00%aI%x00%s%x00%b",
         ]
         if since is not None:
             cmd.append(f"--since={since}")
@@ -205,12 +204,14 @@ class KnowledgeIngestor:
             if not line.strip():
                 continue
 
-            parts = line.split("\x00", 2)
+            parts = line.split("\x00", 3)
             if len(parts) < 3:
                 logger.warning("Skipping malformed git log line: %s", line)
                 continue
 
-            sha, date, message = parts
+            sha, date, subject = parts[0], parts[1], parts[2]
+            body = parts[3].strip() if len(parts) > 3 else ""
+            message = f"{subject}\n\n{body}" if body else subject
 
             if self._is_already_ingested(
                 category="git",
@@ -232,28 +233,8 @@ class KnowledgeIngestor:
             )
             facts_added += 1
 
-            # Generate and store embedding (best-effort)
-            try:
-                embedding = self._embedder.embed_text(message)
-                if embedding is not None:
-                    self._conn.execute(
-                        "INSERT INTO memory_embeddings (id, embedding) "
-                        "VALUES (?::UUID, ?::FLOAT[1024])",
-                        [fact_id, embedding],
-                    )
-                else:
-                    embedding_failures += 1
-                    logger.warning(
-                        "Embedding returned None for commit %s",
-                        sha,
-                    )
-            except Exception:
+            if not self._store_embedding(fact_id, message, f"commit {sha}"):
                 embedding_failures += 1
-                logger.warning(
-                    "Embedding failed for commit %s",
-                    sha,
-                    exc_info=True,
-                )
 
         return IngestResult(
             source_type="git",

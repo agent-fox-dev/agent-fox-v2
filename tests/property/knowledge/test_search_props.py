@@ -80,9 +80,7 @@ class TestSearchResultOrdering:
         for i in range(n):
             fact_id = str(uuid.uuid4())
             embedding = _make_embedding(i + 1)
-            _insert_fact_with_embedding(
-                conn, fact_id, f"Fact number {i}", embedding
-            )
+            _insert_fact_with_embedding(conn, fact_id, f"Fact number {i}", embedding)
 
         # Search with a query vector
         query_vec = _make_embedding(42)
@@ -93,7 +91,7 @@ class TestSearchResultOrdering:
         for i in range(len(results) - 1):
             assert results[i].similarity >= results[i + 1].similarity, (
                 f"Result {i} (sim={results[i].similarity}) < "
-                f"Result {i+1} (sim={results[i+1].similarity})"
+                f"Result {i + 1} (sim={results[i + 1].similarity})"
             )
 
         conn.close()

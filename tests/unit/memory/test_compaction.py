@@ -44,9 +44,7 @@ class TestCompactionDeduplicatesByContentHash:
         # Should keep the earliest by created_at
         assert facts[0].created_at == "2026-01-01T00:00:00+00:00"
 
-    def test_keeps_facts_with_different_content(
-        self, tmp_memory_path: Path
-    ) -> None:
+    def test_keeps_facts_with_different_content(self, tmp_memory_path: Path) -> None:
         """Verify facts with different content are all kept."""
         fact_a = make_fact(id="a", content="content A")
         fact_b = make_fact(id="b", content="content B")
@@ -102,9 +100,7 @@ class TestCompactionSupersessionChain:
         facts = load_all_facts(path=tmp_memory_path)
         assert facts[0].id == "b-id"
 
-    def test_independent_facts_not_affected(
-        self, tmp_memory_path: Path
-    ) -> None:
+    def test_independent_facts_not_affected(self, tmp_memory_path: Path) -> None:
         """Verify facts without supersession links are kept."""
         a = make_fact(id="a-id", content="fact A", supersedes=None)
         b = make_fact(id="b-id", content="fact B", supersedes=None)
@@ -121,18 +117,14 @@ class TestCompactionEmptyKnowledgeBase:
     Requirement: 05-REQ-5.E1
     """
 
-    def test_nonexistent_file_returns_zero_zero(
-        self, tmp_path: Path
-    ) -> None:
+    def test_nonexistent_file_returns_zero_zero(self, tmp_path: Path) -> None:
         """Verify compaction on nonexistent file returns (0, 0)."""
         path = tmp_path / "nonexistent.jsonl"
         original, surviving = compact(path=path)
         assert original == 0
         assert surviving == 0
 
-    def test_empty_file_returns_zero_zero(
-        self, tmp_memory_path: Path
-    ) -> None:
+    def test_empty_file_returns_zero_zero(self, tmp_memory_path: Path) -> None:
         """Verify compaction on empty file returns (0, 0)."""
         tmp_memory_path.write_text("")
         original, surviving = compact(path=tmp_memory_path)

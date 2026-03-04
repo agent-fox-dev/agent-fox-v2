@@ -51,6 +51,7 @@ async def extract_facts(
     transcript: str,
     spec_name: str,
     model_name: str = "SIMPLE",
+    session_id: str | None = None,
 ) -> list[Fact]:
     """Extract structured facts from a session transcript using an LLM.
 
@@ -58,6 +59,7 @@ async def extract_facts(
         transcript: The full session transcript text.
         spec_name: The specification name for provenance.
         model_name: The model tier or ID to use (default: SIMPLE).
+        session_id: The node_id of the session that produced these facts.
 
     Returns:
         A list of Fact objects extracted from the transcript.
@@ -85,7 +87,7 @@ async def extract_facts(
         raw_text = maybe_text
 
     try:
-        facts = _parse_extraction_response(raw_text, spec_name)
+        facts = _parse_extraction_response(raw_text, spec_name, session_id)
     except ValueError:
         logger.warning("Extraction returned invalid JSON, skipping fact extraction")
         return []
@@ -171,6 +173,7 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
 def _parse_extraction_response(
     raw_response: str,
     spec_name: str,
+    session_id: str | None = None,
 ) -> list[Fact]:
     """Parse LLM JSON response into Fact objects.
 
@@ -233,6 +236,7 @@ def _parse_extraction_response(
             confidence=confidence,
             created_at=now,
             supersedes=None,
+            session_id=session_id,
         )
         facts.append(fact)
 

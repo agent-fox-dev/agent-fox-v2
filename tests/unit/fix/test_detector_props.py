@@ -71,7 +71,9 @@ class TestDetectionDeterminism:
     @given(config_flags=config_strategies)
     @settings(max_examples=30)
     def test_detection_is_deterministic(
-        self, config_flags: dict, tmp_path_factory,
+        self,
+        config_flags: dict,
+        tmp_path_factory,
     ) -> None:
         """detect_checks() returns the same result on two consecutive calls."""
         tmp_dir = tmp_path_factory.mktemp("det")

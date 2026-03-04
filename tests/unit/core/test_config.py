@@ -133,9 +133,7 @@ class TestConfigUnrecognizedKeys:
         """Unknown fields within known sections are silently ignored."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[orchestrator]\n"
-            "parallel = 2\n"
-            "totally_unknown_field = 42\n"
+            "[orchestrator]\nparallel = 2\ntotally_unknown_field = 42\n"
         )
 
         config = load_config(path=config_file)

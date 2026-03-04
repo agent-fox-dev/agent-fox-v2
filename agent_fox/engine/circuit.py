@@ -39,6 +39,42 @@ class CircuitBreaker:
     def __init__(self, config: OrchestratorConfig) -> None:
         self._config = config
 
+    def _check_global_limits(
+        self,
+        state: ExecutionState,
+    ) -> LaunchDecision | None:
+        """Check cost ceiling and session limit.
+
+        Returns a denied LaunchDecision if a limit is hit, or None if
+        both checks pass.
+        """
+        if (
+            self._config.max_cost is not None
+            and state.total_cost >= self._config.max_cost
+        ):
+            return LaunchDecision(
+                allowed=False,
+                reason=(
+                    f"Cost limit reached: cumulative cost "
+                    f"${state.total_cost:.2f} >= "
+                    f"max_cost ${self._config.max_cost:.2f}"
+                ),
+            )
+
+        if (
+            self._config.max_sessions is not None
+            and state.total_sessions >= self._config.max_sessions
+        ):
+            return LaunchDecision(
+                allowed=False,
+                reason=(
+                    f"Session limit reached: {state.total_sessions} "
+                    f"sessions >= max_sessions {self._config.max_sessions}"
+                ),
+            )
+
+        return None
+
     def check_launch(
         self,
         node_id: str,
@@ -60,34 +96,11 @@ class CircuitBreaker:
         Returns:
             LaunchDecision with allowed=True or allowed=False with reason.
         """
-        # 1. Cost ceiling check
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Cost limit reached: cumulative cost "
-                    f"${state.total_cost:.2f} >= "
-                    f"max_cost ${self._config.max_cost:.2f}"
-                ),
-            )
+        denied = self._check_global_limits(state)
+        if denied is not None:
+            return denied
 
-        # 2. Session limit check
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Session limit reached: {state.total_sessions} "
-                    f"sessions >= max_sessions {self._config.max_sessions}"
-                ),
-            )
-
-        # 3. Retry limit check
+        # Retry limit check
         max_attempts = self._config.max_retries + 1
         if attempt > max_attempts:
             return LaunchDecision(
@@ -113,31 +126,4 @@ class CircuitBreaker:
         Returns:
             LaunchDecision with allowed=True or allowed=False with reason.
         """
-        # Cost ceiling
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Cost limit reached: cumulative cost "
-                    f"${state.total_cost:.2f} >= "
-                    f"max_cost ${self._config.max_cost:.2f}"
-                ),
-            )
-
-        # Session limit
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Session limit reached: {state.total_sessions} "
-                    f"sessions >= max_sessions {self._config.max_sessions}"
-                ),
-            )
-
-        return LaunchDecision(allowed=True)
+        return self._check_global_limits(state) or LaunchDecision(allowed=True)

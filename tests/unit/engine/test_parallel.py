@@ -41,7 +41,8 @@ class MockParallelSessionRunner:
         async with self._lock:
             self._concurrent_count += 1
             self.max_concurrent = max(
-                self.max_concurrent, self._concurrent_count,
+                self.max_concurrent,
+                self._concurrent_count,
             )
 
         await asyncio.sleep(self._delay)
@@ -202,7 +203,8 @@ class TestSerializedStateWrites:
             # The runner's lock should ensure this is never >1
             concurrent_callbacks += 1
             max_concurrent_callbacks = max(
-                max_concurrent_callbacks, concurrent_callbacks,
+                max_concurrent_callbacks,
+                concurrent_callbacks,
             )
             await asyncio.sleep(0.02)  # Simulate state write work
             concurrent_callbacks -= 1
@@ -295,3 +297,76 @@ class TestFewerTasksThanParallelism:
 
         assert len(records) == 1
         assert records[0].node_id == "A"
+
+
+class TestExecuteOne:
+    """Tests for the execute_one method used by streaming pool dispatch."""
+
+    @pytest.mark.asyncio
+    async def test_execute_one_returns_record(self) -> None:
+        """execute_one returns a SessionRecord on success."""
+        mock = MockParallelSessionRunner(delay=0.01)
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid: mock,
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        record = await runner.execute_one("A", 1, None)
+
+        assert record.node_id == "A"
+        assert record.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_execute_one_handles_exception(self) -> None:
+        """execute_one returns a failed record on exception."""
+
+        class FailingRunner:
+            async def execute(
+                self,
+                node_id: str,
+                attempt: int,
+                previous_error: str | None = None,
+            ) -> SessionRecord:
+                raise RuntimeError("session crashed")
+
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid: FailingRunner(),
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        record = await runner.execute_one("A", 1, None)
+
+        assert record.node_id == "A"
+        assert record.status == "failed"
+        assert "session crashed" in (record.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_track_tasks_updates_in_flight(self) -> None:
+        """track_tasks updates the in-flight task list for cancellation."""
+        mock = MockParallelSessionRunner(delay=0.5)
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid: mock,
+            max_parallelism=4,
+            inter_session_delay=0,
+        )
+
+        task = asyncio.create_task(runner.execute_one("A", 1, None))
+        runner.track_tasks([task])
+
+        assert len(runner._in_flight_tasks) == 1
+
+        await runner.cancel_all()
+
+        assert len(runner._in_flight_tasks) == 0
+
+    @pytest.mark.asyncio
+    async def test_max_parallelism_property(self) -> None:
+        """max_parallelism property returns the effective value."""
+        runner = ParallelRunner(
+            session_runner_factory=lambda nid: MockParallelSessionRunner(),
+            max_parallelism=3,
+            inter_session_delay=0,
+        )
+        assert runner.max_parallelism == 3

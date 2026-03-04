@@ -94,8 +94,13 @@ class GraphSync:
             for dependent in self._dependents.get(current, []):
                 if dependent in visited:
                     continue
-                # Only cascade to nodes that are not already completed
-                if self.node_states.get(dependent) in ("completed",):
+                # Skip completed nodes (work is done) and in_progress
+                # nodes (actively executing; their result will be
+                # processed when they finish).
+                if self.node_states.get(dependent) in (
+                    "completed",
+                    "in_progress",
+                ):
                     continue
                 visited.add(dependent)
                 self.node_states[dependent] = "blocked"

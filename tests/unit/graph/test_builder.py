@@ -19,6 +19,7 @@ from agent_fox.spec.parser import CrossSpecDep, TaskGroupDef
 
 # -- Helpers to create test data ---------------------------------------------
 
+
 def _make_spec(name: str, prefix: int) -> SpecInfo:
     """Create a SpecInfo for testing."""
     return SpecInfo(
@@ -48,11 +49,13 @@ class TestBuildGraphIntraSpec:
     def test_creates_correct_node_count(self) -> None:
         """Graph has one node per task group."""
         specs = [_make_spec("my_spec", 1)]
-        groups = {"my_spec": [
-            _make_group(1, "Task A"),
-            _make_group(2, "Task B"),
-            _make_group(3, "Task C"),
-        ]}
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A"),
+                _make_group(2, "Task B"),
+                _make_group(3, "Task C"),
+            ]
+        }
 
         graph = build_graph(specs, groups, [])
 
@@ -61,11 +64,13 @@ class TestBuildGraphIntraSpec:
     def test_node_ids_follow_format(self) -> None:
         """Node IDs follow {spec_name}:{group_number} format."""
         specs = [_make_spec("my_spec", 1)]
-        groups = {"my_spec": [
-            _make_group(1, "Task A"),
-            _make_group(2, "Task B"),
-            _make_group(3, "Task C"),
-        ]}
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A"),
+                _make_group(2, "Task B"),
+                _make_group(3, "Task C"),
+            ]
+        }
 
         graph = build_graph(specs, groups, [])
 
@@ -76,26 +81,28 @@ class TestBuildGraphIntraSpec:
     def test_all_nodes_pending_status(self) -> None:
         """All nodes start with PENDING status."""
         specs = [_make_spec("my_spec", 1)]
-        groups = {"my_spec": [
-            _make_group(1, "Task A"),
-            _make_group(2, "Task B"),
-            _make_group(3, "Task C"),
-        ]}
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A"),
+                _make_group(2, "Task B"),
+                _make_group(3, "Task C"),
+            ]
+        }
 
         graph = build_graph(specs, groups, [])
 
-        assert all(
-            n.status == NodeStatus.PENDING for n in graph.nodes.values()
-        )
+        assert all(n.status == NodeStatus.PENDING for n in graph.nodes.values())
 
     def test_sequential_intra_spec_edges(self) -> None:
         """Intra-spec edges connect group N to N+1."""
         specs = [_make_spec("my_spec", 1)]
-        groups = {"my_spec": [
-            _make_group(1, "Task A"),
-            _make_group(2, "Task B"),
-            _make_group(3, "Task C"),
-        ]}
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A"),
+                _make_group(2, "Task B"),
+                _make_group(3, "Task C"),
+            ]
+        }
 
         graph = build_graph(specs, groups, [])
 
@@ -106,11 +113,13 @@ class TestBuildGraphIntraSpec:
     def test_intra_spec_edge_count(self) -> None:
         """Number of intra-spec edges is N-1 for N groups."""
         specs = [_make_spec("my_spec", 1)]
-        groups = {"my_spec": [
-            _make_group(1, "Task A"),
-            _make_group(2, "Task B"),
-            _make_group(3, "Task C"),
-        ]}
+        groups = {
+            "my_spec": [
+                _make_group(1, "Task A"),
+                _make_group(2, "Task B"),
+                _make_group(3, "Task C"),
+            ]
+        }
 
         graph = build_graph(specs, groups, [])
 
@@ -133,8 +142,10 @@ class TestBuildGraphCrossSpec:
         }
         cross_deps = [
             CrossSpecDep(
-                from_spec="02_beta", from_group=1,
-                to_spec="01_alpha", to_group=2,
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
             ),
         ]
 
@@ -155,8 +166,10 @@ class TestBuildGraphCrossSpec:
         }
         cross_deps = [
             CrossSpecDep(
-                from_spec="02_beta", from_group=1,
-                to_spec="01_alpha", to_group=2,
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
             ),
         ]
 
@@ -181,6 +194,79 @@ class TestBuildGraphCrossSpec:
         assert len(graph.nodes) == 4
 
 
+class TestBuildGraphCrossSpecGroupLevel:
+    """Group-level cross-spec edges connect specific groups, not first/last."""
+
+    def test_group_level_cross_spec_edge(self) -> None:
+        """Cross-spec dep with explicit groups creates correct edge."""
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [
+                _make_group(1, "Alpha 1"),
+                _make_group(2, "Alpha 2"),
+                _make_group(3, "Alpha 3"),
+            ],
+            "02_beta": [
+                _make_group(1, "Beta 1"),
+                _make_group(2, "Beta 2"),
+            ],
+        }
+        # Beta group 1 depends on Alpha group 2 (not Alpha's last group 3)
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+
+        graph = build_graph(specs, groups, cross_deps)
+
+        edge_pairs = [(e.source, e.target) for e in graph.edges]
+        assert ("01_alpha:2", "02_beta:1") in edge_pairs
+        # Should NOT have an edge from alpha:3 (the last group)
+        assert ("01_alpha:3", "02_beta:1") not in edge_pairs
+
+    def test_group_level_enables_earlier_scheduling(self) -> None:
+        """Group-level deps allow dependent tasks to start earlier."""
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [
+                _make_group(1, "Alpha 1"),
+                _make_group(2, "Alpha 2"),
+                _make_group(3, "Alpha 3"),
+                _make_group(4, "Alpha 4"),
+            ],
+            "02_beta": [
+                _make_group(1, "Beta 1"),
+                _make_group(2, "Beta 2"),
+            ],
+        }
+        # Beta:1 only needs Alpha:2, not all of Alpha
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+
+        graph = build_graph(specs, groups, cross_deps)
+
+        # Beta:1 should depend on Alpha:2, not Alpha:4
+        beta_1_preds = graph.predecessors("02_beta:1")
+        assert "01_alpha:2" in beta_1_preds
+        assert "01_alpha:4" not in beta_1_preds
+
+
 class TestDanglingCrossSpecRef:
     """TS-02-E5: Dangling cross-spec reference raises PlanError."""
 
@@ -191,8 +277,10 @@ class TestDanglingCrossSpecRef:
             "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
         }
         bad_dep = CrossSpecDep(
-            from_spec="01_alpha", from_group=1,
-            to_spec="99_missing", to_group=1,
+            from_spec="01_alpha",
+            from_group=1,
+            to_spec="99_missing",
+            to_group=1,
         )
 
         with pytest.raises(PlanError):
@@ -205,8 +293,10 @@ class TestDanglingCrossSpecRef:
             "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
         }
         bad_dep = CrossSpecDep(
-            from_spec="01_alpha", from_group=1,
-            to_spec="99_missing", to_group=1,
+            from_spec="01_alpha",
+            from_group=1,
+            to_spec="99_missing",
+            to_group=1,
         )
 
         with pytest.raises(PlanError) as exc_info:

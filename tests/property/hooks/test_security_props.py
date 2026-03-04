@@ -56,7 +56,9 @@ class TestAllowlistEnforcementCompleteness:
     @given(cmd=_first_token, allowlist=_allowlist)
     @settings(max_examples=100)
     def test_allowed_iff_name_in_allowlist(
-        self, cmd: str, allowlist: frozenset[str],
+        self,
+        cmd: str,
+        allowlist: frozenset[str],
     ) -> None:
         """check_command_allowed returns True iff extracted name is in allowlist."""
         assume(cmd.strip())  # skip empty/whitespace
@@ -79,14 +81,14 @@ class TestAllowlistEnforcementCompleteness:
     )
     @settings(max_examples=50)
     def test_default_allowlisted_commands_always_allowed(
-        self, cmd: str, args: str,
+        self,
+        cmd: str,
+        args: str,
     ) -> None:
         """Commands from DEFAULT_ALLOWLIST are always allowed with any args."""
         command = f"{cmd} {args}".strip()
         allowed, _ = check_command_allowed(command, DEFAULT_ALLOWLIST)
-        assert allowed is True, (
-            f"Command '{command}' should be allowed but was blocked"
-        )
+        assert allowed is True, f"Command '{command}' should be allowed but was blocked"
 
 
 class TestDefaultAllowlistStability:
@@ -113,7 +115,8 @@ class TestDefaultAllowlistStability:
     )
     @settings(max_examples=30)
     def test_extend_is_superset_of_default(
-        self, extend: list[str],
+        self,
+        extend: list[str],
     ) -> None:
         """bash_allowlist_extend always produces a superset of defaults."""
         config = SecurityConfig(bash_allowlist_extend=extend)
@@ -136,7 +139,8 @@ class TestDefaultAllowlistStability:
     )
     @settings(max_examples=30)
     def test_replacement_exactly_matches_input(
-        self, replacement: list[str],
+        self,
+        replacement: list[str],
     ) -> None:
         """bash_allowlist replaces defaults exactly."""
         config = SecurityConfig(bash_allowlist=replacement)

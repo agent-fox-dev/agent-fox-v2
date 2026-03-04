@@ -196,7 +196,8 @@ clear exit code so I can integrate spec validation into scripts and CI.
 #### Acceptance Criteria
 
 1. [09-REQ-9.1] THE system SHALL support three output formats: `table`
-   (default, Rich-formatted table), `json`, and `yaml`.
+   (default, plain-text table with Unicode severity markers), `json`, and
+   `yaml`.
 
 2. [09-REQ-9.2] THE `table` format SHALL display findings grouped by spec,
    showing severity, file, rule name, message, and line number (when

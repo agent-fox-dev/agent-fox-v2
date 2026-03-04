@@ -23,6 +23,7 @@ from agent_fox.graph.types import (
 
 # -- Helpers -----------------------------------------------------------------
 
+
 def _make_sample_graph() -> TaskGraph:
     """Create a small sample graph for persistence tests."""
     nodes = {
@@ -184,9 +185,7 @@ class TestPlanCLIEndToEnd:
 
         assert "01_test" in result.output
 
-    def test_plan_creates_json(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_creates_json(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan command creates .agent-fox/plan.json."""
         _setup_project(tmp_git_repo)
 

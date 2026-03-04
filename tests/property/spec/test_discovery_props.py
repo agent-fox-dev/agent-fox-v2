@@ -17,6 +17,7 @@ from agent_fox.spec.discovery import discover_specs
 
 # -- Strategies for generating spec folder names ------------------------------
 
+
 @st.composite
 def valid_spec_folder_sets(draw: st.DrawFn) -> tuple[list[str], Path]:
     """Generate sets of valid spec folder names with NN_ prefix.

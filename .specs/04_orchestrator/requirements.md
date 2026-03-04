@@ -131,8 +131,8 @@ session so that I can resume after interruption without losing completed work.
 #### Edge Cases
 
 1. [04-REQ-4.E1] IF the state file exists but the plan hash does not match
-   (plan has been re-generated), THEN THE orchestrator SHALL warn the user
-   and offer to start fresh or abort.
+   (plan has been re-generated), THEN THE orchestrator SHALL log a warning
+   and start fresh automatically (discarding the stale state).
 
 2. [04-REQ-4.E2] IF the state file is corrupted or unparseable, THEN THE
    orchestrator SHALL log a warning, discard it, and start from the beginning.
@@ -179,8 +179,10 @@ concurrently to reduce wall-clock time on large specifications.
 2. [04-REQ-6.2] THE maximum parallelism SHALL be capped at 8. If the user
    configures more, THE system SHALL clamp to 8 and log a warning.
 
-3. [04-REQ-6.3] DURING parallel execution, THE orchestrator SHALL serialize
-   state writes using an asyncio lock to prevent concurrent state corruption.
+3. [04-REQ-6.3] DURING parallel execution, THE orchestrator SHALL process
+   session results sequentially in the single-threaded asyncio event loop
+   after `asyncio.wait()` returns, which provides sequential state-write
+   guarantees without an explicit lock.
 
 #### Edge Cases
 

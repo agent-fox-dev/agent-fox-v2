@@ -170,9 +170,11 @@ so that large numbers are easy to read at a glance.
 #### Acceptance Criteria
 
 1. [15-REQ-7.1] THE system SHALL format token counts using human-readable
-   notation: values >= 1000 SHALL be displayed as `{value/1000:.1f}k`
-   (e.g., `12900` becomes `12.9k`); values < 1000 SHALL be displayed as
-   plain integers (e.g., `345` remains `345`).
+   notation with three tiers: values >= 1,000,000 SHALL be displayed as
+   `{value/1_000_000:.1f}M` (e.g., `1500000` becomes `1.5M`); values
+   >= 1000 SHALL be displayed as `{value/1000:.1f}k` (e.g., `12900`
+   becomes `12.9k`); values < 1000 SHALL be displayed as plain integers
+   (e.g., `345` remains `345`).
 
 ---
 

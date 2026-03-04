@@ -34,7 +34,9 @@ class TestGitHubPlatformCreatePr:
     """
 
     async def test_returns_pr_url(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """create_pr returns the PR URL from gh stdout."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -44,12 +46,17 @@ class TestGitHubPlatformCreatePr:
             stderr="",
         )
         result = await github_platform.create_pr(
-            "feature/test", "My PR", "Body text", ["bug", "urgent"],
+            "feature/test",
+            "My PR",
+            "Body text",
+            ["bug", "urgent"],
         )
         assert result == "https://github.com/owner/repo/pull/42"
 
     async def test_passes_correct_arguments(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """create_pr passes --head, --title, --body, --label to gh."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -59,11 +66,15 @@ class TestGitHubPlatformCreatePr:
             stderr="",
         )
         await github_platform.create_pr(
-            "feature/test", "My PR", "Body text", ["bug", "urgent"],
+            "feature/test",
+            "My PR",
+            "Body text",
+            ["bug", "urgent"],
         )
         # Find the create call (not the auth status call)
         create_calls = [
-            c for c in mock_gh_subprocess.call_args_list
+            c
+            for c in mock_gh_subprocess.call_args_list
             if "pr" in str(c) and "create" in str(c)
         ]
         assert len(create_calls) >= 1
@@ -74,7 +85,9 @@ class TestGitHubPlatformCreatePr:
         assert "--label" in cmd
 
     async def test_create_pr_no_labels(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """create_pr works with empty labels list."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -84,7 +97,10 @@ class TestGitHubPlatformCreatePr:
             stderr="",
         )
         result = await github_platform.create_pr(
-            "feature/test", "Title", "Body", [],
+            "feature/test",
+            "Title",
+            "Body",
+            [],
         )
         assert result == "https://github.com/owner/repo/pull/1"
 
@@ -96,7 +112,9 @@ class TestGitHubPlatformWaitForCi:
     """
 
     async def test_returns_true_when_all_pass(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_ci returns True when all checks report success."""
         checks = [
@@ -110,12 +128,15 @@ class TestGitHubPlatformWaitForCi:
             stderr="",
         )
         result = await github_platform.wait_for_ci(
-            "https://github.com/owner/repo/pull/42", 600,
+            "https://github.com/owner/repo/pull/42",
+            600,
         )
         assert result is True
 
     async def test_returns_true_when_skipped(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_ci returns True when checks are skipped/neutral."""
         checks = [
@@ -129,12 +150,15 @@ class TestGitHubPlatformWaitForCi:
             stderr="",
         )
         result = await github_platform.wait_for_ci(
-            "https://github.com/owner/repo/pull/42", 600,
+            "https://github.com/owner/repo/pull/42",
+            600,
         )
         assert result is True
 
     async def test_returns_true_when_no_checks(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_ci returns True when no checks are configured."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -144,7 +168,8 @@ class TestGitHubPlatformWaitForCi:
             stderr="",
         )
         result = await github_platform.wait_for_ci(
-            "https://github.com/owner/repo/pull/42", 600,
+            "https://github.com/owner/repo/pull/42",
+            600,
         )
         assert result is True
 
@@ -156,7 +181,9 @@ class TestGitHubPlatformWaitForReview:
     """
 
     async def test_returns_true_when_approved(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_review returns True when reviewDecision is APPROVED."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -178,17 +205,21 @@ class TestGitHubPlatformMergePr:
     """
 
     async def test_calls_gh_merge(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """merge_pr calls gh pr merge with --merge flag."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr="",
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
         )
         pr_url = "https://github.com/owner/repo/pull/42"
         await github_platform.merge_pr(pr_url)
         merge_calls = [
-            c for c in mock_gh_subprocess.call_args_list
-            if "merge" in str(c)
+            c for c in mock_gh_subprocess.call_args_list if "merge" in str(c)
         ]
         assert len(merge_calls) >= 1
         cmd = merge_calls[0][0][0]
@@ -198,11 +229,16 @@ class TestGitHubPlatformMergePr:
         assert "--merge" in cmd
 
     async def test_merge_succeeds_without_exception(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """merge_pr does not raise on success."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="", stderr="",
+            args=[],
+            returncode=0,
+            stdout="",
+            stderr="",
         )
         result = await github_platform.merge_pr(
             "https://github.com/owner/repo/pull/42",
@@ -224,7 +260,8 @@ class TestGitHubPlatformGhNotInstalled:
     def test_raises_integration_error(self) -> None:
         """GitHubPlatform raises IntegrationError when gh is not found."""
         with patch(
-            "agent_fox.platform.github.shutil.which", return_value=None,
+            "agent_fox.platform.github.shutil.which",
+            return_value=None,
         ):
             with pytest.raises(IntegrationError, match="gh"):
                 GitHubPlatform()
@@ -246,7 +283,10 @@ class TestGitHubPlatformGhNotAuthenticated:
             patch(
                 "agent_fox.platform.github.subprocess.run",
                 return_value=subprocess.CompletedProcess(
-                    args=[], returncode=1, stdout="", stderr="not logged in",
+                    args=[],
+                    returncode=1,
+                    stdout="",
+                    stderr="not logged in",
                 ),
             ),
         ):
@@ -261,15 +301,23 @@ class TestGitHubPlatformCreatePrFailure:
     """
 
     async def test_raises_on_create_failure(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """create_pr raises IntegrationError when gh pr create fails."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="no permission",
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="no permission",
         )
         with pytest.raises(IntegrationError, match="no permission"):
             await github_platform.create_pr(
-                "feature/test", "Title", "Body", [],
+                "feature/test",
+                "Title",
+                "Body",
+                [],
             )
 
 
@@ -280,7 +328,9 @@ class TestGitHubPlatformCiCheckFailure:
     """
 
     async def test_returns_false_on_failure(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_ci returns False when a CI check fails."""
         checks = [
@@ -293,7 +343,8 @@ class TestGitHubPlatformCiCheckFailure:
             stderr="",
         )
         result = await github_platform.wait_for_ci(
-            "https://github.com/owner/repo/pull/42", 600,
+            "https://github.com/owner/repo/pull/42",
+            600,
         )
         assert result is False
 
@@ -305,7 +356,9 @@ class TestGitHubPlatformCiTimeout:
     """
 
     async def test_returns_false_on_timeout(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_ci returns False when timeout expires."""
         checks = [
@@ -319,7 +372,8 @@ class TestGitHubPlatformCiTimeout:
         )
         with patch("agent_fox.platform.github._CI_POLL_INTERVAL", 0):
             result = await github_platform.wait_for_ci(
-                "https://github.com/owner/repo/pull/42", 1,
+                "https://github.com/owner/repo/pull/42",
+                1,
             )
         assert result is False
 
@@ -331,7 +385,9 @@ class TestGitHubPlatformReviewRejected:
     """
 
     async def test_returns_false_on_changes_requested(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """wait_for_review returns False when changes are requested."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
@@ -353,11 +409,16 @@ class TestGitHubPlatformMergeFailure:
     """
 
     async def test_raises_on_merge_failure(
-        self, github_platform: GitHubPlatform, mock_gh_subprocess: MagicMock,
+        self,
+        github_platform: GitHubPlatform,
+        mock_gh_subprocess: MagicMock,
     ) -> None:
         """merge_pr raises IntegrationError when gh pr merge fails."""
         mock_gh_subprocess.return_value = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="merge conflict",
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="merge conflict",
         )
         with pytest.raises(IntegrationError, match="merge conflict"):
             await github_platform.merge_pr(

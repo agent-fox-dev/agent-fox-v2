@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
@@ -27,7 +27,8 @@ class SessionOutcome:
     input_tokens: int = 0
     output_tokens: int = 0
     duration_ms: int = 0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    error_message: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ class ToolCall:
     session_id: str = ""
     node_id: str = ""
     tool_name: str = ""
-    called_at: datetime = field(default_factory=datetime.utcnow)
+    called_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass(frozen=True)
@@ -49,7 +50,7 @@ class ToolError:
     session_id: str = ""
     node_id: str = ""
     tool_name: str = ""
-    failed_at: datetime = field(default_factory=datetime.utcnow)
+    failed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @runtime_checkable
@@ -87,50 +88,31 @@ class SinkDispatcher:
         """Add a sink to the dispatch list."""
         self._sinks.append(sink)
 
-    def record_session_outcome(self, outcome: SessionOutcome) -> None:
-        """Dispatch to all sinks. Logs and swallows individual failures."""
+    def _dispatch(self, method: str, *args: object) -> None:
+        """Call *method* on every sink, logging and swallowing failures."""
         for sink in self._sinks:
             try:
-                sink.record_session_outcome(outcome)
+                getattr(sink, method)(*args)
             except Exception:
                 logger.warning(
-                    "Sink %s failed to record session outcome",
+                    "Sink %s failed on %s",
                     type(sink).__name__,
+                    method,
                     exc_info=True,
                 )
+
+    def record_session_outcome(self, outcome: SessionOutcome) -> None:
+        """Dispatch to all sinks. Logs and swallows individual failures."""
+        self._dispatch("record_session_outcome", outcome)
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_call(call)
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to record tool call",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("record_tool_call", call)
 
     def record_tool_error(self, error: ToolError) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_error(error)
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to record tool error",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("record_tool_error", error)
 
     def close(self) -> None:
         """Close all sinks."""
-        for sink in self._sinks:
-            try:
-                sink.close()
-            except Exception:
-                logger.warning(
-                    "Sink %s failed to close",
-                    type(sink).__name__,
-                    exc_info=True,
-                )
+        self._dispatch("close")

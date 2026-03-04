@@ -37,14 +37,7 @@ def append_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: List of Fact objects to append.
         path: Path to the JSONL file.
     """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as f:
-            for fact in facts:
-                line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
-                f.write(line + "\n")
-    except OSError:
-        logger.error("Failed to write facts to %s", path, exc_info=True)
+    _write_jsonl(facts, path, mode="a")
 
 
 def load_all_facts(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
@@ -96,9 +89,14 @@ def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
         facts: The complete list of facts to write.
         path: Path to the JSONL file.
     """
+    _write_jsonl(facts, path, mode="w")
+
+
+def _write_jsonl(facts: list[Fact], path: Path, *, mode: str) -> None:
+    """Write facts to a JSONL file using the given open mode ('a' or 'w')."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as f:
+        with path.open(mode, encoding="utf-8") as f:
             for fact in facts:
                 line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
                 f.write(line + "\n")
@@ -108,7 +106,7 @@ def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
 
 def _fact_to_dict(fact: Fact) -> dict:
     """Serialize a Fact to a JSON-compatible dictionary."""
-    return {
+    d: dict = {
         "id": fact.id,
         "content": fact.content,
         "category": fact.category,
@@ -118,6 +116,11 @@ def _fact_to_dict(fact: Fact) -> dict:
         "created_at": fact.created_at,
         "supersedes": fact.supersedes,
     }
+    if fact.session_id is not None:
+        d["session_id"] = fact.session_id
+    if fact.commit_sha is not None:
+        d["commit_sha"] = fact.commit_sha
+    return d
 
 
 def _dict_to_fact(data: dict) -> Fact:
@@ -131,6 +134,8 @@ def _dict_to_fact(data: dict) -> Fact:
         confidence=data["confidence"],
         created_at=data["created_at"],
         supersedes=data.get("supersedes"),
+        session_id=data.get("session_id"),
+        commit_sha=data.get("commit_sha"),
     )
 
 
@@ -180,7 +185,7 @@ class MemoryStore:
         exists in DuckDB without an embedding.
         """
         # Step 1: JSONL write -- never skipped
-        self._write_to_jsonl(fact)
+        append_facts([fact], self._jsonl_path)
 
         # Step 2: DuckDB write -- best-effort
         if self._db_conn is None:
@@ -248,17 +253,13 @@ class MemoryStore:
 
     # -- Private helpers -----------------------------------------------------
 
-    def _write_to_jsonl(self, fact: Fact) -> None:
-        """Append a fact to the JSONL store."""
-        append_facts([fact], self._jsonl_path)
-
     def _write_to_duckdb(self, fact: Fact) -> None:
         """Insert a fact into the DuckDB ``memory_facts`` table."""
         assert self._db_conn is not None  # caller ensures this
 
         self._db_conn.execute(
             """
-            INSERT INTO memory_facts
+            INSERT OR IGNORE INTO memory_facts
                 (id, content, category, spec_name, session_id,
                  commit_sha, confidence, created_at)
             VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)

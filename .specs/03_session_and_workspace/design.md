@@ -15,7 +15,7 @@ flowchart TB
     Runner --> Worktree[Worktree Manager<br/>worktree.py]
     Runner --> Context[Context Assembler<br/>context.py]
     Runner --> Prompt[Prompt Builder<br/>prompt.py]
-    Runner --> Timeout[Timeout Enforcer<br/>timeout.py]
+    Runner --> Timeout[Timeout Enforcer<br/>inline in runner.py]
     Runner --> SDK[claude-code-sdk<br/>query]
     Runner --> Harvester[Harvester<br/>harvester.py]
     Worktree --> Git[Git Operations<br/>git.py]
@@ -46,8 +46,9 @@ flowchart TB
    docs and memory facts
 6. `agent_fox/session/prompt.py` -- Build system and task prompts for the
    coding agent
-7. `agent_fox/session/timeout.py` -- Wrap async coroutines with
-   `asyncio.wait_for()` timeout enforcement
+7. `agent_fox/session/runner.py` also defines `with_timeout()` inline --
+   wraps async coroutines with `asyncio.wait_for()` timeout enforcement
+   (there is no separate `timeout.py` module)
 
 ## Components and Interfaces
 
@@ -332,6 +333,7 @@ def assemble_context(
     Reads the following files from spec_dir (if they exist):
     - requirements.md
     - design.md
+    - test_spec.md
     - tasks.md
 
     Appends relevant memory facts (if provided).
@@ -382,10 +384,10 @@ def build_task_prompt(
     ...
 ```
 
-### Timeout Enforcer
+### Timeout Enforcer (inline in runner.py)
 
 ```python
-# agent_fox/session/timeout.py
+# Defined inline in agent_fox/session/runner.py (no separate timeout module)
 import asyncio
 from collections.abc import Coroutine
 from typing import TypeVar

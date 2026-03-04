@@ -46,9 +46,7 @@ class TestEmbedSingleText:
     Requirement: 12-REQ-2.1
     """
 
-    def test_returns_1024_dim_vector(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_returns_1024_dim_vector(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify embed_text returns a 1024-dimensional float vector."""
         mock_response = _make_mock_embedding_response([MOCK_EMBEDDING_1])
 
@@ -85,9 +83,7 @@ class TestEmbedBatch:
     Requirement: 12-REQ-2.2
     """
 
-    def test_returns_parallel_list(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_returns_parallel_list(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify embed_batch returns one embedding per input text."""
         mock_response = _make_mock_embedding_response(
             [MOCK_EMBEDDING_1, MOCK_EMBEDDING_2, MOCK_EMBEDDING_3]
@@ -96,18 +92,14 @@ class TestEmbedBatch:
         generator, mock_client = _make_generator_with_mock_client(knowledge_config)
         mock_client.embeddings.create.return_value = mock_response
 
-        results = generator.embed_batch(
-            ["fact one", "fact two", "fact three"]
-        )
+        results = generator.embed_batch(["fact one", "fact two", "fact three"])
 
         assert len(results) == 3
         for result in results:
             assert result is not None
             assert len(result) == 1024
 
-    def test_single_api_call_for_batch(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_single_api_call_for_batch(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify batch uses a single API call, not one per text."""
         mock_response = _make_mock_embedding_response(
             [MOCK_EMBEDDING_1, MOCK_EMBEDDING_2]
@@ -127,9 +119,7 @@ class TestEmbedFailure:
     Requirement: 12-REQ-2.E1
     """
 
-    def test_returns_none_on_api_error(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_returns_none_on_api_error(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify embed_text returns None when the API raises an error."""
         generator, mock_client = _make_generator_with_mock_client(knowledge_config)
         mock_client.embeddings.create.side_effect = Exception("rate limited")
@@ -150,9 +140,7 @@ class TestEmbedFailure:
 
         assert "embedding" in caplog.text.lower() or "failed" in caplog.text.lower()
 
-    def test_does_not_raise(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_does_not_raise(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify no exception propagates to the caller."""
         generator, mock_client = _make_generator_with_mock_client(knowledge_config)
         mock_client.embeddings.create.side_effect = Exception("network error")

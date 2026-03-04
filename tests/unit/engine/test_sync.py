@@ -125,6 +125,35 @@ class TestCascadeBlockingLinear:
 
         assert sync.node_states["A"] == "completed"
 
+    def test_in_progress_tasks_not_cascade_blocked(self) -> None:
+        """In-progress tasks are not affected by cascade blocking.
+
+        Tasks that are actively executing should finish their session;
+        their result is processed when they complete.
+        """
+        # Graph: A -> B, A -> C, B -> D, C -> D
+        # A is completed, B fails and is blocked, C is in_progress
+        node_states = {
+            "A": "completed",
+            "B": "pending",
+            "C": "in_progress",
+            "D": "pending",
+        }
+        # D depends on both B and C
+        edges = {"B": ["A"], "C": ["A"], "D": ["B", "C"]}
+
+        sync = GraphSync(node_states, edges)
+        cascade_blocked = sync.mark_blocked("B", "retries exhausted")
+
+        # C is in_progress and should NOT be cascade-blocked
+        assert sync.node_states["C"] == "in_progress"
+        assert "C" not in cascade_blocked
+
+        # D depends on B (blocked), but D also depends on C (in_progress).
+        # D should be cascade-blocked because B is blocked.
+        assert sync.node_states["D"] == "blocked"
+        assert "D" in cascade_blocked
+
 
 class TestCascadeBlockingDiamond:
     """TS-04-7: Cascade blocking with diamond dependency.

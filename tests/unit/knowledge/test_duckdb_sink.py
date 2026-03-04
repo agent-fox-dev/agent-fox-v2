@@ -39,9 +39,7 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = conn.execute(
-            "SELECT spec_name, status FROM session_outcomes"
-        ).fetchall()
+        rows = conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "test_spec"
         assert rows[0][1] == "completed"
@@ -59,9 +57,7 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = conn.execute(
-            "SELECT spec_name, status FROM session_outcomes"
-        ).fetchall()
+        rows = conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "debug_spec"
         assert rows[0][1] == "failed"
@@ -83,12 +79,8 @@ class TestDuckDBSinkDebugGating:
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert conn.execute(
-            "SELECT COUNT(*) FROM tool_calls"
-        ).fetchone()[0] == 0
-        assert conn.execute(
-            "SELECT COUNT(*) FROM tool_errors"
-        ).fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0
         conn.close()
 
     def test_tool_calls_written_when_debug_true(self) -> None:
@@ -100,12 +92,8 @@ class TestDuckDBSinkDebugGating:
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert conn.execute(
-            "SELECT COUNT(*) FROM tool_calls"
-        ).fetchone()[0] == 1
-        assert conn.execute(
-            "SELECT COUNT(*) FROM tool_errors"
-        ).fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1
         conn.close()
 
 
@@ -188,13 +176,9 @@ class TestDuckDBSinkEmptyTouchedPaths:
         create_schema(conn)
         sink = DuckDBSink(conn, debug=False)
 
-        sink.record_session_outcome(
-            SessionOutcome(status="failed", touched_paths=[])
-        )
+        sink.record_session_outcome(SessionOutcome(status="failed", touched_paths=[]))
 
-        rows = conn.execute(
-            "SELECT touched_path FROM session_outcomes"
-        ).fetchall()
+        rows = conn.execute("SELECT touched_path FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] is None
         conn.close()

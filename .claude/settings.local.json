@@ -1,36 +1,30 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls:*)",
+      "Bash(bash:*)",
       "Bash(wc:*)",
-      "Bash(grep:*)",
       "Bash(git:*)",
       "Bash(python:*)",
+      "Bash(python3:*)",
       "Bash(uv:*)",
-      "Bash(source .venv/bin/activate:*)",
       "Bash(make:*)",
-      "Bash(agent-fox:*)",
-      "Bash(claude:*)",
-      "Bash(find:*)",
       "Bash(sort:*)",
       "Bash(awk:*)",
-      "Bash(head:*)",
-      "Bash(gh:*)",
       "Bash(ruff:*)",
+      "Bash(gh:*)",
+      "Bash(claude:*)",
+      "Bash(source .venv/bin/activate:*)",
+      "Bash(agent-fox:*)",
       "WebSearch",
       "WebFetch(domain:pypi.org)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(gh api:*)",
-      "Bash(bash:*)",
-      "Bash(gh issue:*)",
-      "Bash(python3:*)",
-      "Bash(.venv/bin/pytest:*)",
-      "Bash(.venv/bin/ruff check:*)",
-      "Bash(.venv/bin/python:*)",
-      "Bash(pip show:*)",
-      "Bash(.venv/bin/pip show:*)",
-      "Bash(.venv/bin/pip list:*)"
+      "Grep",
+      "Read",
+      "Glob",
+      "Edit",
+      "Write",
+      "Bash(xargs:*)"
     ]
   }
 }

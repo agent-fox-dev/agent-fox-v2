@@ -36,7 +36,9 @@ class TestNullPlatformGatesAlwaysPass:
     )
     @settings(max_examples=50)
     async def test_wait_for_ci_always_true(
-        self, timeout: int, pr_url: str,
+        self,
+        timeout: int,
+        pr_url: str,
     ) -> None:
         """wait_for_ci returns True for any timeout and pr_url."""
         null = NullPlatform()
@@ -75,13 +77,20 @@ class TestNullPlatformCreatePrReturnsEmpty:
     )
     @settings(max_examples=30)
     async def test_create_pr_returns_empty(
-        self, branch: str, title: str, body: str, labels: list[str],
+        self,
+        branch: str,
+        title: str,
+        body: str,
+        labels: list[str],
     ) -> None:
         """create_pr returns empty string for any valid inputs."""
         with patch(
             "agent_fox.platform.null.subprocess.run",
             return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr="",
+                args=[],
+                returncode=0,
+                stdout="",
+                stderr="",
             ),
         ):
             null = NullPlatform()

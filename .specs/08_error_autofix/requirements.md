@@ -124,8 +124,8 @@ instructions.
    output, and a task list.
 
 2. [08-REQ-4.2] THE system SHALL write generated fix specs to
-   `.agent-fox/fix_specs/` with filenames derived from the cluster label
-   (sanitized for filesystem safety).
+   `.agent-fox/fix_specs/` in directories named with a pass number prefix:
+   `pass_{pass_number}_{sanitized_label}/` (sanitized for filesystem safety).
 
 ---
 

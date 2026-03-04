@@ -137,9 +137,7 @@ class TestDeduplicationDeterminism:
 
         for r in result:
             h = _content_hash(r.content)
-            all_with_hash = [
-                f for f in facts if _content_hash(f.content) == h
-            ]
+            all_with_hash = [f for f in facts if _content_hash(f.content) == h]
             earliest = min(all_with_hash, key=lambda f: f.created_at)
             assert r.created_at == earliest.created_at
 

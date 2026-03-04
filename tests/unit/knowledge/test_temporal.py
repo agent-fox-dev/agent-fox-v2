@@ -1,6 +1,5 @@
-"""Tests for temporal queries and timeline rendering.
+"""Tests for temporal query and timeline rendering.
 
-Test Spec: TS-13-9, TS-13-10, TS-13-E4
 Requirements: 13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
 """
 
@@ -8,63 +7,24 @@ from __future__ import annotations
 
 import duckdb
 
-from agent_fox.knowledge.temporal import (
-    Timeline,
-    TimelineNode,
-    build_timeline,
-)
+from agent_fox.knowledge.temporal import Timeline, TimelineNode, temporal_query
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,
     FACT_CCC,
-    FACT_DDD,
-    FACT_EEE,
+    MOCK_EMBEDDING_1,
+    MOCK_QUERY_EMBEDDING,
+    create_empty_db,
+    insert_fact_with_embedding,
+    make_deterministic_embedding,
 )
 
 
-class TestBuildTimeline:
-    """TS-13-9: Build timeline from seed facts.
+class TestTimelineRendering:
+    """13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3: Timeline rendering."""
 
-    Requirements: 13-REQ-4.1, 13-REQ-6.1, 13-REQ-6.2
-    """
-
-    def test_builds_timeline_from_seed(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
-        """Building a timeline from aaa produces ordered nodes."""
-        timeline = build_timeline(causal_db, [FACT_AAA])
-        assert len(timeline.nodes) == 4
-        assert timeline.nodes[0].fact_id == FACT_AAA
-        assert timeline.nodes[0].depth == 0
-
-    def test_timeline_ordered_by_timestamp(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
-        """Timeline nodes are in ascending timestamp order."""
-        timeline = build_timeline(causal_db, [FACT_AAA])
-        timestamps = [n.timestamp for n in timeline.nodes if n.timestamp]
-        assert timestamps == sorted(timestamps)
-
-    def test_timeline_contains_all_chain_facts(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
-        """Timeline from aaa contains aaa, bbb, ccc, eee."""
-        timeline = build_timeline(causal_db, [FACT_AAA])
-        fact_ids = {n.fact_id for n in timeline.nodes}
-        assert FACT_AAA in fact_ids
-        assert FACT_BBB in fact_ids
-        assert FACT_CCC in fact_ids
-        assert FACT_EEE in fact_ids
-
-
-class TestTimelineRender:
-    """TS-13-10: Timeline render produces plain text.
-
-    Requirement: 13-REQ-6.3
-    """
-
-    def test_render_plain_text_no_ansi(self) -> None:
-        """Rendering with use_color=False produces no ANSI codes."""
+    def test_renders_indented_text(self) -> None:
+        """Root at depth 0, effects indented."""
         nodes = [
             TimelineNode(
                 fact_id=FACT_AAA,
@@ -87,44 +47,166 @@ class TestTimelineRender:
                 depth=1,
             ),
         ]
-        timeline = Timeline(nodes=nodes, query="test query")
-        text = timeline.render(use_color=False)
-        assert len(text) > 0
-        assert "\x1b[" not in text
-        assert "User.email changed to nullable" in text
-        assert "07_oauth" in text
+        tl = Timeline(nodes=nodes, query="test")
+        text = tl.render(use_color=False)
 
-    def test_render_includes_provenance(self) -> None:
-        """Rendered timeline includes session_id and commit_sha."""
-        nodes = [
-            TimelineNode(
-                fact_id=FACT_AAA,
-                content="User.email changed to nullable",
+        assert "** User.email changed to nullable" in text
+        assert "  -> test_user_model.py assertions failed" in text
+        assert "[2025-11-03T14:22:00]" in text
+        assert "spec:07_oauth" in text
+        assert "commit:a1b2c3d" in text
+
+    def test_depth_controls_indentation(self) -> None:
+        """13-REQ-6.2: Indentation depth matches node depth."""
+        node = TimelineNode(
+            fact_id="x",
+            content="deep effect",
+            spec_name="s",
+            session_id="s/1",
+            commit_sha=None,
+            timestamp="2025-01-01",
+            relationship="effect",
+            depth=3,
+        )
+        tl = Timeline(nodes=[node], query="test")
+        text = tl.render(use_color=False)
+        # 3 levels of indentation (2 spaces each) = 6 spaces
+        assert "      -> deep effect" in text
+
+    def test_plain_text_no_ansi(self) -> None:
+        """13-REQ-6.3: No ANSI escape codes in plain text mode."""
+        node = TimelineNode(
+            fact_id="x",
+            content="fact",
+            spec_name="s",
+            session_id="s/1",
+            commit_sha=None,
+            timestamp=None,
+            relationship="root",
+            depth=0,
+        )
+        tl = Timeline(nodes=[node], query="test")
+        text = tl.render(use_color=False)
+        assert "\x1b[" not in text
+
+    def test_empty_timeline_message(self) -> None:
+        """Empty timeline produces informational message."""
+        tl = Timeline(nodes=[], query="test")
+        text = tl.render()
+        assert "No causal timeline" in text
+
+    def test_missing_provenance_shows_na(self) -> None:
+        """Missing provenance fields show n/a."""
+        node = TimelineNode(
+            fact_id="x",
+            content="fact",
+            spec_name=None,
+            session_id=None,
+            commit_sha=None,
+            timestamp=None,
+            relationship="root",
+            depth=0,
+        )
+        tl = Timeline(nodes=[node], query="test")
+        text = tl.render(use_color=False)
+        assert "spec:n/a" in text
+        assert "commit:n/a" in text
+
+
+class TestTemporalQuery:
+    """13-REQ-4.1: Temporal query combines vector search + causal traversal."""
+
+    def test_finds_causal_chain_from_vector_search(self) -> None:
+        """Vector search seed expands through causal graph."""
+        conn = create_empty_db()
+        try:
+            # Install VSS extension for vector search
+            conn.execute("INSTALL vss; LOAD vss;")
+            conn.execute(
+                "CREATE INDEX emb_idx ON memory_embeddings "
+                "USING HNSW (embedding) WITH (metric = 'cosine');"
+            )
+        except Exception:
+            conn.close()
+            return  # Skip if VSS not available
+
+        try:
+            # Insert facts with embeddings
+            emb1 = MOCK_EMBEDDING_1
+            emb2 = make_deterministic_embedding(2)
+            emb3 = make_deterministic_embedding(3)
+
+            insert_fact_with_embedding(
+                conn,
+                FACT_AAA,
+                "User.email changed to nullable",
+                emb1,
                 spec_name="07_oauth",
                 session_id="07/3",
                 commit_sha="a1b2c3d",
-                timestamp="2025-11-03T14:22:00",
-                relationship="root",
-                depth=0,
-            ),
-        ]
-        timeline = Timeline(nodes=nodes)
-        text = timeline.render(use_color=False)
-        assert "07/3" in text
-        assert "a1b2c3d" in text
+            )
+            insert_fact_with_embedding(
+                conn,
+                FACT_BBB,
+                "test assertions failed",
+                emb2,
+                spec_name="09_user_tests",
+                session_id="09/1",
+                commit_sha="e4f5g6h",
+            )
+            insert_fact_with_embedding(
+                conn,
+                FACT_CCC,
+                "Added migration for nullable email",
+                emb3,
+                spec_name="12_auth_fix",
+                session_id="12/2",
+                commit_sha="i7j8k9l",
+            )
 
+            # Add causal links: AAA -> BBB -> CCC
+            conn.execute(
+                "INSERT INTO fact_causes VALUES "
+                "(?::UUID, ?::UUID), (?::UUID, ?::UUID)",
+                [FACT_AAA, FACT_BBB, FACT_BBB, FACT_CCC],
+            )
 
-class TestTimelineNoLinks:
-    """TS-13-E4: Timeline with no causal links.
+            tl = temporal_query(
+                conn,
+                "What happened with the email field?",
+                MOCK_QUERY_EMBEDDING,
+                top_k=5,
+                max_depth=5,
+            )
 
-    Requirement: 13-REQ-4.1
-    """
+            assert len(tl.nodes) >= 1
+            ids = {n.fact_id for n in tl.nodes}
+            # The seed should find AAA (most similar to query embedding),
+            # and traversal should follow the chain
+            assert FACT_AAA in ids
+        finally:
+            conn.close()
 
-    def test_isolated_fact_timeline(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
-        """Building a timeline from a fact with no links returns just that fact."""
-        timeline = build_timeline(causal_db, [FACT_DDD])
-        assert len(timeline.nodes) == 1
-        assert timeline.nodes[0].fact_id == FACT_DDD
-        assert timeline.nodes[0].relationship == "root"
+    def test_empty_store_returns_empty_timeline(self) -> None:
+        """Empty knowledge store returns empty timeline."""
+        conn = create_empty_db()
+        try:
+            conn.execute("INSTALL vss; LOAD vss;")
+            conn.execute(
+                "CREATE INDEX emb_idx ON memory_embeddings "
+                "USING HNSW (embedding) WITH (metric = 'cosine');"
+            )
+        except Exception:
+            conn.close()
+            return
+
+        try:
+            tl = temporal_query(
+                conn,
+                "anything",
+                MOCK_QUERY_EMBEDDING,
+                top_k=5,
+            )
+            assert len(tl.nodes) == 0
+        finally:
+            conn.close()

@@ -1,7 +1,6 @@
-"""Causal graph operations: add links, query causes/effects, traverse chains.
+"""Causal graph operations: store links, traverse causal chains.
 
-Requirements: 13-REQ-3.1, 13-REQ-3.2, 13-REQ-3.3, 13-REQ-3.4,
-              13-REQ-3.E1, 13-REQ-2.E2
+Requirements: 13-REQ-3.1, 13-REQ-3.4
 """
 
 from __future__ import annotations
@@ -37,48 +36,58 @@ class CausalFact:
     relationship: str  # "root" | "cause" | "effect"
 
 
-def add_causal_link(
+def store_causal_links(
     conn: duckdb.DuckDBPyConnection,
-    cause_id: str,
-    effect_id: str,
-) -> bool:
-    """Insert a causal link into fact_causes.
+    links: list[tuple[str, str]],
+) -> int:
+    """Insert causal links into the fact_causes table (idempotent).
 
-    Validates that both fact IDs exist in memory_facts. Silently ignores
-    duplicate links (idempotent). Returns True if a new link was inserted,
-    False if it already existed or validation failed.
+    Each link is a (cause_id, effect_id) pair. Duplicate links are
+    silently ignored via INSERT OR IGNORE.
+
+    Returns the number of links successfully inserted.
+
+    Requirements: 13-REQ-3.1, 13-REQ-3.E1
     """
-    # Validate both facts exist
-    # When cause_id == effect_id, IN returns 1 row; otherwise we need 2
-    row = conn.execute(
-        "SELECT COUNT(*) FROM memory_facts WHERE id IN (?, ?)",
-        [cause_id, effect_id],
-    ).fetchone()
-    expected = 1 if cause_id == effect_id else 2
-    if row is None or row[0] < expected:
-        logger.warning(
-            "Causal link rejected: one or both fact IDs do not exist "
-            "(cause_id=%s, effect_id=%s)",
-            cause_id,
-            effect_id,
-        )
-        return False
-
-    # Check if the link already exists
-    existing = conn.execute(
-        "SELECT COUNT(*) FROM fact_causes WHERE cause_id=? AND effect_id=?",
-        [cause_id, effect_id],
-    ).fetchone()
-    if existing is not None and existing[0] > 0:
-        return False
-
-    # Insert the link (idempotent via ON CONFLICT DO NOTHING)
-    conn.execute(
-        "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?, ?) "
-        "ON CONFLICT DO NOTHING",
-        [cause_id, effect_id],
-    )
-    return True
+    inserted = 0
+    for cause_id, effect_id in links:
+        try:
+            # Check referential integrity: both fact IDs must exist.
+            existing = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT id::VARCHAR FROM memory_facts "
+                    "WHERE id IN (?::UUID, ?::UUID)",
+                    [cause_id, effect_id],
+                ).fetchall()
+            }
+            if cause_id not in existing or effect_id not in existing:
+                missing = []
+                if cause_id not in existing:
+                    missing.append(f"cause={cause_id}")
+                if effect_id not in existing:
+                    missing.append(f"effect={effect_id}")
+                logger.warning(
+                    "Skipping causal link %s -> %s: missing fact(s) %s",
+                    cause_id,
+                    effect_id,
+                    ", ".join(missing),
+                )
+                continue
+            conn.execute(
+                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
+                "VALUES (?::UUID, ?::UUID)",
+                [cause_id, effect_id],
+            )
+            inserted += 1
+        except Exception:
+            logger.debug(
+                "Failed to insert causal link %s -> %s",
+                cause_id,
+                effect_id,
+                exc_info=True,
+            )
+    return inserted
 
 
 def _fetch_fact(
@@ -101,72 +110,6 @@ def _fetch_fact(
         "commit_sha": row[4],
         "created_at": str(row[5]) if row[5] is not None else None,
     }
-
-
-def get_causes(
-    conn: duckdb.DuckDBPyConnection,
-    fact_id: str,
-) -> list[CausalFact]:
-    """Return all direct causes of the given fact.
-
-    Queries fact_causes WHERE effect_id = fact_id, joining with
-    memory_facts for content and provenance.
-    """
-    rows = conn.execute(
-        "SELECT f.id, f.content, f.spec_name, f.session_id, "
-        "f.commit_sha, f.created_at "
-        "FROM fact_causes fc "
-        "JOIN memory_facts f ON f.id = fc.cause_id "
-        "WHERE fc.effect_id = ? "
-        "ORDER BY f.created_at",
-        [fact_id],
-    ).fetchall()
-    return [
-        CausalFact(
-            fact_id=str(row[0]),
-            content=row[1],
-            spec_name=row[2],
-            session_id=row[3],
-            commit_sha=row[4],
-            created_at=str(row[5]) if row[5] is not None else None,
-            depth=-1,
-            relationship="cause",
-        )
-        for row in rows
-    ]
-
-
-def get_effects(
-    conn: duckdb.DuckDBPyConnection,
-    fact_id: str,
-) -> list[CausalFact]:
-    """Return all direct effects of the given fact.
-
-    Queries fact_causes WHERE cause_id = fact_id, joining with
-    memory_facts for content and provenance.
-    """
-    rows = conn.execute(
-        "SELECT f.id, f.content, f.spec_name, f.session_id, "
-        "f.commit_sha, f.created_at "
-        "FROM fact_causes fc "
-        "JOIN memory_facts f ON f.id = fc.effect_id "
-        "WHERE fc.cause_id = ? "
-        "ORDER BY f.created_at",
-        [fact_id],
-    ).fetchall()
-    return [
-        CausalFact(
-            fact_id=str(row[0]),
-            content=row[1],
-            spec_name=row[2],
-            session_id=row[3],
-            commit_sha=row[4],
-            created_at=str(row[5]) if row[5] is not None else None,
-            depth=1,
-            relationship="effect",
-        )
-        for row in rows
-    ]
 
 
 def _get_direct_effect_ids(

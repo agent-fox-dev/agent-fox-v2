@@ -11,6 +11,7 @@ Requirements: 01-REQ-3.1, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-3.4,
 
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 from pathlib import Path
@@ -141,6 +142,8 @@ def init_cmd(ctx: click.Context) -> None:
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
         _update_gitignore(project_root)
         _ensure_develop_branch()
+        # 17-REQ-2.1: Merge canonical permissions on re-init
+        _ensure_claude_settings(project_root)
         return
 
     # 01-REQ-3.1: create directory structure
@@ -159,7 +162,113 @@ def init_cmd(ctx: click.Context) -> None:
     # 01-REQ-3.4: update .gitignore
     _update_gitignore(project_root)
 
+    # 17-REQ-1.1: Create Claude settings on fresh init
+    _ensure_claude_settings(project_root)
+
     click.echo("Initialized agent-fox project.")
+
+
+CANONICAL_PERMISSIONS: list[str] = [
+    "Bash(bash:*)",
+    "Bash(wc:*)",
+    "Bash(git:*)",
+    "Bash(python:*)",
+    "Bash(python3:*)",
+    "Bash(uv:*)",
+    "Bash(make:*)",
+    "Bash(sort:*)",
+    "Bash(awk:*)",
+    "Bash(ruff:*)",
+    "Bash(gh:*)",
+    "Bash(claude:*)",
+    "Bash(source .venv/bin/activate:*)",
+    "WebSearch",
+    "WebFetch(domain:pypi.org)",
+    "WebFetch(domain:github.com)",
+    "WebFetch(domain:raw.githubusercontent.com)",
+    "Grep",
+    "Read",
+    "Glob",
+    "Edit",
+    "Write",
+]
+
+
+def _ensure_claude_settings(project_root: Path) -> None:
+    """Create or update .claude/settings.local.json with canonical permissions.
+
+    - If the file does not exist, create it with CANONICAL_PERMISSIONS.
+    - If the file exists, merge: add missing canonical entries, preserve
+      user-added entries and their ordering.
+    - If the file contains invalid JSON, log a warning and skip.
+
+    Requirements: 17-REQ-1.1, 17-REQ-1.2, 17-REQ-1.3, 17-REQ-1.E1,
+                  17-REQ-2.1, 17-REQ-2.2, 17-REQ-2.3,
+                  17-REQ-2.E1, 17-REQ-2.E2, 17-REQ-2.E3
+    """
+    claude_dir = project_root / ".claude"
+    settings_path = claude_dir / "settings.local.json"
+
+    # 17-REQ-1.2: Create .claude/ directory if absent
+    claude_dir.mkdir(parents=True, exist_ok=True)
+
+    if not settings_path.exists():
+        # 17-REQ-1.1: Create with canonical permissions
+        data = {"permissions": {"allow": list(CANONICAL_PERMISSIONS)}}
+        settings_path.write_text(json.dumps(data, indent=2) + "\n")
+        logger.debug("Created .claude/settings.local.json")
+        return
+
+    # File exists — merge
+    raw = settings_path.read_text()
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        # 17-REQ-2.E1: Invalid JSON — warn and skip
+        logger.warning(
+            "Invalid JSON in %s, skipping settings merge",
+            settings_path,
+        )
+        return
+
+    if not isinstance(data, dict):
+        logger.warning("Settings file is not a JSON object, skipping merge")
+        return
+
+    # 17-REQ-2.E2: Missing permissions structure — create it
+    if "permissions" not in data:
+        data["permissions"] = {}
+    permissions = data["permissions"]
+
+    if not isinstance(permissions, dict):
+        logger.warning("permissions is not a JSON object, skipping merge")
+        return
+
+    if "allow" not in permissions:
+        permissions["allow"] = []
+
+    allow = permissions["allow"]
+    if not isinstance(allow, list):
+        # 17-REQ-2.E3: allow is not a list — warn and skip
+        logger.warning("permissions.allow is not a list, skipping merge")
+        return
+
+    # 17-REQ-2.1, 17-REQ-2.2, 17-REQ-2.3: Merge
+    existing_set = set(allow)
+    missing = [p for p in CANONICAL_PERMISSIONS if p not in existing_set]
+
+    if not missing:
+        # 17-REQ-1.E1: All canonical entries present — no-op
+        logger.debug("All canonical permissions already present")
+        return
+
+    # Preserve order: existing first, new appended
+    allow.extend(missing)
+    settings_path.write_text(json.dumps(data, indent=2) + "\n")
+    logger.debug(
+        "Merged %d missing canonical permissions into settings",
+        len(missing),
+    )
 
 
 def _ensure_develop_branch() -> None:

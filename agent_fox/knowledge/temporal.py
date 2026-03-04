@@ -1,4 +1,4 @@
-"""Temporal queries: timeline construction and rendering.
+"""Temporal query: combine vector search + causal graph traversal.
 
 Requirements: 13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
 """
@@ -6,11 +6,12 @@ Requirements: 13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import duckdb
 
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
+from agent_fox.knowledge.search import SearchResult
 
 logger = logging.getLogger("agent_fox.knowledge.temporal")
 
@@ -31,10 +32,10 @@ class TimelineNode:
 
 @dataclass
 class Timeline:
-    """An ordered timeline of causally linked facts."""
+    """A causal timeline built from a temporal query."""
 
-    nodes: list[TimelineNode] = field(default_factory=list)
-    query: str = ""
+    nodes: list[TimelineNode]
+    query: str
 
     def render(self, *, use_color: bool = True) -> str:
         """Render the timeline as indented text.
@@ -42,9 +43,11 @@ class Timeline:
         Each node is rendered with indentation proportional to its depth.
         When use_color is False (stdout is not a TTY), no ANSI escape
         codes are included.
+
+        Requirements: 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
         """
         if not self.nodes:
-            return ""
+            return "No causal timeline found for this query."
 
         lines: list[str] = []
         for node in self.nodes:
@@ -57,13 +60,11 @@ class Timeline:
                 connector = "** "
 
             line_1 = f"{indent}{connector}{node.content}"
+            ts = node.timestamp or "unknown"
+            spec = node.spec_name or "n/a"
+            session = node.session_id or "n/a"
             commit = node.commit_sha or "n/a"
-            line_2 = (
-                f"{indent}   [{node.timestamp}] "
-                f"spec:{node.spec_name} "
-                f"session:{node.session_id} "
-                f"commit:{commit}"
-            )
+            line_2 = f"{indent}   [{ts}] spec:{spec} session:{session} commit:{commit}"
             lines.append(line_1)
             lines.append(line_2)
 
@@ -84,36 +85,47 @@ def _causal_fact_to_node(fact: CausalFact) -> TimelineNode:
     )
 
 
-def build_timeline(
+def _vector_search(
     conn: duckdb.DuckDBPyConnection,
-    seed_fact_ids: list[str],
-    *,
-    max_depth: int = 10,
-) -> Timeline:
-    """Construct a timeline from seed facts by traversing the causal graph.
-
-    1. For each seed fact, traverse the causal chain in both directions.
-    2. Deduplicate facts that appear in multiple chains.
-    3. Sort by timestamp, then by depth within the same timestamp.
-    4. Return as a Timeline with ordered TimelineNodes.
+    query_embedding: list[float],
+    top_k: int,
+) -> list[SearchResult]:
+    """Run vector similarity search for temporal query seeds."""
+    query = """
+        SELECT
+            CAST(f.id AS VARCHAR) AS fact_id,
+            f.content,
+            COALESCE(f.category, '') AS category,
+            COALESCE(f.spec_name, '') AS spec_name,
+            CAST(f.session_id AS VARCHAR) AS session_id,
+            CAST(f.commit_sha AS VARCHAR) AS commit_sha,
+            1 - array_cosine_distance(
+                e.embedding, ?::FLOAT[1024]
+            ) AS similarity
+        FROM memory_embeddings e
+        JOIN memory_facts f ON e.id = f.id
+        WHERE f.superseded_by IS NULL
+        ORDER BY similarity DESC
+        LIMIT ?
     """
-    seen_ids: set[str] = set()
-    all_facts: list[CausalFact] = []
+    try:
+        rows = conn.execute(query, [query_embedding, top_k]).fetchall()
+    except duckdb.Error:
+        logger.warning("Temporal vector search failed", exc_info=True)
+        return []
 
-    for seed_id in seed_fact_ids:
-        chain = traverse_causal_chain(
-            conn, seed_id, max_depth=max_depth, direction="both"
+    return [
+        SearchResult(
+            fact_id=row[0],
+            content=row[1],
+            category=row[2],
+            spec_name=row[3],
+            session_id=row[4],
+            commit_sha=row[5],
+            similarity=float(row[6]),
         )
-        for fact in chain:
-            if fact.fact_id not in seen_ids:
-                seen_ids.add(fact.fact_id)
-                all_facts.append(fact)
-
-    # Sort by timestamp ascending, then by depth as tiebreaker
-    all_facts.sort(key=lambda f: (f.created_at or "", f.depth))
-
-    nodes = [_causal_fact_to_node(f) for f in all_facts]
-    return Timeline(nodes=nodes)
+        for row in rows
+    ]
 
 
 def temporal_query(
@@ -127,48 +139,41 @@ def temporal_query(
     """Execute a temporal query.
 
     1. Use the query embedding to find the top-k most similar facts
-       via vector search (same as Fox Ball ask).
+       via vector search.
     2. From those seed facts, traverse the causal graph to build a
        timeline.
     3. Return the timeline for rendering and synthesis.
+
+    Requirements: 13-REQ-4.1, 13-REQ-4.2
     """
-    # Find seed facts via vector similarity search
-    seed_fact_ids = _vector_search(conn, query_embedding, top_k=top_k)
+    # Step 1: Vector search for seed facts
+    search_results = _vector_search(conn, query_embedding, top_k)
 
-    if not seed_fact_ids:
-        logger.info("No similar facts found for temporal query: %s", question)
-        return Timeline(query=question)
+    if not search_results:
+        logger.info("Temporal query found no matching facts")
+        return Timeline(nodes=[], query=question)
 
-    # Build timeline from seed facts
-    timeline = build_timeline(conn, seed_fact_ids, max_depth=max_depth)
-    timeline.query = question
-    return timeline
+    # Step 2: Traverse causal graph from each seed fact
+    seen_ids: set[str] = set()
+    all_nodes: list[TimelineNode] = []
 
+    for result in search_results:
+        if result.fact_id in seen_ids:
+            continue
 
-def _vector_search(
-    conn: duckdb.DuckDBPyConnection,
-    query_embedding: list[float],
-    *,
-    top_k: int = 20,
-) -> list[str]:
-    """Find the top-k most similar facts via vector cosine similarity.
+        chain = traverse_causal_chain(
+            conn,
+            result.fact_id,
+            max_depth=max_depth,
+            direction="both",
+        )
 
-    Uses the memory_embeddings table joined with memory_facts.
-    Returns a list of fact IDs sorted by similarity (descending).
-    """
-    try:
-        rows = conn.execute(
-            """
-            SELECT CAST(me.id AS VARCHAR) AS fact_id
-            FROM memory_embeddings me
-            JOIN memory_facts mf ON mf.id = me.id
-            WHERE me.embedding IS NOT NULL
-            ORDER BY array_cosine_similarity(me.embedding, ?::FLOAT[]) DESC
-            LIMIT ?
-            """,
-            [query_embedding, top_k],
-        ).fetchall()
-        return [row[0] for row in rows]
-    except Exception as exc:
-        logger.warning("Vector search failed: %s", exc)
-        return []
+        for causal_fact in chain:
+            if causal_fact.fact_id not in seen_ids:
+                seen_ids.add(causal_fact.fact_id)
+                all_nodes.append(_causal_fact_to_node(causal_fact))
+
+    # Sort by timestamp then depth for consistent rendering
+    all_nodes.sort(key=lambda n: (n.timestamp or "", n.depth))
+
+    return Timeline(nodes=all_nodes, query=question)

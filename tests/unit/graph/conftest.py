@@ -11,6 +11,7 @@ from agent_fox.graph.types import Edge, Node, PlanMetadata, TaskGraph
 
 # -- Helper to build graphs from compact definitions -----------------------
 
+
 def make_graph(
     nodes: list[Node],
     edges: list[Edge],
@@ -34,6 +35,7 @@ def make_graph(
 
 # -- Fixtures: simple acyclic graph -----------------------------------------
 
+
 @pytest.fixture
 def simple_acyclic_graph() -> TaskGraph:
     """A -> B -> C, all required (non-optional).
@@ -41,12 +43,27 @@ def simple_acyclic_graph() -> TaskGraph:
     Used by TS-02-7 (topo sort), TS-02-8 / TS-02-9 (fast mode base).
     """
     nodes = [
-        Node(id="spec:1", spec_name="spec", group_number=1,
-             title="Task A", optional=False),
-        Node(id="spec:2", spec_name="spec", group_number=2,
-             title="Task B", optional=False),
-        Node(id="spec:3", spec_name="spec", group_number=3,
-             title="Task C", optional=False),
+        Node(
+            id="spec:1",
+            spec_name="spec",
+            group_number=1,
+            title="Task A",
+            optional=False,
+        ),
+        Node(
+            id="spec:2",
+            spec_name="spec",
+            group_number=2,
+            title="Task B",
+            optional=False,
+        ),
+        Node(
+            id="spec:3",
+            spec_name="spec",
+            group_number=3,
+            title="Task C",
+            optional=False,
+        ),
     ]
     edges = [
         Edge(source="spec:1", target="spec:2", kind="intra_spec"),
@@ -62,14 +79,34 @@ def diamond_acyclic_graph() -> TaskGraph:
     Used by TS-02-7 (topo sort with multiple valid orderings).
     """
     nodes = [
-        Node(id="spec:1", spec_name="spec", group_number=1,
-             title="Task A", optional=False),
-        Node(id="spec:2", spec_name="spec", group_number=2,
-             title="Task B", optional=False),
-        Node(id="spec:3", spec_name="spec", group_number=3,
-             title="Task C", optional=False),
-        Node(id="spec:4", spec_name="spec", group_number=4,
-             title="Task D", optional=False),
+        Node(
+            id="spec:1",
+            spec_name="spec",
+            group_number=1,
+            title="Task A",
+            optional=False,
+        ),
+        Node(
+            id="spec:2",
+            spec_name="spec",
+            group_number=2,
+            title="Task B",
+            optional=False,
+        ),
+        Node(
+            id="spec:3",
+            spec_name="spec",
+            group_number=3,
+            title="Task C",
+            optional=False,
+        ),
+        Node(
+            id="spec:4",
+            spec_name="spec",
+            group_number=4,
+            title="Task D",
+            optional=False,
+        ),
     ]
     edges = [
         Edge(source="spec:1", target="spec:2", kind="intra_spec"),
@@ -82,6 +119,7 @@ def diamond_acyclic_graph() -> TaskGraph:
 
 # -- Fixtures: cyclic graph --------------------------------------------------
 
+
 @pytest.fixture
 def cyclic_graph() -> TaskGraph:
     """A -> B -> C -> A (cycle).
@@ -89,12 +127,27 @@ def cyclic_graph() -> TaskGraph:
     Used by TS-02-E4 (cycle detection).
     """
     nodes = [
-        Node(id="spec:1", spec_name="spec", group_number=1,
-             title="Task A", optional=False),
-        Node(id="spec:2", spec_name="spec", group_number=2,
-             title="Task B", optional=False),
-        Node(id="spec:3", spec_name="spec", group_number=3,
-             title="Task C", optional=False),
+        Node(
+            id="spec:1",
+            spec_name="spec",
+            group_number=1,
+            title="Task A",
+            optional=False,
+        ),
+        Node(
+            id="spec:2",
+            spec_name="spec",
+            group_number=2,
+            title="Task B",
+            optional=False,
+        ),
+        Node(
+            id="spec:3",
+            spec_name="spec",
+            group_number=3,
+            title="Task C",
+            optional=False,
+        ),
     ]
     edges = [
         Edge(source="spec:1", target="spec:2", kind="intra_spec"),
@@ -106,6 +159,7 @@ def cyclic_graph() -> TaskGraph:
 
 # -- Fixtures: graph with optional nodes ------------------------------------
 
+
 @pytest.fixture
 def graph_with_optional() -> TaskGraph:
     """A (required) -> B (optional) -> C (required).
@@ -113,12 +167,23 @@ def graph_with_optional() -> TaskGraph:
     Used by TS-02-8 (fast mode removes optional), TS-02-9 (fast mode rewires).
     """
     nodes = [
-        Node(id="spec:1", spec_name="spec", group_number=1,
-             title="Task A", optional=False),
-        Node(id="spec:2", spec_name="spec", group_number=2,
-             title="Task B", optional=True),
-        Node(id="spec:3", spec_name="spec", group_number=3,
-             title="Task C", optional=False),
+        Node(
+            id="spec:1",
+            spec_name="spec",
+            group_number=1,
+            title="Task A",
+            optional=False,
+        ),
+        Node(
+            id="spec:2", spec_name="spec", group_number=2, title="Task B", optional=True
+        ),
+        Node(
+            id="spec:3",
+            spec_name="spec",
+            group_number=3,
+            title="Task C",
+            optional=False,
+        ),
     ]
     edges = [
         Edge(source="spec:1", target="spec:2", kind="intra_spec"),
@@ -128,6 +193,7 @@ def graph_with_optional() -> TaskGraph:
 
 
 # -- Fixtures: multi-spec graph with cross-spec edges -----------------------
+
 
 @pytest.fixture
 def cross_spec_graph() -> TaskGraph:
@@ -141,14 +207,34 @@ def cross_spec_graph() -> TaskGraph:
     Used by TS-02-6 (cross-spec edges).
     """
     nodes = [
-        Node(id="01_alpha:1", spec_name="01_alpha", group_number=1,
-             title="Alpha Task 1", optional=False),
-        Node(id="01_alpha:2", spec_name="01_alpha", group_number=2,
-             title="Alpha Task 2", optional=False),
-        Node(id="02_beta:1", spec_name="02_beta", group_number=1,
-             title="Beta Task 1", optional=False),
-        Node(id="02_beta:2", spec_name="02_beta", group_number=2,
-             title="Beta Task 2", optional=False),
+        Node(
+            id="01_alpha:1",
+            spec_name="01_alpha",
+            group_number=1,
+            title="Alpha Task 1",
+            optional=False,
+        ),
+        Node(
+            id="01_alpha:2",
+            spec_name="01_alpha",
+            group_number=2,
+            title="Alpha Task 2",
+            optional=False,
+        ),
+        Node(
+            id="02_beta:1",
+            spec_name="02_beta",
+            group_number=1,
+            title="Beta Task 1",
+            optional=False,
+        ),
+        Node(
+            id="02_beta:2",
+            spec_name="02_beta",
+            group_number=2,
+            title="Beta Task 2",
+            optional=False,
+        ),
     ]
     edges = [
         Edge(source="01_alpha:1", target="01_alpha:2", kind="intra_spec"),

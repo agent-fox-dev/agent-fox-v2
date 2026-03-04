@@ -15,6 +15,7 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import signal
@@ -23,9 +24,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent_fox.core.config import OrchestratorConfig
+from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.circuit import CircuitBreaker
+from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
@@ -35,8 +37,166 @@ from agent_fox.engine.state import (
     StateManager,
 )
 from agent_fox.engine.sync import GraphSync
+from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
+from agent_fox.hooks.runner import run_sync_barrier_hooks
+from agent_fox.memory.render import render_summary
 
 logger = logging.getLogger(__name__)
+
+
+def _load_plan_data(plan_path: Path) -> dict:
+    """Load plan.json and return the raw plan dict.
+
+    Raises:
+        PlanError: if plan.json is missing or corrupted
+    """
+    if not plan_path.exists():
+        raise PlanError(
+            f"Plan file not found: {plan_path}. "
+            f"Run `agent-fox plan` first to generate a plan.",
+            path=str(plan_path),
+        )
+
+    try:
+        raw = plan_path.read_text(encoding="utf-8")
+        return json.loads(raw)
+    except (json.JSONDecodeError, OSError) as exc:
+        raise PlanError(
+            f"Corrupted plan file {plan_path}: {exc}. "
+            f"Run `agent-fox plan` to regenerate.",
+            path=str(plan_path),
+        ) from exc
+
+
+def _build_edges_dict(
+    nodes: dict,
+    edges_list: list[dict],
+) -> dict[str, list[str]]:
+    """Build adjacency list from plan edges.
+
+    Returns dict mapping each node to its dependencies (predecessors).
+    """
+    edges_dict: dict[str, list[str]] = {nid: [] for nid in nodes}
+    for edge in edges_list:
+        source = edge["source"]
+        target = edge["target"]
+        if target in edges_dict:
+            edges_dict[target].append(source)
+    return edges_dict
+
+
+def _load_or_init_state(
+    state_manager: StateManager,
+    plan_hash: str,
+    nodes: dict,
+) -> ExecutionState:
+    """Load existing state or initialize fresh state.
+
+    If state exists but plan hash differs, warn and start fresh.
+    """
+    existing = state_manager.load()
+
+    if existing is not None:
+        if existing.plan_hash != plan_hash:
+            logger.warning(
+                "Plan has changed since last run (plan hash mismatch). Starting fresh.",
+            )
+        else:
+            for nid in nodes:
+                if nid not in existing.node_states:
+                    existing.node_states[nid] = "pending"
+            return existing
+
+    now = datetime.now(UTC).isoformat()
+    return ExecutionState(
+        plan_hash=plan_hash,
+        node_states={nid: "pending" for nid in nodes},
+        started_at=now,
+        updated_at=now,
+    )
+
+
+def _reset_in_progress_tasks(
+    state: ExecutionState,
+    state_manager: StateManager,
+) -> None:
+    """Reset in_progress tasks to pending on resume (04-REQ-7.E1)."""
+    any_reset = False
+    for node_id, status in state.node_states.items():
+        if status == "in_progress":
+            state.node_states[node_id] = "pending"
+            any_reset = True
+            logger.info(
+                "Task %s was in_progress from prior run; resetting to pending.",
+                node_id,
+            )
+    if any_reset:
+        state_manager.save(state)
+
+
+def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:
+    """Initialize attempt counter from session history."""
+    tracker: dict[str, int] = {}
+    for record in state.session_history:
+        current = tracker.get(record.node_id, 0)
+        tracker[record.node_id] = max(current, record.attempt)
+    return tracker
+
+
+def _init_error_tracker(state: ExecutionState) -> dict[str, str | None]:
+    """Initialize error tracker from session history."""
+    tracker: dict[str, str | None] = {}
+
+    for record in state.session_history:
+        if record.status == "failed" and record.error_message:
+            tracker[record.node_id] = record.error_message
+
+    for node_id, status in state.node_states.items():
+        if status == "pending" and node_id not in tracker:
+            prior_attempts = [r for r in state.session_history if r.node_id == node_id]
+            if prior_attempts:
+                last = prior_attempts[-1]
+                if last.error_message:
+                    tracker[node_id] = last.error_message
+
+    return tracker
+
+
+class _SignalHandler:
+    """Manages SIGINT handling for graceful orchestrator shutdown.
+
+    Double-SIGINT exits immediately (04-REQ-8.E1).
+    """
+
+    def __init__(self) -> None:
+        self.interrupted = False
+        self._interrupt_count = 0
+        self._prev_handler: Any = None
+
+    def install(self) -> None:
+        """Register SIGINT handler."""
+
+        def handler(signum: int, frame: Any) -> None:
+            self._interrupt_count += 1
+            if self._interrupt_count >= 2:
+                logger.warning("Double SIGINT received, exiting immediately.")
+                raise SystemExit(1)
+            self.interrupted = True
+            logger.info("SIGINT received, shutting down gracefully...")
+
+        try:
+            self._prev_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, handler)
+        except (OSError, ValueError):
+            self._prev_handler = None
+
+    def restore(self) -> None:
+        """Restore the previous SIGINT handler."""
+        if self._prev_handler is not None:
+            try:
+                signal.signal(signal.SIGINT, self._prev_handler)
+            except (OSError, ValueError):
+                pass
 
 
 class Orchestrator:
@@ -54,26 +214,24 @@ class Orchestrator:
         plan_path: Path,
         state_path: Path,
         session_runner_factory: Callable[..., Any],
+        *,
+        hook_config: HookConfig | None = None,
+        specs_dir: Path | None = None,
+        no_hooks: bool = False,
     ) -> None:
-        """Initialise the orchestrator.
-
-        Args:
-            config: Orchestrator configuration (parallelism, retries, etc.)
-            plan_path: Path to .agent-fox/plan.json
-            state_path: Path to .agent-fox/state.jsonl
-            session_runner_factory: Factory that creates a SessionRunner for
-                a given node_id. Injected to enable testing with mocks.
-        """
         self._config = config
         self._plan_path = plan_path
-        self._state_path = state_path
-        self._session_runner_factory = session_runner_factory
         self._state_manager = StateManager(state_path)
         self._circuit = CircuitBreaker(config)
         self._graph_sync: GraphSync | None = None
-        self._interrupted = False
-        self._interrupt_count = 0
+        self._signal = _SignalHandler()
         self._is_parallel = config.parallel > 1
+        self._hook_config = hook_config
+        self._specs_dir = specs_dir
+        self._no_hooks = no_hooks
+        self._plan_nodes: dict = {}
+        self._edges_list: list[dict] = []
+        self._plan_data: dict = {}  # Full plan data for plan.json updates
         self._serial_runner = SerialRunner(
             session_runner_factory=session_runner_factory,
             inter_session_delay=float(config.inter_session_delay),
@@ -93,55 +251,47 @@ class Orchestrator:
         2. Load or initialize execution state
         3. Register SIGINT handler
         4. Loop: pick ready tasks, dispatch, update state
-        5. Return final execution state
+        5. Update plan.json with final node statuses
+        6. Return final execution state
 
         Raises:
             PlanError: if plan.json is missing or corrupted
         """
-        # 1. Load plan
-        plan_data = self._load_plan()
+        plan_data = _load_plan_data(self._plan_path)
         nodes = plan_data.get("nodes", {})
         edges_list = plan_data.get("edges", [])
 
         # 04-REQ-1.E2: Empty plan
         if not nodes:
-            state = ExecutionState(
+            return ExecutionState(
                 plan_hash=self._compute_plan_hash(),
                 node_states={},
                 run_status=RunStatus.COMPLETED,
                 started_at=datetime.now(UTC).isoformat(),
                 updated_at=datetime.now(UTC).isoformat(),
             )
-            return state
 
-        # Build edges dict: target -> [source] (dependencies)
-        edges_dict = self._build_edges_dict(nodes, edges_list)
+        # Store plan data for sync barrier hot-loading
+        self._plan_nodes = nodes
+        self._edges_list = edges_list
+        self._plan_data = plan_data
 
-        # 2. Load or initialize execution state
+        edges_dict = _build_edges_dict(nodes, edges_list)
         plan_hash = self._compute_plan_hash()
-        state = self._load_or_init_state(plan_hash, nodes)
+        state = _load_or_init_state(self._state_manager, plan_hash, nodes)
+        _reset_in_progress_tasks(state, self._state_manager)
 
-        # Handle in-progress tasks from interrupted runs (04-REQ-7.E1)
-        self._reset_in_progress_tasks(state)
-
-        # Initialize graph sync
         self._graph_sync = GraphSync(state.node_states, edges_dict)
 
-        # Track per-task attempt counts
-        attempt_tracker: dict[str, int] = self._init_attempt_tracker(state)
+        attempt_tracker = _init_attempt_tracker(state)
+        error_tracker = _init_error_tracker(state)
 
-        # Track last error per task for retry context
-        error_tracker: dict[str, str | None] = self._init_error_tracker(state)
+        self._signal.install()
 
-        # 3. Install signal handler
-        self._install_signal_handler()
-
-        # 4. Main execution loop
         first_dispatch = True
         try:
             while True:
-                # Check for interruption
-                if self._interrupted:
+                if self._signal.interrupted:
                     await self._shutdown(state)
                     return state
 
@@ -162,11 +312,9 @@ class Orchestrator:
                     self._state_manager.save(state)
                     return state
 
-                # Get ready tasks
                 ready = self._graph_sync.ready_tasks()
 
                 if not ready:
-                    # Check if stalled or completed
                     if self._graph_sync.is_stalled():
                         state.run_status = RunStatus.STALLED
                         logger.warning(
@@ -176,13 +324,11 @@ class Orchestrator:
                         self._state_manager.save(state)
                         return state
 
-                    # All tasks completed
                     state.run_status = RunStatus.COMPLETED
                     self._state_manager.save(state)
                     return state
 
                 if self._is_parallel and self._parallel_runner is not None:
-                    # -- Parallel dispatch --
                     await self._dispatch_parallel(
                         ready,
                         state,
@@ -192,7 +338,6 @@ class Orchestrator:
                     )
                     first_dispatch = False
                 else:
-                    # -- Serial dispatch (one at a time) --
                     first_dispatch = await self._dispatch_serial(
                         ready,
                         state,
@@ -202,9 +347,45 @@ class Orchestrator:
                     )
 
         finally:
-            self._restore_signal_handler()
+            self._signal.restore()
+            # Update plan.json with current node statuses so the file
+            # reflects actual progress, not just the original pending state.
+            self._sync_plan_statuses(state)
 
-        return state  # pragma: no cover
+    def _compute_plan_hash(self) -> str:
+        """Compute plan hash, returning empty string if file doesn't exist."""
+        if self._plan_path.exists():
+            return StateManager.compute_plan_hash(self._plan_path)
+        return ""
+
+    def _check_launch(
+        self,
+        node_id: str,
+        attempt: int,
+        state: ExecutionState,
+        attempt_tracker: dict[str, int],
+    ) -> str:
+        """Check whether *node_id* may be launched.
+
+        Returns ``"allowed"``, ``"blocked"``, or ``"limited"``.
+        """
+        decision = self._circuit.check_launch(node_id, attempt, state)
+        if decision.allowed:
+            return "allowed"
+
+        if (
+            self._config.max_retries is not None
+            and attempt > self._config.max_retries + 1
+        ):
+            attempt_tracker[node_id] = attempt
+            self._block_task(
+                node_id,
+                state,
+                f"Retry limit exceeded for {node_id}",
+            )
+            self._state_manager.save(state)
+            return "blocked"
+        return "limited"
 
     async def _dispatch_serial(
         self,
@@ -214,63 +395,38 @@ class Orchestrator:
         error_tracker: dict[str, str | None],
         first_dispatch: bool,
     ) -> bool:
-        """Dispatch one ready task serially.
-
-        Returns the updated value of ``first_dispatch``.
-        """
+        """Dispatch one ready task serially. Returns updated first_dispatch."""
         assert self._graph_sync is not None  # noqa: S101
 
         for node_id in ready:
-            if self._interrupted:
+            if self._signal.interrupted:
                 break
 
             attempt = attempt_tracker.get(node_id, 0) + 1
-
-            # Check circuit breaker for this specific launch
-            launch_decision = self._circuit.check_launch(
-                node_id,
-                attempt,
-                state,
-            )
-            if not launch_decision.allowed:
-                # Check which limit was hit
-                if (
-                    self._config.max_retries is not None
-                    and attempt > self._config.max_retries + 1
-                ):
-                    # Retry limit: block the task
-                    attempt_tracker[node_id] = attempt
-                    self._block_task(
-                        node_id,
-                        state,
-                        f"Retry limit exceeded for {node_id}",
-                    )
-                    self._state_manager.save(state)
-                    continue
-                # Cost or session limit: let the main loop handle it
+            verdict = self._check_launch(node_id, attempt, state, attempt_tracker)
+            if verdict == "blocked":
+                continue
+            if verdict == "limited":
                 break
 
             attempt_tracker[node_id] = attempt
 
-            # Apply inter-session delay (skip before first dispatch)
             if not first_dispatch:
                 await self._serial_runner.delay()
             first_dispatch = False
 
-            # Mark as in-progress (04-REQ-7.1: exactly-once guard)
             self._graph_sync.mark_in_progress(node_id)
+            # Persist in_progress state so agent-fox status can show it
+            self._state_manager.save(state)
 
-            # Get previous error for retry context
             previous_error = error_tracker.get(node_id)
 
-            # Dispatch session
-            record = await self._dispatch_session(
+            record = await self._serial_runner.execute(
                 node_id,
                 attempt,
                 previous_error,
             )
 
-            # Process the completed session
             self._process_session_result(
                 record,
                 attempt,
@@ -279,8 +435,11 @@ class Orchestrator:
                 error_tracker,
             )
 
-            # Only dispatch one task per loop iteration in serial mode
-            # to re-evaluate ready tasks after each completion
+            # 06-REQ-6.1: Check sync barrier after task completion
+            if record.status == "completed":
+                self._run_sync_barrier_if_needed(state)
+
+            # Re-evaluate ready tasks after each completion
             break
 
         return first_dispatch
@@ -293,214 +452,106 @@ class Orchestrator:
         error_tracker: dict[str, str | None],
         first_dispatch: bool,
     ) -> None:
-        """Dispatch a batch of ready tasks concurrently.
+        """Dispatch ready tasks using a streaming pool.
 
-        Builds the batch from ready tasks (filtered by retry limits),
-        marks them all as in-progress, then dispatches via the parallel
-        runner. The on_complete callback processes results under a lock.
+        Maintains a pool of up to ``max_parallelism`` concurrent asyncio
+        tasks.  When a task completes, ``ready_tasks()`` is re-evaluated
+        and empty pool slots are filled with newly-unblocked work.
+
+        Only tasks that are *actually running* are marked ``in_progress``
+        — queued tasks remain ``pending`` until a pool slot opens.
+
+        This replaces the former batch-and-wait model which over-committed
+        all ready tasks as ``in_progress`` and delayed newly-unblocked
+        tasks until the entire batch completed.
         """
         assert self._graph_sync is not None  # noqa: S101
         assert self._parallel_runner is not None  # noqa: S101
 
-        # Build the batch: only tasks passing circuit breaker checks
-        batch: list[tuple[str, int, str | None]] = []
-        for node_id in ready:
-            if self._interrupted:
-                break
+        # Local refs so the nested closure satisfies mypy narrowing.
+        graph_sync = self._graph_sync
+        parallel_runner = self._parallel_runner
 
-            attempt = attempt_tracker.get(node_id, 0) + 1
+        pool: set[asyncio.Task[SessionRecord]] = set()
+        max_pool = parallel_runner.max_parallelism
 
-            # Check circuit breaker for this specific launch
-            launch_decision = self._circuit.check_launch(
-                node_id,
-                attempt,
-                state,
-            )
-            if not launch_decision.allowed:
-                if (
-                    self._config.max_retries is not None
-                    and attempt > self._config.max_retries + 1
-                ):
-                    # Retry limit: block the task
-                    attempt_tracker[node_id] = attempt
-                    self._block_task(
+        def _fill_pool(candidates: list[str]) -> None:
+            """Launch candidates into the pool up to max_parallelism."""
+            for node_id in candidates:
+                if len(pool) >= max_pool:
+                    break
+                if self._signal.interrupted:
+                    break
+
+                attempt = attempt_tracker.get(node_id, 0) + 1
+                verdict = self._check_launch(
+                    node_id,
+                    attempt,
+                    state,
+                    attempt_tracker,
+                )
+                if verdict != "allowed":
+                    continue
+
+                attempt_tracker[node_id] = attempt
+                graph_sync.mark_in_progress(node_id)
+                previous_error = error_tracker.get(node_id)
+
+                task = asyncio.create_task(
+                    parallel_runner.execute_one(
                         node_id,
-                        state,
-                        f"Retry limit exceeded for {node_id}",
-                    )
-                    self._state_manager.save(state)
-                continue
+                        attempt,
+                        previous_error,
+                    ),
+                    name=f"parallel-{node_id}",
+                )
+                pool.add(task)
 
-            attempt_tracker[node_id] = attempt
+        _fill_pool(ready)
 
-            # Mark as in-progress before dispatch (04-REQ-7.1)
-            self._graph_sync.mark_in_progress(node_id)
-
-            previous_error = error_tracker.get(node_id)
-            batch.append((node_id, attempt, previous_error))
-
-        if not batch:
+        if not pool:
             return
 
-        # on_complete callback: processes each result under the runner's
-        # state lock, ensuring serialised state writes (04-REQ-6.3)
-        async def on_complete(record: SessionRecord) -> None:
-            self._process_session_result(
-                record,
-                attempt_tracker.get(record.node_id, 1),
-                state,
-                attempt_tracker,
-                error_tracker,
+        # Persist in_progress state so agent-fox status can show it
+        parallel_runner.track_tasks(list(pool))
+        self._state_manager.save(state)
+
+        while pool:
+            if self._signal.interrupted:
+                break
+
+            # Wait for any task to complete
+            done, pool = await asyncio.wait(
+                pool,
+                return_when=asyncio.FIRST_COMPLETED,
             )
 
-        await self._parallel_runner.execute_batch(batch, on_complete)
+            for completed_task in done:
+                try:
+                    record = completed_task.result()
+                except Exception as exc:
+                    logger.error("Parallel task raised: %s", exc)
+                    continue
 
-    def _load_plan(self) -> dict:
-        """Load plan.json and return the raw plan dict.
-
-        Raises:
-            PlanError: if plan.json is missing or corrupted
-        """
-        if not self._plan_path.exists():
-            raise PlanError(
-                f"Plan file not found: {self._plan_path}. "
-                f"Run `agent-fox plan` first to generate a plan.",
-                path=str(self._plan_path),
-            )
-
-        try:
-            raw = self._plan_path.read_text(encoding="utf-8")
-            return json.loads(raw)
-        except (json.JSONDecodeError, OSError) as exc:
-            raise PlanError(
-                f"Corrupted plan file {self._plan_path}: {exc}. "
-                f"Run `agent-fox plan` to regenerate.",
-                path=str(self._plan_path),
-            ) from exc
-
-    def _compute_plan_hash(self) -> str:
-        """Compute plan hash, returning empty string if file doesn't exist."""
-        if self._plan_path.exists():
-            return StateManager.compute_plan_hash(self._plan_path)
-        return ""
-
-    def _build_edges_dict(
-        self,
-        nodes: dict,
-        edges_list: list[dict],
-    ) -> dict[str, list[str]]:
-        """Build adjacency list from plan edges.
-
-        Returns dict mapping each node to its dependencies (predecessors).
-        Edge source must complete before edge target, so target depends on
-        source.
-        """
-        edges_dict: dict[str, list[str]] = {nid: [] for nid in nodes}
-        for edge in edges_list:
-            source = edge["source"]
-            target = edge["target"]
-            if target in edges_dict:
-                edges_dict[target].append(source)
-        return edges_dict
-
-    def _load_or_init_state(
-        self,
-        plan_hash: str,
-        nodes: dict,
-    ) -> ExecutionState:
-        """Load existing state or initialize fresh state.
-
-        If state exists but plan hash differs, warn and start fresh.
-        If state is corrupted, warn and start fresh.
-        """
-        existing = self._state_manager.load()
-
-        if existing is not None:
-            if existing.plan_hash != plan_hash:
-                logger.warning(
-                    "Plan has changed since last run "
-                    "(plan hash mismatch). Starting fresh.",
+                self._process_session_result(
+                    record,
+                    attempt_tracker.get(record.node_id, 1),
+                    state,
+                    attempt_tracker,
+                    error_tracker,
                 )
-            else:
-                # Resume from existing state
-                # Ensure all current plan nodes are in state
-                for nid in nodes:
-                    if nid not in existing.node_states:
-                        existing.node_states[nid] = "pending"
-                return existing
 
-        # Initialize fresh state with all nodes pending
-        now = datetime.now(UTC).isoformat()
-        return ExecutionState(
-            plan_hash=plan_hash,
-            node_states={nid: "pending" for nid in nodes},
-            started_at=now,
-            updated_at=now,
-        )
+                # 06-REQ-6.1: Check sync barrier after task completion
+                if record.status == "completed":
+                    self._run_sync_barrier_if_needed(state)
 
-    def _reset_in_progress_tasks(self, state: ExecutionState) -> None:
-        """Reset in_progress tasks to pending on resume (04-REQ-7.E1).
+            # Re-evaluate ready tasks and fill empty pool slots
+            if not self._signal.interrupted:
+                new_ready = graph_sync.ready_tasks()
+                _fill_pool(new_ready)
 
-        Tasks left in_progress from a prior interrupted run are treated
-        as failed. They are reset to pending and will be re-dispatched
-        with an error message indicating prior interruption.
-        """
-        any_reset = False
-        for node_id, status in state.node_states.items():
-            if status == "in_progress":
-                state.node_states[node_id] = "pending"
-                any_reset = True
-                logger.info(
-                    "Task %s was in_progress from prior run; resetting to pending.",
-                    node_id,
-                )
-        if any_reset:
+            parallel_runner.track_tasks(list(pool))
             self._state_manager.save(state)
-
-    def _init_attempt_tracker(
-        self,
-        state: ExecutionState,
-    ) -> dict[str, int]:
-        """Initialize attempt counter from session history.
-
-        Counts how many attempts each node has had so far, so we can
-        continue from the correct attempt number on resume.
-        """
-        tracker: dict[str, int] = {}
-        for record in state.session_history:
-            current = tracker.get(record.node_id, 0)
-            tracker[record.node_id] = max(current, record.attempt)
-        return tracker
-
-    def _init_error_tracker(
-        self,
-        state: ExecutionState,
-    ) -> dict[str, str | None]:
-        """Initialize error tracker from session history.
-
-        For tasks that were previously in_progress (interrupted), set
-        a default error message indicating interruption.
-        """
-        tracker: dict[str, str | None] = {}
-
-        # Get last error for each node from history
-        for record in state.session_history:
-            if record.status == "failed" and record.error_message:
-                tracker[record.node_id] = record.error_message
-
-        # For nodes that were reset from in_progress, add interruption context
-        for node_id, status in state.node_states.items():
-            if status == "pending" and node_id not in tracker:
-                # Check if this node had prior attempts
-                prior_attempts = [
-                    r for r in state.session_history if r.node_id == node_id
-                ]
-                if prior_attempts:
-                    last = prior_attempts[-1]
-                    if last.error_message:
-                        tracker[node_id] = last.error_message
-
-        return tracker
 
     def _process_session_result(
         self,
@@ -510,62 +561,140 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> None:
-        """Process a completed session record.
-
-        Records the session in state, updates the graph based on the
-        outcome (completed, failed with retries remaining, or blocked),
-        and persists state.
-
-        This method is called both from serial and parallel dispatch
-        paths. In parallel mode it is invoked under the runner's state
-        lock to serialise writes.
-        """
+        """Process a completed session record and persist state."""
         assert self._graph_sync is not None  # noqa: S101
 
         node_id = record.node_id
-
-        # Record session result
         self._state_manager.record_session(state, record)
 
-        # Update graph based on result
         if record.status == "completed":
             self._graph_sync.mark_completed(node_id)
             state.node_states[node_id] = "completed"
             error_tracker.pop(node_id, None)
         else:
-            # Failed
             error_tracker[node_id] = record.error_message
-
             if attempt >= self._config.max_retries + 1:
-                # Exhausted retries: block task and cascade
                 self._block_task(
                     node_id,
                     state,
                     f"Retries exhausted for {node_id}: {record.error_message}",
                 )
             else:
-                # Will retry: reset to pending
                 self._graph_sync.node_states[node_id] = "pending"
                 state.node_states[node_id] = "pending"
 
-        # Persist state after every session
         self._state_manager.save(state)
 
-    async def _dispatch_session(
-        self,
-        node_id: str,
-        attempt: int,
-        previous_error: str | None,
-    ) -> SessionRecord:
-        """Dispatch a single session via the serial runner.
+    def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
+        """Check and run sync barrier actions if triggered.
 
-        Returns a SessionRecord with the session outcome.
+        After each task completion, checks whether the completed count
+        crosses a sync_interval boundary. On trigger: runs sync barrier
+        hooks, hot-loads new specs, and regenerates the memory summary.
+
+        Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
         """
-        return await self._serial_runner.execute(
-            node_id,
-            attempt,
-            previous_error,
+        if self._config.sync_interval == 0:
+            return
+
+        completed_count = sum(1 for s in state.node_states.values() if s == "completed")
+
+        if not should_trigger_barrier(completed_count, self._config.sync_interval):
+            return
+
+        barrier_number = completed_count // self._config.sync_interval
+        logger.info(
+            "Sync barrier %d triggered at %d completed tasks",
+            barrier_number,
+            completed_count,
         )
+
+        # 06-REQ-6.1: Run sync barrier hooks
+        if self._hook_config is not None:
+            run_sync_barrier_hooks(
+                barrier_number=barrier_number,
+                config=self._hook_config,
+                no_hooks=self._no_hooks,
+            )
+
+        # 06-REQ-6.3: Hot-load new specs
+        if self._specs_dir is not None and self._config.hot_load:
+            try:
+                self._hot_load_new_specs(state)
+                # Persist immediately so a crash doesn't lose new specs
+                self._sync_plan_statuses(state)
+            except Exception:
+                logger.warning("Hot-loading specs failed at barrier", exc_info=True)
+
+        # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
+        try:
+            render_summary()
+        except Exception:
+            logger.warning("Memory summary regeneration failed", exc_info=True)
+
+    def _hot_load_new_specs(self, state: ExecutionState) -> None:
+        """Discover and incorporate new specs into the running graph."""
+        assert self._specs_dir is not None  # noqa: S101
+        assert self._graph_sync is not None  # noqa: S101
+
+        graph = self._build_task_graph(state)
+        updated_graph, new_spec_names = hot_load_specs(graph, self._specs_dir)
+
+        if not new_spec_names:
+            return
+
+        logger.info(
+            "Hot-loaded %d new spec(s): %s",
+            len(new_spec_names),
+            ", ".join(new_spec_names),
+        )
+
+        # Add new nodes to plan data and state
+        for nid, node in updated_graph.nodes.items():
+            if nid not in self._plan_nodes:
+                self._plan_nodes[nid] = {
+                    "id": nid,
+                    "spec_name": node.spec_name,
+                    "group_number": node.group_number,
+                    "title": node.title,
+                    "optional": node.optional,
+                    "status": "pending",
+                    "subtask_count": node.subtask_count,
+                    "body": node.body,
+                }
+                state.node_states[nid] = "pending"
+
+        # Rebuild edges and GraphSync with new nodes/edges
+        self._edges_list = [
+            {"source": e.source, "target": e.target, "kind": e.kind}
+            for e in updated_graph.edges
+        ]
+        edges_dict = _build_edges_dict(self._plan_nodes, self._edges_list)
+        self._graph_sync = GraphSync(state.node_states, edges_dict)
+
+    def _build_task_graph(self, state: ExecutionState) -> TaskGraph:
+        """Build a TaskGraph from current plan data and execution state."""
+        graph_nodes = {}
+        for nid, data in self._plan_nodes.items():
+            graph_nodes[nid] = Node(
+                id=nid,
+                spec_name=data["spec_name"],
+                group_number=data["group_number"],
+                title=data.get("title", ""),
+                optional=data.get("optional", False),
+                status=NodeStatus(state.node_states.get(nid, "pending")),
+                subtask_count=data.get("subtask_count", 0),
+                body=data.get("body", ""),
+            )
+        graph_edges = [
+            Edge(
+                source=e["source"],
+                target=e["target"],
+                kind=e.get("kind", "intra_spec"),
+            )
+            for e in self._edges_list
+        ]
+        return TaskGraph(nodes=graph_nodes, edges=graph_edges, order=[])
 
     def _block_task(
         self,
@@ -579,49 +708,40 @@ class Orchestrator:
             state.node_states[node_id] = "blocked"
             for blocked_id in cascade_blocked:
                 state.node_states[blocked_id] = "blocked"
-                logger.info(
-                    "Cascade-blocked %s due to %s",
-                    blocked_id,
-                    node_id,
-                )
+                logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)
 
-    def _install_signal_handler(self) -> None:
-        """Register SIGINT handler that sets _interrupted flag.
+    def _sync_plan_statuses(self, state: ExecutionState) -> None:
+        """Write current node statuses back into plan.json.
 
-        Double-SIGINT exits immediately (04-REQ-8.E1).
+        Updates each node's ``status`` field in the plan data to match
+        the execution state, then overwrites plan.json. This keeps the
+        plan file in sync with reality so ``agent-fox status`` and
+        direct inspection of plan.json show accurate progress.
         """
+        if not self._plan_data or not state.node_states:
+            return
 
-        def handler(signum: int, frame: Any) -> None:
-            self._interrupt_count += 1
-            if self._interrupt_count >= 2:
-                # Double SIGINT: exit immediately
-                logger.warning("Double SIGINT received, exiting immediately.")
-                raise SystemExit(1)
-            self._interrupted = True
-            logger.info("SIGINT received, shutting down gracefully...")
+        nodes = self._plan_data.get("nodes", {})
+        changed = False
+        for nid, current_status in state.node_states.items():
+            if nid in nodes and nodes[nid].get("status") != current_status:
+                nodes[nid]["status"] = current_status
+                changed = True
+
+        if not changed:
+            return
 
         try:
-            self._prev_handler = signal.getsignal(signal.SIGINT)
-            signal.signal(signal.SIGINT, handler)
-        except (OSError, ValueError):
-            # Can't set signal handler in non-main thread
-            self._prev_handler = None
-
-    def _restore_signal_handler(self) -> None:
-        """Restore the previous SIGINT handler."""
-        if hasattr(self, "_prev_handler") and self._prev_handler is not None:
-            try:
-                signal.signal(signal.SIGINT, self._prev_handler)
-            except (OSError, ValueError):
-                pass
+            self._plan_path.write_text(
+                json.dumps(self._plan_data, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            logger.info("Updated plan.json with current node statuses")
+        except OSError:
+            logger.warning("Failed to update plan.json", exc_info=True)
 
     async def _shutdown(self, state: ExecutionState) -> None:
-        """Save state, cancel in-flight tasks, print resume instructions.
-
-        In parallel mode (04-REQ-8.2), cancels all in-flight session
-        tasks and waits for cancellation to complete before saving.
-        """
-        # Cancel in-flight parallel tasks if any (04-REQ-8.2)
+        """Save state, cancel in-flight tasks, log resume instructions."""
         if self._parallel_runner is not None:
             await self._parallel_runner.cancel_all()
 

@@ -49,17 +49,17 @@ Run these commands:
 ```bash
 pwd
 ls -la
-cat prd.md
-cat specs/{number}_{specification}/requirements.md
-cat specs/{number}_{specification}/design.md
-cat specs/{number}_{specification}/test_spec.md
-cat specs/{number}_{specification}/tasks.md
+cat prd.md 2>/dev/null || cat .specs/prd.md 2>/dev/null || true
+cat .specs/{spec_name}/requirements.md
+cat .specs/{spec_name}/design.md
+cat .specs/{spec_name}/test_spec.md
+cat .specs/{spec_name}/tasks.md
 cat docs/memory.md 2>/dev/null || true
 git log --oneline -20
 git status --short --branch
 ```
 
-Explore the codebase:** run `ls`, read key source files, understand the module structure and how components interact.
+Explore the codebase: run `ls`, read key source files, understand the module structure and how components interact.
 
 **Important:** Only read files tracked by git. Skip anything matched by `.gitignore`. When in doubt, run `git ls-files` to see what's tracked.
 
@@ -72,7 +72,7 @@ Before implementing anything new, run 1-2 core tests for the app.
 
 ## STEP 3: TASK LOCK (ONE TASK PER SESSION)
 
-Choose exactly one task group/subtask from `.specs/{number}_{specification}/tasks.md`.
+Choose exactly one task group/subtask from `.specs/{spec_name}/tasks.md`.
 
 Hard constraints:
 
@@ -85,7 +85,8 @@ Hard constraints:
 
 Create or update project documentation as part of the same task when you add or change user-facing behavior, public APIs, configuration, or architecture.
 
-- **Doc locations:** ADRs in `docs/adr/{decision}.md`; other docs in `docs/{topic}.md`. Update root `README.md`, `examples/README.md` or similar, when features or usage change. Put reviews, corrections, and errata in `.docs/errata/`.
+- **Doc locations:** ADRs in `docs/adr/{decision}.md`; other docs in `docs/{topic}.md`. Update root `README.md`, `examples/README.md` or similar,
+when features or usage change. Put reviews, corrections, and errata in `.docs/errata/`.
 - **When to touch docs:** Use the following as a guide. Plan which artifacts to create or update in Step 4 and deliver them in Step 5.
 
 | Change type | Create or update |
@@ -100,15 +101,18 @@ Create or update project documentation as part of the same task when you add or 
 
 ## STEP 4: PREPARE IMPLEMENTATION
 
-Follow the git workflow in `.agent-fox/prompts/git-flow.md`.
+Follow the git workflow described in the "Git Workflow" section above (included
+in this system prompt). Key rule: commit and push on the current feature branch.
+Do **not** merge into develop — the orchestrator handles that automatically
+after this session ends.
 
 **Documentation checklist (before coding):**
 
 - If the task adds or changes user-visible behavior or APIs: identify which of README, `examples/README.md`, or `docs/*.md` to create or update.
 - If the task embodies a design or architecture decision: decide whether an ADR is required (create or update in this task).
-- If the task will change design or scope: plan to update `.specs/{number}_{specification}/design.md` or `requirements.md` to match (see Documentation Policy).
+- If the task will change design or scope: plan to update `.specs/{spec_name}/design.md` or `requirements.md` to match (see Documentation Policy).
 
-When implementing a task, update the checkbox states in `.specs/{number}_{specification}/tasks.md` using the following syntax:
+When implementing a task, update the checkbox states in `.specs/{spec_name}/tasks.md` using the following syntax:
 
 | Syntax   | Meaning                |
 |----------|------------------------|
@@ -123,7 +127,7 @@ Implement only the selected task:
 
 1. Write code for the task.
 2. Create or update the documentation you identified in Step 4 (README, examples, `docs/`, ADR, or specs). Do not leave "update docs" for a later session unless the task is explicitly code-only.
-3. If implementation diverges from existing `design.md` or `requirements.md`, update those specs (and add an ADR if it's a deliberate design decision).
+3. If implementation diverges from existing `design.md` or `requirements.md`, create a delta document in `.docs/errata/` (and add an ADR if it's a deliberate design decision).
 4. Add or update tests for that task.
 5. Verify behavior end-to-end for that task.
 
@@ -204,12 +208,14 @@ Only add new entries for genuinely new information.
 
 Work is not complete until all steps below succeed:
 
-1. Update task status in `.specs/{number}_{specification}/tasks.md`
+1. Update task status in `.specs/{spec_name}/tasks.md`
 2. Stage and commit with conventional commit message
-3. Merge/rebase as required by `.agent-fox/prompts/git-flow.md`
-4. Push to remote
-5. Confirm `git status` shows clean tree and branch up to date
-6. Provide handoff note for the next session
+3. Push the feature branch to remote (`git push origin HEAD`)
+4. Confirm `git status` shows clean tree and branch up to date
+5. Provide handoff note for the next session
+
+**Important:** Do NOT merge into develop or switch branches. The orchestrator
+merges your feature branch into develop automatically after this session ends.
 
 ## FAILURE POLICY
 

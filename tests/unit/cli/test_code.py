@@ -6,6 +6,7 @@ Requirements: 16-REQ-1.1 through 16-REQ-5.2
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,7 +14,7 @@ import pytest
 from click.testing import CliRunner
 
 from agent_fox.cli.app import main
-from agent_fox.core.config import OrchestratorConfig
+from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
 from agent_fox.engine.state import ExecutionState
 
 
@@ -88,8 +89,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             # Plan file exists
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -102,8 +105,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -115,8 +120,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -128,8 +135,10 @@ class TestSuccessfulExecution:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -153,8 +162,10 @@ class TestParallelOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--parallel", "4"])
 
@@ -179,8 +190,10 @@ class TestMaxCostOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
 
@@ -205,8 +218,10 @@ class TestMaxSessionsOverride:
             mock.run = AsyncMock(return_value=state)
             return mock
 
-        with patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-sessions", "20"])
 
@@ -229,8 +244,10 @@ class TestStalledExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -245,8 +262,10 @@ class TestStalledExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -265,8 +284,10 @@ class TestCostLimitExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -285,8 +306,10 @@ class TestInterruptedExitCode:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -327,8 +350,10 @@ class TestUnexpectedException:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -339,8 +364,10 @@ class TestUnexpectedException:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -363,8 +390,10 @@ class TestEmptyPlan:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -380,8 +409,10 @@ class TestEmptyPlan:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -403,9 +434,107 @@ class TestUnknownRunStatus:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
-        with patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch), \
-             patch("agent_fox.cli.code.Path") as MockPath:
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+        ):
             MockPath.return_value.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
+
+
+class TestNodeSessionRunnerHarvestError:
+    """Verify harvest IntegrationError is caught and reported cleanly.
+
+    When the coding session succeeds but harvest (merge to develop) fails,
+    the session should be marked as failed with a clear integration error
+    message rather than a generic exception.
+    """
+
+    @pytest.mark.asyncio
+    async def test_harvest_error_returns_failed_record_with_context(
+        self,
+    ) -> None:
+        """Integration error produces a failed record mentioning harvest."""
+        from agent_fox.core.errors import IntegrationError
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.knowledge.sink import SessionOutcome
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner("test_spec:1", config)
+
+        mock_outcome = SessionOutcome(
+            spec_name="test_spec",
+            task_group="1",
+            node_id="test_spec:1",
+            status="completed",
+            input_tokens=100,
+            output_tokens=200,
+            duration_ms=5000,
+        )
+
+        with (
+            patch(
+                "agent_fox.engine.session_lifecycle.run_session",
+                new_callable=AsyncMock,
+                return_value=mock_outcome,
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle.harvest",
+                new_callable=AsyncMock,
+                side_effect=IntegrationError(
+                    "Merge conflict in foo.py",
+                ),
+            ),
+        ):
+            from agent_fox.workspace.worktree import WorkspaceInfo
+
+            workspace = WorkspaceInfo(
+                path=Path("/tmp/fake-worktree"),
+                spec_name="test_spec",
+                task_group=1,
+                branch="feature/test_spec/1",
+            )
+            record = await runner._run_and_harvest(
+                "test_spec:1",
+                1,
+                workspace,
+                "system prompt",
+                "task prompt",
+                Path("/tmp/fake-repo"),
+            )
+
+        assert record.status == "failed"
+        assert "harvest failed" in record.error_message.lower()
+        assert record.input_tokens == 100  # Session metrics preserved
+        assert record.output_tokens == 200
+
+    @pytest.mark.asyncio
+    async def test_session_summary_read_before_cleanup(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Session summary JSON is read from the worktree."""
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.workspace.worktree import WorkspaceInfo
+
+        summary_data = {
+            "summary": "Implemented task group 1.",
+            "tests_added_or_modified": [],
+        }
+
+        summary_path = tmp_path / ".session-summary.json"
+        summary_path.write_text(json.dumps(summary_data))
+
+        workspace = WorkspaceInfo(
+            path=tmp_path,
+            spec_name="test_spec",
+            task_group=1,
+            branch="feature/test_spec/1",
+        )
+
+        result = NodeSessionRunner._read_session_artifacts(workspace)
+
+        assert result is not None
+        assert result["summary"] == "Implemented task group 1."

@@ -40,9 +40,7 @@ class TestContextBudgetCompliance:
         n_keywords=st.integers(min_value=0, max_value=200),
     )
     @settings(max_examples=20, deadline=None)
-    def test_never_exceeds_budget(
-        self, max_facts: int, n_keywords: int
-    ) -> None:
+    def test_never_exceeds_budget(self, max_facts: int, n_keywords: int) -> None:
         """Result length never exceeds max_facts."""
         conn = _make_causal_db()
         try:

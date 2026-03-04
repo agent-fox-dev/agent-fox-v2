@@ -22,7 +22,9 @@ class TestCollectorCapturesFailures:
     """
 
     def test_failing_check_produces_failure_record(
-        self, tmp_project: Path, check_descriptor_pytest: CheckDescriptor,
+        self,
+        tmp_project: Path,
+        check_descriptor_pytest: CheckDescriptor,
     ) -> None:
         """A check exiting non-zero creates a FailureRecord."""
         mock_result = subprocess.CompletedProcess(
@@ -41,7 +43,9 @@ class TestCollectorCapturesFailures:
         assert "FAILED" in failures[0].output
 
     def test_failure_record_contains_check_descriptor(
-        self, tmp_project: Path, check_descriptor_pytest: CheckDescriptor,
+        self,
+        tmp_project: Path,
+        check_descriptor_pytest: CheckDescriptor,
     ) -> None:
         """FailureRecord references the correct check descriptor."""
         mock_result = subprocess.CompletedProcess(
@@ -79,7 +83,8 @@ class TestCollectorReportsPassingChecks:
 
         with patch("agent_fox.fix.collector.subprocess.run", return_value=mock_result):
             failures, passed = run_checks(
-                [check_descriptor_pytest, ruff_check_descriptor], tmp_project,
+                [check_descriptor_pytest, ruff_check_descriptor],
+                tmp_project,
             )
 
         assert len(failures) == 0
@@ -96,7 +101,9 @@ class TestCollectorTimeout:
     """
 
     def test_timeout_recorded_as_failure(
-        self, tmp_project: Path, check_descriptor_pytest: CheckDescriptor,
+        self,
+        tmp_project: Path,
+        check_descriptor_pytest: CheckDescriptor,
     ) -> None:
         """A timed-out check is recorded as a failure with timeout message."""
         with patch(
@@ -110,7 +117,9 @@ class TestCollectorTimeout:
         assert len(passed) == 0
 
     def test_timeout_does_not_raise(
-        self, tmp_project: Path, check_descriptor_pytest: CheckDescriptor,
+        self,
+        tmp_project: Path,
+        check_descriptor_pytest: CheckDescriptor,
     ) -> None:
         """Timeout is handled gracefully, not propagated as an exception."""
         with patch(

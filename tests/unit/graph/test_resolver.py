@@ -43,10 +43,20 @@ class TestTopologicalSort:
     def test_deterministic_tie_breaking(self) -> None:
         """When nodes have no dependency, order by spec prefix then group number."""
         nodes = [
-            Node(id="02_beta:1", spec_name="02_beta", group_number=1,
-                 title="Beta 1", optional=False),
-            Node(id="01_alpha:1", spec_name="01_alpha", group_number=1,
-                 title="Alpha 1", optional=False),
+            Node(
+                id="02_beta:1",
+                spec_name="02_beta",
+                group_number=1,
+                title="Beta 1",
+                optional=False,
+            ),
+            Node(
+                id="01_alpha:1",
+                spec_name="01_alpha",
+                group_number=1,
+                title="Alpha 1",
+                optional=False,
+            ),
         ]
         graph = TaskGraph(
             nodes={n.id: n for n in nodes},
@@ -104,8 +114,13 @@ class TestCycleDetection:
     def test_self_loop_raises_plan_error(self) -> None:
         """A self-loop (A -> A) raises PlanError."""
         nodes = [
-            Node(id="spec:1", spec_name="spec", group_number=1,
-                 title="Task A", optional=False),
+            Node(
+                id="spec:1",
+                spec_name="spec",
+                group_number=1,
+                title="Task A",
+                optional=False,
+            ),
         ]
         edges = [Edge(source="spec:1", target="spec:1", kind="intra_spec")]
         graph = TaskGraph(

@@ -119,11 +119,13 @@ class TestIngestGitCommits:
         mock_embedder: MagicMock,
     ) -> None:
         """Verify ingesting git commits creates facts with category='git'."""
-        mock_git_result = _mock_git_log_output([
-            ("abc1234", "2025-11-01T10:00:00", "feat: add user authentication"),
-            ("def5678", "2025-11-02T11:00:00", "fix: correct password hashing"),
-            ("ghi9012", "2025-11-03T12:00:00", "refactor: clean up auth module"),
-        ])
+        mock_git_result = _mock_git_log_output(
+            [
+                ("abc1234", "2025-11-01T10:00:00", "feat: add user authentication"),
+                ("def5678", "2025-11-02T11:00:00", "fix: correct password hashing"),
+                ("ghi9012", "2025-11-03T12:00:00", "refactor: clean up auth module"),
+            ]
+        )
 
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
         with patch(
@@ -142,11 +144,13 @@ class TestIngestGitCommits:
         mock_embedder: MagicMock,
     ) -> None:
         """Verify each git fact has commit_sha populated."""
-        mock_git_result = _mock_git_log_output([
-            ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
-            ("def5678", "2025-11-02T11:00:00", "fix: fix bug"),
-            ("ghi9012", "2025-11-03T12:00:00", "refactor: cleanup"),
-        ])
+        mock_git_result = _mock_git_log_output(
+            [
+                ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
+                ("def5678", "2025-11-02T11:00:00", "fix: fix bug"),
+                ("ghi9012", "2025-11-03T12:00:00", "refactor: cleanup"),
+            ]
+        )
 
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
         with patch(
@@ -168,9 +172,11 @@ class TestIngestGitCommits:
         mock_embedder: MagicMock,
     ) -> None:
         """Verify git facts have category='git'."""
-        mock_git_result = _mock_git_log_output([
-            ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
-        ])
+        mock_git_result = _mock_git_log_output(
+            [
+                ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
+            ]
+        )
 
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
         with patch(

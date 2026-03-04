@@ -24,7 +24,8 @@ class TestHarvesterFastForward:
 
     @pytest.mark.asyncio
     async def test_fast_forward_merge_succeeds(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Harvesting a feature branch with commits merges into develop."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -35,7 +36,8 @@ class TestHarvesterFastForward:
 
     @pytest.mark.asyncio
     async def test_develop_tip_matches_feature_after_merge(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """After harvest, develop tip matches the feature branch tip."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -53,14 +55,17 @@ class TestHarvesterRebaseRetry:
 
     @pytest.mark.asyncio
     async def test_diverged_merge_succeeds_after_rebase(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """When develop has diverged, harvester rebases and merges."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Add a commit on the feature branch (different file)
         add_commit_to_branch(
-            ws.path, "feature_file.py", "feature content\n",
+            ws.path,
+            "feature_file.py",
+            "feature content\n",
         )
 
         # Add a commit on develop (different file, no conflict)
@@ -71,7 +76,9 @@ class TestHarvesterRebaseRetry:
             capture_output=True,
         )
         add_commit_to_branch(
-            tmp_worktree_repo, "other_file.py", "develop content\n",
+            tmp_worktree_repo,
+            "other_file.py",
+            "develop content\n",
         )
 
         files = await harvest(tmp_worktree_repo, ws)
@@ -83,7 +90,8 @@ class TestHarvesterNoCommits:
 
     @pytest.mark.asyncio
     async def test_no_commits_returns_empty_list(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Harvesting a branch with no new commits returns an empty list."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
@@ -93,7 +101,8 @@ class TestHarvesterNoCommits:
 
     @pytest.mark.asyncio
     async def test_no_commits_leaves_develop_unchanged(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """Harvesting with no new commits does not change develop."""
         develop_tip_before = get_branch_tip(tmp_worktree_repo, "develop")
@@ -110,14 +119,17 @@ class TestHarvesterUnresolvableConflict:
 
     @pytest.mark.asyncio
     async def test_conflict_raises_integration_error(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """An unresolvable merge conflict raises IntegrationError."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Modify the same file on the feature branch
         add_commit_to_branch(
-            ws.path, "shared.py", "feature content\n",
+            ws.path,
+            "shared.py",
+            "feature content\n",
         )
 
         # Modify the same file on develop (creates conflict)
@@ -128,7 +140,9 @@ class TestHarvesterUnresolvableConflict:
             capture_output=True,
         )
         add_commit_to_branch(
-            tmp_worktree_repo, "shared.py", "develop content\n",
+            tmp_worktree_repo,
+            "shared.py",
+            "develop content\n",
         )
 
         with pytest.raises(IntegrationError):
@@ -136,13 +150,16 @@ class TestHarvesterUnresolvableConflict:
 
     @pytest.mark.asyncio
     async def test_conflict_leaves_develop_unchanged(
-        self, tmp_worktree_repo: Path,
+        self,
+        tmp_worktree_repo: Path,
     ) -> None:
         """After a conflict, develop remains at its original tip."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         add_commit_to_branch(
-            ws.path, "shared.py", "feature content\n",
+            ws.path,
+            "shared.py",
+            "feature content\n",
         )
 
         subprocess.run(
@@ -152,7 +169,9 @@ class TestHarvesterUnresolvableConflict:
             capture_output=True,
         )
         add_commit_to_branch(
-            tmp_worktree_repo, "shared.py", "develop content\n",
+            tmp_worktree_repo,
+            "shared.py",
+            "develop content\n",
         )
         # Capture develop tip after the divergent commit
         develop_tip_after_commit = get_branch_tip(tmp_worktree_repo, "develop")

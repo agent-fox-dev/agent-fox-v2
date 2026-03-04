@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from agent_fox.engine.serial import invoke_runner
 from agent_fox.engine.state import SessionRecord
 
 logger = logging.getLogger(__name__)
@@ -21,13 +22,34 @@ logger = logging.getLogger(__name__)
 MAX_PARALLELISM = 8
 
 
+def _failure_record(node_id: str, attempt: int, exc: Exception) -> SessionRecord:
+    """Build a SessionRecord for a failed task."""
+    return SessionRecord(
+        node_id=node_id,
+        attempt=attempt,
+        status="failed",
+        input_tokens=0,
+        output_tokens=0,
+        cost=0.0,
+        duration_ms=0,
+        error_message=str(exc),
+        timestamp=datetime.now(UTC).isoformat(),
+    )
+
+
 class ParallelRunner:
     """Runs up to N tasks concurrently via asyncio.
 
-    Uses an asyncio.Semaphore to limit the number of concurrent sessions
-    to the configured ``max_parallelism`` (capped at 8). State writes
-    via the ``on_complete`` callback are serialized under an asyncio.Lock
-    to prevent interleaved writes.
+    Supports two execution models:
+
+    - **Batch** (``execute_batch``): Launch all tasks at once, bounded by a
+      semaphore. Waits for all to complete before returning.  Used by tests.
+    - **Streaming pool** (``execute_one`` + external pool management): The
+      orchestrator manages a pool of asyncio tasks, launching new ones as
+      slots open after each completion.  Preferred at runtime.
+
+    State writes via completion callbacks are serialized under an
+    ``asyncio.Lock`` to prevent interleaved writes.
     """
 
     def __init__(
@@ -60,6 +82,45 @@ class ParallelRunner:
         self._inter_session_delay = inter_session_delay
         self._state_lock = asyncio.Lock()
         self._in_flight_tasks: list[asyncio.Task[SessionRecord]] = []
+
+    @property
+    def max_parallelism(self) -> int:
+        """Return the effective maximum parallelism."""
+        return self._max_parallelism
+
+    async def execute_one(
+        self,
+        node_id: str,
+        attempt: int,
+        previous_error: str | None,
+    ) -> SessionRecord:
+        """Execute a single session and return the record.
+
+        This is the building block for streaming pool dispatch.
+        The orchestrator wraps this in an ``asyncio.Task`` and manages
+        the pool externally.
+
+        Args:
+            node_id: The task graph node to execute.
+            attempt: The attempt number (1-indexed).
+            previous_error: Error message from prior attempt, if any.
+
+        Returns:
+            A SessionRecord with outcome, cost, and timing.
+        """
+        try:
+            return await self._execute_session(node_id, attempt, previous_error)
+        except Exception as exc:
+            logger.error(
+                "Task %s failed with exception: %s",
+                node_id,
+                exc,
+            )
+            return _failure_record(node_id, attempt, exc)
+
+    def track_tasks(self, tasks: list[asyncio.Task[SessionRecord]]) -> None:
+        """Update the set of in-flight tasks (for SIGINT cancellation)."""
+        self._in_flight_tasks = list(tasks)
 
     async def execute_batch(
         self,
@@ -103,17 +164,7 @@ class ParallelRunner:
                         node_id,
                         exc,
                     )
-                    record = SessionRecord(
-                        node_id=node_id,
-                        attempt=attempt,
-                        status="failed",
-                        input_tokens=0,
-                        output_tokens=0,
-                        cost=0.0,
-                        duration_ms=0,
-                        error_message=str(exc),
-                        timestamp=datetime.now(UTC).isoformat(),
-                    )
+                    record = _failure_record(node_id, attempt, exc)
 
             # Invoke callback under lock to serialise state writes
             async with self._state_lock:
@@ -169,32 +220,6 @@ class ParallelRunner:
         attempt: int,
         previous_error: str | None,
     ) -> SessionRecord:
-        """Execute a single session via the factory-created runner.
-
-        Supports both callable runners and runners with an ``execute()``
-        method, mirroring the SerialRunner's dual-support pattern.
-        """
+        """Execute a single session via the factory-created runner."""
         runner = self._session_runner_factory(node_id)
-
-        # Support both callable runners and runners with execute() method
-        if hasattr(runner, "execute") and callable(runner.execute):
-            result = await runner.execute(node_id, attempt, previous_error)
-        else:
-            result = await runner(node_id, attempt, previous_error)
-
-        # If the result is already a SessionRecord, return it directly
-        if isinstance(result, SessionRecord):
-            return result
-
-        # Otherwise, convert from MockSessionOutcome or similar
-        return SessionRecord(
-            node_id=result.node_id,
-            attempt=attempt,
-            status=result.status,
-            input_tokens=result.input_tokens,
-            output_tokens=result.output_tokens,
-            cost=result.cost,
-            duration_ms=result.duration_ms,
-            error_message=result.error_message,
-            timestamp=getattr(result, "timestamp", ""),
-        )
+        return await invoke_runner(runner, node_id, attempt, previous_error)

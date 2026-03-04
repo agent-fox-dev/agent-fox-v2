@@ -20,7 +20,8 @@ category_st = st.sampled_from(
     [CheckCategory.TEST, CheckCategory.LINT, CheckCategory.TYPE],
 )
 output_st = st.text(
-    min_size=1, max_size=100,
+    min_size=1,
+    max_size=100,
     alphabet=st.characters(categories=("L", "N", "P")),
 )
 
@@ -48,7 +49,8 @@ class TestClusterCoverage:
     )
     @settings(max_examples=50)
     def test_all_failures_preserved(
-        self, failures: list[FailureRecord],
+        self,
+        failures: list[FailureRecord],
     ) -> None:
         """Every input failure appears exactly once across all clusters."""
         clusters = _fallback_cluster(failures)

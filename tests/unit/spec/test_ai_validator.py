@@ -58,13 +58,9 @@ class TestAIUnavailableGracefulFallback:
     async def test_auth_error_returns_empty(self) -> None:
         """Authentication error returns empty findings list."""
         specs = [_make_spec_info()]
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception(
-                "Authentication failed"
-            )
+            mock_client.messages.create.side_effect = Exception("Authentication failed")
             mock_cls.return_value = mock_client
 
             findings = await run_ai_validation(specs, "STANDARD")
@@ -77,13 +73,9 @@ class TestAIUnavailableGracefulFallback:
     ) -> None:
         """Authentication error produces a log warning."""
         specs = [_make_spec_info()]
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception(
-                "Authentication failed"
-            )
+            mock_client.messages.create.side_effect = Exception("Authentication failed")
             mock_cls.return_value = mock_client
 
             with caplog.at_level(logging.WARNING):
@@ -108,18 +100,18 @@ class TestAIFindingsSeverityAndRule:
     @pytest.mark.asyncio
     async def test_vague_criterion_finding_is_hint(self) -> None:
         """AI finding for vague criterion has severity 'hint'."""
-        response_text = _make_ai_response([
-            {
-                "criterion_id": "99-REQ-1.1",
-                "issue_type": "vague",
-                "explanation": "Too vague",
-                "suggestion": "Be more specific",
-            }
-        ])
+        response_text = _make_ai_response(
+            [
+                {
+                    "criterion_id": "99-REQ-1.1",
+                    "issue_type": "vague",
+                    "explanation": "Too vague",
+                    "suggestion": "Be more specific",
+                }
+            ]
+        )
 
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
@@ -138,18 +130,18 @@ class TestAIFindingsSeverityAndRule:
     @pytest.mark.asyncio
     async def test_vague_criterion_rule_name(self) -> None:
         """AI finding for vague criterion has rule 'vague-criterion'."""
-        response_text = _make_ai_response([
-            {
-                "criterion_id": "99-REQ-1.1",
-                "issue_type": "vague",
-                "explanation": "Too vague",
-                "suggestion": "Be more specific",
-            }
-        ])
+        response_text = _make_ai_response(
+            [
+                {
+                    "criterion_id": "99-REQ-1.1",
+                    "issue_type": "vague",
+                    "explanation": "Too vague",
+                    "suggestion": "Be more specific",
+                }
+            ]
+        )
 
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
@@ -167,18 +159,18 @@ class TestAIFindingsSeverityAndRule:
     @pytest.mark.asyncio
     async def test_implementation_leak_rule_name(self) -> None:
         """AI finding for implementation leak has rule 'implementation-leak'."""
-        response_text = _make_ai_response([
-            {
-                "criterion_id": "99-REQ-1.1",
-                "issue_type": "implementation-leak",
-                "explanation": "Describes how, not what",
-                "suggestion": "Focus on behavior",
-            }
-        ])
+        response_text = _make_ai_response(
+            [
+                {
+                    "criterion_id": "99-REQ-1.1",
+                    "issue_type": "implementation-leak",
+                    "explanation": "Describes how, not what",
+                    "suggestion": "Focus on behavior",
+                }
+            ]
+        )
 
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
@@ -207,9 +199,7 @@ class TestAIPromptConstruction:
     @pytest.mark.asyncio
     async def test_prompt_includes_criteria_text(self) -> None:
         """AI prompt contains acceptance criteria from requirements.md."""
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text='{"issues": []}')]
@@ -245,9 +235,7 @@ class TestAIResponseParsing:
         """Empty issues list in response produces no findings."""
         response_text = '{"issues": []}'
 
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
@@ -265,9 +253,7 @@ class TestAIResponseParsing:
     @pytest.mark.asyncio
     async def test_malformed_json_returns_empty(self) -> None:
         """Malformed JSON response produces no findings (graceful handling)."""
-        with patch(
-            "agent_fox.spec.ai_validator.anthropic.AsyncAnthropic"
-        ) as mock_cls:
+        with patch("agent_fox.spec.ai_validator.anthropic.AsyncAnthropic") as mock_cls:
             mock_client = AsyncMock()
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text="not valid json")]
