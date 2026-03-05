@@ -34,6 +34,34 @@ class TaskEvent:
 ActivityCallback = Callable[[ActivityEvent], None]
 TaskCallback = Callable[[TaskEvent], None]
 
+# Verb forms for tool names displayed in the spinner summary line.
+_TOOL_VERBS: dict[str, str] = {
+    "Read": "Reading",
+    "Edit": "Editing",
+    "Write": "Writing",
+    "Bash": "Running command",
+    "Grep": "Searching",
+    "Glob": "Finding files",
+    "Agent": "Running agent",
+    "WebFetch": "Fetching",
+    "WebSearch": "Searching web",
+    "LSP": "Analyzing",
+    "NotebookEdit": "Editing notebook",
+    "thinking...": "Thinking",
+}
+
+
+def verbify_tool(tool_name: str) -> str:
+    """Convert a tool name to its verb form for display.
+
+    Returns the mapped verb if known, otherwise appends ``…`` to the
+    raw name.
+    """
+    if tool_name in _TOOL_VERBS:
+        return _TOOL_VERBS[tool_name]
+    # Generic fallback: capitalize and add ellipsis-style suffix
+    return tool_name
+
 
 def abbreviate_arg(raw: str, max_len: int = 30) -> str:
     """Shorten a tool argument for display.

@@ -49,18 +49,19 @@ class TestSpinnerLineWidth:
     )
     @settings(max_examples=100)
     def test_spinner_line_fits_terminal(self, text: str, width: int) -> None:
-        """Spinner line length never exceeds terminal width."""
+        """Every line of the spinner text fits within terminal width."""
         theme, _buf = _make_theme(width=width)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
             ActivityEvent(node_id="x:1", tool_name="Tool", argument=text)
         )
-        line = display._get_spinner_text()
+        full_text = display._get_spinner_text()
         display.stop()
-        assert len(line) <= width, (
-            f"Spinner line length {len(line)} exceeds width {width}: {line!r}"
-        )
+        for line in full_text.split("\n"):
+            assert len(line) <= width, (
+                f"Line length {len(line)} exceeds width {width}: {line!r}"
+            )
 
 
 class TestAbbreviationIdempotence:
@@ -87,9 +88,7 @@ class TestQuietNoOutput:
     """
 
     @given(
-        node_ids=st.lists(
-            st.text(min_size=1, max_size=20), min_size=1, max_size=20
-        ),
+        node_ids=st.lists(st.text(min_size=1, max_size=20), min_size=1, max_size=20),
         statuses=st.lists(
             st.sampled_from(["completed", "failed", "blocked"]),
             min_size=0,
@@ -97,9 +96,7 @@ class TestQuietNoOutput:
         ),
     )
     @settings(max_examples=50)
-    def test_quiet_never_writes(
-        self, node_ids: list[str], statuses: list[str]
-    ) -> None:
+    def test_quiet_never_writes(self, node_ids: list[str], statuses: list[str]) -> None:
         """Quiet display produces empty output for any event sequence."""
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=True)
@@ -110,9 +107,7 @@ class TestQuietNoOutput:
             )
         for i, status in enumerate(statuses):
             nid = node_ids[i % len(node_ids)]
-            display.on_task_event(
-                TaskEvent(node_id=nid, status=status, duration_s=1.0)
-            )
+            display.on_task_event(TaskEvent(node_id=nid, status=status, duration_s=1.0))
         display.stop()
         assert buf.getvalue() == "", (
             f"Expected no output in quiet mode, got: {buf.getvalue()!r}"
@@ -160,18 +155,12 @@ class TestPermanentLinesContainNodeId:
         status=st.sampled_from(["completed", "failed", "blocked"]),
     )
     @settings(max_examples=50)
-    def test_permanent_line_contains_node_id(
-        self, node_id: str, status: str
-    ) -> None:
+    def test_permanent_line_contains_node_id(self, node_id: str, status: str) -> None:
         """Permanent line output contains the node ID."""
         theme, buf = _make_theme(force_terminal=False)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
-        display.on_task_event(
-            TaskEvent(node_id=node_id, status=status, duration_s=1.0)
-        )
+        display.on_task_event(TaskEvent(node_id=node_id, status=status, duration_s=1.0))
         display.stop()
         output = buf.getvalue()
-        assert node_id in output, (
-            f"Node ID {node_id!r} not found in output: {output!r}"
-        )
+        assert node_id in output, f"Node ID {node_id!r} not found in output: {output!r}"

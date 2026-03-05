@@ -71,7 +71,7 @@ class TestProgressDisplayActivity:
     """TS-18-2: Activity event updates spinner line."""
 
     def test_activity_updates_display_text(self) -> None:
-        """Calling on_activity updates the displayed text."""
+        """Calling on_activity updates the displayed text with verb form."""
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=False)
         display.start()
@@ -80,28 +80,43 @@ class TestProgressDisplayActivity:
                 node_id="03_session:2", tool_name="Read", argument="config.py"
             )
         )
-        # The display should contain the activity text
         text = display._get_spinner_text()
         display.stop()
-        assert "[03_session:2] Read config.py" in text
+        assert "[03_session:2] Reading\u2026" in text
+        assert "\u23bf  config.py" in text
+
+    def test_activity_two_line_format(self) -> None:
+        """Activity with argument produces a two-line summary + detail."""
+        theme, buf = _make_theme()
+        display = ProgressDisplay(theme, quiet=False)
+        display.start()
+        display.on_activity(
+            ActivityEvent(node_id="x:1", tool_name="Edit", argument="foo.py")
+        )
+        text = display._get_spinner_text()
+        display.stop()
+        lines = text.split("\n")
+        assert len(lines) == 2
+        assert "Editing\u2026" in lines[0]
+        assert "\u23bf  foo.py" in lines[1]
 
 
 class TestProgressDisplayThinking:
     """TS-18-3: Thinking state shown when no tool use."""
 
     def test_thinking_state_shown(self) -> None:
-        """When model is thinking, spinner shows 'thinking...'."""
+        """When model is thinking, spinner shows 'Thinking…'."""
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(
-                node_id="03_session:2", tool_name="thinking...", argument=""
-            )
+            ActivityEvent(node_id="03_session:2", tool_name="thinking...", argument="")
         )
         text = display._get_spinner_text()
         display.stop()
-        assert "[03_session:2] thinking..." in text
+        assert "[03_session:2] Thinking\u2026" in text
+        # Single line — no detail when thinking
+        assert "\n" not in text
 
 
 class TestProgressDisplayTaskCompleted:
@@ -195,4 +210,5 @@ class TestProgressDisplayDefaultWidth:
         )
         text = display._get_spinner_text()
         display.stop()
-        assert len(text) <= 80
+        for line in text.split("\n"):
+            assert len(line) <= 80

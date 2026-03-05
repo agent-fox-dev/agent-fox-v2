@@ -19,7 +19,12 @@ from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
 
-from agent_fox.ui.events import ActivityEvent, TaskEvent, format_duration
+from agent_fox.ui.events import (
+    ActivityEvent,
+    TaskEvent,
+    format_duration,
+    verbify_tool,
+)
 from agent_fox.ui.theme import AppTheme
 
 logger = logging.getLogger(__name__)
@@ -72,20 +77,36 @@ class ProgressDisplay:
         self._started = False
 
     def on_activity(self, event: ActivityEvent) -> None:
-        """Update the spinner line with new activity. Serialized via lock."""
+        """Update the spinner line with new activity. Serialized via lock.
+
+        Renders a two-line format when a tool argument is present::
+
+            [{node_id}] Reading…
+            ⎿  path/to/file.py
+
+        For thinking (no argument), renders a single line::
+
+            [{node_id}] Thinking…
+        """
         if self._quiet:
             return
         with self._lock:
-            # Format: [{node_id}] {tool_name} {argument}
-            parts = [f"[{event.node_id}]", event.tool_name]
-            if event.argument:
-                parts.append(event.argument)
-            text = " ".join(parts)
-
-            # Truncate to terminal width
             width = self._get_terminal_width()
-            if len(text) > width:
-                text = text[: width - 3] + "..."
+            verb = verbify_tool(event.tool_name)
+            summary = f"[{event.node_id}] {verb}…"
+
+            if event.argument:
+                detail = f"  \u23bf  {event.argument}"
+                # Truncate each line independently
+                if len(summary) > width:
+                    summary = summary[: width - 3] + "..."
+                if len(detail) > width:
+                    detail = detail[: width - 3] + "..."
+                text = f"{summary}\n{detail}"
+            else:
+                if len(summary) > width:
+                    summary = summary[: width - 3] + "..."
+                text = summary
 
             self._spinner_text = text
 

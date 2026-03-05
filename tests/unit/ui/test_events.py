@@ -6,7 +6,7 @@ Requirements: 18-REQ-2.E2, 18-REQ-2.E3
 
 from __future__ import annotations
 
-from agent_fox.ui.events import ActivityEvent, TaskEvent, abbreviate_arg
+from agent_fox.ui.events import ActivityEvent, TaskEvent, abbreviate_arg, verbify_tool
 
 
 class TestAbbreviateArgBasename:
@@ -52,9 +52,7 @@ class TestAbbreviateArgTrailingComponents:
 
     def test_path_falls_back_to_basename_when_tight(self) -> None:
         """TS-18-11: Falls back to basename when tight."""
-        result = abbreviate_arg(
-            "/a/very_long_directory_name/config.py", max_len=15
-        )
+        result = abbreviate_arg("/a/very_long_directory_name/config.py", max_len=15)
         assert result == "config.py"
 
     def test_path_keeps_maximum_context(self) -> None:
@@ -115,6 +113,23 @@ class TestAbbreviateArgIdempotence:
         once = abbreviate_arg("a" * 50, max_len=30)
         twice = abbreviate_arg(once, max_len=30)
         assert twice == once
+
+
+class TestVerbifyTool:
+    """Tool name verb conversion."""
+
+    def test_known_tools(self) -> None:
+        """Known tool names are converted to verb form."""
+        assert verbify_tool("Read") == "Reading"
+        assert verbify_tool("Edit") == "Editing"
+        assert verbify_tool("Bash") == "Running command"
+        assert verbify_tool("Grep") == "Searching"
+        assert verbify_tool("Glob") == "Finding files"
+        assert verbify_tool("thinking...") == "Thinking"
+
+    def test_unknown_tool_passthrough(self) -> None:
+        """Unknown tool names are returned as-is."""
+        assert verbify_tool("CustomTool") == "CustomTool"
 
 
 class TestActivityEventConstruction:
