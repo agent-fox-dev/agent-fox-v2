@@ -1,171 +1,112 @@
-"""GitHubPlatform: GitHub PR operations using the gh CLI.
+"""GitHubPlatform: GitHub PR operations using the REST API.
 
-Creates pull requests, polls for CI status and review approval,
-and merges PRs through the gh command-line tool.
+Creates pull requests via the GitHub REST API, authenticated with a
+GITHUB_PAT environment variable. Replaces the previous gh CLI implementation.
 
-Requirements: 10-REQ-3.1, 10-REQ-3.2, 10-REQ-3.3, 10-REQ-3.4, 10-REQ-3.5,
-              10-REQ-3.E1, 10-REQ-3.E2, 10-REQ-3.E3, 10-REQ-3.E4,
-              10-REQ-3.E5, 10-REQ-3.E6
+Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3, 19-REQ-4.4,
+              19-REQ-4.E1, 19-REQ-4.E2, 19-REQ-4.E3, 19-REQ-4.E4
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import shutil  # noqa: F401
-import subprocess  # noqa: F401
-import time
+import re
+
+import httpx
 
 from agent_fox.core.errors import IntegrationError
 
 logger = logging.getLogger(__name__)
 
-_CI_POLL_INTERVAL = 30  # seconds between CI check polls
-_REVIEW_POLL_INTERVAL = 60  # seconds between review status polls
+_GITHUB_API = "https://api.github.com"
 
 
 class GitHubPlatform:
-    """GitHub platform using the gh CLI.
+    """GitHub platform using the REST API.
 
-    Creates pull requests, polls for CI status and review approval,
-    and merges PRs through the gh command-line tool.
+    Creates pull requests via the GitHub REST API, authenticated
+    with a GITHUB_PAT environment variable.
+
+    Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3
     """
 
-    def __init__(
-        self,
-        ci_timeout: int = 600,
-        auto_merge: bool = False,
-        base_branch: str = "develop",
-    ) -> None:
-        self._ci_timeout = ci_timeout
-        self._auto_merge = auto_merge
-        self._base_branch = base_branch
-        self._verify_gh_available()
-
-    def _verify_gh_available(self) -> None:
-        """Check that gh CLI is installed and authenticated."""
-        if shutil.which("gh") is None:
-            raise IntegrationError(
-                "The 'gh' CLI is not installed. Install it from "
-                "https://cli.github.com/ and run 'gh auth login'.",
-            )
-        result = subprocess.run(
-            ["gh", "auth", "status"],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            raise IntegrationError(
-                "The 'gh' CLI is not authenticated. Run 'gh auth login' first.",
-                details=result.stderr,
-            )
-
-    async def _run_gh(self, args: list[str]) -> subprocess.CompletedProcess[str]:
-        """Run a gh CLI command asynchronously."""
-        return await asyncio.to_thread(
-            subprocess.run,
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-        )
+    def __init__(self, owner: str, repo: str, token: str) -> None:
+        self._owner = owner
+        self._repo = repo
+        self._token = token
 
     async def create_pr(
         self,
         branch: str,
         title: str,
         body: str,
-        labels: list[str],
     ) -> str:
-        """Create a GitHub PR using gh pr create."""
-        cmd = [
-            "pr",
-            "create",
-            "--head",
-            branch,
-            "--base",
-            self._base_branch,
-            "--title",
-            title,
-            "--body",
-            body,
-        ]
-        for label in labels:
-            cmd.extend(["--label", label])
-        result = await self._run_gh(cmd)
-        if result.returncode != 0:
-            raise IntegrationError(
-                f"Failed to create PR for branch {branch}: {result.stderr}",
-                branch=branch,
-                command="gh pr create",
-            )
-        pr_url = result.stdout.strip()
-        logger.info("Created PR: %s", pr_url)
-        if self._auto_merge:
-            await self._run_gh(["pr", "merge", pr_url, "--auto", "--merge"])
-        return pr_url
+        """Create a GitHub PR via REST API.
 
-    async def wait_for_ci(self, pr_url: str, timeout: int) -> bool:
-        """Poll gh pr checks until all pass, any fail, or timeout."""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            result = await self._run_gh(
-                ["pr", "checks", pr_url, "--json", "name,state,conclusion"],
-            )
-            if result.returncode != 0:
-                logger.warning("Failed to fetch CI checks: %s", result.stderr)
-                await asyncio.sleep(_CI_POLL_INTERVAL)
-                continue
-            try:
-                checks = json.loads(result.stdout)
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse CI checks output")
-                await asyncio.sleep(_CI_POLL_INTERVAL)
-                continue
-            if not checks:
-                # No checks configured; treat as pass
-                return True
-            all_complete = all(c.get("state") == "completed" for c in checks)
-            if all_complete:
-                any_failed = any(
-                    c.get("conclusion") not in ("success", "skipped", "neutral")
-                    for c in checks
-                )
-                return not any_failed
-            await asyncio.sleep(_CI_POLL_INTERVAL)
-        logger.warning("CI timeout after %d seconds for %s", timeout, pr_url)
-        return False
+        Args:
+            branch: The feature branch (head).
+            title: PR title.
+            body: PR body/description.
 
-    async def wait_for_review(self, pr_url: str) -> bool:
-        """Poll gh pr view until approved or changes requested."""
-        while True:
-            result = await self._run_gh(
-                ["pr", "view", pr_url, "--json", "reviewDecision"],
-            )
-            if result.returncode != 0:
-                logger.warning("Failed to fetch review status: %s", result.stderr)
-                await asyncio.sleep(_REVIEW_POLL_INTERVAL)
-                continue
-            try:
-                data = json.loads(result.stdout)
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse review status output")
-                await asyncio.sleep(_REVIEW_POLL_INTERVAL)
-                continue
-            decision = data.get("reviewDecision", "")
-            if decision == "APPROVED":
-                return True
-            if decision == "CHANGES_REQUESTED":
-                return False
-            await asyncio.sleep(_REVIEW_POLL_INTERVAL)
+        Returns:
+            The PR URL as a string.
 
-    async def merge_pr(self, pr_url: str) -> None:
-        """Merge a PR using gh pr merge."""
-        result = await self._run_gh(["pr", "merge", pr_url, "--merge"])
-        if result.returncode != 0:
-            raise IntegrationError(
-                f"Failed to merge PR {pr_url}: {result.stderr}",
-                pr_url=pr_url,
-                command="gh pr merge",
-            )
-        logger.info("Merged PR: %s", pr_url)
+        Raises:
+            IntegrationError: If PR creation fails.
+
+        Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3
+        """
+        headers = self._auth_headers()
+        default_branch = await self._get_default_branch(headers)
+        url = f"{_GITHUB_API}/repos/{self._owner}/{self._repo}/pulls"
+        payload = {
+            "title": title,
+            "body": body,
+            "head": branch,
+            "base": default_branch,
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code == 201:
+            pr_url = resp.json().get("html_url", "")
+            logger.info("Created PR: %s", pr_url)
+            return pr_url
+        raise IntegrationError(
+            f"GitHub PR creation failed ({resp.status_code}): {resp.text}",
+            branch=branch,
+        )
+
+    async def _get_default_branch(self, headers: dict[str, str]) -> str:
+        """Get the repository's default branch from the GitHub API."""
+        url = f"{_GITHUB_API}/repos/{self._owner}/{self._repo}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json().get("default_branch", "main")
+        return "main"
+
+    def _auth_headers(self) -> dict[str, str]:
+        """Build authentication headers for GitHub API requests."""
+        return {
+            "Authorization": f"Bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+
+def parse_github_remote(remote_url: str) -> tuple[str, str] | None:
+    """Extract (owner, repo) from a GitHub remote URL.
+
+    Supports HTTPS and SSH formats:
+      - https://github.com/owner/repo.git
+      - git@github.com:owner/repo.git
+
+    Returns None if the URL is not a recognized GitHub URL.
+
+    Requirements: 19-REQ-4.4, 19-REQ-4.E4
+    """
+    pattern = r"github\.com[:/]([^/]+)/(.+?)(?:\.git)?$"
+    match = re.search(pattern, remote_url)
+    if match:
+        return match.group(1), match.group(2)
+    return None

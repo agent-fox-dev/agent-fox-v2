@@ -31,7 +31,7 @@ MAX_SUBTASKS_PER_GROUP = 6
 
 # Regex patterns for parsing
 _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
-_REQUIREMENT_ID = re.compile(r"\[\d{2}-REQ-\d+\.\d+\]")
+_REQUIREMENT_ID = re.compile(r"(?:\[|\*\*)(\d{2}-REQ-\d+\.\d+)(?:\]|[:\*])")
 _DEP_TABLE_HEADER = re.compile(r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNORECASE)
 _DEP_TABLE_HEADER_ALT = re.compile(
     r"\|\s*Spec\s*\|\s*From Group\s*\|\s*To Group\s*\|", re.IGNORECASE
@@ -129,6 +129,9 @@ def check_missing_verification(
     findings: list[Finding] = []
     for group in task_groups:
         if group.completed:
+            continue
+        # Checkpoint groups are themselves a final verification step
+        if group.title.startswith("Checkpoint"):
             continue
         has_verify = any(
             re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks
@@ -417,9 +420,8 @@ def check_untraced_requirements(
 
     # Collect all requirement IDs from requirements.md
     req_text = req_path.read_text(encoding="utf-8")
-    req_ids: list[str] = _REQUIREMENT_ID.findall(req_text)
-    # Strip brackets to get bare IDs like "09-REQ-1.1"
-    req_ids_bare = [rid.strip("[]") for rid in req_ids]
+    # findall returns captured group — bare IDs like "09-REQ-1.1"
+    req_ids_bare: list[str] = _REQUIREMENT_ID.findall(req_text)
 
     if not req_ids_bare:
         return []
@@ -444,6 +446,176 @@ def check_untraced_requirements(
                     line=None,
                 )
             )
+    return findings
+
+
+def _check_coarse_dependency(
+    spec_name: str,
+    prd_path: Path,
+) -> list[Finding]:
+    """Detect specs using the standard (coarse) dependency table format.
+
+    Rule: coarse-dependency
+    Severity: warning
+
+    Scans prd.md for the standard header pattern
+    ``| This Spec | Depends On |``. If found, produces a Warning
+    recommending the group-level format.
+
+    Requirements: 20-REQ-3.1, 20-REQ-3.2, 20-REQ-3.3
+    """
+    if not prd_path.is_file():
+        return []
+
+    text = prd_path.read_text(encoding="utf-8")
+
+    if _DEP_TABLE_HEADER.search(text):
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="prd.md",
+                rule="coarse-dependency",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "Dependency table uses the standard format "
+                    "(| This Spec | Depends On |), which resolves to "
+                    "last-group-to-first-group and may serialize work that "
+                    "could run in parallel. Consider using the group-level "
+                    "format (| Spec | From Group | To Group | Relationship |) "
+                    "for finer-grained parallelism."
+                ),
+                line=None,
+            )
+        ]
+
+    return []
+
+
+def _check_circular_dependency(
+    specs: list[SpecInfo],
+) -> list[Finding]:
+    """Detect dependency cycles across all specs.
+
+    Rule: circular-dependency
+    Severity: error
+
+    1. Parse each spec's prd.md dependency table (both standard and alt
+       formats) to extract spec-level edges.
+    2. Build a directed graph of spec-level dependencies.
+    3. Run cycle detection using DFS with coloring.
+    4. For each cycle found, produce an Error finding.
+
+    Skips edges referencing specs not in the discovered set
+    (the broken-dependency rule handles those).
+
+    Requirements: 20-REQ-4.1, 20-REQ-4.2, 20-REQ-4.3
+    """
+    known_names = {s.name for s in specs}
+
+    # Build adjacency list: spec_name -> set of dependency spec names
+    graph: dict[str, set[str]] = {s.name: set() for s in specs}
+
+    for spec in specs:
+        prd_path = spec.path / "prd.md"
+        if not prd_path.is_file():
+            continue
+
+        text = prd_path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+
+            # Standard format: | This Spec | Depends On | ...
+            if _DEP_TABLE_HEADER.search(line):
+                i += 1
+                while i < len(lines):
+                    row = lines[i]
+                    if _TABLE_SEP.match(row):
+                        i += 1
+                        continue
+                    stripped = row.strip()
+                    if not stripped.startswith("|"):
+                        break
+                    cells = [c.strip() for c in stripped.split("|") if c.strip()]
+                    if len(cells) >= 2:
+                        dep_spec = cells[1].strip()
+                        if dep_spec in known_names:
+                            graph[spec.name].add(dep_spec)
+                    i += 1
+                continue
+
+            # Alt format: | Spec | From Group | To Group | ...
+            if _DEP_TABLE_HEADER_ALT.search(line):
+                i += 1
+                while i < len(lines):
+                    row = lines[i]
+                    if _TABLE_SEP.match(row):
+                        i += 1
+                        continue
+                    stripped = row.strip()
+                    if not stripped.startswith("|"):
+                        break
+                    cells = [c.strip() for c in stripped.split("|") if c.strip()]
+                    if len(cells) >= 1:
+                        dep_spec = cells[0].strip()
+                        if dep_spec in known_names:
+                            graph[spec.name].add(dep_spec)
+                    i += 1
+                continue
+
+            i += 1
+
+    # DFS cycle detection with coloring
+    # WHITE=0 (unvisited), GRAY=1 (in progress), BLACK=2 (finished)
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {name: WHITE for name in graph}
+    parent: dict[str, str | None] = {name: None for name in graph}
+    cycles: list[list[str]] = []
+
+    def _dfs(node: str) -> None:
+        color[node] = GRAY
+        for neighbor in sorted(graph[node]):  # sorted for determinism
+            if color[neighbor] == GRAY:
+                # Found a cycle -- trace it back
+                cycle = [neighbor, node]
+                current = node
+                while parent[current] is not None and parent[current] != neighbor:
+                    current = parent[current]  # type: ignore[assignment]
+                    cycle.append(current)
+                cycle.reverse()
+                cycles.append(cycle)
+            elif color[neighbor] == WHITE:
+                parent[neighbor] = node
+                _dfs(neighbor)
+        color[node] = BLACK
+
+    for name in sorted(graph):
+        if color[name] == WHITE:
+            _dfs(name)
+
+    # Produce findings
+    findings: list[Finding] = []
+    seen_cycle_sets: list[frozenset[str]] = []
+    for cycle in cycles:
+        cycle_set = frozenset(cycle)
+        # Deduplicate: don't report the same set of specs twice
+        if cycle_set in seen_cycle_sets:
+            continue
+        seen_cycle_sets.append(cycle_set)
+        cycle_str = " -> ".join(cycle)
+        findings.append(
+            Finding(
+                spec_name=cycle[0],
+                file="prd.md",
+                rule="circular-dependency",
+                severity=SEVERITY_ERROR,
+                message=f"Circular dependency detected: {cycle_str}",
+                line=None,
+            )
+        )
+
     return findings
 
 
@@ -537,7 +709,16 @@ def validate_specs(
                 check_broken_dependencies(spec.name, spec.path, known_specs)
             )
 
-    # 6. Sort findings
+        # 6. Coarse dependency check
+        if (spec.path / "prd.md").is_file():
+            findings.extend(
+                _check_coarse_dependency(spec.name, spec.path / "prd.md")
+            )
+
+    # 7. Circular dependency check (cross-spec, runs once for all specs)
+    findings.extend(_check_circular_dependency(discovered_specs))
+
+    # 8. Sort findings
     return sort_findings(findings)
 
 

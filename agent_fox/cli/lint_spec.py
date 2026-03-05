@@ -133,38 +133,59 @@ def format_json(findings: list[Finding]) -> str:
     return json.dumps(data, indent=2)
 
 
-def format_yaml(findings: list[Finding]) -> str:
-    """Serialize findings as YAML with the same structure as JSON."""
-    try:
-        import yaml  # type: ignore[import-untyped]
-    except ImportError:
-        logger.warning("PyYAML is not installed; falling back to JSON output.")
-        return format_json(findings)
+def _build_known_specs(
+    discovered: list[SpecInfo],
+) -> dict[str, list[int]]:
+    """Build a mapping of spec name to list of task group numbers.
 
-    data = {
-        "findings": _findings_to_dicts(findings),
-        "summary": _build_summary(findings),
-    }
-    return yaml.dump(data, default_flow_style=False, sort_keys=False)
+    Used by the fixer to look up upstream group numbers.
+    """
+    from agent_fox.spec.parser import parse_tasks
+
+    known: dict[str, list[int]] = {}
+    for spec in discovered:
+        tasks_path = spec.path / "tasks.md"
+        if tasks_path.is_file():
+            try:
+                groups = parse_tasks(tasks_path)
+                known[spec.name] = [g.number for g in groups]
+            except Exception:
+                known[spec.name] = []
+        else:
+            known[spec.name] = []
+    return known
+
+
+def _format_fix_summary(fix_results: list) -> str:
+    """Format a summary of applied fixes for stderr output."""
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    for r in fix_results:
+        counts[r.rule] += 1
+
+    parts = [f"{count} {rule}" for rule, count in sorted(counts.items())]
+    return f"Fixed: {', '.join(parts)}"
 
 
 @click.command("lint-spec")
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["table", "json", "yaml"]),
-    default="table",
-    help="Output format for findings.",
-)
 @click.option(
     "--ai",
     is_flag=True,
     default=False,
     help="Enable AI-powered semantic analysis of acceptance criteria.",
 )
+@click.option(
+    "--fix",
+    is_flag=True,
+    default=False,
+    help="Automatically fix mechanically fixable findings.",
+)
 @click.pass_context
-def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
+def lint_spec(ctx: click.Context, ai: bool, fix: bool) -> None:
     """Validate specification files for structural and quality problems."""
+    json_mode = ctx.obj.get("json", False)
+    output_format = "json" if json_mode else "table"
     specs_dir = Path(".specs")
 
     # Discover specs -- handle missing/empty .specs/ directory
@@ -194,10 +215,44 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
 
             # 09-REQ-8.1: use STANDARD tier via model registry
             standard_model = resolve_model("STANDARD").model_id
-            ai_findings = asyncio.run(run_ai_validation(discovered, standard_model))
+            ai_findings = asyncio.run(
+                run_ai_validation(discovered, standard_model, specs_dir=specs_dir)
+            )
             findings = sort_findings(findings + ai_findings)
         except Exception as exc:
             logger.warning("AI validation failed: %s", exc)
+
+    # 22-REQ-1.1: Apply AI rewrites when both --ai and --fix are provided
+    ai_fix_results: list = []
+    if ai and fix:
+        ai_fix_results = _apply_ai_fixes(findings, discovered, specs_dir)
+
+    # 20-REQ-6.1: Apply auto-fixes when --fix is provided
+    if fix:
+        from agent_fox.spec.fixer import apply_fixes
+
+        known_specs = _build_known_specs(discovered)
+        fix_results = apply_fixes(findings, discovered, specs_dir, known_specs)
+        all_fix_results = ai_fix_results + fix_results
+        if all_fix_results:
+            # Print fix summary to stderr (20-REQ-6.6, 22-REQ-4.1)
+            summary = _format_fix_summary(all_fix_results)
+            click.echo(summary, err=True)
+            # Re-validate to get remaining findings (20-REQ-6.2, 22-REQ-4.2)
+            findings = validate_specs(specs_dir, discovered)
+            if ai:
+                try:
+                    from agent_fox.spec.ai_validator import run_ai_validation
+
+                    standard_model = resolve_model("STANDARD").model_id
+                    ai_findings = asyncio.run(
+                        run_ai_validation(
+                            discovered, standard_model, specs_dir=specs_dir
+                        )
+                    )
+                    findings = sort_findings(findings + ai_findings)
+                except Exception as exc:
+                    logger.warning("AI validation failed: %s", exc)
 
     # Output results
     _output_findings(findings, output_format)
@@ -207,11 +262,94 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
     ctx.exit(exit_code)
 
 
+def _apply_ai_fixes(
+    findings: list[Finding],
+    discovered: list[SpecInfo],
+    specs_dir: Path,
+) -> list:
+    """Apply AI-powered criterion rewrites for vague/implementation-leak findings.
+
+    Groups AI criteria findings by spec, calls rewrite_criteria() per spec
+    (batching up to 20 findings per call), and applies rewrites via
+    fix_ai_criteria().
+
+    Requirements: 22-REQ-1.1, 22-REQ-1.4, 22-REQ-3.1, 22-REQ-3.E1, 22-REQ-4.1
+    """
+    from agent_fox.spec.ai_validator import (
+        _MAX_CRITERIA_PER_BATCH,
+        rewrite_criteria,
+    )
+    from agent_fox.spec.fixer import (
+        AI_FIXABLE_RULES,
+        fix_ai_criteria,
+        parse_finding_criterion_id,
+    )
+
+    # Filter to AI-fixable findings
+    ai_findings = [f for f in findings if f.rule in AI_FIXABLE_RULES]
+    if not ai_findings:
+        return []
+
+    # Group by spec name
+    by_spec: dict[str, list[Finding]] = {}
+    for f in ai_findings:
+        by_spec.setdefault(f.spec_name, []).append(f)
+
+    # Build spec lookup
+    spec_by_name: dict[str, SpecInfo] = {s.name: s for s in discovered}
+
+    standard_model = resolve_model("STANDARD").model_id
+    all_results: list = []
+
+    for spec_name, spec_findings in by_spec.items():
+        spec = spec_by_name.get(spec_name)
+        if spec is None:
+            continue
+
+        req_path = spec.path / "requirements.md"
+        if not req_path.is_file():
+            continue
+
+        requirements_text = req_path.read_text(encoding="utf-8")
+
+        # Split into batches of _MAX_CRITERIA_PER_BATCH (22-REQ-3.E1)
+        batches = [
+            spec_findings[i : i + _MAX_CRITERIA_PER_BATCH]
+            for i in range(0, len(spec_findings), _MAX_CRITERIA_PER_BATCH)
+        ]
+
+        for batch in batches:
+            try:
+                rewrites = asyncio.run(
+                    rewrite_criteria(
+                        spec_name, requirements_text, batch, standard_model
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    "AI rewrite failed for spec '%s': %s", spec_name, exc
+                )
+                continue
+
+            if not rewrites:
+                continue
+
+            # Build findings_map: criterion_id -> rule name
+            findings_map: dict[str, str] = {}
+            for f in batch:
+                cid = parse_finding_criterion_id(f)
+                if cid:
+                    findings_map[cid] = f.rule
+
+            results = fix_ai_criteria(spec_name, req_path, rewrites, findings_map)
+            all_results.extend(results)
+
+    return all_results
+
+
 def _output_findings(findings: list[Finding], output_format: str) -> None:
     """Output findings in the requested format."""
     if output_format == "json":
         click.echo(format_json(findings))
-    elif output_format == "yaml":
-        click.echo(format_yaml(findings))
     else:
         click.echo(format_table(findings), nl=False)

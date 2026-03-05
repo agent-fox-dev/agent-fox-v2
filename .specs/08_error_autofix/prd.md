@@ -67,8 +67,8 @@ what is broken, figure out why, generate a plan, fix it, and verify.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 08_error_autofix | 01_core_foundation | CLI framework (Click group, `main`), `AgentFoxConfig`, `AgentFoxError`, `AppTheme`, `resolve_model()`, logging |
-| 08_error_autofix | 03_session_and_workspace | `SessionRunner` to execute fix coding sessions, `SessionOutcome` for results |
-| 08_error_autofix | 04_orchestrator | Execution state management, cost tracking, session dispatch machinery |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | CLI framework (Click group, `main`), `AgentFoxConfig`, `AgentFoxError`, `AppTheme`, `resolve_model()`, logging |
+| 03_session_and_workspace | 5 | 1 | `SessionRunner` to execute fix coding sessions, `SessionOutcome` for results |
+| 04_orchestrator | 6 | 1 | Execution state management, cost tracking, session dispatch machinery |

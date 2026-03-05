@@ -1,0 +1,559 @@
+"""Spec fixer: auto-fix functions for mechanically fixable lint findings.
+
+Each fixer reads a file, applies a transformation, and writes back.
+The module is separate from the validator to maintain single-responsibility:
+validator detects, fixer corrects.
+
+Requirements: 20-REQ-6.*
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+from agent_fox.spec.discovery import SpecInfo
+from agent_fox.spec.parser import (
+    _DEP_TABLE_HEADER,
+    _GROUP_PATTERN,
+    _SUBTASK_PATTERN,
+    _TABLE_SEP,
+)
+from agent_fox.spec.validator import Finding
+
+logger = logging.getLogger(__name__)
+
+# -- Regex patterns for parsing stale-dependency finding messages ---------------
+
+_SUGGESTION_PATTERN = re.compile(r"Suggestion: (.+)$")
+_IDENTIFIER_PATTERN = re.compile(r"identifier `([^`]+)`")
+
+
+@dataclass(frozen=True)
+class IdentifierFix:
+    """A single identifier correction from AI validation.
+
+    Requirements: 21-REQ-5.1
+    """
+
+    original: str  # the stale identifier (e.g., "SnippetStore")
+    suggestion: str  # the AI-suggested replacement (e.g., "Store")
+    upstream_spec: str  # which upstream spec this relates to
+
+
+@dataclass(frozen=True)
+class FixResult:
+    """Result of applying a single fix."""
+
+    rule: str
+    spec_name: str
+    file: str
+    description: str
+
+
+# Set of rules that have auto-fixers
+FIXABLE_RULES = {"coarse-dependency", "missing-verification", "stale-dependency"}
+
+# AI-specific fixable rules (only active when --ai flag is set)
+AI_FIXABLE_RULES = {"vague-criterion", "implementation-leak"}
+
+# Regex for locating criterion IDs in requirements.md
+# Supports bracket format: [99-REQ-1.1] and bold format: **99-REQ-1.1:**
+_CRITERION_BRACKET = re.compile(
+    r"^(\s*\d+\.\s*)\[({cid})\]\s*(.*)$",
+)
+_CRITERION_BOLD = re.compile(
+    r"^(\s*\d+\.\s*)\*\*({cid}):\*\*\s*(.*)$",
+)
+
+
+def fix_stale_dependency(
+    spec_name: str,
+    prd_path: Path,
+    fixes: list[IdentifierFix],
+) -> list[FixResult]:
+    """Apply AI-suggested identifier corrections to Relationship text.
+
+    For each IdentifierFix:
+    1. Read prd.md content.
+    2. Find the backtick-delimited original identifier in Relationship text.
+    3. Replace it with the suggested identifier (preserving backticks).
+    4. Write the modified content back.
+
+    Skips fixes where:
+    - suggestion is None or empty
+    - the suggested identifier already appears in the Relationship text
+    - the original identifier is not found in the file
+
+    Requirements: 21-REQ-5.1, 21-REQ-5.2, 21-REQ-5.E1, 21-REQ-5.E3
+    """
+    if not prd_path.is_file():
+        return []
+
+    results: list[FixResult] = []
+
+    for fix in fixes:
+        # Skip empty suggestions (21-REQ-5.E1)
+        if not fix.suggestion:
+            continue
+
+        text = prd_path.read_text(encoding="utf-8")
+
+        original_backticked = f"`{fix.original}`"
+        suggestion_backticked = f"`{fix.suggestion}`"
+
+        # Skip if original not found in file
+        if original_backticked not in text:
+            # Also skip if suggestion already present (21-REQ-5.E3)
+            continue
+
+        # Skip if suggestion already present to avoid duplicates (21-REQ-5.E3)
+        if suggestion_backticked in text:
+            continue
+
+        # Replace the original with the suggestion
+        text = text.replace(original_backticked, suggestion_backticked)
+        prd_path.write_text(text, encoding="utf-8")
+
+        results.append(
+            FixResult(
+                rule="stale-dependency",
+                spec_name=spec_name,
+                file=str(prd_path),
+                description=(
+                    f"Replaced stale identifier `{fix.original}` with "
+                    f"`{fix.suggestion}` (upstream: {fix.upstream_spec})"
+                ),
+            )
+        )
+
+    return results
+
+
+def fix_coarse_dependency(
+    spec_name: str,
+    prd_path: Path,
+    known_specs: dict[str, list[int]],
+    current_spec_groups: list[int],
+) -> list[FixResult]:
+    """Rewrite a standard-format dependency table to group-level format.
+
+    Algorithm:
+    1. Read prd.md and locate the standard header line
+       (``| This Spec | Depends On |``).
+    2. Parse each data row to extract (this_spec, depends_on, description).
+    3. For each row, look up the upstream spec in known_specs:
+       - from_group = last group of upstream spec (or 0 if unknown)
+       - to_group = first group of current spec (or 0 if unknown)
+    4. Replace the entire table (header + separator + rows) with the
+       alt-format equivalent:
+       ``| Spec | From Group | To Group | Relationship |``
+    5. Write the modified content back to prd_path.
+
+    Returns a list of FixResult describing what was changed.
+    Returns an empty list if no standard-format table was found.
+
+    Requirements: 20-REQ-6.3, 20-REQ-6.E2
+    """
+    if not prd_path.is_file():
+        return []
+
+    text = prd_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Find the standard-format table header
+    header_idx: int | None = None
+    for i, line in enumerate(lines):
+        if _DEP_TABLE_HEADER.search(line):
+            header_idx = i
+            break
+
+    if header_idx is None:
+        return []
+
+    # Determine where the table ends (header + separator + data rows)
+    table_start = header_idx
+    table_end = header_idx + 1  # at least the header
+
+    i = header_idx + 1
+    while i < len(lines):
+        row = lines[i]
+        if _TABLE_SEP.match(row):
+            table_end = i + 1
+            i += 1
+            continue
+        stripped = row.strip()
+        if stripped.startswith("|"):
+            table_end = i + 1
+            i += 1
+            continue
+        break
+
+    # Parse data rows (skip header and separator)
+    parsed_rows: list[tuple[str, str]] = []  # (depends_on, description)
+    for i in range(header_idx + 1, table_end):
+        row = lines[i]
+        if _TABLE_SEP.match(row):
+            continue
+        stripped = row.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.split("|")]
+        cells = [c for c in cells if c]
+        if len(cells) < 2:
+            continue
+        # cells[0] = this_spec, cells[1] = depends_on, cells[2] = description
+        depends_on = cells[1].strip()
+        description = cells[2].strip() if len(cells) >= 3 else ""
+        parsed_rows.append((depends_on, description))
+
+    if not parsed_rows:
+        return []
+
+    # Build replacement table in alt format
+    to_group = current_spec_groups[0] if current_spec_groups else 0
+    new_lines: list[str] = []
+    new_lines.append("| Spec | From Group | To Group | Relationship |")
+    new_lines.append("|------|-----------|----------|--------------|")
+    for depends_on, description in parsed_rows:
+        upstream_groups = known_specs.get(depends_on, [])
+        from_group = max(upstream_groups) if upstream_groups else 0
+        new_lines.append(
+            f"| {depends_on} | {from_group} | {to_group} | {description} |"
+        )
+
+    # Replace the table in the original text
+    result_lines = lines[:table_start] + new_lines + lines[table_end:]
+    prd_path.write_text("\n".join(result_lines) + "\n", encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="coarse-dependency",
+            spec_name=spec_name,
+            file=str(prd_path),
+            description=(
+                f"Rewrote standard-format dependency table to group-level "
+                f"format ({len(parsed_rows)} row(s))"
+            ),
+        )
+    ]
+
+
+def fix_missing_verification(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Append a verification step to task groups that lack one.
+
+    For each task group without a N.V subtask:
+    1. Find the last subtask line of the group.
+    2. Insert after it:
+         - [ ] N.V Verify task group N
+           - [ ] All spec tests pass
+           - [ ] No linter warnings
+           - [ ] No regressions in existing tests
+
+    Returns a list of FixResult, one per group fixed.
+    Returns an empty list if all groups already have verification steps.
+
+    Requirements: 20-REQ-6.4
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # First pass: identify groups and their subtask ranges
+    groups: list[dict] = []
+    current_group: dict | None = None
+
+    for i, line in enumerate(lines):
+        group_match = _GROUP_PATTERN.match(line)
+        if group_match:
+            if current_group is not None:
+                groups.append(current_group)
+            title = group_match.group(4)
+            current_group = {
+                "number": int(group_match.group(3)),
+                "title": title,
+                "start": i,
+                "last_subtask_line": i,
+                "has_verify": False,
+            }
+            continue
+
+        if current_group is not None:
+            subtask_match = _SUBTASK_PATTERN.match(line)
+            if subtask_match:
+                st_id = subtask_match.group(2)
+                current_group["last_subtask_line"] = i
+                if re.match(
+                    rf"^{current_group['number']}\.V$", st_id
+                ):
+                    current_group["has_verify"] = True
+
+    if current_group is not None:
+        groups.append(current_group)
+
+    # Find groups that need verification steps (checkpoint groups are
+    # themselves a final verification and never need a N.V subtask)
+    groups_to_fix = [
+        g
+        for g in groups
+        if not g["has_verify"] and not g["title"].startswith("Checkpoint")
+    ]
+    if not groups_to_fix:
+        return []
+
+    # Insert verification steps in reverse order to preserve line indices
+    results: list[FixResult] = []
+    for group in reversed(groups_to_fix):
+        num = group["number"]
+        insert_after = group["last_subtask_line"]
+        verification_lines = [
+            f"  - [ ] {num}.V Verify task group {num}",
+            "    - [ ] All spec tests pass",
+            "    - [ ] No linter warnings",
+            "    - [ ] No regressions in existing tests",
+        ]
+        # Insert after the last subtask line
+        for j, vline in enumerate(verification_lines):
+            lines.insert(insert_after + 1 + j, vline)
+
+        results.append(
+            FixResult(
+                rule="missing-verification",
+                spec_name=spec_name,
+                file=str(tasks_path),
+                description=(
+                    f"Appended verification step {num}.V to task group {num}"
+                ),
+            )
+        )
+
+    # Reverse results so they're in group order (we built them reversed)
+    results.reverse()
+
+    tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return results
+
+
+def apply_fixes(
+    findings: list[Finding],
+    discovered_specs: list[SpecInfo],
+    specs_dir: Path,
+    known_specs: dict[str, list[int]],
+) -> list[FixResult]:
+    """Apply all available auto-fixes for the given findings.
+
+    Iterates through findings, identifies those with FIXABLE_RULES,
+    groups them by spec and rule, and applies the appropriate fixer.
+
+    Deduplicates by (spec_name, rule) to avoid applying the same fixer
+    twice to the same file.
+
+    Returns a list of all FixResults applied.
+
+    Requirements: 20-REQ-6.2, 20-REQ-6.5, 20-REQ-6.E1, 20-REQ-6.E3,
+                  20-REQ-6.E4
+    """
+    if not findings:
+        return []
+
+    # Filter to fixable findings and deduplicate by (spec_name, rule)
+    fixable: dict[tuple[str, str], Finding] = {}
+    # For stale-dependency, collect ALL findings per spec (not just first)
+    stale_dep_findings: dict[str, list[Finding]] = {}
+    for finding in findings:
+        if finding.rule in FIXABLE_RULES:
+            key = (finding.spec_name, finding.rule)
+            if finding.rule == "stale-dependency":
+                stale_dep_findings.setdefault(finding.spec_name, []).append(
+                    finding
+                )
+                if key not in fixable:
+                    fixable[key] = finding
+            else:
+                if key not in fixable:
+                    fixable[key] = finding
+
+    if not fixable:
+        return []
+
+    # Build spec lookup
+    spec_by_name: dict[str, SpecInfo] = {s.name: s for s in discovered_specs}
+
+    all_results: list[FixResult] = []
+
+    for (spec_name, rule), _finding in fixable.items():
+        spec = spec_by_name.get(spec_name)
+        if spec is None:
+            continue
+
+        try:
+            if rule == "coarse-dependency":
+                prd_path = spec.path / "prd.md"
+                if prd_path.is_file():
+                    current_groups = known_specs.get(spec_name, [])
+                    results = fix_coarse_dependency(
+                        spec_name, prd_path, known_specs, current_groups
+                    )
+                    all_results.extend(results)
+
+            elif rule == "missing-verification":
+                tasks_path = spec.path / "tasks.md"
+                if tasks_path.is_file():
+                    results = fix_missing_verification(spec_name, tasks_path)
+                    all_results.extend(results)
+
+            elif rule == "stale-dependency":
+                prd_path = spec.path / "prd.md"
+                if prd_path.is_file():
+                    id_fixes = _parse_stale_dep_fixes(
+                        stale_dep_findings.get(spec_name, [])
+                    )
+                    if id_fixes:
+                        results = fix_stale_dependency(
+                            spec_name, prd_path, id_fixes
+                        )
+                        all_results.extend(results)
+
+        except OSError as exc:
+            logger.warning(
+                "Failed to apply fix for rule '%s' on spec '%s': %s",
+                rule,
+                spec_name,
+                exc,
+            )
+            continue
+
+    return all_results
+
+
+def _parse_stale_dep_fixes(findings: list[Finding]) -> list[IdentifierFix]:
+    """Extract IdentifierFix objects from stale-dependency finding messages.
+
+    Parses the machine-readable message format:
+    ``identifier \\`{id}\\` not found ... Suggestion: {suggestion}``
+
+    Requirements: 21-REQ-5.3
+    """
+    fixes: list[IdentifierFix] = []
+    for finding in findings:
+        id_match = _IDENTIFIER_PATTERN.search(finding.message)
+        sug_match = _SUGGESTION_PATTERN.search(finding.message)
+        if id_match and sug_match:
+            fixes.append(
+                IdentifierFix(
+                    original=id_match.group(1),
+                    suggestion=sug_match.group(1),
+                    upstream_spec=finding.message.split(":")[0].replace(
+                        "Dependency on ", ""
+                    ),
+                )
+            )
+    return fixes
+
+
+def fix_ai_criteria(
+    spec_name: str,
+    req_path: Path,
+    rewrites: dict[str, str],
+    findings_map: dict[str, str],
+) -> list[FixResult]:
+    """Apply AI-generated criterion rewrites to requirements.md.
+
+    For each criterion_id in rewrites:
+    1. Locate the line containing the criterion ID in the file.
+    2. Replace the criterion text (everything after the ID prefix)
+       with the rewrite text.
+    3. Record a FixResult.
+
+    Args:
+        spec_name: Spec name for FixResult metadata.
+        req_path: Path to requirements.md.
+        rewrites: Mapping of criterion_id -> replacement_text.
+        findings_map: Mapping of criterion_id -> rule name (e.g. vague-criterion).
+
+    Returns:
+        List of FixResult for each successfully applied rewrite.
+
+    Requirements: 22-REQ-1.2, 22-REQ-1.3, 22-REQ-1.E2, 22-REQ-4.3
+    """
+    if not req_path.is_file() or not rewrites:
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[FixResult] = []
+
+    for criterion_id, replacement in rewrites.items():
+        # Try to locate this criterion ID in the file
+        found = False
+        for i, line in enumerate(lines):
+            # Check bracket format: [99-REQ-1.1]
+            bracket_pattern = re.compile(
+                rf"^(\s*\d+\.\s*)\[({re.escape(criterion_id)})\]\s*(.*)$"
+            )
+            bold_pattern = re.compile(
+                rf"^(\s*\d+\.\s*)\*\*({re.escape(criterion_id)}):\*\*\s*(.*)$"
+            )
+
+            bracket_match = bracket_pattern.match(line)
+            bold_match = bold_pattern.match(line)
+
+            if bracket_match:
+                prefix = bracket_match.group(1)
+                cid = bracket_match.group(2)
+                lines[i] = f"{prefix}[{cid}] {replacement}"
+                found = True
+                break
+            elif bold_match:
+                prefix = bold_match.group(1)
+                cid = bold_match.group(2)
+                lines[i] = f"{prefix}**{cid}:** {replacement}"
+                found = True
+                break
+
+        if not found:
+            logger.warning(
+                "Criterion ID '%s' not found in %s, skipping rewrite",
+                criterion_id,
+                req_path,
+            )
+            continue
+
+        rule = findings_map.get(criterion_id, "vague-criterion")
+        results.append(
+            FixResult(
+                rule=rule,
+                spec_name=spec_name,
+                file=str(req_path),
+                description=(
+                    f"Rewrote criterion {criterion_id}: {replacement[:60]}"
+                ),
+            )
+        )
+
+    if results:
+        req_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return results
+
+
+def parse_finding_criterion_id(finding: Finding) -> str | None:
+    """Extract criterion ID from a Finding's message.
+
+    The AI analysis format is: ``[criterion_id] explanation``.
+
+    Requirements: 22-REQ-4.3
+    """
+    msg = finding.message
+    if msg.startswith("["):
+        end = msg.find("]")
+        if end > 0:
+            return msg[1:end]
+    return None

@@ -127,20 +127,20 @@ class ThemeConfig(BaseModel):
 
 
 class PlatformConfig(BaseModel):
+    """Platform configuration.
+
+    Only ``type`` and ``auto_merge`` are meaningful.  Old fields
+    (``wait_for_ci``, ``wait_for_review``, ``ci_timeout``,
+    ``pr_granularity``, ``labels``) are silently ignored via
+    ``extra = "ignore"`` for backward compatibility.
+
+    Requirements: 19-REQ-5.1, 19-REQ-5.2, 19-REQ-5.3, 19-REQ-5.E1
+    """
+
     model_config = ConfigDict(extra="ignore")
 
-    type: str = "none"
-    pr_granularity: str = "session"
-    wait_for_ci: bool = False
-    wait_for_review: bool = False
-    auto_merge: bool = False
-    ci_timeout: int = Field(default=600)
-    labels: list[str] = Field(default_factory=list)
-
-    @field_validator("ci_timeout")
-    @classmethod
-    def clamp_ci_timeout(cls, v: int) -> int:
-        return _clamp(v, ge=0, field_name="platform.ci_timeout")
+    type: str = "none"        # "none" | "github"
+    auto_merge: bool = False  # only meaningful when type = "github"
 
 
 class MemoryConfig(BaseModel):

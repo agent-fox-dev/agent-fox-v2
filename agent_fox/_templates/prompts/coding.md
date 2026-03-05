@@ -23,7 +23,7 @@ Important context files:
 - Read `prd.md` or `.specs/prd.md` for high-level requirements
 - Read specifications in `.specs/{number}_{specification}/`
 - Read architecture decision records in `docs/adr/`, if any exist
-- IGNORE files in `.docs/errata/` — they contain delta notes, not authoritative specs
+- IGNORE files in `docs/errata/` — they contain delta notes, not authoritative specs
 - Explore the codebase:** run `ls`, read key source files, understand the module structure and how components interact.
 
 **Important:** Read all documents and code in depth, understand how the system works. Don't skim.
@@ -86,7 +86,7 @@ Hard constraints:
 Create or update project documentation as part of the same task when you add or change user-facing behavior, public APIs, configuration, or architecture.
 
 - **Doc locations:** ADRs in `docs/adr/{decision}.md`; other docs in `docs/{topic}.md`. Update root `README.md`, `examples/README.md` or similar,
-when features or usage change. Put reviews, corrections, and errata in `.docs/errata/`.
+when features or usage change. Put reviews, corrections, and errata in `docs/errata/`.
 - **When to touch docs:** Use the following as a guide. Plan which artifacts to create or update in Step 4 and deliver them in Step 5.
 
 | Change type | Create or update |
@@ -97,14 +97,14 @@ when features or usage change. Put reviews, corrections, and errata in `.docs/er
 | New example or demo | e.g. `examples/README.md` and any `docs/*.md` that list examples |
 | Config or environment changes | READMEs or `docs/` (e.g. configuration) |
 
-- **Spec-implementation sync:** If implementation diverges from `design.md` or `requirements.md` (e.g. different API, new constraint, dropped behavior), NEVER update the specs. Instead, create a delta document in `.docs/errata/{changes.md}`. If the divergence is a deliberate design decision, add or update an ADR.
+- **Spec-implementation sync:** If implementation diverges from `design.md` or `requirements.md` (e.g. different API, new constraint, dropped behavior), NEVER update the specs. Instead, create a delta document in `docs/errata/{changes.md}`. If the divergence is a deliberate design decision, add or update an ADR.
 
 ## STEP 4: PREPARE IMPLEMENTATION
 
 Follow the git workflow described in the "Git Workflow" section above (included
-in this system prompt). Key rule: commit and push on the current feature branch.
-Do **not** merge into develop — the orchestrator handles that automatically
-after this session ends.
+in this system prompt). Key rule: commit on the current feature branch.
+Do **not** merge into develop — the orchestrator handles merging and remote
+integration automatically after this session ends.
 
 **Documentation checklist (before coding):**
 
@@ -127,7 +127,7 @@ Implement only the selected task:
 
 1. Write code for the task.
 2. Create or update the documentation you identified in Step 4 (README, examples, `docs/`, ADR, or specs). Do not leave "update docs" for a later session unless the task is explicitly code-only.
-3. If implementation diverges from existing `design.md` or `requirements.md`, create a delta document in `.docs/errata/` (and add an ADR if it's a deliberate design decision).
+3. If implementation diverges from existing `design.md` or `requirements.md`, create a delta document in `docs/errata/` (and add an ADR if it's a deliberate design decision).
 4. Add or update tests for that task.
 5. Verify behavior end-to-end for that task.
 
@@ -210,18 +210,11 @@ Work is not complete until all steps below succeed:
 
 1. Update task status in `.specs/{spec_name}/tasks.md`
 2. Stage and commit with conventional commit message
-3. Push the feature branch to remote (`git push origin HEAD`)
-4. Confirm `git status` shows clean tree and branch up to date
-5. Provide handoff note for the next session
+3. Confirm `git status` shows a clean working tree
+4. Provide handoff note for the next session
 
 **Important:** Do NOT merge into develop or switch branches. The orchestrator
-merges your feature branch into develop automatically after this session ends.
-
-## FAILURE POLICY
-
-- If push fails, resolve and retry until push succeeds.
-- If blocked by permissions/network, request approval/escalation and retry.
-- Do not end the session with unpushed task work unless the user explicitly overrides this policy.
+handles merging and remote integration automatically after this session ends.
 
 ## REMINDERS
 

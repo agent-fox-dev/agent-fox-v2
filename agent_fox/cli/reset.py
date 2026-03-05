@@ -21,6 +21,17 @@ logger = logging.getLogger(__name__)
 _AGENT_FOX_DIR = ".agent-fox"
 
 
+def _result_to_dict(result: ResetResult) -> dict:
+    """Convert a ResetResult to a JSON-serializable dict."""
+    return {
+        "reset_tasks": list(result.reset_tasks),
+        "unblocked_tasks": list(result.unblocked_tasks),
+        "cleaned_worktrees": list(result.cleaned_worktrees),
+        "cleaned_branches": list(result.cleaned_branches),
+        "skipped_completed": list(result.skipped_completed),
+    }
+
+
 def _display_result(result: ResetResult) -> None:
     """Display a summary of the reset operation."""
     if not result.reset_tasks:
@@ -65,6 +76,7 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
     If TASK_ID is provided, reset only that task.
     Otherwise, reset all incomplete tasks (with confirmation).
     """
+    json_mode = (ctx.obj or {}).get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / _AGENT_FOX_DIR
     state_path = agent_dir / "state.jsonl"
@@ -82,11 +94,23 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
                 repo_path=project_root,
             )
         except AgentFoxError as exc:
+            if json_mode:
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
+                return
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
             return
 
-        _display_result(result)
+        # 23-REQ-4.2: JSON output for reset command
+        if json_mode:
+            from agent_fox.cli.json_io import emit
+
+            emit(_result_to_dict(result))
+        else:
+            _display_result(result)
     else:
         # Full reset: show tasks and prompt for confirmation (07-REQ-4.3)
         try:
@@ -98,6 +122,12 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
 
             state = _load_state_or_raise(state_path)
         except AgentFoxError as exc:
+            if json_mode:
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
+                return
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
             return
@@ -110,17 +140,27 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
         ]
 
         if not resettable:
+            if json_mode:
+                from agent_fox.cli.json_io import emit
+
+                emit(_result_to_dict(ResetResult(
+                    reset_tasks=[], unblocked_tasks=[],
+                    cleaned_worktrees=[], cleaned_branches=[],
+                )))
+                return
             click.echo(
                 "Nothing to reset. No failed, blocked, or in-progress tasks found.",
             )
             return
 
-        click.echo("The following tasks will be reset to pending:")
-        for tid, status in resettable:
-            click.echo(f"  - {tid} ({status})")
+        if not json_mode:
+            click.echo("The following tasks will be reset to pending:")
+            for tid, status in resettable:
+                click.echo(f"  - {tid} ({status})")
 
         # Prompt for confirmation unless --yes (07-REQ-4.4)
-        if not yes:
+        # In JSON mode, skip confirmation (non-interactive)
+        if not json_mode and not yes:
             if not click.confirm("\nProceed with reset?"):
                 click.echo("Reset cancelled.")
                 return
@@ -133,8 +173,20 @@ def reset_cmd(ctx: click.Context, task_id: str | None, yes: bool) -> None:
                 repo_path=project_root,
             )
         except AgentFoxError as exc:
+            if json_mode:
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
+                return
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
             return
 
-        _display_result(result)
+        # 23-REQ-4.2: JSON output for reset command
+        if json_mode:
+            from agent_fox.cli.json_io import emit
+
+            emit(_result_to_dict(result))
+        else:
+            _display_result(result)

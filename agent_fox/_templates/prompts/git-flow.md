@@ -35,18 +35,18 @@ rebasing and merging into develop after the session ends.
 
 ## Session Landing Commands
 
-Commit your work and push the feature branch. Do **not** merge into develop —
-the orchestrator handles that after the session ends.
+Commit your work and verify a clean working tree. Do **not** merge into
+develop — the orchestrator handles merging and remote integration after
+the session ends.
 
 ```bash
 git add .
 git commit -m "<type>: <description>"
-git push origin feature/<task-name>
 git status --short --branch
 ```
 
 ## Required End State
 
 - Local working tree is clean
-- Feature branch is pushed to `origin`
+- All changes are committed on the feature branch
 - Do **not** switch to develop or merge locally

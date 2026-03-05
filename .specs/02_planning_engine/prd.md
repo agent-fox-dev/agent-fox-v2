@@ -62,6 +62,6 @@ result so that execution, status, and reset commands can operate on it.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 02_planning_engine | 01_core_foundation | CLI framework (Click group, `main`), `AgentFoxConfig`, `PlanError`, `ConfigError`, `load_config()`, `AppTheme` |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | CLI framework (Click group, `main`), `AgentFoxConfig`, `PlanError`, `ConfigError`, `load_config()`, `AppTheme` |

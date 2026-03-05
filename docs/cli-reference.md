@@ -30,9 +30,50 @@ agent-fox [OPTIONS] COMMAND [ARGS]
 | `--version` | | Show version and exit |
 | `--verbose` | `-v` | Enable debug logging |
 | `--quiet` | `-q` | Suppress info messages and banner |
+| `--json` | | Switch to structured JSON I/O mode |
 | `--help` | | Show help and exit |
 
 When invoked without a subcommand, displays help text.
+
+### JSON Mode (`--json`)
+
+The `--json` flag switches every command to structured JSON input/output mode,
+designed for agent-to-agent and script-driven workflows.
+
+**Behavior when active:**
+
+- **Banner suppressed:** No ASCII art or version line on stdout.
+- **Structured output:** Batch commands emit a single JSON object; streaming
+  commands (`code`, `fix`) emit JSONL (one JSON object per line).
+- **Error envelopes:** Failures emit `{"error": "<message>"}` to stdout with
+  the original non-zero exit code preserved.
+- **Logging to stderr:** All log messages go to stderr only — stdout contains
+  only valid JSON.
+- **Stdin input:** When stdin is piped (not a TTY), the CLI reads a JSON
+  object from stdin and uses its fields as parameter defaults. CLI flags
+  take precedence over stdin fields. Unknown fields are silently ignored.
+
+**Examples:**
+
+```bash
+# Get project status as JSON
+agent-fox --json status
+
+# Ask a question with JSON input via stdin
+echo '{"question": "What patterns exist?"}' | agent-fox --json ask
+
+# Combine with --verbose for JSON output + debug logs on stderr
+agent-fox --json --verbose status
+```
+
+**Error handling:**
+
+```bash
+# Invalid JSON on stdin produces an error envelope
+echo 'not json' | agent-fox --json status
+# stdout: {"error": "invalid JSON input: ..."}
+# exit code: 1
+```
 
 ---
 
@@ -122,15 +163,13 @@ Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
 Show execution progress dashboard.
 
 ```
-agent-fox status [OPTIONS]
+agent-fox status
 ```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--format FMT` | table/json/yaml | table | Output format |
 
 Displays task counts (done, in-progress, pending, failed, blocked), token
 usage, estimated cost, and problem tasks with reasons.
+
+Use `agent-fox --json status` for structured JSON output.
 
 **Exit codes:** `0` success, `1` plan missing.
 
@@ -147,11 +186,12 @@ agent-fox standup [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--hours N` | int | 24 | Reporting window in hours |
-| `--format FMT` | table/json/yaml | table | Output format |
 | `--output PATH` | path | stdout | Write report to file |
 
 Covers agent activity (sessions, tokens, cost), human commits, file overlaps
 between agent and human work, and queue status (ready/pending/blocked tasks).
+
+Use `agent-fox --json standup` for structured JSON output.
 
 **Exit codes:** `0` success, `1` plan missing.
 
@@ -263,8 +303,10 @@ agent-fox lint-spec [OPTIONS]
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `--format FMT` | table/json/yaml | table | Output format |
 | `--ai` | flag | off | Enable AI-powered semantic analysis |
+| `--fix` | flag | off | Auto-fix findings where possible |
+
+Use `agent-fox --json lint-spec` for structured JSON output.
 
 Runs structural validation rules against specs in `.specs/`: missing files,
 oversized task groups, missing verification subtasks, missing acceptance
@@ -272,6 +314,17 @@ criteria, broken cross-spec dependencies, and untraced requirements.
 
 With `--ai`, additionally checks for vague or implementation-leaking acceptance
 criteria.
+
+With `--fix`, applies mechanical auto-fixes for supported rules (e.g., missing
+verification subtasks, missing acceptance criteria).
+
+With `--ai --fix`, additionally rewrites criteria flagged as `vague-criterion`
+or `implementation-leak` using an AI-powered rewrite step. The system sends a
+batched rewrite request per spec to the STANDARD-tier model, which returns
+EARS-formatted replacement text. Rewrites preserve the original requirement ID
+and are applied in-place to `requirements.md`. After rewrites, the spec is
+re-validated to produce the final findings list. If the AI rewrite call fails,
+the original criteria are left unchanged.
 
 **Exit codes:** `0` no errors (warnings OK), `1` error-severity findings.
 

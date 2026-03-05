@@ -14,7 +14,6 @@ import shutil
 from pathlib import Path
 
 import pytest
-import yaml
 from click.testing import CliRunner
 
 from agent_fox.cli.app import main
@@ -131,18 +130,18 @@ class TestJsonOutputFormat:
     """TS-09-E4: JSON output format.
 
     Requirements: 09-REQ-9.1, 09-REQ-9.3
-    Verify --format json produces valid JSON with correct structure.
+    Verify --json produces valid JSON with correct structure.
     """
 
     def test_json_output_is_valid(self, cli_runner: CliRunner, tmp_path: Path) -> None:
-        """--format json produces valid JSON output."""
+        """--json produces valid JSON output."""
         _setup_project_with_specs(tmp_path, ["incomplete_spec"])
 
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["--quiet", "lint-spec", "--format", "json"]
+                main, ["--json", "lint-spec"]
             )
             data = json.loads(result.output)
             assert "findings" in data
@@ -160,37 +159,10 @@ class TestJsonOutputFormat:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["--quiet", "lint-spec", "--format", "json"]
+                main, ["--json", "lint-spec"]
             )
             data = json.loads(result.output)
             assert data["summary"]["total"] == len(data["findings"])
-        finally:
-            os.chdir(original_dir)
-
-
-# -- TS-09-E5: YAML output format ---------------------------------------------
-
-
-class TestYamlOutputFormat:
-    """TS-09-E5: YAML output format.
-
-    Requirements: 09-REQ-9.1, 09-REQ-9.3
-    Verify --format yaml produces valid YAML with correct structure.
-    """
-
-    def test_yaml_output_is_valid(self, cli_runner: CliRunner, tmp_path: Path) -> None:
-        """--format yaml produces valid YAML output."""
-        _setup_project_with_specs(tmp_path, ["incomplete_spec"])
-
-        original_dir = os.getcwd()
-        os.chdir(tmp_path)
-        try:
-            result = cli_runner.invoke(
-                main, ["--quiet", "lint-spec", "--format", "yaml"]
-            )
-            data = yaml.safe_load(result.output)
-            assert "findings" in data
-            assert "summary" in data
         finally:
             os.chdir(original_dir)
 
@@ -315,7 +287,7 @@ class TestValidDependenciesIntegration:
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(
-                main, ["--quiet", "lint-spec", "--format", "json"]
+                main, ["--json", "lint-spec"]
             )
             data = json.loads(result.output)
             broken_deps = [

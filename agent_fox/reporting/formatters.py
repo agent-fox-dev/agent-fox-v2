@@ -1,6 +1,7 @@
-"""Output formatters: table (Rich), JSON, YAML.
+"""Output formatters: table (Rich) and JSON.
 
-Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.3, 07-REQ-3.4
+Requirements: 07-REQ-3.1, 07-REQ-3.2, 07-REQ-3.4,
+              23-REQ-8.4, 23-REQ-8.5
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
-import yaml
 from rich.console import Console
 
 from agent_fox.core.errors import AgentFoxError
@@ -59,7 +59,6 @@ def _display_node_id(node_id: str) -> str:
 class OutputFormat(StrEnum):
     TABLE = "table"
     JSON = "json"
-    YAML = "yaml"
 
 
 class ReportFormatter(Protocol):
@@ -245,24 +244,14 @@ def _json_serializer(data: dict[str, Any]) -> str:
     return json.dumps(data, indent=2)
 
 
-def _yaml_serializer(data: dict[str, Any]) -> str:
-    return yaml.dump(data, default_flow_style=False, sort_keys=False)
-
-
 def JsonFormatter() -> StructuredFormatter:  # noqa: N802
     """JSON formatter for machine-readable output."""
     return StructuredFormatter(_json_serializer)
 
 
-def YamlFormatter() -> StructuredFormatter:  # noqa: N802
-    """YAML formatter for human-readable structured output."""
-    return StructuredFormatter(_yaml_serializer)
-
-
 _FORMATTERS: dict[OutputFormat, Callable[..., ReportFormatter]] = {
     OutputFormat.TABLE: lambda console: TableFormatter(console),  # type: ignore[dict-item]
     OutputFormat.JSON: lambda _: JsonFormatter(),  # type: ignore[dict-item]
-    OutputFormat.YAML: lambda _: YamlFormatter(),  # type: ignore[dict-item]
 }
 
 

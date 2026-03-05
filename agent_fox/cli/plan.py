@@ -182,6 +182,7 @@ def _print_summary(graph: TaskGraph, specs: list[SpecInfo]) -> None:
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
 @click.option("--reanalyze", is_flag=True, help="Discard cached plan")
 @click.option("--verify", is_flag=True, help="Verify dependency consistency")
+@click.option("--analyze", is_flag=True, help="Show parallelism analysis")
 @click.pass_context
 def plan_cmd(
     ctx: click.Context,
@@ -189,6 +190,7 @@ def plan_cmd(
     filter_spec: str | None,
     reanalyze: bool,
     verify: bool,
+    analyze: bool,
 ) -> None:
     """Build an execution plan from specifications."""
     # 02-REQ-7.5: --verify placeholder
@@ -204,6 +206,8 @@ def plan_cmd(
     # Compute content hash of all spec files for cache invalidation
     specs_hash = _compute_specs_hash(specs_dir)
 
+    graph: TaskGraph | None = None
+
     # 02-REQ-6.3: Load existing plan if available (unless --reanalyze)
     if not reanalyze and plan_path.exists():
         existing = load_plan(plan_path)
@@ -215,32 +219,35 @@ def plan_cmd(
                 specs_hash=specs_hash,
             ):
                 logger.info("Using cached plan from %s", plan_path)
-                # Re-discover specs for summary display
-                try:
-                    specs = discover_specs(specs_dir, filter_spec=filter_spec)
-                except PlanError:
-                    specs = []
-                _print_summary(existing, specs)
+                graph = existing
+            else:
+                logger.info(
+                    "Cached plan metadata mismatch; rebuilding "
+                    "(cached fast=%s spec=%s, requested fast=%s spec=%s)",
+                    existing.metadata.fast_mode,
+                    existing.metadata.filtered_spec,
+                    fast,
+                    filter_spec,
+                )
+
+    # Build fresh plan if no cached plan was used
+    json_mode = ctx.obj.get("json", False)
+    if graph is None:
+        try:
+            graph = _build_plan(specs_dir, filter_spec, fast)
+        except PlanError as exc:
+            if json_mode:
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
                 return
-            logger.info(
-                "Cached plan metadata mismatch; rebuilding "
-                "(cached fast=%s spec=%s, requested fast=%s spec=%s)",
-                existing.metadata.fast_mode,
-                existing.metadata.filtered_spec,
-                fast,
-                filter_spec,
-            )
+            click.echo(f"Error: {exc}", err=True)
+            ctx.exit(1)
+            return
 
-    # Build fresh plan
-    try:
-        graph = _build_plan(specs_dir, filter_spec, fast)
-    except PlanError as exc:
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
-
-    # Persist the plan (02-REQ-6.1, 02-REQ-6.2)
-    save_plan(graph, plan_path)
+        # Persist the plan (02-REQ-6.1, 02-REQ-6.2)
+        save_plan(graph, plan_path)
 
     # Re-discover specs for summary display
     try:
@@ -248,4 +255,30 @@ def plan_cmd(
     except PlanError:
         specs = []
 
+    # 23-REQ-3.4: JSON output for plan command
+    json_mode = ctx.obj.get("json", False)
+    if json_mode:
+        from dataclasses import asdict
+
+        from agent_fox.cli.json_io import emit
+
+        emit({
+            "nodes": {
+                nid: asdict(node)
+                for nid, node in graph.nodes.items()
+            },
+            "edges": [asdict(e) for e in graph.edges],
+            "order": graph.order,
+            "metadata": asdict(graph.metadata),
+        })
+        return
+
     _print_summary(graph, specs)
+
+    # 20-REQ-1.1: Show parallelism analysis when --analyze is passed
+    if analyze:
+        from agent_fox.graph.analyzer import analyze_plan, format_analysis
+
+        analysis = analyze_plan(graph)
+        click.echo()
+        click.echo(format_analysis(analysis, graph))

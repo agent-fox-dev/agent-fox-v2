@@ -75,8 +75,8 @@ decisions.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 04_orchestrator | 01_core_foundation | `AgentFoxConfig`, `OrchestratorConfig`, `CostLimitError`, `SessionError`, `SessionTimeoutError`, `AgentFoxError`, `calculate_cost()`, `resolve_model()`, logging |
-| 04_orchestrator | 02_planning_engine | `TaskGraph`, `TaskNode`, `NodeStatus`, `plan.json` (the orchestrator reads the persisted plan) |
-| 04_orchestrator | 03_session_runner | `SessionRunner`, `WorkspaceInfo`, `SessionOutcome`, `Harvester` (the orchestrator drives sessions and collects outcomes) |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | `AgentFoxConfig`, `OrchestratorConfig`, `CostLimitError`, `SessionError`, `SessionTimeoutError`, `AgentFoxError`, `calculate_cost()`, `resolve_model()`, logging |
+| 02_planning_engine | 6 | 1 | `TaskGraph`, `TaskNode`, `NodeStatus`, `plan.json` (the orchestrator reads the persisted plan) |
+| 03_session_runner | 0 | 1 | `SessionRunner`, `WorkspaceInfo`, `SessionOutcome`, `Harvester` (the orchestrator drives sessions and collects outcomes) |

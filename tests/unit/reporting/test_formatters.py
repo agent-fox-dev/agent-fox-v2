@@ -1,7 +1,7 @@
-"""Unit tests for output formatters: JSON, YAML, write_output.
+"""Unit tests for output formatters: JSON, write_output.
 
-Test Spec: TS-07-9, TS-07-10, TS-07-E5
-Requirements: 07-REQ-3.2, 07-REQ-3.3, 07-REQ-3.E1
+Test Spec: TS-07-9, TS-07-E5
+Requirements: 07-REQ-3.2, 07-REQ-3.E1
 """
 
 from __future__ import annotations
@@ -10,12 +10,10 @@ import json
 from pathlib import Path
 
 import pytest
-import yaml
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.reporting.formatters import (
     JsonFormatter,
-    YamlFormatter,
     write_output,
 )
 from agent_fox.reporting.standup import (
@@ -158,37 +156,6 @@ class TestJsonFormatter:
 
         assert parsed["window_hours"] == 24
         assert parsed["agent"]["sessions_run"] == 3
-
-
-# ---------------------------------------------------------------------------
-# TS-07-10: YAML formatter produces valid YAML
-# Requirement: 07-REQ-3.3
-# ---------------------------------------------------------------------------
-
-
-class TestYamlFormatter:
-    """TS-07-10: YAML formatter produces valid YAML."""
-
-    def test_format_standup_produces_valid_yaml(self) -> None:
-        """YAML output is parseable by yaml.safe_load."""
-        formatter = YamlFormatter()
-        report = _make_standup_report()
-
-        output = formatter.format_standup(report)
-        parsed = yaml.safe_load(output)
-
-        assert parsed["window_hours"] == report.window_hours
-
-    def test_format_status_produces_valid_yaml(self) -> None:
-        """YAML output for status is parseable."""
-        formatter = YamlFormatter()
-        report = _make_status_report()
-
-        output = formatter.format_status(report)
-        parsed = yaml.safe_load(output)
-
-        assert parsed["total_tasks"] == 7
-        assert parsed["estimated_cost"] == pytest.approx(2.50)
 
 
 # ---------------------------------------------------------------------------

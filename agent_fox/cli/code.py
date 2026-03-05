@@ -5,7 +5,7 @@ orchestrator engine. Reads configuration, applies CLI overrides,
 constructs the orchestrator, runs execution, prints a summary,
 and exits with a meaningful code.
 
-Requirements: 16-REQ-1.1 through 16-REQ-5.2
+Requirements: 16-REQ-1.1 through 16-REQ-5.2, 23-REQ-5.1, 23-REQ-5.E1
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from pathlib import Path
 
 import click
 
+from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig, HookConfig, OrchestratorConfig
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.orchestrator import Orchestrator
@@ -166,10 +167,27 @@ def code_cmd(
     # 16-REQ-1.2: load config from Click context
     config = ctx.obj["config"]
     quiet: bool = ctx.obj.get("quiet", False)
+    json_mode: bool = ctx.obj.get("json", False)
+
+    # 23-REQ-7.1: read stdin JSON when in JSON mode
+    if json_mode:
+        stdin_data = json_io.read_stdin()
+        if parallel is None and "parallel" in stdin_data:
+            parallel = int(stdin_data["parallel"])
+        if max_cost is None and "max_cost" in stdin_data:
+            max_cost = float(stdin_data["max_cost"])
+        if max_sessions is None and "max_sessions" in stdin_data:
+            max_sessions = int(stdin_data["max_sessions"])
 
     # 16-REQ-1.E1: check plan file exists
     plan_path = Path(".agent-fox/plan.json")
     if not plan_path.exists():
+        if json_mode:
+            json_io.emit_error(
+                "Plan file not found. "
+                "Run `agent-fox plan` first to generate a plan."
+            )
+            sys.exit(1)
         click.echo(
             "Error: Plan file not found. "
             "Run `agent-fox plan` first to generate a plan.",
@@ -197,9 +215,9 @@ def code_cmd(
     if knowledge_db is not None:
         sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
 
-    # 18-REQ-5.1: Create progress display
+    # 18-REQ-5.1: Create progress display (suppressed in JSON mode)
     theme = create_theme(config.theme)
-    progress = ProgressDisplay(theme, quiet=quiet)
+    progress = ProgressDisplay(theme, quiet=quiet or json_mode)
 
     def session_runner_factory(node_id: str) -> NodeSessionRunner:
         """Create a session runner for the given node.
@@ -239,13 +257,24 @@ def code_cmd(
         # 16-REQ-1.4: execute via asyncio.run()
         state: ExecutionState = asyncio.run(orchestrator.run())
 
+    except KeyboardInterrupt:
+        # 23-REQ-5.E1: emit interrupted status in JSON mode
+        if json_mode:
+            json_io.emit_line({"status": "interrupted"})
+        sys.exit(130)
     except AgentFoxError as exc:
         logger.debug("Execution failed", exc_info=True)
+        if json_mode:
+            json_io.emit_error(str(exc))
+            sys.exit(1)
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
     except Exception as exc:
         # 16-REQ-1.E2: unexpected exceptions
         logger.debug("Unexpected error during execution", exc_info=True)
+        if json_mode:
+            json_io.emit_error(str(exc))
+            sys.exit(1)
         click.echo(f"Error: unexpected error: {exc}", err=True)
         sys.exit(1)
     finally:
@@ -255,8 +284,24 @@ def code_cmd(
         if knowledge_db is not None:
             knowledge_db.close()
 
-    # 16-REQ-3.1: print summary
-    _print_summary(state)
+    # 23-REQ-5.1: emit JSONL summary in JSON mode
+    if json_mode:
+        counts = _count_by_status(state.node_states)
+        json_io.emit_line({
+            "event": "complete",
+            "summary": {
+                "tasks": len(state.node_states),
+                "completed": counts.get("completed", 0),
+                "failed": counts.get("failed", 0),
+                "input_tokens": state.total_input_tokens,
+                "output_tokens": state.total_output_tokens,
+                "cost": state.total_cost,
+                "run_status": state.run_status,
+            },
+        })
+    else:
+        # 16-REQ-3.1: print summary
+        _print_summary(state)
 
     # 16-REQ-4.*: exit with appropriate code
     exit_code = _exit_code_for_status(state.run_status)

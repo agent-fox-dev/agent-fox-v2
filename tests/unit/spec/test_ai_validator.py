@@ -64,6 +64,7 @@ class TestAIUnavailableGracefulFallback:
         with patch(_MOCK_CLIENT) as mock_cls:
             mock_client = AsyncMock()
             mock_client.messages.create.side_effect = Exception("Authentication failed")
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await run_ai_validation(specs, "STANDARD")
@@ -79,6 +80,7 @@ class TestAIUnavailableGracefulFallback:
         with patch(_MOCK_CLIENT) as mock_cls:
             mock_client = AsyncMock()
             mock_client.messages.create.side_effect = Exception("Authentication failed")
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             with caplog.at_level(logging.WARNING):
@@ -119,6 +121,7 @@ class TestAIFindingsSeverityAndRule:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await analyze_acceptance_criteria(
@@ -149,6 +152,7 @@ class TestAIFindingsSeverityAndRule:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await analyze_acceptance_criteria(
@@ -178,6 +182,7 @@ class TestAIFindingsSeverityAndRule:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await analyze_acceptance_criteria(
@@ -207,6 +212,7 @@ class TestAIPromptConstruction:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text='{"issues": []}')]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             await analyze_acceptance_criteria(
@@ -243,6 +249,7 @@ class TestAIResponseParsing:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text=response_text)]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await analyze_acceptance_criteria(
@@ -261,6 +268,7 @@ class TestAIResponseParsing:
             mock_response = MagicMock()
             mock_response.content = [MagicMock(text="not valid json")]
             mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
             findings = await analyze_acceptance_criteria(
@@ -270,3 +278,32 @@ class TestAIResponseParsing:
             )
 
             assert len(findings) == 0
+
+    @pytest.mark.asyncio
+    async def test_fenced_json_response_parsed(self) -> None:
+        """JSON wrapped in markdown code fences is parsed correctly."""
+        fenced = (
+            "```json\n"
+            '{"issues": [{"criterion_id": "99-REQ-1.1",'
+            ' "issue_type": "vague",'
+            ' "explanation": "Too vague",'
+            ' "suggestion": "Be specific"}]}\n'
+            "```"
+        )
+
+        with patch(_MOCK_CLIENT) as mock_cls:
+            mock_client = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.content = [MagicMock(text=fenced)]
+            mock_client.messages.create.return_value = mock_response
+            mock_client.__aenter__.return_value = mock_client
+            mock_cls.return_value = mock_client
+
+            findings = await analyze_acceptance_criteria(
+                "test_spec",
+                FIXTURES_DIR / "complete_spec",
+                "STANDARD",
+            )
+
+            assert len(findings) == 1
+            assert findings[0].rule == "vague-criterion"

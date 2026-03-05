@@ -121,8 +121,16 @@ def init_cmd(ctx: click.Context) -> None:
     configuration file, sets up the development branch, and
     updates .gitignore.
     """
+    json_mode = ctx.obj.get("json", False)
+
     # 01-REQ-3.5: check we are in a git repository
     if not _is_git_repo():
+        if json_mode:
+            from agent_fox.cli.json_io import emit_error
+
+            emit_error("Not inside a git repository. Run 'git init' first.")
+            ctx.exit(1)
+            return
         click.echo(
             "Error: Not inside a git repository. Run 'git init' first.",
             err=True,
@@ -136,14 +144,23 @@ def init_cmd(ctx: click.Context) -> None:
 
     # 01-REQ-3.3: idempotency — preserve existing config
     if config_path.exists():
-        click.echo("Project is already initialized. Existing configuration preserved.")
+        if not json_mode:
+            click.echo(
+                "Project is already initialized. "
+                "Existing configuration preserved."
+            )
         # Still ensure directory structure and gitignore are complete
         (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
         _update_gitignore(project_root)
-        _ensure_develop_branch()
+        _ensure_develop_branch(quiet=json_mode)
         # 17-REQ-2.1: Merge canonical permissions on re-init
         _ensure_claude_settings(project_root)
+        # 23-REQ-4.1: JSON output for init command
+        if json_mode:
+            from agent_fox.cli.json_io import emit
+
+            emit({"status": "ok"})
         return
 
     # 01-REQ-3.1: create directory structure
@@ -157,7 +174,7 @@ def init_cmd(ctx: click.Context) -> None:
     logger.debug("Created default config.toml")
 
     # 01-REQ-3.2: create or verify develop branch
-    _ensure_develop_branch()
+    _ensure_develop_branch(quiet=json_mode)
 
     # 01-REQ-3.4: update .gitignore
     _update_gitignore(project_root)
@@ -165,7 +182,13 @@ def init_cmd(ctx: click.Context) -> None:
     # 17-REQ-1.1: Create Claude settings on fresh init
     _ensure_claude_settings(project_root)
 
-    click.echo("Initialized agent-fox project.")
+    # 23-REQ-4.1: JSON output for init command
+    if json_mode:
+        from agent_fox.cli.json_io import emit
+
+        emit({"status": "ok"})
+    else:
+        click.echo("Initialized agent-fox project.")
 
 
 CANONICAL_PERMISSIONS: list[str] = [
@@ -271,12 +294,39 @@ def _ensure_claude_settings(project_root: Path) -> None:
     )
 
 
-def _ensure_develop_branch() -> None:
-    """Create the develop branch if it doesn't already exist."""
-    if _branch_exists("develop"):
-        logger.debug("Branch 'develop' already exists")
-        click.echo("Branch 'develop' is ready.")
-    else:
-        _create_branch("develop")
-        logger.debug("Created branch 'develop'")
-        click.echo("Created branch 'develop'.")
+def _ensure_develop_branch(*, quiet: bool = False) -> None:
+    """Create or recover the develop branch using the robust ensure logic.
+
+    Uses the async ``ensure_develop()`` from workspace.git, which handles
+    remote tracking, fast-forwarding, and fallback to the default branch.
+
+    Args:
+        quiet: If True, suppress human-readable output (for JSON mode).
+
+    Requirements: 19-REQ-1.5
+    """
+    import asyncio
+
+    from agent_fox.workspace.git import ensure_develop
+
+    try:
+        asyncio.run(ensure_develop(Path.cwd()))
+        if not quiet:
+            click.echo("Branch 'develop' is ready.")
+    except Exception as exc:
+        if not quiet:
+            click.echo(f"Warning: Could not ensure develop branch: {exc}", err=True)
+        # Fall back to the simple approach
+        if _branch_exists("develop"):
+            if not quiet:
+                click.echo("Branch 'develop' already exists.")
+        else:
+            try:
+                _create_branch("develop")
+                if not quiet:
+                    click.echo("Created branch 'develop'.")
+            except Exception:
+                if not quiet:
+                    click.echo(
+                        "Error: Could not create develop branch.", err=True
+                    )

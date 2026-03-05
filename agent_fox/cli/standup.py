@@ -3,12 +3,14 @@
 Generates a daily activity report covering agent work, human
 commits, file overlaps, and queued tasks.
 
-Requirements: 07-REQ-2.1, 07-REQ-3.1, 07-REQ-3.4
+Requirements: 07-REQ-2.1, 07-REQ-3.1, 07-REQ-3.4,
+              23-REQ-3.2, 23-REQ-8.2
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 from pathlib import Path
 
 import click
@@ -35,13 +37,6 @@ _AGENT_FOX_DIR = ".agent-fox"
     help="Reporting window in hours (default: 24)",
 )
 @click.option(
-    "--format",
-    "fmt",
-    type=click.Choice(["table", "json", "yaml"], case_sensitive=False),
-    default="table",
-    help="Output format (default: table)",
-)
-@click.option(
     "--output",
     type=click.Path(),
     default=None,
@@ -49,8 +44,9 @@ _AGENT_FOX_DIR = ".agent-fox"
 )
 @click.pass_context
 @handle_agent_fox_errors
-def standup_cmd(ctx: click.Context, hours: int, fmt: str, output: str | None) -> None:
+def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
     """Generate daily activity report."""
+    json_mode = ctx.obj.get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / _AGENT_FOX_DIR
     state_path = agent_dir / "state.jsonl"
@@ -63,10 +59,14 @@ def standup_cmd(ctx: click.Context, hours: int, fmt: str, output: str | None) ->
         hours=hours,
     )
 
-    console = Console()
-    output_format = OutputFormat(fmt)
-    formatter = get_formatter(output_format, console=console)
-    content = formatter.format_standup(report)
+    if json_mode:
+        from agent_fox.cli.json_io import emit
 
-    output_path = Path(output) if output else None
-    write_output(content, output_path=output_path, console=console)
+        emit(asdict(report))
+    else:
+        console = Console()
+        formatter = get_formatter(OutputFormat.TABLE, console=console)
+        content = formatter.format_standup(report)
+
+        output_path = Path(output) if output else None
+        write_output(content, output_path=output_path, console=console)

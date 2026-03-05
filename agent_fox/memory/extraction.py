@@ -69,12 +69,12 @@ async def extract_facts(
     model_entry = resolve_model(model_name)
     prompt = EXTRACTION_PROMPT.format(transcript=transcript)
 
-    client = create_async_anthropic_client()
-    response = await client.messages.create(
-        model=model_entry.model_id,
-        max_tokens=4096,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    async with create_async_anthropic_client() as client:
+        response = await client.messages.create(
+            model=model_entry.model_id,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
 
     first_block = response.content[0]
     if isinstance(first_block, TextBlock):
@@ -181,9 +181,7 @@ def _strip_markdown_fences(text: str) -> str:
     to locate a top-level JSON array bracket pair.
     """
     # 1. Strip ```json ... ``` or ``` ... ``` fences
-    fence_match = re.search(
-        r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL
-    )
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
     if fence_match:
         return fence_match.group(1).strip()
 
@@ -192,11 +190,26 @@ def _strip_markdown_fences(text: str) -> str:
     if stripped.startswith("["):
         return stripped
 
-    bracket_match = re.search(r"(\[.*\])", text, re.DOTALL)
-    if bracket_match:
-        return bracket_match.group(1).strip()
+    # 3. Find a valid JSON array using bracket-depth counting.
+    # The greedy regex (\[.*\]) fails when prose contains [bracketed]
+    # references (e.g. [uuid]) before the actual JSON array.
+    for match in re.finditer(r"\[", stripped):
+        start = match.start()
+        depth = 0
+        for i, ch in enumerate(stripped[start:], start=start):
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    candidate = stripped[start : i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except (json.JSONDecodeError, ValueError):
+                        break
 
-    # 3. Give up — return original text so json.loads produces a clear error
+    # 4. Give up — return original text so json.loads produces a clear error
     return stripped
 
 
