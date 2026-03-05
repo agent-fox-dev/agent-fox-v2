@@ -169,7 +169,7 @@ cases.
     - [x] No linter warnings: `uv run ruff check agent_fox/cli/`
     - [x] Requirements 23-REQ-5.*, 23-REQ-7.* met
 
-- [ ] 6. Checkpoint — Global JSON Flag Complete
+- [x] 6. Checkpoint — Global JSON Flag Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`
   - All lints clean: `uv run ruff check agent_fox/ tests/`
   - Type check clean: `uv run mypy agent_fox/cli/`
