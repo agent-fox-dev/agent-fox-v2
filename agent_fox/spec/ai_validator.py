@@ -483,14 +483,18 @@ async def analyze_acceptance_criteria(
 async def run_ai_validation(
     discovered_specs: list[SpecInfo],
     model: str,
+    specs_dir: Path | None = None,
 ) -> list[Finding]:
     """Run AI validation across all discovered specs.
 
-    Iterates through specs, calling analyze_acceptance_criteria for each
-    spec that has a requirements.md file. Collects and returns all findings.
+    Runs both the existing acceptance criteria analysis and the new
+    stale-dependency validation. The specs_dir parameter is needed for
+    the stale-dependency rule to locate upstream design.md files.
 
     If the AI model is unavailable (auth error, network error), logs a
     warning and returns an empty list.
+
+    Requirements: 21-REQ-4.1
     """
     findings: list[Finding] = []
 
@@ -511,5 +515,18 @@ async def run_ai_validation(
                 exc,
             )
             return []
+
+    # NEW: stale-dependency validation (21-REQ-4.1)
+    if specs_dir is not None:
+        try:
+            stale_findings = await run_stale_dependency_validation(
+                discovered_specs, specs_dir, model
+            )
+            findings.extend(stale_findings)
+        except Exception as exc:
+            logger.warning(
+                "Stale-dependency validation unavailable: %s. Skipping.",
+                exc,
+            )
 
     return findings

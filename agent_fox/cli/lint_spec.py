@@ -235,7 +235,9 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool, fix: bool) -> No
 
             # 09-REQ-8.1: use STANDARD tier via model registry
             standard_model = resolve_model("STANDARD").model_id
-            ai_findings = asyncio.run(run_ai_validation(discovered, standard_model))
+            ai_findings = asyncio.run(
+                run_ai_validation(discovered, standard_model, specs_dir=specs_dir)
+            )
             findings = sort_findings(findings + ai_findings)
         except Exception as exc:
             logger.warning("AI validation failed: %s", exc)
@@ -258,7 +260,9 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool, fix: bool) -> No
 
                     standard_model = resolve_model("STANDARD").model_id
                     ai_findings = asyncio.run(
-                        run_ai_validation(discovered, standard_model)
+                        run_ai_validation(
+                            discovered, standard_model, specs_dir=specs_dir
+                        )
                     )
                     findings = sort_findings(findings + ai_findings)
                 except Exception as exc:

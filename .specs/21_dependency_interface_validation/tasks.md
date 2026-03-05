@@ -128,18 +128,18 @@ tests, identifier extraction + AI validation, auto-fixer, and integration.
     - [x] No linter warnings
     - [x] Existing fixer tests still pass (no regressions)
 
-- [ ] 4. Integrate with lint-spec pipeline
-  - [ ] 4.1 Wire into run_ai_validation()
+- [x] 4. Integrate with lint-spec pipeline
+  - [x] 4.1 Wire into run_ai_validation()
     - `agent_fox/spec/ai_validator.py`: update `run_ai_validation()` to accept
       `specs_dir` parameter and call `run_stale_dependency_validation()`
     - _Requirements: 21-REQ-4.1_
 
-  - [ ] 4.2 Update lint-spec CLI
+  - [x] 4.2 Update lint-spec CLI
     - `agent_fox/cli/lint_spec.py`: pass `specs_dir` to `run_ai_validation()`
     - Ensure `--fix --ai` triggers stale-dependency fixes via apply_fixes()
     - _Requirements: 21-REQ-4.1, 21-REQ-4.2, 21-REQ-5.E2_
 
-  - [ ] 4.3 Verify integration
+  - [x] 4.3 Verify integration
     - Run `agent-fox lint-spec --ai` and confirm stale-dependency findings
       appear alongside existing findings
     - Run `agent-fox lint-spec --fix --ai` and confirm stale identifiers are
@@ -147,12 +147,12 @@ tests, identifier extraction + AI validation, auto-fixer, and integration.
     - Verify Warning severity does not cause non-zero exit code
     - _Requirements: 21-REQ-4.2, 21-REQ-4.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Integration test passes (TS-21-13)
-    - [ ] All existing lint-spec tests still pass (no regressions)
-    - [ ] All existing AI validation tests still pass
-    - [ ] All existing fixer tests still pass
-    - [ ] No linter warnings
+  - [x] 4.V Verify task group 4
+    - [x] Integration test passes (TS-21-13)
+    - [x] All existing lint-spec tests still pass (no regressions)
+    - [x] All existing AI validation tests still pass
+    - [x] All existing fixer tests still pass
+    - [x] No linter warnings
 
 ## Traceability
 

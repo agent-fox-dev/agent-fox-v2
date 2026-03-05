@@ -634,6 +634,64 @@ class TestFindingSeverityFormat:
 
             assert all(f.severity == "warning" for f in findings)
 
+    @pytest.mark.asyncio
+    async def test_stale_dep_findings_via_run_ai_validation(
+        self, tmp_path: Path
+    ) -> None:
+        """stale-dep findings appear via run_ai_validation.
+
+        Requirements: 21-REQ-4.1, 21-REQ-4.2
+        """
+        from agent_fox.spec.ai_validator import run_ai_validation
+
+        # Create spec with prd.md and requirements.md
+        spec_dir = tmp_path / "10_downstream"
+        spec_dir.mkdir()
+        _write_prd(spec_dir, "Uses `BadRef` for something")
+        req_text = (
+            "# Requirements\n\n## Requirement 1\n\n"
+            "1. [99-REQ-1.1] THE system SHALL work.\n"
+        )
+        (spec_dir / "requirements.md").write_text(req_text)
+
+        # Create upstream with design.md
+        upstream_dir = tmp_path / "01_core"
+        upstream_dir.mkdir()
+        (upstream_dir / "design.md").write_text("# Design\n\nGoodRef is defined.")
+
+        specs = [_make_spec("10_downstream", spec_dir)]
+
+        # Mock: acceptance criteria returns empty, stale-dep flags BadRef
+        stale_response = _make_mock_ai_response(
+            [
+                {
+                    "identifier": "BadRef",
+                    "found": False,
+                    "explanation": "Not found",
+                    "suggestion": "GoodRef",
+                }
+            ]
+        )
+        criteria_response = MagicMock()
+        criteria_response.content = [MagicMock(text='{"issues": []}')]
+
+        with patch(_MOCK_CLIENT) as mock_cls:
+            mock_client = AsyncMock()
+            # First call = acceptance criteria, second call = stale-dep
+            mock_client.messages.create.side_effect = [
+                criteria_response,
+                stale_response,
+            ]
+            mock_cls.return_value = mock_client
+
+            findings = await run_ai_validation(
+                specs, "STANDARD", specs_dir=tmp_path
+            )
+
+            stale = [f for f in findings if f.rule == "stale-dependency"]
+            assert len(stale) == 1
+            assert stale[0].severity == "warning"
+
     def test_findings_sortable_with_other_types(self) -> None:
         """stale-dependency findings sort alongside other finding types."""
         findings = [
