@@ -3,7 +3,7 @@
 All operations are async and use ``asyncio.create_subprocess_exec`` to run git
 commands without blocking the event loop.
 
-Requirements: 03-REQ-9.1, 03-REQ-9.2
+Requirements: 03-REQ-9.1, 03-REQ-9.2, 19-REQ-1.1 through 19-REQ-1.6
 """
 
 from __future__ import annotations
@@ -227,3 +227,210 @@ async def rebase_onto(
 async def abort_rebase(repo_path: Path) -> None:
     """Abort an in-progress rebase."""
     await run_git(["rebase", "--abort"], cwd=repo_path, check=False)
+
+
+# ---------------------------------------------------------------------------
+# New functions for 19-REQ-1.* (develop branch management)
+# ---------------------------------------------------------------------------
+
+
+async def local_branch_exists(repo_root: Path, branch: str) -> bool:
+    """Check if a local branch exists.
+
+    Requirements: 19-REQ-1.1
+    """
+    _rc, stdout, _stderr = await run_git(
+        ["branch", "--list", branch],
+        cwd=repo_root,
+        check=False,
+    )
+    return branch in stdout
+
+
+async def remote_branch_exists(
+    repo_root: Path,
+    branch: str,
+    remote: str = "origin",
+) -> bool:
+    """Check if a branch exists on the given remote.
+
+    Requirements: 19-REQ-1.1
+    """
+    _rc, stdout, _stderr = await run_git(
+        ["ls-remote", "--heads", remote, branch],
+        cwd=repo_root,
+        check=False,
+    )
+    return bool(stdout.strip())
+
+
+async def detect_default_branch(repo_root: Path) -> str:
+    """Detect the repository's default branch name.
+
+    Tries git symbolic-ref refs/remotes/origin/HEAD, then falls back
+    to 'main', then 'master'. Returns the first that exists locally.
+
+    Raises:
+        WorkspaceError: If no default branch can be determined.
+
+    Requirements: 19-REQ-1.4
+    """
+    # Try symbolic-ref first
+    rc, stdout, _stderr = await run_git(
+        ["symbolic-ref", "refs/remotes/origin/HEAD"],
+        cwd=repo_root,
+        check=False,
+    )
+    if rc == 0 and stdout.strip():
+        # e.g. "refs/remotes/origin/main" -> "main"
+        ref = stdout.strip()
+        branch_name = ref.split("/")[-1]
+        return branch_name
+
+    # Fallback: check local main, then master
+    for candidate in ("main", "master"):
+        if await local_branch_exists(repo_root, candidate):
+            return candidate
+
+    raise WorkspaceError(
+        "Cannot determine default branch: no symbolic-ref, "
+        "no local 'main' or 'master' branch found.",
+    )
+
+
+async def ensure_develop(repo_root: Path) -> None:
+    """Ensure a local develop branch exists and is up-to-date.
+
+    1. Fetch origin (warn and continue on failure).
+    2. If local develop exists:
+       a. If origin/develop exists and local is behind, fast-forward.
+       b. If diverged, warn and use local as-is.
+    3. If local develop does not exist:
+       a. If origin/develop exists, create tracking branch.
+       b. Otherwise, create from default branch.
+
+    Raises:
+        WorkspaceError: If no suitable base branch can be found.
+
+    Requirements: 19-REQ-1.1, 19-REQ-1.2, 19-REQ-1.3, 19-REQ-1.5, 19-REQ-1.6
+    """
+    # Step 1: Fetch origin (best-effort)
+    fetch_ok = True
+    try:
+        await run_git(["fetch", "origin"], cwd=repo_root)
+    except WorkspaceError:
+        logger.warning(
+            "Failed to fetch from origin; proceeding with local state only"
+        )
+        fetch_ok = False
+
+    has_local = await local_branch_exists(repo_root, "develop")
+
+    if has_local:
+        # Local develop exists — check if we need to fast-forward
+        if fetch_ok:
+            has_remote = await remote_branch_exists(repo_root, "develop")
+            if has_remote:
+                await _sync_develop_with_remote(repo_root)
+        # 19-REQ-1.E1: local exists and is up-to-date → no-op
+        logger.info("Local develop branch is ready")
+        return
+
+    # No local develop — need to create it
+    if fetch_ok:
+        has_remote = await remote_branch_exists(repo_root, "develop")
+        if has_remote:
+            # 19-REQ-1.2: Create from origin/develop
+            await run_git(
+                ["branch", "develop", "origin/develop"],
+                cwd=repo_root,
+            )
+            logger.info(
+                "Created local develop branch tracking origin/develop"
+            )
+            return
+
+    # 19-REQ-1.3: No remote develop — create from default branch
+    default_branch = await detect_default_branch(repo_root)
+    await run_git(
+        ["branch", "develop", default_branch],
+        cwd=repo_root,
+    )
+    logger.info("Created local develop branch from '%s'", default_branch)
+
+
+async def _sync_develop_with_remote(repo_root: Path) -> None:
+    """Synchronize local develop with origin/develop.
+
+    Checks commit counts to determine if local is behind, ahead,
+    or diverged from remote. Fast-forwards if behind only.
+
+    Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4
+    """
+    # Commits on remote not on local (remote is ahead)
+    _rc, remote_ahead_str, _stderr = await run_git(
+        ["rev-list", "--count", "develop..origin/develop"],
+        cwd=repo_root,
+        check=False,
+    )
+    remote_ahead = int(remote_ahead_str.strip()) if remote_ahead_str.strip() else 0
+
+    # Commits on local not on remote (local is ahead)
+    _rc, local_ahead_str, _stderr = await run_git(
+        ["rev-list", "--count", "origin/develop..develop"],
+        cwd=repo_root,
+        check=False,
+    )
+    local_ahead = int(local_ahead_str.strip()) if local_ahead_str.strip() else 0
+
+    if remote_ahead == 0:
+        # Local is up-to-date or ahead — no-op (19-REQ-1.E1)
+        return
+
+    if local_ahead > 0 and remote_ahead > 0:
+        # Diverged — warn and leave as-is (19-REQ-1.E4)
+        logger.warning(
+            "Local develop has diverged from origin/develop "
+            "(%d local, %d remote commits). Using local as-is.",
+            local_ahead,
+            remote_ahead,
+        )
+        return
+
+    # Local is behind only — fast-forward (19-REQ-1.6)
+    logger.info(
+        "Fast-forwarding local develop (%d commits behind origin/develop)",
+        remote_ahead,
+    )
+    await run_git(
+        ["branch", "-f", "develop", "origin/develop"],
+        cwd=repo_root,
+    )
+
+
+async def push_to_remote(
+    repo_root: Path,
+    branch: str,
+    remote: str = "origin",
+) -> bool:
+    """Push a branch to the remote. Returns True on success, False on failure.
+
+    Does not raise — logs a warning on failure.
+
+    Requirements: 19-REQ-3.1
+    """
+    rc, _stdout, stderr = await run_git(
+        ["push", remote, branch],
+        cwd=repo_root,
+        check=False,
+    )
+    if rc != 0:
+        logger.warning(
+            "Failed to push '%s' to '%s': %s",
+            branch,
+            remote,
+            stderr.strip(),
+        )
+        return False
+    logger.info("Pushed '%s' to '%s'", branch, remote)
+    return True

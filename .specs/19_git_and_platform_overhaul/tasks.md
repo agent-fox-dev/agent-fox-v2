@@ -62,40 +62,40 @@ changes that depend on them.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement robust develop branch management
-  - [ ] 2.1 Add `local_branch_exists` to git.py
+- [x] 2. Implement robust develop branch management
+  - [x] 2.1 Add `local_branch_exists` to git.py
     - Async function checking if a local branch exists via `git branch --list`
     - _Requirements: 19-REQ-1.1_
 
-  - [ ] 2.2 Add `remote_branch_exists` to git.py
+  - [x] 2.2 Add `remote_branch_exists` to git.py
     - Async function checking if a branch exists on a remote after fetch
     - _Requirements: 19-REQ-1.1_
 
-  - [ ] 2.3 Add `detect_default_branch` to git.py
+  - [x] 2.3 Add `detect_default_branch` to git.py
     - Try `git symbolic-ref refs/remotes/origin/HEAD`, parse branch name
     - Fall back to checking local `main`, then `master`
     - Raise `WorkspaceError` if none found
     - _Requirements: 19-REQ-1.4_
 
-  - [ ] 2.4 Add `ensure_develop` to git.py
+  - [x] 2.4 Add `ensure_develop` to git.py
     - Fetch origin (warn on failure)
     - If local develop exists: fast-forward if behind remote, warn if diverged
     - If no local develop: create from origin/develop or default branch
     - _Requirements: 19-REQ-1.1, 19-REQ-1.2, 19-REQ-1.3, 19-REQ-1.5, 19-REQ-1.6_
 
-  - [ ] 2.5 Update `cli/init.py` to use new ensure logic
+  - [x] 2.5 Update `cli/init.py` to use new ensure logic
     - Replace `_ensure_develop_branch()` with a call to `ensure_develop()` (sync wrapper if needed since init is synchronous)
     - _Requirements: 19-REQ-1.5_
 
-  - [ ] 2.6 Call `ensure_develop` before worktree creation in session lifecycle
+  - [x] 2.6 Call `ensure_develop` before worktree creation in session lifecycle
     - Add call in `NodeSessionRunner.execute()` before `create_worktree()`
     - _Requirements: 19-REQ-1.1, 19-REQ-1.6_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/workspace/test_git_ensure.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/workspace/ agent_fox/cli/ agent_fox/engine/`
-    - [ ] Requirements 19-REQ-1.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/workspace/test_git_ensure.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/workspace/ agent_fox/cli/ agent_fox/engine/`
+    - [x] Requirements 19-REQ-1.* acceptance criteria met
 
 - [ ] 3. Remove push instructions from agent prompts
   - [ ] 3.1 Update git-flow.md

@@ -38,6 +38,7 @@ from agent_fox.session.context import assemble_context, select_context_with_caus
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 from agent_fox.session.runner import run_session
 from agent_fox.ui.events import ActivityCallback
+from agent_fox.workspace.git import ensure_develop
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.worktree import (
     WorkspaceInfo,
@@ -457,6 +458,18 @@ class NodeSessionRunner:
         workspace: WorkspaceInfo | None = None
 
         try:
+            # 19-REQ-1.1, 19-REQ-1.6: Ensure develop branch exists
+            # and is up-to-date before creating the worktree.
+            try:
+                await ensure_develop(repo_root)
+            except Exception:
+                logger.warning(
+                    "ensure_develop failed for %s, continuing with "
+                    "existing branch state",
+                    node_id,
+                    exc_info=True,
+                )
+
             workspace = await create_worktree(
                 repo_root,
                 self._spec_name,

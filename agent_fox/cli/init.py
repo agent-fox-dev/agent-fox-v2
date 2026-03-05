@@ -272,11 +272,30 @@ def _ensure_claude_settings(project_root: Path) -> None:
 
 
 def _ensure_develop_branch() -> None:
-    """Create the develop branch if it doesn't already exist."""
-    if _branch_exists("develop"):
-        logger.debug("Branch 'develop' already exists")
+    """Create or recover the develop branch using the robust ensure logic.
+
+    Uses the async ``ensure_develop()`` from workspace.git, which handles
+    remote tracking, fast-forwarding, and fallback to the default branch.
+
+    Requirements: 19-REQ-1.5
+    """
+    import asyncio
+
+    from agent_fox.workspace.git import ensure_develop
+
+    try:
+        asyncio.run(ensure_develop(Path.cwd()))
         click.echo("Branch 'develop' is ready.")
-    else:
-        _create_branch("develop")
-        logger.debug("Created branch 'develop'")
-        click.echo("Created branch 'develop'.")
+    except Exception as exc:
+        click.echo(f"Warning: Could not ensure develop branch: {exc}", err=True)
+        # Fall back to the simple approach
+        if _branch_exists("develop"):
+            click.echo("Branch 'develop' already exists.")
+        else:
+            try:
+                _create_branch("develop")
+                click.echo("Created branch 'develop'.")
+            except Exception:
+                click.echo(
+                    "Error: Could not create develop branch.", err=True
+                )
