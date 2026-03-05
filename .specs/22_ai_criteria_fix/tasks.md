@@ -112,7 +112,7 @@ the existing validator/fixer separation.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/cli/lint_spec.py`
     - [x] Requirements 22-REQ-1.*, 22-REQ-4.* acceptance criteria met
 
-- [ ] 4. Checkpoint — AI Criteria Fix Complete
+- [x] 4. Checkpoint — AI Criteria Fix Complete
   - Ensure all tests pass: `uv run pytest tests/unit/spec/ tests/property/spec/ tests/integration/ -q`
   - All lints clean: `uv run ruff check agent_fox/spec/ agent_fox/cli/ tests/`
   - Type check clean: `uv run mypy agent_fox/spec/ai_validator.py agent_fox/spec/fixer.py agent_fox/cli/lint_spec.py`

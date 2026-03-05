@@ -265,6 +265,7 @@ agent-fox lint-spec [OPTIONS]
 |--------|------|---------|-------------|
 | `--format FMT` | table/json/yaml | table | Output format |
 | `--ai` | flag | off | Enable AI-powered semantic analysis |
+| `--fix` | flag | off | Auto-fix findings where possible |
 
 Runs structural validation rules against specs in `.specs/`: missing files,
 oversized task groups, missing verification subtasks, missing acceptance
@@ -272,6 +273,17 @@ criteria, broken cross-spec dependencies, and untraced requirements.
 
 With `--ai`, additionally checks for vague or implementation-leaking acceptance
 criteria.
+
+With `--fix`, applies mechanical auto-fixes for supported rules (e.g., missing
+verification subtasks, missing acceptance criteria).
+
+With `--ai --fix`, additionally rewrites criteria flagged as `vague-criterion`
+or `implementation-leak` using an AI-powered rewrite step. The system sends a
+batched rewrite request per spec to the STANDARD-tier model, which returns
+EARS-formatted replacement text. Rewrites preserve the original requirement ID
+and are applied in-place to `requirements.md`. After rewrites, the spec is
+re-validated to produce the final findings list. If the AI rewrite call fails,
+the original criteria are left unchanged.
 
 **Exit codes:** `0` no errors (warnings OK), `1` error-severity findings.
 

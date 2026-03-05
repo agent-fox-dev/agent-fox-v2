@@ -271,8 +271,8 @@ async def validate_dependency_interfaces(
             continue
 
         # Look up the declaring spec from the ref
-        ref = ref_by_id.get(identifier)
-        declaring_spec = ref.declaring_spec if ref else "unknown"
+        matched_ref = ref_by_id.get(identifier)
+        declaring_spec = matched_ref.declaring_spec if matched_ref else "unknown"
 
         suggestion_text = suggestion if suggestion else ""
         message = (
