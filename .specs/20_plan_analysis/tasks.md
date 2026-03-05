@@ -131,33 +131,33 @@ af-spec prompt update.
     - [x] No linter warnings
     - [x] Existing lint-spec tests still pass (no regressions)
 
-- [ ] 4. Implement fixers
-  - [ ] 4.1 Create fixer module
+- [x] 4. Implement fixers
+  - [x] 4.1 Create fixer module
     - `agent_fox/spec/fixer.py`: `FixResult` dataclass, `FIXABLE_RULES` set
     - _Requirements: 20-REQ-6.1_
 
-  - [ ] 4.2 Implement fix_coarse_dependency
+  - [x] 4.2 Implement fix_coarse_dependency
     - `agent_fox/spec/fixer.py`: parse standard table, look up upstream
       group numbers, rewrite to alt format, preserve description as
       Relationship
     - Handle unknown upstream groups (sentinel 0)
     - _Requirements: 20-REQ-6.3, 20-REQ-6.E2_
 
-  - [ ] 4.3 Implement fix_missing_verification
+  - [x] 4.3 Implement fix_missing_verification
     - `agent_fox/spec/fixer.py`: find groups missing N.V, append
       verification step with standard checklist
     - _Requirements: 20-REQ-6.4_
 
-  - [ ] 4.4 Implement apply_fixes
+  - [x] 4.4 Implement apply_fixes
     - `agent_fox/spec/fixer.py`: orchestrate fixers, deduplicate by
       (spec_name, rule), handle write errors gracefully
     - _Requirements: 20-REQ-6.2, 20-REQ-6.5, 20-REQ-6.E1, 20-REQ-6.E3,
       20-REQ-6.E4_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Fixer unit tests pass (TS-20-14 through TS-20-20)
-    - [ ] No linter warnings
-    - [ ] Existing tests still pass
+  - [x] 4.V Verify task group 4
+    - [x] Fixer unit tests pass (TS-20-14 through TS-20-20)
+    - [x] No linter warnings
+    - [x] Existing tests still pass
 
 - [ ] 5. Wire CLI and integration
   - [ ] 5.1 Add --analyze flag to plan command
