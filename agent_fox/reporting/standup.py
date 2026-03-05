@@ -149,11 +149,12 @@ def generate_standup(
     # Compute agent activity from windowed sessions
     agent = _compute_agent_activity(windowed_sessions)
 
-    # Compute per-task activity breakdowns
+    # Compute per-task activity breakdowns (all sessions, not just windowed)
+    all_sessions = state.session_history if state else []
     node_states: dict[str, str] = {}
     if state is not None:
         node_states = dict(state.node_states)
-    task_activities = _compute_task_activities(windowed_sessions, node_states)
+    task_activities = _compute_task_activities(all_sessions, node_states)
 
     # Partition git commits into human and agent
     from agent_fox.reporting.git_activity import partition_commits
