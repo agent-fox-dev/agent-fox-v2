@@ -86,14 +86,24 @@ async def harvest(
     except IntegrationError:
         # Rebase failed (conflicts) — abort and fall back to merge commit
         logger.info(
-            "Rebase of '%s' onto '%s' had conflicts, "
-            "falling back to merge commit",
+            "Rebase of '%s' onto '%s' had conflicts, falling back to merge commit",
             workspace.branch,
             dev_branch,
         )
         await abort_rebase(workspace.path)
         # Step 5: Fall back to regular merge (03-REQ-7.E1)
-        await merge_commit(repo_root, workspace.branch)
+        try:
+            await merge_commit(repo_root, workspace.branch)
+        except IntegrationError:
+            # Step 6: Auto-resolve conflicts preferring the feature branch.
+            # This handles add/add conflicts from parallel sessions where
+            # multiple task groups independently create the same files.
+            logger.info(
+                "Merge commit of '%s' failed, retrying with "
+                "-X theirs to auto-resolve conflicts",
+                workspace.branch,
+            )
+            await merge_commit(repo_root, workspace.branch, strategy_option="theirs")
         changed_files = await get_changed_files(
             repo_root,
             workspace.branch,

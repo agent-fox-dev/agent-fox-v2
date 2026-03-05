@@ -162,17 +162,29 @@ async def merge_fast_forward(
 async def merge_commit(
     repo_path: Path,
     branch: str,
+    *,
+    strategy_option: str | None = None,
 ) -> None:
     """Merge branch into HEAD with a merge commit.
 
     Falls back to a regular (non-fast-forward) merge when a
     fast-forward is not possible.
 
+    Args:
+        strategy_option: If set, passed as ``-X {value}`` to git merge
+            (e.g. ``"theirs"`` to auto-resolve conflicts by preferring
+            the incoming branch).
+
     Raises:
         IntegrationError: If the merge fails (conflicts).
     """
+    cmd = ["merge", "--no-edit"]
+    if strategy_option:
+        cmd.extend(["-X", strategy_option])
+    cmd.append(branch)
+
     returncode, stdout, stderr = await run_git(
-        ["merge", "--no-edit", branch],
+        cmd,
         cwd=repo_path,
         check=False,
     )

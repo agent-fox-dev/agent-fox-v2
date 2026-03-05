@@ -12,7 +12,6 @@ from pathlib import Path
 
 import pytest
 
-from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.worktree import create_worktree
 
@@ -157,25 +156,26 @@ class TestHarvesterNoCommits:
         assert develop_tip_after == develop_tip_before
 
 
-class TestHarvesterUnresolvableConflict:
-    """TS-03-E6: Harvester raises IntegrationError on unresolvable conflict."""
+class TestHarvesterConflictAutoResolve:
+    """Harvester auto-resolves add/add conflicts preferring feature branch."""
 
     @pytest.mark.asyncio
-    async def test_conflict_raises_integration_error(
+    async def test_add_add_conflict_resolved_with_theirs(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """An unresolvable merge conflict raises IntegrationError."""
+        """When both branches add the same file with different content,
+        the harvester auto-resolves by keeping the feature branch version."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
-        # Modify the same file on the feature branch
+        # Add a file on the feature branch
         add_commit_to_branch(
             ws.path,
             "shared.py",
             "feature content\n",
         )
 
-        # Modify the same file on develop (creates conflict)
+        # Add the SAME file with DIFFERENT content on develop
         subprocess.run(
             ["git", "checkout", "develop"],
             cwd=tmp_worktree_repo,
@@ -188,69 +188,89 @@ class TestHarvesterUnresolvableConflict:
             "develop content\n",
         )
 
-        with pytest.raises(IntegrationError):
-            await harvest(tmp_worktree_repo, ws)
+        # Harvest should succeed (no IntegrationError)
+        files = await harvest(tmp_worktree_repo, ws)
+        assert isinstance(files, list)
 
-    @pytest.mark.asyncio
-    async def test_conflict_error_includes_details(
-        self,
-        tmp_worktree_repo: Path,
-    ) -> None:
-        """IntegrationError message includes conflict file details."""
-        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
-
-        add_commit_to_branch(
-            ws.path,
-            "shared.py",
-            "feature content\n",
-        )
-
+        # The feature branch content should win on develop
         subprocess.run(
             ["git", "checkout", "develop"],
             cwd=tmp_worktree_repo,
             check=True,
             capture_output=True,
         )
-        add_commit_to_branch(
-            tmp_worktree_repo,
-            "shared.py",
-            "develop content\n",
-        )
-
-        with pytest.raises(IntegrationError, match="shared.py"):
-            await harvest(tmp_worktree_repo, ws)
+        shared = (tmp_worktree_repo / "shared.py").read_text()
+        assert shared == "feature content\n"
 
     @pytest.mark.asyncio
-    async def test_conflict_leaves_develop_unchanged(
+    async def test_parallel_add_add_multiple_files(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """After a conflict, develop remains at its original tip."""
+        """Simulates parallel sessions creating overlapping files —
+        the exact scenario from issue #84."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
-        add_commit_to_branch(
-            ws.path,
-            "shared.py",
-            "feature content\n",
-        )
+        # Feature branch creates several files (simulating a task group)
+        add_commit_to_branch(ws.path, "Makefile", "feature-makefile\n")
+        add_commit_to_branch(ws.path, "go.mod", "feature-gomod\n")
 
+        # Meanwhile, develop got the same files from another session
         subprocess.run(
             ["git", "checkout", "develop"],
             cwd=tmp_worktree_repo,
             check=True,
             capture_output=True,
         )
-        add_commit_to_branch(
-            tmp_worktree_repo,
-            "shared.py",
-            "develop content\n",
+        add_commit_to_branch(tmp_worktree_repo, "Makefile", "develop-makefile\n")
+        add_commit_to_branch(tmp_worktree_repo, "go.mod", "develop-gomod\n")
+
+        # Harvest should succeed (no IntegrationError)
+        files = await harvest(tmp_worktree_repo, ws)
+        assert isinstance(files, list)
+
+        # Feature branch content should win for both files
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
         )
-        # Capture develop tip after the divergent commit
-        develop_tip_after_commit = get_branch_tip(tmp_worktree_repo, "develop")
+        assert (tmp_worktree_repo / "Makefile").read_text() == "feature-makefile\n"
+        assert (tmp_worktree_repo / "go.mod").read_text() == "feature-gomod\n"
 
-        with pytest.raises(IntegrationError):
-            await harvest(tmp_worktree_repo, ws)
+    @pytest.mark.asyncio
+    async def test_auto_resolve_preserves_non_conflicting_develop_changes(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Non-conflicting changes from develop are preserved."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
-        # Develop should be unchanged from the point after the divergent commit
-        develop_tip_after_harvest = get_branch_tip(tmp_worktree_repo, "develop")
-        assert develop_tip_after_harvest == develop_tip_after_commit
+        # Feature branch creates one file
+        add_commit_to_branch(ws.path, "shared.py", "feature content\n")
+
+        # Develop creates the same file AND a different file
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        add_commit_to_branch(tmp_worktree_repo, "shared.py", "develop content\n")
+        add_commit_to_branch(tmp_worktree_repo, "other.py", "other content\n")
+
+        files = await harvest(tmp_worktree_repo, ws)
+        assert isinstance(files, list)
+
+        # Checkout develop to verify merged content
+        subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+        # Feature wins for the conflict
+        assert (tmp_worktree_repo / "shared.py").read_text() == "feature content\n"
+        # Develop's non-conflicting file is preserved
+        assert (tmp_worktree_repo / "other.py").read_text() == "other content\n"
