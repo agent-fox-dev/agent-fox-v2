@@ -99,8 +99,8 @@ coding agent has unrestricted shell access, creating security risk.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 06_hooks_sync_security | 01_core_foundation | `AgentFoxConfig`, `HookConfig`, `SecurityConfig`, `OrchestratorConfig`, `HookError`, `SecurityError`, logging |
-| 06_hooks_sync_security | 03_session_and_workspace | Hook scripts run in the workspace context using `WorkspaceInfo`; security allowlist registers as PreToolUse hook during session execution |
-| 06_hooks_sync_security | 04_orchestrator | Sync barriers integrate into the orchestrator execution loop; hot-loading modifies the `TaskGraph` managed by the orchestrator |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | `AgentFoxConfig`, `HookConfig`, `SecurityConfig`, `OrchestratorConfig`, `HookError`, `SecurityError`, logging |
+| 03_session_and_workspace | 5 | 1 | Hook scripts run in the workspace context using `WorkspaceInfo`; security allowlist registers as PreToolUse hook during session execution |
+| 04_orchestrator | 6 | 1 | Sync barriers integrate into the orchestrator execution loop; hot-loading modifies the `TaskGraph` managed by the orchestrator |

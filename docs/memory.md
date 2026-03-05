@@ -1,5 +1,9 @@
 # Agent-Fox Memory
 
+## Gotchas
+
+- Critical path analysis must handle tied critical paths in disconnected graphs, where multiple paths may have equal length. _(spec: 20_plan_analysis, confidence: high)_
+
 ## Patterns
 
 - Test files for events, progress display, property tests, and session runner activity callbacks can persist across coding sessions and remain valid for reuse without modification. _(spec: 18_live_progress, confidence: high)_
@@ -27,6 +31,28 @@
 - Remote integration logic branches on two dimensions: branch type (develop vs feature) and platform settings (auto_merge enabled/disabled), determining whether to push directly or create a pull request. _(spec: 19_git_and_platform_overhaul, confidence: high)_
 - Checkpoint validation for platform/git overhaul involves verifying 1040+ tests pass, spec tests pass, linter cleanliness, file deletion confirmation, and config simplification together as a cohesive acceptance criteria set. _(spec: 19_git_and_platform_overhaul, confidence: high)_
 - ensure_develop function should be integrated into session lifecycle rather than called ad-hoc, ensuring consistent develop branch management across the application. _(spec: 19_git_and_platform_overhaul, confidence: high)_
+- When implementing new features via TDD, create stub modules and functions first, then write comprehensive failing tests across multiple test file types (unit, property, integration) before implementing logic. _(spec: 20_plan_analysis, confidence: high)_
+- Organizing tests across unit, property, and integration test files provides better coverage of different testing concerns and makes the test suite more maintainable. _(spec: 20_plan_analysis, confidence: high)_
+- Plan analysis requires both forward and backward passes to compute Earliest Start (ES), Latest Start (LS), and float values for task scheduling. _(spec: 20_plan_analysis, confidence: high)_
+- Phase grouping and alternative path detection are key components of comprehensive plan analysis alongside critical path tracing. _(spec: 20_plan_analysis, confidence: medium)_
+- Dependency cycle detection can be implemented using depth-first search (DFS) with node coloring (white/gray/black states) to track visiting status and identify back edges that indicate cycles. _(spec: 20_plan_analysis, confidence: high)_
+- Lint rules should be implemented as separate validation functions and wired into a central validate_specs() pipeline for consistent execution and maintainability. _(spec: 20_plan_analysis, confidence: high)_
+- Dependency format checking can detect standard-format tables and recommend migration to group-level formats as a linting rule to encourage best practices. _(spec: 20_plan_analysis, confidence: medium)_
+- When implementing multiple fixers that transform data structures, use an orchestrator function (like apply_fixes) to coordinate them with deduplication and error handling to prevent duplicate transformations and ensure robustness. _(spec: 20_plan_analysis, confidence: high)_
+- Fixers that rewrite data formats (like converting standard dependency tables to group-level format) should be implemented as separate, composable functions rather than monolithic transformations. _(spec: 20_plan_analysis, confidence: high)_
+- CLI flags like --analyze and --fix should trigger specific analysis or transformation functions and then re-validate/display results to confirm the operation completed successfully. _(spec: 20_plan_analysis, confidence: high)_
+- Analysis output should include multiple dimensions (parallelism phases, critical path, float summary) to provide comprehensive insight into task scheduling and project timeline. _(spec: 20_plan_analysis, confidence: medium)_
+- When specifying task dependencies for parallelism analysis, identify the earliest sufficient upstream group rather than just any upstream dependency to maximize parallel execution opportunities. _(spec: 20_plan_analysis, confidence: high)_
+- When writing test cases for a new feature specification, organize them with clear naming (TS-ID format) and group them by functional areas (identifier extraction, validation, batching, auto-fix) to maintain test suite clarity and enable targeted implementation. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Expect most tests to fail initially (21 of 22) when implementing a new rule/feature, with only existing functionality tests passing; this validates that test cases are properly targeting new code paths. _(spec: 21_dependency_interface_validation, confidence: high)_
+- When designing tests for a linting rule like stale-dependency, cover multiple dimensions: identifier extraction logic, AI validation integration, batch processing, and auto-fix behavior to ensure comprehensive rule coverage. _(spec: 21_dependency_interface_validation, confidence: medium)_
+- Use dataclasses for structured data like DependencyRef to represent domain concepts with clear types and field definitions. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Organize validation logic into separate functions (extract_relationship_identifiers, validate_dependency_interfaces, run_stale_dependency_validation) to maintain modularity and testability. _(spec: 21_dependency_interface_validation, confidence: high)_
+- When implementing a new fix rule, register it in FIXABLE_RULES to make it discoverable by the fix application system. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Fix implementations should use dataclasses to structure fix data (e.g., IdentifierFix) and parse finding messages to extract necessary information for applying the fix. _(spec: 21_dependency_interface_validation, confidence: high)_
+- The apply_fixes() function needs to be extended with a handler for each new fix type to transform findings into concrete code modifications. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Task group 4 for specification 21_dependency_interface_validation integrates stale-dependency validation into the lint-spec pipeline by updating run_ai_validation() to accept a specs_dir parameter and call run_stale_dependency_validation(). _(spec: 21_dependency_interface_validation, confidence: high)_
+- Integration tests for validation pipelines should verify that findings from multiple validators (AI and stale-dependency) appear together in the output. _(spec: 21_dependency_interface_validation, confidence: high)_
 
 ## Decisions
 
@@ -35,6 +61,7 @@
 - Simplifying a Platform protocol to a single responsibility method (create_pr) makes the interface more maintainable and easier to implement across different platforms. _(spec: 19_git_and_platform_overhaul, confidence: high)_
 - Spec-versioned tests (e.g., spec-10 tests) may become obsolete during major overhauls and should be identified and removed rather than patched during structural changes. _(spec: 19_git_and_platform_overhaul, confidence: medium)_
 - PlatformConfig should be simplified as part of platform overhaul work, reducing configuration complexity alongside git and platform infrastructure changes. _(spec: 19_git_and_platform_overhaul, confidence: high)_
+- The lint-spec CLI must be updated to pass the specs_dir parameter when invoking the validation pipeline to enable stale-dependency checks. _(spec: 21_dependency_interface_validation, confidence: high)_
 
 ## Conventions
 
@@ -47,6 +74,13 @@
 - Updating a module's __init__.py exports is essential after deleting or restructuring internal files to prevent broken imports and ensure the public API remains clean. _(spec: 19_git_and_platform_overhaul, confidence: high)_
 - A helper function like get_remote_url() in git.py is needed to abstract remote URL retrieval for use in integration workflows. _(spec: 19_git_and_platform_overhaul, confidence: medium)_
 - Supersession banners should already be present in earlier specification files (e.g., spec 10) when implementing platform overhaul work, avoiding duplicate implementation. _(spec: 19_git_and_platform_overhaul, confidence: medium)_
+- Always verify that newly added failing tests do not cause regressions in existing passing tests when setting up a TDD workflow. _(spec: 20_plan_analysis, confidence: high)_
+- Separate formatting logic (format_analysis) from analysis computation (analyze_plan) for better modularity and terminal display management. _(spec: 20_plan_analysis, confidence: medium)_
+- Comprehensive unit test coverage (14 tests for fixer implementations) helps validate that individual fixers work correctly before integration, reducing debugging complexity in orchestration logic. _(spec: 20_plan_analysis, confidence: high)_
+- Fix summaries and diagnostic output should be printed to stderr while valid results go to stdout, maintaining clean separation between data output and diagnostic information. _(spec: 20_plan_analysis, confidence: high)_
+- The standard two-column dependency format is prohibited in dependency specifications; use a three-column format with explicit justification in the Relationship column instead. _(spec: 20_plan_analysis, confidence: high)_
+- Use sentinel value 0 (not 1) to indicate upstream specs that do not have a tasks.md file. _(spec: 20_plan_analysis, confidence: high)_
+- Test extraction, validation, and batching logic comprehensively before implementing dependent fixer functionality to catch integration issues early. _(spec: 21_dependency_interface_validation, confidence: high)_
 
 ## Anti-Patterns
 

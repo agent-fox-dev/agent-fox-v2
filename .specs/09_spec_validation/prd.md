@@ -64,7 +64,7 @@ both time and API cost.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 09_spec_validation | 01_core_foundation | CLI framework (Click group, `main`), `AgentFoxConfig`, `AgentFoxError`, `AppTheme`, `resolve_model()`, logging |
-| 09_spec_validation | 02_planning_engine | Spec discovery (`discover_specs()`), task definition parser (`parse_tasks()`), dependency table parser |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | CLI framework (Click group, `main`), `AgentFoxConfig`, `AgentFoxError`, `AppTheme`, `resolve_model()`, logging |
+| 02_planning_engine | 6 | 1 | Spec discovery (`discover_specs()`), task definition parser (`parse_tasks()`), dependency table parser |

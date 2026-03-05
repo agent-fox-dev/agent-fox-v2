@@ -66,7 +66,7 @@ autonomous engine and the human developer.
 
 ## Dependencies
 
-| This Spec | Depends On | What It Uses |
-|-----------|-----------|--------------|
-| 07_operational_commands | 01_core_foundation | `AgentFoxConfig`, `ThemeConfig`, `AppTheme`, `AgentFoxError`, `calculate_cost()`, `resolve_model()`, CLI framework (`main` Click group), logging |
-| 07_operational_commands | 04_orchestrator | `ExecutionState`, `SessionRecord`, `NodeStatus`, `state.jsonl` format, `plan.json` format |
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_core_foundation | 5 | 1 | `AgentFoxConfig`, `ThemeConfig`, `AppTheme`, `AgentFoxError`, `calculate_cost()`, `resolve_model()`, CLI framework (`main` Click group), logging |
+| 04_orchestrator | 6 | 1 | `ExecutionState`, `SessionRecord`, `NodeStatus`, `state.jsonl` format, `plan.json` format |
