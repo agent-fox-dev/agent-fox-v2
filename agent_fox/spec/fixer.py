@@ -263,8 +263,10 @@ def fix_missing_verification(
         if group_match:
             if current_group is not None:
                 groups.append(current_group)
+            title = group_match.group(4)
             current_group = {
                 "number": int(group_match.group(3)),
+                "title": title,
                 "start": i,
                 "last_subtask_line": i,
                 "has_verify": False,
@@ -284,8 +286,13 @@ def fix_missing_verification(
     if current_group is not None:
         groups.append(current_group)
 
-    # Find groups that need verification steps
-    groups_to_fix = [g for g in groups if not g["has_verify"]]
+    # Find groups that need verification steps (checkpoint groups are
+    # themselves a final verification and never need a N.V subtask)
+    groups_to_fix = [
+        g
+        for g in groups
+        if not g["has_verify"] and not g["title"].startswith("Checkpoint")
+    ]
     if not groups_to_fix:
         return []
 

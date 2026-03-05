@@ -239,6 +239,41 @@ class TestFixMissingVerificationSkipsExisting:
         assert len(results) == 0
 
 
+# -- Fix missing verification skips checkpoint groups --------------------------
+
+
+class TestFixMissingVerificationSkipsCheckpoint:
+    """Checkpoint groups are final verification — no N.V subtask needed."""
+
+    def test_returns_empty_for_checkpoint(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "# Tasks\n\n"
+            "- [ ] 1. Write tests\n"
+            "  - [ ] 1.1 Create fixtures\n"
+            "  - [ ] 1.V Verify task group 1\n"
+            "- [ ] 2. Checkpoint — Tests Complete\n",
+        )
+        results = fix_missing_verification("02_beta", tasks_path)
+        assert len(results) == 0
+
+    def test_does_not_add_verify_to_checkpoint(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "# Tasks\n\n"
+            "- [ ] 1. Write tests\n"
+            "  - [ ] 1.1 Create fixtures\n"
+            "  - [ ] 1.V Verify task group 1\n"
+            "- [ ] 2. Checkpoint -- All Done\n"
+            "  - All tests pass\n",
+        )
+        fix_missing_verification("02_beta", tasks_path)
+        content = tasks_path.read_text()
+        assert "2.V" not in content
+
+
 # -- TS-20-19: apply_fixes skips unfixable findings ---------------------------
 
 

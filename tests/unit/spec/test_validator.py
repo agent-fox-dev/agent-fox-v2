@@ -307,6 +307,41 @@ class TestVerificationPresentNoFinding:
         assert len(findings) == 0
 
 
+# -- Checkpoint groups skip verification check ---------------------------------
+
+
+class TestCheckpointGroupSkipsVerification:
+    """Checkpoint groups are final verification — no N.V subtask needed."""
+
+    def test_checkpoint_group_no_finding(self) -> None:
+        """Checkpoint group without N.V produces no findings."""
+        group = TaskGroupDef(
+            number=3,
+            title="Checkpoint — All Complete",
+            optional=False,
+            completed=False,
+            subtasks=(),
+            body="",
+        )
+        findings = check_missing_verification("test_spec", [group])
+
+        assert findings == []
+
+    def test_checkpoint_double_dash_no_finding(self) -> None:
+        """Checkpoint group with -- separator produces no findings."""
+        group = TaskGroupDef(
+            number=5,
+            title="Checkpoint -- Module Complete",
+            optional=False,
+            completed=False,
+            subtasks=tuple(_make_subtasks(2, group_number=5)),
+            body="",
+        )
+        findings = check_missing_verification("test_spec", [group])
+
+        assert findings == []
+
+
 # -- TS-09-8: Missing acceptance criteria detected -----------------------------
 
 

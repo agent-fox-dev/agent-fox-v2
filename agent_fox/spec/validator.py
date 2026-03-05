@@ -130,6 +130,9 @@ def check_missing_verification(
     for group in task_groups:
         if group.completed:
             continue
+        # Checkpoint groups are themselves a final verification step
+        if group.title.startswith("Checkpoint"):
+            continue
         has_verify = any(
             re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks
         )
