@@ -502,6 +502,153 @@ async def analyze_acceptance_criteria(
     return findings
 
 
+# -- AI rewrite prompt and function (Spec 22) ---------------------------------
+
+_REWRITE_PROMPT = """\
+You are an expert requirements engineer using the EARS (Easy Approach to \
+Requirements Syntax) methodology. You will rewrite acceptance criteria that \
+have been flagged for quality issues.
+
+EARS syntax uses these keywords:
+- SHALL — for unconditional requirements
+- WHEN <trigger>, THE system SHALL — for event-driven requirements
+- WHILE <state>, THE system SHALL — for state-driven requirements
+- IF <condition>, THEN THE system SHALL — for conditional requirements
+- WHERE <feature>, THE system SHALL — for feature-driven requirements
+
+Rules for rewriting:
+1. Use EARS syntax keywords (SHALL, WHEN, WHILE, IF/THEN, WHERE) in every \
+rewritten criterion.
+2. Preserve the original intent and behavioral scope — only fix the \
+identified quality issue (vagueness or implementation leak).
+3. Produce text that would pass the vague-criterion and implementation-leak \
+analysis rules and would not be flagged again.
+4. Make criteria measurable and objectively verifiable.
+5. Do NOT include the requirement ID prefix in the replacement text — \
+only provide the criterion body.
+
+Return your rewrites as a JSON object with this exact structure:
+{{
+  "rewrites": [
+    {{
+      "criterion_id": "the requirement ID, e.g. 09-REQ-1.1",
+      "original": "the original criterion text",
+      "replacement": "the rewritten criterion text"
+    }}
+  ]
+}}
+
+Here is the full requirements document for context:
+
+{requirements_text}
+
+---
+
+The following criteria have been flagged for rewriting:
+
+{flagged_criteria}
+"""
+
+_MAX_CRITERIA_PER_BATCH = 20
+
+
+async def rewrite_criteria(
+    spec_name: str,
+    requirements_text: str,
+    findings: list[Finding],
+    model: str,
+) -> dict[str, str]:
+    """Send a batched rewrite request for flagged criteria.
+
+    Args:
+        spec_name: Name of the spec being fixed.
+        requirements_text: Full content of requirements.md.
+        findings: AI findings with rule vague-criterion or implementation-leak.
+        model: Model ID for the STANDARD tier.
+
+    Returns:
+        Mapping of criterion_id -> replacement_text.
+        Empty dict on failure.
+
+    Requirements: 22-REQ-1.1, 22-REQ-2.*, 22-REQ-3.*
+    """
+    if not findings:
+        return {}
+
+    # Build the flagged criteria list for the prompt
+    flagged_lines: list[str] = []
+    for finding in findings:
+        flagged_lines.append(
+            f"- Criterion {finding.message.split(']')[0].lstrip('[')}]: "
+            f"Issue type: {finding.rule}. {finding.message}"
+        )
+
+    flagged_criteria = "\n".join(flagged_lines)
+
+    prompt = _REWRITE_PROMPT.format(
+        requirements_text=requirements_text,
+        flagged_criteria=flagged_criteria,
+    )
+
+    try:
+        client = create_async_anthropic_client()
+        response = await client.messages.create(
+            model=model,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception as exc:
+        logger.warning(
+            "AI rewrite call failed for spec '%s': %s. Skipping rewrite.",
+            spec_name,
+            exc,
+        )
+        return {}
+
+    # Extract text from response
+    first_block = response.content[0]
+    if isinstance(first_block, TextBlock):
+        response_text: str = first_block.text
+    else:
+        maybe_text: str | None = getattr(first_block, "text", None)
+        if maybe_text is None:
+            logger.warning(
+                "AI rewrite response for spec '%s' has no text, skipping",
+                spec_name,
+            )
+            return {}
+        response_text = maybe_text
+
+    try:
+        data = _extract_json(response_text)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(
+            "AI rewrite response for spec '%s' was not valid JSON, skipping",
+            spec_name,
+        )
+        return {}
+
+    rewrites_list = data.get("rewrites", [])
+    if not isinstance(rewrites_list, list):
+        logger.warning(
+            "AI rewrite response for spec '%s' has invalid 'rewrites', skipping",
+            spec_name,
+        )
+        return {}
+
+    # Build the result mapping
+    result: dict[str, str] = {}
+    for entry in rewrites_list:
+        if not isinstance(entry, dict):
+            continue
+        criterion_id = entry.get("criterion_id", "")
+        replacement = entry.get("replacement", "")
+        if criterion_id and replacement:
+            result[criterion_id] = replacement
+
+    return result
+
+
 async def run_ai_validation(
     discovered_specs: list[SpecInfo],
     model: str,

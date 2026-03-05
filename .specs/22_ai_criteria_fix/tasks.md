@@ -55,14 +55,14 @@ the existing validator/fixer separation.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement AI rewrite function
-  - [ ] 2.1 Define the rewrite prompt template
+- [x] 2. Implement AI rewrite function
+  - [x] 2.1 Define the rewrite prompt template
     - Add `_REWRITE_PROMPT` constant to `agent_fox/spec/ai_validator.py`
     - Include EARS keywords, full requirements text placeholder, flagged criteria list
     - Specify JSON response format: `{"rewrites": [{"criterion_id": "...", "original": "...", "replacement": "..."}]}`
     - _Requirements: 22-REQ-2.1, 22-REQ-2.2, 22-REQ-2.3, 22-REQ-2.4, 22-REQ-2.5_
 
-  - [ ] 2.2 Implement `rewrite_criteria()` async function
+  - [x] 2.2 Implement `rewrite_criteria()` async function
     - Accept spec_name, requirements_text, findings, model
     - Extract criterion IDs and issue descriptions from findings
     - Short-circuit on empty findings list (22-REQ-3.2)
@@ -70,17 +70,17 @@ the existing validator/fixer separation.
     - Return `dict[str, str]` mapping criterion_id -> replacement_text
     - _Requirements: 22-REQ-1.1, 22-REQ-3.1, 22-REQ-3.3_
 
-  - [ ] 2.3 Handle rewrite errors
+  - [x] 2.3 Handle rewrite errors
     - Catch API exceptions, return empty dict (22-REQ-1.E1)
     - Handle malformed JSON via `_extract_json` (22-REQ-2.E1)
     - Skip omitted criterion IDs in response (22-REQ-2.E2)
     - _Requirements: 22-REQ-1.E1, 22-REQ-2.E1, 22-REQ-2.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for rewrite function pass: `uv run pytest tests/unit/spec/test_ai_criteria_fix.py -k "rewrite" -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/unit/spec/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/ai_validator.py`
-    - [ ] Requirements 22-REQ-1.1, 22-REQ-2.*, 22-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for rewrite function pass: `uv run pytest tests/unit/spec/test_ai_criteria_fix.py -k "rewrite" -q`
+    - [x] All existing tests still pass: `uv run pytest tests/unit/spec/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/ai_validator.py`
+    - [x] Requirements 22-REQ-1.1, 22-REQ-2.*, 22-REQ-3.* acceptance criteria met
 
 - [ ] 3. Implement criteria fixer and CLI integration
   - [ ] 3.1 Implement `fix_ai_criteria()` in fixer module
