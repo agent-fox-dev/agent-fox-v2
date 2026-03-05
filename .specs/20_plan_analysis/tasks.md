@@ -159,29 +159,29 @@ af-spec prompt update.
     - [x] No linter warnings
     - [x] Existing tests still pass
 
-- [ ] 5. Wire CLI and integration
-  - [ ] 5.1 Add --analyze flag to plan command
+- [x] 5. Wire CLI and integration
+  - [x] 5.1 Add --analyze flag to plan command
     - Extend `agent_fox/cli/plan.py`: add `--analyze` option
     - Call `analyze_plan()` and `format_analysis()` after plan is built
     - Display analysis output after the standard plan summary
     - _Requirements: 20-REQ-1.1_
 
-  - [ ] 5.2 Add --fix flag to lint-spec command
+  - [x] 5.2 Add --fix flag to lint-spec command
     - Extend `agent_fox/cli/lint_spec.py`: add `--fix` option
     - After detection, call `apply_fixes()` for fixable findings
     - Print fix summary to stderr
     - Re-validate and output remaining findings
     - _Requirements: 20-REQ-6.1, 20-REQ-6.2, 20-REQ-6.5, 20-REQ-6.6_
 
-  - [ ] 5.3 Verify integration
+  - [x] 5.3 Verify integration
     - Run integration tests for both --analyze and --fix
     - _Requirements: 20-REQ-1.1, 20-REQ-6.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Integration tests pass
-    - [ ] All existing plan tests still pass
-    - [ ] All existing lint-spec tests still pass
-    - [ ] No linter warnings
+  - [x] 5.V Verify task group 5
+    - [x] Integration tests pass
+    - [x] All existing plan tests still pass
+    - [x] All existing lint-spec tests still pass
+    - [x] No linter warnings
 
 - [ ] 6. Update af-spec skill and checkpoint
   - [ ] 6.1 Update af-spec Step 2 instructions

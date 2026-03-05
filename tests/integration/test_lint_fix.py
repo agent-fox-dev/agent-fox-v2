@@ -116,7 +116,13 @@ class TestLintSpecFix:
             result = runner.invoke(
                 main, ["--quiet", "lint-spec", "--fix", "--format", "json"]
             )
-            data = json.loads(result.output)
+            # Fix summary goes to stderr; JSON findings go to stdout.
+            # In Click's test runner, both may appear in result.output.
+            # Extract just the JSON portion.
+            output = result.output
+            json_start = output.index("{")
+            json_str = output[json_start:]
+            data = json.loads(json_str)
             coarse = [
                 f for f in data["findings"]
                 if f["rule"] == "coarse-dependency"

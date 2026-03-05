@@ -148,6 +148,41 @@ def format_yaml(findings: list[Finding]) -> str:
     return yaml.dump(data, default_flow_style=False, sort_keys=False)
 
 
+def _build_known_specs(
+    discovered: list[SpecInfo],
+) -> dict[str, list[int]]:
+    """Build a mapping of spec name to list of task group numbers.
+
+    Used by the fixer to look up upstream group numbers.
+    """
+    from agent_fox.spec.parser import parse_tasks
+
+    known: dict[str, list[int]] = {}
+    for spec in discovered:
+        tasks_path = spec.path / "tasks.md"
+        if tasks_path.is_file():
+            try:
+                groups = parse_tasks(tasks_path)
+                known[spec.name] = [g.number for g in groups]
+            except Exception:
+                known[spec.name] = []
+        else:
+            known[spec.name] = []
+    return known
+
+
+def _format_fix_summary(fix_results: list) -> str:
+    """Format a summary of applied fixes for stderr output."""
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    for r in fix_results:
+        counts[r.rule] += 1
+
+    parts = [f"{count} {rule}" for rule, count in sorted(counts.items())]
+    return f"Fixed: {', '.join(parts)}"
+
+
 @click.command("lint-spec")
 @click.option(
     "--format",
@@ -162,8 +197,14 @@ def format_yaml(findings: list[Finding]) -> str:
     default=False,
     help="Enable AI-powered semantic analysis of acceptance criteria.",
 )
+@click.option(
+    "--fix",
+    is_flag=True,
+    default=False,
+    help="Automatically fix mechanically fixable findings.",
+)
 @click.pass_context
-def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
+def lint_spec(ctx: click.Context, output_format: str, ai: bool, fix: bool) -> None:
     """Validate specification files for structural and quality problems."""
     specs_dir = Path(".specs")
 
@@ -198,6 +239,30 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool) -> None:
             findings = sort_findings(findings + ai_findings)
         except Exception as exc:
             logger.warning("AI validation failed: %s", exc)
+
+    # 20-REQ-6.1: Apply auto-fixes when --fix is provided
+    if fix:
+        from agent_fox.spec.fixer import apply_fixes
+
+        known_specs = _build_known_specs(discovered)
+        fix_results = apply_fixes(findings, discovered, specs_dir, known_specs)
+        if fix_results:
+            # Print fix summary to stderr (20-REQ-6.6)
+            summary = _format_fix_summary(fix_results)
+            click.echo(summary, err=True)
+            # Re-validate to get remaining findings (20-REQ-6.2)
+            findings = validate_specs(specs_dir, discovered)
+            if ai:
+                try:
+                    from agent_fox.spec.ai_validator import run_ai_validation
+
+                    standard_model = resolve_model("STANDARD").model_id
+                    ai_findings = asyncio.run(
+                        run_ai_validation(discovered, standard_model)
+                    )
+                    findings = sort_findings(findings + ai_findings)
+                except Exception as exc:
+                    logger.warning("AI validation failed: %s", exc)
 
     # Output results
     _output_findings(findings, output_format)
