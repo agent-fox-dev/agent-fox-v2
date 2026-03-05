@@ -21,11 +21,23 @@ def compact_cmd(ctx: click.Context) -> None:
     Example:
         agent-fox compact
     """
+    json_mode = ctx.obj.get("json", False)
     original, surviving = compact()
+    removed = original - surviving
+
+    # 23-REQ-3.6: JSON output for compact command
+    if json_mode:
+        from agent_fox.cli.json_io import emit
+
+        emit({
+            "original": original,
+            "surviving": surviving,
+            "removed": removed,
+        })
+        return
 
     if original == 0:
         click.echo("Knowledge base is empty — nothing to compact.")
         return
 
-    removed = original - surviving
     click.echo(f"Compacted: {original} → {surviving} facts ({removed} removed).")

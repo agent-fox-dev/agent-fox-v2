@@ -32,10 +32,16 @@ def patterns_cmd(ctx: click.Context, min_occurrences: int) -> None:
     Analyzes session history and the causal graph to find recurring
     sequences (e.g., "module X changes -> test Y breaks").
     """
+    json_mode = ctx.obj.get("json", False)
     config = ctx.obj["config"]
 
     db = open_knowledge_store(config.knowledge)
     if db is None:
+        if json_mode:
+            from agent_fox.cli.json_io import emit
+
+            emit({"patterns": []})
+            return
         click.echo("No recurring patterns detected. More session history is needed.")
         return
 
@@ -46,6 +52,15 @@ def patterns_cmd(ctx: click.Context, min_occurrences: int) -> None:
         )
     finally:
         db.close()
+
+    # 23-REQ-3.5: JSON output for patterns command
+    if json_mode:
+        from dataclasses import asdict
+
+        from agent_fox.cli.json_io import emit
+
+        emit({"patterns": [asdict(p) for p in patterns]})
+        return
 
     # REQ-5.E1: If no patterns detected, display informational message
     use_color = ctx.color is not False

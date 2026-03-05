@@ -378,9 +378,10 @@ class TestInitJson:
         self, cli_runner: CliRunner, tmp_project: Path
     ) -> None:
         """init with --json produces {"status": "ok"}."""
-        result = cli_runner.invoke(main, ["--json", "init"])
-        data = json.loads(result.output)
-        assert data["status"] == "ok"
+        with patch("agent_fox.cli.init._ensure_develop_branch"):
+            result = cli_runner.invoke(main, ["--json", "init"])
+            data = json.loads(result.output)
+            assert data["status"] == "ok"
 
 
 # ---------------------------------------------------------------------------

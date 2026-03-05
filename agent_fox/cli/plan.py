@@ -231,10 +231,17 @@ def plan_cmd(
                 )
 
     # Build fresh plan if no cached plan was used
+    json_mode = ctx.obj.get("json", False)
     if graph is None:
         try:
             graph = _build_plan(specs_dir, filter_spec, fast)
         except PlanError as exc:
+            if json_mode:
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
+                return
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
             return
@@ -247,6 +254,24 @@ def plan_cmd(
         specs = discover_specs(specs_dir, filter_spec=filter_spec)
     except PlanError:
         specs = []
+
+    # 23-REQ-3.4: JSON output for plan command
+    json_mode = ctx.obj.get("json", False)
+    if json_mode:
+        from dataclasses import asdict
+
+        from agent_fox.cli.json_io import emit
+
+        emit({
+            "nodes": {
+                nid: asdict(node)
+                for nid, node in graph.nodes.items()
+            },
+            "edges": [asdict(e) for e in graph.edges],
+            "order": graph.order,
+            "metadata": asdict(graph.metadata),
+        })
+        return
 
     _print_summary(graph, specs)
 

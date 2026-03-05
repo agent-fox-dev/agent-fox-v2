@@ -119,28 +119,28 @@ cases.
     - [x] No linter warnings: `uv run ruff check agent_fox/cli/ agent_fox/reporting/`
     - [x] Requirements 23-REQ-8.* met
 
-- [ ] 4. Add JSON output to batch commands
-  - [ ] 4.1 Add JSON output to `plan` command
+- [x] 4. Add JSON output to batch commands
+  - [x] 4.1 Add JSON output to `plan` command
     - Serialize TaskGraph/plan data as JSON when `ctx.obj["json"]`
     - _Requirements: 23-REQ-3.4_
 
-  - [ ] 4.2 Add JSON output to `patterns` command
+  - [x] 4.2 Add JSON output to `patterns` command
     - Serialize pattern results as JSON
     - _Requirements: 23-REQ-3.5_
 
-  - [ ] 4.3 Add JSON output to `compact` and `ingest` commands
+  - [x] 4.3 Add JSON output to `compact` and `ingest` commands
     - Serialize compaction/ingestion stats as JSON
     - _Requirements: 23-REQ-3.6, 23-REQ-3.7_
 
-  - [ ] 4.4 Add JSON output to `init` and `reset` commands
+  - [x] 4.4 Add JSON output to `init` and `reset` commands
     - Emit `{"status": "ok"}` for init, summary dict for reset
     - _Requirements: 23-REQ-4.1, 23-REQ-4.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Batch command tests pass: `uv run pytest tests/integration/test_json_flag.py -k "batch" -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/cli/`
-    - [ ] Requirements 23-REQ-3.*, 23-REQ-4.* met
+  - [x] 4.V Verify task group 4
+    - [x] Batch command tests pass: `uv run pytest tests/integration/test_json_flag.py -k "batch" -q`
+    - [x] All existing tests still pass: `uv run pytest tests/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/cli/`
+    - [x] Requirements 23-REQ-3.*, 23-REQ-4.* met
 
 - [ ] 5. Add JSONL output for streaming commands and stdin input
   - [ ] 5.1 Add JSONL output to `code` command

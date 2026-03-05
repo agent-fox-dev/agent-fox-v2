@@ -55,10 +55,16 @@ def ingest_cmd(
         agent-fox ingest
         agent-fox ingest --no-adrs --since 2026-01-01
     """
+    json_mode = ctx.obj.get("json", False)
     config = ctx.obj["config"].knowledge
 
     db = open_knowledge_store(config)
     if db is None:
+        if json_mode:
+            from agent_fox.cli.json_io import emit_error
+
+            emit_error("Knowledge store is unavailable.")
+            sys.exit(1)
         click.echo("Error: Knowledge store is unavailable.", err=True)
         sys.exit(1)
 
@@ -70,29 +76,51 @@ def ingest_cmd(
             project_root=Path.cwd(),
         )
 
+        # 23-REQ-3.7: JSON output for ingest command
+        results: dict[str, dict] = {}
+
         if adrs:
             result = ingestor.ingest_adrs()
-            click.echo(
-                f"ADRs: {result.facts_added} added, "
-                f"{result.facts_skipped} skipped"
-                + (
-                    f", {result.embedding_failures} embedding failures"
-                    if result.embedding_failures
-                    else ""
+            if json_mode:
+                results["adrs"] = {
+                    "facts_added": result.facts_added,
+                    "facts_skipped": result.facts_skipped,
+                    "embedding_failures": result.embedding_failures,
+                }
+            else:
+                click.echo(
+                    f"ADRs: {result.facts_added} added, "
+                    f"{result.facts_skipped} skipped"
+                    + (
+                        f", {result.embedding_failures} embedding failures"
+                        if result.embedding_failures
+                        else ""
+                    )
                 )
-            )
 
         if git_commits:
             result = ingestor.ingest_git_commits(limit=limit, since=since)
-            click.echo(
-                f"Git commits: {result.facts_added} added, "
-                f"{result.facts_skipped} skipped"
-                + (
-                    f", {result.embedding_failures} embedding failures"
-                    if result.embedding_failures
-                    else ""
+            if json_mode:
+                results["git_commits"] = {
+                    "facts_added": result.facts_added,
+                    "facts_skipped": result.facts_skipped,
+                    "embedding_failures": result.embedding_failures,
+                }
+            else:
+                click.echo(
+                    f"Git commits: {result.facts_added} added, "
+                    f"{result.facts_skipped} skipped"
+                    + (
+                        f", {result.embedding_failures} embedding failures"
+                        if result.embedding_failures
+                        else ""
+                    )
                 )
-            )
+
+        if json_mode:
+            from agent_fox.cli.json_io import emit
+
+            emit(results)
 
     finally:
         db.close()
