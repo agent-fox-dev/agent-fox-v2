@@ -230,6 +230,30 @@ class TestStripMarkdownFences:
         result = _strip_markdown_fences(text)
         assert result == "not json at all"
 
+    def test_extracts_array_when_bracketed_refs_precede_json(self) -> None:
+        """Prose with [bracketed] references before the JSON array."""
+        text = (
+            'Looking at [uuid1] and [uuid2], I found:\n\n'
+            '[{"content": "a fact", "category": "gotcha", '
+            '"confidence": "high", "keywords": ["k"]}]'
+        )
+        result = _strip_markdown_fences(text)
+        parsed = __import__("json").loads(result)
+        assert isinstance(parsed, list)
+        assert parsed[0]["content"] == "a fact"
+
+    def test_extracts_array_from_prose_with_multiple_brackets(self) -> None:
+        """Multiple non-JSON brackets in prose before the real JSON array."""
+        text = (
+            "The fact [abc-123] caused [def-456] to change.\n"
+            "Here is the result:\n\n"
+            '[{"a": 1}]\n\n'
+            "Done!"
+        )
+        result = _strip_markdown_fences(text)
+        parsed = __import__("json").loads(result)
+        assert parsed == [{"a": 1}]
+
 
 class TestExtractionMarkdownFenced:
     """Extraction correctly handles LLM responses wrapped in markdown fences."""

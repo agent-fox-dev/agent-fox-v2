@@ -181,9 +181,7 @@ def _strip_markdown_fences(text: str) -> str:
     to locate a top-level JSON array bracket pair.
     """
     # 1. Strip ```json ... ``` or ``` ... ``` fences
-    fence_match = re.search(
-        r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL
-    )
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
     if fence_match:
         return fence_match.group(1).strip()
 
@@ -192,11 +190,26 @@ def _strip_markdown_fences(text: str) -> str:
     if stripped.startswith("["):
         return stripped
 
-    bracket_match = re.search(r"(\[.*\])", text, re.DOTALL)
-    if bracket_match:
-        return bracket_match.group(1).strip()
+    # 3. Find a valid JSON array using bracket-depth counting.
+    # The greedy regex (\[.*\]) fails when prose contains [bracketed]
+    # references (e.g. [uuid]) before the actual JSON array.
+    for match in re.finditer(r"\[", stripped):
+        start = match.start()
+        depth = 0
+        for i, ch in enumerate(stripped[start:], start=start):
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    candidate = stripped[start : i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except (json.JSONDecodeError, ValueError):
+                        break
 
-    # 3. Give up — return original text so json.loads produces a clear error
+    # 4. Give up — return original text so json.loads produces a clear error
     return stripped
 
 

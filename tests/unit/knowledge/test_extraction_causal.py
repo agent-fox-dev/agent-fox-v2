@@ -117,6 +117,29 @@ class TestParseCausalLinksMarkdownFences:
         assert links[0] == ("x1", "x2")
 
 
+class TestParseCausalLinksWithEchoedRefs:
+    """parse_causal_links handles LLM responses that echo [uuid] refs in prose."""
+
+    def test_parses_links_after_echoed_uuid_references(self) -> None:
+        """JSON causal links are parsed when LLM echoes [uuid] refs in prose."""
+        response = (
+            "Looking at [aaa-111] and [bbb-222], I see a causal chain:\n\n"
+            '[{"cause_id": "aaa-111", "effect_id": "bbb-222"}]'
+        )
+        links = parse_causal_links(response)
+        assert len(links) == 1
+        assert links[0] == ("aaa-111", "bbb-222")
+
+    def test_parses_empty_array_after_echoed_refs(self) -> None:
+        """Empty JSON array is parsed when LLM echoes [uuid] refs in prose."""
+        response = (
+            "Reviewing [fact-1] and [fact-2], no causal relationship found.\n\n"
+            "[]"
+        )
+        links = parse_causal_links(response)
+        assert len(links) == 0
+
+
 class TestParseCausalLinksInvalidJSON:
     """TS-13-E3: Extraction returns completely invalid JSON.
 
