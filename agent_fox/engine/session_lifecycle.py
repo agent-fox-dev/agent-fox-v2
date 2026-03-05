@@ -385,6 +385,9 @@ class NodeSessionRunner:
                     len(facts),
                     node_id,
                 )
+                # Sync new facts to DuckDB so causal link integrity
+                # checks can find them (fixes #83).
+                self._sync_facts_to_duckdb(facts)
                 # 13-REQ-2.1: Extract causal links if DuckDB available
                 self._extract_causal_links(facts, node_id)
         except Exception:
@@ -393,6 +396,39 @@ class NodeSessionRunner:
                 node_id,
                 exc_info=True,
             )
+
+    def _sync_facts_to_duckdb(self, facts: list) -> None:
+        """Insert facts into DuckDB memory_facts so causal links can reference them.
+
+        Best-effort: failures are logged and silently ignored.
+        Uses INSERT OR IGNORE for idempotency.
+        """
+        if self._knowledge_db is None:
+            return
+        conn = self._knowledge_db.connection
+        for fact in facts:
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO memory_facts "
+                    "(id, content, category, spec_name, session_id, "
+                    "commit_sha, confidence, created_at) "
+                    "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    [
+                        fact.id,
+                        fact.content,
+                        fact.category,
+                        fact.spec_name,
+                        getattr(fact, "session_id", None),
+                        getattr(fact, "commit_sha", None),
+                        fact.confidence,
+                    ],
+                )
+            except Exception:
+                logger.debug(
+                    "Failed to sync fact %s to DuckDB",
+                    fact.id,
+                    exc_info=True,
+                )
 
     def _extract_causal_links(
         self,
