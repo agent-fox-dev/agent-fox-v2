@@ -30,37 +30,37 @@ cases.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit tests for JsonOutput helper
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit tests for JsonOutput helper
     - Create `tests/unit/cli/test_json_io.py`
     - Test `emit()`, `emit_line()`, `emit_error()`, `read_stdin()`
     - _Test Spec: TS-23-19, TS-23-20, TS-23-24_
 
-  - [ ] 1.2 Create integration tests for global flag and batch commands
+  - [x] 1.2 Create integration tests for global flag and batch commands
     - Create `tests/integration/test_json_flag.py`
     - Test `--json` on status, standup, lint-spec, plan, patterns, compact,
       ingest, init, reset
     - Test --format removal
     - _Test Spec: TS-23-1 through TS-23-13, TS-23-21 through TS-23-23_
 
-  - [ ] 1.3 Create integration tests for streaming commands and errors
+  - [x] 1.3 Create integration tests for streaming commands and errors
     - Test code, ask, fix with --json
     - Test error envelope, exit code preservation
     - _Test Spec: TS-23-14 through TS-23-18_
 
-  - [ ] 1.4 Create edge case tests
+  - [x] 1.4 Create edge case tests
     - --json + --verbose, stderr logs, empty data, interrupts, stdin errors
     - _Test Spec: TS-23-E1 through TS-23-E8_
 
-  - [ ] 1.5 Create property tests
+  - [x] 1.5 Create property tests
     - Create `tests/property/cli/test_json_props.py`
     - JSON exclusivity, error envelope structure, exit code preservation
     - _Test Spec: TS-23-P1 through TS-23-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings: `uv run ruff check tests/`
 
 - [ ] 2. Implement JsonOutput helper and global flag
   - [ ] 2.1 Create `agent_fox/cli/json_io.py`
