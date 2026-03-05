@@ -437,9 +437,6 @@ class TestCodeJsonl:
             mock_orch = MagicMock()
             mock_orch_cls.return_value = mock_orch
 
-            import asyncio
-            future = asyncio.Future()
-            future.set_result(mock_state)
             with patch("agent_fox.cli.code.asyncio.run", return_value=mock_state):
                 # Plan file is required
                 plan_path = tmp_project / ".agent-fox" / "plan.json"
@@ -676,6 +673,52 @@ class TestEmptyDataValidJson:
 
 
 # ---------------------------------------------------------------------------
+# TS-23-E4: Streaming interrupted
+# ---------------------------------------------------------------------------
+
+
+class TestStreamingInterrupted:
+    """TS-23-E4: Interrupted streaming emits final status object."""
+
+    def test_code_interrupted_emits_status(
+        self, cli_runner: CliRunner, tmp_project: Path
+    ) -> None:
+        """code --json interrupted by KeyboardInterrupt emits status."""
+        with (
+            patch("agent_fox.cli.code.Orchestrator"),
+            patch("agent_fox.cli.code.open_knowledge_store") as mock_ks,
+            patch("agent_fox.cli.code.ProgressDisplay"),
+            patch("agent_fox.cli.code.asyncio.run") as mock_run,
+        ):
+            mock_ks.return_value = None
+            mock_run.side_effect = KeyboardInterrupt()
+
+            plan_path = tmp_project / ".agent-fox" / "plan.json"
+            plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
+
+            result = cli_runner.invoke(main, ["--json", "code"])
+            last_line = result.output.strip().splitlines()[-1]
+            data = json.loads(last_line)
+            assert data["status"] == "interrupted"
+
+    def test_fix_interrupted_emits_status(
+        self, cli_runner: CliRunner, tmp_project: Path
+    ) -> None:
+        """fix --json interrupted by KeyboardInterrupt emits status."""
+        with (
+            patch("agent_fox.cli.fix.detect_checks") as mock_checks,
+            patch("agent_fox.cli.fix.asyncio.run") as mock_run,
+        ):
+            mock_checks.return_value = [MagicMock()]
+            mock_run.side_effect = KeyboardInterrupt()
+
+            result = cli_runner.invoke(main, ["--json", "fix"])
+            last_line = result.output.strip().splitlines()[-1]
+            data = json.loads(last_line)
+            assert data["status"] == "interrupted"
+
+
+# ---------------------------------------------------------------------------
 # TS-23-E5: Unhandled exception in JSON mode
 # ---------------------------------------------------------------------------
 
@@ -696,6 +739,26 @@ class TestUnhandledExceptionEnvelope:
 
 
 # ---------------------------------------------------------------------------
+# TS-23-E6: Invalid JSON on stdin (integration level)
+# ---------------------------------------------------------------------------
+
+
+class TestInvalidStdinJson:
+    """TS-23-E6: Invalid stdin JSON produces error envelope."""
+
+    def test_invalid_stdin_json_error(
+        self, cli_runner: CliRunner, tmp_project: Path
+    ) -> None:
+        """Invalid JSON on stdin emits error envelope."""
+        result = cli_runner.invoke(
+            main, ["--json", "ask", "test"],
+            input="not valid json {",
+        )
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+# ---------------------------------------------------------------------------
 # TS-23-E8: --format produces usage error
 # ---------------------------------------------------------------------------
 
@@ -707,3 +770,47 @@ class TestFormatUsageError:
         """status --format yaml exits with code 2."""
         result = cli_runner.invoke(main, ["status", "--format", "yaml"])
         assert result.exit_code == 2
+
+
+# ---------------------------------------------------------------------------
+# TS-23-STDIN: Stdin JSON input wiring
+# ---------------------------------------------------------------------------
+
+
+class TestStdinJsonInput:
+    """Test stdin JSON input is correctly read by commands."""
+
+    def test_ask_reads_question_from_stdin(
+        self, cli_runner: CliRunner, tmp_project: Path
+    ) -> None:
+        """ask --json reads question from stdin JSON."""
+        mock_answer = MagicMock(
+            answer="Test answer",
+            confidence="high",
+            sources=[],
+            contradictions=[],
+        )
+        with (
+            patch("agent_fox.cli.ask.open_knowledge_store") as mock_store,
+            patch("agent_fox.cli.ask.EmbeddingGenerator"),
+            patch("agent_fox.cli.ask.VectorSearch") as mock_search_cls,
+            patch("agent_fox.cli.ask.Oracle") as mock_oracle_cls,
+        ):
+            mock_db = MagicMock()
+            mock_store.return_value = mock_db
+            mock_search = MagicMock()
+            mock_search.has_embeddings.return_value = True
+            mock_search_cls.return_value = mock_search
+            mock_oracle = MagicMock()
+            mock_oracle.ask.return_value = mock_answer
+            mock_oracle_cls.return_value = mock_oracle
+
+            result = cli_runner.invoke(
+                main,
+                ["--json", "ask", "cli question"],
+                input='{"question": "stdin question", "top_k": 5}',
+            )
+            data = json.loads(result.output)
+            assert isinstance(data, dict)
+            # CLI argument "cli question" should be used, not stdin
+            mock_oracle.ask.assert_called_once_with("cli question")

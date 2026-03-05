@@ -142,32 +142,32 @@ cases.
     - [x] No linter warnings: `uv run ruff check agent_fox/cli/`
     - [x] Requirements 23-REQ-3.*, 23-REQ-4.* met
 
-- [ ] 5. Add JSONL output for streaming commands and stdin input
-  - [ ] 5.1 Add JSONL output to `code` command
+- [x] 5. Add JSONL output for streaming commands and stdin input
+  - [x] 5.1 Add JSONL output to `code` command
     - Emit progress events as JSONL via `json_io.emit_line()`
     - Handle SIGINT with final `{"status": "interrupted"}`
     - _Requirements: 23-REQ-5.1, 23-REQ-5.E1_
 
-  - [ ] 5.2 Add JSON output to `ask` command
+  - [x] 5.2 Add JSON output to `ask` command
     - Emit answer + sources as JSON object
     - Accept `{"question": "..."}` from stdin
     - _Requirements: 23-REQ-5.2, 23-REQ-7.2_
 
-  - [ ] 5.3 Add JSONL output to `fix` command
+  - [x] 5.3 Add JSONL output to `fix` command
     - Emit progress events as JSONL
     - Handle SIGINT with final status
     - _Requirements: 23-REQ-5.3_
 
-  - [ ] 5.4 Wire stdin JSON input into commands
+  - [x] 5.4 Wire stdin JSON input into commands
     - Call `read_stdin()` in each command when JSON mode active
     - Merge stdin fields with CLI params (CLI takes precedence)
     - _Requirements: 23-REQ-7.1, 23-REQ-7.2, 23-REQ-7.E1, 23-REQ-7.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Streaming tests pass: `uv run pytest tests/integration/test_json_flag.py -k "streaming" -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/ -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/cli/`
-    - [ ] Requirements 23-REQ-5.*, 23-REQ-7.* met
+  - [x] 5.V Verify task group 5
+    - [x] Streaming tests pass: `uv run pytest tests/integration/test_json_flag.py -k "streaming" -q`
+    - [x] All existing tests still pass: `uv run pytest tests/ -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/cli/`
+    - [x] Requirements 23-REQ-5.*, 23-REQ-7.* met
 
 - [ ] 6. Checkpoint — Global JSON Flag Complete
   - Ensure all tests pass: `uv run pytest tests/ -q`

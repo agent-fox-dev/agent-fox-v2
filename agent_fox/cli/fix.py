@@ -3,7 +3,8 @@
 Detects quality checks, runs them, clusters failures, generates fix
 specifications, and runs coding sessions to resolve failures iteratively.
 
-Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.E1
+Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.E1,
+              23-REQ-5.3, 23-REQ-5.E1
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
+from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.detector import detect_checks
 from agent_fox.fix.loop import TerminationReason, run_fix_loop
@@ -83,12 +85,27 @@ def fix_cmd(ctx: click.Context, max_passes: int, dry_run: bool) -> None:
     to resolve them. Iterates until all checks pass or max passes reached.
     """
     config = ctx.obj["config"]
+    json_mode: bool = ctx.obj.get("json", False)
     project_root = Path.cwd()
     console = Console()
+
+    # 23-REQ-7.1: read stdin JSON when in JSON mode
+    if json_mode:
+        stdin_data = json_io.read_stdin()
+        if max_passes == 3 and "max_passes" in stdin_data:  # default
+            max_passes = int(stdin_data["max_passes"])
 
     # 08-REQ-1.E1: Early exit if no quality checks detected
     checks = detect_checks(project_root)
     if not checks:
+        if json_mode:
+            json_io.emit_error(
+                "No quality checks detected in this project. "
+                "Ensure configuration files (pyproject.toml, package.json, "
+                "Makefile, Cargo.toml) are present."
+            )
+            ctx.exit(1)
+            return
         click.echo(
             "Error: No quality checks detected in this project. "
             "Ensure configuration files (pyproject.toml, package.json, "
@@ -107,17 +124,37 @@ def fix_cmd(ctx: click.Context, max_passes: int, dry_run: bool) -> None:
     runner = None if dry_run else _build_fix_session_runner(config, project_root)
 
     # Run the fix loop
-    result = asyncio.run(
-        run_fix_loop(
-            project_root=project_root,
-            config=config,
-            max_passes=max_passes,
-            session_runner=runner,
+    try:
+        result = asyncio.run(
+            run_fix_loop(
+                project_root=project_root,
+                config=config,
+                max_passes=max_passes,
+                session_runner=runner,
+            )
         )
-    )
+    except KeyboardInterrupt:
+        # 23-REQ-5.E1: emit interrupted status in JSON mode
+        if json_mode:
+            json_io.emit_line({"status": "interrupted"})
+        ctx.exit(130)
+        return
 
-    # Render the report
-    render_fix_report(result, console)
+    # 23-REQ-5.3: emit JSONL in JSON mode
+    if json_mode:
+        json_io.emit_line({
+            "event": "complete",
+            "summary": {
+                "passes_completed": result.passes_completed,
+                "clusters_resolved": result.clusters_resolved,
+                "clusters_remaining": result.clusters_remaining,
+                "sessions_consumed": result.sessions_consumed,
+                "termination_reason": str(result.termination_reason),
+            },
+        })
+    else:
+        # Render the report
+        render_fix_report(result, console)
 
     # Exit code: 0 if all fixed, 1 otherwise
     if result.termination_reason != TerminationReason.ALL_FIXED:

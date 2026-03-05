@@ -5,7 +5,8 @@ contradictions, and confidence indicator.  Supports ``--timeline``
 for temporal causal queries (13-REQ-4.1, 13-REQ-4.2).
 
 Requirements: 12-REQ-5.1, 12-REQ-5.E1, 12-REQ-5.E2, 12-REQ-2.E2,
-              13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1
+              13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1,
+              23-REQ-5.2, 23-REQ-7.2
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import sys
 
 import click
 
+from agent_fox.cli import json_io
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
@@ -56,6 +58,16 @@ def ask_command(
         agent-fox ask --timeline "what happened with the auth module?"
     """
     config = ctx.obj["config"].knowledge
+    json_mode: bool = ctx.obj.get("json", False)
+
+    # 23-REQ-7.1, 23-REQ-7.2: read stdin JSON when in JSON mode
+    if json_mode:
+        stdin_data = json_io.read_stdin()
+        # CLI flags take precedence over stdin values
+        if not question and "question" in stdin_data:
+            question = stdin_data["question"]
+        if top_k is None and "top_k" in stdin_data:
+            top_k = int(stdin_data["top_k"])
 
     # Override top_k if provided via CLI
     if top_k is not None:
@@ -64,6 +76,9 @@ def ask_command(
     # Open the knowledge store (graceful degradation)
     db = open_knowledge_store(config)
     if db is None:
+        if json_mode:
+            json_io.emit_error("Knowledge store is unavailable.")
+            sys.exit(1)
         click.echo("Error: Knowledge store is unavailable.", err=True)
         sys.exit(1)
 
@@ -74,6 +89,13 @@ def ask_command(
 
         # Check whether the store has any embedded facts
         if not search.has_embeddings():
+            if json_mode:
+                json_io.emit({
+                    "answer": None,
+                    "sources": [],
+                    "message": "No knowledge accumulated yet.",
+                })
+                return
             click.echo(
                 "No knowledge has been accumulated yet. "
                 "Run some coding sessions first to build up the knowledge base."
@@ -81,11 +103,22 @@ def ask_command(
             return
 
         if timeline:
-            _run_timeline_query(db.connection, embedder, question, config.ask_top_k)
+            if json_mode:
+                _run_timeline_query_json(
+                    db.connection, embedder, question, config.ask_top_k,
+                )
+            else:
+                _run_timeline_query(db.connection, embedder, question, config.ask_top_k)
         else:
-            _run_oracle_query(embedder, search, config, question)
+            if json_mode:
+                _run_oracle_query_json(embedder, search, config, question)
+            else:
+                _run_oracle_query(embedder, search, config, question)
 
     except KnowledgeStoreError as exc:
+        if json_mode:
+            json_io.emit_error(str(exc))
+            sys.exit(1)
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
     finally:
@@ -122,6 +155,30 @@ def _run_oracle_query(embedder, search, config, question: str) -> None:
             click.echo(f"  ! {contradiction}")
 
 
+def _run_oracle_query_json(embedder, search, config, question: str) -> None:
+    """Oracle query with JSON output (23-REQ-5.2)."""
+    oracle = Oracle(embedder, search, config)
+    answer = oracle.ask(question)
+
+    sources = []
+    for src in answer.sources:
+        sources.append({
+            "fact_id": src.fact_id,
+            "content": src.content,
+            "spec_name": src.spec_name,
+            "session_id": src.session_id,
+            "commit_sha": src.commit_sha,
+            "similarity": src.similarity,
+        })
+
+    json_io.emit({
+        "answer": answer.answer,
+        "confidence": answer.confidence,
+        "sources": sources,
+        "contradictions": answer.contradictions or [],
+    })
+
+
 def _run_timeline_query(conn, embedder, question: str, top_k: int) -> None:
     """Temporal causal timeline query (13-REQ-4.1, 13-REQ-4.2)."""
     query_embedding = embedder.embed_text(question)
@@ -129,3 +186,27 @@ def _run_timeline_query(conn, embedder, question: str, top_k: int) -> None:
 
     use_color = sys.stdout.isatty()
     click.echo(tl.render(use_color=use_color))
+
+
+def _run_timeline_query_json(conn, embedder, question: str, top_k: int) -> None:
+    """Temporal causal timeline query with JSON output (23-REQ-5.2)."""
+    query_embedding = embedder.embed_text(question)
+    tl = temporal_query(conn, question, query_embedding, top_k=top_k)
+
+    nodes = []
+    for node in tl.nodes:
+        nodes.append({
+            "fact_id": node.fact_id,
+            "content": node.content,
+            "spec_name": node.spec_name,
+            "session_id": node.session_id,
+            "commit_sha": node.commit_sha,
+            "timestamp": node.timestamp,
+            "relationship": node.relationship,
+            "depth": node.depth,
+        })
+
+    json_io.emit({
+        "query": tl.query,
+        "timeline": nodes,
+    })
