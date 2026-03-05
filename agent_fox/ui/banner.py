@@ -19,9 +19,10 @@ from agent_fox.core.config import ModelConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.ui.theme import AppTheme
 
-FOX_ART = r"""   /\_/\  _
-  / o.o \/ \
- ( > ^ < )  )
+FOX_ART = r"""
+   /\_/\   _
+  / o.o \/\ \
+ ( > ^ < ) ) )
   \_^/\_/--'"""
 
 
