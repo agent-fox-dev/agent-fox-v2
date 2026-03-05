@@ -242,17 +242,23 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool, fix: bool) -> No
         except Exception as exc:
             logger.warning("AI validation failed: %s", exc)
 
+    # 22-REQ-1.1: Apply AI rewrites when both --ai and --fix are provided
+    ai_fix_results: list = []
+    if ai and fix:
+        ai_fix_results = _apply_ai_fixes(findings, discovered, specs_dir)
+
     # 20-REQ-6.1: Apply auto-fixes when --fix is provided
     if fix:
         from agent_fox.spec.fixer import apply_fixes
 
         known_specs = _build_known_specs(discovered)
         fix_results = apply_fixes(findings, discovered, specs_dir, known_specs)
-        if fix_results:
-            # Print fix summary to stderr (20-REQ-6.6)
-            summary = _format_fix_summary(fix_results)
+        all_fix_results = ai_fix_results + fix_results
+        if all_fix_results:
+            # Print fix summary to stderr (20-REQ-6.6, 22-REQ-4.1)
+            summary = _format_fix_summary(all_fix_results)
             click.echo(summary, err=True)
-            # Re-validate to get remaining findings (20-REQ-6.2)
+            # Re-validate to get remaining findings (20-REQ-6.2, 22-REQ-4.2)
             findings = validate_specs(specs_dir, discovered)
             if ai:
                 try:
@@ -274,6 +280,91 @@ def lint_spec(ctx: click.Context, output_format: str, ai: bool, fix: bool) -> No
     # Set exit code based on findings
     exit_code = compute_exit_code(findings)
     ctx.exit(exit_code)
+
+
+def _apply_ai_fixes(
+    findings: list[Finding],
+    discovered: list[SpecInfo],
+    specs_dir: Path,
+) -> list:
+    """Apply AI-powered criterion rewrites for vague/implementation-leak findings.
+
+    Groups AI criteria findings by spec, calls rewrite_criteria() per spec
+    (batching up to 20 findings per call), and applies rewrites via
+    fix_ai_criteria().
+
+    Requirements: 22-REQ-1.1, 22-REQ-1.4, 22-REQ-3.1, 22-REQ-3.E1, 22-REQ-4.1
+    """
+    from agent_fox.spec.ai_validator import (
+        _MAX_CRITERIA_PER_BATCH,
+        rewrite_criteria,
+    )
+    from agent_fox.spec.fixer import (
+        AI_FIXABLE_RULES,
+        fix_ai_criteria,
+        parse_finding_criterion_id,
+    )
+
+    # Filter to AI-fixable findings
+    ai_findings = [f for f in findings if f.rule in AI_FIXABLE_RULES]
+    if not ai_findings:
+        return []
+
+    # Group by spec name
+    by_spec: dict[str, list[Finding]] = {}
+    for f in ai_findings:
+        by_spec.setdefault(f.spec_name, []).append(f)
+
+    # Build spec lookup
+    spec_by_name: dict[str, SpecInfo] = {s.name: s for s in discovered}
+
+    standard_model = resolve_model("STANDARD").model_id
+    all_results: list = []
+
+    for spec_name, spec_findings in by_spec.items():
+        spec = spec_by_name.get(spec_name)
+        if spec is None:
+            continue
+
+        req_path = spec.path / "requirements.md"
+        if not req_path.is_file():
+            continue
+
+        requirements_text = req_path.read_text(encoding="utf-8")
+
+        # Split into batches of _MAX_CRITERIA_PER_BATCH (22-REQ-3.E1)
+        batches = [
+            spec_findings[i : i + _MAX_CRITERIA_PER_BATCH]
+            for i in range(0, len(spec_findings), _MAX_CRITERIA_PER_BATCH)
+        ]
+
+        for batch in batches:
+            try:
+                rewrites = asyncio.run(
+                    rewrite_criteria(
+                        spec_name, requirements_text, batch, standard_model
+                    )
+                )
+            except Exception as exc:
+                logger.warning(
+                    "AI rewrite failed for spec '%s': %s", spec_name, exc
+                )
+                continue
+
+            if not rewrites:
+                continue
+
+            # Build findings_map: criterion_id -> rule name
+            findings_map: dict[str, str] = {}
+            for f in batch:
+                cid = parse_finding_criterion_id(f)
+                if cid:
+                    findings_map[cid] = f.rule
+
+            results = fix_ai_criteria(spec_name, req_path, rewrites, findings_map)
+            all_results.extend(results)
+
+    return all_results
 
 
 def _output_findings(findings: list[Finding], output_format: str) -> None:

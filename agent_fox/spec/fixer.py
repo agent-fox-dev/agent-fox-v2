@@ -56,6 +56,18 @@ class FixResult:
 # Set of rules that have auto-fixers
 FIXABLE_RULES = {"coarse-dependency", "missing-verification", "stale-dependency"}
 
+# AI-specific fixable rules (only active when --ai flag is set)
+AI_FIXABLE_RULES = {"vague-criterion", "implementation-leak"}
+
+# Regex for locating criterion IDs in requirements.md
+# Supports bracket format: [99-REQ-1.1] and bold format: **99-REQ-1.1:**
+_CRITERION_BRACKET = re.compile(
+    r"^(\s*\d+\.\s*)\[({cid})\]\s*(.*)$",
+)
+_CRITERION_BOLD = re.compile(
+    r"^(\s*\d+\.\s*)\*\*({cid}):\*\*\s*(.*)$",
+)
+
 
 def fix_stale_dependency(
     spec_name: str,
@@ -444,3 +456,104 @@ def _parse_stale_dep_fixes(findings: list[Finding]) -> list[IdentifierFix]:
                 )
             )
     return fixes
+
+
+def fix_ai_criteria(
+    spec_name: str,
+    req_path: Path,
+    rewrites: dict[str, str],
+    findings_map: dict[str, str],
+) -> list[FixResult]:
+    """Apply AI-generated criterion rewrites to requirements.md.
+
+    For each criterion_id in rewrites:
+    1. Locate the line containing the criterion ID in the file.
+    2. Replace the criterion text (everything after the ID prefix)
+       with the rewrite text.
+    3. Record a FixResult.
+
+    Args:
+        spec_name: Spec name for FixResult metadata.
+        req_path: Path to requirements.md.
+        rewrites: Mapping of criterion_id -> replacement_text.
+        findings_map: Mapping of criterion_id -> rule name (e.g. vague-criterion).
+
+    Returns:
+        List of FixResult for each successfully applied rewrite.
+
+    Requirements: 22-REQ-1.2, 22-REQ-1.3, 22-REQ-1.E2, 22-REQ-4.3
+    """
+    if not req_path.is_file() or not rewrites:
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[FixResult] = []
+
+    for criterion_id, replacement in rewrites.items():
+        # Try to locate this criterion ID in the file
+        found = False
+        for i, line in enumerate(lines):
+            # Check bracket format: [99-REQ-1.1]
+            bracket_pattern = re.compile(
+                rf"^(\s*\d+\.\s*)\[({re.escape(criterion_id)})\]\s*(.*)$"
+            )
+            bold_pattern = re.compile(
+                rf"^(\s*\d+\.\s*)\*\*({re.escape(criterion_id)}):\*\*\s*(.*)$"
+            )
+
+            bracket_match = bracket_pattern.match(line)
+            bold_match = bold_pattern.match(line)
+
+            if bracket_match:
+                prefix = bracket_match.group(1)
+                cid = bracket_match.group(2)
+                lines[i] = f"{prefix}[{cid}] {replacement}"
+                found = True
+                break
+            elif bold_match:
+                prefix = bold_match.group(1)
+                cid = bold_match.group(2)
+                lines[i] = f"{prefix}**{cid}:** {replacement}"
+                found = True
+                break
+
+        if not found:
+            logger.warning(
+                "Criterion ID '%s' not found in %s, skipping rewrite",
+                criterion_id,
+                req_path,
+            )
+            continue
+
+        rule = findings_map.get(criterion_id, "vague-criterion")
+        results.append(
+            FixResult(
+                rule=rule,
+                spec_name=spec_name,
+                file=str(req_path),
+                description=(
+                    f"Rewrote criterion {criterion_id}: {replacement[:60]}"
+                ),
+            )
+        )
+
+    if results:
+        req_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return results
+
+
+def parse_finding_criterion_id(finding: Finding) -> str | None:
+    """Extract criterion ID from a Finding's message.
+
+    The AI analysis format is: ``[criterion_id] explanation``.
+
+    Requirements: 22-REQ-4.3
+    """
+    msg = finding.message
+    if msg.startswith("["):
+        end = msg.find("]")
+        if end > 0:
+            return msg[1:end]
+    return None

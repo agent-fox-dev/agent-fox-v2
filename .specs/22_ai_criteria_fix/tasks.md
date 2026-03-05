@@ -82,8 +82,8 @@ the existing validator/fixer separation.
     - [x] No linter warnings: `uv run ruff check agent_fox/spec/ai_validator.py`
     - [x] Requirements 22-REQ-1.1, 22-REQ-2.*, 22-REQ-3.* acceptance criteria met
 
-- [ ] 3. Implement criteria fixer and CLI integration
-  - [ ] 3.1 Implement `fix_ai_criteria()` in fixer module
+- [x] 3. Implement criteria fixer and CLI integration
+  - [x] 3.1 Implement `fix_ai_criteria()` in fixer module
     - Add to `agent_fox/spec/fixer.py`
     - Locate criterion by ID (support both `[ID]` and `**ID:**` formats)
     - Replace criterion text from ID to end-of-criterion boundary
@@ -91,26 +91,26 @@ the existing validator/fixer separation.
     - Return list of FixResult with rule from original finding
     - _Requirements: 22-REQ-1.2, 22-REQ-1.3, 22-REQ-1.E2_
 
-  - [ ] 3.2 Extract finding metadata for rewrite
+  - [x] 3.2 Extract finding metadata for rewrite
     - Parse criterion_id and issue_type from Finding.message format `[criterion_id] explanation`
     - Map rule name to FixResult rule (vague-criterion, implementation-leak)
     - _Requirements: 22-REQ-4.3_
 
-  - [ ] 3.3 Wire AI rewrite into lint-spec CLI
+  - [x] 3.3 Wire AI rewrite into lint-spec CLI
     - In `lint_spec()`, after AI analysis and before mechanical fixes:
       if `ai and fix`, group AI criteria findings by spec, call `rewrite_criteria()` per spec, call `fix_ai_criteria()`, extend fix results
     - Ensure `--fix` without `--ai` does not trigger rewrite (22-REQ-1.4)
     - _Requirements: 22-REQ-1.4, 22-REQ-4.1, 22-REQ-4.2_
 
-  - [ ] 3.4 Handle batch splitting for large specs
+  - [x] 3.4 Handle batch splitting for large specs
     - Split findings into batches of 20 per rewrite call (22-REQ-3.E1)
     - _Requirements: 22-REQ-3.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All spec tests pass: `uv run pytest tests/unit/spec/test_ai_criteria_fix.py tests/property/spec/test_ai_criteria_fix_props.py tests/integration/test_ai_criteria_fix.py -q`
-    - [ ] All existing tests still pass: `uv run pytest tests/unit/spec/ tests/integration/test_lint_spec.py tests/integration/test_lint_fix.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/cli/lint_spec.py`
-    - [ ] Requirements 22-REQ-1.*, 22-REQ-4.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] All spec tests pass: `uv run pytest tests/unit/spec/test_ai_criteria_fix.py tests/property/spec/test_ai_criteria_fix_props.py tests/integration/test_ai_criteria_fix.py -q`
+    - [x] All existing tests still pass: `uv run pytest tests/unit/spec/ tests/integration/test_lint_spec.py tests/integration/test_lint_fix.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/spec/ agent_fox/cli/lint_spec.py`
+    - [x] Requirements 22-REQ-1.*, 22-REQ-4.* acceptance criteria met
 
 - [ ] 4. Checkpoint — AI Criteria Fix Complete
   - Ensure all tests pass: `uv run pytest tests/unit/spec/ tests/property/spec/ tests/integration/ -q`
