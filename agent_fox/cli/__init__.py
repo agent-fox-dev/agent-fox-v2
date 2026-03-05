@@ -17,6 +17,9 @@ def handle_agent_fox_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
     Reduces the repeated try/except AgentFoxError pattern across CLI
     commands. The decorated function must receive a Click context as
     its first positional argument (``ctx``).
+
+    In JSON mode (``ctx.obj["json"]``), the error is emitted as a
+    JSON envelope to stdout instead of plain text to stderr.
     """
 
     @functools.wraps(fn)
@@ -24,6 +27,12 @@ def handle_agent_fox_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
         try:
             return fn(ctx, *args, **kwargs)
         except AgentFoxError as exc:
+            if ctx.obj and ctx.obj.get("json"):
+                from agent_fox.cli.json_io import emit_error
+
+                emit_error(str(exc))
+                ctx.exit(1)
+                return
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
 

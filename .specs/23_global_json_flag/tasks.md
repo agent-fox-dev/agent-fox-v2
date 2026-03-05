@@ -62,30 +62,30 @@ cases.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings: `uv run ruff check tests/`
 
-- [ ] 2. Implement JsonOutput helper and global flag
-  - [ ] 2.1 Create `agent_fox/cli/json_io.py`
+- [x] 2. Implement JsonOutput helper and global flag
+  - [x] 2.1 Create `agent_fox/cli/json_io.py`
     - Implement `emit(data)` — JSON object to stdout
     - Implement `emit_line(data)` — compact JSONL to stdout
     - Implement `emit_error(message)` — error envelope to stdout
     - Implement `read_stdin()` — parse JSON from non-TTY stdin
     - _Requirements: 23-REQ-6.1, 23-REQ-7.1, 23-REQ-7.3_
 
-  - [ ] 2.2 Add `--json` flag to `main` group in `app.py`
+  - [x] 2.2 Add `--json` flag to `main` group in `app.py`
     - Add `@click.option("--json", "json_mode", is_flag=True)`
     - Store `ctx.obj["json"] = json_mode`
     - Suppress banner when `json_mode` is True
     - _Requirements: 23-REQ-1.1, 23-REQ-1.2, 23-REQ-2.1_
 
-  - [ ] 2.3 Modify `BannerGroup.invoke` for JSON error handling
+  - [x] 2.3 Modify `BannerGroup.invoke` for JSON error handling
     - Catch exceptions, emit error envelope when `ctx.obj.get("json")`
     - Preserve exit codes
     - _Requirements: 23-REQ-6.1, 23-REQ-6.2, 23-REQ-6.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Unit tests for json_io pass: `uv run pytest tests/unit/cli/test_json_io.py -q`
-    - [ ] Global flag integration tests pass: `uv run pytest tests/integration/test_json_flag.py -k "global" -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/cli/json_io.py agent_fox/cli/app.py`
-    - [ ] Requirements 23-REQ-1.*, 23-REQ-2.*, 23-REQ-6.*, 23-REQ-7.* met
+  - [x] 2.V Verify task group 2
+    - [x] Unit tests for json_io pass: `uv run pytest tests/unit/cli/test_json_io.py -q`
+    - [x] Global flag integration tests pass: `uv run pytest tests/integration/test_json_flag.py -k "global" -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/cli/json_io.py agent_fox/cli/app.py`
+    - [x] Requirements 23-REQ-1.*, 23-REQ-2.*, 23-REQ-6.*, 23-REQ-7.* met
 
 - [ ] 3. Remove --format and YAML support
   - [ ] 3.1 Remove `--format` from `status` command
