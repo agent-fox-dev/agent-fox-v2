@@ -9,6 +9,7 @@ Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4, 02-REQ-7.5
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -28,16 +29,36 @@ from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
 logger = logging.getLogger(__name__)
 
 
+def _compute_specs_hash(specs_dir: Path) -> str:
+    """Compute a content hash over all tasks.md and prd.md files in specs_dir.
+
+    This ensures the plan cache is invalidated whenever spec content changes,
+    including when new specs are added or existing ones are modified.
+    """
+    hasher = hashlib.sha256()
+    if not specs_dir.is_dir():
+        return hasher.hexdigest()
+
+    for path in sorted(specs_dir.rglob("*.md")):
+        # Include the relative path so renames/moves also invalidate
+        hasher.update(str(path.relative_to(specs_dir)).encode())
+        hasher.update(path.read_bytes())
+
+    return hasher.hexdigest()
+
+
 def _cache_matches_request(
     graph: TaskGraph,
     *,
     fast: bool,
     filter_spec: str | None,
+    specs_hash: str,
 ) -> bool:
-    """Return True when cached plan metadata matches CLI request flags."""
+    """Return True when cached plan matches request flags and spec content."""
     return (
         graph.metadata.fast_mode == fast
         and graph.metadata.filtered_spec == filter_spec
+        and graph.metadata.specs_hash == specs_hash
     )
 
 
@@ -103,6 +124,7 @@ def _build_plan(
         fast_mode=fast,
         filtered_spec=filter_spec,
         version=__version__,
+        specs_hash=_compute_specs_hash(specs_dir),
     )
 
     return graph
@@ -179,6 +201,9 @@ def plan_cmd(
     specs_dir = project_root / ".specs"
     plan_path = project_root / ".agent-fox" / "plan.json"
 
+    # Compute content hash of all spec files for cache invalidation
+    specs_hash = _compute_specs_hash(specs_dir)
+
     # 02-REQ-6.3: Load existing plan if available (unless --reanalyze)
     if not reanalyze and plan_path.exists():
         existing = load_plan(plan_path)
@@ -187,6 +212,7 @@ def plan_cmd(
                 existing,
                 fast=fast,
                 filter_spec=filter_spec,
+                specs_hash=specs_hash,
             ):
                 logger.info("Using cached plan from %s", plan_path)
                 # Re-discover specs for summary display

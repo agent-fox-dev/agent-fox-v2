@@ -54,6 +54,7 @@ def _metadata_from_dict(data: dict[str, Any]) -> PlanMetadata:
         fast_mode=data.get("fast_mode", False),
         filtered_spec=data.get("filtered_spec"),
         version=data.get("version", ""),
+        specs_hash=data.get("specs_hash", ""),
     )
 
 

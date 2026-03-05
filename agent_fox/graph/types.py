@@ -50,6 +50,7 @@ class PlanMetadata:
     fast_mode: bool = False
     filtered_spec: str | None = None
     version: str = ""  # agent-fox version
+    specs_hash: str = ""  # content hash of all spec files
 
 
 @dataclass
