@@ -156,14 +156,17 @@ class TableFormatter:
         if report.task_activities:
             for ta in report.task_activities:
                 display_id = _display_node_id(ta.task_id)
-                in_tok = format_tokens(ta.input_tokens)
-                out_tok = format_tokens(ta.output_tokens)
-                lines.append(
-                    f"  {display_id}: {ta.current_status}. "
-                    f"{ta.completed_sessions}/{ta.total_sessions} sessions. "
-                    f"tokens {in_tok} in / {out_tok} out. "
-                    f"${ta.cost:.2f}"
-                )
+                if ta.total_sessions > 0:
+                    in_tok = format_tokens(ta.input_tokens)
+                    out_tok = format_tokens(ta.output_tokens)
+                    lines.append(
+                        f"  {display_id}: {ta.current_status}. "
+                        f"{ta.completed_sessions}/{ta.total_sessions} sessions. "
+                        f"tokens {in_tok} in / {out_tok} out. "
+                        f"${ta.cost:.2f}"
+                    )
+                else:
+                    lines.append(f"  {display_id}: {ta.current_status}")
         else:
             lines.append("  (no agent activity)")
         lines.append("")
