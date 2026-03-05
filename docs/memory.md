@@ -53,6 +53,26 @@
 - The apply_fixes() function needs to be extended with a handler for each new fix type to transform findings into concrete code modifications. _(spec: 21_dependency_interface_validation, confidence: high)_
 - Task group 4 for specification 21_dependency_interface_validation integrates stale-dependency validation into the lint-spec pipeline by updating run_ai_validation() to accept a specs_dir parameter and call run_stale_dependency_validation(). _(spec: 21_dependency_interface_validation, confidence: high)_
 - Integration tests for validation pipelines should verify that findings from multiple validators (AI and stale-dependency) appear together in the output. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Test-driven development workflow: write comprehensive failing tests first (24 tests across unit, property, and integration test files) before implementing the feature, ensuring all existing tests remain passing. _(spec: 22_ai_criteria_fix, confidence: high)_
+- Organize test coverage across three test file types: unit tests (function-level), property tests (behavior invariants), and integration tests (CLI/end-to-end), each targeting different aspects of the AI criteria auto-fix feature. _(spec: 22_ai_criteria_fix, confidence: high)_
+- Task group implementations should include CLI integration wiring to expose new functionality through existing command interfaces (e.g., wiring AI rewrite into lint-spec --ai --fix). _(spec: 22_ai_criteria_fix, confidence: high)_
+- When implementing batch processing features for large inputs, include batch splitting logic to handle capacity constraints gracefully. _(spec: 22_ai_criteria_fix, confidence: high)_
+- Metadata extraction functions should have dedicated parsing methods (e.g., parse_finding_criterion_id) to isolate ID extraction logic from main processing. _(spec: 22_ai_criteria_fix, confidence: medium)_
+- Type checking with mypy should be run as part of verification when modifying validator modules to catch type errors before tests pass. _(spec: 22_ai_criteria_fix, confidence: high)_
+- When implementing a new global CLI flag like --json, establish comprehensive test coverage upfront across unit, integration, and property-based tests before implementation to define expected behavior. _(spec: 23_global_json_flag, confidence: high)_
+- Property-based tests are valuable for CLI flag features to verify invariants like JSON exclusivity, error handling consistency, exit code correctness, and flag precedence rules. _(spec: 23_global_json_flag, confidence: high)_
+- When implementing a global --json flag in Click CLI, suppress the banner in JSON mode by checking the flag state during BannerGroup.invoke to avoid mixing formatted output with JSON. _(spec: 23_global_json_flag, confidence: high)_
+- Create dedicated helper functions (emit, emit_line, emit_error) for JSON/non-JSON output abstraction rather than scattering conditional logic throughout the codebase. _(spec: 23_global_json_flag, confidence: high)_
+- Global CLI flags should be implemented at the main group level and propagated to error handlers to ensure consistent behavior across all command execution paths. _(spec: 23_global_json_flag, confidence: medium)_
+- Error handling with JSON mode requires wrapping errors in a structured envelope within the main error handler to ensure all errors (including unhandled exceptions) are JSON-formatted. _(spec: 23_global_json_flag, confidence: high)_
+- When refactoring CLI output format options, replace the generic --format flag with specific flags like --json to simplify the codebase and reduce formatter abstraction overhead. _(spec: 23_global_json_flag, confidence: high)_
+- Using real dataclass instances instead of MagicMock fixtures in tests ensures that serialization methods like asdict() work correctly during testing. _(spec: 23_global_json_flag, confidence: high)_
+- Centralizing JSON output logic through a dedicated json_io.emit() function maintains consistency across multiple commands when removing a generic formatter system. _(spec: 23_global_json_flag, confidence: medium)_
+- Batch commands should check ctx.obj['json'] to determine whether to output structured JSON or human-readable text, enabling a global JSON flag pattern across the CLI. _(spec: 23_global_json_flag, confidence: high)_
+- When implementing JSON output support, use dedicated json_io helpers for serialization and wrap errors in a proper error envelope to maintain consistent structured output. _(spec: 23_global_json_flag, confidence: high)_
+- When implementing streaming commands with multiple input sources, stdin JSON input should take precedence over other input methods and requires explicit wiring in each command. _(spec: 23_global_json_flag, confidence: high)_
+- SIGINT interrupt handling in streaming commands should use status envelopes to communicate the interrupted state to clients. _(spec: 23_global_json_flag, confidence: high)_
+- Checkpoint task groups should verify spec test suite passes completely (all 57 tests), linting is clean for spec code, and type checking shows no new errors introduced. _(spec: 23_global_json_flag, confidence: high)_
 
 ## Decisions
 
@@ -62,6 +82,8 @@
 - Spec-versioned tests (e.g., spec-10 tests) may become obsolete during major overhauls and should be identified and removed rather than patched during structural changes. _(spec: 19_git_and_platform_overhaul, confidence: medium)_
 - PlatformConfig should be simplified as part of platform overhaul work, reducing configuration complexity alongside git and platform infrastructure changes. _(spec: 19_git_and_platform_overhaul, confidence: high)_
 - The lint-spec CLI must be updated to pass the specs_dir parameter when invoking the validation pipeline to enable stale-dependency checks. _(spec: 21_dependency_interface_validation, confidence: high)_
+- Removing unused formatter classes (YamlFormatter, OutputFormat.YAML) as part of a feature removal reduces dead code and maintenance burden. _(spec: 23_global_json_flag, confidence: high)_
+- JSONL output format is appropriate for code/fix commands while JSON output is appropriate for ask command, indicating different output strategies for different command types. _(spec: 23_global_json_flag, confidence: medium)_
 
 ## Conventions
 
@@ -81,7 +103,19 @@
 - The standard two-column dependency format is prohibited in dependency specifications; use a three-column format with explicit justification in the Relationship column instead. _(spec: 20_plan_analysis, confidence: high)_
 - Use sentinel value 0 (not 1) to indicate upstream specs that do not have a tasks.md file. _(spec: 20_plan_analysis, confidence: high)_
 - Test extraction, validation, and batching logic comprehensively before implementing dependent fixer functionality to catch integration issues early. _(spec: 21_dependency_interface_validation, confidence: high)_
+- When implementing a new feature, ensure all new tests start in a failing state and validate that existing tests continue to pass before writing any implementation code. _(spec: 22_ai_criteria_fix, confidence: high)_
+- Running full test suites (existing + new tests) after implementing task groups is critical to catch regressions early, especially when integrating with CLI commands. _(spec: 22_ai_criteria_fix, confidence: high)_
+- When implementing CLI features with multiple flags like --ai and --fix, ensure the behavior is documented in CLI reference documentation (docs/cli-reference.md) to clarify how flags combine and what actions they trigger. _(spec: 22_ai_criteria_fix, confidence: high)_
+- Checkpoint task groups should verify that all tests pass, linting is clean, and documentation is updated in addition to code changes. _(spec: 22_ai_criteria_fix, confidence: high)_
+- When adding a new flag, organize tests into three layers: unit tests for helper logic, integration tests for command behavior, and property tests for invariants. _(spec: 23_global_json_flag, confidence: high)_
+- A global JSON flag should be applied consistently across all batch commands (plan, patterns, compact, ingest, init, reset) to provide uniform output behavior. _(spec: 23_global_json_flag, confidence: high)_
+- Integration tests for streaming commands should cover edge cases including interrupt handling, invalid stdin JSON input, and input precedence rules. _(spec: 23_global_json_flag, confidence: high)_
+- When adding a new global flag like --json, ensure to update cli-reference.md documentation and remove references to superseded flags (like --format) from affected commands. _(spec: 23_global_json_flag, confidence: high)_
 
 ## Anti-Patterns
 
 - Template code should not contain direct git push commands; push operations must be wired through proper lifecycle management (e.g., session lifecycle) instead. _(spec: 19_git_and_platform_overhaul, confidence: high)_
+
+## Fragile Areas
+
+- Global CLI flags should be tested for interactions with existing flags (like --format removal) and precedence rules to prevent unexpected behavior. _(spec: 23_global_json_flag, confidence: high)_

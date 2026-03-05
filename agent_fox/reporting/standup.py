@@ -261,14 +261,14 @@ def _compute_task_activities(
     sessions: list[SessionRecord],
     node_states: dict[str, str],
 ) -> list[TaskActivity]:
-    """Compute per-task activity breakdowns from windowed sessions.
+    """Compute per-task activity breakdowns across all sessions.
 
-    Groups sessions by node_id and for each group counts completed vs
-    total sessions, sums tokens and cost, and looks up the current status
-    from the execution state node_states.
+    Includes every task from node_states (the full plan) so the standup
+    report shows the complete picture.  Tasks that have never been
+    executed appear with zero tokens/cost and their current status.
 
     Args:
-        sessions: Session records within the reporting window.
+        sessions: All session records from execution state.
         node_states: Mapping of node_id to current status from ExecutionState.
 
     Returns:
@@ -280,9 +280,12 @@ def _compute_task_activities(
     for session in sessions:
         groups[session.node_id].append(session)
 
+    # Merge all task IDs: those with sessions + those only in node_states
+    all_task_ids = sorted(set(groups.keys()) | set(node_states.keys()))
+
     activities: list[TaskActivity] = []
-    for task_id in sorted(groups):
-        task_sessions = groups[task_id]
+    for task_id in all_task_ids:
+        task_sessions = groups.get(task_id, [])
         completed_count = sum(1 for s in task_sessions if s.status == "completed")
         total_input = sum(s.input_tokens for s in task_sessions)
         total_output = sum(s.output_tokens for s in task_sessions)
