@@ -26,8 +26,8 @@ af-spec prompt update.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create analyzer test fixtures
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create analyzer test fixtures
     - `tests/unit/graph/conftest.py` (extend): add fixtures for diamond,
       chain, wide, and complex DAGs with known phase structure
     - Diamond: A -> B, A -> C, B -> D, C -> D
@@ -35,7 +35,7 @@ af-spec prompt update.
     - Wide: A -> {B, C, D, E} -> F
     - _Test Spec: TS-20-1 through TS-20-7_
 
-  - [ ] 1.2 Write analyzer unit tests
+  - [x] 1.2 Write analyzer unit tests
     - `tests/unit/graph/test_analyzer.py`: TS-20-1 (diamond phases),
       TS-20-2 (chain phases), TS-20-3 (wide peak), TS-20-4 (critical path),
       TS-20-5 (float on critical), TS-20-6 (float on non-critical),
@@ -43,7 +43,7 @@ af-spec prompt update.
     - _Test Spec: TS-20-1 through TS-20-7, TS-20-E1_
     - _Requirements: 20-REQ-1.*, 20-REQ-2.*_
 
-  - [ ] 1.3 Write lint rule unit tests
+  - [x] 1.3 Write lint rule unit tests
     - `tests/unit/spec/test_validator_plan_rules.py`: TS-20-8 (coarse dep
       detected), TS-20-9 (group-level no finding), TS-20-10 (no deps no
       finding), TS-20-11 (circular dep detected), TS-20-12 (acyclic no
@@ -53,7 +53,7 @@ af-spec prompt update.
     - _Test Spec: TS-20-8 through TS-20-13_
     - _Requirements: 20-REQ-3.*, 20-REQ-4.*_
 
-  - [ ] 1.4 Write fixer unit tests
+  - [x] 1.4 Write fixer unit tests
     - `tests/unit/spec/test_fixer.py`: TS-20-14 (coarse dep rewrite),
       TS-20-15 (unknown upstream groups), TS-20-16 (idempotency),
       TS-20-17 (missing verification append), TS-20-18 (skip existing
@@ -63,7 +63,7 @@ af-spec prompt update.
     - _Test Spec: TS-20-14 through TS-20-20_
     - _Requirements: 20-REQ-6.*_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - `tests/property/graph/test_analyzer_props.py`: TS-20-P1 (phase
       completeness), TS-20-P2 (phase ordering), TS-20-P3 (critical path =
       makespan), TS-20-P4 (zero float = critical), TS-20-P5 (non-negative
@@ -71,7 +71,7 @@ af-spec prompt update.
     - Use Hypothesis to generate random DAGs
     - _Test Spec: TS-20-P1 through TS-20-P5_
 
-  - [ ] 1.6 Write integration tests
+  - [x] 1.6 Write integration tests
     - `tests/integration/test_plan_analyze.py`: verify `agent-fox plan
       --analyze` CLI output includes phase listing, critical path, and
       summary
@@ -79,10 +79,10 @@ af-spec prompt update.
       --fix` rewrites files and re-validates
     - _Requirements: 20-REQ-1.1, 20-REQ-6.1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced
 
 - [ ] 2. Implement plan analyzer
   - [ ] 2.1 Create analyzer module

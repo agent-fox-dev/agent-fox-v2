@@ -447,6 +447,33 @@ def check_untraced_requirements(
     return findings
 
 
+def _check_coarse_dependency(
+    spec_name: str,
+    prd_path: Path,
+) -> list[Finding]:
+    """Detect specs using the standard (coarse) dependency table format.
+
+    Rule: coarse-dependency
+    Severity: warning
+
+    Stub -- raises NotImplementedError until task group 3.
+    """
+    raise NotImplementedError("_check_coarse_dependency not yet implemented")
+
+
+def _check_circular_dependency(
+    specs: list[SpecInfo],
+) -> list[Finding]:
+    """Detect dependency cycles across all specs.
+
+    Rule: circular-dependency
+    Severity: error
+
+    Stub -- raises NotImplementedError until task group 3.
+    """
+    raise NotImplementedError("_check_circular_dependency not yet implemented")
+
+
 def sort_findings(findings: list[Finding]) -> list[Finding]:
     """Sort findings by spec_name, file, then severity (error < warning < hint).
 

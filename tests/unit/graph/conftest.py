@@ -195,6 +195,142 @@ def graph_with_optional() -> TaskGraph:
 # -- Fixtures: multi-spec graph with cross-spec edges -----------------------
 
 
+# -- Fixtures: plan analyzer graphs (spec 20) --------------------------------
+
+
+@pytest.fixture
+def analyzer_diamond_graph() -> TaskGraph:
+    """Diamond DAG: A -> B, A -> C, B -> D, C -> D.
+
+    Used by TS-20-1 (diamond phases), TS-20-4 (critical path),
+    TS-20-E1 (tied critical paths).
+    """
+    nodes = [
+        Node(id="A", spec_name="spec", group_number=1, title="Task A", optional=False),
+        Node(id="B", spec_name="spec", group_number=2, title="Task B", optional=False),
+        Node(id="C", spec_name="spec", group_number=3, title="Task C", optional=False),
+        Node(id="D", spec_name="spec", group_number=4, title="Task D", optional=False),
+    ]
+    edges = [
+        Edge(source="A", target="B", kind="intra_spec"),
+        Edge(source="A", target="C", kind="intra_spec"),
+        Edge(source="B", target="D", kind="intra_spec"),
+        Edge(source="C", target="D", kind="intra_spec"),
+    ]
+    return make_graph(nodes, edges, order=["A", "B", "C", "D"])
+
+
+@pytest.fixture
+def analyzer_chain_graph() -> TaskGraph:
+    """Linear chain: A -> B -> C -> D.
+
+    Used by TS-20-2 (chain phases).
+    """
+    nodes = [
+        Node(id="A", spec_name="spec", group_number=1, title="Task A", optional=False),
+        Node(id="B", spec_name="spec", group_number=2, title="Task B", optional=False),
+        Node(id="C", spec_name="spec", group_number=3, title="Task C", optional=False),
+        Node(id="D", spec_name="spec", group_number=4, title="Task D", optional=False),
+    ]
+    edges = [
+        Edge(source="A", target="B", kind="intra_spec"),
+        Edge(source="B", target="C", kind="intra_spec"),
+        Edge(source="C", target="D", kind="intra_spec"),
+    ]
+    return make_graph(nodes, edges, order=["A", "B", "C", "D"])
+
+
+@pytest.fixture
+def analyzer_wide_graph() -> TaskGraph:
+    """Wide fan-out/in: A -> {B, C, D, E} -> F.
+
+    Used by TS-20-3 (peak parallelism).
+    """
+    nodes = [
+        Node(id="A", spec_name="spec", group_number=1, title="Task A", optional=False),
+        Node(id="B", spec_name="spec", group_number=2, title="Task B", optional=False),
+        Node(id="C", spec_name="spec", group_number=3, title="Task C", optional=False),
+        Node(id="D", spec_name="spec", group_number=4, title="Task D", optional=False),
+        Node(id="E", spec_name="spec", group_number=5, title="Task E", optional=False),
+        Node(id="F", spec_name="spec", group_number=6, title="Task F", optional=False),
+    ]
+    edges = [
+        Edge(source="A", target="B", kind="intra_spec"),
+        Edge(source="A", target="C", kind="intra_spec"),
+        Edge(source="A", target="D", kind="intra_spec"),
+        Edge(source="A", target="E", kind="intra_spec"),
+        Edge(source="B", target="F", kind="intra_spec"),
+        Edge(source="C", target="F", kind="intra_spec"),
+        Edge(source="D", target="F", kind="intra_spec"),
+        Edge(source="E", target="F", kind="intra_spec"),
+    ]
+    return make_graph(nodes, edges, order=["A", "B", "C", "D", "E", "F"])
+
+
+@pytest.fixture
+def analyzer_empty_graph() -> TaskGraph:
+    """Empty graph with no nodes.
+
+    Used by TS-20-7 (empty graph).
+    """
+    return make_graph([], [], order=[])
+
+
+@pytest.fixture
+def analyzer_float_graph() -> TaskGraph:
+    """Graph with non-critical nodes: A -> B -> C -> F, A -> D -> F, A -> E -> F.
+
+    Critical path: A -> B -> C -> F (length 4).
+    D and E have float > 0.
+
+    Used by TS-20-6 (float on non-critical nodes).
+    """
+    nodes = [
+        Node(id="A", spec_name="spec", group_number=1, title="Task A", optional=False),
+        Node(id="B", spec_name="spec", group_number=2, title="Task B", optional=False),
+        Node(id="C", spec_name="spec", group_number=3, title="Task C", optional=False),
+        Node(id="D", spec_name="spec", group_number=4, title="Task D", optional=False),
+        Node(id="E", spec_name="spec", group_number=5, title="Task E", optional=False),
+        Node(id="F", spec_name="spec", group_number=6, title="Task F", optional=False),
+    ]
+    edges = [
+        Edge(source="A", target="B", kind="intra_spec"),
+        Edge(source="B", target="C", kind="intra_spec"),
+        Edge(source="C", target="F", kind="intra_spec"),
+        Edge(source="A", target="D", kind="intra_spec"),
+        Edge(source="D", target="F", kind="intra_spec"),
+        Edge(source="A", target="E", kind="intra_spec"),
+        Edge(source="E", target="F", kind="intra_spec"),
+    ]
+    return make_graph(nodes, edges, order=["A", "B", "C", "D", "E", "F"])
+
+
+@pytest.fixture
+def analyzer_shortcut_graph() -> TaskGraph:
+    """Graph with shortcut: A -> B -> C -> D, A -> D.
+
+    All nodes on critical path (A -> B -> C -> D is longest).
+
+    Used by TS-20-5 (float on critical path).
+    """
+    nodes = [
+        Node(id="A", spec_name="spec", group_number=1, title="Task A", optional=False),
+        Node(id="B", spec_name="spec", group_number=2, title="Task B", optional=False),
+        Node(id="C", spec_name="spec", group_number=3, title="Task C", optional=False),
+        Node(id="D", spec_name="spec", group_number=4, title="Task D", optional=False),
+    ]
+    edges = [
+        Edge(source="A", target="B", kind="intra_spec"),
+        Edge(source="B", target="C", kind="intra_spec"),
+        Edge(source="C", target="D", kind="intra_spec"),
+        Edge(source="A", target="D", kind="intra_spec"),
+    ]
+    return make_graph(nodes, edges, order=["A", "B", "C", "D"])
+
+
+# -- Fixtures: multi-spec graph with cross-spec edges -----------------------
+
+
 @pytest.fixture
 def cross_spec_graph() -> TaskGraph:
     """Two specs with cross-spec dependency.
