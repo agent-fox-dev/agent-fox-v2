@@ -14,6 +14,7 @@ from pathlib import Path
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
+from agent_fox.reporting.git_activity import HumanCommit, partition_commits
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +29,6 @@ class AgentActivity:
     output_tokens: int
     cost: float  # USD
     completed_task_ids: list[str]
-
-
-@dataclass(frozen=True)
-class HumanCommit:
-    """A non-agent commit within the reporting window."""
-
-    sha: str
-    author: str
-    timestamp: str  # ISO 8601
-    subject: str
-    files_changed: list[str]
 
 
 @dataclass(frozen=True)
@@ -157,8 +147,6 @@ def generate_standup(
     task_activities = _compute_task_activities(all_sessions, node_states)
 
     # Partition git commits into human and agent
-    from agent_fox.reporting.git_activity import partition_commits
-
     human_commits, agent_commits = partition_commits(
         repo_path,
         window_start,

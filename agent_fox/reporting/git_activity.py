@@ -11,12 +11,23 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from agent_fox.reporting.standup import HumanCommit
-
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class HumanCommit:
+    """A commit record (human or agent) within the reporting window."""
+
+    sha: str
+    author: str
+    timestamp: str  # ISO 8601
+    subject: str
+    files_changed: list[str]
+
 
 # Conventional-commit prefix pattern used by coding agents.
 _CONVENTIONAL_PREFIX_RE = re.compile(
