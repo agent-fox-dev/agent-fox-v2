@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
+from agent_fox.workspace.integration import post_harvest_integrate
 from agent_fox.workspace.worktree import WorkspaceInfo
 
 # ---- Helper to create a minimal workspace ----
@@ -54,15 +54,15 @@ class TestPostHarvestNoPlatform:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
         ):
-            await NodeSessionRunner._post_harvest_integrate(
+            await post_harvest_integrate(
                 repo_root=tmp_path,
                 workspace=workspace,
                 platform_config=config,
@@ -96,20 +96,20 @@ class TestPostHarvestGithubAutoMerge:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.engine.session_lifecycle.get_remote_url",
+                "agent_fox.workspace.integration.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
         ):
-            await NodeSessionRunner._post_harvest_integrate(
+            await post_harvest_integrate(
                 repo_root=tmp_path,
                 workspace=workspace,
                 platform_config=config,
@@ -149,16 +149,16 @@ class TestPostHarvestGithubCreatePR:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.engine.session_lifecycle.get_remote_url",
+                "agent_fox.workspace.integration.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
             patch(
@@ -166,7 +166,7 @@ class TestPostHarvestGithubCreatePR:
                 mock_create_pr,
             ),
         ):
-            await NodeSessionRunner._post_harvest_integrate(
+            await post_harvest_integrate(
                 repo_root=tmp_path,
                 workspace=workspace,
                 platform_config=config,
@@ -200,17 +200,17 @@ class TestPostHarvestPushFailureContinues:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
         ):
             with caplog.at_level(logging.WARNING):
                 # Should not raise
-                await NodeSessionRunner._post_harvest_integrate(
+                await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
                     platform_config=config,
@@ -243,16 +243,16 @@ class TestPostHarvestPRFailureContinues:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.engine.session_lifecycle.get_remote_url",
+                "agent_fox.workspace.integration.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
             patch(
@@ -262,7 +262,7 @@ class TestPostHarvestPRFailureContinues:
         ):
             with caplog.at_level(logging.WARNING):
                 # Should not raise
-                await NodeSessionRunner._post_harvest_integrate(
+                await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
                     platform_config=config,
@@ -297,17 +297,17 @@ class TestPostHarvestMissingPAT:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", env_without_pat, clear=True),
         ):
             with caplog.at_level(logging.WARNING):
-                await NodeSessionRunner._post_harvest_integrate(
+                await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
                     platform_config=config,
@@ -351,21 +351,21 @@ class TestPostHarvestFeatureBranchDeleted:
 
         with (
             patch(
-                "agent_fox.engine.session_lifecycle.push_to_remote",
+                "agent_fox.workspace.integration.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.local_branch_exists",
+                "agent_fox.workspace.integration.local_branch_exists",
                 side_effect=mock_local_exists,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.engine.session_lifecycle.get_remote_url",
+                "agent_fox.workspace.integration.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
         ):
             with caplog.at_level(logging.WARNING):
-                await NodeSessionRunner._post_harvest_integrate(
+                await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
                     platform_config=config,

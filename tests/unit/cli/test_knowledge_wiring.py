@@ -75,7 +75,7 @@ class TestFactExtractionAfterSession:
         config = AgentFoxConfig()
         runner = NodeSessionRunner("test_spec:1", config)
 
-        mock_extract = AsyncMock(return_value=[_make_fact()])
+        mock_extract = AsyncMock()
 
         with (
             patch(
@@ -93,19 +93,21 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.engine.session_lifecycle.extract_facts", mock_extract),
-            patch("agent_fox.engine.session_lifecycle.append_facts"),
+            patch(
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+                mock_extract,
+            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
         assert record.status == "completed"
         mock_extract.assert_called_once()
         call_args = mock_extract.call_args
-        assert "test_spec" in call_args.args or "test_spec" in str(call_args)
+        assert call_args.kwargs["spec_name"] == "test_spec"
 
     @pytest.mark.asyncio
     async def test_extract_not_called_on_failed_session(self, tmp_path: Path) -> None:
-        """extract_facts is NOT invoked when the session fails."""
+        """extract_and_store_knowledge is NOT invoked when the session fails."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="failed")
 
@@ -115,7 +117,7 @@ class TestFactExtractionAfterSession:
         config = AgentFoxConfig()
         runner = NodeSessionRunner("test_spec:1", config)
 
-        mock_extract = AsyncMock(return_value=[])
+        mock_extract = AsyncMock()
 
         with (
             patch(
@@ -132,7 +134,10 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.engine.session_lifecycle.extract_facts", mock_extract),
+            patch(
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+                mock_extract,
+            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
@@ -141,7 +146,7 @@ class TestFactExtractionAfterSession:
 
     @pytest.mark.asyncio
     async def test_extract_failure_does_not_block_session(self, tmp_path: Path) -> None:
-        """If extract_facts raises, the session still returns successfully."""
+        """If extract_and_store_knowledge raises, the session still returns successfully."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="completed")
 
@@ -172,7 +177,10 @@ class TestFactExtractionAfterSession:
                 "agent_fox.engine.session_lifecycle.destroy_worktree",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.engine.session_lifecycle.extract_facts", mock_extract),
+            patch(
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+                mock_extract,
+            ),
         ):
             record = await runner.execute("test_spec:1", 1)
 
@@ -223,9 +231,8 @@ class TestKnowledgeInjectionIntoContext:
                 return_value=facts,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.extract_facts",
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
-                return_value=[],
             ),
         ):
             await runner.execute("test_spec:1", 1)
@@ -274,9 +281,8 @@ class TestKnowledgeInjectionIntoContext:
                 return_value=[],
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.extract_facts",
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
-                return_value=[],
             ),
         ):
             await runner.execute("test_spec:1", 1)
@@ -323,9 +329,8 @@ class TestSinkWiring:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.extract_facts",
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
-                return_value=[],
             ),
             patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=[]),
             patch(
@@ -372,9 +377,8 @@ class TestSinkWiring:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.engine.session_lifecycle.extract_facts",
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
-                return_value=[],
             ),
             patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=[]),
             patch(

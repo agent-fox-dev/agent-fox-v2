@@ -25,6 +25,10 @@ class GraphSync:
 
         Args:
             node_states: Mutable dict of node_id -> status string.
+                This is a shared reference — the same dict object is
+                held by ExecutionState.node_states, so mutations here
+                are immediately visible to the orchestrator and vice
+                versa.
             edges: Adjacency list where each key is a node_id and its
                 value is a list of dependency node_ids (predecessors
                 that must complete before this node can execute).

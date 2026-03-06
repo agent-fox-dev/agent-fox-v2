@@ -590,7 +590,6 @@ class Orchestrator:
 
         if record.status == "completed":
             self._graph_sync.mark_completed(node_id)
-            state.node_states[node_id] = "completed"
             error_tracker.pop(node_id, None)
             # 18-REQ-5.4: Emit task completion event
             if self._task_callback is not None:
@@ -623,7 +622,6 @@ class Orchestrator:
                 )
             else:
                 self._graph_sync.node_states[node_id] = "pending"
-                state.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
 
@@ -747,7 +745,6 @@ class Orchestrator:
         """Mark a task as blocked and cascade-block all dependents."""
         if self._graph_sync is not None:
             cascade_blocked = self._graph_sync.mark_blocked(node_id, reason)
-            state.node_states[node_id] = "blocked"
             state.blocked_reasons[node_id] = reason
             # 18-REQ-5.4: Emit blocked event
             if self._task_callback is not None:
@@ -760,7 +757,6 @@ class Orchestrator:
                     )
                 )
             for blocked_id in cascade_blocked:
-                state.node_states[blocked_id] = "blocked"
                 cascade_reason = f"Blocked by upstream task {node_id}"
                 state.blocked_reasons[blocked_id] = cascade_reason
                 if self._task_callback is not None:

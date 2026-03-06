@@ -12,40 +12,30 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
-import os
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_fox.core.config import AgentFoxConfig, HookConfig, PlatformConfig
+from agent_fox.core.config import AgentFoxConfig, HookConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import calculate_cost, resolve_model
+from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.runner import (
     HookContext,
     run_post_session_hooks,
     run_pre_session_hooks,
 )
-from agent_fox.knowledge.causal import store_causal_links
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
-from agent_fox.memory.extraction import (
-    enrich_extraction_with_causal,
-    extract_facts,
-    parse_causal_links,
-)
 from agent_fox.memory.filter import select_relevant_facts
-from agent_fox.memory.store import append_facts, load_all_facts
+from agent_fox.memory.store import load_all_facts
 from agent_fox.session.context import assemble_context, select_context_with_causal
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 from agent_fox.session.runner import run_session
 from agent_fox.ui.events import ActivityCallback
-from agent_fox.workspace.git import (
-    ensure_develop,
-    get_remote_url,
-    local_branch_exists,
-    push_to_remote,
-)
+from agent_fox.workspace.git import ensure_develop
 from agent_fox.workspace.harvester import harvest
+from agent_fox.workspace.integration import post_harvest_integrate
 from agent_fox.workspace.worktree import (
     WorkspaceInfo,
     create_worktree,
@@ -284,7 +274,7 @@ class NodeSessionRunner:
         # 19-REQ-3.4: Post-harvest remote integration (after successful harvest)
         if touched_files and status == "completed":
             try:
-                await self._post_harvest_integrate(
+                await post_harvest_integrate(
                     repo_root=repo_root,
                     workspace=workspace,
                     platform_config=self._config.platform,
@@ -315,7 +305,23 @@ class NodeSessionRunner:
 
         # 05-REQ-1.1: Extract facts from session summary (on success only)
         if status == "completed":
-            await self._extract_session_knowledge(workspace, node_id)
+            summary = self._read_session_artifacts(workspace)
+            transcript = (summary or {}).get("summary", "")
+            if transcript:
+                try:
+                    await extract_and_store_knowledge(
+                        transcript=transcript,
+                        spec_name=self._spec_name,
+                        node_id=node_id,
+                        memory_extraction_model=self._config.models.memory_extraction,
+                        knowledge_db=self._knowledge_db,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Knowledge extraction failed for %s, continuing",
+                        node_id,
+                        exc_info=True,
+                    )
 
         return SessionRecord(
             node_id=node_id,
@@ -347,257 +353,6 @@ class NodeSessionRunner:
                 node_id,
                 exc_info=True,
             )
-
-    async def _extract_session_knowledge(
-        self,
-        workspace: WorkspaceInfo,
-        node_id: str,
-    ) -> None:
-        """Extract facts and causal links from the session (best-effort).
-
-        Uses .session-summary.json as the transcript source. Extracted
-        facts are appended to the JSONL store. If DuckDB is available,
-        also extracts and stores causal links between new and prior facts.
-
-        Requirements: 05-REQ-1.1, 05-REQ-1.E1, 13-REQ-2.1, 13-REQ-2.2
-        """
-        summary = self._read_session_artifacts(workspace)
-        if not summary:
-            logger.debug(
-                "No session summary for %s, skipping extraction",
-                node_id,
-            )
-            return
-
-        transcript = summary.get("summary", "")
-        if not transcript:
-            return
-
-        try:
-            model_name = self._config.models.memory_extraction
-            facts = await extract_facts(
-                transcript, self._spec_name, model_name, session_id=node_id
-            )
-            if facts:
-                append_facts(facts)
-                logger.info(
-                    "Extracted %d facts from session %s",
-                    len(facts),
-                    node_id,
-                )
-                # 13-REQ-2.1: Extract causal links if DuckDB available
-                self._extract_causal_links(facts, node_id)
-        except Exception:
-            logger.warning(
-                "Fact extraction failed for %s, continuing",
-                node_id,
-                exc_info=True,
-            )
-
-    def _sync_facts_to_duckdb(self, facts: list) -> None:
-        """Insert facts into DuckDB memory_facts so causal links can reference them.
-
-        Best-effort: failures are logged and silently ignored.
-        Uses INSERT OR IGNORE for idempotency.
-        """
-        if self._knowledge_db is None:
-            return
-        conn = self._knowledge_db.connection
-        for fact in facts:
-            try:
-                conn.execute(
-                    "INSERT OR IGNORE INTO memory_facts "
-                    "(id, content, category, spec_name, session_id, "
-                    "commit_sha, confidence, created_at) "
-                    "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                    [
-                        fact.id,
-                        fact.content,
-                        fact.category,
-                        fact.spec_name,
-                        getattr(fact, "session_id", None),
-                        getattr(fact, "commit_sha", None),
-                        fact.confidence,
-                    ],
-                )
-            except Exception:
-                logger.debug(
-                    "Failed to sync fact %s to DuckDB",
-                    fact.id,
-                    exc_info=True,
-                )
-
-    def _extract_causal_links(
-        self,
-        new_facts: list,
-        node_id: str,
-    ) -> None:
-        """Extract and store causal links between new and prior facts.
-
-        Loads prior facts, builds a causal extraction prompt, sends
-        it to the LLM, parses causal links from the response, and
-        stores them in the DuckDB fact_causes table.
-
-        Best-effort — failures are logged only.
-
-        Requirements: 13-REQ-2.1, 13-REQ-2.2, 13-REQ-3.1
-        """
-        if self._knowledge_db is None:
-            return
-
-        try:
-            prior_facts = load_all_facts()
-            all_dicts = [{"id": f.id, "content": f.content} for f in prior_facts]
-            # Include new facts so the LLM can link them
-            for f in new_facts:
-                all_dicts.append({"id": f.id, "content": f.content})
-
-            if len(all_dicts) < 2:
-                return
-
-            # Build the new-facts summary as the base prompt
-            new_summary = "\n".join(f"- [{f.id}] {f.content}" for f in new_facts)
-
-            # Enrich with causal extraction instructions
-            prompt = enrich_extraction_with_causal(new_summary, all_dicts)
-
-            # Call the LLM for causal analysis
-            from agent_fox.core.client import create_anthropic_client
-
-            model_entry = resolve_model(self._config.models.memory_extraction)
-            client = create_anthropic_client()
-            response = client.messages.create(
-                model=model_entry.model_id,
-                max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-            raw_text = getattr(response.content[0], "text", "[]")
-            links = parse_causal_links(raw_text)
-            if links:
-                # Sync ALL facts (prior + new) to DuckDB so the
-                # referential integrity check in store_causal_links
-                # can find every fact the LLM may have referenced.
-                all_facts = list(prior_facts) + list(new_facts)
-                self._sync_facts_to_duckdb(all_facts)
-                stored = store_causal_links(self._knowledge_db.connection, links)
-                logger.info(
-                    "Stored %d causal links for session %s",
-                    stored,
-                    node_id,
-                )
-        except Exception:
-            logger.debug(
-                "Causal link extraction failed for %s, continuing",
-                node_id,
-                exc_info=True,
-            )
-
-    @staticmethod
-    async def _post_harvest_integrate(
-        repo_root: Path,
-        workspace: WorkspaceInfo,
-        platform_config: PlatformConfig,
-    ) -> None:
-        """Push changes to remote after harvest.
-
-        Behavior depends on platform configuration:
-        - type="none": push develop to origin
-        - type="github", auto_merge=true: push feature + push develop
-        - type="github", auto_merge=false: push feature + create PR vs default branch
-
-        All remote operations are best-effort: failures are logged as
-        warnings and never raised.
-
-        Requirements: 19-REQ-3.1, 19-REQ-3.2, 19-REQ-3.3, 19-REQ-3.4,
-                      19-REQ-3.E1, 19-REQ-3.E2, 19-REQ-3.E3,
-                      19-REQ-4.E1, 19-REQ-4.E4
-        """
-        from agent_fox.platform.github import GitHubPlatform, parse_github_remote
-
-        feature_branch = workspace.branch
-
-        if platform_config.type == "github":
-            # Check for GITHUB_PAT — fall back to no-platform if missing
-            token = os.environ.get("GITHUB_PAT")
-            if not token:
-                logger.warning(
-                    "GITHUB_PAT not set — falling back to pushing develop only",
-                )
-                # Fall back to no-platform behavior
-                result = await push_to_remote(repo_root, "develop")
-                if not result:
-                    logger.warning("Failed to push develop to origin")
-                return
-
-            # Parse remote URL for owner/repo
-            remote_url = await get_remote_url(repo_root)
-            if not remote_url:
-                logger.warning(
-                    "Could not determine remote URL"
-                    " — falling back to pushing develop only",
-                )
-                result = await push_to_remote(repo_root, "develop")
-                if not result:
-                    logger.warning("Failed to push develop to origin")
-                return
-
-            parsed = parse_github_remote(remote_url)
-            if parsed is None:
-                logger.warning(
-                    "Remote URL '%s' is not a GitHub URL"
-                    " — falling back to pushing develop only",
-                    remote_url,
-                )
-                result = await push_to_remote(repo_root, "develop")
-                if not result:
-                    logger.warning("Failed to push develop to origin")
-                return
-
-            owner, repo = parsed
-
-            # Push feature branch if it still exists locally (19-REQ-3.E3)
-            if await local_branch_exists(repo_root, feature_branch):
-                result = await push_to_remote(repo_root, feature_branch)
-                if not result:
-                    logger.warning(
-                        "Failed to push feature branch '%s' to origin",
-                        feature_branch,
-                    )
-            else:
-                logger.warning(
-                    "Feature branch '%s' no longer exists locally — skipping push",
-                    feature_branch,
-                )
-
-            if platform_config.auto_merge:
-                # 19-REQ-3.2: push develop too
-                result = await push_to_remote(repo_root, "develop")
-                if not result:
-                    logger.warning("Failed to push develop to origin")
-            else:
-                # 19-REQ-3.3: create PR, do NOT push develop
-                platform = GitHubPlatform(owner=owner, repo=repo, token=token)
-                try:
-                    spec = workspace.spec_name
-                    group = workspace.task_group
-                    pr_url = await platform.create_pr(
-                        branch=feature_branch,
-                        title=f"feat: {spec} task group {group}",
-                        body=f"Automated PR for {spec} task group {group}.",
-                    )
-                    logger.info("Created PR: %s", pr_url)
-                except (IntegrationError, Exception) as exc:
-                    logger.warning(
-                        "PR creation failed for '%s': %s",
-                        feature_branch,
-                        exc,
-                    )
-        else:
-            # 19-REQ-3.1: type="none" — just push develop
-            result = await push_to_remote(repo_root, "develop")
-            if not result:
-                logger.warning("Failed to push develop to origin")
 
     async def execute(
         self,

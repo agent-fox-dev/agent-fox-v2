@@ -8,12 +8,11 @@ memory_facts table.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock
 
 import pytest
 
-from agent_fox.core.config import AgentFoxConfig, KnowledgeConfig, ModelConfig
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
+from agent_fox.core.config import KnowledgeConfig
+from agent_fox.engine.knowledge_harvest import sync_facts_to_duckdb
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.memory.types import Fact
 
@@ -40,25 +39,14 @@ def knowledge_db(tmp_path: str) -> KnowledgeDB:
     return db
 
 
-@pytest.fixture
-def lifecycle(knowledge_db: KnowledgeDB) -> NodeSessionRunner:
-    config = MagicMock(spec=AgentFoxConfig)
-    config.models = MagicMock(spec=ModelConfig)
-    return NodeSessionRunner(
-        node_id="test_spec:1",
-        config=config,
-        knowledge_db=knowledge_db,
-    )
-
-
 class TestSyncFactsToDuckDB:
-    """Verify _sync_facts_to_duckdb writes facts to memory_facts."""
+    """Verify sync_facts_to_duckdb writes facts to memory_facts."""
 
     def test_facts_written_to_duckdb(
-        self, lifecycle: NodeSessionRunner, knowledge_db: KnowledgeDB
+        self, knowledge_db: KnowledgeDB
     ) -> None:
         fact = _make_fact()
-        lifecycle._sync_facts_to_duckdb([fact])
+        sync_facts_to_duckdb(knowledge_db, [fact])
 
         rows = knowledge_db.connection.execute(
             "SELECT id::VARCHAR FROM memory_facts WHERE id = ?::UUID",
@@ -68,12 +56,12 @@ class TestSyncFactsToDuckDB:
         assert rows[0][0] == fact.id
 
     def test_idempotent(
-        self, lifecycle: NodeSessionRunner, knowledge_db: KnowledgeDB
+        self, knowledge_db: KnowledgeDB
     ) -> None:
         fact = _make_fact()
-        lifecycle._sync_facts_to_duckdb([fact])
+        sync_facts_to_duckdb(knowledge_db, [fact])
         # Second call should not raise
-        lifecycle._sync_facts_to_duckdb([fact])
+        sync_facts_to_duckdb(knowledge_db, [fact])
 
         count = knowledge_db.connection.execute(
             "SELECT COUNT(*) FROM memory_facts WHERE id = ?::UUID",
@@ -82,14 +70,14 @@ class TestSyncFactsToDuckDB:
         assert count == 1
 
     def test_causal_links_succeed_after_sync(
-        self, lifecycle: NodeSessionRunner, knowledge_db: KnowledgeDB
+        self, knowledge_db: KnowledgeDB
     ) -> None:
         """End-to-end: after syncing, store_causal_links should find the facts."""
         from agent_fox.knowledge.causal import store_causal_links
 
         fact_a = _make_fact()
         fact_b = _make_fact()
-        lifecycle._sync_facts_to_duckdb([fact_a, fact_b])
+        sync_facts_to_duckdb(knowledge_db, [fact_a, fact_b])
 
         inserted = store_causal_links(
             knowledge_db.connection,
@@ -98,18 +86,11 @@ class TestSyncFactsToDuckDB:
         assert inserted == 1
 
     def test_no_knowledge_db_is_noop(self) -> None:
-        config = MagicMock(spec=AgentFoxConfig)
-        config.models = MagicMock(spec=ModelConfig)
-        lc = NodeSessionRunner(
-            node_id="test_spec:1",
-            config=config,
-            knowledge_db=None,
-        )
         # Should not raise
-        lc._sync_facts_to_duckdb([_make_fact()])
+        sync_facts_to_duckdb(None, [_make_fact()])
 
     def test_prior_facts_synced_for_causal_links(
-        self, lifecycle: NodeSessionRunner, knowledge_db: KnowledgeDB
+        self, knowledge_db: KnowledgeDB
     ) -> None:
         """Regression: prior facts from JSONL must be synced to DuckDB so
         causal links referencing them pass the referential integrity check.
@@ -124,8 +105,8 @@ class TestSyncFactsToDuckDB:
         new_fact = _make_fact()
 
         # Simulate: prior_fact is only in JSONL (NOT in DuckDB)
-        # new_fact is synced via _sync_facts_to_duckdb
-        lifecycle._sync_facts_to_duckdb([new_fact])
+        # new_fact is synced via sync_facts_to_duckdb
+        sync_facts_to_duckdb(knowledge_db, [new_fact])
 
         # A causal link from prior -> new should FAIL because prior is missing
         inserted = store_causal_links(
@@ -137,7 +118,7 @@ class TestSyncFactsToDuckDB:
         )
 
         # Now sync BOTH facts (as the fix should do)
-        lifecycle._sync_facts_to_duckdb([prior_fact, new_fact])
+        sync_facts_to_duckdb(knowledge_db, [prior_fact, new_fact])
 
         # Now the link should succeed
         inserted = store_causal_links(
