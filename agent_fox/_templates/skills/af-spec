@@ -119,6 +119,16 @@ modifies. Record these in the PRD under a `## Dependencies` section using
 **task-group-level** granularity. The dependency table declares edges that the
 deterministic planner uses to build the task graph.
 
+**Critical: Maximize Parallelism.** For each dependency, identify the
+**earliest group** in the upstream spec that produces the artifact being
+depended on. Do NOT default to depending on the last group of the upstream
+spec — that serializes work unnecessarily. Read the upstream spec's `tasks.md`
+and find the first group whose output satisfies the dependency.
+
+**Always use the group-level dependency format** (shown below). Never use the
+standard two-column format (`| This Spec | Depends On |`), which resolves to
+last-group-to-first-group and prevents fine-grained parallelism.
+
 #### Dependency Table Format
 
 ```markdown
@@ -139,7 +149,10 @@ Column definitions:
 - **To Group**: The task group number in the current spec that first needs the
   artifact. This is the earliest group in the current spec that depends on the
   artifact.
-- **Relationship**: A short description of what the dependency provides.
+- **Relationship**: A short description of what the dependency provides,
+  including a brief justification of **why the chosen From Group is the
+  earliest sufficient one** (e.g., "Imports CLI registration from group 3;
+  group 3 is where the CLI entry point is first defined").
 
 #### How to Determine Group Numbers
 
@@ -152,9 +165,11 @@ Column definitions:
    example, if the current spec first uses the imported type in task group 1,
    set `To Group` to `1`.
 3. **Fallback** — If the dependency spec's `tasks.md` does not exist yet (e.g.,
-   the dependency spec is being created concurrently), default `From Group` to
-   `1` and add a note in the `Relationship` column: `"(From Group TBD —
-   refine after dependency spec is planned)"`.
+   the dependency spec is being created concurrently), use `0` as the
+   `From Group` sentinel value and add a note in the `Relationship` column:
+   `"(From Group TBD — upstream spec not yet planned; using sentinel 0)"`.
+   The sentinel `0` signals to the planner that this dependency needs to be
+   resolved once the upstream spec is created.
 
 #### When There Are No Dependencies
 

@@ -73,6 +73,7 @@
 - When implementing streaming commands with multiple input sources, stdin JSON input should take precedence over other input methods and requires explicit wiring in each command. _(spec: 23_global_json_flag, confidence: high)_
 - SIGINT interrupt handling in streaming commands should use status envelopes to communicate the interrupted state to clients. _(spec: 23_global_json_flag, confidence: high)_
 - Checkpoint task groups should verify spec test suite passes completely (all 57 tests), linting is clean for spec code, and type checking shows no new errors introduced. _(spec: 23_global_json_flag, confidence: high)_
+- The dump_knowledge.py script exports DuckDB knowledge store to Markdown format using KnowledgeDB and KnowledgeConfig classes from the agent_fox module. _(spec: 24_dev_scripts, confidence: high)_
 
 ## Decisions
 
@@ -111,6 +112,7 @@
 - A global JSON flag should be applied consistently across all batch commands (plan, patterns, compact, ingest, init, reset) to provide uniform output behavior. _(spec: 23_global_json_flag, confidence: high)_
 - Integration tests for streaming commands should cover edge cases including interrupt handling, invalid stdin JSON input, and input precedence rules. _(spec: 23_global_json_flag, confidence: high)_
 - When adding a new global flag like --json, ensure to update cli-reference.md documentation and remove references to superseded flags (like --format) from affected commands. _(spec: 23_global_json_flag, confidence: high)_
+- Knowledge dump output is stored at .agent-fox/knowledge_dump.md, indicating a hidden directory convention for agent-related artifacts. _(spec: 24_dev_scripts, confidence: high)_
 
 ## Anti-Patterns
 

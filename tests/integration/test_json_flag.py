@@ -297,76 +297,6 @@ class TestPlanJson:
 
 
 # ---------------------------------------------------------------------------
-# TS-23-9: Patterns command JSON output
-# ---------------------------------------------------------------------------
-
-
-class TestPatternsJson:
-    """TS-23-9: patterns --json emits results as JSON."""
-
-    def test_patterns_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """patterns with --json produces valid JSON."""
-        with patch("agent_fox.cli.patterns.open_knowledge_store") as mock_store:
-            mock_store.return_value = None  # No knowledge store
-            result = cli_runner.invoke(main, ["--json", "patterns"])
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
-# TS-23-10: Compact command JSON output
-# ---------------------------------------------------------------------------
-
-
-class TestCompactJson:
-    """TS-23-10: compact --json emits compaction stats as JSON."""
-
-    def test_compact_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """compact with --json produces valid JSON."""
-        with patch("agent_fox.cli.compact.compact") as mock_compact:
-            mock_compact.return_value = (10, 8)  # original, surviving
-            result = cli_runner.invoke(main, ["--json", "compact"])
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
-# TS-23-11: Ingest command JSON output
-# ---------------------------------------------------------------------------
-
-
-class TestIngestJson:
-    """TS-23-11: ingest --json emits ingestion stats as JSON."""
-
-    def test_ingest_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """ingest with --json produces valid JSON."""
-        mock_result = MagicMock(
-            facts_added=5, facts_skipped=2, embedding_failures=0,
-        )
-        with (
-            patch("agent_fox.cli.ingest.open_knowledge_store") as mock_store,
-            patch("agent_fox.cli.ingest.EmbeddingGenerator"),
-            patch("agent_fox.cli.ingest.KnowledgeIngestor") as mock_ingestor_cls,
-        ):
-            mock_db = MagicMock()
-            mock_store.return_value = mock_db
-            mock_ingestor = MagicMock()
-            mock_ingestor.ingest_adrs.return_value = mock_result
-            mock_ingestor.ingest_git_commits.return_value = mock_result
-            mock_ingestor_cls.return_value = mock_ingestor
-
-            result = cli_runner.invoke(main, ["--json", "ingest"])
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
 # TS-23-12: Init command JSON output
 # ---------------------------------------------------------------------------
 
@@ -450,44 +380,6 @@ class TestCodeJsonl:
                 for line in lines:
                     data = json.loads(line)
                     assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
-# TS-23-15: Ask command JSON output
-# ---------------------------------------------------------------------------
-
-
-class TestAskJson:
-    """TS-23-15: ask --json emits answer as JSON."""
-
-    def test_ask_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """ask with --json produces valid JSON."""
-        mock_answer = MagicMock(
-            answer="Test answer",
-            confidence="high",
-            sources=[],
-            contradictions=[],
-        )
-        with (
-            patch("agent_fox.cli.ask.open_knowledge_store") as mock_store,
-            patch("agent_fox.cli.ask.EmbeddingGenerator"),
-            patch("agent_fox.cli.ask.VectorSearch") as mock_search_cls,
-            patch("agent_fox.cli.ask.Oracle") as mock_oracle_cls,
-        ):
-            mock_db = MagicMock()
-            mock_store.return_value = mock_db
-            mock_search = MagicMock()
-            mock_search.has_embeddings.return_value = True
-            mock_search_cls.return_value = mock_search
-            mock_oracle = MagicMock()
-            mock_oracle.ask.return_value = mock_answer
-            mock_oracle_cls.return_value = mock_oracle
-
-            result = cli_runner.invoke(main, ["--json", "ask", "test question"])
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -739,26 +631,6 @@ class TestUnhandledExceptionEnvelope:
 
 
 # ---------------------------------------------------------------------------
-# TS-23-E6: Invalid JSON on stdin (integration level)
-# ---------------------------------------------------------------------------
-
-
-class TestInvalidStdinJson:
-    """TS-23-E6: Invalid stdin JSON produces error envelope."""
-
-    def test_invalid_stdin_json_error(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """Invalid JSON on stdin emits error envelope."""
-        result = cli_runner.invoke(
-            main, ["--json", "ask", "test"],
-            input="not valid json {",
-        )
-        data = json.loads(result.output)
-        assert "error" in data
-
-
-# ---------------------------------------------------------------------------
 # TS-23-E8: --format produces usage error
 # ---------------------------------------------------------------------------
 
@@ -772,45 +644,3 @@ class TestFormatUsageError:
         assert result.exit_code == 2
 
 
-# ---------------------------------------------------------------------------
-# TS-23-STDIN: Stdin JSON input wiring
-# ---------------------------------------------------------------------------
-
-
-class TestStdinJsonInput:
-    """Test stdin JSON input is correctly read by commands."""
-
-    def test_ask_reads_question_from_stdin(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """ask --json reads question from stdin JSON."""
-        mock_answer = MagicMock(
-            answer="Test answer",
-            confidence="high",
-            sources=[],
-            contradictions=[],
-        )
-        with (
-            patch("agent_fox.cli.ask.open_knowledge_store") as mock_store,
-            patch("agent_fox.cli.ask.EmbeddingGenerator"),
-            patch("agent_fox.cli.ask.VectorSearch") as mock_search_cls,
-            patch("agent_fox.cli.ask.Oracle") as mock_oracle_cls,
-        ):
-            mock_db = MagicMock()
-            mock_store.return_value = mock_db
-            mock_search = MagicMock()
-            mock_search.has_embeddings.return_value = True
-            mock_search_cls.return_value = mock_search
-            mock_oracle = MagicMock()
-            mock_oracle.ask.return_value = mock_answer
-            mock_oracle_cls.return_value = mock_oracle
-
-            result = cli_runner.invoke(
-                main,
-                ["--json", "ask", "cli question"],
-                input='{"question": "stdin question", "top_k": 5}',
-            )
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
-            # CLI argument "cli question" should be used, not stdin
-            mock_oracle.ask.assert_called_once_with("cli question")

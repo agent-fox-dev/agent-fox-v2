@@ -1,6 +1,6 @@
 """Fix report rendering.
 
-Renders the fix summary report to the console using Rich.
+Renders the fix summary report to the console as plain text.
 
 Requirements: 08-REQ-6.1, 08-REQ-6.2
 """
@@ -8,7 +8,6 @@ Requirements: 08-REQ-6.1, 08-REQ-6.2
 from __future__ import annotations
 
 from rich.console import Console
-from rich.table import Table
 
 from agent_fox.fix.loop import FixResult, TerminationReason  # noqa: F401
 
@@ -36,21 +35,13 @@ def render_fix_report(result: FixResult, console: Console) -> None:
         (str(result.termination_reason), "white"),
     )
 
-    # Summary table
-    table = Table(title="Fix Summary", show_header=True)
-    table.add_column("Metric", style="bold")
-    table.add_column("Value")
-
-    table.add_row("Passes completed", str(result.passes_completed))
-    table.add_row("Clusters resolved", str(result.clusters_resolved))
-    table.add_row("Clusters remaining", str(result.clusters_remaining))
-    table.add_row("Sessions consumed", str(result.sessions_consumed))
-    table.add_row(
-        "Termination reason",
-        f"[{reason_style}]{reason_label}[/{reason_style}]",
+    console.print(f"Passes completed: {result.passes_completed}")
+    console.print(f"Clusters resolved: {result.clusters_resolved}")
+    console.print(f"Clusters remaining: {result.clusters_remaining}")
+    console.print(f"Sessions consumed: {result.sessions_consumed}")
+    console.print(
+        f"Termination reason: [{reason_style}]{reason_label}[/{reason_style}]"
     )
-
-    console.print(table)
 
     # Remaining failures detail
     if result.remaining_failures:

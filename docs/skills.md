@@ -100,7 +100,7 @@ built. Produces a structured compliance report with actionable mitigations.
 
 ### What it produces
 
-A report at `docs/audit-report.md` with:
+A report at `docs/audits/audit-report-{YYYY-MM-DD}.md` with:
 - Summary table (compliant, drifted, unimplemented, superseded counts)
 - Per-requirement classification with drift details
 - Mitigation suggestions (change spec / get well spec / needs manual review)
@@ -121,7 +121,7 @@ A report at `docs/audit-report.md` with:
 5. **Handle in-progress specs** -- uses `tasks.md` checkbox state to
    distinguish expected gaps from drift.
 6. **Suggest mitigations** -- one per drift item, with priority.
-7. **Generate report** -- saves to `docs/audit-report.md`.
+7. **Generate report** -- saves to `docs/audits/audit-report-{YYYY-MM-DD}.md`.
 
 ### When to use
 

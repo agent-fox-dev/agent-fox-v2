@@ -453,6 +453,110 @@ class TestUnknownRunStatus:
         assert result.exit_code == 1
 
 
+class TestDebugFlag:
+    """Tests for the --debug flag.
+
+    Verifies that --debug attaches JsonlSink and passes debug=True
+    to DuckDBSink per the v2 three-layer audit model.
+    """
+
+    def test_debug_flag_in_help(self, cli_runner: CliRunner) -> None:
+        """The --debug option appears in the code command help."""
+        result = cli_runner.invoke(main, ["code", "--help"])
+        assert "--debug" in result.output
+
+    def test_debug_passes_debug_true_to_duckdb_sink(
+        self, cli_runner: CliRunner
+    ) -> None:
+        """With --debug, DuckDBSink is constructed with debug=True."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
+            patch(
+                "agent_fox.cli.code.open_knowledge_store"
+            ) as mock_open_ks,
+        ):
+            MockPath.return_value.exists.return_value = True
+            mock_kb = MagicMock()
+            mock_open_ks.return_value = mock_kb
+            cli_runner.invoke(main, ["code", "--debug"])
+
+        MockDuckDBSink.assert_called_once_with(
+            mock_kb.connection, debug=True
+        )
+
+    def test_no_debug_passes_debug_false_to_duckdb_sink(
+        self, cli_runner: CliRunner
+    ) -> None:
+        """Without --debug, DuckDBSink is constructed with debug=False."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
+            patch(
+                "agent_fox.cli.code.open_knowledge_store"
+            ) as mock_open_ks,
+        ):
+            MockPath.return_value.exists.return_value = True
+            mock_kb = MagicMock()
+            mock_open_ks.return_value = mock_kb
+            cli_runner.invoke(main, ["code"])
+
+        MockDuckDBSink.assert_called_once_with(
+            mock_kb.connection, debug=False
+        )
+
+    def test_debug_attaches_jsonl_sink(self, cli_runner: CliRunner) -> None:
+        """With --debug, a JsonlSink is added to the SinkDispatcher."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
+            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
+            patch("agent_fox.knowledge.jsonl_sink.JsonlSink"),
+        ):
+            MockPath.return_value.exists.return_value = True
+            mock_open_ks.return_value = None  # no DuckDB, isolate JsonlSink
+            mock_dispatcher_inst = MockDispatcher.return_value
+            cli_runner.invoke(main, ["code", "--debug"])
+
+        # JsonlSink was added to the dispatcher
+        mock_dispatcher_inst.add.assert_called_once()
+
+    def test_no_debug_skips_jsonl_sink(self, cli_runner: CliRunner) -> None:
+        """Without --debug, no JsonlSink is attached."""
+        state = _make_execution_state(run_status="completed")
+        mock_orch = MagicMock()
+        mock_orch.run = AsyncMock(return_value=state)
+
+        with (
+            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
+            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
+        ):
+            MockPath.return_value.exists.return_value = True
+            mock_open_ks.return_value = None  # no DuckDB
+            mock_dispatcher_inst = MockDispatcher.return_value
+            cli_runner.invoke(main, ["code"])
+
+        # No sinks added when no knowledge DB and no debug
+        mock_dispatcher_inst.add.assert_not_called()
+
+
 class TestNodeSessionRunnerHarvestError:
     """Verify harvest IntegrationError is caught and reported cleanly.
 
