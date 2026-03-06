@@ -155,6 +155,12 @@ def _print_summary(state: ExecutionState) -> None:
     default=None,
     help="Session count limit",
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    help="Enable debug audit trail (JSONL + DuckDB tool signals)",
+)
 @click.pass_context
 def code_cmd(
     ctx: click.Context,
@@ -162,6 +168,7 @@ def code_cmd(
     no_hooks: bool,
     max_cost: float | None,
     max_sessions: int | None,
+    debug: bool,
 ) -> None:
     """Execute the task plan."""
     # 16-REQ-1.2: load config from Click context
@@ -210,10 +217,18 @@ def code_cmd(
     hook_cfg: HookConfig | None = config.hooks
 
     # 11-REQ-4.2: Create DuckDB sink for session outcome recording
+    # v2 three-layer model: session outcomes always, tool signals debug-only
     sink_dispatcher = SinkDispatcher()
     knowledge_db = open_knowledge_store(config.knowledge)
     if knowledge_db is not None:
-        sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
+        sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
+
+    # v2: attach JSONL audit sink when --debug is active
+    if debug:
+        from agent_fox.knowledge.jsonl_sink import JsonlSink
+
+        jsonl_dir = Path(".agent-fox")
+        sink_dispatcher.add(JsonlSink(jsonl_dir))
 
     # 18-REQ-5.1: Create progress display (suppressed in JSON mode)
     theme = create_theme(config.theme)
