@@ -133,10 +133,6 @@ _BATCH_COMMANDS_WITH_MOCKS = {
         "patch_target": "agent_fox.cli.compact.compact",
         "mock_return": (10, 8),
     },
-    "patterns": {
-        "patch_target": "agent_fox.cli.patterns.open_knowledge_store",
-        "mock_return": None,
-    },
 }
 
 

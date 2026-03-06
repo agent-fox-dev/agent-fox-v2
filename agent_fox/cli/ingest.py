@@ -49,7 +49,7 @@ def ingest_cmd(
     """Ingest ADRs and git commits into the knowledge store.
 
     Parses additional knowledge sources and stores them as facts
-    with embeddings for semantic search via `agent-fox ask`.
+    with embeddings for semantic search.
 
     Example:
         agent-fox ingest
