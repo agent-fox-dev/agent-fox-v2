@@ -68,19 +68,19 @@ install-skills:
 	@mkdir -p $(CLAUDE_SKILLS_DIR)
 	@for skill in $(SKILLS_DIR)/*/; do \
 		name=$$(basename "$$skill"); \
-		if [ -L "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
-			echo "skip: $$name (already linked)"; \
+		if [ -d "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
+			echo "skip: $$name (already installed)"; \
 		else \
-			ln -s "$$skill" "$(CLAUDE_SKILLS_DIR)/$$name"; \
-			echo "linked: $$name -> $$skill"; \
+			cp -R "$$skill" "$(CLAUDE_SKILLS_DIR)/$$name"; \
+			echo "installed: $$name -> $(CLAUDE_SKILLS_DIR)/$$name"; \
 		fi; \
 	done
 
 uninstall-skills:
 	@for skill in $(SKILLS_DIR)/*/; do \
 		name=$$(basename "$$skill"); \
-		if [ -L "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
-			rm "$(CLAUDE_SKILLS_DIR)/$$name"; \
-			echo "unlinked: $$name"; \
+		if [ -d "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
+			rm -rf "$(CLAUDE_SKILLS_DIR)/$$name"; \
+			echo "removed: $$name"; \
 		fi; \
 	done
