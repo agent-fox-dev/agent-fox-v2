@@ -13,10 +13,8 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox standup` | Generate daily activity report |
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
-| `agent-fox ask` | Query project knowledge store |
 | `agent-fox ingest` | Ingest ADRs and git commits into knowledge store |
 | `agent-fox lint-spec` | Validate specification files |
-| `agent-fox patterns` | Detect recurring cause-effect patterns |
 | `agent-fox compact` | Deduplicate and compact the knowledge base |
 
 ## Global Options
@@ -58,9 +56,6 @@ designed for agent-to-agent and script-driven workflows.
 ```bash
 # Get project status as JSON
 agent-fox --json status
-
-# Ask a question with JSON input via stdin
-echo '{"question": "What patterns exist?"}' | agent-fox --json ask
 
 # Combine with --verbose for JSON output + debug logs on stderr
 agent-fox --json --verbose status
@@ -247,30 +242,6 @@ confirmation prompt.
 
 ---
 
-### ask
-
-Ask a question about project knowledge.
-
-```
-agent-fox ask [OPTIONS] QUESTION
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--top-k N` | int | from config | Number of facts to retrieve |
-| `--timeline` | flag | off | Return a causal timeline instead |
-
-Embeds the question, retrieves relevant facts from the DuckDB knowledge store
-via vector similarity search, and synthesizes a grounded answer with source
-citations and confidence level.
-
-With `--timeline`, returns a causal cause-effect chain instead of a synthesized
-answer.
-
-**Exit codes:** `0` success, `1` knowledge store unavailable.
-
----
-
 ### ingest
 
 Ingest external knowledge sources.
@@ -327,25 +298,6 @@ re-validated to produce the final findings list. If the AI rewrite call fails,
 the original criteria are left unchanged.
 
 **Exit codes:** `0` no errors (warnings OK), `1` error-severity findings.
-
----
-
-### patterns
-
-Detect recurring cause-effect patterns.
-
-```
-agent-fox patterns [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--min-occurrences N` | int | 2 | Minimum co-occurrences to report |
-
-Analyzes session history and the causal graph to find recurring sequences
-(e.g., "module X changes -> test Y breaks").
-
-**Exit codes:** `0` always.
 
 ---
 
