@@ -297,25 +297,6 @@ class TestPlanJson:
 
 
 # ---------------------------------------------------------------------------
-# TS-23-10: Compact command JSON output
-# ---------------------------------------------------------------------------
-
-
-class TestCompactJson:
-    """TS-23-10: compact --json emits compaction stats as JSON."""
-
-    def test_compact_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
-        """compact with --json produces valid JSON."""
-        with patch("agent_fox.cli.compact.compact") as mock_compact:
-            mock_compact.return_value = (10, 8)  # original, surviving
-            result = cli_runner.invoke(main, ["--json", "compact"])
-            data = json.loads(result.output)
-            assert isinstance(data, dict)
-
-
-# ---------------------------------------------------------------------------
 # TS-23-12: Init command JSON output
 # ---------------------------------------------------------------------------
 

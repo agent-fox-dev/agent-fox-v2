@@ -14,7 +14,6 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
 | `agent-fox lint-spec` | Validate specification files |
-| `agent-fox compact` | Deduplicate and compact the knowledge base |
 
 ## Global Options
 
@@ -275,21 +274,6 @@ re-validated to produce the final findings list. If the AI rewrite call fails,
 the original criteria are left unchanged.
 
 **Exit codes:** `0` no errors (warnings OK), `1` error-severity findings.
-
----
-
-### compact
-
-Compact the knowledge base.
-
-```
-agent-fox compact
-```
-
-Deduplicates facts by content hash (keeping the earliest) and resolves
-supersession chains, then rewrites the JSONL file with surviving facts.
-
-**Exit codes:** `0` always.
 
 ---
 
