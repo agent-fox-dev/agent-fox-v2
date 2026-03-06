@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Callable
 from dataclasses import asdict
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol
 
 from rich.console import Console
 
@@ -59,13 +57,6 @@ def _display_node_id(node_id: str) -> str:
 class OutputFormat(StrEnum):
     TABLE = "table"
     JSON = "json"
-
-
-class ReportFormatter(Protocol):
-    """Protocol for report formatters."""
-
-    def format_status(self, report: StatusReport) -> str: ...
-    def format_standup(self, report: StandupReport) -> str: ...
 
 
 class TableFormatter:
@@ -225,57 +216,26 @@ class TableFormatter:
         return "\n".join(lines)
 
 
-class StructuredFormatter:
-    """Formatter that serializes reports via a pluggable serializer."""
-
-    def __init__(
-        self,
-        serializer: Callable[[dict[str, Any]], str],
-    ) -> None:
-        self._serializer = serializer
+class JsonFormatter:
+    """JSON formatter for machine-readable output."""
 
     def format_status(self, report: StatusReport) -> str:
-        """Serialize status report."""
-        return self._serializer(asdict(report))
+        """Serialize status report as JSON."""
+        return json.dumps(asdict(report), indent=2)
 
     def format_standup(self, report: StandupReport) -> str:
-        """Serialize standup report."""
-        return self._serializer(asdict(report))
-
-
-def _json_serializer(data: dict[str, Any]) -> str:
-    return json.dumps(data, indent=2)
-
-
-def JsonFormatter() -> StructuredFormatter:  # noqa: N802
-    """JSON formatter for machine-readable output."""
-    return StructuredFormatter(_json_serializer)
-
-
-_FORMATTERS: dict[OutputFormat, Callable[..., ReportFormatter]] = {
-    OutputFormat.TABLE: lambda console: TableFormatter(console),  # type: ignore[dict-item]
-    OutputFormat.JSON: lambda _: JsonFormatter(),  # type: ignore[dict-item]
-}
+        """Serialize standup report as JSON."""
+        return json.dumps(asdict(report), indent=2)
 
 
 def get_formatter(
     fmt: OutputFormat,
     console: Console | None = None,
-) -> ReportFormatter:
-    """Factory function to create the appropriate formatter.
-
-    Args:
-        fmt: The desired output format.
-        console: Rich console instance (required for table format).
-
-    Returns:
-        A formatter implementing ReportFormatter.
-    """
-    factory = _FORMATTERS.get(fmt)
-    if factory is None:
-        msg = f"Unknown output format: {fmt}"
-        raise ValueError(msg)
-    return factory(console)
+) -> TableFormatter | JsonFormatter:
+    """Create the appropriate formatter for the given output format."""
+    if fmt == OutputFormat.JSON:
+        return JsonFormatter()
+    return TableFormatter(console)
 
 
 def write_output(
