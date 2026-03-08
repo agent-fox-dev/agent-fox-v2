@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 from agent_fox.core.errors import WorkspaceError
-from agent_fox.workspace.git import (
+from agent_fox.workspace.workspace import (
     detect_default_branch,
     ensure_develop,
 )
@@ -78,7 +78,7 @@ class TestEnsureDevelopCreatesFromRemote:
                 return 0, "", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             await ensure_develop(tmp_path)
 
         # Verify fetch was called
@@ -134,7 +134,7 @@ class TestEnsureDevelopCreatesFromDefault:
                 return 0, "", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             await ensure_develop(tmp_path)
 
         branch_create = [
@@ -189,7 +189,7 @@ class TestEnsureDevelopFastForwards:
                 return 0, "", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             await ensure_develop(tmp_path)
 
         # Verify some form of fast-forward was done
@@ -221,7 +221,7 @@ class TestDetectDefaultBranchSymbolicRef:
                 return 0, "refs/remotes/origin/main\n", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             result = await detect_default_branch(tmp_path)
 
         assert result == "main"
@@ -255,7 +255,7 @@ class TestDetectDefaultBranchFallback:
                 return 0, "  master\n", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             result = await detect_default_branch(tmp_path)
 
         assert result == "master"
@@ -295,7 +295,7 @@ class TestEnsureDevelopAlreadyExists:
                 return 0, "0\n", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             await ensure_develop(tmp_path)
 
         # No branch creation calls
@@ -343,7 +343,7 @@ class TestEnsureDevelopNoDefaultBranch:
                 return 0, "", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             with pytest.raises(WorkspaceError):
                 await ensure_develop(tmp_path)
 
@@ -388,7 +388,7 @@ class TestEnsureDevelopFetchFails:
                 return 0, "", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             import logging
 
             with caplog.at_level(logging.WARNING):
@@ -443,7 +443,7 @@ class TestEnsureDevelopDiverged:
                 return 0, "2\n", ""
             return 0, "", ""
 
-        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             import logging
 
             with caplog.at_level(logging.WARNING):

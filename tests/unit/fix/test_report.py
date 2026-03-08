@@ -10,7 +10,7 @@ from io import StringIO
 
 from rich.console import Console
 
-from agent_fox.fix.loop import FixResult, TerminationReason
+from agent_fox.fix.fix import FixResult, TerminationReason
 from agent_fox.fix.report import render_fix_report
 
 

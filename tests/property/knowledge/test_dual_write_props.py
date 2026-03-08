@@ -90,7 +90,7 @@ class TestDualWriteConsistency:
     @settings(max_examples=10, deadline=None)
     def test_fact_always_in_jsonl(self, fact: Fact) -> None:
         """For any fact, it is always present in JSONL after write."""
-        from agent_fox.memory.store import MemoryStore  # type: ignore[attr-error]
+        from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             jsonl_path = Path(tmpdir) / "memory.jsonl"
@@ -113,7 +113,7 @@ class TestDualWriteConsistency:
     @settings(max_examples=10, deadline=None)
     def test_fact_in_duckdb_when_available(self, fact: Fact) -> None:
         """If DuckDB is non-None, fact exists in memory_facts after write."""
-        from agent_fox.memory.store import MemoryStore  # type: ignore[attr-error]
+        from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             jsonl_path = Path(tmpdir) / "memory.jsonl"
@@ -151,7 +151,7 @@ class TestEmbeddingNonFatality:
         self, fact: Fact, embed_succeeds: bool
     ) -> None:
         """Fact is always in JSONL and DuckDB regardless of embedding success."""
-        from agent_fox.memory.store import MemoryStore  # type: ignore[attr-error]
+        from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             jsonl_path = Path(tmpdir) / "memory.jsonl"

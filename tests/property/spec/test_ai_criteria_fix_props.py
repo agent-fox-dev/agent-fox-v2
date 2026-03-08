@@ -15,7 +15,7 @@ from hypothesis import strategies as st
 
 from agent_fox.spec.validator import SEVERITY_HINT, Finding
 
-_MOCK_CLIENT = "agent_fox.spec.ai_validator.create_async_anthropic_client"
+_MOCK_CLIENT = "agent_fox.spec.validator.create_async_anthropic_client"
 
 
 # -- Strategies ----------------------------------------------------------------
@@ -175,7 +175,7 @@ class TestEarsInPrompt:
     ) -> None:
         import json
 
-        from agent_fox.spec.ai_validator import rewrite_criteria
+        from agent_fox.spec.validator import rewrite_criteria
 
         response_text = json.dumps({"rewrites": []})
 

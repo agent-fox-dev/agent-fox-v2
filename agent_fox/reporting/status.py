@@ -14,7 +14,7 @@ from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
-from agent_fox.memory.store import load_all_facts
+from agent_fox.memory.memory import load_all_facts
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ Requirements: 02-REQ-5.1, 02-REQ-5.2, 02-REQ-5.3
 
 from __future__ import annotations
 
-from agent_fox.graph.fast_mode import apply_fast_mode
+from agent_fox.graph.resolver import apply_fast_mode
 from agent_fox.graph.types import NodeStatus, TaskGraph
 
 

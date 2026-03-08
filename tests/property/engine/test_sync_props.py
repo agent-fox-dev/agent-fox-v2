@@ -12,7 +12,7 @@ from collections import deque
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.sync import GraphSync
+from agent_fox.engine.engine import GraphSync
 
 # -- Hypothesis strategies for generating DAGs --------------------------------
 

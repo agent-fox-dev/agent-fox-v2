@@ -11,7 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import OrchestratorConfig
-from agent_fox.engine.circuit import CircuitBreaker
+from agent_fox.engine.engine import CircuitBreaker
 from agent_fox.engine.state import ExecutionState
 
 # -- Helpers ------------------------------------------------------------------

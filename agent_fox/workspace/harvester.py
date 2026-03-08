@@ -9,7 +9,8 @@ import logging
 from pathlib import Path
 
 from agent_fox.core.errors import IntegrationError
-from agent_fox.workspace.git import (
+from agent_fox.workspace.workspace import (
+    WorkspaceInfo,
     abort_rebase,
     checkout_branch,
     get_changed_files,
@@ -18,7 +19,6 @@ from agent_fox.workspace.git import (
     merge_fast_forward,
     rebase_onto,
 )
-from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 

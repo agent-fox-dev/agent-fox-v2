@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import duckdb
 
-from agent_fox.knowledge.temporal import Timeline, TimelineNode, temporal_query
+from agent_fox.knowledge.query import Timeline, TimelineNode, temporal_query
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,

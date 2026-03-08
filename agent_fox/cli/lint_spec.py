@@ -251,7 +251,7 @@ def _merge_ai_findings(
     Requirements: 09-REQ-8.1
     """
     try:
-        from agent_fox.spec.ai_validator import run_ai_validation
+        from agent_fox.spec.validator import run_ai_validation
 
         standard_model = resolve_model("STANDARD").model_id
         ai_findings = asyncio.run(
@@ -276,7 +276,7 @@ def _apply_ai_fixes(
 
     Requirements: 22-REQ-1.1, 22-REQ-1.4, 22-REQ-3.1, 22-REQ-3.E1, 22-REQ-4.1
     """
-    from agent_fox.spec.ai_validator import (
+    from agent_fox.spec.validator import (
         _MAX_CRITERIA_PER_BATCH,
         rewrite_criteria,
     )

@@ -19,14 +19,15 @@ import asyncio
 import json
 import logging
 import signal
+from collections import Counter, deque
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
-from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.serial import SerialRunner
@@ -36,13 +37,271 @@ from agent_fox.engine.state import (
     SessionRecord,
     StateManager,
 )
-from agent_fox.engine.sync import GraphSync
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
-from agent_fox.hooks.runner import run_sync_barrier_hooks
+from agent_fox.hooks.hooks import run_sync_barrier_hooks
 from agent_fox.memory.render import render_summary
 from agent_fox.ui.events import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# CircuitBreaker (merged from circuit.py)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class LaunchDecision:
+    """Result of a circuit breaker check."""
+
+    allowed: bool
+    reason: str | None = None  # None if allowed, explanation if denied
+
+
+class CircuitBreaker:
+    """Pre-launch checks: cost ceiling, session limit, retry counter.
+
+    The circuit breaker is consulted before every session launch. It
+    checks three conditions (in order):
+
+    1. **Cost ceiling:** cumulative cost >= config.max_cost
+    2. **Session limit:** total sessions >= config.max_sessions
+    3. **Retry limit:** attempt number > config.max_retries + 1
+
+    If any check fails, the launch is denied with an explanatory reason.
+    """
+
+    def __init__(self, config: OrchestratorConfig) -> None:
+        self._config = config
+
+    def _check_global_limits(
+        self,
+        state: ExecutionState,
+    ) -> LaunchDecision | None:
+        """Check cost ceiling and session limit.
+
+        Returns a denied LaunchDecision if a limit is hit, or None if
+        both checks pass.
+        """
+        if (
+            self._config.max_cost is not None
+            and state.total_cost >= self._config.max_cost
+        ):
+            return LaunchDecision(
+                allowed=False,
+                reason=(
+                    f"Cost limit reached: cumulative cost "
+                    f"${state.total_cost:.2f} >= "
+                    f"max_cost ${self._config.max_cost:.2f}"
+                ),
+            )
+
+        if (
+            self._config.max_sessions is not None
+            and state.total_sessions >= self._config.max_sessions
+        ):
+            return LaunchDecision(
+                allowed=False,
+                reason=(
+                    f"Session limit reached: {state.total_sessions} "
+                    f"sessions >= max_sessions {self._config.max_sessions}"
+                ),
+            )
+
+        return None
+
+    def check_launch(
+        self,
+        node_id: str,
+        attempt: int,
+        state: ExecutionState,
+    ) -> LaunchDecision:
+        """Determine whether a session launch is permitted.
+
+        Checks (in order):
+        1. Cost ceiling: state.total_cost >= config.max_cost
+        2. Session limit: state.total_sessions >= config.max_sessions
+        3. Retry limit: attempt > config.max_retries + 1
+
+        Args:
+            node_id: The task to check.
+            attempt: The proposed attempt number (1-indexed).
+            state: Current execution state.
+
+        Returns:
+            LaunchDecision with allowed=True or allowed=False with reason.
+        """
+        denied = self._check_global_limits(state)
+        if denied is not None:
+            return denied
+
+        # Retry limit check
+        max_attempts = self._config.max_retries + 1
+        if attempt > max_attempts:
+            return LaunchDecision(
+                allowed=False,
+                reason=(
+                    f"Retry limit exceeded for {node_id}: "
+                    f"attempt {attempt} > max_retries + 1 "
+                    f"({max_attempts})"
+                ),
+            )
+
+        return LaunchDecision(allowed=True)
+
+    def should_stop(self, state: ExecutionState) -> LaunchDecision:
+        """Check whether the orchestrator should stop launching entirely.
+
+        This is called before picking the next batch of ready tasks.
+        Checks cost ceiling and session limit only (not per-task retry).
+
+        Args:
+            state: Current execution state.
+
+        Returns:
+            LaunchDecision with allowed=True or allowed=False with reason.
+        """
+        return self._check_global_limits(state) or LaunchDecision(allowed=True)
+
+
+# ---------------------------------------------------------------------------
+# GraphSync (merged from sync.py)
+# ---------------------------------------------------------------------------
+
+
+class GraphSync:
+    """Graph state propagation: ready detection, cascade blocking.
+
+    Maintains a mutable view of node statuses and provides methods to
+    transition nodes through states, detect ready tasks, cascade-block
+    dependents, and detect stall conditions.
+    """
+
+    def __init__(
+        self,
+        node_states: dict[str, str],
+        edges: dict[str, list[str]],
+    ) -> None:
+        """Initialise graph sync with node states and dependency edges.
+
+        Args:
+            node_states: Mutable dict of node_id -> status string.
+                This is a shared reference — the same dict object is
+                held by ExecutionState.node_states, so mutations here
+                are immediately visible to the orchestrator and vice
+                versa.
+            edges: Adjacency list where each key is a node_id and its
+                value is a list of dependency node_ids (predecessors
+                that must complete before this node can execute).
+        """
+        self.node_states = node_states
+        self._edges = edges
+
+        # Build reverse adjacency: node -> list of nodes that depend on it.
+        # Used for cascade blocking (BFS forward through dependents).
+        self._dependents: dict[str, list[str]] = {n: [] for n in node_states}
+        for node, deps in edges.items():
+            for dep in deps:
+                if dep in self._dependents:
+                    self._dependents[dep].append(node)
+
+    def ready_tasks(self) -> list[str]:
+        """Return node_ids of all tasks that are ready to execute.
+
+        A task is ready when:
+        - Its status is ``pending``
+        - All of its dependencies have status ``completed``
+
+        Returns:
+            List of ready node_ids, sorted alphabetically for
+            deterministic ordering.
+        """
+        ready: list[str] = []
+        for node_id, status in self.node_states.items():
+            if status != "pending":
+                continue
+            deps = self._edges.get(node_id, [])
+            if all(self.node_states.get(d) == "completed" for d in deps):
+                ready.append(node_id)
+        return sorted(ready)
+
+    def mark_completed(self, node_id: str) -> None:
+        """Mark a task as completed."""
+        self.node_states[node_id] = "completed"
+
+    def mark_failed(self, node_id: str) -> None:
+        """Mark a task as failed (before retry decision)."""
+        self.node_states[node_id] = "failed"
+
+    def mark_blocked(self, node_id: str, reason: str) -> list[str]:
+        """Mark a task as blocked and cascade-block all dependents.
+
+        Uses BFS to find all transitively dependent nodes and marks
+        them as blocked.
+
+        Args:
+            node_id: The task that exhausted retries.
+            reason: Human-readable blocking reason.
+
+        Returns:
+            List of node_ids that were cascade-blocked (does not include
+            the originally blocked node itself).
+        """
+        self.node_states[node_id] = "blocked"
+
+        # BFS through dependents to cascade the block
+        cascade_blocked: list[str] = []
+        queue: deque[str] = deque([node_id])
+        visited: set[str] = {node_id}
+
+        while queue:
+            current = queue.popleft()
+            for dependent in self._dependents.get(current, []):
+                if dependent in visited:
+                    continue
+                # Skip completed nodes (work is done) and in_progress
+                # nodes (actively executing; their result will be
+                # processed when they finish).
+                if self.node_states.get(dependent) in (
+                    "completed",
+                    "in_progress",
+                ):
+                    continue
+                visited.add(dependent)
+                self.node_states[dependent] = "blocked"
+                cascade_blocked.append(dependent)
+                queue.append(dependent)
+
+        return cascade_blocked
+
+    def mark_in_progress(self, node_id: str) -> None:
+        """Mark a task as in_progress (being executed)."""
+        self.node_states[node_id] = "in_progress"
+
+    def is_stalled(self) -> bool:
+        """Check if no progress is possible.
+
+        Returns True when no tasks are ready, no tasks are in_progress,
+        but incomplete tasks remain (i.e. there are still pending or
+        blocked tasks that are not completed).
+        """
+        has_ready = bool(self.ready_tasks())
+        has_in_progress = any(s == "in_progress" for s in self.node_states.values())
+        all_completed = all(s == "completed" for s in self.node_states.values())
+
+        if has_ready or has_in_progress or all_completed:
+            return False
+
+        return True
+
+    def summary(self) -> dict[str, int]:
+        """Return counts by status: {pending: N, completed: N, ...}."""
+        return dict(Counter(self.node_states.values()))
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator (from orchestrator.py)
+# ---------------------------------------------------------------------------
 
 
 def _load_plan_data(plan_path: Path) -> dict:

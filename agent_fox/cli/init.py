@@ -307,7 +307,7 @@ def _ensure_develop_branch(*, quiet: bool = False) -> None:
     """
     import asyncio
 
-    from agent_fox.workspace.git import ensure_develop
+    from agent_fox.workspace.workspace import ensure_develop
 
     try:
         asyncio.run(ensure_develop(Path.cwd()))
