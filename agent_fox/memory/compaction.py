@@ -10,7 +10,7 @@ import hashlib
 import logging
 from pathlib import Path
 
-from agent_fox.memory.store import DEFAULT_MEMORY_PATH, load_all_facts, write_facts
+from agent_fox.memory.memory import DEFAULT_MEMORY_PATH, load_all_facts, write_facts
 from agent_fox.memory.types import Fact
 
 logger = logging.getLogger("agent_fox.memory.compaction")

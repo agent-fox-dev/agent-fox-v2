@@ -20,7 +20,7 @@ from agent_fox.memory.compaction import (
     _resolve_supersession,
     compact,
 )
-from agent_fox.memory.store import write_facts
+from agent_fox.memory.memory import write_facts
 from agent_fox.memory.types import Category, Fact
 
 # -- Hypothesis strategies ---------------------------------------------------

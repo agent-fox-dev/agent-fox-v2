@@ -20,7 +20,7 @@ import pytest
 
 from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
-from agent_fox.engine.orchestrator import Orchestrator
+from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import StateManager
 
 from .conftest import (
@@ -935,10 +935,10 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+                "agent_fox.engine.engine.run_sync_barrier_hooks",
             ) as mock_hooks,
             patch(
-                "agent_fox.engine.orchestrator.render_summary",
+                "agent_fox.engine.engine.render_summary",
             ) as mock_render,
         ):
             orchestrator = Orchestrator(
@@ -991,10 +991,10 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+                "agent_fox.engine.engine.run_sync_barrier_hooks",
             ) as mock_hooks,
             patch(
-                "agent_fox.engine.orchestrator.render_summary",
+                "agent_fox.engine.engine.render_summary",
             ) as mock_render,
         ):
             orchestrator = Orchestrator(
@@ -1043,10 +1043,10 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+                "agent_fox.engine.engine.run_sync_barrier_hooks",
             ) as mock_hooks,
             patch(
-                "agent_fox.engine.orchestrator.render_summary",
+                "agent_fox.engine.engine.render_summary",
             ) as mock_render,
         ):
             orchestrator = Orchestrator(
@@ -1094,10 +1094,10 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+                "agent_fox.engine.engine.run_sync_barrier_hooks",
             ) as mock_hooks,
             patch(
-                "agent_fox.engine.orchestrator.render_summary",
+                "agent_fox.engine.engine.render_summary",
             ),
         ):
             orchestrator = Orchestrator(
@@ -1144,10 +1144,10 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.engine.orchestrator.run_sync_barrier_hooks",
+                "agent_fox.engine.engine.run_sync_barrier_hooks",
             ) as mock_hooks,
             patch(
-                "agent_fox.engine.orchestrator.render_summary",
+                "agent_fox.engine.engine.render_summary",
             ) as mock_render,
         ):
             orchestrator = Orchestrator(

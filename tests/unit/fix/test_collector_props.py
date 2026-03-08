@@ -13,8 +13,8 @@ from unittest.mock import patch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.fix.collector import run_checks
-from agent_fox.fix.detector import CheckCategory, CheckDescriptor
+from agent_fox.fix.checks import run_checks
+from agent_fox.fix.checks import CheckCategory, CheckDescriptor
 
 # Strategy: generate a list of check descriptors with various exit codes
 check_names = st.sampled_from(["pytest", "ruff", "mypy", "cargo test", "npm test"])
@@ -82,7 +82,7 @@ class TestCollectorCompleteness:
             )
 
         with patch(
-            "agent_fox.fix.collector.subprocess.run",
+            "agent_fox.fix.checks.subprocess.run",
             side_effect=mock_subprocess_run,
         ):
             failures, passed = run_checks(checks, tmp_dir)

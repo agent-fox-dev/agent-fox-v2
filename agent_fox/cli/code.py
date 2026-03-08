@@ -20,7 +20,7 @@ import click
 from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig, HookConfig, OrchestratorConfig
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.engine.orchestrator import Orchestrator
+from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.db import open_knowledge_store

@@ -16,12 +16,12 @@ from pathlib import Path
 
 from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.workspace.git import (
+from agent_fox.workspace.workspace import (
+    WorkspaceInfo,
     get_remote_url,
     local_branch_exists,
     push_to_remote,
 )
-from agent_fox.workspace.worktree import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 

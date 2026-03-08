@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_fox.memory.compaction import compact
-from agent_fox.memory.store import load_all_facts, write_facts
+from agent_fox.memory.memory import load_all_facts, write_facts
 from tests.unit.memory.conftest import make_fact
 
 

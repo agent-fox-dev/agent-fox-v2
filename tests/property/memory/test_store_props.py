@@ -12,7 +12,7 @@ import uuid
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.memory.store import _dict_to_fact, _fact_to_dict
+from agent_fox.memory.memory import _dict_to_fact, _fact_to_dict
 from agent_fox.memory.types import Category, Fact
 
 # -- Hypothesis strategies ---------------------------------------------------

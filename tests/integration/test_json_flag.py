@@ -394,7 +394,7 @@ class TestFixJsonl:
         self, cli_runner: CliRunner, tmp_project: Path
     ) -> None:
         """fix with --json produces JSONL lines."""
-        from agent_fox.fix.loop import TerminationReason
+        from agent_fox.fix.fix import TerminationReason
 
         mock_result = MagicMock(
             termination_reason=TerminationReason.ALL_FIXED,

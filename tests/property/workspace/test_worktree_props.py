@@ -12,7 +12,7 @@ from pathlib import Path
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
-from agent_fox.workspace.worktree import WorkspaceInfo
+from agent_fox.workspace.workspace import WorkspaceInfo
 
 # Strategy for valid spec names: alphanumeric + underscores, non-empty
 spec_name_strategy = st.from_regex(r"[a-z][a-z0-9_]{0,19}", fullmatch=True)

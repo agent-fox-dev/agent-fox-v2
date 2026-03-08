@@ -10,7 +10,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.fix.loop import FixResult, TerminationReason
+from agent_fox.fix.fix import FixResult, TerminationReason
 
 # Strategy: generate valid FixResult instances
 termination_reasons = st.sampled_from(list(TerminationReason))

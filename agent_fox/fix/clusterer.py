@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
-from agent_fox.fix.collector import FailureRecord
+from agent_fox.fix.checks import FailureRecord
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_fox.fix.collector import run_checks
-from agent_fox.fix.detector import CheckDescriptor
+from agent_fox.fix.checks import run_checks
+from agent_fox.fix.checks import CheckDescriptor
 
 
 class TestCollectorCapturesFailures:
@@ -34,7 +34,7 @@ class TestCollectorCapturesFailures:
             stderr="FAILED test_foo.py",
         )
 
-        with patch("agent_fox.fix.collector.subprocess.run", return_value=mock_result):
+        with patch("agent_fox.fix.checks.subprocess.run", return_value=mock_result):
             failures, passed = run_checks([check_descriptor_pytest], tmp_project)
 
         assert len(failures) == 1
@@ -55,7 +55,7 @@ class TestCollectorCapturesFailures:
             stderr="",
         )
 
-        with patch("agent_fox.fix.collector.subprocess.run", return_value=mock_result):
+        with patch("agent_fox.fix.checks.subprocess.run", return_value=mock_result):
             failures, _ = run_checks([check_descriptor_pytest], tmp_project)
 
         assert failures[0].check == check_descriptor_pytest
@@ -81,7 +81,7 @@ class TestCollectorReportsPassingChecks:
             stderr="",
         )
 
-        with patch("agent_fox.fix.collector.subprocess.run", return_value=mock_result):
+        with patch("agent_fox.fix.checks.subprocess.run", return_value=mock_result):
             failures, passed = run_checks(
                 [check_descriptor_pytest, ruff_check_descriptor],
                 tmp_project,
@@ -107,7 +107,7 @@ class TestCollectorTimeout:
     ) -> None:
         """A timed-out check is recorded as a failure with timeout message."""
         with patch(
-            "agent_fox.fix.collector.subprocess.run",
+            "agent_fox.fix.checks.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=300),
         ):
             failures, passed = run_checks([check_descriptor_pytest], tmp_project)
@@ -123,7 +123,7 @@ class TestCollectorTimeout:
     ) -> None:
         """Timeout is handled gracefully, not propagated as an exception."""
         with patch(
-            "agent_fox.fix.collector.subprocess.run",
+            "agent_fox.fix.checks.subprocess.run",
             side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=300),
         ):
             # Should not raise

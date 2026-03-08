@@ -10,7 +10,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.graph.analyzer import analyze_plan
+from agent_fox.graph.resolver import analyze_plan
 from agent_fox.graph.types import Edge, Node, PlanMetadata, TaskGraph
 
 # -- Hypothesis strategy for generating random DAGs ---------------------------

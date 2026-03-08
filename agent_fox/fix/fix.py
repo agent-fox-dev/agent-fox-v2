@@ -15,9 +15,8 @@ from enum import StrEnum
 from pathlib import Path
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.fix.checks import FailureRecord, detect_checks, run_checks
 from agent_fox.fix.clusterer import cluster_failures
-from agent_fox.fix.collector import FailureRecord, run_checks
-from agent_fox.fix.detector import detect_checks
 from agent_fox.fix.spec_gen import FixSpec, cleanup_fix_specs, generate_fix_spec
 
 # A session runner callable: takes a FixSpec and returns cost consumed.

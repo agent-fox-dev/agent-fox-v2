@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from agent_fox.workspace.harvester import harvest
-from agent_fox.workspace.worktree import create_worktree
+from agent_fox.workspace.workspace import create_worktree
 
 from .conftest import add_commit_to_branch, get_branch_tip
 

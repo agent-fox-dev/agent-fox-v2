@@ -12,7 +12,7 @@ import json
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.fix.detector import detect_checks
+from agent_fox.fix.checks import detect_checks
 
 # Strategy: combination of config files that may be present
 config_strategies = st.fixed_dictionaries(

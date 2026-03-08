@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from rich.console import Console
 
-from agent_fox.fix.loop import FixResult, TerminationReason  # noqa: F401
+from agent_fox.fix.fix import FixResult, TerminationReason  # noqa: F401
 
 # Human-readable labels for termination reasons.
 _REASON_LABELS: dict[TerminationReason, tuple[str, str]] = {
