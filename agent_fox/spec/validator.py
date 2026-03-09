@@ -41,6 +41,65 @@ _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
 _REQUIREMENT_ID = re.compile(r"(?:\[|\*\*)(\d{2}-REQ-\d+\.\d+)(?:\]|[:\*])")
 _GROUP_REF = re.compile(r"\bgroup\s+(\d+)\b", re.IGNORECASE)
 
+# EARS keyword detection — all EARS patterns include SHALL
+_EARS_KEYWORD = re.compile(r"\bSHALL\b")
+
+# Requirement ID format variants (for inconsistency detection)
+_REQ_ID_BRACKET = re.compile(r"\[(\d{2}-REQ-\d+\.(?:\d+|E\d+))\]")
+_REQ_ID_BOLD = re.compile(r"\*\*(\d{2}-REQ-\d+\.(?:\d+|E\d+))[:\*]")
+
+# Design document section patterns
+_PROPERTY_HEADING = re.compile(r"^###\s+Property\s+\d+", re.IGNORECASE)
+
+# Test spec entry headings: ### TS-NN-N, ### TS-NN-PN, ### TS-NN-EN
+_TS_ENTRY_HEADING = re.compile(r"^###\s+(TS-\d{2}-(?:P|E)?\d+)")
+_TS_REFERENCE = re.compile(r"TS-\d{2}-(?:P|E)?\d+")
+
+# Markdown table row detection
+_TABLE_PIPE_ROW = re.compile(r"^\s*\|.+\|")
+_TABLE_SEP_ROW = re.compile(r"^\s*\|[\s\-:|]+\|\s*$")
+
+# Section heading (## level)
+_H2_HEADING = re.compile(r"^##\s+(.+)$")
+
+# -- Section schema definitions (Phase 4) -------------------------------------
+# Maps file -> list of (section_name, required). "required" means warning if
+# missing; non-required means hint.
+
+_SECTION_SCHEMAS: dict[str, list[tuple[str, bool]]] = {
+    "requirements.md": [
+        ("Introduction", False),
+        ("Glossary", False),
+        ("Requirements", True),
+    ],
+    "design.md": [
+        ("Overview", True),
+        ("Architecture", True),
+        ("Components and Interfaces", False),
+        ("Data Models", False),
+        ("Correctness Properties", True),
+        ("Error Handling", True),
+        ("Technology Stack", False),
+        ("Definition of Done", True),
+        ("Testing Strategy", False),
+    ],
+    "test_spec.md": [
+        ("Overview", False),
+        ("Test Cases", True),
+        ("Coverage Matrix", True),
+    ],
+    "tasks.md": [
+        ("Overview", False),
+        ("Tasks", True),
+        ("Traceability", False),
+    ],
+}
+
+
+def _normalize_heading(text: str) -> str:
+    """Normalize a heading for fuzzy comparison."""
+    return re.sub(r"[\s_\-]+", " ", text.strip().lower())
+
 
 # -- Finding data model -------------------------------------------------------
 
@@ -269,8 +328,7 @@ def check_broken_dependencies(
                             rule="broken-dependency",
                             severity=SEVERITY_ERROR,
                             message=(
-                                f"Dependency references non-existent spec "
-                                f"'{to_spec}'"
+                                f"Dependency references non-existent spec '{to_spec}'"
                             ),
                             line=None,
                         )
@@ -317,8 +375,7 @@ def check_broken_dependencies(
                             rule="broken-dependency",
                             severity=SEVERITY_ERROR,
                             message=(
-                                f"Dependency references non-existent spec "
-                                f"'{dep_spec}'"
+                                f"Dependency references non-existent spec '{dep_spec}'"
                             ),
                             line=None,
                         )
@@ -551,6 +608,660 @@ def _check_circular_dependency(
     return findings
 
 
+# -- Phase 1: Completeness checks ---------------------------------------------
+
+
+def check_missing_ears_keyword(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that acceptance criteria use EARS syntax (contain SHALL).
+
+    Rule: missing-ears-keyword
+    Severity: warning
+    Scans requirements.md for lines containing requirement IDs and checks
+    each has at least one EARS keyword (SHALL).
+    """
+    req_path = spec_path / "requirements.md"
+    if not req_path.is_file():
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    findings: list[Finding] = []
+    for i, line in enumerate(lines, start=1):
+        # Only check lines that contain a requirement ID
+        if not _REQUIREMENT_ID.search(line):
+            continue
+        if not _EARS_KEYWORD.search(line):
+            # Extract the requirement ID for the message
+            match = _REQUIREMENT_ID.search(line)
+            req_id = match.group(1) if match else "unknown"
+            findings.append(
+                Finding(
+                    spec_name=spec_name,
+                    file="requirements.md",
+                    rule="missing-ears-keyword",
+                    severity=SEVERITY_WARNING,
+                    message=(
+                        f"Criterion {req_id} does not contain EARS keyword "
+                        f"'SHALL'. Use EARS syntax for testable requirements."
+                    ),
+                    line=i,
+                )
+            )
+    return findings
+
+
+def check_design_completeness(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check design.md for required sections: Correctness Properties,
+    Error Handling, and Definition of Done.
+
+    Rules: missing-correctness-properties, missing-error-table,
+           missing-definition-of-done
+    Severity: warning
+    """
+    design_path = spec_path / "design.md"
+    if not design_path.is_file():
+        return []
+
+    text = design_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    has_correctness = False
+    has_property = False
+    has_error_handling = False
+    has_error_table = False
+    has_dod = False
+
+    in_error_section = False
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_error_section = "error" in normalized and "handling" in normalized
+            if "correctness" in normalized and "properties" in normalized:
+                has_correctness = True
+            elif in_error_section:
+                has_error_handling = True
+            elif "definition" in normalized and "done" in normalized:
+                has_dod = True
+            continue
+
+        if _PROPERTY_HEADING.match(line):
+            has_property = True
+
+        if in_error_section and _TABLE_PIPE_ROW.match(line):
+            if not _TABLE_SEP_ROW.match(line):
+                has_error_table = True
+
+    findings: list[Finding] = []
+
+    if not has_correctness or not has_property:
+        findings.append(
+            Finding(
+                spec_name=spec_name,
+                file="design.md",
+                rule="missing-correctness-properties",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "design.md is missing a '## Correctness Properties' section "
+                    "with at least one '### Property N:' entry"
+                ),
+                line=None,
+            )
+        )
+
+    if not has_error_handling or not has_error_table:
+        findings.append(
+            Finding(
+                spec_name=spec_name,
+                file="design.md",
+                rule="missing-error-table",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "design.md is missing a '## Error Handling' section "
+                    "with a markdown table"
+                ),
+                line=None,
+            )
+        )
+
+    if not has_dod:
+        findings.append(
+            Finding(
+                spec_name=spec_name,
+                file="design.md",
+                rule="missing-definition-of-done",
+                severity=SEVERITY_WARNING,
+                message="design.md is missing a '## Definition of Done' section",
+                line=None,
+            )
+        )
+
+    return findings
+
+
+def check_missing_coverage_matrix(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check test_spec.md for a Coverage Matrix section with a table.
+
+    Rule: missing-coverage-matrix
+    Severity: warning
+    """
+    ts_path = spec_path / "test_spec.md"
+    if not ts_path.is_file():
+        return []
+
+    text = ts_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    has_heading = False
+    has_table = False
+    in_section = False
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_section = "coverage" in normalized and "matrix" in normalized
+            if in_section:
+                has_heading = True
+            continue
+
+        if in_section and _TABLE_PIPE_ROW.match(line):
+            if not _TABLE_SEP_ROW.match(line):
+                has_table = True
+
+    if not has_heading or not has_table:
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="test_spec.md",
+                rule="missing-coverage-matrix",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "test_spec.md is missing a '## Coverage Matrix' section "
+                    "with a markdown table"
+                ),
+                line=None,
+            )
+        ]
+    return []
+
+
+def check_missing_traceability_table(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check tasks.md for a Traceability section with a table.
+
+    Rule: missing-traceability-table
+    Severity: warning
+    """
+    tasks_path = spec_path / "tasks.md"
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    has_heading = False
+    has_table = False
+    in_section = False
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            in_section = "traceability" in _normalize_heading(section)
+            if in_section:
+                has_heading = True
+            continue
+
+        if in_section and _TABLE_PIPE_ROW.match(line):
+            if not _TABLE_SEP_ROW.match(line):
+                has_table = True
+
+    if not has_heading or not has_table:
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="tasks.md",
+                rule="missing-traceability-table",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "tasks.md is missing a '## Traceability' section "
+                    "with a markdown table"
+                ),
+                line=None,
+            )
+        ]
+    return []
+
+
+def check_inconsistent_req_id_format(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that requirement IDs use a consistent format.
+
+    Rule: inconsistent-req-id-format
+    Severity: hint
+    Flags specs that mix [NN-REQ-N.N] and **NN-REQ-N.N:** formats.
+    """
+    req_path = spec_path / "requirements.md"
+    if not req_path.is_file():
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+
+    has_bracket = bool(_REQ_ID_BRACKET.search(text))
+    has_bold = bool(_REQ_ID_BOLD.search(text))
+
+    if has_bracket and has_bold:
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="requirements.md",
+                rule="inconsistent-req-id-format",
+                severity=SEVERITY_HINT,
+                message=(
+                    "requirements.md mixes [NN-REQ-N.N] and **NN-REQ-N.N:** "
+                    "formats. Use one format consistently (prefer [brackets])."
+                ),
+                line=None,
+            )
+        ]
+    return []
+
+
+# -- Phase 3: Traceability chain checks ---------------------------------------
+
+
+def _extract_test_spec_ids(spec_path: Path) -> set[str]:
+    """Extract all TS-NN-N IDs from test_spec.md headings."""
+    ts_path = spec_path / "test_spec.md"
+    if not ts_path.is_file():
+        return set()
+    text = ts_path.read_text(encoding="utf-8")
+    ids: set[str] = set()
+    for line in text.splitlines():
+        m = _TS_ENTRY_HEADING.match(line)
+        if m:
+            ids.add(m.group(1))
+    return ids
+
+
+def _extract_property_numbers(spec_path: Path) -> list[int]:
+    """Extract Property N numbers from design.md."""
+    design_path = spec_path / "design.md"
+    if not design_path.is_file():
+        return []
+    text = design_path.read_text(encoding="utf-8")
+    nums: list[int] = []
+    for line in text.splitlines():
+        m = _PROPERTY_HEADING.match(line)
+        if m:
+            # Extract number from "### Property N: ..."
+            num_match = re.search(r"Property\s+(\d+)", line, re.IGNORECASE)
+            if num_match:
+                nums.append(int(num_match.group(1)))
+    return nums
+
+
+# Permissive requirement ID pattern — matches bare IDs in tables/prose
+_REQ_ID_BARE = re.compile(r"(\d{2}-REQ-\d+\.(?:\d+|E\d+))")
+
+
+def _extract_req_ids_from_text(text: str) -> set[str]:
+    """Extract all requirement IDs from arbitrary text.
+
+    Uses a permissive pattern that matches bare IDs (without brackets or bold)
+    so it works in tables, prose, and formatted text.
+    """
+    return set(_REQ_ID_BARE.findall(text))
+
+
+def check_untraced_test_specs(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that every TS-NN-N entry in test_spec.md is referenced in tasks.md.
+
+    Rule: untraced-test-spec
+    Severity: warning
+    """
+    ts_ids = _extract_test_spec_ids(spec_path)
+    if not ts_ids:
+        return []
+
+    tasks_path = spec_path / "tasks.md"
+    if not tasks_path.is_file():
+        return []
+
+    tasks_text = tasks_path.read_text(encoding="utf-8")
+
+    findings: list[Finding] = []
+    for ts_id in sorted(ts_ids):
+        if ts_id not in tasks_text:
+            findings.append(
+                Finding(
+                    spec_name=spec_name,
+                    file="tasks.md",
+                    rule="untraced-test-spec",
+                    severity=SEVERITY_WARNING,
+                    message=f"Test spec entry {ts_id} is not referenced in tasks.md",
+                    line=None,
+                )
+            )
+    return findings
+
+
+def check_untraced_properties(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that every Property N in design.md has a TS-NN-PN in test_spec.md.
+
+    Rule: untraced-property
+    Severity: warning
+    """
+    prop_nums = _extract_property_numbers(spec_path)
+    if not prop_nums:
+        return []
+
+    ts_path = spec_path / "test_spec.md"
+    if not ts_path.is_file():
+        return []
+
+    ts_text = ts_path.read_text(encoding="utf-8")
+
+    # Extract spec number from spec_name (first two digits)
+    spec_num_match = re.match(r"(\d{2})", spec_name)
+    spec_num = spec_num_match.group(1) if spec_num_match else "00"
+
+    findings: list[Finding] = []
+    for prop_num in prop_nums:
+        expected_ts_id = f"TS-{spec_num}-P{prop_num}"
+        if expected_ts_id not in ts_text:
+            findings.append(
+                Finding(
+                    spec_name=spec_name,
+                    file="test_spec.md",
+                    rule="untraced-property",
+                    severity=SEVERITY_WARNING,
+                    message=(
+                        f"Property {prop_num} in design.md has no corresponding "
+                        f"test spec entry ({expected_ts_id})"
+                    ),
+                    line=None,
+                )
+            )
+    return findings
+
+
+def check_orphan_error_refs(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that requirement IDs in design.md error table exist in requirements.md.
+
+    Rule: orphan-error-ref
+    Severity: warning
+    """
+    design_path = spec_path / "design.md"
+    req_path = spec_path / "requirements.md"
+    if not design_path.is_file() or not req_path.is_file():
+        return []
+
+    design_text = design_path.read_text(encoding="utf-8")
+    req_text = req_path.read_text(encoding="utf-8")
+
+    # Extract req IDs from requirements.md
+    known_req_ids = _extract_req_ids_from_text(req_text)
+    if not known_req_ids:
+        return []
+
+    # Find error handling section in design.md and extract req IDs from it
+    lines = design_text.splitlines()
+    in_error_section = False
+    error_section_req_ids: set[str] = set()
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_error_section = "error" in normalized and "handling" in normalized
+            continue
+
+        if in_error_section:
+            ids_in_line = _REQUIREMENT_ID.findall(line)
+            error_section_req_ids.update(ids_in_line)
+
+    findings: list[Finding] = []
+    for ref_id in sorted(error_section_req_ids):
+        if ref_id not in known_req_ids:
+            findings.append(
+                Finding(
+                    spec_name=spec_name,
+                    file="design.md",
+                    rule="orphan-error-ref",
+                    severity=SEVERITY_WARNING,
+                    message=(
+                        f"Error handling table references {ref_id} which "
+                        f"does not exist in requirements.md"
+                    ),
+                    line=None,
+                )
+            )
+    return findings
+
+
+def check_coverage_matrix_completeness(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check coverage matrix in test_spec.md against requirements.md.
+
+    Rule: coverage-matrix-mismatch
+    Severity: warning
+    Reports requirement IDs present in requirements.md but missing from
+    the coverage matrix.
+    """
+    req_path = spec_path / "requirements.md"
+    ts_path = spec_path / "test_spec.md"
+    if not req_path.is_file() or not ts_path.is_file():
+        return []
+
+    req_text = req_path.read_text(encoding="utf-8")
+    ts_text = ts_path.read_text(encoding="utf-8")
+
+    req_ids = _extract_req_ids_from_text(req_text)
+    if not req_ids:
+        return []
+
+    # Find coverage matrix section
+    lines = ts_text.splitlines()
+    in_matrix = False
+    matrix_text = ""
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_matrix = "coverage" in normalized and "matrix" in normalized
+            continue
+        if in_matrix:
+            matrix_text += line + "\n"
+
+    if not matrix_text:
+        return []  # No coverage matrix found — handled by check_missing_coverage_matrix
+
+    matrix_req_ids = _extract_req_ids_from_text(matrix_text)
+
+    findings: list[Finding] = []
+    missing = sorted(req_ids - matrix_req_ids)
+    for req_id in missing:
+        findings.append(
+            Finding(
+                spec_name=spec_name,
+                file="test_spec.md",
+                rule="coverage-matrix-mismatch",
+                severity=SEVERITY_WARNING,
+                message=(
+                    f"Requirement {req_id} is in requirements.md but missing "
+                    f"from the coverage matrix"
+                ),
+                line=None,
+            )
+        )
+    return findings
+
+
+def check_traceability_table_completeness(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check traceability table in tasks.md against requirements.md.
+
+    Rule: traceability-table-mismatch
+    Severity: warning
+    Reports requirement IDs present in requirements.md but missing from
+    the traceability table.
+    """
+    req_path = spec_path / "requirements.md"
+    tasks_path = spec_path / "tasks.md"
+    if not req_path.is_file() or not tasks_path.is_file():
+        return []
+
+    req_text = req_path.read_text(encoding="utf-8")
+    tasks_text = tasks_path.read_text(encoding="utf-8")
+
+    req_ids = _extract_req_ids_from_text(req_text)
+    if not req_ids:
+        return []
+
+    # Find traceability section
+    lines = tasks_text.splitlines()
+    in_traceability = False
+    trace_text = ""
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            in_traceability = "traceability" in _normalize_heading(section)
+            continue
+        if in_traceability:
+            trace_text += line + "\n"
+
+    if not trace_text:
+        return []  # No traceability table — handled by check_missing_traceability_table
+
+    trace_req_ids = _extract_req_ids_from_text(trace_text)
+
+    findings: list[Finding] = []
+    missing = sorted(req_ids - trace_req_ids)
+    for req_id in missing:
+        findings.append(
+            Finding(
+                spec_name=spec_name,
+                file="tasks.md",
+                rule="traceability-table-mismatch",
+                severity=SEVERITY_WARNING,
+                message=(
+                    f"Requirement {req_id} is in requirements.md but missing "
+                    f"from the traceability table"
+                ),
+                line=None,
+            )
+        )
+    return findings
+
+
+# -- Phase 4: Section schema validation ---------------------------------------
+
+
+def check_section_schema(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check spec files for expected and unexpected sections.
+
+    Rules: missing-section (warning for required, hint for recommended),
+           extra-section (hint)
+    """
+    findings: list[Finding] = []
+
+    for filename, schema in _SECTION_SCHEMAS.items():
+        file_path = spec_path / filename
+        if not file_path.is_file():
+            continue
+
+        text = file_path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+
+        # Extract actual H2 headings
+        actual_headings: list[str] = []
+        for line in lines:
+            m = _H2_HEADING.match(line)
+            if m:
+                actual_headings.append(m.group(1).strip())
+
+        actual_normalized = {_normalize_heading(h) for h in actual_headings}
+
+        # Check for expected sections
+        for section_name, required in schema:
+            normalized = _normalize_heading(section_name)
+            if normalized not in actual_normalized:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file=filename,
+                        rule="missing-section",
+                        severity=SEVERITY_WARNING if required else SEVERITY_HINT,
+                        message=(
+                            f"{filename} is missing expected section "
+                            f"'## {section_name}'"
+                        ),
+                        line=None,
+                    )
+                )
+
+        # Check for extra (unexpected) sections
+        expected_normalized = {_normalize_heading(s) for s, _ in schema}
+        for heading in actual_headings:
+            normalized = _normalize_heading(heading)
+            if normalized not in expected_normalized:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file=filename,
+                        rule="extra-section",
+                        severity=SEVERITY_HINT,
+                        message=(
+                            f"{filename} has unexpected section '## {heading}' "
+                            f"(not in standard template)"
+                        ),
+                        line=None,
+                    )
+                )
+
+    return findings
+
+
 def sort_findings(findings: list[Finding]) -> list[Finding]:
     """Sort findings by spec_name, file, then severity (error < warning < hint).
 
@@ -643,14 +1354,68 @@ def validate_specs(
 
         # 6. Coarse dependency check
         if (spec.path / "prd.md").is_file():
-            findings.extend(
-                _check_coarse_dependency(spec.name, spec.path / "prd.md")
-            )
+            findings.extend(_check_coarse_dependency(spec.name, spec.path / "prd.md"))
 
-    # 7. Circular dependency check (cross-spec, runs once for all specs)
+        # -- Phase 1: Completeness checks --
+        # 7. EARS keyword check
+        if (spec.path / "requirements.md").is_file():
+            findings.extend(check_missing_ears_keyword(spec.name, spec.path))
+
+        # 8. Design completeness (correctness properties, error table, DoD)
+        if (spec.path / "design.md").is_file():
+            findings.extend(check_design_completeness(spec.name, spec.path))
+
+        # 9. Coverage matrix check
+        if (spec.path / "test_spec.md").is_file():
+            findings.extend(check_missing_coverage_matrix(spec.name, spec.path))
+
+        # 10. Traceability table check
+        if (spec.path / "tasks.md").is_file():
+            findings.extend(check_missing_traceability_table(spec.name, spec.path))
+
+        # 11. Requirement ID format consistency
+        if (spec.path / "requirements.md").is_file():
+            findings.extend(check_inconsistent_req_id_format(spec.name, spec.path))
+
+        # -- Phase 3: Traceability chain checks --
+        # 12. Test spec -> tasks traceability
+        if (spec.path / "test_spec.md").is_file() and (
+            spec.path / "tasks.md"
+        ).is_file():
+            findings.extend(check_untraced_test_specs(spec.name, spec.path))
+
+        # 13. Property -> test spec traceability
+        if (spec.path / "design.md").is_file() and (
+            spec.path / "test_spec.md"
+        ).is_file():
+            findings.extend(check_untraced_properties(spec.name, spec.path))
+
+        # 14. Error table -> requirements cross-reference
+        if (spec.path / "design.md").is_file() and (
+            spec.path / "requirements.md"
+        ).is_file():
+            findings.extend(check_orphan_error_refs(spec.name, spec.path))
+
+        # 15. Coverage matrix completeness
+        if (spec.path / "requirements.md").is_file() and (
+            spec.path / "test_spec.md"
+        ).is_file():
+            findings.extend(check_coverage_matrix_completeness(spec.name, spec.path))
+
+        # 16. Traceability table completeness
+        if (spec.path / "requirements.md").is_file() and (
+            spec.path / "tasks.md"
+        ).is_file():
+            findings.extend(check_traceability_table_completeness(spec.name, spec.path))
+
+        # -- Phase 4: Section schema validation --
+        # 17. Section schema checks
+        findings.extend(check_section_schema(spec.name, spec.path))
+
+    # 18. Circular dependency check (cross-spec, runs once for all specs)
     findings.extend(_check_circular_dependency(discovered_specs))
 
-    # 8. Sort findings
+    # 19. Sort findings
     return sort_findings(findings)
 
 
@@ -695,9 +1460,7 @@ def _extract_response_text(response: _Any_ai, context: str) -> str | None:
         return first_block.text
     maybe_text: str | None = getattr(first_block, "text", None)
     if maybe_text is None:
-        _ai_logger.warning(
-            "AI response for %s has no text content, skipping", context
-        )
+        _ai_logger.warning("AI response for %s has no text content, skipping", context)
     return maybe_text
 
 
@@ -1250,9 +2013,7 @@ async def rewrite_criteria(
         return {}
 
     # Extract text from response
-    response_text = _extract_response_text(
-        response, f"rewrite for spec '{spec_name}'"
-    )
+    response_text = _extract_response_text(response, f"rewrite for spec '{spec_name}'")
     if response_text is None:
         return {}
 
