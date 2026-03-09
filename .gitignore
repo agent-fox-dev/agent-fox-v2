@@ -18,6 +18,8 @@ build/
 .hypothesis/
 
 # hacking
+todo.md
+hack.md
 stuff.md
 stuff.json
 hack/** 
