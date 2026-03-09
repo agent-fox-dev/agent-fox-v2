@@ -77,11 +77,13 @@ class TestProgressDisplayActivity:
         display.start()
         display.on_activity(
             ActivityEvent(
-                node_id="03_session:2", tool_name="Read", argument="config.py"
+                node_id="03_session:2", tool_name="Read", argument="config.py",
+                turn=3, tokens=1200,
             )
         )
         text = display._get_spinner_text()
         display.stop()
+        assert "[turn 3 | 1.2k tokens]" in text
         assert "[03_session:2] Reading\u2026" in text
         assert "\u23bf  config.py" in text
 
@@ -91,12 +93,14 @@ class TestProgressDisplayActivity:
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(node_id="x:1", tool_name="Edit", argument="foo.py")
+            ActivityEvent(node_id="x:1", tool_name="Edit", argument="foo.py",
+                          turn=1, tokens=500)
         )
         text = display._get_spinner_text()
         display.stop()
         lines = text.split("\n")
         assert len(lines) == 2
+        assert "[turn 1 | 0.5k tokens]" in lines[0]
         assert "Editing\u2026" in lines[0]
         assert "\u23bf  foo.py" in lines[1]
 
@@ -105,15 +109,17 @@ class TestProgressDisplayThinking:
     """TS-18-3: Thinking state shown when no tool use."""
 
     def test_thinking_state_shown(self) -> None:
-        """When model is thinking, spinner shows 'Thinking…'."""
+        """When model is thinking, spinner shows 'Thinking…' with turn/tokens."""
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(node_id="03_session:2", tool_name="thinking...", argument="")
+            ActivityEvent(node_id="03_session:2", tool_name="thinking...", argument="",
+                          turn=5, tokens=None)
         )
         text = display._get_spinner_text()
         display.stop()
+        assert "[turn 5 | ?k tokens]" in text
         assert "[03_session:2] Thinking\u2026" in text
         # Single line — no detail when thinking
         assert "\n" not in text
@@ -212,3 +218,35 @@ class TestProgressDisplayDefaultWidth:
         display.stop()
         for line in text.split("\n"):
             assert len(line) <= 80
+
+
+class TestPlanSpinner:
+    """PlanSpinner lifecycle tests."""
+
+    def test_start_stop_no_exception(self) -> None:
+        """PlanSpinner start/stop lifecycle works cleanly on non-TTY."""
+        from agent_fox.ui.progress import PlanSpinner
+
+        spinner = PlanSpinner("Testing...")
+        # On non-TTY (test runner), start is a no-op
+        spinner.start()
+        spinner.stop()
+
+    def test_double_stop_safe(self) -> None:
+        """PlanSpinner can be stopped multiple times."""
+        from agent_fox.ui.progress import PlanSpinner
+
+        spinner = PlanSpinner()
+        spinner.start()
+        spinner.stop()
+        spinner.stop()
+
+    def test_is_running_property(self) -> None:
+        """is_running reflects spinner state."""
+        from agent_fox.ui.progress import PlanSpinner
+
+        spinner = PlanSpinner()
+        assert not spinner.is_running
+        # On non-TTY, start is no-op so is_running stays False
+        spinner.start()
+        spinner.stop()

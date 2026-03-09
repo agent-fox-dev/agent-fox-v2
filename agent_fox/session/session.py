@@ -180,14 +180,30 @@ async def _execute_query(
         can_use_tool=_can_use_tool,
     )
 
+    turn_count = 0
+    cumulative_tokens = 0
+
     async for message in _query_messages(task_prompt=task_prompt, options=options):
         is_result = isinstance(message, ResultMessage) or (
             getattr(message, "type", None) == "result"
         )
 
+        # Track cumulative tokens from usage events
+        usage = getattr(message, "usage", None)
+        if usage is not None and not is_result:
+            if isinstance(usage, dict):
+                cumulative_tokens += _coerce_int(usage.get("input_tokens", 0))
+                cumulative_tokens += _coerce_int(usage.get("output_tokens", 0))
+            else:
+                cumulative_tokens += _coerce_int(getattr(usage, "input_tokens", 0))
+                cumulative_tokens += _coerce_int(getattr(usage, "output_tokens", 0))
+
         # 18-REQ-2.1, 18-REQ-2.E1: Emit activity events for non-result messages
         if activity_callback is not None and not is_result:
-            event = _extract_activity(node_id, message)
+            turn_count += 1
+            event = _extract_activity(
+                node_id, message, turn=turn_count, tokens=cumulative_tokens
+            )
             if event is not None:
                 try:
                     activity_callback(event)
@@ -233,7 +249,13 @@ async def _execute_query(
     }
 
 
-def _extract_activity(node_id: str, message: Any) -> ActivityEvent | None:
+def _extract_activity(
+    node_id: str,
+    message: Any,
+    *,
+    turn: int = 0,
+    tokens: int | None = None,
+) -> ActivityEvent | None:
     """Extract an ActivityEvent from an SDK message.
 
     - Tool-use messages: extract tool name and abbreviated first argument.
@@ -253,10 +275,16 @@ def _extract_activity(node_id: str, message: Any) -> ActivityEvent | None:
                 if isinstance(v, str):
                     arg = abbreviate_arg(v)
                     break
-        return ActivityEvent(node_id=node_id, tool_name=name, argument=arg)
+        return ActivityEvent(
+            node_id=node_id, tool_name=name, argument=arg,
+            turn=turn, tokens=tokens,
+        )
 
     # For thinking/assistant/other messages
-    return ActivityEvent(node_id=node_id, tool_name="thinking...", argument="")
+    return ActivityEvent(
+        node_id=node_id, tool_name="thinking...", argument="",
+        turn=turn, tokens=tokens,
+    )
 
 
 async def _query_messages(

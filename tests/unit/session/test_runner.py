@@ -533,6 +533,60 @@ class TestSessionRunnerActivityCallback:
         assert isinstance(events[0], ActivityEvent)
 
 
+class TestSessionRunnerActivityTurnAndTokens:
+    """Activity events include turn count and cumulative tokens."""
+
+    @pytest.mark.asyncio
+    async def test_turn_and_tokens_populated(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Activity events carry incrementing turn and cumulative token counts."""
+        from agent_fox.ui.events import ActivityEvent
+
+        events: list[ActivityEvent] = []
+
+        tool_msg1 = MockToolUseMessage(
+            tool_name="Read",
+            tool_input={"file_path": "/a.py"},
+        )
+        tool_msg2 = MockToolUseMessage(
+            tool_name="Edit",
+            tool_input={"file_path": "/b.py"},
+        )
+        result_msg = MockResultMessage(
+            is_error=False,
+            duration_ms=5000,
+            usage=MockUsage(input_tokens=100, output_tokens=200),
+        )
+
+        async def mock_query(*args, **kwargs):
+            yield tool_msg1
+            yield tool_msg2
+            yield result_msg
+
+        with patch(
+            "agent_fox.session.session._query_messages",
+            side_effect=mock_query,
+        ):
+            await run_session(
+                workspace_info,
+                "03:1",
+                "sys prompt",
+                "task prompt",
+                default_config,
+                activity_callback=lambda e: events.append(e),
+            )
+
+        assert len(events) == 2
+        assert events[0].turn == 1
+        assert events[1].turn == 2
+        # Tokens should be int (cumulative), not None
+        assert isinstance(events[0].tokens, int)
+        assert isinstance(events[1].tokens, int)
+
+
 class TestSessionRunnerNoCallback:
     """TS-18-9: Session runner works without callback."""
 

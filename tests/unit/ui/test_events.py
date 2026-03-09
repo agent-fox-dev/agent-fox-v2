@@ -6,7 +6,13 @@ Requirements: 18-REQ-2.E2, 18-REQ-2.E3
 
 from __future__ import annotations
 
-from agent_fox.ui.events import ActivityEvent, TaskEvent, abbreviate_arg, verbify_tool
+from agent_fox.ui.events import (
+    ActivityEvent,
+    TaskEvent,
+    abbreviate_arg,
+    format_tokens,
+    verbify_tool,
+)
 
 
 class TestAbbreviateArgBasename:
@@ -132,6 +138,25 @@ class TestVerbifyTool:
         assert verbify_tool("CustomTool") == "CustomTool"
 
 
+class TestFormatTokens:
+    """Token count formatting."""
+
+    def test_none_returns_question_mark(self) -> None:
+        """None tokens returns '?k'."""
+        assert format_tokens(None) == "?k"
+
+    def test_thousands(self) -> None:
+        """Thousands formatted as X.Yk."""
+        assert format_tokens(1200) == "1.2k"
+        assert format_tokens(500) == "0.5k"
+        assert format_tokens(0) == "0.0k"
+
+    def test_millions(self) -> None:
+        """Millions formatted as X.YM."""
+        assert format_tokens(1_500_000) == "1.5M"
+        assert format_tokens(1_000_000) == "1.0M"
+
+
 class TestActivityEventConstruction:
     """ActivityEvent dataclass construction."""
 
@@ -143,6 +168,17 @@ class TestActivityEventConstruction:
         assert event.node_id == "03_session:2"
         assert event.tool_name == "Read"
         assert event.argument == "config.py"
+        assert event.turn == 0
+        assert event.tokens is None
+
+    def test_with_turn_and_tokens(self) -> None:
+        """ActivityEvent can be constructed with turn and tokens."""
+        event = ActivityEvent(
+            node_id="x:1", tool_name="Bash", argument="ls",
+            turn=5, tokens=2400,
+        )
+        assert event.turn == 5
+        assert event.tokens == 2400
 
     def test_frozen(self) -> None:
         """ActivityEvent is frozen (immutable)."""
