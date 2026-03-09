@@ -233,9 +233,15 @@ def plan_cmd(
     # Build fresh plan if no cached plan was used
     json_mode = ctx.obj.get("json", False)
     if graph is None:
+        from agent_fox.ui.progress import PlanSpinner
+
+        spinner = PlanSpinner("Planning...")
+        if not json_mode:
+            spinner.start()
         try:
             graph = _build_plan(specs_dir, filter_spec, fast)
         except PlanError as exc:
+            spinner.stop()
             if json_mode:
                 from agent_fox.cli.json_io import emit_error
 
@@ -245,6 +251,8 @@ def plan_cmd(
             click.echo(f"Error: {exc}", err=True)
             ctx.exit(1)
             return
+        finally:
+            spinner.stop()
 
         # Persist the plan (02-REQ-6.1, 02-REQ-6.2)
         save_plan(graph, plan_path)

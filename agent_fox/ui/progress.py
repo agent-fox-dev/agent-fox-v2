@@ -23,6 +23,7 @@ from agent_fox.ui.events import (
     ActivityEvent,
     TaskEvent,
     format_duration,
+    format_tokens,
     verbify_tool,
 )
 from agent_fox.ui.theme import AppTheme
@@ -81,19 +82,21 @@ class ProgressDisplay:
 
         Renders a two-line format when a tool argument is present::
 
-            [{node_id}] Reading…
+            [turn 3 | 1.2k tokens] [node_id] Reading…
             ⎿  path/to/file.py
 
         For thinking (no argument), renders a single line::
 
-            [{node_id}] Thinking…
+            [turn 3 | 1.2k tokens] [node_id] Thinking…
         """
         if self._quiet:
             return
         with self._lock:
             width = self._get_terminal_width()
             verb = verbify_tool(event.tool_name)
-            summary = f"[{event.node_id}] {verb}…"
+            token_str = format_tokens(event.tokens)
+            prefix = f"[turn {event.turn} | {token_str} tokens] "
+            summary = f"{prefix}[{event.node_id}] {verb}…"
 
             if event.argument:
                 detail = f"  \u23bf  {event.argument}"
@@ -160,3 +163,68 @@ class ProgressDisplay:
         else:  # blocked
             text = f"{_CROSS} {event.node_id} blocked"
             return Text(text, style="bold red")
+
+
+class PlanSpinner:
+    """Animated braille spinner on stderr for plan initialization.
+
+    Displays a cycling braille character followed by a message on a single
+    terminal line, overwriting itself with carriage return. The animation
+    runs on a daemon thread and is one-shot: once stopped, start() is a no-op.
+    """
+
+    _FRAMES = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    _INTERVAL = 0.08  # seconds
+
+    def __init__(self, message: str = "Planning...") -> None:
+        self._message = message
+        self._stop_event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._started = False
+        self._stopped = False
+
+    def start(self) -> None:
+        """Start the animation thread. No-op if already started or non-TTY."""
+        import sys
+
+        if self._started or not (hasattr(sys.stderr, "isatty") and sys.stderr.isatty()):
+            return
+        self._started = True
+        self._thread = threading.Thread(target=self._animate, daemon=True)
+        self._thread.start()
+
+    def _animate(self) -> None:
+        """Animation loop running on the daemon thread."""
+        import sys
+
+        idx = 0
+        num_frames = len(self._FRAMES)
+        try:
+            while not self._stop_event.is_set():
+                frame = self._FRAMES[idx % num_frames]
+                sys.stderr.write(f"\r{frame} {self._message}")
+                sys.stderr.flush()
+                idx += 1
+                self._stop_event.wait(self._INTERVAL)
+        except Exception:
+            logger.debug("PlanSpinner animation thread failed", exc_info=True)
+
+    def stop(self) -> None:
+        """Stop the animation and clear the spinner line."""
+        import sys
+
+        if not self._started or self._stopped:
+            return
+        self._stopped = True
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+        if hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
+            clear_len = len(self._message) + 4
+            sys.stderr.write("\r" + " " * clear_len + "\r")
+            sys.stderr.flush()
+
+    @property
+    def is_running(self) -> bool:
+        """True while the animation thread is active."""
+        return self._started and not self._stopped

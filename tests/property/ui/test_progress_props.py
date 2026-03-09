@@ -45,16 +45,23 @@ class TestSpinnerLineWidth:
 
     @given(
         text=st.text(min_size=0, max_size=200),
-        width=st.integers(min_value=20, max_value=200),
+        width=st.integers(min_value=40, max_value=200),
+        turn=st.integers(min_value=0, max_value=999),
+        tokens=st.one_of(st.none(), st.integers(min_value=0, max_value=10_000_000)),
     )
     @settings(max_examples=100)
-    def test_spinner_line_fits_terminal(self, text: str, width: int) -> None:
+    def test_spinner_line_fits_terminal(
+        self, text: str, width: int, turn: int, tokens: int | None
+    ) -> None:
         """Every line of the spinner text fits within terminal width."""
         theme, _buf = _make_theme(width=width)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(node_id="x:1", tool_name="Tool", argument=text)
+            ActivityEvent(
+                node_id="x:1", tool_name="Tool", argument=text,
+                turn=turn, tokens=tokens,
+            )
         )
         full_text = display._get_spinner_text()
         display.stop()
@@ -101,9 +108,10 @@ class TestQuietNoOutput:
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=True)
         display.start()
-        for nid in node_ids:
+        for i, nid in enumerate(node_ids):
             display.on_activity(
-                ActivityEvent(node_id=nid, tool_name="Read", argument="f.py")
+                ActivityEvent(node_id=nid, tool_name="Read", argument="f.py",
+                              turn=i + 1, tokens=i * 100)
             )
         for i, status in enumerate(statuses):
             nid = node_ids[i % len(node_ids)]
