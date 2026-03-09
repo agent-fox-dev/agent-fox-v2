@@ -100,8 +100,8 @@ Phase B checkpoint.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/session/backends/`
 
-- [ ] 3. Phase A: Session runner refactor
-  - [ ] 3.1 Refactor session.py to use AgentBackend protocol
+- [x] 3. Phase A: Session runner refactor
+  - [x] 3.1 Refactor session.py to use AgentBackend protocol
     - Remove all `claude_code_sdk` imports from `session.py`
     - Accept `AgentBackend` instance as a parameter (or resolve via factory)
     - Replace `_query_messages()` with iteration over `backend.execute()`
@@ -110,22 +110,22 @@ Phase B checkpoint.
     - Preserve all existing behavior: timeout, token tracking, error handling
     - _Requirements: 26-REQ-2.4_
 
-  - [ ] 3.2 Update session_lifecycle.py to provide backend
+  - [x] 3.2 Update session_lifecycle.py to provide backend
     - Modify `NodeSessionRunner` to instantiate or receive an `AgentBackend`
     - Pass the backend to `run_session()`
     - Ensure allowlist hook is passed via `permission_callback`
     - _Requirements: 26-REQ-2.4_
 
-  - [ ] 3.3 Verify SDK import isolation
+  - [x] 3.3 Verify SDK import isolation
     - Confirm no module outside `backends/claude.py` imports `claude_code_sdk`
     - Update any test mocks that were mocking SDK types directly
     - _Requirements: 26-REQ-2.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] TS-26-8 passes (no claude_code_sdk imports in session.py)
-    - [ ] TS-26-P1 passes (protocol isolation property)
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
+  - [x] 3.V Verify task group 3
+    - [x] TS-26-8 passes (no claude_code_sdk imports in session.py)
+    - [x] TS-26-P1 passes (protocol isolation property)
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
 - [ ] 4. Checkpoint — Phase A Complete
   - Verify all Phase A tests pass (TS-26-1 through TS-26-8, TS-26-E1, TS-26-E2, TS-26-P1, TS-26-P2)

@@ -6,53 +6,92 @@ Test Spec: TS-03-7 (success), TS-03-8 (SDK error), TS-03-9 (timeout),
            TS-18-9 (session works without callback),
            TS-18-E3 (callback exception does not crash session)
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.1, 03-REQ-6.2,
-              03-REQ-6.E1, 18-REQ-2.1, 18-REQ-2.3, 18-REQ-2.E1
+              03-REQ-6.E1, 18-REQ-2.1, 18-REQ-2.3, 18-REQ-2.E1,
+              26-REQ-1.E1, 26-REQ-2.4
 """
 
 from __future__ import annotations
 
-import asyncio
-from dataclasses import dataclass
+from collections.abc import AsyncIterator
 from unittest.mock import patch
 
 import pytest
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.session.backends.protocol import (
+    AgentMessage,
+    AssistantMessage,
+    PermissionCallback,
+    ResultMessage,
+    ToolUseMessage,
+)
 from agent_fox.session.session import run_session
 from agent_fox.workspace.workspace import WorkspaceInfo
 
-# -- Mock message types matching claude-code-sdk structure ---
+# -- Mock backend for testing ---
 
 
-@dataclass
-class MockUsage:
-    """Mock for SDK Usage object."""
+class MockBackend:
+    """A mock AgentBackend that yields pre-configured canonical messages."""
 
-    input_tokens: int = 0
-    output_tokens: int = 0
+    def __init__(
+        self,
+        messages: list[AgentMessage] | None = None,
+        *,
+        error: Exception | None = None,
+    ) -> None:
+        self._messages = messages or []
+        self._error = error
+        self.last_prompt: str | None = None
+        self.last_system_prompt: str | None = None
+        self.last_model: str | None = None
+        self.last_cwd: str | None = None
+
+    @property
+    def name(self) -> str:
+        return "mock"
+
+    async def execute(
+        self,
+        prompt: str,
+        *,
+        system_prompt: str,
+        model: str,
+        cwd: str,
+        permission_callback: PermissionCallback | None = None,
+    ) -> AsyncIterator[AgentMessage]:
+        self.last_prompt = prompt
+        self.last_system_prompt = system_prompt
+        self.last_model = model
+        self.last_cwd = cwd
+
+        if self._error is not None:
+            raise self._error
+
+        for msg in self._messages:
+            yield msg
+
+    async def close(self) -> None:
+        pass
 
 
-@dataclass
-class MockResultMessage:
-    """Mock for SDK ResultMessage."""
-
-    type: str = "result"
-    is_error: bool = False
-    duration_ms: int = 5000
-    usage: MockUsage | None = None
-    result: str = ""
-
-    def __post_init__(self) -> None:
-        if self.usage is None:
-            self.usage = MockUsage()
-
-
-@dataclass
-class MockAssistantMessage:
-    """Mock for SDK AssistantMessage."""
-
-    type: str = "assistant"
-    content: str = "Working on the task..."
+def _make_result(
+    *,
+    is_error: bool = False,
+    input_tokens: int = 100,
+    output_tokens: int = 200,
+    duration_ms: int = 5000,
+    error_message: str | None = None,
+) -> ResultMessage:
+    """Helper to create a canonical ResultMessage."""
+    return ResultMessage(
+        status="failed" if is_error else "completed",
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        duration_ms=duration_ms,
+        error_message=error_message,
+        is_error=is_error,
+    )
 
 
 class TestSessionRunnerSuccess:
@@ -65,27 +104,19 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session returns status 'completed'."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working on it..."),
+            _make_result(),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.status == "completed"
 
@@ -96,27 +127,19 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures input and output token counts."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(input_tokens=100, output_tokens=200),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.input_tokens == 100
         assert outcome.output_tokens == 200
@@ -128,27 +151,19 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures duration in milliseconds."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(duration_ms=5000),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.duration_ms == 5000
 
@@ -159,27 +174,19 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session has no error message."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.error_message is None
 
@@ -190,27 +197,19 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Outcome spec_name and task_group match the workspace."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.spec_name == workspace_info.spec_name
         assert outcome.task_group == str(workspace_info.task_group)
@@ -226,17 +225,16 @@ class TestSessionRunnerSDKError:
         default_config: AgentFoxConfig,
     ) -> None:
         """An SDK ProcessError results in a failed outcome."""
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=Exception("boom"),
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
+        backend = MockBackend(error=Exception("boom"))
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+        )
 
         assert outcome.status == "failed"
 
@@ -247,17 +245,16 @@ class TestSessionRunnerSDKError:
         default_config: AgentFoxConfig,
     ) -> None:
         """The SDK error message is captured in the outcome."""
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=Exception("boom"),
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
+        backend = MockBackend(error=Exception("boom"))
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+        )
 
         assert outcome.error_message is not None
         assert "boom" in outcome.error_message
@@ -273,27 +270,19 @@ class TestSessionRunnerTimeout:
         short_timeout_config: AgentFoxConfig,
     ) -> None:
         """A timed-out session returns status 'timeout'."""
-
-        async def mock_query_hangs(*args, **kwargs):
-            yield MockAssistantMessage()
-            # Hang indefinitely
-            await asyncio.sleep(3600)
-            yield MockResultMessage()  # Never reached
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(),
+        ])
 
         async def mock_with_timeout(coro, timeout_minutes):
             del timeout_minutes
             coro.close()
             raise TimeoutError()
 
-        with (
-            patch(
-                "agent_fox.session.session._query_messages",
-                side_effect=mock_query_hangs,
-            ),
-            patch(
-                "agent_fox.session.session.with_timeout",
-                side_effect=mock_with_timeout,
-            ),
+        with patch(
+            "agent_fox.session.session.with_timeout",
+            side_effect=mock_with_timeout,
         ):
             outcome = await run_session(
                 workspace_info,
@@ -301,6 +290,7 @@ class TestSessionRunnerTimeout:
                 "sys prompt",
                 "task prompt",
                 short_timeout_config,
+                backend=backend,
             )
 
         assert outcome.status == "timeout"
@@ -316,28 +306,25 @@ class TestSessionRunnerIsError:
         default_config: AgentFoxConfig,
     ) -> None:
         """A ResultMessage with is_error=True produces a failed outcome."""
-        result_msg = MockResultMessage(
-            is_error=True,
-            result="something went wrong",
-            duration_ms=3000,
-            usage=MockUsage(input_tokens=50, output_tokens=100),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(
+                is_error=True,
+                error_message="something went wrong",
+                input_tokens=50,
+                output_tokens=100,
+                duration_ms=3000,
+            ),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.status == "failed"
 
@@ -348,28 +335,25 @@ class TestSessionRunnerIsError:
         default_config: AgentFoxConfig,
     ) -> None:
         """Error details are captured from a ResultMessage with is_error."""
-        result_msg = MockResultMessage(
-            is_error=True,
-            result="something went wrong",
-            duration_ms=3000,
-            usage=MockUsage(input_tokens=50, output_tokens=100),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(
+                is_error=True,
+                error_message="something went wrong",
+                input_tokens=50,
+                output_tokens=100,
+                duration_ms=3000,
+            ),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.error_message is not None
 
@@ -378,35 +362,24 @@ class TestSessionRunnerResultHandling:
     """Regression tests for result parsing and timeout partial metrics."""
 
     @pytest.mark.asyncio
-    async def test_dict_usage_tokens_are_captured(
+    async def test_canonical_result_tokens_are_captured(
         self,
         workspace_info: WorkspaceInfo,
         default_config: AgentFoxConfig,
     ) -> None:
-        """Dict-shaped usage from current SDK versions is parsed correctly."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=4321,
-            usage={  # type: ignore[arg-type]
-                "input_tokens": 12,
-                "output_tokens": 34,
-            },
+        """Token counts from canonical ResultMessage are captured correctly."""
+        backend = MockBackend([
+            _make_result(input_tokens=12, output_tokens=34, duration_ms=4321),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.status == "completed"
         assert outcome.input_tokens == 12
@@ -420,21 +393,18 @@ class TestSessionRunnerResultHandling:
         default_config: AgentFoxConfig,
     ) -> None:
         """A stream with no ResultMessage is treated as a failed session."""
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+        ])
 
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+        )
 
         assert outcome.status == "failed"
         assert outcome.error_message is not None
@@ -472,22 +442,6 @@ class TestSessionRunnerResultHandling:
         assert outcome.duration_ms == 1300
 
 
-# -- Mock tool-use message for activity callback tests ---
-
-
-@dataclass
-class MockToolUseMessage:
-    """Mock for SDK tool-use message."""
-
-    type: str = "tool_use"
-    tool_name: str = "Read"
-    tool_input: dict[str, str] | None = None
-
-    def __post_init__(self) -> None:
-        if self.tool_input is None:
-            self.tool_input = {"file_path": "/some/path/config.py"}
-
-
 class TestSessionRunnerActivityCallback:
     """TS-18-8: Session runner activity callback invoked."""
 
@@ -502,32 +456,23 @@ class TestSessionRunnerActivityCallback:
 
         events: list[ActivityEvent] = []
 
-        tool_msg = MockToolUseMessage(
-            tool_name="Read",
-            tool_input={"file_path": "/some/path/config.py"},
-        )
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
-        )
+        backend = MockBackend([
+            ToolUseMessage(
+                tool_name="Read",
+                tool_input={"file_path": "/some/path/config.py"},
+            ),
+            _make_result(),
+        ])
 
-        async def mock_query(*args, **kwargs):
-            yield tool_msg
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-                activity_callback=lambda e: events.append(e),
-            )
+        await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+            activity_callback=lambda e: events.append(e),
+        )
 
         assert len(events) >= 1
         assert isinstance(events[0], ActivityEvent)
@@ -547,37 +492,21 @@ class TestSessionRunnerActivityTurnAndTokens:
 
         events: list[ActivityEvent] = []
 
-        tool_msg1 = MockToolUseMessage(
-            tool_name="Read",
-            tool_input={"file_path": "/a.py"},
-        )
-        tool_msg2 = MockToolUseMessage(
-            tool_name="Edit",
-            tool_input={"file_path": "/b.py"},
-        )
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
-        )
+        backend = MockBackend([
+            ToolUseMessage(tool_name="Read", tool_input={"file_path": "/a.py"}),
+            ToolUseMessage(tool_name="Edit", tool_input={"file_path": "/b.py"}),
+            _make_result(),
+        ])
 
-        async def mock_query(*args, **kwargs):
-            yield tool_msg1
-            yield tool_msg2
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-                activity_callback=lambda e: events.append(e),
-            )
+        await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+            activity_callback=lambda e: events.append(e),
+        )
 
         assert len(events) == 2
         assert events[0].turn == 1
@@ -597,27 +526,19 @@ class TestSessionRunnerNoCallback:
         default_config: AgentFoxConfig,
     ) -> None:
         """run_session without activity_callback behaves identically."""
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
+        backend = MockBackend([
+            AssistantMessage(content="Working..."),
+            _make_result(),
+        ])
+
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
         )
-
-        async def mock_query(*args, **kwargs):
-            yield MockAssistantMessage()
-            yield result_msg
-
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-            )
 
         assert outcome.status == "completed"
 
@@ -632,31 +553,22 @@ class TestSessionRunnerCallbackException:
         default_config: AgentFoxConfig,
     ) -> None:
         """Exceptions in activity_callback are caught."""
-        tool_msg = MockToolUseMessage()
-        result_msg = MockResultMessage(
-            is_error=False,
-            duration_ms=5000,
-            usage=MockUsage(input_tokens=100, output_tokens=200),
-        )
-
         def raising_cb(event):
             raise ZeroDivisionError("boom")
 
-        async def mock_query(*args, **kwargs):
-            yield tool_msg
-            yield result_msg
+        backend = MockBackend([
+            ToolUseMessage(tool_name="Read", tool_input={"file_path": "/foo.py"}),
+            _make_result(),
+        ])
 
-        with patch(
-            "agent_fox.session.session._query_messages",
-            side_effect=mock_query,
-        ):
-            outcome = await run_session(
-                workspace_info,
-                "03:1",
-                "sys prompt",
-                "task prompt",
-                default_config,
-                activity_callback=raising_cb,
-            )
+        outcome = await run_session(
+            workspace_info,
+            "03:1",
+            "sys prompt",
+            "task prompt",
+            default_config,
+            backend=backend,
+            activity_callback=raising_cb,
+        )
 
         assert outcome.status == "completed"

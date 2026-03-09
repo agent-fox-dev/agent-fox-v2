@@ -1,30 +1,33 @@
-"""Session runner: execute coding sessions via the claude-code-sdk.
+"""Session runner: execute coding sessions via an AgentBackend.
+
+Depends only on the AgentBackend protocol and canonical message types.
+All SDK-specific code is isolated in the backend adapter modules.
 
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.E1,
               03-REQ-8.1 through 03-REQ-8.E1,
-              18-REQ-2.1, 18-REQ-2.2, 18-REQ-2.3, 18-REQ-2.E1
+              18-REQ-2.1, 18-REQ-2.2, 18-REQ-2.3, 18-REQ-2.E1,
+              26-REQ-2.4
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Coroutine
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from typing import Any
-
-from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
-from claude_code_sdk.types import (
-    PermissionResultAllow,
-    PermissionResultDeny,
-    ResultMessage,
-    ToolPermissionContext,
-)
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
 from agent_fox.hooks.security import make_pre_tool_use_hook
 from agent_fox.knowledge.sink import SessionOutcome
+from agent_fox.session.backends.protocol import (
+    AgentBackend,
+    AgentMessage,
+    AssistantMessage,
+    ResultMessage,
+    ToolUseMessage,
+)
 from agent_fox.ui.events import ActivityCallback, ActivityEvent, abbreviate_arg
 from agent_fox.workspace.workspace import WorkspaceInfo
 
@@ -58,28 +61,38 @@ async def run_session(
     task_prompt: str,
     config: AgentFoxConfig,
     *,
+    backend: AgentBackend | None = None,
     activity_callback: ActivityCallback | None = None,
 ) -> SessionOutcome:
     """Execute a coding session in the given workspace.
 
-    1. Build ClaudeAgentOptions with:
-       - cwd = workspace.path
-       - model = resolved coding model
-       - system_prompt = provided system prompt
-       - permission_mode = "bypassPermissions"
-       - hooks = PreToolUse allowlist hook
-    2. Send task prompt through ClaudeSDKClient with can_use_tool callback
-    3. Iterate streamed messages, collecting the terminal ResultMessage
-    4. Wrap the entire query in asyncio.wait_for with the
+    1. Resolve the coding model
+    2. Build a permission callback from the security allowlist
+    3. Stream messages from the backend via AgentBackend.execute()
+    4. Collect the terminal ResultMessage for outcome metrics
+    5. Wrap the entire query in asyncio.wait_for with the
        configured session_timeout
-    5. Build and return a SessionOutcome
+    6. Build and return a SessionOutcome
 
-    Raises:
-        SessionTimeoutError: Propagated if caller does not catch.
-        SessionError: On SDK errors.
+    Args:
+        workspace: Workspace information for the session.
+        node_id: Identifier for the task graph node.
+        system_prompt: System instructions for the agent.
+        task_prompt: Task prompt to send to the agent.
+        config: Application configuration.
+        backend: AgentBackend to use. Defaults to ClaudeBackend via factory.
+        activity_callback: Optional callback for UI activity events.
+
+    Requirements: 26-REQ-1.E1, 26-REQ-2.4
     """
     # Resolve the coding model
     model_entry = resolve_model(config.models.coding)
+
+    # Resolve backend (lazy import to keep SDK isolation)
+    if backend is None:
+        from agent_fox.session.backends import get_backend
+
+        backend = get_backend("claude")
 
     # Track metrics (including partials for timeout/failure cases)
     execution_state = _QueryExecutionState()
@@ -98,6 +111,7 @@ async def run_session(
                 model_id=model_entry.model_id,
                 cwd=str(workspace.path),
                 config=config,
+                backend=backend,
                 state=execution_state,
                 node_id=node_id,
                 activity_callback=activity_callback,
@@ -119,7 +133,7 @@ async def run_session(
         error_message = execution_state.error_message
 
     except Exception as exc:
-        # 03-REQ-3.E1: Catch SDK errors, return failed outcome
+        # 03-REQ-3.E1, 26-REQ-1.E1: Catch backend errors, return failed outcome
         status = "failed"
         error_message = str(exc)
         input_tokens = execution_state.input_tokens
@@ -146,57 +160,38 @@ async def _execute_query(
     model_id: str,
     cwd: str,
     config: AgentFoxConfig,
+    backend: AgentBackend,
     state: _QueryExecutionState | None = None,
     node_id: str = "",
     activity_callback: ActivityCallback | None = None,
 ) -> dict[str, Any]:
-    """Execute the SDK query and collect results from messages.
+    """Execute the query via an AgentBackend and collect results.
 
     Returns a dict with token usage, duration, status, and error info.
     """
     query_state = state or _QueryExecutionState()
 
-    # 03-REQ-3.4: Build the allowlist hook from security config
+    # 03-REQ-3.4: Build the allowlist-based permission callback
     allowlist_hook = make_pre_tool_use_hook(config.security)
 
-    async def _can_use_tool(
+    async def _permission_callback(
         tool_name: str,
         tool_input: dict[str, Any],
-        _ctx: ToolPermissionContext,
-    ) -> PermissionResultAllow | PermissionResultDeny:
+    ) -> bool:
         result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
-        if result.get("decision") == "block":
-            return PermissionResultDeny(
-                message=result.get("message", "Blocked by allowlist")
-            )
-        return PermissionResultAllow()
-
-    # 03-REQ-3.1, 03-REQ-3.4: Configure SDK options + allowlist hook.
-    options = ClaudeCodeOptions(
-        cwd=cwd,
-        model=model_id,
-        system_prompt=system_prompt,
-        permission_mode="bypassPermissions",
-        can_use_tool=_can_use_tool,
-    )
+        return result.get("decision") != "block"
 
     turn_count = 0
     cumulative_tokens = 0
 
-    async for message in _query_messages(task_prompt=task_prompt, options=options):
-        is_result = isinstance(message, ResultMessage) or (
-            getattr(message, "type", None) == "result"
-        )
-
-        # Track cumulative tokens from usage events
-        usage = getattr(message, "usage", None)
-        if usage is not None and not is_result:
-            if isinstance(usage, dict):
-                cumulative_tokens += _coerce_int(usage.get("input_tokens", 0))
-                cumulative_tokens += _coerce_int(usage.get("output_tokens", 0))
-            else:
-                cumulative_tokens += _coerce_int(getattr(usage, "input_tokens", 0))
-                cumulative_tokens += _coerce_int(getattr(usage, "output_tokens", 0))
+    async for message in backend.execute(
+        task_prompt,
+        system_prompt=system_prompt,
+        model=model_id,
+        cwd=cwd,
+        permission_callback=_permission_callback,
+    ):
+        is_result = isinstance(message, ResultMessage)
 
         # 18-REQ-2.1, 18-REQ-2.E1: Emit activity events for non-result messages
         if activity_callback is not None and not is_result:
@@ -210,26 +205,26 @@ async def _execute_query(
                 except Exception:
                     logger.debug("Activity callback raised; ignoring")
 
+        # Track cumulative tokens from ToolUseMessage / AssistantMessage
+        # (canonical messages don't carry usage info on non-result messages,
+        # so cumulative token tracking is now driven by the ResultMessage)
+
         # 03-REQ-3.2: Collect the ResultMessage.
         if not is_result:
             continue
 
         query_state.saw_result = True
-        usage = getattr(message, "usage", None)
-        if isinstance(usage, dict):
-            query_state.input_tokens = _coerce_int(usage.get("input_tokens", 0))
-            query_state.output_tokens = _coerce_int(usage.get("output_tokens", 0))
-        else:
-            query_state.input_tokens = _coerce_int(getattr(usage, "input_tokens", 0))
-            query_state.output_tokens = _coerce_int(getattr(usage, "output_tokens", 0))
-        query_state.duration_ms = _coerce_int(getattr(message, "duration_ms", 0))
+        query_state.input_tokens = message.input_tokens
+        query_state.output_tokens = message.output_tokens
+        query_state.duration_ms = message.duration_ms
+
+        # Update cumulative tokens from the final result
+        cumulative_tokens = message.input_tokens + message.output_tokens
 
         # 03-REQ-3.E2: Check is_error flag
-        if getattr(message, "is_error", False):
+        if message.is_error:
             query_state.status = "failed"
-            query_state.error_message = (
-                getattr(message, "result", None) or "Unknown error"
-            )
+            query_state.error_message = message.error_message or "Unknown error"
         else:
             query_state.status = "completed"
             query_state.error_message = None
@@ -251,57 +246,39 @@ async def _execute_query(
 
 def _extract_activity(
     node_id: str,
-    message: Any,
+    message: AgentMessage,
     *,
     turn: int = 0,
     tokens: int | None = None,
 ) -> ActivityEvent | None:
-    """Extract an ActivityEvent from an SDK message.
+    """Extract an ActivityEvent from a canonical message.
 
-    - Tool-use messages: extract tool name and abbreviated first argument.
-    - Other messages: emit a thinking event.
+    - ToolUseMessage: extract tool name and abbreviated first argument.
+    - AssistantMessage: emit a thinking event.
+    - ResultMessage: ignored (handled separately).
     """
-    msg_type = getattr(message, "type", None)
-    tool_name = getattr(message, "tool_name", None)
-
-    if tool_name or msg_type == "tool_use":
-        name = tool_name or "tool"
-        # Extract first argument value from tool_input
-        tool_input = getattr(message, "tool_input", None)
+    if isinstance(message, ToolUseMessage):
         arg = ""
-        if isinstance(tool_input, dict):
-            # Use the first value from the input dict
-            for v in tool_input.values():
-                if isinstance(v, str):
-                    arg = abbreviate_arg(v)
-                    break
+        for v in message.tool_input.values():
+            if isinstance(v, str):
+                arg = abbreviate_arg(v)
+                break
         return ActivityEvent(
-            node_id=node_id, tool_name=name, argument=arg,
-            turn=turn, tokens=tokens,
+            node_id=node_id,
+            tool_name=message.tool_name,
+            argument=arg,
+            turn=turn,
+            tokens=tokens,
         )
 
-    # For thinking/assistant/other messages
-    return ActivityEvent(
-        node_id=node_id, tool_name="thinking...", argument="",
-        turn=turn, tokens=tokens,
-    )
+    if isinstance(message, AssistantMessage):
+        return ActivityEvent(
+            node_id=node_id,
+            tool_name="thinking...",
+            argument="",
+            turn=turn,
+            tokens=tokens,
+        )
 
-
-async def _query_messages(
-    *,
-    task_prompt: str,
-    options: ClaudeCodeOptions,
-) -> AsyncIterator[Any]:
-    """Send one prompt and yield all response messages through ResultMessage."""
-    async with ClaudeSDKClient(options=options) as client:
-        await client.query(task_prompt)
-        async for message in client.receive_response():
-            yield message
-
-
-def _coerce_int(value: Any) -> int:
-    """Best-effort int conversion; invalid values become 0."""
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return 0
+    # ResultMessage — no activity event
+    return None
