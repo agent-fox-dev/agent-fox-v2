@@ -20,7 +20,7 @@ from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import calculate_cost, resolve_model
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
-from agent_fox.hooks.runner import (
+from agent_fox.hooks.hooks import (
     HookContext,
     run_post_session_hooks,
     run_pre_session_hooks,
@@ -28,18 +28,18 @@ from agent_fox.hooks.runner import (
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.memory.filter import select_relevant_facts
-from agent_fox.memory.store import load_all_facts
+from agent_fox.memory.memory import load_all_facts
 from agent_fox.session.context import assemble_context, select_context_with_causal
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
-from agent_fox.session.runner import run_session
+from agent_fox.session.session import run_session
 from agent_fox.ui.events import ActivityCallback
-from agent_fox.workspace.git import ensure_develop
 from agent_fox.workspace.harvester import harvest
 from agent_fox.workspace.integration import post_harvest_integrate
-from agent_fox.workspace.worktree import (
+from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     create_worktree,
     destroy_worktree,
+    ensure_develop,
 )
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_fox.spec.ai_validator import (
+from agent_fox.spec.validator import (
     analyze_acceptance_criteria,
     run_ai_validation,
 )
@@ -23,7 +23,7 @@ from agent_fox.spec.discovery import SpecInfo
 
 FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures" / "specs"
 _MOCK_CLIENT = (
-    "agent_fox.spec.ai_validator.create_async_anthropic_client"
+    "agent_fox.spec.validator.create_async_anthropic_client"
 )
 
 

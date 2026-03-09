@@ -19,7 +19,7 @@ import click
 from agent_fox import __version__
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.builder import build_graph
-from agent_fox.graph.fast_mode import apply_fast_mode
+from agent_fox.graph.resolver import apply_fast_mode
 from agent_fox.graph.persistence import load_plan, save_plan
 from agent_fox.graph.resolver import resolve_order
 from agent_fox.graph.types import NodeStatus, PlanMetadata, TaskGraph
@@ -277,7 +277,7 @@ def plan_cmd(
 
     # 20-REQ-1.1: Show parallelism analysis when --analyze is passed
     if analyze:
-        from agent_fox.graph.analyzer import analyze_plan, format_analysis
+        from agent_fox.graph.resolver import analyze_plan, format_analysis
 
         analysis = analyze_plan(graph)
         click.echo()

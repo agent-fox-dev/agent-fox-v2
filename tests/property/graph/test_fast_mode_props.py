@@ -15,7 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.graph.builder import build_graph
-from agent_fox.graph.fast_mode import apply_fast_mode
+from agent_fox.graph.resolver import apply_fast_mode
 from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGraph
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import TaskGroupDef

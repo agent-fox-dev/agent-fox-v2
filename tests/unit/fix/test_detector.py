@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_fox.fix.detector import CheckCategory, detect_checks
+from agent_fox.fix.checks import CheckCategory, detect_checks
 
 
 class TestDetectPytestFromPyprojectToml:

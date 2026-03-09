@@ -6,7 +6,7 @@ Requirements: 20-REQ-1.*, 20-REQ-2.*
 
 from __future__ import annotations
 
-from agent_fox.graph.analyzer import analyze_plan
+from agent_fox.graph.resolver import analyze_plan
 from agent_fox.graph.types import TaskGraph
 
 

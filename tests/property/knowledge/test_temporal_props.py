@@ -11,7 +11,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.knowledge.temporal import Timeline, TimelineNode
+from agent_fox.knowledge.query import Timeline, TimelineNode
 
 _RELATIONSHIPS = st.sampled_from(["root", "cause", "effect"])
 _TIMESTAMPS = st.one_of(

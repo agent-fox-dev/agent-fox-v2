@@ -18,7 +18,7 @@ from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.memory.types import Fact
 from agent_fox.knowledge.sink import SessionOutcome
-from agent_fox.workspace.worktree import WorkspaceInfo
+from agent_fox.workspace.workspace import WorkspaceInfo
 
 
 def _make_workspace(tmp_path: Path) -> WorkspaceInfo:

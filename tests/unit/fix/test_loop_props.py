@@ -15,9 +15,9 @@ from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.clusterer import FailureCluster
-from agent_fox.fix.collector import FailureRecord
-from agent_fox.fix.detector import CheckCategory, CheckDescriptor
-from agent_fox.fix.loop import run_fix_loop
+from agent_fox.fix.checks import FailureRecord
+from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+from agent_fox.fix.fix import run_fix_loop
 
 
 class TestLoopTerminationBound:
@@ -61,23 +61,23 @@ class TestLoopTerminationBound:
 
         with (
             patch(
-                "agent_fox.fix.loop.detect_checks",
+                "agent_fox.fix.fix.detect_checks",
                 return_value=[pytest_check],
             ),
             patch(
-                "agent_fox.fix.loop.run_checks",
+                "agent_fox.fix.fix.run_checks",
                 return_value=([failure], []),
             ),
             patch(
-                "agent_fox.fix.loop.cluster_failures",
+                "agent_fox.fix.fix.cluster_failures",
                 return_value=[cluster],
             ),
             patch(
-                "agent_fox.fix.loop.generate_fix_spec",
+                "agent_fox.fix.fix.generate_fix_spec",
                 return_value=mock_spec,
             ),
             patch(
-                "agent_fox.fix.loop.cleanup_fix_specs",
+                "agent_fox.fix.fix.cleanup_fix_specs",
             ),
         ):
             result = await run_fix_loop(tmp_dir, config, max_passes=max_passes)

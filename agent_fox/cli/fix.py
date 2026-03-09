@@ -18,12 +18,12 @@ from rich.console import Console
 
 from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.fix.detector import detect_checks
-from agent_fox.fix.loop import TerminationReason, run_fix_loop
+from agent_fox.fix.checks import detect_checks
+from agent_fox.fix.fix import TerminationReason, run_fix_loop
 from agent_fox.fix.report import render_fix_report
 from agent_fox.fix.spec_gen import FixSpec
-from agent_fox.session.runner import run_session
-from agent_fox.workspace.worktree import WorkspaceInfo
+from agent_fox.session.session import run_session
+from agent_fox.workspace.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 

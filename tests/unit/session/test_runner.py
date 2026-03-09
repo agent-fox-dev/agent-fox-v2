@@ -18,8 +18,8 @@ from unittest.mock import patch
 import pytest
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.session.runner import run_session
-from agent_fox.workspace.worktree import WorkspaceInfo
+from agent_fox.session.session import run_session
+from agent_fox.workspace.workspace import WorkspaceInfo
 
 # -- Mock message types matching claude-code-sdk structure ---
 
@@ -76,7 +76,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -107,7 +107,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -139,7 +139,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -170,7 +170,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -201,7 +201,7 @@ class TestSessionRunnerSuccess:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -227,7 +227,7 @@ class TestSessionRunnerSDKError:
     ) -> None:
         """An SDK ProcessError results in a failed outcome."""
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
@@ -248,7 +248,7 @@ class TestSessionRunnerSDKError:
     ) -> None:
         """The SDK error message is captured in the outcome."""
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=Exception("boom"),
         ):
             outcome = await run_session(
@@ -287,11 +287,11 @@ class TestSessionRunnerTimeout:
 
         with (
             patch(
-                "agent_fox.session.runner._query_messages",
+                "agent_fox.session.session._query_messages",
                 side_effect=mock_query_hangs,
             ),
             patch(
-                "agent_fox.session.runner.with_timeout",
+                "agent_fox.session.session.with_timeout",
                 side_effect=mock_with_timeout,
             ),
         ):
@@ -328,7 +328,7 @@ class TestSessionRunnerIsError:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -360,7 +360,7 @@ class TestSessionRunnerIsError:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -397,7 +397,7 @@ class TestSessionRunnerResultHandling:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -425,7 +425,7 @@ class TestSessionRunnerResultHandling:
             yield MockAssistantMessage()
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -455,7 +455,7 @@ class TestSessionRunnerResultHandling:
             raise TimeoutError()
 
         with patch(
-            "agent_fox.session.runner._execute_query",
+            "agent_fox.session.session._execute_query",
             side_effect=mock_execute_query,
         ):
             outcome = await run_session(
@@ -517,7 +517,7 @@ class TestSessionRunnerActivityCallback:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             await run_session(
@@ -554,7 +554,7 @@ class TestSessionRunnerNoCallback:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(
@@ -593,7 +593,7 @@ class TestSessionRunnerCallbackException:
             yield result_msg
 
         with patch(
-            "agent_fox.session.runner._query_messages",
+            "agent_fox.session.session._query_messages",
             side_effect=mock_query,
         ):
             outcome = await run_session(

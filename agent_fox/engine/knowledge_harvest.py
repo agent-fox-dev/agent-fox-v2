@@ -18,7 +18,7 @@ from agent_fox.memory.extraction import (
     extract_facts,
     parse_causal_links,
 )
-from agent_fox.memory.store import append_facts, load_all_facts
+from agent_fox.memory.memory import append_facts, load_all_facts
 
 logger = logging.getLogger(__name__)
 

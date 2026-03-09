@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from agent_fox.reporting.git_activity import (
+from agent_fox.reporting.standup import (
     is_agent_commit,
     partition_commits,
 )

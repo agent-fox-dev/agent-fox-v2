@@ -15,7 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.errors import HookError
-from agent_fox.hooks.runner import HookContext, run_hook
+from agent_fox.hooks.hooks import HookContext, run_hook
 
 
 @pytest.fixture

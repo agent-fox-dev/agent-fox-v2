@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.memory.store import (
+from agent_fox.memory.memory import (
     append_facts,
     load_all_facts,
     load_facts_by_spec,

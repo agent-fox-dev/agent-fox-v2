@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from agent_fox.core.errors import WorkspaceError
-from agent_fox.workspace.worktree import (
+from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     create_worktree,
     destroy_worktree,
@@ -179,7 +179,7 @@ class TestWorktreeCreationGitError:
     ) -> None:
         """A git failure during worktree creation raises WorkspaceError."""
         with patch(
-            "agent_fox.workspace.worktree.run_git",
+            "agent_fox.workspace.workspace.run_git",
             new_callable=AsyncMock,
             side_effect=WorkspaceError("git worktree add failed: fatal error"),
         ):

@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from agent_fox.core.config import HookConfig, SecurityConfig
-from agent_fox.hooks.runner import HookContext
+from agent_fox.hooks.hooks import HookContext
 
 
 @pytest.fixture

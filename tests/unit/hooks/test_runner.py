@@ -18,7 +18,7 @@ import pytest
 
 from agent_fox.core.config import HookConfig
 from agent_fox.core.errors import HookError
-from agent_fox.hooks.runner import (
+from agent_fox.hooks.hooks import (
     HookContext,
     build_hook_env,
     run_hook,

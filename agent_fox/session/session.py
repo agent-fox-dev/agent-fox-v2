@@ -26,7 +26,7 @@ from agent_fox.core.models import resolve_model
 from agent_fox.hooks.security import make_pre_tool_use_hook
 from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.ui.events import ActivityCallback, ActivityEvent, abbreviate_arg
-from agent_fox.workspace.worktree import WorkspaceInfo
+from agent_fox.workspace.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 

@@ -9,7 +9,7 @@ Requirements: 04-REQ-2.E1, 04-REQ-5.1, 04-REQ-5.2, 04-REQ-5.3
 from __future__ import annotations
 
 from agent_fox.core.config import OrchestratorConfig
-from agent_fox.engine.circuit import CircuitBreaker
+from agent_fox.engine.engine import CircuitBreaker
 from agent_fox.engine.state import ExecutionState
 
 # -- Helpers ------------------------------------------------------------------
