@@ -139,13 +139,101 @@ class TestRunnerUsesArchetype:
 
         # NodeSessionRunner should accept archetype parameter
         try:
-            NodeSessionRunner(
+            runner = NodeSessionRunner(
                 "spec:3",
                 config,
                 archetype="librarian",
             )
         except TypeError:
             pytest.fail("NodeSessionRunner should accept archetype parameter")
+
+        # Verify the archetype was stored
+        assert runner._archetype == "librarian"
+
+    def test_runner_accepts_instances_param(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "spec:0",
+            config,
+            archetype="skeptic",
+            instances=3,
+        )
+        assert runner._instances == 3
+
+    def test_runner_resolves_model_tier(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "spec:3",
+            config,
+            archetype="skeptic",
+        )
+        # Skeptic default model tier is STANDARD
+        assert runner._resolved_model_id == "STANDARD"
+
+    def test_runner_model_tier_config_override(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig(
+            archetypes=ArchetypesConfig(models={"skeptic": "SIMPLE"})
+        )
+        runner = NodeSessionRunner(
+            "spec:3",
+            config,
+            archetype="skeptic",
+        )
+        assert runner._resolved_model_id == "SIMPLE"
+
+    def test_runner_resolves_allowlist_from_registry(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "spec:0",
+            config,
+            archetype="skeptic",
+        )
+        # Skeptic has a default allowlist in the registry
+        assert runner._resolved_security is not None
+        assert "ls" in runner._resolved_security.bash_allowlist
+        assert "cat" in runner._resolved_security.bash_allowlist
+
+    def test_runner_allowlist_config_override(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig(
+            archetypes=ArchetypesConfig(
+                allowlists={"skeptic": ["ls", "cat"]}
+            )
+        )
+        runner = NodeSessionRunner(
+            "spec:0",
+            config,
+            archetype="skeptic",
+        )
+        assert runner._resolved_security is not None
+        assert runner._resolved_security.bash_allowlist == ["ls", "cat"]
+
+    def test_runner_coder_no_security_override(self) -> None:
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "spec:1",
+            config,
+            archetype="coder",
+        )
+        # Coder has no allowlist override — uses global
+        assert runner._resolved_security is None
 
 
 # ---------------------------------------------------------------------------

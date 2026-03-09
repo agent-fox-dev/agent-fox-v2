@@ -205,22 +205,22 @@ Phase B checkpoint.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 7. Phase B: Archetype-aware session execution
-  - [ ] 7.1 Update NodeSessionRunner for archetype resolution
+- [x] 7. Phase B: Archetype-aware session execution
+  - [x] 7.1 Update NodeSessionRunner for archetype resolution
     - Accept `archetype` and `instances` parameters in `__init__()`
     - Resolve model tier: check `config.archetypes.models.get(archetype)`, fall back to `entry.default_model_tier`
     - Resolve allowlist: check `config.archetypes.allowlists.get(archetype)`, fall back to `entry.default_allowlist`, fall back to global
     - Pass resolved model and allowlist to `run_session()`
     - _Requirements: 26-REQ-4.4, 26-REQ-3.4_
 
-  - [ ] 7.2 Implement multi-instance dispatch
+  - [x] 7.2 Implement multi-instance dispatch
     - In `NodeSessionRunner.execute()`, dispatch N instances in parallel when `instances > 1`
     - Each instance uses the same prompts, model, and allowlist
     - Collect results with `asyncio.gather(*coros, return_exceptions=True)`
     - Clamp coder instances to 1 with warning; clamp all > 5 to 5
     - _Requirements: 26-REQ-7.1, 26-REQ-4.E1, 26-REQ-4.E2_
 
-  - [ ] 7.3 Implement convergence logic
+  - [x] 7.3 Implement convergence logic
     - Create `agent_fox/session/convergence.py`
     - Implement `Finding` dataclass and `normalize_finding()` helper
     - Implement `converge_skeptic()`: union, normalize-dedup, majority-gate criticals, apply blocking threshold
@@ -228,19 +228,19 @@ Phase B checkpoint.
     - Handle partial failures: converge with successful subset; all-fail returns None
     - _Requirements: 26-REQ-7.2, 26-REQ-7.3, 26-REQ-7.4, 26-REQ-7.5, 26-REQ-7.E1_
 
-  - [ ] 7.4 Wire convergence into NodeSessionRunner
+  - [x] 7.4 Wire convergence into NodeSessionRunner
     - After multi-instance gather, call appropriate convergence function based on archetype
     - Use converged result for the session record (merged findings, final verdict)
     - Apply Skeptic blocking threshold from config
     - _Requirements: 26-REQ-8.4_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Spec tests pass: `uv run pytest tests/unit/session/test_convergence.py tests/unit/session/test_prompt_archetype.py -q -k "archetype or convergence or instance"`
-    - [ ] TS-26-16, TS-26-27 through TS-26-31, TS-26-35 pass
-    - [ ] TS-26-E5, TS-26-E6, TS-26-E10 pass
-    - [ ] TS-26-P9, TS-26-P10, TS-26-P11 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests pass: `uv run pytest tests/unit/session/test_convergence.py tests/unit/session/test_prompt_archetype.py -q -k "archetype or convergence or instance"`
+    - [x] TS-26-16, TS-26-27 through TS-26-31, TS-26-35 pass
+    - [x] TS-26-E5, TS-26-E6, TS-26-E10 pass
+    - [x] TS-26-P9, TS-26-P10, TS-26-P11 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 8. Phase B: Skeptic/Verifier behavior and orchestrator logic
   - [ ] 8.1 Create Skeptic and Verifier prompt templates

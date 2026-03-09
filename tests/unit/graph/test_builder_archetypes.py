@@ -321,12 +321,14 @@ class TestAssignmentLogged:
 class TestCoderInstancesClamped:
     """Verify instances > 1 for coder is clamped to 1."""
 
-    def test_coder_clamped(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+    def test_coder_clamped(self, caplog: pytest.LogCaptureFixture) -> None:
+        from agent_fox.engine.session_lifecycle import _clamp_instances
 
-        entry = get_archetype("coder")
-        # Coder multi-instance clamping tested at runner level
-        assert entry.name == "coder"
+        with caplog.at_level(logging.WARNING):
+            result = _clamp_instances("coder", 3)
+        assert result == 1
+        assert any("clamped" in r.message.lower() or "coder" in r.message.lower()
+                    for r in caplog.records)
 
 
 # -------------------------------------------------------------------
@@ -343,6 +345,15 @@ class TestInstancesOver5Clamped:
 
         cfg = ArchetypeInstancesConfig(skeptic=10)
         assert cfg.skeptic == 5
+
+    def test_instances_clamped_at_runner_level(
+        self, caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        from agent_fox.engine.session_lifecycle import _clamp_instances
+
+        with caplog.at_level(logging.WARNING):
+            result = _clamp_instances("skeptic", 10)
+        assert result == 5
 
 
 # -------------------------------------------------------------------
@@ -504,6 +515,27 @@ class TestPropertyInstanceClamping:
 
         cfg = ArchetypeInstancesConfig(skeptic=instances)
         assert 1 <= cfg.skeptic <= 5
+
+    @pytest.mark.skipif(
+        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+    )
+    @given(
+        archetype=st.sampled_from(["coder", "skeptic", "verifier"]),
+        instances=st.integers(min_value=0, max_value=20),
+    )
+    @settings(max_examples=30)
+    def test_prop_runner_clamping(self, archetype: str, instances: int) -> None:
+        from agent_fox.engine.session_lifecycle import _clamp_instances
+
+        result = _clamp_instances(archetype, instances)
+        if archetype == "coder":
+            assert result == 1
+        elif instances > 5:
+            assert result == 5
+        elif instances < 1:
+            assert result == 1
+        else:
+            assert result == instances
 
 
 # -------------------------------------------------------------------

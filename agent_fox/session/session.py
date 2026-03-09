@@ -63,6 +63,8 @@ async def run_session(
     *,
     backend: AgentBackend | None = None,
     activity_callback: ActivityCallback | None = None,
+    model_id: str | None = None,
+    security_config: Any | None = None,
 ) -> SessionOutcome:
     """Execute a coding session in the given workspace.
 
@@ -82,11 +84,20 @@ async def run_session(
         config: Application configuration.
         backend: AgentBackend to use. Defaults to ClaudeBackend via factory.
         activity_callback: Optional callback for UI activity events.
+        model_id: Optional model tier or model ID override. When set,
+            overrides ``config.models.coding`` for this session.
+        security_config: Optional SecurityConfig override for the allowlist.
+            When set, overrides ``config.security`` for this session.
 
-    Requirements: 26-REQ-1.E1, 26-REQ-2.4
+    Requirements: 26-REQ-1.E1, 26-REQ-2.4, 26-REQ-3.4, 26-REQ-4.4
     """
-    # Resolve the coding model
-    model_entry = resolve_model(config.models.coding)
+    # Resolve the coding model (archetype override or config default)
+    model_entry = resolve_model(model_id or config.models.coding)
+
+    # Resolve security config (archetype override or config default)
+    effective_security = (
+        security_config if security_config is not None else config.security
+    )
 
     # Resolve backend (lazy import to keep SDK isolation)
     if backend is None:
@@ -115,6 +126,7 @@ async def run_session(
                 state=execution_state,
                 node_id=node_id,
                 activity_callback=activity_callback,
+                security_config_override=effective_security,
             ),
             timeout_minutes=config.orchestrator.session_timeout,
         )
@@ -164,6 +176,7 @@ async def _execute_query(
     state: _QueryExecutionState | None = None,
     node_id: str = "",
     activity_callback: ActivityCallback | None = None,
+    security_config_override: Any | None = None,
 ) -> dict[str, Any]:
     """Execute the query via an AgentBackend and collect results.
 
@@ -171,8 +184,14 @@ async def _execute_query(
     """
     query_state = state or _QueryExecutionState()
 
-    # 03-REQ-3.4: Build the allowlist-based permission callback
-    allowlist_hook = make_pre_tool_use_hook(config.security)
+    # 03-REQ-3.4, 26-REQ-3.4: Build the allowlist-based permission callback
+    # Use security override (per-archetype allowlist) if provided
+    effective_security = (
+        security_config_override
+        if security_config_override is not None
+        else config.security
+    )
+    allowlist_hook = make_pre_tool_use_hook(effective_security)
 
     async def _permission_callback(
         tool_name: str,
