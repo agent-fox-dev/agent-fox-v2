@@ -32,6 +32,8 @@ _SPEC_FILES: list[tuple[str, str]] = [
     ("design.md", "## Design"),
     ("test_spec.md", "## Test Specification"),
     ("tasks.md", "## Tasks"),
+    ("review.md", "## Skeptic Review"),
+    ("verification.md", "## Verification Report"),
 ]
 
 

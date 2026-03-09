@@ -242,15 +242,15 @@ Phase B checkpoint.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 8. Phase B: Skeptic/Verifier behavior and orchestrator logic
-  - [ ] 8.1 Create Skeptic and Verifier prompt templates
+- [x] 8. Phase B: Skeptic/Verifier behavior and orchestrator logic
+  - [x] 8.1 Create Skeptic and Verifier prompt templates
     - Create `agent_fox/_templates/prompts/skeptic.md` with structured review instructions (severity categories, review.md output path)
     - Create `agent_fox/_templates/prompts/verifier.md` with verification instructions (per-requirement assessment, verification.md output, PASS/FAIL verdict)
     - Create `agent_fox/_templates/prompts/librarian.md` with documentation instructions
     - Create `agent_fox/_templates/prompts/cartographer.md` with architecture mapping instructions
     - _Requirements: 26-REQ-8.1, 26-REQ-9.1_
 
-  - [ ] 8.2 Implement GitHub issue filing
+  - [x] 8.2 Implement GitHub issue filing
     - Create `agent_fox/session/github_issues.py`
     - Implement `file_or_update_issue()` with search-before-create via `gh` CLI subprocess
     - Handle update (edit body + add comment) when existing issue found
@@ -258,32 +258,32 @@ Phase B checkpoint.
     - All `gh` failures are logged and swallowed (never block execution)
     - _Requirements: 26-REQ-10.1, 26-REQ-10.2, 26-REQ-10.3, 26-REQ-10.E1_
 
-  - [ ] 8.3 Implement Skeptic post-session logic
+  - [x] 8.3 Implement Skeptic post-session logic
     - After Skeptic convergence, call `file_or_update_issue()` with title `[Skeptic Review] {spec_name}`
     - If zero critical findings and existing issue, close it
     - Write merged review to `.specs/{spec_name}/review.md` in the worktree
     - Ensure review.md content is included in successor Coder's system prompt via `assemble_context()` enhancement
     - _Requirements: 26-REQ-8.2, 26-REQ-8.3, 26-REQ-8.E1_
 
-  - [ ] 8.4 Implement Verifier post-session logic
+  - [x] 8.4 Implement Verifier post-session logic
     - After Verifier convergence, if verdict is FAIL: call `file_or_update_issue()` with title `[Verifier] {spec_name} group {N}: FAIL`
     - Write verification report to `.specs/{spec_name}/verification.md`
     - _Requirements: 26-REQ-9.2_
 
-  - [ ] 8.5 Implement retry-predecessor in orchestrator
+  - [x] 8.5 Implement retry-predecessor in orchestrator
     - In `Orchestrator._process_session_result()`, after a failed node: check `get_archetype(archetype).retry_predecessor`
     - If true and within retry budget: reset predecessor to `pending`, set predecessor's `previous_error` to the failure report, reset the failed node to `pending`
     - If retry budget exhausted: block the node per normal rules
     - Pass archetype metadata from plan nodes to the session runner factory
     - _Requirements: 26-REQ-9.3, 26-REQ-9.4, 26-REQ-9.E1_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] Spec tests pass: `uv run pytest tests/unit/session/test_skeptic.py tests/unit/session/test_verifier.py tests/unit/session/test_github_issues.py tests/unit/engine/test_retry_predecessor.py -q`
-    - [ ] TS-26-32 through TS-26-41 pass
-    - [ ] TS-26-E7, TS-26-E11 through TS-26-E13 pass
-    - [ ] TS-26-P12, TS-26-P13 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 8.V Verify task group 8
+    - [x] Spec tests pass: `uv run pytest tests/unit/session/test_skeptic.py tests/unit/session/test_verifier.py tests/unit/session/test_github_issues.py tests/unit/engine/test_retry_predecessor.py -q`
+    - [x] TS-26-32 through TS-26-41 pass
+    - [x] TS-26-E7, TS-26-E11 through TS-26-E13 pass
+    - [x] TS-26-P12, TS-26-P13 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 9. Checkpoint — Phase B Complete
   - Verify all spec tests pass: full spec test command from top of document

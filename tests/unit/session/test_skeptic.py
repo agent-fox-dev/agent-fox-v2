@@ -47,11 +47,32 @@ class TestSkepticGithubIssue:
 
     @pytest.mark.asyncio
     async def test_skeptic_files_issue_with_search(self) -> None:
-        # This test requires the github_issues module - will be fully
-        # implemented with task 8.3. For now verify the concept.
+        from unittest.mock import AsyncMock, patch
+
         from agent_fox.session.github_issues import file_or_update_issue
 
-        assert file_or_update_issue is not None
+        with patch(
+            "agent_fox.session.github_issues._run_gh_command",
+            new_callable=AsyncMock,
+        ) as mock_gh:
+            # No existing issue → create
+            mock_gh.side_effect = [
+                "",  # search returns no results
+                "https://github.com/repo/issues/1",  # create returns URL
+            ]
+            result = await file_or_update_issue(
+                "[Skeptic Review] 03_session",
+                "## Critical\n- Issue found",
+            )
+
+        assert result is not None
+        # First call is the search
+        search_call = mock_gh.call_args_list[0]
+        assert "list" in search_call[0][0]
+        assert "[Skeptic Review] 03_session" in str(search_call[0][0])
+        # Second call is the create
+        create_call = mock_gh.call_args_list[1]
+        assert "create" in create_call[0][0]
 
 
 # ---------------------------------------------------------------------------
@@ -76,11 +97,9 @@ class TestReviewPassedToCoder:
         (spec_dir / "requirements.md").write_text("# Requirements\nTest req\n")
 
         context = assemble_context(spec_dir, task_group=1)
-        # review.md is not in the default _SPEC_FILES list - this test
-        # validates that review.md content gets included after task 8.3
-        # adds it to the context assembly
-        # For now, we test the basic assemble works
+        # 26-REQ-8.3: Skeptic review content is included in Coder context
         assert "Test req" in context
+        assert "Missing edge case handling" in context
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +171,25 @@ class TestCloseIssueNoFindings:
 
     @pytest.mark.asyncio
     async def test_close_if_empty(self) -> None:
-        # This test requires github_issues module - will be implemented with task 8.3
+        from unittest.mock import AsyncMock, patch
+
         from agent_fox.session.github_issues import file_or_update_issue
 
-        assert file_or_update_issue is not None
+        with patch(
+            "agent_fox.session.github_issues._run_gh_command",
+            new_callable=AsyncMock,
+        ) as mock_gh:
+            mock_gh.side_effect = [
+                "42\t[Skeptic Review] spec\n",  # search finds existing
+                "",  # close succeeds
+            ]
+            await file_or_update_issue(
+                "[Skeptic Review] spec",
+                "",  # empty body = no findings
+                close_if_empty=True,
+            )
+
+        # Verify close was called
+        close_call = mock_gh.call_args_list[1]
+        assert "close" in close_call[0][0]
+        assert "42" in close_call[0][0]

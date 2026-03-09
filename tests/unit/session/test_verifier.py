@@ -45,7 +45,28 @@ class TestVerifierGithubIssue:
 
     @pytest.mark.asyncio
     async def test_verifier_files_issue_on_fail(self) -> None:
-        # This test requires github_issues module - will be implemented with task 8.4
+        from unittest.mock import AsyncMock, patch
+
         from agent_fox.session.github_issues import file_or_update_issue
 
-        assert file_or_update_issue is not None
+        with patch(
+            "agent_fox.session.github_issues._run_gh_command",
+            new_callable=AsyncMock,
+        ) as mock_gh:
+            mock_gh.side_effect = [
+                "",  # search returns no results
+                "https://github.com/repo/issues/5",  # create returns URL
+            ]
+            result = await file_or_update_issue(
+                "[Verifier] 05_memory group 2: FAIL",
+                "## Verdict: FAIL\n- Test failures found",
+            )
+
+        assert result is not None
+        # Verify create was called with correct title
+        create_call = mock_gh.call_args_list[1]
+        create_args = create_call[0][0]
+        assert "create" in create_args
+        # The title should contain the verifier prefix
+        title_idx = create_args.index("--title")
+        assert "[Verifier] 05_memory group 2: FAIL" in create_args[title_idx + 1]

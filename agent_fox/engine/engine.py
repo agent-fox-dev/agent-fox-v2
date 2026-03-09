@@ -40,6 +40,7 @@ from agent_fox.engine.state import (
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
 from agent_fox.memory.render import render_summary
+from agent_fox.session.archetypes import get_archetype
 from agent_fox.ui.events import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
@@ -894,6 +895,34 @@ class Orchestrator:
                 )
         else:
             error_tracker[node_id] = record.error_message
+
+            # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
+            node_archetype = self._get_node_archetype(node_id)
+            archetype_entry = get_archetype(node_archetype)
+
+            if (
+                archetype_entry.retry_predecessor
+                and attempt < self._config.max_retries + 1
+            ):
+                # Find predecessor and reset it instead of the failed node
+                predecessors = self._get_predecessors(node_id)
+                if predecessors:
+                    pred_id = predecessors[0]
+                    logger.info(
+                        "Retry-predecessor: resetting %s to pending due to "
+                        "%s failure (attempt %d)",
+                        pred_id,
+                        node_id,
+                        attempt,
+                    )
+                    self._graph_sync.node_states[pred_id] = "pending"
+                    error_tracker[pred_id] = record.error_message
+                    # Reset the failed node itself so it re-runs after
+                    # predecessor completes
+                    self._graph_sync.node_states[node_id] = "pending"
+                    self._state_manager.save(state)
+                    return
+
             if attempt >= self._config.max_retries + 1:
                 # 18-REQ-5.4: Emit task failure event
                 if self._task_callback is not None:
@@ -915,6 +944,19 @@ class Orchestrator:
                 self._graph_sync.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
+
+    def _get_node_archetype(self, node_id: str) -> str:
+        """Get the archetype name for a node from plan data."""
+        node_data = self._plan_nodes.get(node_id, {})
+        if isinstance(node_data, dict):
+            return node_data.get("archetype", "coder")
+        return "coder"
+
+    def _get_predecessors(self, node_id: str) -> list[str]:
+        """Get predecessor node IDs for a given node."""
+        if self._graph_sync is None:
+            return []
+        return self._graph_sync._edges.get(node_id, [])
 
     def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
         """Check and run sync barrier actions if triggered.
