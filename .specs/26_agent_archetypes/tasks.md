@@ -127,7 +127,7 @@ Phase B checkpoint.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
-- [ ] 4. Checkpoint — Phase A Complete
+- [x] 4. Checkpoint — Phase A Complete
   - Verify all Phase A tests pass (TS-26-1 through TS-26-8, TS-26-E1, TS-26-E2, TS-26-P1, TS-26-P2)
   - Run full test suite: `uv run pytest -q`
   - Run linter: `uv run ruff check agent_fox/ tests/`
