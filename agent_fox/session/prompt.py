@@ -189,10 +189,10 @@ def select_context_with_causal(
 # Template directory relative to this file (package-relative resolution)
 _TEMPLATE_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "prompts"
 
-# Role-to-template mapping
-_ROLE_TEMPLATES: dict[str, list[str]] = {
-    "coding": ["coding.md", "git-flow.md"],
-    "coordinator": ["coordinator.md"],
+# Legacy role-to-archetype mapping (backward compatibility)
+_ROLE_TO_ARCHETYPE: dict[str, str] = {
+    "coding": "coder",
+    "coordinator": "coordinator",
 }
 
 # Regex to match YAML frontmatter at the very start of a file
@@ -271,7 +271,8 @@ def build_system_prompt(
     context: str,
     task_group: int,
     spec_name: str,
-    role: str = "coding",
+    role: str | None = None,
+    archetype: str | None = None,
 ) -> str:
     """Build the system prompt from templates and context.
 
@@ -279,20 +280,40 @@ def build_system_prompt(
         context: Assembled spec documents and memory facts.
         task_group: The target task group number.
         spec_name: The specification name (e.g. ``03_session_and_workspace``).
-        role: Prompt role — ``"coding"`` or ``"coordinator"``.
+        role: **Deprecated.** Legacy prompt role (``"coding"`` or
+            ``"coordinator"``). Mapped to archetype internally.
+        archetype: Archetype name for template resolution via registry.
+            Takes precedence over *role* when both are provided.
 
     Returns:
         Complete system prompt string.
 
     Raises:
-        ValueError: If *role* is not recognized.
+        ValueError: If neither *role* nor *archetype* resolves to a valid
+            archetype entry.
         ConfigError: If a template file is missing.
 
-    Requirement: 15-REQ-2.2, 15-REQ-2.3, 15-REQ-2.4, 15-REQ-2.5, 15-REQ-2.E2
+    Requirement: 15-REQ-2.2, 15-REQ-2.3, 15-REQ-2.4, 15-REQ-2.5, 15-REQ-2.E2,
+                 26-REQ-3.5
     """
-    if role not in _ROLE_TEMPLATES:
-        valid = ", ".join(sorted(_ROLE_TEMPLATES))
-        raise ValueError(f"Unknown prompt role {role!r}. Valid roles: {valid}")
+    from agent_fox.session.archetypes import get_archetype
+
+    # Resolve archetype name: archetype param > role param > default "coder"
+    resolved: str
+    if archetype is not None:
+        resolved = archetype
+    elif role is not None:
+        mapped = _ROLE_TO_ARCHETYPE.get(role)
+        if mapped is None:
+            valid = ", ".join(sorted(_ROLE_TO_ARCHETYPE))
+            raise ValueError(
+                f"Unknown prompt role {role!r}. Valid roles: {valid}"
+            )
+        resolved = mapped
+    else:
+        resolved = "coder"
+
+    entry = get_archetype(resolved)
 
     # Derive number and specification from spec_name (e.g. "03_session")
     parts = spec_name.split("_", 1)
@@ -306,8 +327,8 @@ def build_system_prompt(
         "specification": specification,
     }
 
-    # Load and compose templates for the role
-    template_names = _ROLE_TEMPLATES[role]
+    # Load and compose templates from the archetype registry
+    template_names = entry.templates
     sections: list[str] = []
     for name in template_names:
         raw = _load_template(name)

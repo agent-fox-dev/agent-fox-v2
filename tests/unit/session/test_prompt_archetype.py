@@ -65,20 +65,25 @@ class TestMissingTemplateRaises:
     """Verify missing template file raises ConfigError."""
 
     def test_missing_template_raises_config_error(self) -> None:
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
         from agent_fox.core.errors import ConfigError
+        from agent_fox.session import prompt as prompt_mod
         from agent_fox.session.prompt import build_system_prompt
 
-        # A non-existent archetype with fake templates should raise
-        # This test will work after registry-based resolution replaces
-        # the hardcoded _ROLE_TEMPLATES
-        # For now, test with an unknown role
-        with pytest.raises((ConfigError, ValueError)):
-            build_system_prompt(
-                context="ctx",
-                task_group=1,
-                spec_name="test_spec",
-                archetype="bogus_nonexistent",
-            )
+        # Point _TEMPLATE_DIR to an empty temp directory so templates
+        # are not found on disk (26-REQ-3.E2).
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(prompt_mod, "_TEMPLATE_DIR", Path(tmp)):
+                with pytest.raises(ConfigError):
+                    build_system_prompt(
+                        context="ctx",
+                        task_group=1,
+                        spec_name="test_spec",
+                        archetype="coder",
+                    )
 
 
 # ---------------------------------------------------------------------------

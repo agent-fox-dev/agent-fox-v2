@@ -65,6 +65,7 @@ class NodeSessionRunner:
         node_id: str,
         config: AgentFoxConfig,
         *,
+        archetype: str = "coder",
         hook_config: HookConfig | None = None,
         no_hooks: bool = False,
         sink_dispatcher: SinkDispatcher | None = None,
@@ -73,6 +74,7 @@ class NodeSessionRunner:
     ) -> None:
         self._node_id = node_id
         self._config = config
+        self._archetype = archetype
         self._hook_config = hook_config
         self._no_hooks = no_hooks
         self._sink = sink_dispatcher
@@ -130,6 +132,7 @@ class NodeSessionRunner:
             context=context,
             task_group=self._task_group,
             spec_name=self._spec_name,
+            archetype=self._archetype,
         )
         task_prompt = build_task_prompt(
             task_group=self._task_group,

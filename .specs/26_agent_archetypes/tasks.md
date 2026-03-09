@@ -170,40 +170,40 @@ Phase B checkpoint.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 6. Phase B: Graph builder injection and prompt refactor
-  - [ ] 6.1 Implement auto-injection in graph builder
+- [x] 6. Phase B: Graph builder injection and prompt refactor
+  - [x] 6.1 Implement auto-injection in graph builder
     - Add `archetypes_config` and `coordinator_overrides` parameters to `build_graph()`
     - Implement `auto_pre` injection: insert group-0 Skeptic node with intra-spec edge to first real group
     - Implement `auto_post` injection: insert sibling nodes after last Coder group for each enabled `auto_post` archetype
     - Set `instances` on injected nodes from `archetypes_config.instances`
     - _Requirements: 26-REQ-5.3, 26-REQ-5.4_
 
-  - [ ] 6.2 Implement three-layer assignment priority
+  - [x] 6.2 Implement three-layer assignment priority
     - Apply coordinator overrides to node archetypes (layer 2)
     - Apply `tasks.md` tag overrides as final precedence (layer 3 — highest priority)
     - Skip overrides for disabled archetypes with warning
     - Log final archetype assignment for each node at INFO level
     - _Requirements: 26-REQ-5.2, 26-REQ-5.5, 26-REQ-5.E1_
 
-  - [ ] 6.3 Refactor build_system_prompt to use registry
+  - [x] 6.3 Refactor build_system_prompt to use registry
     - Delete `_ROLE_TEMPLATES` dict from `prompt.py`
     - Change `build_system_prompt()` parameter from `role` to `archetype`
     - Look up template files via `get_archetype(archetype).templates`
     - Maintain backward compatibility: `archetype="coder"` produces identical output to old `role="coding"`
     - _Requirements: 26-REQ-3.5_
 
-  - [ ] 6.4 Update callers of build_system_prompt
+  - [x] 6.4 Update callers of build_system_prompt
     - Update `NodeSessionRunner._build_prompts()` to pass `archetype` instead of `role`
     - Update any other callers (coordinator planning code) to use `archetype="coordinator"`
     - _Requirements: 26-REQ-3.5_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests pass: `uv run pytest tests/unit/graph/test_builder_archetypes.py tests/unit/session/test_prompt_archetype.py -q`
-    - [ ] TS-26-12, TS-26-18 through TS-26-21, TS-26-42 pass
-    - [ ] TS-26-E7 passes
-    - [ ] TS-26-P5, TS-26-P6, TS-26-P7 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests pass: `uv run pytest tests/unit/graph/test_builder_archetypes.py tests/unit/session/test_prompt_archetype.py -q`
+    - [x] TS-26-12, TS-26-18 through TS-26-21, TS-26-42 pass
+    - [x] TS-26-E7 passes
+    - [x] TS-26-P5, TS-26-P6, TS-26-P7 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 7. Phase B: Archetype-aware session execution
   - [ ] 7.1 Update NodeSessionRunner for archetype resolution
