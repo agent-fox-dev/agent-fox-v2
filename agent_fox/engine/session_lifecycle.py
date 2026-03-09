@@ -29,8 +29,12 @@ from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.memory.filter import select_relevant_facts
 from agent_fox.memory.memory import load_all_facts
-from agent_fox.session.context import assemble_context, select_context_with_causal
-from agent_fox.session.prompt import build_system_prompt, build_task_prompt
+from agent_fox.session.prompt import (
+    assemble_context,
+    build_system_prompt,
+    build_task_prompt,
+    select_context_with_causal,
+)
 from agent_fox.session.session import run_session
 from agent_fox.ui.events import ActivityCallback
 from agent_fox.workspace.harvester import harvest

@@ -19,7 +19,7 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.session.context import assemble_context
+from agent_fox.session.prompt import assemble_context
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 
 # Strategies for spec names: alphanumeric + underscores, common for spec folders

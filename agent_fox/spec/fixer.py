@@ -21,7 +21,13 @@ from agent_fox.spec.parser import (
     _SUBTASK_PATTERN,
     _TABLE_SEP,
 )
-from agent_fox.spec.validator import Finding
+from agent_fox.spec.validator import (
+    _H2_HEADING,
+    Finding,
+    _extract_req_ids_from_text,
+    _extract_test_spec_ids,
+    _normalize_heading,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +60,17 @@ class FixResult:
 
 
 # Set of rules that have auto-fixers
-FIXABLE_RULES = {"coarse-dependency", "missing-verification", "stale-dependency"}
+FIXABLE_RULES = {
+    "coarse-dependency",
+    "missing-verification",
+    "stale-dependency",
+    "inconsistent-req-id-format",
+    "missing-traceability-table",
+    "missing-coverage-matrix",
+    "missing-definition-of-done",
+    "missing-error-table",
+    "missing-correctness-properties",
+}
 
 # AI-specific fixable rules (only active when --ai flag is set)
 AI_FIXABLE_RULES = {"vague-criterion", "implementation-leak"}
@@ -290,9 +306,7 @@ def fix_missing_verification(
             if subtask_match:
                 st_id = subtask_match.group(2)
                 current_group["last_subtask_line"] = i
-                if re.match(
-                    rf"^{current_group['number']}\.V$", st_id
-                ):
+                if re.match(rf"^{current_group['number']}\.V$", st_id):
                     current_group["has_verify"] = True
 
     if current_group is not None:
@@ -328,9 +342,7 @@ def fix_missing_verification(
                 rule="missing-verification",
                 spec_name=spec_name,
                 file=str(tasks_path),
-                description=(
-                    f"Appended verification step {num}.V to task group {num}"
-                ),
+                description=(f"Appended verification step {num}.V to task group {num}"),
             )
         )
 
@@ -339,6 +351,296 @@ def fix_missing_verification(
 
     tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return results
+
+
+def fix_inconsistent_req_id_format(
+    spec_name: str,
+    req_path: Path,
+) -> list[FixResult]:
+    """Convert bold-format requirement IDs to bracket format.
+
+    Replaces **NN-REQ-N.N:** with [NN-REQ-N.N] throughout requirements.md.
+    """
+    if not req_path.is_file():
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+
+    # Pattern: **05-REQ-1.2:** or **05-REQ-1.E1:**
+    bold_pattern = re.compile(r"\*\*(\d{2}-REQ-\d+\.(?:\d+|E\d+)):\*\*")
+
+    new_text, count = bold_pattern.subn(r"[\1]", text)
+    if count == 0:
+        return []
+
+    req_path.write_text(new_text, encoding="utf-8")
+    return [
+        FixResult(
+            rule="inconsistent-req-id-format",
+            spec_name=spec_name,
+            file=str(req_path),
+            description=(
+                f"Converted {count} bold-format requirement ID(s) to bracket format"
+            ),
+        )
+    ]
+
+
+def fix_missing_traceability_table(
+    spec_name: str,
+    spec_path: Path,
+) -> list[FixResult]:
+    """Append a Traceability section with a table to tasks.md.
+
+    Generates a skeleton table populated with requirement IDs from
+    requirements.md and matching test spec entries from test_spec.md.
+    """
+    tasks_path = spec_path / "tasks.md"
+    req_path = spec_path / "requirements.md"
+    if not tasks_path.is_file() or not req_path.is_file():
+        return []
+
+    req_text = req_path.read_text(encoding="utf-8")
+    req_ids = sorted(_extract_req_ids_from_text(req_text))
+    if not req_ids:
+        return []
+
+    # Try to find matching test spec entries
+    ts_ids = _extract_test_spec_ids(spec_path)
+    ts_text = ""
+    ts_path = spec_path / "test_spec.md"
+    if ts_path.is_file():
+        ts_text = ts_path.read_text(encoding="utf-8")
+
+    # Build table rows
+    rows: list[str] = []
+    for req_id in req_ids:
+        # Find test spec entries that reference this req ID
+        matching_ts = ""
+        for ts_id in sorted(ts_ids):
+            # Check if this TS entry references the req ID
+            if req_id in ts_text:
+                # Simple heuristic: find TS entries near the req ID mention
+                matching_ts = ts_id
+                break
+        rows.append(f"| {req_id} | {matching_ts} | TODO | TODO |")
+
+    section = (
+        "\n## Traceability\n\n"
+        "| Requirement | Test Spec Entry | Implemented By Task "
+        "| Verified By Test |\n"
+        "|-------------|-----------------|---------------------"
+        "|------------------|\n"
+    )
+    section += "\n".join(rows) + "\n"
+
+    text = tasks_path.read_text(encoding="utf-8")
+    text = text.rstrip() + "\n" + section
+    tasks_path.write_text(text, encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="missing-traceability-table",
+            spec_name=spec_name,
+            file=str(tasks_path),
+            description=(
+                f"Appended Traceability section with {len(req_ids)} requirement(s)"
+            ),
+        )
+    ]
+
+
+def fix_missing_coverage_matrix(
+    spec_name: str,
+    spec_path: Path,
+) -> list[FixResult]:
+    """Append a Coverage Matrix section to test_spec.md.
+
+    Generates a skeleton table populated with requirement IDs from
+    requirements.md and matching test spec entry IDs.
+    """
+    ts_path = spec_path / "test_spec.md"
+    req_path = spec_path / "requirements.md"
+    if not ts_path.is_file() or not req_path.is_file():
+        return []
+
+    req_text = req_path.read_text(encoding="utf-8")
+    req_ids = sorted(_extract_req_ids_from_text(req_text))
+    if not req_ids:
+        return []
+
+    ts_text = ts_path.read_text(encoding="utf-8")
+    ts_ids = sorted(_extract_test_spec_ids(spec_path))
+
+    # Build table rows — match each req ID to a test spec entry
+    rows: list[str] = []
+    for req_id in req_ids:
+        matching_ts = ""
+        for ts_id in ts_ids:
+            # Check if this TS entry heading section references the req ID
+            if req_id in ts_text:
+                matching_ts = ts_id
+                break
+        test_type = "unit"
+        if matching_ts and "P" in matching_ts:
+            test_type = "property"
+        rows.append(f"| {req_id} | {matching_ts} | {test_type} |")
+
+    section = (
+        "\n## Coverage Matrix\n\n"
+        "| Requirement | Test Spec Entry | Type |\n"
+        "|-------------|-----------------|------|\n"
+    )
+    section += "\n".join(rows) + "\n"
+
+    text = ts_text.rstrip() + "\n" + section
+    ts_path.write_text(text, encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="missing-coverage-matrix",
+            spec_name=spec_name,
+            file=str(ts_path),
+            description=(
+                f"Appended Coverage Matrix section with {len(req_ids)} requirement(s)"
+            ),
+        )
+    ]
+
+
+_DOD_TEMPLATE = """\
+
+## Definition of Done
+
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and pushed to remote
+7. Feature branch is merged back to `develop`
+8. `tasks.md` checkboxes are updated to reflect completion
+"""
+
+
+def fix_missing_definition_of_done(
+    spec_name: str,
+    design_path: Path,
+) -> list[FixResult]:
+    """Append a Definition of Done section to design.md."""
+    if not design_path.is_file():
+        return []
+
+    text = design_path.read_text(encoding="utf-8")
+
+    # Check it's not already there
+    for line in text.splitlines():
+        m = _H2_HEADING.match(line)
+        if (
+            m
+            and "definition" in _normalize_heading(m.group(1))
+            and "done" in _normalize_heading(m.group(1))
+        ):
+            return []
+
+    text = text.rstrip() + "\n" + _DOD_TEMPLATE
+    design_path.write_text(text, encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="missing-definition-of-done",
+            spec_name=spec_name,
+            file=str(design_path),
+            description="Appended Definition of Done section",
+        )
+    ]
+
+
+_ERROR_TABLE_TEMPLATE = """\
+
+## Error Handling
+
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| TODO | TODO | TODO |
+"""
+
+
+def fix_missing_error_table(
+    spec_name: str,
+    design_path: Path,
+) -> list[FixResult]:
+    """Append an Error Handling section with empty table to design.md."""
+    if not design_path.is_file():
+        return []
+
+    text = design_path.read_text(encoding="utf-8")
+
+    for line in text.splitlines():
+        m = _H2_HEADING.match(line)
+        if m:
+            normalized = _normalize_heading(m.group(1))
+            if "error" in normalized and "handling" in normalized:
+                return []
+
+    text = text.rstrip() + "\n" + _ERROR_TABLE_TEMPLATE
+    design_path.write_text(text, encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="missing-error-table",
+            spec_name=spec_name,
+            file=str(design_path),
+            description="Appended Error Handling section with table template",
+        )
+    ]
+
+
+_CORRECTNESS_PROPS_TEMPLATE = """\
+
+## Correctness Properties
+
+### Property 1: TODO
+
+*For any* valid input, THE system SHALL TODO.
+
+**Validates: Requirements TODO**
+"""
+
+
+def fix_missing_correctness_properties(
+    spec_name: str,
+    design_path: Path,
+) -> list[FixResult]:
+    """Append a Correctness Properties section stub to design.md."""
+    if not design_path.is_file():
+        return []
+
+    text = design_path.read_text(encoding="utf-8")
+
+    for line in text.splitlines():
+        m = _H2_HEADING.match(line)
+        if m:
+            normalized = _normalize_heading(m.group(1))
+            if "correctness" in normalized and "properties" in normalized:
+                return []
+
+    text = text.rstrip() + "\n" + _CORRECTNESS_PROPS_TEMPLATE
+    design_path.write_text(text, encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="missing-correctness-properties",
+            spec_name=spec_name,
+            file=str(design_path),
+            description=(
+                "Appended Correctness Properties section stub "
+                "(fill in property details)"
+            ),
+        )
+    ]
 
 
 def apply_fixes(
@@ -371,9 +673,7 @@ def apply_fixes(
         if finding.rule in FIXABLE_RULES:
             key = (finding.spec_name, finding.rule)
             if finding.rule == "stale-dependency":
-                stale_dep_findings.setdefault(finding.spec_name, []).append(
-                    finding
-                )
+                stale_dep_findings.setdefault(finding.spec_name, []).append(finding)
                 if key not in fixable:
                     fixable[key] = finding
             else:
@@ -416,10 +716,40 @@ def apply_fixes(
                         stale_dep_findings.get(spec_name, [])
                     )
                     if id_fixes:
-                        results = fix_stale_dependency(
-                            spec_name, prd_path, id_fixes
-                        )
+                        results = fix_stale_dependency(spec_name, prd_path, id_fixes)
                         all_results.extend(results)
+
+            elif rule == "inconsistent-req-id-format":
+                req_path = spec.path / "requirements.md"
+                if req_path.is_file():
+                    results = fix_inconsistent_req_id_format(spec_name, req_path)
+                    all_results.extend(results)
+
+            elif rule == "missing-traceability-table":
+                results = fix_missing_traceability_table(spec_name, spec.path)
+                all_results.extend(results)
+
+            elif rule == "missing-coverage-matrix":
+                results = fix_missing_coverage_matrix(spec_name, spec.path)
+                all_results.extend(results)
+
+            elif rule == "missing-definition-of-done":
+                design_path = spec.path / "design.md"
+                if design_path.is_file():
+                    results = fix_missing_definition_of_done(spec_name, design_path)
+                    all_results.extend(results)
+
+            elif rule == "missing-error-table":
+                design_path = spec.path / "design.md"
+                if design_path.is_file():
+                    results = fix_missing_error_table(spec_name, design_path)
+                    all_results.extend(results)
+
+            elif rule == "missing-correctness-properties":
+                design_path = spec.path / "design.md"
+                if design_path.is_file():
+                    results = fix_missing_correctness_properties(spec_name, design_path)
+                    all_results.extend(results)
 
         except OSError as exc:
             logger.warning(
@@ -532,9 +862,7 @@ def fix_ai_criteria(
                 rule=rule,
                 spec_name=spec_name,
                 file=str(req_path),
-                description=(
-                    f"Rewrote criterion {criterion_id}: {replacement[:60]}"
-                ),
+                description=(f"Rewrote criterion {criterion_id}: {replacement[:60]}"),
             )
         )
 

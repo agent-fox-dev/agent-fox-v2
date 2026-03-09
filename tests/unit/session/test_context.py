@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from agent_fox.session.context import assemble_context
+from agent_fox.session.prompt import assemble_context
 
 
 class TestContextAssemblySpecDocs:

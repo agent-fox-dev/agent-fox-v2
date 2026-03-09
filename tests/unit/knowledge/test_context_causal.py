@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import duckdb
 
-from agent_fox.session.context import select_context_with_causal
+from agent_fox.session.prompt import select_context_with_causal
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,

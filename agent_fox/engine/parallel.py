@@ -14,8 +14,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from agent_fox.engine.serial import invoke_runner
-from agent_fox.engine.state import SessionRecord
+from agent_fox.engine.state import SessionRecord, invoke_runner
 
 logger = logging.getLogger(__name__)
 

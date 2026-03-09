@@ -22,7 +22,7 @@ import click
 from agent_fox import __version__
 from agent_fox.core.config import ThemeConfig, load_config
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.infra.logging import setup_logging
+from agent_fox.core.logging import setup_logging
 from agent_fox.ui.banner import render_banner
 from agent_fox.ui.theme import create_theme
 

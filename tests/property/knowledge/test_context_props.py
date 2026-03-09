@@ -11,7 +11,7 @@ import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.session.context import select_context_with_causal
+from agent_fox.session.prompt import select_context_with_causal
 from tests.unit.knowledge.conftest import (
     create_schema,
     seed_causal_links,

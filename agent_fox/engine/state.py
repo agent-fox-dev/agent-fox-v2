@@ -1,4 +1,4 @@
-"""Execution state persistence: data models, save/load, plan hash.
+"""Execution state persistence: data models, save/load, plan hash, runner utils.
 
 Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3
 """
@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -193,3 +194,43 @@ class StateManager:
         }
         content = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(content.encode()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Runner invocation helper (used by serial and parallel runners)
+# ---------------------------------------------------------------------------
+
+
+async def invoke_runner(
+    runner: Any,
+    node_id: str,
+    attempt: int,
+    previous_error: str | None,
+) -> SessionRecord:
+    """Invoke a session runner and normalise the result to SessionRecord.
+
+    Supports runners that expose an ``execute()`` method as well as
+    plain callables.  If the return value is already a SessionRecord
+    it is returned unchanged; otherwise a conversion is attempted.
+    """
+    if hasattr(runner, "execute") and callable(runner.execute):
+        result = await runner.execute(node_id, attempt, previous_error)
+    else:
+        result = await runner(node_id, attempt, previous_error)
+
+    if isinstance(result, SessionRecord):
+        return result
+
+    return SessionRecord(
+        node_id=result.node_id,
+        attempt=attempt,
+        status=result.status,
+        input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
+        cost=result.cost,
+        duration_ms=result.duration_ms,
+        error_message=result.error_message,
+        timestamp=getattr(result, "timestamp", ""),
+        model=getattr(result, "model", ""),
+        files_touched=getattr(result, "files_touched", []),
+    )

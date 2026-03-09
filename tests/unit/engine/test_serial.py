@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from agent_fox.engine.serial import SerialRunner
+from agent_fox.engine.engine import SerialRunner
 from agent_fox.engine.state import SessionRecord
 
 # -- Mock session runner for serial tests ------------------------------------

@@ -30,12 +30,12 @@ from agent_fox.core.config import HookConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
-from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
     StateManager,
+    invoke_runner,
 )
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
@@ -43,6 +43,38 @@ from agent_fox.memory.render import render_summary
 from agent_fox.ui.events import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# SerialRunner (merged from serial.py)
+# ---------------------------------------------------------------------------
+
+
+class SerialRunner:
+    """Runs tasks one at a time with inter-session delay."""
+
+    def __init__(
+        self,
+        session_runner_factory: Callable[..., Any],
+        inter_session_delay: float,
+    ) -> None:
+        self._session_runner_factory = session_runner_factory
+        self._inter_session_delay = inter_session_delay
+
+    async def execute(
+        self,
+        node_id: str,
+        attempt: int,
+        previous_error: str | None,
+    ) -> SessionRecord:
+        """Execute a single session and return the outcome record."""
+        runner = self._session_runner_factory(node_id)
+        return await invoke_runner(runner, node_id, attempt, previous_error)
+
+    async def delay(self) -> None:
+        """Wait for the configured inter-session delay."""
+        if self._inter_session_delay > 0:
+            await asyncio.sleep(self._inter_session_delay)
 
 
 # ---------------------------------------------------------------------------
