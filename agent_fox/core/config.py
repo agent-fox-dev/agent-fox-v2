@@ -140,7 +140,7 @@ class PlatformConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    type: str = "none"        # "none" | "github"
+    type: str = "none"  # "none" | "github"
     auto_merge: bool = False  # only meaningful when type = "github"
 
 
@@ -163,6 +163,29 @@ class KnowledgeConfig(BaseModel):
     @classmethod
     def clamp_ask_top_k(cls, v: int) -> int:
         return _clamp(v, ge=1, field_name="knowledge.ask_top_k")
+
+
+class ToolsConfig(BaseModel):
+    """Configuration for fox tools.
+
+    Requirements: 29-REQ-8.1, 29-REQ-8.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    fox_tools: bool = False
+
+    @field_validator("fox_tools", mode="before")
+    @classmethod
+    def validate_fox_tools_is_bool(cls, v: Any) -> bool:
+        """Reject non-boolean values for fox_tools.
+
+        Requirements: 29-REQ-8.E1
+        """
+        if not isinstance(v, bool):
+            msg = f"tools.fox_tools must be a boolean, got {type(v).__name__}: {v!r}"
+            raise ValueError(msg)
+        return v
 
 
 class ArchetypeInstancesConfig(BaseModel):
@@ -243,6 +266,7 @@ class AgentFoxConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
+    tools: ToolsConfig = Field(default_factory=ToolsConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:

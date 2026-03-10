@@ -200,6 +200,13 @@ async def _execute_query(
         result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
         return result.get("decision") != "block"
 
+    # 29-REQ-8.2, 29-REQ-8.3: Build fox tool definitions when enabled
+    fox_tools = None
+    if config.tools.fox_tools:
+        from agent_fox.tools.registry import build_fox_tool_definitions
+
+        fox_tools = build_fox_tool_definitions()
+
     turn_count = 0
     cumulative_tokens = 0
 
@@ -209,6 +216,7 @@ async def _execute_query(
         model=model_id,
         cwd=cwd,
         permission_callback=_permission_callback,
+        tools=fox_tools,
     ):
         is_result = isinstance(message, ResultMessage)
 

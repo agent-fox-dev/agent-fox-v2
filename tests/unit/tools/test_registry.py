@@ -81,9 +81,8 @@ class TestHandlerCalled:
 class TestPermissionCallback:
     """TS-29-21: Permission callback receives custom tool name and input."""
 
-    def test_permission_callback(self) -> None:
-        import asyncio
-
+    @pytest.mark.asyncio
+    async def test_permission_callback(self) -> None:
         recorded: list[tuple] = []
 
         async def cb(name: str, tool_input: dict) -> bool:
@@ -91,9 +90,7 @@ class TestPermissionCallback:
             return True
 
         # Verify the callback can be called with custom tool names
-        result = asyncio.get_event_loop().run_until_complete(
-            cb("fox_edit", {"file_path": "/tmp/test.py"})
-        )
+        result = await cb("fox_edit", {"file_path": "/tmp/test.py"})
         assert result is True
         assert recorded[0] == ("fox_edit", {"file_path": "/tmp/test.py"})
 

@@ -202,41 +202,41 @@ added last.
   - All 1438+ existing tests still pass.
   - Ask the user if questions arise.
 
-- [ ] 7. Backend protocol, config, and registry
-  - [ ] 7.1 Extend `AgentBackend` protocol with `tools` parameter
+- [x] 7. Backend protocol, config, and registry
+  - [x] 7.1 Extend `AgentBackend` protocol with `tools` parameter
     - Add `ToolDefinition` dataclass to `protocol.py`
     - Add optional `tools: list[ToolDefinition] | None = None` to `execute()`
     - _Requirements: 29-REQ-6.1, 29-REQ-6.E1_
 
-  - [ ] 7.2 Update `ClaudeBackend` to handle `ToolDefinition` objects
+  - [x] 7.2 Update `ClaudeBackend` to handle `ToolDefinition` objects
     - Map `ToolDefinition` list to SDK's in-process MCP server
       (`McpSdkServerConfig`) or equivalent mechanism
     - Pass through `permission_callback` for custom tool gating
     - Catch handler exceptions, return error to agent
     - _Requirements: 29-REQ-6.2, 29-REQ-6.3, 29-REQ-6.4, 29-REQ-6.E2_
 
-  - [ ] 7.3 Add `ToolsConfig` to config system
+  - [x] 7.3 Add `ToolsConfig` to config system
     - New `ToolsConfig` pydantic model with `fox_tools: bool = False`
     - Add `tools: ToolsConfig` field to `AgentFoxConfig`
     - _Requirements: 29-REQ-8.1, 29-REQ-8.E1_
 
-  - [ ] 7.4 Implement `agent_fox/tools/registry.py`
+  - [x] 7.4 Implement `agent_fox/tools/registry.py`
     - `build_fox_tool_definitions()` returns `list[ToolDefinition]`
     - JSON Schema for each tool, handler wrapping core functions
     - _Requirements: 29-REQ-8.2_
 
-  - [ ] 7.5 Wire session runner to pass tools when enabled
+  - [x] 7.5 Wire session runner to pass tools when enabled
     - In `run_session()` / `_execute_query()`: check `config.tools.fox_tools`,
       build tool definitions, pass to `backend.execute()`
     - TS-29-P8 (backward compat) — tools=None when disabled
     - _Requirements: 29-REQ-8.2, 29-REQ-8.3_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Backend tests pass: `uv run pytest tests/unit/tools/test_registry.py -q`
-    - [ ] Config tests pass: `uv run pytest tests/unit/core/test_config_tools.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 29-REQ-6.x and 29-REQ-8.x met
+  - [x] 7.V Verify task group 7
+    - [x] Backend tests pass: `uv run pytest tests/unit/tools/test_registry.py -q`
+    - [x] Config tests pass: `uv run pytest tests/unit/core/test_config_tools.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 29-REQ-6.x and 29-REQ-8.x met
 
 - [ ] 8. MCP server and CLI command
   - [ ] 8.1 Implement `agent_fox/tools/server.py`
