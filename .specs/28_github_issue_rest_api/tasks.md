@@ -60,34 +60,34 @@ is a checkpoint.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Extend GitHubPlatform with issue methods
-  - [ ] 2.1 Add `IssueResult` dataclass
+- [x] 2. Extend GitHubPlatform with issue methods
+  - [x] 2.1 Add `IssueResult` dataclass
     - Frozen dataclass with `number: int`, `title: str`, `html_url: str`
     - Add to `agent_fox/platform/github.py`
     - _Requirements: 28-REQ-2.2_
 
-  - [ ] 2.2 Implement `search_issues()`
+  - [x] 2.2 Implement `search_issues()`
     - `GET /search/issues` with query `repo:{owner}/{repo} in:title {prefix} state:{state} type:issue`
     - Return `list[IssueResult]`, empty list on zero results
     - Raise `IntegrationError` on non-200
     - _Requirements: 28-REQ-1.1, 28-REQ-1.2, 28-REQ-1.3, 28-REQ-1.E1, 28-REQ-1.E2_
 
-  - [ ] 2.3 Implement `create_issue()`
+  - [x] 2.3 Implement `create_issue()`
     - `POST /repos/{owner}/{repo}/issues` with `{title, body}`
     - Return `IssueResult` on 201, raise `IntegrationError` otherwise
     - _Requirements: 28-REQ-2.1, 28-REQ-2.2, 28-REQ-2.E1_
 
-  - [ ] 2.4 Implement `update_issue()`, `add_issue_comment()`, `close_issue()`
+  - [x] 2.4 Implement `update_issue()`, `add_issue_comment()`, `close_issue()`
     - `PATCH /repos/{owner}/{repo}/issues/{N}` for update and close
     - `POST /repos/{owner}/{repo}/issues/{N}/comments` for comment
     - Raise `IntegrationError` on error
     - _Requirements: 28-REQ-3.1, 28-REQ-3.2, 28-REQ-3.E1, 28-REQ-4.1, 28-REQ-4.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Platform issue method tests pass: `uv run pytest tests/unit/platform/test_github_issues_rest.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/platform/`
-    - [ ] Requirements 28-REQ-1.*, 28-REQ-2.*, 28-REQ-3.*, 28-REQ-4.* met
+  - [x] 2.V Verify task group 2
+    - [x] Platform issue method tests pass: `uv run pytest tests/unit/platform/test_github_issues_rest.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/platform/`
+    - [x] Requirements 28-REQ-1.*, 28-REQ-2.*, 28-REQ-3.*, 28-REQ-4.* met
 
 - [ ] 3. Rewrite github_issues.py and create errata
   - [ ] 3.1 Rewrite `file_or_update_issue()` to use `GitHubPlatform`
