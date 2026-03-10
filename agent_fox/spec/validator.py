@@ -2126,6 +2126,146 @@ The following criteria have been flagged for rewriting:
 
 _MAX_CRITERIA_PER_BATCH = 20
 
+_GENERATE_TEST_SPEC_PROMPT = """\
+You are an expert test engineer. You will generate test specification entries \
+for requirements that are missing from the test specification document.
+
+Each test spec entry follows this format:
+
+### TS-{{NN}}-{{N}}: {{Short Name}}
+
+**Requirement:** {{NN}}-REQ-{{X}}.{{Y}}
+**Type:** unit | integration | property
+**Description:** One-sentence description of what this test verifies.
+
+**Preconditions:**
+- System state or setup required before the test runs.
+
+**Input:**
+- Concrete input values or descriptions of input shape.
+
+**Expected:**
+- Concrete expected output, return value, side effect, or state change.
+
+**Assertion pseudocode:**
+```
+result = module.function(input)
+ASSERT result == expected
+```
+
+Rules:
+1. Generate one entry per untraced requirement.
+2. Use the spec number prefix from the requirement ID for the TS ID \
+(e.g., 01-REQ-3.1 -> TS-01-N where N is the next available number).
+3. Make test descriptions concrete and testable.
+4. Include specific inputs and expected outputs where possible.
+5. Use the requirement text to understand what the test should verify.
+6. For edge cases (requirement IDs ending in .E{{N}}), describe the error \
+condition being tested.
+
+Return your entries as a JSON object with this exact structure:
+{{{{
+  "entries": [
+    {{{{
+      "requirement_id": "the requirement ID, e.g. 01-REQ-3.1",
+      "test_spec_entry": "the full markdown text of the test spec entry"
+    }}}}
+  ]
+}}}}
+
+Here is the full requirements document for context:
+
+{requirements_text}
+
+Here is the existing test specification for context (to avoid duplicates \
+and determine next available TS number):
+
+{test_spec_text}
+
+---
+
+The following requirements need test spec entries:
+
+{untraced_requirements}
+"""
+
+
+async def generate_test_spec_entries(
+    spec_name: str,
+    requirements_text: str,
+    test_spec_text: str,
+    untraced_req_ids: list[str],
+    model: str,
+) -> dict[str, str]:
+    """Ask the AI to generate test spec entries for untraced requirements.
+
+    Args:
+        spec_name: Name of the spec.
+        requirements_text: Full content of requirements.md.
+        test_spec_text: Full content of test_spec.md.
+        untraced_req_ids: List of requirement IDs missing from test_spec.md.
+        model: Model ID for the AI call.
+
+    Returns:
+        Mapping of requirement_id -> test_spec_entry markdown text.
+        Empty dict on failure.
+    """
+    if not untraced_req_ids:
+        return {}
+
+    untraced_list = "\n".join(f"- {rid}" for rid in untraced_req_ids)
+
+    prompt = _GENERATE_TEST_SPEC_PROMPT.format(
+        requirements_text=requirements_text,
+        test_spec_text=test_spec_text,
+        untraced_requirements=untraced_list,
+    )
+
+    try:
+        async with create_async_anthropic_client() as client:
+            response = await client.messages.create(
+                model=model,
+                max_tokens=8192,
+                messages=[{"role": "user", "content": prompt}],
+            )
+    except Exception as exc:
+        _ai_logger.warning(
+            "AI test spec generation failed for spec '%s': %s",
+            spec_name,
+            exc,
+        )
+        return {}
+
+    response_text = _extract_response_text(
+        response, f"test spec generation for '{spec_name}'"
+    )
+    if response_text is None:
+        return {}
+
+    try:
+        data = _extract_json(response_text)
+    except (json.JSONDecodeError, TypeError):
+        _ai_logger.warning(
+            "AI test spec response for '%s' was not valid JSON",
+            spec_name,
+        )
+        return {}
+
+    entries_list = data.get("entries", [])
+    if not isinstance(entries_list, list):
+        return {}
+
+    result: dict[str, str] = {}
+    for entry in entries_list:
+        if not isinstance(entry, dict):
+            continue
+        req_id = entry.get("requirement_id", "")
+        text = entry.get("test_spec_entry", "")
+        if req_id and text:
+            result[req_id] = text
+
+    return result
+
 
 async def rewrite_criteria(
     spec_name: str,

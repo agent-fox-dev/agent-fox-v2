@@ -11,11 +11,14 @@ from pathlib import Path
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.fixer import (
     apply_fixes,
+    fix_ai_test_spec_entries,
     fix_coarse_dependency,
+    fix_coverage_matrix_mismatch,
     fix_invalid_archetype_tag,
     fix_invalid_checkbox_state,
     fix_malformed_archetype_tag,
     fix_missing_verification,
+    fix_traceability_table_mismatch,
 )
 from agent_fox.spec.validator import Finding
 
@@ -486,3 +489,124 @@ class TestFixInvalidCheckboxState:
         assert len(results) == 1
         content = tasks_path.read_text()
         assert "- [ ] 1. Uppercase X" in content
+
+
+# -- Fix traceability table mismatch -----------------------------------------
+
+
+class TestFixTraceabilityTableMismatch:
+    """Verify fixer appends missing req IDs to traceability table."""
+
+    def test_appends_missing_rows(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / "01_test"
+        spec_dir.mkdir()
+        (spec_dir / "tasks.md").write_text(
+            "## Tasks\n\n- [ ] 1. Do stuff\n\n"
+            "## Traceability\n\n"
+            "| Requirement | Test Spec Entry | Implemented By Task "
+            "| Verified By Test |\n"
+            "|-------------|-----------------|---------------------"
+            "|------------------|\n"
+            "| 01-REQ-1.1 | TS-01-1 | 1.1 | test_foo.py |\n"
+        )
+        results = fix_traceability_table_mismatch(
+            "01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"]
+        )
+        assert len(results) == 1
+        assert "2 missing" in results[0].description
+        content = (spec_dir / "tasks.md").read_text()
+        assert "| 01-REQ-1.E1 | TODO | TODO | TODO |" in content
+        assert "| 01-REQ-2.1 | TODO | TODO | TODO |" in content
+
+    def test_no_table_returns_empty(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / "01_test"
+        spec_dir.mkdir()
+        (spec_dir / "tasks.md").write_text("## Tasks\n\n- [ ] 1. Do stuff\n")
+        results = fix_traceability_table_mismatch(
+            "01_test", spec_dir, ["01-REQ-1.1"]
+        )
+        assert len(results) == 0
+
+
+# -- Fix coverage matrix mismatch --------------------------------------------
+
+
+class TestFixCoverageMatrixMismatch:
+    """Verify fixer appends missing req IDs to coverage matrix."""
+
+    def test_appends_missing_rows(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / "01_test"
+        spec_dir.mkdir()
+        (spec_dir / "test_spec.md").write_text(
+            "## Test Cases\n\nSome tests.\n\n"
+            "## Coverage Matrix\n\n"
+            "| Requirement | Test Spec Entry | Type |\n"
+            "|-------------|-----------------|------|\n"
+            "| 01-REQ-1.1 | TS-01-1 | unit |\n"
+        )
+        results = fix_coverage_matrix_mismatch(
+            "01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"]
+        )
+        assert len(results) == 1
+        assert "2 missing" in results[0].description
+        content = (spec_dir / "test_spec.md").read_text()
+        assert "| 01-REQ-1.E1 | TODO | TODO |" in content
+        assert "| 01-REQ-2.1 | TODO | TODO |" in content
+
+    def test_no_matrix_returns_empty(self, tmp_path: Path) -> None:
+        spec_dir = tmp_path / "01_test"
+        spec_dir.mkdir()
+        (spec_dir / "test_spec.md").write_text("## Test Cases\n\nSome tests.\n")
+        results = fix_coverage_matrix_mismatch(
+            "01_test", spec_dir, ["01-REQ-1.1"]
+        )
+        assert len(results) == 0
+
+
+# -- Fix AI test spec entries -------------------------------------------------
+
+
+class TestFixAiTestSpecEntries:
+    """Verify fixer inserts AI-generated test spec entries."""
+
+    def test_inserts_before_coverage_matrix(self, tmp_path: Path) -> None:
+        ts_path = tmp_path / "test_spec.md"
+        ts_path.write_text(
+            "## Test Cases\n\nExisting tests.\n\n"
+            "## Coverage Matrix\n\n"
+            "| Requirement | Test Spec Entry | Type |\n"
+            "|-------------|-----------------|------|\n"
+            "| 01-REQ-1.1 | TS-01-1 | unit |\n"
+        )
+        entries = {
+            "01-REQ-2.1": (
+                "### TS-01-10: Config validation\n\n"
+                "**Requirement:** 01-REQ-2.1\n"
+                "**Type:** unit\n"
+            ),
+        }
+        results = fix_ai_test_spec_entries("01_test", ts_path, entries)
+        assert len(results) == 1
+        assert results[0].rule == "untraced-requirement"
+        content = ts_path.read_text()
+        # Entry should appear before Coverage Matrix
+        matrix_pos = content.index("## Coverage Matrix")
+        entry_pos = content.index("### TS-01-10")
+        assert entry_pos < matrix_pos
+
+    def test_appends_when_no_coverage_matrix(self, tmp_path: Path) -> None:
+        ts_path = tmp_path / "test_spec.md"
+        ts_path.write_text("## Test Cases\n\nExisting tests.\n")
+        entries = {
+            "01-REQ-2.1": "### TS-01-10: Config validation\n",
+        }
+        results = fix_ai_test_spec_entries("01_test", ts_path, entries)
+        assert len(results) == 1
+        content = ts_path.read_text()
+        assert "### TS-01-10" in content
+
+    def test_empty_entries_returns_empty(self, tmp_path: Path) -> None:
+        ts_path = tmp_path / "test_spec.md"
+        ts_path.write_text("## Test Cases\n")
+        results = fix_ai_test_spec_entries("01_test", ts_path, {})
+        assert len(results) == 0
