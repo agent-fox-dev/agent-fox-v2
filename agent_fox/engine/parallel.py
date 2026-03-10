@@ -92,6 +92,9 @@ class ParallelRunner:
         node_id: str,
         attempt: int,
         previous_error: str | None,
+        *,
+        archetype: str = "coder",
+        instances: int = 1,
     ) -> SessionRecord:
         """Execute a single session and return the record.
 
@@ -103,12 +106,17 @@ class ParallelRunner:
             node_id: The task graph node to execute.
             attempt: The attempt number (1-indexed).
             previous_error: Error message from prior attempt, if any.
+            archetype: Archetype name from the plan node.
+            instances: Instance count from the plan node.
 
         Returns:
             A SessionRecord with outcome, cost, and timing.
         """
         try:
-            return await self._execute_session(node_id, attempt, previous_error)
+            return await self._execute_session(
+                node_id, attempt, previous_error,
+                archetype=archetype, instances=instances,
+            )
         except Exception as exc:
             logger.error(
                 "Task %s failed with exception: %s",
@@ -218,7 +226,12 @@ class ParallelRunner:
         node_id: str,
         attempt: int,
         previous_error: str | None,
+        *,
+        archetype: str = "coder",
+        instances: int = 1,
     ) -> SessionRecord:
         """Execute a single session via the factory-created runner."""
-        runner = self._session_runner_factory(node_id)
+        runner = self._session_runner_factory(
+            node_id, archetype=archetype, instances=instances,
+        )
         return await invoke_runner(runner, node_id, attempt, previous_error)

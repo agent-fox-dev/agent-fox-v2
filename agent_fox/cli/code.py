@@ -234,12 +234,20 @@ def code_cmd(
     theme = create_theme(config.theme)
     progress = ProgressDisplay(theme, quiet=quiet or json_mode)
 
-    def session_runner_factory(node_id: str) -> NodeSessionRunner:
+    def session_runner_factory(
+        node_id: str,
+        *,
+        archetype: str = "coder",
+        instances: int = 1,
+    ) -> NodeSessionRunner:
         """Create a session runner for the given node.
 
         Parses the node_id to extract spec_name and task_group, then
         returns a runner configured with the project's AgentFoxConfig,
         hook config, and task-specific prompts.
+
+        26-REQ-4.4: Passes archetype and instances from the plan node
+        so the runner resolves the correct prompt, model, and allowlist.
 
         16-REQ-5.E1: If construction fails, the runner's execute()
         method will catch and report the failure as a session error.
@@ -247,6 +255,8 @@ def code_cmd(
         return NodeSessionRunner(
             node_id,
             full_config,
+            archetype=archetype,
+            instances=instances,
             hook_config=hook_cfg,
             no_hooks=no_hooks,
             sink_dispatcher=sink_dispatcher,

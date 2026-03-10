@@ -100,7 +100,7 @@ class TestExecutionLoopLinearChain:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         await orchestrator.run()
@@ -124,7 +124,7 @@ class TestExecutionLoopLinearChain:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -148,7 +148,7 @@ class TestExecutionLoopLinearChain:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -202,7 +202,7 @@ class TestRetryWithError:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -264,7 +264,7 @@ class TestBlockedAfterRetries:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -333,7 +333,7 @@ class TestGracefulShutdown:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         # Simulate interrupt: set _interrupted flag after 2 sessions
@@ -396,7 +396,7 @@ class TestStalledExecution:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -451,7 +451,7 @@ class TestResumeWithInProgressTask:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -515,7 +515,7 @@ class TestResumeAfterStatusSync:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -562,7 +562,7 @@ class TestFreshStartWithCompletedNodes:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -640,7 +640,7 @@ class TestCostLimitStopsOrchestrator:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -684,7 +684,7 @@ class TestCostLimitStopsOrchestrator:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -730,7 +730,7 @@ class TestSessionLimitStopsOrchestrator:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -769,7 +769,7 @@ class TestSessionLimitStopsOrchestrator:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -799,7 +799,7 @@ class TestMissingPlanFile:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         with pytest.raises(PlanError) as exc_info:
@@ -822,7 +822,7 @@ class TestMissingPlanFile:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         with pytest.raises(PlanError):
@@ -856,7 +856,7 @@ class TestEmptyPlan:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -883,7 +883,7 @@ class TestEmptyPlan:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         await orchestrator.run()
@@ -945,7 +945,7 @@ class TestSyncBarrierTriggering:
                 config=config,
                 plan_path=plan_path,
                 state_path=tmp_state_path,
-                session_runner_factory=lambda nid: mock_runner,
+                session_runner_factory=lambda nid, **kw: mock_runner,
                 hook_config=hook_config,
                 specs_dir=tmp_plan_dir.parent / ".specs",
                 no_hooks=False,
@@ -1001,7 +1001,7 @@ class TestSyncBarrierTriggering:
                 config=config,
                 plan_path=plan_path,
                 state_path=tmp_state_path,
-                session_runner_factory=lambda nid: mock_runner,
+                session_runner_factory=lambda nid, **kw: mock_runner,
                 hook_config=HookConfig(),
                 specs_dir=tmp_plan_dir.parent / ".specs",
             )
@@ -1053,7 +1053,7 @@ class TestSyncBarrierTriggering:
                 config=config,
                 plan_path=plan_path,
                 state_path=tmp_state_path,
-                session_runner_factory=lambda nid: mock_runner,
+                session_runner_factory=lambda nid, **kw: mock_runner,
                 hook_config=HookConfig(),
             )
 
@@ -1104,7 +1104,7 @@ class TestSyncBarrierTriggering:
                 config=config,
                 plan_path=plan_path,
                 state_path=tmp_state_path,
-                session_runner_factory=lambda nid: mock_runner,
+                session_runner_factory=lambda nid, **kw: mock_runner,
                 hook_config=HookConfig(),
                 no_hooks=True,
             )
@@ -1154,7 +1154,7 @@ class TestSyncBarrierTriggering:
                 config=config,
                 plan_path=plan_path,
                 state_path=tmp_state_path,
-                session_runner_factory=lambda nid: mock_runner,
+                session_runner_factory=lambda nid, **kw: mock_runner,
                 # No hook_config or specs_dir
             )
 
@@ -1192,7 +1192,7 @@ class TestInProgressStatePersistence:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         await orchestrator.run()
@@ -1244,7 +1244,7 @@ class TestPlanJsonStatusSync:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         await orchestrator.run()
@@ -1294,7 +1294,7 @@ class TestPlanJsonStatusSync:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         await orchestrator.run()
@@ -1341,7 +1341,7 @@ class TestParallelDispatchWithDependencies:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -1378,7 +1378,7 @@ class TestParallelDispatchWithDependencies:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -1429,7 +1429,7 @@ class TestParallelDispatchWithDependencies:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()
@@ -1471,7 +1471,7 @@ class TestParallelDispatchWithDependencies:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock_runner,
+            session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
         state = await orchestrator.run()
@@ -1519,7 +1519,7 @@ class TestParallelDispatchWithDependencies:
             config=config,
             plan_path=plan_path,
             state_path=tmp_state_path,
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
         )
 
         state = await orchestrator.run()

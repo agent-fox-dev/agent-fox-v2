@@ -67,9 +67,14 @@ class SerialRunner:
         node_id: str,
         attempt: int,
         previous_error: str | None,
+        *,
+        archetype: str = "coder",
+        instances: int = 1,
     ) -> SessionRecord:
         """Execute a single session and return the outcome record."""
-        runner = self._session_runner_factory(node_id)
+        runner = self._session_runner_factory(
+            node_id, archetype=archetype, instances=instances,
+        )
         return await invoke_runner(runner, node_id, attempt, previous_error)
 
     async def delay(self) -> None:
@@ -734,10 +739,15 @@ class Orchestrator:
 
             previous_error = error_tracker.get(node_id)
 
+            node_archetype = self._get_node_archetype(node_id)
+            node_instances = self._get_node_instances(node_id)
+
             record = await self._serial_runner.execute(
                 node_id,
                 attempt,
                 previous_error,
+                archetype=node_archetype,
+                instances=node_instances,
             )
 
             self._process_session_result(
@@ -809,12 +819,16 @@ class Orchestrator:
                 attempt_tracker[node_id] = attempt
                 graph_sync.mark_in_progress(node_id)
                 previous_error = error_tracker.get(node_id)
+                node_archetype = self._get_node_archetype(node_id)
+                node_instances = self._get_node_instances(node_id)
 
                 task = asyncio.create_task(
                     parallel_runner.execute_one(
                         node_id,
                         attempt,
                         previous_error,
+                        archetype=node_archetype,
+                        instances=node_instances,
                     ),
                     name=f"parallel-{node_id}",
                 )
@@ -951,6 +965,13 @@ class Orchestrator:
         if isinstance(node_data, dict):
             return node_data.get("archetype", "coder")
         return "coder"
+
+    def _get_node_instances(self, node_id: str) -> int:
+        """Get the instance count for a node from plan data."""
+        node_data = self._plan_nodes.get(node_id, {})
+        if isinstance(node_data, dict):
+            return node_data.get("instances", 1)
+        return 1
 
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""

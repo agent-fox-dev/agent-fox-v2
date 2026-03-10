@@ -83,7 +83,7 @@ class TestConcurrentDispatch:
             return await mock(node_id, 1, None)
 
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -103,7 +103,7 @@ class TestConcurrentDispatch:
         """At least 2 tasks have overlapping execution times."""
         mock = MockParallelSessionRunner(delay=0.1)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -137,7 +137,7 @@ class TestRespectsDepencies:
         """The runner only dispatches tasks in the provided batch."""
         mock = MockParallelSessionRunner(delay=0.01)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -170,7 +170,7 @@ class TestSerializedStateWrites:
         """on_complete callback is called once per task."""
         mock = MockParallelSessionRunner(delay=0.05)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -190,7 +190,7 @@ class TestSerializedStateWrites:
         """Callbacks are not called concurrently (lock serialization)."""
         mock = MockParallelSessionRunner(delay=0.05)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -224,7 +224,7 @@ class TestParallelismClamped:
     def test_max_parallelism_capped_at_8(self) -> None:
         """ParallelRunner clamps max_parallelism to 8."""
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: MockParallelSessionRunner(),
+            session_runner_factory=lambda nid, **kw: MockParallelSessionRunner(),
             max_parallelism=16,
             inter_session_delay=0,
         )
@@ -234,7 +234,7 @@ class TestParallelismClamped:
     def test_max_parallelism_8_unchanged(self) -> None:
         """max_parallelism=8 is not changed."""
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: MockParallelSessionRunner(),
+            session_runner_factory=lambda nid, **kw: MockParallelSessionRunner(),
             max_parallelism=8,
             inter_session_delay=0,
         )
@@ -244,7 +244,7 @@ class TestParallelismClamped:
     def test_max_parallelism_under_8_unchanged(self) -> None:
         """max_parallelism < 8 is not clamped."""
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: MockParallelSessionRunner(),
+            session_runner_factory=lambda nid, **kw: MockParallelSessionRunner(),
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -264,7 +264,7 @@ class TestFewerTasksThanParallelism:
         """2 tasks with parallelism=4 complete without blocking."""
         mock = MockParallelSessionRunner(delay=0.01)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -283,7 +283,7 @@ class TestFewerTasksThanParallelism:
         """1 task with parallelism=8 completes without blocking."""
         mock = MockParallelSessionRunner(delay=0.01)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=8,
             inter_session_delay=0,
         )
@@ -307,7 +307,7 @@ class TestExecuteOne:
         """execute_one returns a SessionRecord on success."""
         mock = MockParallelSessionRunner(delay=0.01)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -331,7 +331,7 @@ class TestExecuteOne:
                 raise RuntimeError("session crashed")
 
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: FailingRunner(),
+            session_runner_factory=lambda nid, **kw: FailingRunner(),
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -347,7 +347,7 @@ class TestExecuteOne:
         """track_tasks updates the in-flight task list for cancellation."""
         mock = MockParallelSessionRunner(delay=0.5)
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: mock,
+            session_runner_factory=lambda nid, **kw: mock,
             max_parallelism=4,
             inter_session_delay=0,
         )
@@ -365,7 +365,7 @@ class TestExecuteOne:
     async def test_max_parallelism_property(self) -> None:
         """max_parallelism property returns the effective value."""
         runner = ParallelRunner(
-            session_runner_factory=lambda nid: MockParallelSessionRunner(),
+            session_runner_factory=lambda nid, **kw: MockParallelSessionRunner(),
             max_parallelism=3,
             inter_session_delay=0,
         )

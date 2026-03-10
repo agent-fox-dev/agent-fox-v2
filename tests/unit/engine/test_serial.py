@@ -61,7 +61,7 @@ class TestInterSessionDelay:
         """Wall-clock gap between sessions >= configured delay."""
         mock = MockSerialSessionRunner()
         runner = SerialRunner(
-            session_runner_factory=lambda node_id: mock,
+            session_runner_factory=lambda node_id, **kw: mock,
             inter_session_delay=0.5,  # 500ms delay
         )
 
@@ -77,7 +77,7 @@ class TestInterSessionDelay:
     async def test_delay_method_waits(self) -> None:
         """The delay() method actually pauses execution."""
         runner = SerialRunner(
-            session_runner_factory=lambda node_id: MockSerialSessionRunner(),
+            session_runner_factory=lambda node_id, **kw: MockSerialSessionRunner(),
             inter_session_delay=0.3,
         )
 
@@ -92,7 +92,7 @@ class TestInterSessionDelay:
         """execute() returns a SessionRecord with correct node_id."""
         mock = MockSerialSessionRunner()
         runner = SerialRunner(
-            session_runner_factory=lambda node_id: mock,
+            session_runner_factory=lambda node_id, **kw: mock,
             inter_session_delay=0,
         )
 
@@ -114,7 +114,7 @@ class TestZeroDelay:
         """Sessions dispatched back-to-back with negligible gap."""
         mock = MockSerialSessionRunner()
         runner = SerialRunner(
-            session_runner_factory=lambda node_id: mock,
+            session_runner_factory=lambda node_id, **kw: mock,
             inter_session_delay=0,
         )
 
@@ -129,7 +129,7 @@ class TestZeroDelay:
     async def test_zero_delay_returns_immediately(self) -> None:
         """delay() with inter_session_delay=0 returns nearly instantly."""
         runner = SerialRunner(
-            session_runner_factory=lambda node_id: MockSerialSessionRunner(),
+            session_runner_factory=lambda node_id, **kw: MockSerialSessionRunner(),
             inter_session_delay=0,
         )
 
