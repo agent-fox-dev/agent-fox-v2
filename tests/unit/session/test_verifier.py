@@ -45,28 +45,27 @@ class TestVerifierGithubIssue:
 
     @pytest.mark.asyncio
     async def test_verifier_files_issue_on_fail(self) -> None:
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import AsyncMock
 
+        from agent_fox.platform.github import IssueResult
         from agent_fox.session.github_issues import file_or_update_issue
 
-        with patch(
-            "agent_fox.session.github_issues._run_gh_command",
-            new_callable=AsyncMock,
-        ) as mock_gh:
-            mock_gh.side_effect = [
-                "",  # search returns no results
-                "https://github.com/repo/issues/5",  # create returns URL
-            ]
-            result = await file_or_update_issue(
-                "[Verifier] 05_memory group 2: FAIL",
-                "## Verdict: FAIL\n- Test failures found",
-            )
+        mock_platform = AsyncMock()
+        mock_platform.search_issues.return_value = []
+        mock_platform.create_issue.return_value = IssueResult(
+            number=5,
+            title="[Verifier] 05_memory group 2: FAIL",
+            html_url="https://github.com/repo/issues/5",
+        )
 
-        assert result is not None
-        # Verify create was called with correct title
-        create_call = mock_gh.call_args_list[1]
-        create_args = create_call[0][0]
-        assert "create" in create_args
-        # The title should contain the verifier prefix
-        title_idx = create_args.index("--title")
-        assert "[Verifier] 05_memory group 2: FAIL" in create_args[title_idx + 1]
+        result = await file_or_update_issue(
+            "[Verifier] 05_memory group 2: FAIL",
+            "## Verdict: FAIL\n- Test failures found",
+            platform=mock_platform,
+        )
+
+        assert result == "https://github.com/repo/issues/5"
+        mock_platform.create_issue.assert_called_once()
+        # Verify title passed correctly
+        call_args = mock_platform.create_issue.call_args
+        assert "[Verifier] 05_memory group 2: FAIL" in call_args[0][0]

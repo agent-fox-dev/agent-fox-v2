@@ -47,32 +47,28 @@ class TestSkepticGithubIssue:
 
     @pytest.mark.asyncio
     async def test_skeptic_files_issue_with_search(self) -> None:
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import AsyncMock
 
+        from agent_fox.platform.github import IssueResult
         from agent_fox.session.github_issues import file_or_update_issue
 
-        with patch(
-            "agent_fox.session.github_issues._run_gh_command",
-            new_callable=AsyncMock,
-        ) as mock_gh:
-            # No existing issue → create
-            mock_gh.side_effect = [
-                "",  # search returns no results
-                "https://github.com/repo/issues/1",  # create returns URL
-            ]
-            result = await file_or_update_issue(
-                "[Skeptic Review] 03_session",
-                "## Critical\n- Issue found",
-            )
+        mock_platform = AsyncMock()
+        mock_platform.search_issues.return_value = []
+        mock_platform.create_issue.return_value = IssueResult(
+            number=1,
+            title="[Skeptic Review] 03_session",
+            html_url="https://github.com/repo/issues/1",
+        )
 
-        assert result is not None
-        # First call is the search
-        search_call = mock_gh.call_args_list[0]
-        assert "list" in search_call[0][0]
-        assert "[Skeptic Review] 03_session" in str(search_call[0][0])
-        # Second call is the create
-        create_call = mock_gh.call_args_list[1]
-        assert "create" in create_call[0][0]
+        result = await file_or_update_issue(
+            "[Skeptic Review] 03_session",
+            "## Critical\n- Issue found",
+            platform=mock_platform,
+        )
+
+        assert result == "https://github.com/repo/issues/1"
+        mock_platform.search_issues.assert_called_once()
+        mock_platform.create_issue.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -171,25 +167,28 @@ class TestCloseIssueNoFindings:
 
     @pytest.mark.asyncio
     async def test_close_if_empty(self) -> None:
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import AsyncMock
 
+        from agent_fox.platform.github import IssueResult
         from agent_fox.session.github_issues import file_or_update_issue
 
-        with patch(
-            "agent_fox.session.github_issues._run_gh_command",
-            new_callable=AsyncMock,
-        ) as mock_gh:
-            mock_gh.side_effect = [
-                "42\t[Skeptic Review] spec\n",  # search finds existing
-                "",  # close succeeds
-            ]
-            await file_or_update_issue(
-                "[Skeptic Review] spec",
-                "",  # empty body = no findings
-                close_if_empty=True,
-            )
+        existing = IssueResult(
+            number=42,
+            title="[Skeptic Review] spec",
+            html_url="https://github.com/o/r/issues/42",
+        )
+        mock_platform = AsyncMock()
+        mock_platform.search_issues.return_value = [existing]
+        mock_platform.close_issue.return_value = None
 
-        # Verify close was called
-        close_call = mock_gh.call_args_list[1]
-        assert "close" in close_call[0][0]
-        assert "42" in close_call[0][0]
+        await file_or_update_issue(
+            "[Skeptic Review] spec",
+            "",  # empty body = no findings
+            close_if_empty=True,
+            platform=mock_platform,
+        )
+
+        # Verify close was called with the correct issue number
+        mock_platform.close_issue.assert_called_once()
+        call_args = mock_platform.close_issue.call_args
+        assert call_args[0][0] == 42

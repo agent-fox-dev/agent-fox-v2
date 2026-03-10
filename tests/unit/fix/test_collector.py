@@ -11,8 +11,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_fox.fix.checks import run_checks
-from agent_fox.fix.checks import CheckDescriptor
+from agent_fox.fix.checks import CheckDescriptor, run_checks
 
 
 class TestCollectorCapturesFailures:

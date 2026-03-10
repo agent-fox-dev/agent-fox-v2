@@ -23,26 +23,62 @@ logger = logging.getLogger(__name__)
 
 
 def _clamp(
-    value: int,
+    value: int | float,
     *,
-    ge: int | None = None,
-    le: int | None = None,
+    ge: int | float | None = None,
+    le: int | float | None = None,
     field_name: str,
-) -> int:
-    """Clamp an integer to valid bounds, logging a warning if adjusted."""
+) -> int | float:
+    """Clamp a numeric value to valid bounds, logging a warning if adjusted."""
     original = value
     if ge is not None and value < ge:
-        value = ge
+        value = type(original)(ge) if isinstance(original, int) else ge
     if le is not None and value > le:
-        value = le
+        value = type(original)(le) if isinstance(original, int) else le
     if value != original:
         logger.warning(
-            "Config field '%s' value %d out of range, clamped to %d",
+            "Config field '%s' value %s out of range, clamped to %s",
             field_name,
             original,
             value,
         )
     return value
+
+
+class RoutingConfig(BaseModel):
+    """Adaptive model routing configuration.
+
+    Requirements: 30-REQ-5.1, 30-REQ-5.2, 30-REQ-5.E1, 30-REQ-5.E2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    retries_before_escalation: int = Field(default=1)
+    training_threshold: int = Field(default=20)
+    accuracy_threshold: float = Field(default=0.75)
+    retrain_interval: int = Field(default=10)
+
+    @field_validator("retries_before_escalation")
+    @classmethod
+    def clamp_retries(cls, v: int) -> int:
+        return int(
+            _clamp(v, ge=0, le=3, field_name="routing.retries_before_escalation")
+        )
+
+    @field_validator("training_threshold")
+    @classmethod
+    def clamp_training_threshold(cls, v: int) -> int:
+        return int(_clamp(v, ge=5, le=1000, field_name="routing.training_threshold"))
+
+    @field_validator("accuracy_threshold")
+    @classmethod
+    def clamp_accuracy_threshold(cls, v: float) -> float:
+        return float(_clamp(v, ge=0.5, le=1.0, field_name="routing.accuracy_threshold"))
+
+    @field_validator("retrain_interval")
+    @classmethod
+    def clamp_retrain_interval(cls, v: int) -> int:
+        return int(_clamp(v, ge=5, le=100, field_name="routing.retrain_interval"))
 
 
 class OrchestratorConfig(BaseModel):
@@ -140,7 +176,7 @@ class PlatformConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    type: str = "none"        # "none" | "github"
+    type: str = "none"  # "none" | "github"
     auto_merge: bool = False  # only meaningful when type = "github"
 
 
@@ -163,6 +199,29 @@ class KnowledgeConfig(BaseModel):
     @classmethod
     def clamp_ask_top_k(cls, v: int) -> int:
         return _clamp(v, ge=1, field_name="knowledge.ask_top_k")
+
+
+class ToolsConfig(BaseModel):
+    """Configuration for fox tools.
+
+    Requirements: 29-REQ-8.1, 29-REQ-8.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    fox_tools: bool = False
+
+    @field_validator("fox_tools", mode="before")
+    @classmethod
+    def validate_fox_tools_is_bool(cls, v: Any) -> bool:
+        """Reject non-boolean values for fox_tools.
+
+        Requirements: 29-REQ-8.E1
+        """
+        if not isinstance(v, bool):
+            msg = f"tools.fox_tools must be a boolean, got {type(v).__name__}: {v!r}"
+            raise ValueError(msg)
+        return v
 
 
 class ArchetypeInstancesConfig(BaseModel):
@@ -221,7 +280,6 @@ class ArchetypesConfig(BaseModel):
     )
     models: dict[str, str] = Field(default_factory=dict)
     allowlists: dict[str, list[str]] = Field(default_factory=dict)
-    backends: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("coder")
     @classmethod
@@ -235,6 +293,7 @@ class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
+    routing: RoutingConfig = Field(default_factory=RoutingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
     hooks: HookConfig = Field(default_factory=HookConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
@@ -243,6 +302,7 @@ class AgentFoxConfig(BaseModel):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
+    tools: ToolsConfig = Field(default_factory=ToolsConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:

@@ -91,11 +91,13 @@ def _task_id_to_branch_name(task_id: str) -> str:
     """Convert a task ID to its feature branch name.
 
     Task ID format: "spec_name:group_number"
-    Branch name: "feature/spec_name-group_number"
+    Branch name: "feature/spec_name/group_number"
+
+    Must match the format used by ``workspace.py:create_worktree``.
     """
     parts = task_id.split(":")
     if len(parts) == 2:
-        return f"feature/{parts[0]}-{parts[1]}"
+        return f"feature/{parts[0]}/{parts[1]}"
     return f"feature/{task_id}"
 
 

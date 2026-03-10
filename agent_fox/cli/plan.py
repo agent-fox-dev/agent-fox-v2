@@ -19,9 +19,8 @@ import click
 from agent_fox import __version__
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.builder import build_graph
-from agent_fox.graph.resolver import apply_fast_mode
 from agent_fox.graph.persistence import load_plan, save_plan
-from agent_fox.graph.resolver import resolve_order
+from agent_fox.graph.resolver import apply_fast_mode, resolve_order
 from agent_fox.graph.types import NodeStatus, PlanMetadata, TaskGraph
 from agent_fox.spec.discovery import SpecInfo, discover_specs
 from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
@@ -156,12 +155,10 @@ def _print_summary(graph: TaskGraph, specs: list[SpecInfo]) -> None:
 
     # Separate completed from remaining tasks
     completed = [
-        nid for nid in graph.order
-        if graph.nodes[nid].status == NodeStatus.COMPLETED
+        nid for nid in graph.order if graph.nodes[nid].status == NodeStatus.COMPLETED
     ]
     remaining = [
-        nid for nid in graph.order
-        if graph.nodes[nid].status != NodeStatus.COMPLETED
+        nid for nid in graph.order if graph.nodes[nid].status != NodeStatus.COMPLETED
     ]
 
     if completed:
@@ -181,7 +178,6 @@ def _print_summary(graph: TaskGraph, specs: list[SpecInfo]) -> None:
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
 @click.option("--reanalyze", is_flag=True, help="Discard cached plan")
-@click.option("--verify", is_flag=True, help="Verify dependency consistency")
 @click.option("--analyze", is_flag=True, help="Show parallelism analysis")
 @click.pass_context
 def plan_cmd(
@@ -189,15 +185,9 @@ def plan_cmd(
     fast: bool,
     filter_spec: str | None,
     reanalyze: bool,
-    verify: bool,
     analyze: bool,
 ) -> None:
     """Build an execution plan from specifications."""
-    # 02-REQ-7.5: --verify placeholder
-    if verify:
-        click.echo("Verify: not yet implemented.")
-        return
-
     # Determine project paths
     project_root = Path.cwd()
     specs_dir = project_root / ".specs"
@@ -270,15 +260,14 @@ def plan_cmd(
 
         from agent_fox.cli.json_io import emit
 
-        emit({
-            "nodes": {
-                nid: asdict(node)
-                for nid, node in graph.nodes.items()
-            },
-            "edges": [asdict(e) for e in graph.edges],
-            "order": graph.order,
-            "metadata": asdict(graph.metadata),
-        })
+        emit(
+            {
+                "nodes": {nid: asdict(node) for nid, node in graph.nodes.items()},
+                "edges": [asdict(e) for e in graph.edges],
+                "order": graph.order,
+                "metadata": asdict(graph.metadata),
+            }
+        )
         return
 
     _print_summary(graph, specs)

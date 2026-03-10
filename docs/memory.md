@@ -3,6 +3,7 @@
 ## Gotchas
 
 - Critical path analysis must handle tied critical paths in disconnected graphs, where multiple paths may have equal length. _(spec: 20_plan_analysis, confidence: high)_
+- Overlap detection in edit operations is critical to reject conflicting line modifications within a single batch before atomicity is compromised. _(spec: 29_mcp_server_support, confidence: high)_
 
 ## Patterns
 
@@ -74,6 +75,41 @@
 - SIGINT interrupt handling in streaming commands should use status envelopes to communicate the interrupted state to clients. _(spec: 23_global_json_flag, confidence: high)_
 - Checkpoint task groups should verify spec test suite passes completely (all 57 tests), linting is clean for spec code, and type checking shows no new errors introduced. _(spec: 23_global_json_flag, confidence: high)_
 - The dump_knowledge.py script exports DuckDB knowledge store to Markdown format using KnowledgeDB and KnowledgeConfig classes from the agent_fox module. _(spec: 24_dev_scripts, confidence: high)_
+- Use frozen dataclasses (IssueResult) for immutable API response objects in platform implementations. _(spec: 28_github_issue_rest_api, confidence: high)_
+- Platform implementations should provide async methods for external API interactions (search_issues, create_issue, update_issue, add_issue_comment, close_issue). _(spec: 28_github_issue_rest_api, confidence: high)_
+- Property-based tests should be added to cover edge cases in data structures, particularly for structured review records validation. _(spec: 27_structured_review_records, confidence: medium)_
+- Migration failure tests need to explicitly verify that expected exceptions (like KnowledgeStoreError) are raised, rather than just checking for test completion. _(spec: 27_structured_review_records, confidence: high)_
+- Implementation work can be completed in prior commits before formal verification; verification tests should be run to confirm all requirements are met rather than assuming completion. _(spec: 27_structured_review_records, confidence: high)_
+- When refactoring CLI-based code to use platform REST API methods, update both skeptic and verifier test mocks to reflect the new platform parameter signature. _(spec: 28_github_issue_rest_api, confidence: high)_
+- Large refactoring tasks involving API migration should maintain comprehensive test coverage (1485 tests) to catch regressions across all affected components. _(spec: 28_github_issue_rest_api, confidence: high)_
+- CRUD operations with supersession logic should be implemented as a complete set rather than individually, ensuring consistency across insert and query functions for related entities. _(spec: 27_structured_review_records, confidence: high)_
+- When implementing store operations for structured records, verify all related query functions (by ID, by session, active records) alongside insert operations to ensure supersession logic is applied uniformly. _(spec: 27_structured_review_records, confidence: high)_
+- Task group completion should verify that implementation artifacts (functions, helpers) were already present from prior commits before marking as complete, rather than assuming new work was done. _(spec: 27_structured_review_records, confidence: high)_
+- Parser-specific test suites should be run alongside total test counts to ensure isolated component functionality is validated even when overall test suite passes. _(spec: 27_structured_review_records, confidence: high)_
+- When implementing comprehensive spec coverage, organize tests into logical task groups and use fixture files to support multiple language variants, enabling systematic test-driven development across diverse feature areas. _(spec: 29_mcp_server_support, confidence: high)_
+- Creating all failing tests upfront before implementation (red phase) while maintaining zero regressions in existing tests ensures a solid baseline for iterative feature development. _(spec: 29_mcp_server_support, confidence: high)_
+- Task group completion can occur when all implementations are already in place from prior commits, requiring only verification and marking as complete rather than new development work. _(spec: 27_structured_review_records, confidence: high)_
+- When implementing cryptographic hashing, use xxh3_64 as primary algorithm with blake2b as a fallback for compatibility and robustness. _(spec: 29_mcp_server_support, confidence: high)_
+- Property-based testing is effective for validating hash function characteristics like determinism (same input produces same output) and sensitivity (different inputs produce different outputs). _(spec: 29_mcp_server_support, confidence: high)_
+- Organizing tool-related code into a dedicated package structure (e.g., agent_fox/tools) with separate modules for types and specialized functionality improves modularity and maintainability. _(spec: 29_mcp_server_support, confidence: medium)_
+- Regex-based heuristic parsing can effectively extract file outlines across multiple languages (Python, JS, TS, Rust, Go, Java) when combined with language-specific edge case handling. _(spec: 29_mcp_server_support, confidence: high)_
+- Import block collapsing and end-line detection are critical features for generating usable file outlines that avoid noise and maintain readability. _(spec: 29_mcp_server_support, confidence: high)_
+- When completing task groups, verify that implementations from prior sessions meet current spec requirements by running the full test suite rather than assuming partial work is complete. _(spec: 27_structured_review_records, confidence: high)_
+- Code formatting issues can accumulate across multiple files (like github_issues.py) and should be addressed as part of task completion to maintain consistency. _(spec: 27_structured_review_records, confidence: medium)_
+- Line-range file reading tools should support multiple disjoint ranges and include hash annotations for file integrity verification. _(spec: 29_mcp_server_support, confidence: high)_
+- Regex search implementations should handle overlapping context lines by merging them to avoid duplication in results. _(spec: 29_mcp_server_support, confidence: high)_
+- EOF truncation should be implemented in file reading tools to gracefully handle cases where requested ranges exceed file length. _(spec: 29_mcp_server_support, confidence: high)_
+- Hash verification enables atomic batch editing by validating file state before applying changes, preventing race conditions in concurrent edit operations. _(spec: 29_mcp_server_support, confidence: high)_
+- Reverse line-order processing in batch edits prevents index shifting issues when multiple line modifications occur in the same operation. _(spec: 29_mcp_server_support, confidence: high)_
+- Hypothesis property tests are effective for validating round-trip integrity and edge cases (stale hash rejection) in file editing tools. _(spec: 29_mcp_server_support, confidence: medium)_
+- Core tool tests for MCP server support include unit and property tests across 5 main categories: hashing, outline, read, search, and edit operations. _(spec: 29_mcp_server_support, confidence: high)_
+- When adding new dataclasses to protocol definitions, ensure corresponding config classes are created in the config system with appropriate validation (e.g., strict boolean validation for feature flags). _(spec: 29_mcp_server_support, confidence: high)_
+- Tool registry implementations should use dedicated builder functions (e.g., build_fox_tool_definitions()) to separate registry construction logic from wiring concerns. _(spec: 29_mcp_server_support, confidence: high)_
+- Feature flags in config systems should be wired through conditional logic in execution paths (e.g., session runner checks config.tools.fox_tools before passing tools) rather than hard-coded. _(spec: 29_mcp_server_support, confidence: high)_
+- MCP server implementation should expose tools via a wrapper class that handles protocol translation and include path sandboxing for security when exposing file operations. _(spec: 29_mcp_server_support, confidence: high)_
+- When implementing MCP server support, create equivalence tests that verify MCP protocol behavior matches in-process tool execution to ensure consistency across interfaces. _(spec: 29_mcp_server_support, confidence: high)_
+- MCP server tools should be registered as Click commands in the CLI application, creating a unified interface for both direct CLI usage and MCP protocol access. _(spec: 29_mcp_server_support, confidence: high)_
+- Architecture decisions between competing approaches (e.g., regex heuristics vs tree-sitter) should be documented in ADRs to capture rationale and trade-offs. _(spec: 29_mcp_server_support, confidence: high)_
 
 ## Decisions
 
@@ -85,6 +121,8 @@
 - The lint-spec CLI must be updated to pass the specs_dir parameter when invoking the validation pipeline to enable stale-dependency checks. _(spec: 21_dependency_interface_validation, confidence: high)_
 - Removing unused formatter classes (YamlFormatter, OutputFormat.YAML) as part of a feature removal reduces dead code and maintenance burden. _(spec: 23_global_json_flag, confidence: high)_
 - JSONL output format is appropriate for code/fix commands while JSON output is appropriate for ask command, indicating different output strategies for different command types. _(spec: 23_global_json_flag, confidence: medium)_
+- Property-based testing (TS-29-P6) is valuable for verifying parser completeness across edge cases without manual test enumeration. _(spec: 29_mcp_server_support, confidence: medium)_
+- Property-based testing (TS-29-P7 style) is valuable for verifying context merge logic in search tools to ensure correctness across varied inputs. _(spec: 29_mcp_server_support, confidence: medium)_
 
 ## Conventions
 
@@ -113,6 +151,20 @@
 - Integration tests for streaming commands should cover edge cases including interrupt handling, invalid stdin JSON input, and input precedence rules. _(spec: 23_global_json_flag, confidence: high)_
 - When adding a new global flag like --json, ensure to update cli-reference.md documentation and remove references to superseded flags (like --format) from affected commands. _(spec: 23_global_json_flag, confidence: high)_
 - Knowledge dump output is stored at .agent-fox/knowledge_dump.md, indicating a hidden directory convention for agent-related artifacts. _(spec: 24_dev_scripts, confidence: high)_
+- Comprehensive test coverage (14 passing tests) should be maintained when implementing new platform task groups to catch regressions early. _(spec: 28_github_issue_rest_api, confidence: high)_
+- Task group completion should be confirmed by running all associated verification tests (both standard and edge case variants) and checking for linter issues on relevant files. _(spec: 27_structured_review_records, confidence: high)_
+- Document specification supersessions in an errata document when newer specs replace older ones, maintaining a clear lineage of changes. _(spec: 28_github_issue_rest_api, confidence: high)_
+- Task group completion should be marked by verifying all associated test cases pass before updating task checkboxes, establishing a clear checkpoint. _(spec: 27_structured_review_records, confidence: medium)_
+- Lint checks should be included in task completion verification to catch code quality issues before marking work as done. _(spec: 27_structured_review_records, confidence: high)_
+- Property test stubs should be created alongside concrete tests to plan for generative testing strategies, particularly when covering broad feature areas like hashing, search, and edit operations. _(spec: 29_mcp_server_support, confidence: medium)_
+- Running full test suites (1485 tests) and linting checks on task-relevant files is an effective verification strategy before marking task groups complete. _(spec: 27_structured_review_records, confidence: high)_
+- When adding external dependencies like xxhash, explicitly specify minimum version constraints (e.g., xxhash>=3.0) in project configuration. _(spec: 29_mcp_server_support, confidence: high)_
+- Creating an Architecture Decision Record (ADR) is a valuable practice when implementing new architectural patterns like structured review records, even after code implementation is complete. _(spec: 27_structured_review_records, confidence: high)_
+- Regression testing is critical when implementing MCP server support; verify that existing tests (1530+) continue to pass alongside new feature tests. _(spec: 29_mcp_server_support, confidence: high)_
+- Pay attention to code formatting and import ordering in test files, as these can cause test runs to fail or be flagged during verification. _(spec: 29_mcp_server_support, confidence: medium)_
+- Running full regression test suites (1540+ tests) after implementing interconnected components (protocol, config, registry) is critical to catch integration issues early. _(spec: 29_mcp_server_support, confidence: high)_
+- Path sandboxing is a critical security consideration when exposing file system operations through MCP servers to prevent unauthorized access outside intended directories. _(spec: 29_mcp_server_support, confidence: high)_
+- Documentation should accompany feature implementation, including README updates for new CLI commands and tool configuration options. _(spec: 29_mcp_server_support, confidence: high)_
 
 ## Anti-Patterns
 
@@ -121,3 +173,6 @@
 ## Fragile Areas
 
 - Global CLI flags should be tested for interactions with existing flags (like --format removal) and precedence rules to prevent unexpected behavior. _(spec: 23_global_json_flag, confidence: high)_
+- When working with migration tests, ensure proper error handling verification is in place to catch exception-related regressions. _(spec: 27_structured_review_records, confidence: medium)_
+- A regex-based outline parser requires deliberate edge case handling for each language to maintain correctness; without it, false positives/negatives are likely. _(spec: 29_mcp_server_support, confidence: high)_
+- Dual consumption paths in architecture require careful design and testing to ensure both paths work correctly and pass comprehensive test suites. _(spec: 29_mcp_server_support, confidence: high)_

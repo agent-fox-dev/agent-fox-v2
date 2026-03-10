@@ -67,6 +67,21 @@ class TestMissingEarsKeyword:
         for f in findings:
             assert f.line is not None
 
+    def test_multiline_criterion_with_shall_on_continuation(self) -> None:
+        """SHALL on a continuation line should not trigger a false positive."""
+        fixture = FIXTURES_DIR / "multiline_ears_spec"
+        findings = check_missing_ears_keyword("multiline_ears_spec", fixture)
+        # Only 99-REQ-1.3 lacks SHALL — the two multi-line criteria are fine
+        assert len(findings) == 1
+        assert "99-REQ-1.3" in findings[0].message
+
+    def test_multiline_does_not_flag_valid_criteria(self) -> None:
+        fixture = FIXTURES_DIR / "multiline_ears_spec"
+        findings = check_missing_ears_keyword("multiline_ears_spec", fixture)
+        flagged_ids = [f.message for f in findings]
+        assert not any("99-REQ-1.1" in m for m in flagged_ids)
+        assert not any("99-REQ-1.2" in m for m in flagged_ids)
+
 
 class TestDesignCompleteness:
     """Verify check_design_completeness detects missing design sections."""

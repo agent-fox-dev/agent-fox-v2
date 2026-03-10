@@ -112,10 +112,10 @@ class TestFloatOnCriticalPath:
 
     def test_all_float_zero(self, analyzer_shortcut_graph: TaskGraph) -> None:
         analysis = analyze_plan(analyzer_shortcut_graph)
-        assert analysis.timings["A"].float == 0
-        assert analysis.timings["B"].float == 0
-        assert analysis.timings["C"].float == 0
-        assert analysis.timings["D"].float == 0
+        assert analysis.timings["A"].slack == 0
+        assert analysis.timings["B"].slack == 0
+        assert analysis.timings["C"].slack == 0
+        assert analysis.timings["D"].slack == 0
 
 
 class TestFloatOnNonCriticalNodes:
@@ -127,19 +127,17 @@ class TestFloatOnNonCriticalNodes:
     D and E have float > 0.
     """
 
-    def test_non_critical_float_positive(
-        self, analyzer_float_graph: TaskGraph
-    ) -> None:
+    def test_non_critical_float_positive(self, analyzer_float_graph: TaskGraph) -> None:
         analysis = analyze_plan(analyzer_float_graph)
-        assert analysis.timings["D"].float > 0
-        assert analysis.timings["E"].float > 0
+        assert analysis.timings["D"].slack > 0
+        assert analysis.timings["E"].slack > 0
 
     def test_critical_float_zero(self, analyzer_float_graph: TaskGraph) -> None:
         analysis = analyze_plan(analyzer_float_graph)
-        assert analysis.timings["A"].float == 0
-        assert analysis.timings["B"].float == 0
-        assert analysis.timings["C"].float == 0
-        assert analysis.timings["F"].float == 0
+        assert analysis.timings["A"].slack == 0
+        assert analysis.timings["B"].slack == 0
+        assert analysis.timings["C"].slack == 0
+        assert analysis.timings["F"].slack == 0
 
 
 class TestEmptyGraphAnalysis:

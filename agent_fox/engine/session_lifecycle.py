@@ -17,7 +17,7 @@ from pathlib import Path
 
 from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.core.models import calculate_cost, resolve_model
+from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
@@ -48,6 +48,41 @@ from agent_fox.workspace.workspace import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_tier_ceiling(config: AgentFoxConfig, archetype: str) -> ModelTier:
+    """Resolve the tier ceiling for an archetype.
+
+    Priority: config override > archetype registry default > ADVANCED.
+
+    The tier ceiling is the maximum model tier the adaptive routing system
+    may use for this archetype. The assessment may start at a lower tier,
+    but escalation never exceeds this ceiling.
+
+    Requirements: 30-REQ-5.3, 30-REQ-2.4
+    """
+    # Check config override first
+    config_override = config.archetypes.models.get(archetype)
+    if config_override:
+        try:
+            return ModelTier(config_override)
+        except ValueError:
+            # Config override is a specific model ID, not a tier name.
+            # Try to resolve to a tier.
+            try:
+                from agent_fox.core.models import resolve_model
+
+                entry = resolve_model(config_override)
+                return entry.tier
+            except Exception:
+                pass
+
+    # Fall back to archetype registry default
+    entry = get_archetype(archetype)
+    try:
+        return ModelTier(entry.default_model_tier)
+    except ValueError:
+        return ModelTier.ADVANCED
 
 
 def _clamp_instances(archetype: str, instances: int) -> int:
@@ -104,6 +139,7 @@ class NodeSessionRunner:
         sink_dispatcher: SinkDispatcher | None = None,
         knowledge_db: KnowledgeDB | None = None,
         activity_callback: ActivityCallback | None = None,
+        assessed_tier: ModelTier | None = None,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -119,8 +155,12 @@ class NodeSessionRunner:
         self._spec_name = parts[0]
         self._task_group = int(parts[1])
 
-        # 26-REQ-4.4: Resolve model tier and allowlist from archetype config
-        self._resolved_model_id = self._resolve_model_tier()
+        # 30-REQ-7.2: Use assessed tier from adaptive routing if provided,
+        # otherwise fall back to static resolution (26-REQ-4.4).
+        if assessed_tier is not None:
+            self._resolved_model_id = assessed_tier.value
+        else:
+            self._resolved_model_id = self._resolve_model_tier()
         self._resolved_security = self._resolve_security_config()
 
     def _build_prompts(

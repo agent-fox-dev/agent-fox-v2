@@ -28,8 +28,10 @@ from agent_fox.session.backends.protocol import (
     AssistantMessage,
     PermissionCallback,
     ResultMessage,
+    ToolDefinition,
     ToolUseMessage,
 )
+from agent_fox.tools.server import FoxMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,7 @@ class ClaudeBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
+        tools: list[ToolDefinition] | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a session via the Claude SDK and yield canonical messages.
 
@@ -92,18 +95,27 @@ class ClaudeBackend:
 
             can_use_tool = _can_use_tool_wrapper
 
+        # Build MCP server config for custom tools (29-REQ-6.2)
+        mcp_servers: dict[str, Any] = {}
+        if tools:
+            fox_server = FoxMCPServer()
+            mcp_servers["agent-fox-tools"] = {
+                "type": "sdk",
+                "name": "agent-fox-tools",
+                "instance": fox_server.mcp_server,
+            }
+
         options = ClaudeCodeOptions(
             cwd=cwd,
             model=model,
             system_prompt=system_prompt,
             permission_mode="bypassPermissions",
             can_use_tool=can_use_tool,
+            mcp_servers=mcp_servers,
         )
 
         try:
-            async for message in self._stream_messages(
-                prompt=prompt, options=options
-            ):
+            async for message in self._stream_messages(prompt=prompt, options=options):
                 yield message
         except Exception as exc:
             # 26-REQ-2.E1: Streaming error yields ResultMessage with is_error=True
@@ -145,27 +157,22 @@ class ClaudeBackend:
         Requirements: 26-REQ-2.2
         """
         # Check for SDK ResultMessage
-        if isinstance(message, SDKResultMessage) or getattr(
-            message, "type", None
-        ) == "result":
+        if (
+            isinstance(message, SDKResultMessage)
+            or getattr(message, "type", None) == "result"
+        ):
             usage = getattr(message, "usage", None)
             if isinstance(usage, dict):
                 input_tokens = _coerce_int(usage.get("input_tokens", 0))
                 output_tokens = _coerce_int(usage.get("output_tokens", 0))
             else:
-                input_tokens = _coerce_int(
-                    getattr(usage, "input_tokens", 0)
-                )
-                output_tokens = _coerce_int(
-                    getattr(usage, "output_tokens", 0)
-                )
+                input_tokens = _coerce_int(getattr(usage, "input_tokens", 0))
+                output_tokens = _coerce_int(getattr(usage, "output_tokens", 0))
             duration_ms = _coerce_int(getattr(message, "duration_ms", 0))
             is_error = bool(getattr(message, "is_error", False))
             error_message: str | None = None
             if is_error:
-                error_message = (
-                    getattr(message, "result", None) or "Unknown error"
-                )
+                error_message = getattr(message, "result", None) or "Unknown error"
             status = "failed" if is_error else "completed"
 
             return ResultMessage(
@@ -188,13 +195,10 @@ class ClaudeBackend:
             return ToolUseMessage(tool_name=name, tool_input=tool_input)
 
         # Everything else becomes an AssistantMessage
-        content = getattr(message, "content", None) or getattr(
-            message, "text", ""
-        )
+        content = getattr(message, "content", None) or getattr(message, "text", "")
         if not isinstance(content, str):
             content = str(content) if content else ""
         return AssistantMessage(content=content)
-
 
     async def close(self) -> None:
         """Release resources (no-op for ClaudeBackend)."""

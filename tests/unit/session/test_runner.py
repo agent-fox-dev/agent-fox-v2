@@ -59,6 +59,7 @@ class MockBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
+        tools: list | None = None,
     ) -> AsyncIterator[AgentMessage]:
         self.last_prompt = prompt
         self.last_system_prompt = system_prompt
@@ -104,10 +105,12 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session returns status 'completed'."""
-        backend = MockBackend([
-            AssistantMessage(content="Working on it..."),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working on it..."),
+                _make_result(),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -127,10 +130,12 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures input and output token counts."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(input_tokens=100, output_tokens=200),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(input_tokens=100, output_tokens=200),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -151,10 +156,12 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session captures duration in milliseconds."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(duration_ms=5000),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(duration_ms=5000),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -174,10 +181,12 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Successful session has no error message."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -197,10 +206,12 @@ class TestSessionRunnerSuccess:
         default_config: AgentFoxConfig,
     ) -> None:
         """Outcome spec_name and task_group match the workspace."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -270,10 +281,12 @@ class TestSessionRunnerTimeout:
         short_timeout_config: AgentFoxConfig,
     ) -> None:
         """A timed-out session returns status 'timeout'."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(),
+            ]
+        )
 
         async def mock_with_timeout(coro, timeout_minutes):
             del timeout_minutes
@@ -306,16 +319,18 @@ class TestSessionRunnerIsError:
         default_config: AgentFoxConfig,
     ) -> None:
         """A ResultMessage with is_error=True produces a failed outcome."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(
-                is_error=True,
-                error_message="something went wrong",
-                input_tokens=50,
-                output_tokens=100,
-                duration_ms=3000,
-            ),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(
+                    is_error=True,
+                    error_message="something went wrong",
+                    input_tokens=50,
+                    output_tokens=100,
+                    duration_ms=3000,
+                ),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -335,16 +350,18 @@ class TestSessionRunnerIsError:
         default_config: AgentFoxConfig,
     ) -> None:
         """Error details are captured from a ResultMessage with is_error."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(
-                is_error=True,
-                error_message="something went wrong",
-                input_tokens=50,
-                output_tokens=100,
-                duration_ms=3000,
-            ),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(
+                    is_error=True,
+                    error_message="something went wrong",
+                    input_tokens=50,
+                    output_tokens=100,
+                    duration_ms=3000,
+                ),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -368,9 +385,11 @@ class TestSessionRunnerResultHandling:
         default_config: AgentFoxConfig,
     ) -> None:
         """Token counts from canonical ResultMessage are captured correctly."""
-        backend = MockBackend([
-            _make_result(input_tokens=12, output_tokens=34, duration_ms=4321),
-        ])
+        backend = MockBackend(
+            [
+                _make_result(input_tokens=12, output_tokens=34, duration_ms=4321),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -393,9 +412,11 @@ class TestSessionRunnerResultHandling:
         default_config: AgentFoxConfig,
     ) -> None:
         """A stream with no ResultMessage is treated as a failed session."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -456,13 +477,15 @@ class TestSessionRunnerActivityCallback:
 
         events: list[ActivityEvent] = []
 
-        backend = MockBackend([
-            ToolUseMessage(
-                tool_name="Read",
-                tool_input={"file_path": "/some/path/config.py"},
-            ),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                ToolUseMessage(
+                    tool_name="Read",
+                    tool_input={"file_path": "/some/path/config.py"},
+                ),
+                _make_result(),
+            ]
+        )
 
         await run_session(
             workspace_info,
@@ -492,11 +515,13 @@ class TestSessionRunnerActivityTurnAndTokens:
 
         events: list[ActivityEvent] = []
 
-        backend = MockBackend([
-            ToolUseMessage(tool_name="Read", tool_input={"file_path": "/a.py"}),
-            ToolUseMessage(tool_name="Edit", tool_input={"file_path": "/b.py"}),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={"file_path": "/a.py"}),
+                ToolUseMessage(tool_name="Edit", tool_input={"file_path": "/b.py"}),
+                _make_result(),
+            ]
+        )
 
         await run_session(
             workspace_info,
@@ -526,10 +551,12 @@ class TestSessionRunnerNoCallback:
         default_config: AgentFoxConfig,
     ) -> None:
         """run_session without activity_callback behaves identically."""
-        backend = MockBackend([
-            AssistantMessage(content="Working..."),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                AssistantMessage(content="Working..."),
+                _make_result(),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,
@@ -553,13 +580,16 @@ class TestSessionRunnerCallbackException:
         default_config: AgentFoxConfig,
     ) -> None:
         """Exceptions in activity_callback are caught."""
+
         def raising_cb(event):
             raise ZeroDivisionError("boom")
 
-        backend = MockBackend([
-            ToolUseMessage(tool_name="Read", tool_input={"file_path": "/foo.py"}),
-            _make_result(),
-        ])
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={"file_path": "/foo.py"}),
+                _make_result(),
+            ]
+        )
 
         outcome = await run_session(
             workspace_info,

@@ -79,7 +79,7 @@ class ModelConfig(BaseModel):
     coding: str = "ADVANCED"
     coordinator: str = "STANDARD"
     memory_extraction: str = "SIMPLE"
-    embedding: str = "voyage-3"
+    embedding: str = "all-MiniLM-L6-v2"  # legacy field; actual config in KnowledgeConfig
 
 class HookConfig(BaseModel):
     pre_code: list[str] = Field(default_factory=list)

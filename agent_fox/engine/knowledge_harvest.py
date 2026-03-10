@@ -51,9 +51,7 @@ async def extract_and_store_knowledge(
                 len(facts),
                 node_id,
             )
-            _extract_causal_links(
-                facts, node_id, memory_extraction_model, knowledge_db
-            )
+            _extract_causal_links(facts, node_id, memory_extraction_model, knowledge_db)
     except Exception:
         logger.warning(
             "Fact extraction failed for %s, continuing",

@@ -10,9 +10,8 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from agent_fox.fix.checks import CheckCategory, CheckDescriptor, FailureRecord
 from agent_fox.fix.clusterer import _fallback_cluster
-from agent_fox.fix.checks import FailureRecord
-from agent_fox.fix.checks import CheckCategory, CheckDescriptor
 
 # Strategy: generate failure records with various check names
 check_name_st = st.sampled_from(["pytest", "ruff", "mypy", "npm test", "cargo test"])

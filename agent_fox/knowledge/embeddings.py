@@ -39,7 +39,18 @@ class EmbeddingGenerator:
     def model(self) -> SentenceTransformer:
         """Lazy-load the sentence-transformers model."""
         if self._model is None:
-            self._model = SentenceTransformer(self._config.embedding_model)
+            import transformers.utils.logging as tf_logging
+
+            # Suppress the "Loading weights" tqdm bar and
+            # "LOAD REPORT" warning emitted by transformers during model load.
+            tf_logging.disable_progress_bar()
+            prev_level = tf_logging.get_verbosity()
+            tf_logging.set_verbosity_error()
+            try:
+                self._model = SentenceTransformer(self._config.embedding_model)
+            finally:
+                tf_logging.set_verbosity(prev_level)
+                tf_logging.enable_progress_bar()
         return self._model
 
     def embed_text(self, text: str) -> list[float] | None:

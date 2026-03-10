@@ -27,6 +27,8 @@ EXPECTED_TABLES = {
     "tool_errors",
     "review_findings",
     "verification_results",
+    "complexity_assessments",
+    "execution_outcomes",
 }
 
 
@@ -65,7 +67,8 @@ class TestSchemaInitializationIdempotency:
                 "SELECT COUNT(*) FROM schema_version"
             ).fetchone()
             assert version_count is not None
-            assert version_count[0] == 2  # v1 (initial) + v2 (review tables)
+            # v1 (initial) + v2 (review tables) + v3 (routing tables)
+            assert version_count[0] == 3
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

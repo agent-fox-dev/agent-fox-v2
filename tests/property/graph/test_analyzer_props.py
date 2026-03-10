@@ -145,27 +145,21 @@ class TestZeroFloatImpliesCriticalPath:
         """All nodes on the critical path have float 0."""
         analysis = analyze_plan(dag)
         for nid in analysis.critical_path:
-            assert analysis.timings[nid].float == 0, (
-                f"Critical path node {nid} has float {analysis.timings[nid].float}"
+            assert analysis.timings[nid].slack == 0, (
+                f"Critical path node {nid} has float {analysis.timings[nid].slack}"
             )
 
     @given(dag=random_dags())
     @settings(max_examples=50)
-    def test_zero_float_equals_critical_path_when_unique(
-        self, dag: TaskGraph
-    ) -> None:
+    def test_zero_float_equals_critical_path_when_unique(self, dag: TaskGraph) -> None:
         """When no alternative paths exist, zero-float set equals critical path set."""
         analysis = analyze_plan(dag)
         if analysis.has_alternative_critical_paths:
             # Zero-float set is a superset of the representative critical path
-            zero_float = {
-                nid for nid, t in analysis.timings.items() if t.float == 0
-            }
+            zero_float = {nid for nid, t in analysis.timings.items() if t.slack == 0}
             assert set(analysis.critical_path) <= zero_float
         else:
-            zero_float = {
-                nid for nid, t in analysis.timings.items() if t.float == 0
-            }
+            zero_float = {nid for nid, t in analysis.timings.items() if t.slack == 0}
             assert zero_float == set(analysis.critical_path)
 
 
@@ -184,4 +178,4 @@ class TestFloatNonNegative:
     def test_all_floats_non_negative(self, dag: TaskGraph) -> None:
         analysis = analyze_plan(dag)
         for nid, timing in analysis.timings.items():
-            assert timing.float >= 0, f"Node {nid} has negative float: {timing.float}"
+            assert timing.slack >= 0, f"Node {nid} has negative float: {timing.slack}"

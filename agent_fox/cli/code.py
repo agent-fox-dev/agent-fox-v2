@@ -20,6 +20,7 @@ import click
 from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig, HookConfig, OrchestratorConfig
 from agent_fox.core.errors import AgentFoxError
+from agent_fox.core.models import ModelTier
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.engine.state import ExecutionState
@@ -209,8 +210,7 @@ def code_cmd(
     if not plan_path.exists():
         if json_mode:
             json_io.emit_error(
-                "Plan file not found. "
-                "Run `agent-fox plan` first to generate a plan."
+                "Plan file not found. Run `agent-fox plan` first to generate a plan."
             )
             sys.exit(1)
         click.echo(
@@ -260,6 +260,7 @@ def code_cmd(
         *,
         archetype: str = "coder",
         instances: int = 1,
+        assessed_tier: ModelTier | None = None,
     ) -> NodeSessionRunner:
         """Create a session runner for the given node.
 
@@ -269,6 +270,9 @@ def code_cmd(
 
         26-REQ-4.4: Passes archetype and instances from the plan node
         so the runner resolves the correct prompt, model, and allowlist.
+
+        30-REQ-7.2: Passes assessed_tier from adaptive routing to override
+        static model resolution.
 
         16-REQ-5.E1: If construction fails, the runner's execute()
         method will catch and report the failure as a session error.
@@ -283,6 +287,23 @@ def code_cmd(
             sink_dispatcher=sink_dispatcher,
             knowledge_db=knowledge_db,
             activity_callback=progress.activity_callback,
+            assessed_tier=assessed_tier,
+        )
+
+    # 30-REQ-7.1: Create assessment pipeline for adaptive routing
+    assessment_pipeline = None
+    try:
+        from agent_fox.routing.assessor import AssessmentPipeline
+
+        db_conn = knowledge_db.connection if knowledge_db else None
+        assessment_pipeline = AssessmentPipeline(
+            config=full_config.routing,
+            db=db_conn,
+        )
+    except Exception:
+        logger.warning(
+            "Failed to initialize assessment pipeline, adaptive routing disabled",
+            exc_info=True,
         )
 
     # 18-REQ-5.1, 18-REQ-5.E1: Wrap execution with progress start/stop
@@ -299,6 +320,8 @@ def code_cmd(
             no_hooks=no_hooks,
             task_callback=progress.task_callback,
             barrier_callback=lambda: _ingest_if_available(knowledge_db, config),
+            routing_config=full_config.routing,
+            assessment_pipeline=assessment_pipeline,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
@@ -336,18 +359,20 @@ def code_cmd(
     # 23-REQ-5.1: emit JSONL summary in JSON mode
     if json_mode:
         counts = _count_by_status(state.node_states)
-        json_io.emit_line({
-            "event": "complete",
-            "summary": {
-                "tasks": len(state.node_states),
-                "completed": counts.get("completed", 0),
-                "failed": counts.get("failed", 0),
-                "input_tokens": state.total_input_tokens,
-                "output_tokens": state.total_output_tokens,
-                "cost": state.total_cost,
-                "run_status": state.run_status,
-            },
-        })
+        json_io.emit_line(
+            {
+                "event": "complete",
+                "summary": {
+                    "tasks": len(state.node_states),
+                    "completed": counts.get("completed", 0),
+                    "failed": counts.get("failed", 0),
+                    "input_tokens": state.total_input_tokens,
+                    "output_tokens": state.total_output_tokens,
+                    "cost": state.total_cost,
+                    "run_status": state.run_status,
+                },
+            }
+        )
     else:
         # 16-REQ-3.1: print summary
         _print_summary(state)

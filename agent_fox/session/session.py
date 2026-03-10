@@ -105,17 +105,12 @@ async def run_session(
 
         backend = get_backend("claude")
 
-    # Track metrics (including partials for timeout/failure cases)
-    execution_state = _QueryExecutionState()
-    input_tokens = 0
-    output_tokens = 0
-    duration_ms = 0
-    error_message: str | None = None
-    status = "completed"
+    # Track metrics via mutable state (supports partial reads on timeout/failure)
+    state = _QueryExecutionState()
 
     try:
         # 03-REQ-3.1, 03-REQ-6.1: Execute query wrapped in timeout
-        result = await with_timeout(
+        await with_timeout(
             _execute_query(
                 task_prompt=task_prompt,
                 system_prompt=system_prompt,
@@ -123,45 +118,33 @@ async def run_session(
                 cwd=str(workspace.path),
                 config=config,
                 backend=backend,
-                state=execution_state,
+                state=state,
                 node_id=node_id,
                 activity_callback=activity_callback,
                 security_config_override=effective_security,
             ),
             timeout_minutes=config.orchestrator.session_timeout,
         )
-        input_tokens = result["input_tokens"]
-        output_tokens = result["output_tokens"]
-        duration_ms = result["duration_ms"]
-        error_message = result["error_message"]
-        status = result["status"]
 
     except TimeoutError:
         # 03-REQ-6.2, 03-REQ-6.E1: Timeout with partial metrics
-        status = "timeout"
-        input_tokens = execution_state.input_tokens
-        output_tokens = execution_state.output_tokens
-        duration_ms = execution_state.duration_ms
-        error_message = execution_state.error_message
+        state.status = "timeout"
 
     except Exception as exc:
         # 03-REQ-3.E1, 26-REQ-1.E1: Catch backend errors, return failed outcome
-        status = "failed"
-        error_message = str(exc)
-        input_tokens = execution_state.input_tokens
-        output_tokens = execution_state.output_tokens
-        duration_ms = execution_state.duration_ms
-        logger.warning("Session failed with error: %s", error_message)
+        state.status = "failed"
+        state.error_message = str(exc)
+        logger.warning("Session failed with error: %s", state.error_message)
 
     return SessionOutcome(
         spec_name=workspace.spec_name,
         task_group=str(workspace.task_group),
         node_id=node_id,
-        status=status,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        duration_ms=duration_ms,
-        error_message=error_message,
+        status=state.status,
+        input_tokens=state.input_tokens,
+        output_tokens=state.output_tokens,
+        duration_ms=state.duration_ms,
+        error_message=state.error_message,
     )
 
 
@@ -173,16 +156,16 @@ async def _execute_query(
     cwd: str,
     config: AgentFoxConfig,
     backend: AgentBackend,
-    state: _QueryExecutionState | None = None,
+    state: _QueryExecutionState,
     node_id: str = "",
     activity_callback: ActivityCallback | None = None,
     security_config_override: Any | None = None,
-) -> dict[str, Any]:
+) -> None:
     """Execute the query via an AgentBackend and collect results.
 
-    Returns a dict with token usage, duration, status, and error info.
+    Updates *state* in place with token usage, duration, status, and error info.
     """
-    query_state = state or _QueryExecutionState()
+    query_state = state
 
     # 03-REQ-3.4, 26-REQ-3.4: Build the allowlist-based permission callback
     # Use security override (per-archetype allowlist) if provided
@@ -200,6 +183,13 @@ async def _execute_query(
         result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
         return result.get("decision") != "block"
 
+    # 29-REQ-8.2, 29-REQ-8.3: Build fox tool definitions when enabled
+    fox_tools = None
+    if config.tools.fox_tools:
+        from agent_fox.tools.registry import build_fox_tool_definitions
+
+        fox_tools = build_fox_tool_definitions()
+
     turn_count = 0
     cumulative_tokens = 0
 
@@ -209,6 +199,7 @@ async def _execute_query(
         model=model_id,
         cwd=cwd,
         permission_callback=_permission_callback,
+        tools=fox_tools,
     ):
         is_result = isinstance(message, ResultMessage)
 
@@ -253,14 +244,6 @@ async def _execute_query(
         query_state.error_message = (
             query_state.error_message or "Session ended without a result message."
         )
-
-    return {
-        "input_tokens": query_state.input_tokens,
-        "output_tokens": query_state.output_tokens,
-        "duration_ms": query_state.duration_ms,
-        "error_message": query_state.error_message,
-        "status": query_state.status,
-    }
 
 
 def _extract_activity(

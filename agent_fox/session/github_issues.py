@@ -1,168 +1,92 @@
-"""GitHub issue search-before-create idempotency via ``gh`` CLI.
+"""GitHub issue search-before-create idempotency via REST API.
 
 Provides ``file_or_update_issue()`` which searches for an existing open issue
 with a matching title prefix before creating a new one. On re-runs, existing
 issues are updated rather than duplicated.
 
-All ``gh`` failures are logged and swallowed — GitHub issue filing never
+All REST API failures are logged and swallowed -- GitHub issue filing never
 blocks session completion.
 
-Requirements: 26-REQ-10.1, 26-REQ-10.2, 26-REQ-10.3, 26-REQ-10.E1,
+Requirements: 28-REQ-5.1, 28-REQ-5.2, 28-REQ-5.3, 28-REQ-5.4,
+              28-REQ-5.E1, 28-REQ-5.E2,
               27-REQ-7.1, 27-REQ-7.2, 27-REQ-7.E1
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_fox.platform.github import GitHubPlatform
 
 logger = logging.getLogger(__name__)
-
-
-async def _run_gh_command(args: list[str]) -> str:
-    """Run a ``gh`` CLI command and return stdout.
-
-    Raises on non-zero exit or if ``gh`` is not found.
-    """
-    cmd = ["gh", *args]
-    proc = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"gh command failed (exit {proc.returncode}): {stderr.decode().strip()}"
-        )
-    return stdout.decode().strip()
-
-
-def _parse_issue_number(search_output: str) -> str | None:
-    """Extract the first issue number from ``gh issue list`` output.
-
-    Expected format: ``NUMBER\\tTITLE\\t...`` per line.
-    Returns the number string or None if no results.
-    """
-    if not search_output.strip():
-        return None
-    first_line = search_output.strip().splitlines()[0]
-    parts = first_line.split("\t")
-    if parts:
-        return parts[0].strip()
-    return None
 
 
 async def file_or_update_issue(
     title_prefix: str,
     body: str,
     *,
-    repo: str | None = None,
+    platform: GitHubPlatform | None = None,
     close_if_empty: bool = False,
 ) -> str | None:
     """Search-before-create GitHub issue idempotency.
 
-    1. Search: ``gh issue list --search "in:title {title_prefix}" --state open``
-    2. If found: update body, add comment noting re-run.
-    3. If not found: create new issue.
-    4. If ``close_if_empty`` and body is empty/whitespace: close existing issue.
+    Uses the GitHubPlatform REST API instead of the gh CLI.
+
+    1. If platform is None: log warning, return None.
+    2. Search for existing open issue with matching title prefix.
+    3. If found and close_if_empty and body is empty: close issue.
+    4. If found: update body, add comment noting re-run.
+    5. If not found: create new issue.
 
     Returns issue URL or None on failure.
     Failures are logged but never raise.
 
-    Requirements: 26-REQ-10.1, 26-REQ-10.2, 26-REQ-10.3, 26-REQ-10.E1
+    Requirements: 28-REQ-5.1, 28-REQ-5.2, 28-REQ-5.3, 28-REQ-5.E1, 28-REQ-5.E2
     """
+    if platform is None:
+        logger.warning(
+            "No GitHubPlatform provided; cannot file GitHub issue for '%s'",
+            title_prefix,
+        )
+        return None
+
     try:
         # 1. Search for existing open issue
-        search_args = [
-            "issue",
-            "list",
-            "--search",
-            f"in:title {title_prefix}",
-            "--state",
-            "open",
-            "--limit",
-            "1",
-        ]
-        if repo:
-            search_args.extend(["--repo", repo])
+        results = await platform.search_issues(title_prefix)
 
-        search_output = await _run_gh_command(search_args)
-        existing_number = _parse_issue_number(search_output)
+        if results:
+            existing = results[0]
 
-        if existing_number:
-            # 4. Close if empty and close_if_empty is set
+            # Close if empty and close_if_empty is set
             if close_if_empty and not body.strip():
-                close_args = ["issue", "close", existing_number]
-                if repo:
-                    close_args.extend(["--repo", repo])
-                close_args.extend(
-                    [
-                        "--comment",
-                        "Closing: no findings on re-run.",
-                    ]
+                await platform.close_issue(
+                    existing.number,
+                    comment="Closing: no findings on re-run.",
                 )
-                await _run_gh_command(close_args)
                 logger.info(
-                    "Closed issue #%s (no findings): %s",
-                    existing_number,
+                    "Closed issue #%d (no findings): %s",
+                    existing.number,
                     title_prefix,
                 )
                 return None
 
-            # 2. Update existing issue
-            edit_args = [
-                "issue",
-                "edit",
-                existing_number,
-                "--body",
-                body,
-            ]
-            if repo:
-                edit_args.extend(["--repo", repo])
-            await _run_gh_command(edit_args)
-
-            # Add comment noting the re-run
-            comment_args = [
-                "issue",
-                "comment",
-                existing_number,
-                "--body",
-                "Updated on re-run.",
-            ]
-            if repo:
-                comment_args.extend(["--repo", repo])
-            await _run_gh_command(comment_args)
-
+            # Update existing issue
+            await platform.update_issue(existing.number, body)
+            await platform.add_issue_comment(existing.number, "Updated on re-run.")
             logger.info(
-                "Updated existing issue #%s: %s",
-                existing_number,
+                "Updated existing issue #%d: %s",
+                existing.number,
                 title_prefix,
             )
-            return f"#{existing_number}"
+            return existing.html_url
 
-        # 3. Create new issue
-        create_args = [
-            "issue",
-            "create",
-            "--title",
-            title_prefix,
-            "--body",
-            body,
-        ]
-        if repo:
-            create_args.extend(["--repo", repo])
+        # 2. Create new issue
+        result = await platform.create_issue(title_prefix, body)
+        logger.info("Created new issue #%d: %s", result.number, result.html_url)
+        return result.html_url
 
-        result = await _run_gh_command(create_args)
-        logger.info("Created new issue: %s — %s", title_prefix, result)
-        return result
-
-    except FileNotFoundError:
-        logger.warning(
-            "gh CLI not found; cannot file GitHub issue for '%s'",
-            title_prefix,
-        )
-        return None
     except Exception:
         logger.warning(
             "GitHub issue filing failed for '%s'; continuing without issue",

@@ -14,9 +14,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.fix.checks import CheckCategory, CheckDescriptor, FailureRecord
 from agent_fox.fix.clusterer import FailureCluster
-from agent_fox.fix.checks import FailureRecord
-from agent_fox.fix.checks import CheckCategory, CheckDescriptor
 from agent_fox.fix.fix import run_fix_loop
 
 

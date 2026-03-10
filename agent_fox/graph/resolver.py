@@ -189,7 +189,7 @@ class NodeTiming:
     node_id: str
     earliest_start: int
     latest_start: int
-    float: int
+    slack: int
 
 
 @dataclass(frozen=True)
@@ -291,7 +291,7 @@ def analyze_plan(graph: TaskGraph) -> PlanAnalysis:
             node_id=nid,
             earliest_start=es[nid],
             latest_start=ls[nid],
-            float=node_float,
+            slack=node_float,
         )
 
     # Group nodes by ES to form phases
@@ -313,10 +313,8 @@ def analyze_plan(graph: TaskGraph) -> PlanAnalysis:
     peak_parallelism = max(p.worker_count for p in phases) if phases else 0
 
     # Trace critical path: follow zero-float nodes from source to sink
-    zero_float_nodes = {nid for nid, t in timings.items() if t.float == 0}
-    critical_path = _trace_critical_path(
-        zero_float_nodes, es, successors, topo_order
-    )
+    zero_float_nodes = {nid for nid, t in timings.items() if t.slack == 0}
+    critical_path = _trace_critical_path(zero_float_nodes, es, successors, topo_order)
 
     # Detect alternative critical paths
     has_alternatives = _has_alternative_paths(
@@ -428,9 +426,7 @@ def format_analysis(analysis: PlanAnalysis, graph: TaskGraph) -> str:
     lines.append("")
 
     # Float summary
-    nodes_with_float = [
-        (nid, t) for nid, t in analysis.timings.items() if t.float > 0
-    ]
+    nodes_with_float = [(nid, t) for nid, t in analysis.timings.items() if t.slack > 0]
 
     # Summary
     lines.append("Summary:")
@@ -445,7 +441,7 @@ def format_analysis(analysis: PlanAnalysis, graph: TaskGraph) -> str:
         for nid, t in nodes_with_float:
             node = graph.nodes.get(nid)
             spec = node.spec_name if node else "unknown"
-            spec_float.setdefault(spec, []).append(t.float)
+            spec_float.setdefault(spec, []).append(t.slack)
 
         float_parts = []
         for spec, floats in sorted(spec_float.items()):

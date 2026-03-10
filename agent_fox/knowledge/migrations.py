@@ -60,12 +60,52 @@ def _migrate_v2(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v3(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add complexity_assessments and execution_outcomes tables.
+
+    Requirements: 30-REQ-6.1, 30-REQ-6.2, 30-REQ-6.3, 30-REQ-6.E1
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS complexity_assessments (
+            id              VARCHAR PRIMARY KEY,
+            node_id         VARCHAR NOT NULL,
+            spec_name       VARCHAR NOT NULL,
+            task_group      INTEGER NOT NULL,
+            predicted_tier  VARCHAR NOT NULL,
+            confidence      FLOAT NOT NULL,
+            assessment_method VARCHAR NOT NULL,
+            feature_vector  JSON NOT NULL,
+            tier_ceiling    VARCHAR NOT NULL,
+            created_at      TIMESTAMP NOT NULL DEFAULT current_timestamp
+        );
+
+        CREATE TABLE IF NOT EXISTS execution_outcomes (
+            id                  VARCHAR PRIMARY KEY,
+            assessment_id       VARCHAR NOT NULL REFERENCES complexity_assessments(id),
+            actual_tier         VARCHAR NOT NULL,
+            total_tokens        INTEGER NOT NULL,
+            total_cost          FLOAT NOT NULL,
+            duration_ms         INTEGER NOT NULL,
+            attempt_count       INTEGER NOT NULL,
+            escalation_count    INTEGER NOT NULL,
+            outcome             VARCHAR NOT NULL,
+            files_touched_count INTEGER NOT NULL,
+            created_at          TIMESTAMP NOT NULL DEFAULT current_timestamp
+        );
+    """)
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
         version=2,
         description="add review_findings and verification_results tables",
         apply=_migrate_v2,
+    ),
+    Migration(
+        version=3,
+        description="add complexity_assessments and execution_outcomes tables",
+        apply=_migrate_v3,
     ),
 ]
 

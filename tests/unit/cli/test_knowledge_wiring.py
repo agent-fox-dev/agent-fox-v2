@@ -14,10 +14,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.memory.types import Fact
+from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.sink import SessionOutcome
+from agent_fox.memory.types import Fact
 from agent_fox.workspace.workspace import WorkspaceInfo
 
 
@@ -146,7 +146,7 @@ class TestFactExtractionAfterSession:
 
     @pytest.mark.asyncio
     async def test_extract_failure_does_not_block_session(self, tmp_path: Path) -> None:
-        """If extract_and_store_knowledge raises, the session still returns successfully."""
+        """Extract failure does not block the session."""
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="completed")
 

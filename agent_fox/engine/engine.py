@@ -26,8 +26,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent_fox.core.config import HookConfig, OrchestratorConfig
+from agent_fox.core.config import HookConfig, OrchestratorConfig, RoutingConfig
 from agent_fox.core.errors import PlanError
+from agent_fox.core.models import ModelTier
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.state import (
@@ -70,10 +71,14 @@ class SerialRunner:
         *,
         archetype: str = "coder",
         instances: int = 1,
+        assessed_tier: Any | None = None,
     ) -> SessionRecord:
         """Execute a single session and return the outcome record."""
         runner = self._session_runner_factory(
-            node_id, archetype=archetype, instances=instances,
+            node_id,
+            archetype=archetype,
+            instances=instances,
+            assessed_tier=assessed_tier,
         )
         return await invoke_runner(runner, node_id, attempt, previous_error)
 
@@ -262,6 +267,10 @@ class GraphSync:
             if all(self.node_states.get(d) == "completed" for d in deps):
                 ready.append(node_id)
         return sorted(ready)
+
+    def predecessors(self, node_id: str) -> list[str]:
+        """Return predecessor node IDs for *node_id*."""
+        return self._edges.get(node_id, [])
 
     def mark_completed(self, node_id: str) -> None:
         """Mark a task as completed."""
@@ -530,6 +539,8 @@ class Orchestrator:
         no_hooks: bool = False,
         task_callback: TaskCallback | None = None,
         barrier_callback: Callable[[], None] | None = None,
+        routing_config: RoutingConfig | None = None,
+        assessment_pipeline: Any | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -546,6 +557,17 @@ class Orchestrator:
         self._plan_nodes: dict = {}
         self._edges_list: list[dict] = []
         self._plan_data: dict = {}  # Full plan data for plan.json updates
+
+        # 30-REQ-7: Adaptive routing state
+        self._routing_config = routing_config or RoutingConfig()
+        self._assessment_pipeline = assessment_pipeline
+        # Per-node escalation ladders and assessments (populated on first dispatch)
+        self._escalation_ladders: dict[str, Any] = {}
+        self._assessments: dict[str, Any] = {}
+
+        # 30-REQ-5.1: Handle max_retries deprecation
+        self._retries_before_escalation = self._resolve_retries_before_escalation()
+
         self._serial_runner = SerialRunner(
             session_runner_factory=session_runner_factory,
             inter_session_delay=float(config.inter_session_delay),
@@ -556,6 +578,168 @@ class Orchestrator:
                 session_runner_factory=session_runner_factory,
                 max_parallelism=config.parallel,
                 inter_session_delay=float(config.inter_session_delay),
+            )
+
+    def _resolve_retries_before_escalation(self) -> int:
+        """Resolve retries_before_escalation with max_retries deprecation.
+
+        If routing.retries_before_escalation is at its default (1) and
+        orchestrator.max_retries is set, use max_retries as a fallback
+        with a deprecation warning. Otherwise, routing config takes precedence.
+
+        Requirements: 30-REQ-5.1
+        """
+        routing_retries = self._routing_config.retries_before_escalation
+        orch_retries = self._config.max_retries
+
+        # If routing config is explicitly set (non-default), it takes precedence
+        if routing_retries != 1:
+            return routing_retries
+
+        # If orchestrator.max_retries is set and differs from default,
+        # use it as fallback with deprecation warning
+        if orch_retries != 2:  # 2 is OrchestratorConfig.max_retries default
+            logger.warning(
+                "orchestrator.max_retries is deprecated; use "
+                "routing.retries_before_escalation instead. "
+                "Using max_retries=%d as fallback.",
+                orch_retries,
+            )
+            return min(orch_retries, 3)  # Clamp to valid range
+
+        return routing_retries
+
+    async def _assess_node(self, node_id: str) -> None:
+        """Run complexity assessment for a node and create an escalation ladder.
+
+        The assessment pipeline is called before the first dispatch of a node.
+        On any failure, falls back to the archetype default tier (30-REQ-7.E1).
+
+        When no assessment pipeline is configured, no ladder is created and
+        the orchestrator falls back to legacy retry behaviour for backward
+        compatibility.
+
+        Requirements: 30-REQ-7.1, 30-REQ-7.E1
+        """
+        if node_id in self._escalation_ladders:
+            return  # Already assessed
+
+        # Without an assessment pipeline, skip adaptive routing entirely
+        # and rely on the legacy retry path in _process_session_result.
+        if self._assessment_pipeline is None:
+            return
+
+        from agent_fox.routing.escalation import EscalationLadder
+
+        archetype = self._get_node_archetype(node_id)
+
+        # Determine tier ceiling for this archetype
+        try:
+            entry = get_archetype(archetype)
+            try:
+                tier_ceiling = ModelTier(entry.default_model_tier)
+            except ValueError:
+                tier_ceiling = ModelTier.ADVANCED
+        except Exception:
+            tier_ceiling = ModelTier.ADVANCED
+
+        # 30-REQ-7.1: Run assessment before session creation
+        predicted_tier = tier_ceiling  # fallback
+        try:
+            # Parse node_id to get spec_name and task_group
+            parts = node_id.rsplit(":", 1)
+            spec_name = parts[0]
+            task_group = int(parts[1]) if len(parts) > 1 else 1
+            spec_dir = Path(".specs") / spec_name
+
+            assessment = await self._assessment_pipeline.assess(
+                node_id=node_id,
+                spec_name=spec_name,
+                task_group=task_group,
+                spec_dir=spec_dir,
+                archetype=archetype,
+                tier_ceiling=tier_ceiling,
+            )
+            predicted_tier = assessment.predicted_tier
+            self._assessments[node_id] = assessment
+
+            logger.info(
+                "Adaptive routing for %s: predicted_tier=%s confidence=%.2f "
+                "method=%s ceiling=%s",
+                node_id,
+                predicted_tier,
+                assessment.confidence,
+                assessment.assessment_method,
+                tier_ceiling,
+            )
+        except Exception:
+            # 30-REQ-7.E1: Fall back to archetype default tier
+            logger.error(
+                "Assessment pipeline failed for %s, falling back to "
+                "archetype default tier %s",
+                node_id,
+                tier_ceiling,
+                exc_info=True,
+            )
+            predicted_tier = tier_ceiling
+
+        # Create escalation ladder
+        ladder = EscalationLadder(
+            starting_tier=predicted_tier,
+            tier_ceiling=tier_ceiling,
+            retries_before_escalation=self._retries_before_escalation,
+        )
+        self._escalation_ladders[node_id] = ladder
+
+    def _record_node_outcome(
+        self,
+        node_id: str,
+        state: ExecutionState,
+        final_status: str,
+    ) -> None:
+        """Record execution outcome for a completed/failed node.
+
+        Aggregates costs and tokens from all session records for this node
+        and persists the outcome via the assessment pipeline.
+
+        Requirements: 30-REQ-7.4, 30-REQ-3.1
+        """
+        if self._assessment_pipeline is None:
+            return
+        assessment = self._assessments.get(node_id)
+        if assessment is None:
+            return
+
+        ladder = self._escalation_ladders.get(node_id)
+
+        # Aggregate metrics from all session records for this node
+        node_records = [r for r in state.session_history if r.node_id == node_id]
+        total_tokens = sum(r.input_tokens + r.output_tokens for r in node_records)
+        total_cost = sum(r.cost for r in node_records)
+        total_duration = sum(r.duration_ms for r in node_records)
+        files_touched = set()
+        for r in node_records:
+            files_touched.update(r.files_touched)
+
+        try:
+            self._assessment_pipeline.record_outcome(
+                assessment=assessment,
+                actual_tier=(
+                    ladder.current_tier if ladder else assessment.predicted_tier
+                ),
+                total_tokens=total_tokens,
+                total_cost=total_cost,
+                duration_ms=total_duration,
+                attempt_count=ladder.attempt_count if ladder else len(node_records),
+                escalation_count=ladder.escalation_count if ladder else 0,
+                outcome=final_status,
+                files_touched_count=len(files_touched),
+            )
+        except Exception:
+            logger.warning(
+                "Failed to record outcome for %s",
+                node_id,
+                exc_info=True,
             )
 
     async def run(self) -> ExecutionState:
@@ -648,9 +832,7 @@ class Orchestrator:
                         state,
                         attempt_tracker,
                         error_tracker,
-                        first_dispatch,
                     )
-                    first_dispatch = False
                 else:
                     first_dispatch = await self._dispatch_serial(
                         ready,
@@ -722,6 +904,9 @@ class Orchestrator:
             if self._signal.interrupted:
                 break
 
+            # 30-REQ-7.1: Run assessment before first dispatch
+            await self._assess_node(node_id)
+
             attempt = attempt_tracker.get(node_id, 0) + 1
             verdict = self._check_launch(node_id, attempt, state, attempt_tracker)
             if verdict == "blocked":
@@ -744,12 +929,17 @@ class Orchestrator:
             node_archetype = self._get_node_archetype(node_id)
             node_instances = self._get_node_instances(node_id)
 
+            # 30-REQ-7.2: Pass assessed tier from escalation ladder
+            ladder = self._escalation_ladders.get(node_id)
+            assessed_tier = ladder.current_tier if ladder else None
+
             record = await self._serial_runner.execute(
                 node_id,
                 attempt,
                 previous_error,
                 archetype=node_archetype,
                 instances=node_instances,
+                assessed_tier=assessed_tier,
             )
 
             self._process_session_result(
@@ -762,6 +952,8 @@ class Orchestrator:
 
             # 06-REQ-6.1: Check sync barrier after task completion
             if record.status == "completed":
+                # 30-REQ-7.4: Record outcome on success
+                self._record_node_outcome(node_id, state, "completed")
                 self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks after each completion
@@ -775,7 +967,6 @@ class Orchestrator:
         state: ExecutionState,
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
-        first_dispatch: bool,
     ) -> None:
         """Dispatch ready tasks using a streaming pool.
 
@@ -800,13 +991,16 @@ class Orchestrator:
         pool: set[asyncio.Task[SessionRecord]] = set()
         max_pool = parallel_runner.max_parallelism
 
-        def _fill_pool(candidates: list[str]) -> None:
+        async def _fill_pool(candidates: list[str]) -> None:
             """Launch candidates into the pool up to max_parallelism."""
             for node_id in candidates:
                 if len(pool) >= max_pool:
                     break
                 if self._signal.interrupted:
                     break
+
+                # 30-REQ-7.1: Assess before first dispatch
+                await self._assess_node(node_id)
 
                 attempt = attempt_tracker.get(node_id, 0) + 1
                 verdict = self._check_launch(
@@ -824,6 +1018,10 @@ class Orchestrator:
                 node_archetype = self._get_node_archetype(node_id)
                 node_instances = self._get_node_instances(node_id)
 
+                # 30-REQ-7.2: Pass assessed tier from escalation ladder
+                ladder = self._escalation_ladders.get(node_id)
+                assessed_tier = ladder.current_tier if ladder else None
+
                 task = asyncio.create_task(
                     parallel_runner.execute_one(
                         node_id,
@@ -831,12 +1029,13 @@ class Orchestrator:
                         previous_error,
                         archetype=node_archetype,
                         instances=node_instances,
+                        assessed_tier=assessed_tier,
                     ),
                     name=f"parallel-{node_id}",
                 )
                 pool.add(task)
 
-        _fill_pool(ready)
+        await _fill_pool(ready)
 
         if not pool:
             return
@@ -872,12 +1071,14 @@ class Orchestrator:
 
                 # 06-REQ-6.1: Check sync barrier after task completion
                 if record.status == "completed":
+                    # 30-REQ-7.4: Record outcome on success
+                    self._record_node_outcome(record.node_id, state, "completed")
                     self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
                 new_ready = graph_sync.ready_tasks()
-                _fill_pool(new_ready)
+                await _fill_pool(new_ready)
 
             parallel_runner.track_tasks(list(pool))
             self._state_manager.save(state)
@@ -916,48 +1117,103 @@ class Orchestrator:
             node_archetype = self._get_node_archetype(node_id)
             archetype_entry = get_archetype(node_archetype)
 
-            if (
-                archetype_entry.retry_predecessor
-                and attempt < self._config.max_retries + 1
-            ):
-                # Find predecessor and reset it instead of the failed node
-                predecessors = self._get_predecessors(node_id)
-                if predecessors:
-                    pred_id = predecessors[0]
-                    logger.info(
-                        "Retry-predecessor: resetting %s to pending due to "
-                        "%s failure (attempt %d)",
-                        pred_id,
-                        node_id,
-                        attempt,
-                    )
-                    self._graph_sync.node_states[pred_id] = "pending"
-                    error_tracker[pred_id] = record.error_message
-                    # Reset the failed node itself so it re-runs after
-                    # predecessor completes
-                    self._graph_sync.node_states[node_id] = "pending"
-                    self._state_manager.save(state)
-                    return
+            # 30-REQ-7.3: Use escalation ladder for retry/escalation decisions
+            ladder = self._escalation_ladders.get(node_id)
 
-            if attempt >= self._config.max_retries + 1:
-                # 18-REQ-5.4: Emit task failure event
-                if self._task_callback is not None:
-                    duration_s = (record.duration_ms or 0) / 1000
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=node_id,
-                            status="failed",
-                            duration_s=duration_s,
-                            error_message=record.error_message,
+            if ladder is not None:
+                # Record failure on the escalation ladder
+                ladder.record_failure()
+
+                if archetype_entry.retry_predecessor and ladder.should_retry():
+                    # Find predecessor and reset it instead of the failed node
+                    predecessors = self._get_predecessors(node_id)
+                    if predecessors:
+                        pred_id = predecessors[0]
+                        logger.info(
+                            "Retry-predecessor: resetting %s to pending due to "
+                            "%s failure (attempt %d)",
+                            pred_id,
+                            node_id,
+                            attempt,
                         )
+                        self._graph_sync.node_states[pred_id] = "pending"
+                        error_tracker[pred_id] = record.error_message
+                        self._graph_sync.node_states[node_id] = "pending"
+                        self._state_manager.save(state)
+                        return
+
+                if ladder.is_exhausted:
+                    # 30-REQ-2.3: All retries and escalation exhausted
+                    # 30-REQ-7.4: Record outcome on final failure
+                    self._record_node_outcome(node_id, state, "failed")
+
+                    if self._task_callback is not None:
+                        duration_s = (record.duration_ms or 0) / 1000
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=node_id,
+                                status="failed",
+                                duration_s=duration_s,
+                                error_message=record.error_message,
+                            )
+                        )
+                    self._block_task(
+                        node_id,
+                        state,
+                        f"Retries exhausted for {node_id}: {record.error_message}",
                     )
-                self._block_task(
-                    node_id,
-                    state,
-                    f"Retries exhausted for {node_id}: {record.error_message}",
-                )
+                else:
+                    # 30-REQ-2.1/2.2: Retry at same tier or escalate
+                    if ladder.escalation_count > 0:
+                        prev_tier = record.model or "unknown"
+                        logger.warning(
+                            "Escalating %s from %s to %s",
+                            node_id,
+                            prev_tier,
+                            ladder.current_tier,
+                        )
+                    self._graph_sync.node_states[node_id] = "pending"
             else:
-                self._graph_sync.node_states[node_id] = "pending"
+                # Fallback: no ladder (backward compat) — use original retry logic
+                if (
+                    archetype_entry.retry_predecessor
+                    and attempt < self._config.max_retries + 1
+                ):
+                    predecessors = self._get_predecessors(node_id)
+                    if predecessors:
+                        pred_id = predecessors[0]
+                        logger.info(
+                            "Retry-predecessor: resetting %s to pending due to "
+                            "%s failure (attempt %d)",
+                            pred_id,
+                            node_id,
+                            attempt,
+                        )
+                        self._graph_sync.node_states[pred_id] = "pending"
+                        error_tracker[pred_id] = record.error_message
+                        self._graph_sync.node_states[node_id] = "pending"
+                        self._state_manager.save(state)
+                        return
+
+                if attempt >= self._config.max_retries + 1:
+                    # 18-REQ-5.4: Emit task failure event
+                    if self._task_callback is not None:
+                        duration_s = (record.duration_ms or 0) / 1000
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=node_id,
+                                status="failed",
+                                duration_s=duration_s,
+                                error_message=record.error_message,
+                            )
+                        )
+                    self._block_task(
+                        node_id,
+                        state,
+                        f"Retries exhausted for {node_id}: {record.error_message}",
+                    )
+                else:
+                    self._graph_sync.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
 
@@ -979,7 +1235,7 @@ class Orchestrator:
         """Get predecessor node IDs for a given node."""
         if self._graph_sync is None:
             return []
-        return self._graph_sync._edges.get(node_id, [])
+        return self._graph_sync.predecessors(node_id)
 
     def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
         """Check and run sync barrier actions if triggered.

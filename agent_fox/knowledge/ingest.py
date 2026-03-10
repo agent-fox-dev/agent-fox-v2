@@ -165,7 +165,7 @@ class KnowledgeIngestor:
             "git",
             "log",
             f"--max-count={limit}",
-            "--format=%H%x00%aI%x00%s%x00%b",
+            "--format=%x1e%H%x00%aI%x00%s%x00%b",
         ]
         if since is not None:
             cmd.append(f"--since={since}")
@@ -202,13 +202,14 @@ class KnowledgeIngestor:
         facts_skipped = 0
         embedding_failures = 0
 
-        for line in result.stdout.strip().splitlines():
-            if not line.strip():
+        for record in result.stdout.split("\x1e"):
+            record = record.strip()
+            if not record:
                 continue
 
-            parts = line.split("\x00", 3)
+            parts = record.split("\x00", 3)
             if len(parts) < 3:
-                logger.warning("Skipping malformed git log line: %s", line)
+                logger.warning("Skipping malformed git log record: %s", record[:120])
                 continue
 
             sha, date, subject = parts[0], parts[1], parts[2]

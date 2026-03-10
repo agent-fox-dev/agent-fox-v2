@@ -45,12 +45,12 @@ class BannerGroup(click.Group):
             super().invoke(ctx)
         except click.exceptions.Exit:
             raise
-        except click.ClickException:
+        except click.ClickException as exc:
             # In JSON mode, convert Click errors to JSON envelopes
             if ctx.obj and ctx.obj.get("json"):
                 from agent_fox.cli.json_io import emit_error
 
-                emit_error(str(ctx.invoked_subcommand or "unknown"))
+                emit_error(str(exc))
                 sys.exit(1)
             raise
         except AgentFoxError as exc:
@@ -85,9 +85,7 @@ class BannerGroup(click.Group):
     help="Switch to structured JSON I/O mode",
 )
 @click.pass_context
-def main(
-    ctx: click.Context, verbose: bool, quiet: bool, json_mode: bool
-) -> None:
+def main(ctx: click.Context, verbose: bool, quiet: bool, json_mode: bool) -> None:
     """agent-fox: autonomous coding-agent orchestrator."""
     ctx.ensure_object(dict)
 
@@ -133,6 +131,7 @@ from agent_fox.cli.init import init_cmd  # noqa: E402
 from agent_fox.cli.lint_spec import lint_spec  # noqa: E402
 from agent_fox.cli.plan import plan_cmd  # noqa: E402
 from agent_fox.cli.reset import reset_cmd  # noqa: E402
+from agent_fox.cli.serve_tools import serve_tools_cmd  # noqa: E402
 from agent_fox.cli.standup import standup_cmd  # noqa: E402
 from agent_fox.cli.status import status_cmd  # noqa: E402
 
@@ -143,4 +142,5 @@ main.add_command(lint_spec, name="lint-spec")
 main.add_command(plan_cmd, name="plan")
 main.add_command(reset_cmd, name="reset")
 main.add_command(standup_cmd, name="standup")
+main.add_command(serve_tools_cmd, name="serve-tools")
 main.add_command(status_cmd, name="status")

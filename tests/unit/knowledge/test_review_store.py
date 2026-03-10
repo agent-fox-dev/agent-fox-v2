@@ -1,15 +1,20 @@
 """Unit tests for review_store.py: schema, CRUD, supersession.
 
-Test Spec: TS-27-1, TS-27-2, TS-27-6, TS-27-7, TS-27-8
-Requirements: 27-REQ-1.1, 27-REQ-2.1, 27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3, 27-REQ-4.E1
+Test Spec: TS-27-1, TS-27-2, TS-27-6, TS-27-7, TS-27-8, TS-27-E1, TS-27-E2, TS-27-E5
+Requirements: 27-REQ-1.1, 27-REQ-1.E1, 27-REQ-2.1, 27-REQ-2.E1,
+              27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3, 27-REQ-4.E1
 """
 
 from __future__ import annotations
 
 import uuid
+from unittest.mock import patch
 
 import duckdb
+import pytest
 
+from agent_fox.core.errors import KnowledgeStoreError
+from agent_fox.knowledge.migrations import Migration
 from agent_fox.knowledge.review_store import (
     ReviewFinding,
     VerificationResult,
@@ -212,7 +217,6 @@ class TestMigrationFailureRaises:
         from agent_fox.knowledge.migrations import apply_pending_migrations
 
         conn = duckdb.connect(":memory:")
-        # Create schema_version with version=1 (no tables)
         conn.execute("""
             CREATE TABLE schema_version (
                 version INTEGER PRIMARY KEY,
@@ -222,15 +226,24 @@ class TestMigrationFailureRaises:
             INSERT INTO schema_version (version, description) VALUES (1, 'initial');
         """)
 
-        # Migration v2 should succeed (creates tables with IF NOT EXISTS)
-        apply_pending_migrations(conn)
+        def _failing_migration(c: duckdb.DuckDBPyConnection) -> None:
+            raise RuntimeError("Simulated migration failure")
 
-        # Verify tables were created
-        tables = conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_name IN ('review_findings', 'verification_results')"
-        ).fetchall()
-        assert len(tables) == 2
+        with patch(
+            "agent_fox.knowledge.migrations.MIGRATIONS",
+            [
+                Migration(
+                    version=2,
+                    description="failing migration",
+                    apply=_failing_migration,
+                )
+            ],
+        ):
+            with pytest.raises(
+                KnowledgeStoreError, match="Migration to version 2 failed"
+            ):
+                apply_pending_migrations(conn)
+
         conn.close()
 
 
@@ -258,7 +271,7 @@ class TestMigrationAlreadyAppliedSkips:
         # Verify version is recorded
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 2
+        assert version[0] == 3
         conn.close()
 
 

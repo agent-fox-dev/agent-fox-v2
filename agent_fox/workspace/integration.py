@@ -15,7 +15,6 @@ import os
 from pathlib import Path
 
 from agent_fox.core.config import PlatformConfig
-from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     get_remote_url,
@@ -66,8 +65,7 @@ async def post_harvest_integrate(
         remote_url = await get_remote_url(repo_root)
         if not remote_url:
             logger.warning(
-                "Could not determine remote URL"
-                " — falling back to pushing develop only",
+                "Could not determine remote URL — falling back to pushing develop only",
             )
             result = await push_to_remote(repo_root, "develop")
             if not result:
@@ -119,7 +117,7 @@ async def post_harvest_integrate(
                     body=f"Automated PR for {spec} task group {group}.",
                 )
                 logger.info("Created PR: %s", pr_url)
-            except (IntegrationError, Exception) as exc:
+            except Exception as exc:
                 logger.warning(
                     "PR creation failed for '%s': %s",
                     feature_branch,

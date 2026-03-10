@@ -53,14 +53,23 @@ def _make_standup_report(**overrides):
         "agent_commits": [],
         "human_commits": [],
         "queue": QueueSummary(
-            total=0, completed=0, in_progress=0, pending=0,
-            ready=0, blocked=0, failed=0, ready_task_ids=[],
+            total=0,
+            completed=0,
+            in_progress=0,
+            pending=0,
+            ready=0,
+            blocked=0,
+            failed=0,
+            ready_task_ids=[],
         ),
         "file_overlaps": [],
         "total_cost": 0.0,
         "agent": AgentActivity(
-            tasks_completed=0, sessions_run=0,
-            input_tokens=0, output_tokens=0, cost=0.0,
+            tasks_completed=0,
+            sessions_run=0,
+            input_tokens=0,
+            output_tokens=0,
+            cost=0.0,
             completed_task_ids=[],
         ),
         "cost_breakdown": [],
@@ -85,18 +94,24 @@ def tmp_project(tmp_path: Path) -> Path:
     subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
     readme = repo / "README.md"
     readme.write_text("# Test\n")
     subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "initial"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
 
     # Create .agent-fox structure
@@ -128,9 +143,7 @@ class TestGlobalFlagAccepted:
             mock_gen.return_value = _make_status_report()
             result = cli_runner.invoke(main, ["--json", "status"])
             # Exit code 2 means Click usage error
-            assert result.exit_code != 2, (
-                f"--json caused usage error: {result.output}"
-            )
+            assert result.exit_code != 2, f"--json caused usage error: {result.output}"
 
 
 # ---------------------------------------------------------------------------
@@ -198,9 +211,7 @@ class TestNoNonJsonStdout:
 class TestStatusJson:
     """TS-23-5: status --json emits a JSON object."""
 
-    def test_status_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_status_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """status with --json produces valid JSON."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report(
@@ -275,9 +286,7 @@ class TestLintSpecJson:
 class TestPlanJson:
     """TS-23-8: plan --json emits the execution plan as JSON."""
 
-    def test_plan_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_plan_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """plan with --json produces valid JSON."""
         # Create a minimal spec with tasks
         specs_dir = tmp_project / ".specs"
@@ -304,9 +313,7 @@ class TestPlanJson:
 class TestInitJson:
     """TS-23-12: init --json emits {"status": "ok"}."""
 
-    def test_init_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_init_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """init with --json produces {"status": "ok"}."""
         with patch("agent_fox.cli.init._ensure_develop_branch"):
             result = cli_runner.invoke(main, ["--json", "init"])
@@ -322,9 +329,7 @@ class TestInitJson:
 class TestResetJson:
     """TS-23-13: reset --json emits a JSON summary."""
 
-    def test_reset_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_reset_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """reset with --json produces valid JSON."""
         with patch("agent_fox.cli.reset.reset_all") as mock_reset:
             mock_reset.return_value = MagicMock(
@@ -347,9 +352,7 @@ class TestResetJson:
 class TestCodeJsonl:
     """TS-23-14: code --json emits JSONL."""
 
-    def test_code_jsonl_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_code_jsonl_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """code with --json produces JSONL (one JSON object per line)."""
         mock_state = MagicMock(
             node_states={"task1": "completed"},
@@ -373,10 +376,7 @@ class TestCodeJsonl:
                 plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
 
                 result = cli_runner.invoke(main, ["--json", "code"])
-                lines = [
-                    ln for ln in result.output.strip().splitlines()
-                    if ln.strip()
-                ]
+                lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
                 for line in lines:
                     data = json.loads(line)
                     assert isinstance(data, dict)
@@ -390,9 +390,7 @@ class TestCodeJsonl:
 class TestFixJsonl:
     """TS-23-16: fix --json emits JSONL events."""
 
-    def test_fix_jsonl_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_fix_jsonl_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """fix with --json produces JSONL lines."""
         from agent_fox.fix.fix import TerminationReason
 
@@ -410,10 +408,7 @@ class TestFixJsonl:
             mock_run.return_value = mock_result
 
             result = cli_runner.invoke(main, ["--json", "fix"])
-            lines = [
-                ln for ln in result.output.strip().splitlines()
-                if ln.strip()
-            ]
+            lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
             for line in lines:
                 data = json.loads(line)
                 assert isinstance(data, dict)
@@ -515,9 +510,7 @@ class TestFormatRemovedLintSpec:
 class TestJsonWithVerbose:
     """TS-23-E1: --json --verbose produces JSON output."""
 
-    def test_json_with_verbose(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_json_with_verbose(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """--json --verbose still produces valid JSON on stdout."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -597,12 +590,18 @@ class TestStreamingInterrupted:
         self, cli_runner: CliRunner, tmp_project: Path
     ) -> None:
         """fix --json interrupted by KeyboardInterrupt emits status."""
+
+        def _close_coro_and_raise(coro, **kwargs):  # noqa: ARG001
+            """Close the coroutine to avoid 'never awaited' warning."""
+            coro.close()
+            raise KeyboardInterrupt
+
         with (
             patch("agent_fox.cli.fix.detect_checks") as mock_checks,
             patch("agent_fox.cli.fix.asyncio.run") as mock_run,
         ):
             mock_checks.return_value = [MagicMock()]
-            mock_run.side_effect = KeyboardInterrupt()
+            mock_run.side_effect = _close_coro_and_raise
 
             result = cli_runner.invoke(main, ["--json", "fix"])
             last_line = result.output.strip().splitlines()[-1]
@@ -642,5 +641,3 @@ class TestFormatUsageError:
         """status --format yaml exits with code 2."""
         result = cli_runner.invoke(main, ["status", "--format", "yaml"])
         assert result.exit_code == 2
-
-

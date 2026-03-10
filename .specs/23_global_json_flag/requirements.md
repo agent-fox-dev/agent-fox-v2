@@ -145,3 +145,21 @@ input/output mode, enabling agent-to-agent and script-driven workflows.
 #### Edge Cases
 
 1. [23-REQ-8.E1] IF a user passes `--format` to a command that previously supported it, THEN THE system SHALL produce a Click usage error (standard Click behavior for unknown options).
+
+---
+
+## Amendment: Removed CLI Commands (2026-03-10)
+
+The following requirements reference CLI commands that have been removed from
+the CLI surface (see `docs/errata/unwired_cli_commands.md`):
+
+| Requirement | Command | Status |
+|-------------|---------|--------|
+| 23-REQ-3.5 | `patterns` | **Suspended** — command removed |
+| 23-REQ-3.6 | `compact` | **Suspended** — command removed |
+| 23-REQ-3.7 | `ingest` | **Suspended** — command removed (ingestion is now automatic) |
+| 23-REQ-5.2 | `ask` | **Suspended** — command removed |
+
+These requirements remain in the spec for traceability but are not enforced.
+They will be reinstated or formally superseded if/when the commands are
+re-introduced in a different form.
