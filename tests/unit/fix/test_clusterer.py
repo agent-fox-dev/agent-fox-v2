@@ -11,8 +11,8 @@ import json
 from unittest.mock import MagicMock, patch
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.fix.clusterer import cluster_failures
 from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+from agent_fox.fix.clusterer import cluster_failures
 
 from .conftest import make_failure_record
 

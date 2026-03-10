@@ -11,13 +11,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agent_fox.reporting.standup import (
-    is_agent_commit,
-    partition_commits,
-)
-from agent_fox.reporting.standup import (
     HumanCommit,
     _detect_overlaps,
     generate_standup,
+    is_agent_commit,
+    partition_commits,
 )
 
 from .conftest import (
