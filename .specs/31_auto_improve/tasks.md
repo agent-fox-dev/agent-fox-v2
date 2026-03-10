@@ -103,8 +103,8 @@ report + CLI integration.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/fix/`
 
-- [ ] 2. Implement analyzer module
-  - [ ] 2.1 Implement data models
+- [x] 2. Implement analyzer module
+  - [x] 2.1 Implement data models
     - `agent_fox/fix/analyzer.py`: `Improvement` frozen dataclass,
       `AnalyzerResult` dataclass
     - Fields per design.md: id, tier, title, description, files, impact,
@@ -112,7 +112,7 @@ report + CLI integration.
       raw_response for AnalyzerResult
     - _Requirements: 31-REQ-3.3_
 
-  - [ ] 2.2 Implement response parser
+  - [x] 2.2 Implement response parser
     - `agent_fox/fix/analyzer.py`: `parse_analyzer_response()` function
     - Parse JSON, validate required fields (improvements list, summary string,
       diminishing_returns bool)
@@ -121,13 +121,13 @@ report + CLI integration.
     - Raise ValueError on invalid JSON or missing fields
     - _Requirements: 31-REQ-3.3, 31-REQ-3.E1_
 
-  - [ ] 2.3 Implement improvement filter
+  - [x] 2.3 Implement improvement filter
     - `agent_fox/fix/analyzer.py`: `filter_improvements()` function
     - Exclude items with `confidence == "low"`
     - Sort by tier priority: quick_win (0) < structural (1) < design_level (2)
     - _Requirements: 31-REQ-3.4, 31-REQ-3.5_
 
-  - [ ] 2.4 Implement oracle context query
+  - [x] 2.4 Implement oracle context query
     - `agent_fox/fix/analyzer.py`: `query_oracle_context()` function
     - Create EmbeddingGenerator and VectorSearch from config
     - Instantiate Oracle, call `oracle.ask()` with seed question
@@ -136,14 +136,14 @@ report + CLI integration.
       return empty string and log info
     - _Requirements: 31-REQ-4.1, 31-REQ-4.2, 31-REQ-4.3, 31-REQ-4.E1_
 
-  - [ ] 2.5 Implement review context loader
+  - [x] 2.5 Implement review context loader
     - `agent_fox/fix/analyzer.py`: `load_review_context()` function
     - Query DuckDB for active skeptic/verifier findings
     - Format as markdown under "## Prior Review Findings"
     - Return empty string if DuckDB unavailable
     - _Requirements: 31-REQ-3.2_
 
-  - [ ] 2.6 Implement prompt builder
+  - [x] 2.6 Implement prompt builder
     - `agent_fox/fix/analyzer.py`: `build_analyzer_prompt()` function
     - Build system prompt: role, guardrails, project conventions (read
       CLAUDE.md/AGENTS.md/README.md), oracle context, review findings
@@ -152,11 +152,11 @@ report + CLI integration.
     - Omit `## Project Knowledge` section when oracle_context is empty
     - _Requirements: 31-REQ-3.1, 31-REQ-3.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/fix/test_analyzer.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/unit/fix/test_analyzer_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/fix/analyzer.py`
-    - [ ] Requirements 31-REQ-3.*, 31-REQ-4.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/fix/test_analyzer.py -q`
+    - [x] Property tests pass: `uv run pytest tests/unit/fix/test_analyzer_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/fix/analyzer.py`
+    - [x] Requirements 31-REQ-3.*, 31-REQ-4.* acceptance criteria met
 
 - [ ] 3. Implement improve loop and rollback
   - [ ] 3.1 Implement verifier verdict parser
