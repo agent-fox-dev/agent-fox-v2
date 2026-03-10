@@ -10,6 +10,7 @@ Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4, 02-REQ-7.5
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,7 @@ from pathlib import Path
 import click
 
 from agent_fox import __version__
-from agent_fox.core.config import load_config
+from agent_fox.core.config import AgentFoxConfig, load_config
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.builder import build_graph
 from agent_fox.graph.persistence import load_plan, save_plan
@@ -47,18 +48,39 @@ def _compute_specs_hash(specs_dir: Path) -> str:
     return hasher.hexdigest()
 
 
+def _compute_config_hash(config: AgentFoxConfig) -> str:
+    """Compute a hash over archetype-relevant config fields.
+
+    Ensures the plan cache is invalidated when archetypes are
+    enabled/disabled or their settings change.
+    """
+    data = {
+        "skeptic": config.archetypes.skeptic,
+        "verifier": config.archetypes.verifier,
+        "librarian": config.archetypes.librarian,
+        "cartographer": config.archetypes.cartographer,
+        "instances": config.archetypes.instances.model_dump(),
+        "skeptic_config": config.archetypes.skeptic_config.model_dump(),
+    }
+    return hashlib.sha256(
+        json.dumps(data, sort_keys=True).encode()
+    ).hexdigest()
+
+
 def _cache_matches_request(
     graph: TaskGraph,
     *,
     fast: bool,
     filter_spec: str | None,
     specs_hash: str,
+    config_hash: str,
 ) -> bool:
-    """Return True when cached plan matches request flags and spec content."""
+    """Return True when cached plan matches request flags, spec content, and config."""
     return (
         graph.metadata.fast_mode == fast
         and graph.metadata.filtered_spec == filter_spec
         and graph.metadata.specs_hash == specs_hash
+        and graph.metadata.config_hash == config_hash
     )
 
 
@@ -66,6 +88,7 @@ def _build_plan(
     specs_dir: Path,
     filter_spec: str | None,
     fast: bool,
+    config: AgentFoxConfig,
 ) -> TaskGraph:
     """Execute the full planning pipeline.
 
@@ -75,6 +98,7 @@ def _build_plan(
         specs_dir: Path to the .specs/ directory.
         filter_spec: If set, restrict to this single spec.
         fast: Whether to apply fast-mode filtering.
+        config: Loaded agent-fox config (for archetypes).
 
     Returns:
         A fully resolved TaskGraph.
@@ -110,8 +134,6 @@ def _build_plan(
     ]
 
     # Step 3: Build graph
-    config_path = specs_dir.parent / ".agent-fox" / "config.toml"
-    config = load_config(config_path if config_path.exists() else None)
     graph = build_graph(
         specs, task_groups, cross_deps, archetypes_config=config.archetypes,
     )
@@ -129,6 +151,7 @@ def _build_plan(
         filtered_spec=filter_spec,
         version=__version__,
         specs_hash=_compute_specs_hash(specs_dir),
+        config_hash=_compute_config_hash(config),
     )
 
     return graph
@@ -198,8 +221,13 @@ def plan_cmd(
     specs_dir = project_root / ".specs"
     plan_path = project_root / ".agent-fox" / "plan.json"
 
-    # Compute content hash of all spec files for cache invalidation
+    # Load config for archetypes and cache invalidation
+    config_path = project_root / ".agent-fox" / "config.toml"
+    config = load_config(config_path if config_path.exists() else None)
+
+    # Compute content hashes for cache invalidation
     specs_hash = _compute_specs_hash(specs_dir)
+    config_hash = _compute_config_hash(config)
 
     graph: TaskGraph | None = None
 
@@ -212,6 +240,7 @@ def plan_cmd(
                 fast=fast,
                 filter_spec=filter_spec,
                 specs_hash=specs_hash,
+                config_hash=config_hash,
             ):
                 logger.info("Using cached plan from %s", plan_path)
                 graph = existing
@@ -234,7 +263,7 @@ def plan_cmd(
         if not json_mode:
             spinner.start()
         try:
-            graph = _build_plan(specs_dir, filter_spec, fast)
+            graph = _build_plan(specs_dir, filter_spec, fast, config)
         except PlanError as exc:
             spinner.stop()
             if json_mode:

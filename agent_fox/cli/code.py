@@ -322,6 +322,7 @@ def code_cmd(
             barrier_callback=lambda: _ingest_if_available(knowledge_db, config),
             routing_config=full_config.routing,
             assessment_pipeline=assessment_pipeline,
+            archetypes_config=full_config.archetypes,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
