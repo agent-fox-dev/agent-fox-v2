@@ -759,6 +759,36 @@ def _check_circular_dependency(
 # -- Phase 1: Completeness checks ---------------------------------------------
 
 
+def _collect_criterion_text(lines: list[str], start: int) -> str:
+    """Collect the full text of a criterion starting at `start` (0-based).
+
+    A criterion starts on the line containing a requirement ID and continues
+    on subsequent lines that are indented continuation text (not a new numbered
+    item, heading, blank line, or another requirement ID).
+    """
+    parts = [lines[start]]
+    for j in range(start + 1, len(lines)):
+        next_line = lines[j]
+        # Stop at blank lines
+        if not next_line.strip():
+            break
+        # Stop at new numbered list items (e.g. "1. ", "2. ")
+        if re.match(r"^\d+\.\s", next_line):
+            break
+        # Stop at headings
+        if next_line.startswith("#"):
+            break
+        # Stop at another requirement ID on a non-indented line
+        if _REQUIREMENT_ID.search(next_line) and not next_line[0].isspace():
+            break
+        # Stop at horizontal rules
+        if re.match(r"^-{3,}$", next_line.strip()):
+            break
+        # This is a continuation line
+        parts.append(next_line)
+    return " ".join(parts)
+
+
 def check_missing_ears_keyword(
     spec_name: str,
     spec_path: Path,
@@ -767,8 +797,8 @@ def check_missing_ears_keyword(
 
     Rule: missing-ears-keyword
     Severity: warning
-    Scans requirements.md for lines containing requirement IDs and checks
-    each has at least one EARS keyword (SHALL).
+    Scans requirements.md for lines containing requirement IDs and collects
+    the full multi-line criterion text before checking for the EARS keyword.
     """
     req_path = spec_path / "requirements.md"
     if not req_path.is_file():
@@ -778,11 +808,13 @@ def check_missing_ears_keyword(
     lines = text.splitlines()
 
     findings: list[Finding] = []
-    for i, line in enumerate(lines, start=1):
+    for i, line in enumerate(lines):
         # Only check lines that contain a requirement ID
         if not _REQUIREMENT_ID.search(line):
             continue
-        if not _EARS_KEYWORD.search(line):
+        # Collect the full criterion text (may span multiple lines)
+        full_text = _collect_criterion_text(lines, i)
+        if not _EARS_KEYWORD.search(full_text):
             # Extract the requirement ID for the message
             match = _REQUIREMENT_ID.search(line)
             req_id = match.group(1) if match else "unknown"
@@ -796,7 +828,7 @@ def check_missing_ears_keyword(
                         f"Criterion {req_id} does not contain EARS keyword "
                         f"'SHALL'. Use EARS syntax for testable requirements."
                     ),
-                    line=i,
+                    line=i + 1,  # 1-based line number
                 )
             )
     return findings

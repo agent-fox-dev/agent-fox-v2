@@ -37,7 +37,9 @@ file so that I can navigate large files without reading every line.
    declaration kind (e.g. function, class, constant), name, and start/end line
    numbers.
 
-2. [29-REQ-1.2] WHEN `fox_outline` is called on a file containing import statements, THE tool SHALL collapse contiguous import lines into a single summary entry showing the line range and count (e.g. "1-10: (10 imports)").
+2. [29-REQ-1.2] WHEN `fox_outline` is called on a file containing import
+   statements, THE tool SHALL collapse contiguous import lines into a single
+   summary entry showing the line range and count (e.g. "1-10: (10 imports)").
 
 3. [29-REQ-1.3] THE tool SHALL include a trailing summary line with the total
    symbol count and total source line count.
@@ -67,9 +69,13 @@ edits against the actual content.
 
 #### Acceptance Criteria
 
-1. [29-REQ-2.1] WHEN `fox_read` is called with a file path and one or more disjoint ranges, THE tool SHALL return the lines within those ranges, each annotated with its 1-based line number and content hash.
+1. [29-REQ-2.1] WHEN `fox_read` is called with a file path and one or more
+   disjoint ranges, THE tool SHALL return the lines within those ranges, each
+   annotated with its 1-based line number and content hash.
 
-2. [29-REQ-2.2] WHEN `fox_read` is called with multiple disjoint ranges, THE tool SHALL return all requested ranges in a single response, ordered by ascending line number.
+2. [29-REQ-2.2] WHEN `fox_read` is called with multiple disjoint ranges, THE
+   tool SHALL return all requested ranges in a single response, ordered by
+   ascending line number.
 
 3. [29-REQ-2.3] THE tool SHALL compute content hashes using the xxh3_64
    algorithm applied to the raw line content (including trailing newline if
@@ -97,14 +103,21 @@ text and prevent silent corruption from stale reads.
 
 #### Acceptance Criteria
 
-1. [29-REQ-3.1] WHEN `fox_edit` is called with a file path and one or more edit operations, THE tool SHALL verify that every provided content hash matches the current file content before applying any changes. Each edit operation specifies a start line, end line, content hashes for the target lines, and new replacement content.
+1. [29-REQ-3.1] WHEN `fox_edit` is called with a file path, one or more edit
+   operations (each specifying a start line, end line, content hashes for the
+   target lines, and the new replacement content), THE tool SHALL verify that
+   every provided content hash matches the current file content before applying
+   any changes.
 
 2. [29-REQ-3.2] WHEN all hashes verify successfully, THE tool SHALL apply all
    edit operations atomically: either all edits succeed or none are written.
 
-3. [29-REQ-3.3] WHEN multiple edits are provided in a single call, THE tool SHALL process them in reverse line-number order so that earlier edits do not shift the line numbers of later ones.
+3. [29-REQ-3.3] WHEN multiple edits are provided in a single call, THE tool
+   SHALL process them in reverse line-number order so that earlier edits do not
+   shift the line numbers of later ones.
 
-4. [29-REQ-3.4] WHEN an edit operation has empty replacement content, THE tool SHALL delete the specified line range (line deletion).
+4. [29-REQ-3.4] WHEN an edit operation has empty replacement content, THE tool
+   SHALL delete the specified line range (line deletion).
 
 #### Edge Cases
 
@@ -129,11 +142,16 @@ single workflow without a separate read step.
 
 #### Acceptance Criteria
 
-1. [29-REQ-4.1] WHEN `fox_search` is called with a file path and a regex pattern, THE tool SHALL return all matching lines with their 1-based line numbers, content, and content hashes.
+1. [29-REQ-4.1] WHEN `fox_search` is called with a file path and a regex
+   pattern, THE tool SHALL return all matching lines with their 1-based line
+   numbers, content, and content hashes.
 
-2. [29-REQ-4.2] WHEN a context parameter is provided (integer N), THE tool SHALL include N lines before and after each match, each with line numbers and content hashes.
+2. [29-REQ-4.2] WHEN a context parameter is provided (integer N), THE tool
+   SHALL include N lines before and after each match, each with line numbers
+   and content hashes.
 
-3. [29-REQ-4.3] WHEN multiple matches have overlapping context ranges, THE tool SHALL merge them into a single contiguous block (no duplicate lines).
+3. [29-REQ-4.3] WHEN multiple matches have overlapping context ranges, THE tool
+   SHALL merge them into a single contiguous block (no duplicate lines).
 
 #### Edge Cases
 
@@ -158,9 +176,13 @@ changes so that edits against stale reads are caught before writing.
 1. [29-REQ-5.1] THE system SHALL compute content hashes using the xxh3_64
    algorithm, producing a 16-character lowercase hexadecimal string per line.
 
-2. [29-REQ-5.2] WHEN the same line content (byte-identical) is hashed at different times, THE system SHALL produce the same hash value (deterministic).
+2. [29-REQ-5.2] WHEN the same line content (byte-identical) is hashed at
+   different times, THE system SHALL produce the same hash value
+   (deterministic).
 
-3. [29-REQ-5.3] WHEN a line's content changes by even one byte, THE system SHALL produce a different hash value (collision resistance within practical bounds).
+3. [29-REQ-5.3] WHEN a line's content changes by even one byte, THE system
+   SHALL produce a different hash value (collision resistance within practical
+   bounds).
 
 #### Edge Cases
 
@@ -182,7 +204,9 @@ backend so that agents can use fox tools in-process without subprocess overhead.
    specifies a tool name, description, JSON Schema for inputs, and a callable
    handler.
 
-2. [29-REQ-6.2] WHEN a backend implementation receives `ToolDefinition` objects, THE backend SHALL make them available to the agent alongside the SDK's built-in tools.
+2. [29-REQ-6.2] WHEN a backend implementation receives `ToolDefinition` objects,
+   THE backend SHALL make them available to the agent alongside the SDK's
+   built-in tools.
 
 3. [29-REQ-6.3] WHEN the agent invokes a custom tool, THE backend SHALL call
    the corresponding handler function in-process and return the result to the
@@ -252,7 +276,9 @@ agent-fox sessions via configuration so that I can opt in when ready.
    construct `ToolDefinition` objects for all four fox tools and pass them to
    `AgentBackend.execute()`.
 
-3. [29-REQ-8.3] WHEN `tools.fox_tools` is false or the `[tools]` section is absent, THE session runner SHALL not register any fox tools (existing behavior preserved).
+3. [29-REQ-8.3] WHEN `tools.fox_tools` is false or the `[tools]` section is
+   absent, THE session runner SHALL not register any fox tools (existing
+   behavior preserved).
 
 #### Edge Cases
 
