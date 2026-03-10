@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 #   - [x] 2. Title          (completed)
 #   - [-] 3. Title          (in-progress)
 #   - [ ] * 4. Title        (optional)
-_GROUP_PATTERN = re.compile(r"^- \[([ x\-])\] (\* )?(\d+)\. (.+)$")
+_GROUP_PATTERN = re.compile(r"^- \[([ x\-~])\] (\* )?(\d+)\. (.+)$")
 
 # Subtask pattern (indented):
 #   - [ ] 1.1 Subtask title
 #   - [x] 2.3 Subtask title
-_SUBTASK_PATTERN = re.compile(r"^\s+- \[([ x\-])\] (\d+\.(?:\d+|V)) (.+)$")
+_SUBTASK_PATTERN = re.compile(r"^\s+- \[([ x\-~])\] (\d+\.(?:\d+|V)) (.+)$")
 
 # Cross-spec dependency table header detection — standard format:
 #   | This Spec | Depends On | What It Uses |

@@ -12,6 +12,9 @@ from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.fixer import (
     apply_fixes,
     fix_coarse_dependency,
+    fix_invalid_archetype_tag,
+    fix_invalid_checkbox_state,
+    fix_malformed_archetype_tag,
     fix_missing_verification,
 )
 from agent_fox.spec.validator import Finding
@@ -359,3 +362,127 @@ class TestApplyFixesNoOp:
         ]
         results = apply_fixes([], specs, tmp_path, {})
         assert len(results) == 0
+
+
+# -- Fix invalid archetype tag -----------------------------------------------
+
+
+class TestFixInvalidArchetypeTag:
+    """Verify fixer removes unknown archetype tags."""
+
+    def test_removes_unknown_archetype(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Do stuff [archetype: hacker]\n"
+            "  - [ ] 1.1 Subtask\n",
+        )
+        results = fix_invalid_archetype_tag("test_spec", tasks_path)
+        assert len(results) == 1
+        assert results[0].rule == "invalid-archetype-tag"
+        content = tasks_path.read_text()
+        assert "[archetype: hacker]" not in content
+        assert "- [ ] 1. Do stuff" in content
+
+    def test_keeps_valid_archetype(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Do stuff [archetype: coder]\n",
+        )
+        results = fix_invalid_archetype_tag("test_spec", tasks_path)
+        assert len(results) == 0
+        content = tasks_path.read_text()
+        assert "[archetype: coder]" in content
+
+
+# -- Fix malformed archetype tag ----------------------------------------------
+
+
+class TestFixMalformedArchetypeTag:
+    """Verify fixer normalizes malformed archetype tags."""
+
+    def test_normalizes_misspelled_tag(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Do stuff [archtype: coder]\n",
+        )
+        results = fix_malformed_archetype_tag("test_spec", tasks_path)
+        assert len(results) == 1
+        assert results[0].rule == "malformed-archetype-tag"
+        content = tasks_path.read_text()
+        assert "[archetype: coder]" in content
+
+    def test_removes_duplicate_tags(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n",
+        )
+        results = fix_malformed_archetype_tag("test_spec", tasks_path)
+        assert len(results) == 1
+        content = tasks_path.read_text()
+        assert content.count("[archetype:") == 1
+        assert "[archetype: coder]" in content
+
+    def test_no_change_for_valid_tag(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Do stuff [archetype: skeptic]\n",
+        )
+        results = fix_malformed_archetype_tag("test_spec", tasks_path)
+        assert len(results) == 0
+
+
+# -- Fix invalid checkbox state -----------------------------------------------
+
+
+class TestFixInvalidCheckboxState:
+    """Verify fixer normalizes invalid checkbox characters to [ ]."""
+
+    def test_normalizes_invalid_char(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [?] 1. Bad state\n"
+            "  - [ ] 1.1 Subtask\n",
+        )
+        results = fix_invalid_checkbox_state("test_spec", tasks_path)
+        assert len(results) == 1
+        assert results[0].rule == "invalid-checkbox-state"
+        content = tasks_path.read_text()
+        assert "- [ ] 1. Bad state" in content
+        assert "[?]" not in content
+
+    def test_preserves_valid_states(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [ ] 1. Not started\n"
+            "- [x] 2. Done\n"
+            "- [-] 3. In progress\n"
+            "- [~] 4. Queued\n",
+        )
+        results = fix_invalid_checkbox_state("test_spec", tasks_path)
+        assert len(results) == 0
+
+    def test_normalizes_uppercase_x(self, tmp_path: Path) -> None:
+        tasks_path = _write_file(
+            tmp_path,
+            "tasks.md",
+            "## Tasks\n\n"
+            "- [X] 1. Uppercase X\n",
+        )
+        results = fix_invalid_checkbox_state("test_spec", tasks_path)
+        assert len(results) == 1
+        content = tasks_path.read_text()
+        assert "- [ ] 1. Uppercase X" in content

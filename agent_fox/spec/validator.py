@@ -14,8 +14,10 @@ from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo  # noqa: F401
 from agent_fox.spec.parser import (
+    _ARCHETYPE_TAG,
     _DEP_TABLE_HEADER,
     _DEP_TABLE_HEADER_ALT,
+    _KNOWN_ARCHETYPES,
     TaskGroupDef,  # noqa: F401
     _parse_table_rows,
     _safe_int,
@@ -226,6 +228,137 @@ def check_missing_verification(
                     line=None,
                 )
             )
+    return findings
+
+
+# -- Regex patterns for archetype / checkbox validation ----------------------
+
+# Broader pattern to catch malformed archetype tags: matches things like
+# [archtype: X], [Archetype: X], [archetype X], [archetype:X], etc.
+_MALFORMED_ARCHETYPE_TAG = re.compile(
+    r"\[arch[e]?type[:\s]\s*\w+\]", re.IGNORECASE
+)
+
+# Valid checkbox characters in task group / subtask lines
+_VALID_CHECKBOX_CHARS = {" ", "x", "-", "~"}
+
+# Matches any checkbox-like pattern at the start of a task line
+_CHECKBOX_LINE = re.compile(r"^(\s*)- \[(.)\](\s+\*?\s*)(\d+)[\.\s]")
+
+
+def check_archetype_tags(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[Finding]:
+    """Check archetype tags on task group titles for validity.
+
+    Rules:
+    - malformed-archetype-tag (error): tag syntax deviates from [archetype: X]
+    - invalid-archetype-tag (warning): archetype name not in registry
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    findings: list[Finding] = []
+
+    for i, line in enumerate(lines, 1):
+        # Only check top-level task group lines
+        if not re.match(r"^- \[.\]", line):
+            continue
+
+        # Check for well-formed archetype tag
+        good_match = _ARCHETYPE_TAG.search(line)
+        if good_match:
+            arch_name = good_match.group(1)
+            if arch_name not in _KNOWN_ARCHETYPES:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file="tasks.md",
+                        rule="invalid-archetype-tag",
+                        severity=SEVERITY_WARNING,
+                        message=(
+                            f"Unknown archetype '{arch_name}' in task group title "
+                            f"(known: {', '.join(sorted(_KNOWN_ARCHETYPES))})"
+                        ),
+                        line=i,
+                    )
+                )
+            # Check for duplicate tags on same line
+            all_matches = _ARCHETYPE_TAG.findall(line)
+            if len(all_matches) > 1:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file="tasks.md",
+                        rule="malformed-archetype-tag",
+                        severity=SEVERITY_ERROR,
+                        message=(
+                            f"Duplicate archetype tags on line {i}: "
+                            f"{', '.join(all_matches)}"
+                        ),
+                        line=i,
+                    )
+                )
+        else:
+            # Check for malformed variants
+            bad_match = _MALFORMED_ARCHETYPE_TAG.search(line)
+            if bad_match:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file="tasks.md",
+                        rule="malformed-archetype-tag",
+                        severity=SEVERITY_ERROR,
+                        message=(
+                            f"Malformed archetype tag "
+                            f"'{bad_match.group()}' on line {i}; "
+                            f"expected format: [archetype: name]"
+                        ),
+                        line=i,
+                    )
+                )
+
+    return findings
+
+
+def check_checkbox_states(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[Finding]:
+    """Check checkbox states in tasks.md for valid characters.
+
+    Rule: invalid-checkbox-state (error)
+    Valid characters: ' ' (space), 'x', '-', '~'
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    findings: list[Finding] = []
+
+    for i, line in enumerate(lines, 1):
+        m = _CHECKBOX_LINE.match(line)
+        if m:
+            char = m.group(2)
+            if char not in _VALID_CHECKBOX_CHARS:
+                findings.append(
+                    Finding(
+                        spec_name=spec_name,
+                        file="tasks.md",
+                        rule="invalid-checkbox-state",
+                        severity=SEVERITY_ERROR,
+                        message=(
+                            f"Invalid checkbox state '[{char}]' on line {i}; "
+                            f"valid states: [ ], [x], [-], [~]"
+                        ),
+                        line=i,
+                    )
+                )
+
     return findings
 
 
@@ -1379,6 +1512,12 @@ def validate_specs(
             groups = parsed_groups[spec.name]
             findings.extend(check_oversized_groups(spec.name, groups))
             findings.extend(check_missing_verification(spec.name, groups))
+
+        # 2b. Archetype tag and checkbox state checks
+        tasks_path = spec.path / "tasks.md"
+        if tasks_path.is_file():
+            findings.extend(check_archetype_tags(spec.name, tasks_path))
+            findings.extend(check_checkbox_states(spec.name, tasks_path))
 
         # 3. Acceptance criteria check
         if (spec.path / "requirements.md").is_file():

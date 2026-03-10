@@ -16,13 +16,18 @@ from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import (
+    _ARCHETYPE_TAG,
     _DEP_TABLE_HEADER,
     _GROUP_PATTERN,
+    _KNOWN_ARCHETYPES,
     _SUBTASK_PATTERN,
     _TABLE_SEP,
 )
 from agent_fox.spec.validator import (
+    _CHECKBOX_LINE,
     _H2_HEADING,
+    _MALFORMED_ARCHETYPE_TAG,
+    _VALID_CHECKBOX_CHARS,
     Finding,
     _extract_req_ids_from_text,
     _extract_test_spec_ids,
@@ -70,6 +75,9 @@ FIXABLE_RULES = {
     "missing-definition-of-done",
     "missing-error-table",
     "missing-correctness-properties",
+    "invalid-archetype-tag",
+    "malformed-archetype-tag",
+    "invalid-checkbox-state",
 }
 
 # AI-specific fixable rules (only active when --ai flag is set)
@@ -643,6 +651,163 @@ def fix_missing_correctness_properties(
     ]
 
 
+def fix_invalid_archetype_tag(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Remove archetype tags that reference unknown archetype names.
+
+    Scans task group lines for [archetype: X] where X is not in
+    _KNOWN_ARCHETYPES, and removes the tag entirely (defaulting to coder).
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[FixResult] = []
+
+    for i, line in enumerate(lines):
+        if not re.match(r"^- \[.\]", line):
+            continue
+        match = _ARCHETYPE_TAG.search(line)
+        if match and match.group(1) not in _KNOWN_ARCHETYPES:
+            old_tag = match.group()
+            lines[i] = line.replace(old_tag, "").rstrip()
+            # Clean up double spaces left behind
+            lines[i] = re.sub(r"  +", " ", lines[i]).rstrip()
+            results.append(
+                FixResult(
+                    rule="invalid-archetype-tag",
+                    spec_name=spec_name,
+                    file=str(tasks_path),
+                    description=(
+                        f"Removed unknown archetype tag '{old_tag}' "
+                        f"from line {i + 1} (defaults to coder)"
+                    ),
+                )
+            )
+
+    if results:
+        tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return results
+
+
+def fix_malformed_archetype_tag(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Normalize malformed archetype tags to [archetype: name] format.
+
+    Handles cases like [archtype: X], [Archetype: X], [archetype:X] (no space),
+    and duplicate tags (keeps first).
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[FixResult] = []
+
+    for i, line in enumerate(lines):
+        if not re.match(r"^- \[.\]", line):
+            continue
+
+        # Handle duplicate well-formed tags: keep first, remove rest
+        all_good = list(_ARCHETYPE_TAG.finditer(line))
+        if len(all_good) > 1:
+            # Remove all but the first tag
+            new_line = line
+            for m in reversed(all_good[1:]):
+                new_line = new_line[: m.start()] + new_line[m.end() :]
+            new_line = re.sub(r"  +", " ", new_line).rstrip()
+            lines[i] = new_line
+            results.append(
+                FixResult(
+                    rule="malformed-archetype-tag",
+                    spec_name=spec_name,
+                    file=str(tasks_path),
+                    description=(
+                        f"Removed duplicate archetype tags on line {i + 1}, "
+                        f"kept first"
+                    ),
+                )
+            )
+            continue
+
+        # Skip lines that already have a well-formed tag
+        if _ARCHETYPE_TAG.search(line):
+            continue
+
+        # Try to normalize malformed tags
+        bad_match = _MALFORMED_ARCHETYPE_TAG.search(line)
+        if bad_match:
+            bad_tag = bad_match.group()
+            # Extract the archetype name from the malformed tag
+            name_match = re.search(r"(\w+)\]$", bad_tag)
+            if name_match:
+                name = name_match.group(1).lower()
+                normalized = f"[archetype: {name}]"
+                lines[i] = line.replace(bad_tag, normalized)
+                results.append(
+                    FixResult(
+                        rule="malformed-archetype-tag",
+                        spec_name=spec_name,
+                        file=str(tasks_path),
+                        description=(
+                            f"Normalized '{bad_tag}' to '{normalized}' "
+                            f"on line {i + 1}"
+                        ),
+                    )
+                )
+
+    if results:
+        tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return results
+
+
+def fix_invalid_checkbox_state(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Normalize invalid checkbox characters to [ ] (not started).
+
+    Scans task group and subtask lines for checkbox characters not in
+    {' ', 'x', '-', '~'} and replaces them with a space.
+    """
+    if not tasks_path.is_file():
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    results: list[FixResult] = []
+
+    for i, line in enumerate(lines):
+        m = _CHECKBOX_LINE.match(line)
+        if m:
+            char = m.group(2)
+            if char not in _VALID_CHECKBOX_CHARS:
+                # Replace the invalid checkbox character with a space
+                start = m.start(2)
+                end = m.end(2)
+                lines[i] = line[:start] + " " + line[end:]
+                results.append(
+                    FixResult(
+                        rule="invalid-checkbox-state",
+                        spec_name=spec_name,
+                        file=str(tasks_path),
+                        description=(
+                            f"Normalized invalid checkbox '[{char}]' to '[ ]' "
+                            f"on line {i + 1}"
+                        ),
+                    )
+                )
+
+    if results:
+        tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return results
+
+
 def apply_fixes(
     findings: list[Finding],
     discovered_specs: list[SpecInfo],
@@ -749,6 +914,24 @@ def apply_fixes(
                 design_path = spec.path / "design.md"
                 if design_path.is_file():
                     results = fix_missing_correctness_properties(spec_name, design_path)
+                    all_results.extend(results)
+
+            elif rule == "invalid-archetype-tag":
+                tasks_path = spec.path / "tasks.md"
+                if tasks_path.is_file():
+                    results = fix_invalid_archetype_tag(spec_name, tasks_path)
+                    all_results.extend(results)
+
+            elif rule == "malformed-archetype-tag":
+                tasks_path = spec.path / "tasks.md"
+                if tasks_path.is_file():
+                    results = fix_malformed_archetype_tag(spec_name, tasks_path)
+                    all_results.extend(results)
+
+            elif rule == "invalid-checkbox-state":
+                tasks_path = spec.path / "tasks.md"
+                if tasks_path.is_file():
+                    results = fix_invalid_checkbox_state(spec_name, tasks_path)
                     all_results.extend(results)
 
         except OSError as exc:
