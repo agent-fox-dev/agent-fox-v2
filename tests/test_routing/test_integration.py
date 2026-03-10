@@ -15,6 +15,8 @@ from unittest.mock import patch
 import duckdb
 import pytest
 from agent_fox.routing.assessor import AssessmentPipeline
+
+from agent_fox.core.models import ModelTier
 from agent_fox.routing.storage import persist_assessment, persist_outcome
 from agent_fox.routing.types import (
     ComplexityAssessment,
@@ -22,8 +24,6 @@ from agent_fox.routing.types import (
     FeatureVector,
     RoutingConfig,
 )
-
-from agent_fox.core.models import ModelTier
 
 
 def _make_assessment(**overrides) -> ComplexityAssessment:

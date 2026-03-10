@@ -121,7 +121,7 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
     - [x] Requirements 2.1-2.4, 2.E1, 2.E2, 1.2, 1.E3 acceptance criteria met
 
-- [ ] 4. Checkpoint — Core Components Complete
+- [x] 4. Checkpoint — Core Components Complete
   - Ensure all tests pass, ask the user if questions arise.
   - Verify escalation ladder, feature extraction, storage, and config are solid.
 
