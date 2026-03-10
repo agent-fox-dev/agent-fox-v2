@@ -20,9 +20,35 @@ from agent_fox.workspace.workspace import (
     get_remote_url,
     local_branch_exists,
     push_to_remote,
+    run_git,
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _push_develop_if_pushable(repo_root: Path) -> None:
+    """Push develop to origin, but only if the push won't be rejected.
+
+    Checks whether origin/develop has commits not on local develop
+    (which would cause a non-fast-forward rejection) and skips the
+    push with a debug log instead of attempting and failing noisily.
+    """
+    _rc, remote_ahead_str, _ = await run_git(
+        ["rev-list", "--count", "develop..origin/develop"],
+        cwd=repo_root,
+        check=False,
+    )
+    remote_ahead = int(remote_ahead_str.strip()) if remote_ahead_str.strip() else 0
+    if remote_ahead > 0:
+        logger.debug(
+            "Skipping develop push: origin/develop is %d commit(s) ahead",
+            remote_ahead,
+        )
+        return
+
+    result = await push_to_remote(repo_root, "develop")
+    if not result:
+        logger.warning("Failed to push develop to origin")
 
 
 async def post_harvest_integrate(
@@ -56,9 +82,7 @@ async def post_harvest_integrate(
                 "GITHUB_PAT not set — falling back to pushing develop only",
             )
             # Fall back to no-platform behavior
-            result = await push_to_remote(repo_root, "develop")
-            if not result:
-                logger.warning("Failed to push develop to origin")
+            await _push_develop_if_pushable(repo_root)
             return
 
         # Parse remote URL for owner/repo
@@ -67,9 +91,7 @@ async def post_harvest_integrate(
             logger.warning(
                 "Could not determine remote URL — falling back to pushing develop only",
             )
-            result = await push_to_remote(repo_root, "develop")
-            if not result:
-                logger.warning("Failed to push develop to origin")
+            await _push_develop_if_pushable(repo_root)
             return
 
         parsed = parse_github_remote(remote_url)
@@ -79,9 +101,7 @@ async def post_harvest_integrate(
                 " — falling back to pushing develop only",
                 remote_url,
             )
-            result = await push_to_remote(repo_root, "develop")
-            if not result:
-                logger.warning("Failed to push develop to origin")
+            await _push_develop_if_pushable(repo_root)
             return
 
         owner, repo = parsed
@@ -102,9 +122,7 @@ async def post_harvest_integrate(
 
         if platform_config.auto_merge:
             # 19-REQ-3.2: push develop too
-            result = await push_to_remote(repo_root, "develop")
-            if not result:
-                logger.warning("Failed to push develop to origin")
+            await _push_develop_if_pushable(repo_root)
         else:
             # 19-REQ-3.3: create PR, do NOT push develop
             platform = GitHubPlatform(owner=owner, repo=repo, token=token)
@@ -125,6 +143,4 @@ async def post_harvest_integrate(
                 )
     else:
         # 19-REQ-3.1: type="none" — just push develop
-        result = await push_to_remote(repo_root, "develop")
-        if not result:
-            logger.warning("Failed to push develop to origin")
+        await _push_develop_if_pushable(repo_root)

@@ -390,13 +390,58 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
         return
 
     if local_ahead > 0 and remote_ahead > 0:
-        # Diverged — warn and leave as-is (19-REQ-1.E4)
-        logger.warning(
+        # Diverged — attempt rebase to reconcile
+        logger.info(
             "Local develop has diverged from origin/develop "
-            "(%d local, %d remote commits). Using local as-is.",
+            "(%d local, %d remote commits). Attempting rebase.",
             local_ahead,
             remote_ahead,
         )
+
+        # Save current branch to restore after rebase
+        _rc, current_ref, _ = await run_git(
+            ["symbolic-ref", "--short", "HEAD"],
+            cwd=repo_root,
+            check=False,
+        )
+        original_branch = current_ref.strip() if _rc == 0 else ""
+
+        # Checkout develop so we can rebase it
+        rc_co, _, _ = await run_git(
+            ["checkout", "develop"], cwd=repo_root, check=False,
+        )
+        if rc_co != 0:
+            logger.warning(
+                "Could not checkout develop for rebase. Using local as-is.",
+            )
+            return
+
+        # Attempt rebase onto origin/develop
+        rc_rb, _, stderr_rb = await run_git(
+            ["rebase", "origin/develop"],
+            cwd=repo_root,
+            check=False,
+        )
+        if rc_rb != 0:
+            # Rebase failed (conflicts) — abort and leave as-is
+            await run_git(["rebase", "--abort"], cwd=repo_root, check=False)
+            logger.warning(
+                "Rebase of local develop onto origin/develop failed "
+                "(conflicts). Using local as-is.",
+            )
+        else:
+            logger.info(
+                "Rebased %d local commit(s) onto origin/develop successfully.",
+                local_ahead,
+            )
+
+        # Restore original branch
+        if original_branch and original_branch != "develop":
+            await run_git(
+                ["checkout", original_branch],
+                cwd=repo_root,
+                check=False,
+            )
         return
 
     # Local is behind only — fast-forward (19-REQ-1.6)

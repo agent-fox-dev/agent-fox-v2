@@ -412,16 +412,16 @@ class TestEnsureDevelopFetchFails:
 
 
 class TestEnsureDevelopDiverged:
-    """TS-19-E4: When local and remote develop have diverged, warns and
-    uses local as-is.
+    """TS-19-E4: When local and remote develop have diverged, attempt
+    rebase; if rebase fails (conflicts), warn and leave as-is.
 
     Requirement: 19-REQ-1.E4
     """
 
-    async def test_warns_and_keeps_local(
+    async def test_rebase_succeeds(
         self, tmp_path: Path, caplog
     ) -> None:
-        """ensure_develop warns about divergence and doesn't modify local."""
+        """ensure_develop rebases local develop onto origin/develop."""
         calls: list[list[str]] = []
 
         async def mock_run_git(args, cwd, check=True):
@@ -429,18 +429,64 @@ class TestEnsureDevelopDiverged:
             key = " ".join(args)
             if "fetch" in key:
                 return 0, "", ""
-            # local develop exists
             if "branch" in key and "--list" in key and "develop" in key:
                 return 0, "  develop\n", ""
-            # remote develop exists
             if "ls-remote" in key and "develop" in key:
                 return 0, "abc123\trefs/heads/develop\n", ""
-            # local has commits not on remote
             if "rev-list" in key and "origin/develop..develop" in key:
                 return 0, "3\n", ""
-            # remote has commits not on local
             if "rev-list" in key and "develop..origin/develop" in key:
                 return 0, "2\n", ""
+            if "symbolic-ref" in key:
+                return 0, "main\n", ""
+            if key == "checkout develop":
+                return 0, "", ""
+            if "rebase" in key and "origin/develop" in key:
+                return 0, "", ""  # rebase succeeds
+            if key == "checkout main":
+                return 0, "", ""
+            return 0, "", ""
+
+        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+            import logging
+
+            with caplog.at_level(logging.INFO):
+                await ensure_develop(tmp_path)
+
+        # Verify rebase was attempted and succeeded
+        rebase_calls = [c for c in calls if "rebase" in c]
+        assert len(rebase_calls) == 1
+        assert any("rebased" in r.message.lower() for r in caplog.records)
+
+    async def test_rebase_fails_warns_and_keeps_local(
+        self, tmp_path: Path, caplog
+    ) -> None:
+        """ensure_develop warns when rebase fails and leaves local as-is."""
+        calls: list[list[str]] = []
+
+        async def mock_run_git(args, cwd, check=True):
+            calls.append(args)
+            key = " ".join(args)
+            if "fetch" in key:
+                return 0, "", ""
+            if "branch" in key and "--list" in key and "develop" in key:
+                return 0, "  develop\n", ""
+            if "ls-remote" in key and "develop" in key:
+                return 0, "abc123\trefs/heads/develop\n", ""
+            if "rev-list" in key and "origin/develop..develop" in key:
+                return 0, "3\n", ""
+            if "rev-list" in key and "develop..origin/develop" in key:
+                return 0, "2\n", ""
+            if "symbolic-ref" in key:
+                return 0, "main\n", ""
+            if key == "checkout develop":
+                return 0, "", ""
+            if "rebase" in key and "origin/develop" in key:
+                return 1, "", "CONFLICT"  # rebase fails
+            if "rebase" in key and "--abort" in key:
+                return 0, "", ""
+            if key == "checkout main":
+                return 0, "", ""
             return 0, "", ""
 
         with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
@@ -449,12 +495,9 @@ class TestEnsureDevelopDiverged:
             with caplog.at_level(logging.WARNING):
                 await ensure_develop(tmp_path)
 
-        # Verify divergence warning
-        assert any("diverg" in r.message.lower() for r in caplog.records)
-
-        # Verify no branch updates
-        update_calls = [
-            c for c in calls
-            if "merge" in c or (c[0] == "branch" and "-f" in c)
-        ]
-        assert len(update_calls) == 0
+        # Verify rebase was attempted and aborted
+        rebase_calls = [c for c in calls if "rebase" in c]
+        assert any("--abort" in c for c in rebase_calls)
+        # Verify warning about failed rebase
+        assert any("rebase" in r.message.lower() and "failed" in r.message.lower()
+                    for r in caplog.records)
