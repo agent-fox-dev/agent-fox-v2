@@ -30,12 +30,18 @@ logger = logging.getLogger(__name__)
 # Context assembly (merged from context.py)
 # ---------------------------------------------------------------------------
 
-# Spec files to read, in order, with their section headers.
-_SPEC_FILES: list[tuple[str, str]] = [
+# Core spec files — always expected to exist for every spec.
+_CORE_SPEC_FILES: list[tuple[str, str]] = [
     ("requirements.md", "## Requirements"),
     ("design.md", "## Design"),
     ("test_spec.md", "## Test Specification"),
     ("tasks.md", "## Tasks"),
+]
+
+# Archetype-produced files — only present after the corresponding archetype
+# (Skeptic / Verifier) has run.  Included silently when they exist on disk,
+# skipped silently when they don't.
+_ARCHETYPE_SPEC_FILES: list[tuple[str, str]] = [
     ("review.md", "## Skeptic Review"),
     ("verification.md", "## Verification Report"),
 ]
@@ -248,9 +254,7 @@ def assemble_context(
 
     # 03-REQ-4.1: Read spec documents
     file_sections: list[str] = []
-    for filename, header in _SPEC_FILES:
-        if filename in db_rendered_files:
-            continue
+    for filename, header in _CORE_SPEC_FILES:
         filepath = spec_dir / filename
         if not filepath.exists():
             # 03-REQ-4.E1: Skip missing files with a warning
@@ -259,6 +263,17 @@ def assemble_context(
                 filename,
                 spec_dir,
             )
+            continue
+        content = filepath.read_text(encoding="utf-8")
+        file_sections.append(f"{header}\n\n{content}")
+
+    # Include archetype-produced files (review.md, verification.md) only
+    # when they exist on disk and weren't already rendered from the DB.
+    for filename, header in _ARCHETYPE_SPEC_FILES:
+        if filename in db_rendered_files:
+            continue
+        filepath = spec_dir / filename
+        if not filepath.exists():
             continue
         content = filepath.read_text(encoding="utf-8")
         file_sections.append(f"{header}\n\n{content}")
