@@ -98,29 +98,29 @@ checkpoint.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 1.1, 1.2, 1.E1, 2.1, 2.2, 2.E1 met
 
-- [ ] 3. Review store CRUD operations
-  - [ ] 3.1 Implement insert_findings with supersession
+- [x] 3. Review store CRUD operations
+  - [x] 3.1 Implement insert_findings with supersession
     - Supersede existing active records for same (spec_name, task_group)
     - Insert new records
     - Create causal links from superseded to new records
     - _Requirements: 4.1, 4.3_
 
-  - [ ] 3.2 Implement insert_verdicts with supersession
+  - [x] 3.2 Implement insert_verdicts with supersession
     - Same supersession logic for verification results
     - _Requirements: 4.2, 4.3_
 
-  - [ ] 3.3 Implement query functions
+  - [x] 3.3 Implement query functions
     - `query_active_findings()` — WHERE superseded_by IS NULL
     - `query_active_verdicts()` — WHERE superseded_by IS NULL
     - `query_findings_by_session()` — for convergence
     - `query_verdicts_by_session()` — for convergence
     - _Requirements: 5.1, 5.2, 6.1, 6.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: TS-27-6, TS-27-7, TS-27-8, TS-27-E5, TS-27-P1
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 4.1, 4.2, 4.3, 4.E1 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: TS-27-6, TS-27-7, TS-27-8, TS-27-E5, TS-27-P1
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 4.1, 4.2, 4.3, 4.E1 met
 
 - [ ] 4. Output parser
   - [ ] 4.1 Implement parse_review_output
