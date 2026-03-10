@@ -32,11 +32,11 @@ def _mock_git_log_output(commits: list[tuple[str, str, str]]) -> MagicMock:
     Args:
         commits: List of (sha, date, message) tuples.
     """
-    # Format as git log --format output
-    lines = []
+    # Format as git log --format output (record-separator delimited)
+    records = []
     for sha, date, message in commits:
-        lines.append(f"{sha}\x00{date}\x00{message}")
-    output = "\n".join(lines)
+        records.append(f"\x1e{sha}\x00{date}\x00{message}")
+    output = "".join(records)
 
     mock_result = MagicMock()
     mock_result.returncode = 0
