@@ -73,7 +73,9 @@ class SerialRunner:
     ) -> SessionRecord:
         """Execute a single session and return the outcome record."""
         runner = self._session_runner_factory(
-            node_id, archetype=archetype, instances=instances,
+            node_id,
+            archetype=archetype,
+            instances=instances,
         )
         return await invoke_runner(runner, node_id, attempt, previous_error)
 
@@ -262,6 +264,10 @@ class GraphSync:
             if all(self.node_states.get(d) == "completed" for d in deps):
                 ready.append(node_id)
         return sorted(ready)
+
+    def predecessors(self, node_id: str) -> list[str]:
+        """Return predecessor node IDs for *node_id*."""
+        return self._edges.get(node_id, [])
 
     def mark_completed(self, node_id: str) -> None:
         """Mark a task as completed."""
@@ -648,9 +654,7 @@ class Orchestrator:
                         state,
                         attempt_tracker,
                         error_tracker,
-                        first_dispatch,
                     )
-                    first_dispatch = False
                 else:
                     first_dispatch = await self._dispatch_serial(
                         ready,
@@ -775,7 +779,6 @@ class Orchestrator:
         state: ExecutionState,
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
-        first_dispatch: bool,
     ) -> None:
         """Dispatch ready tasks using a streaming pool.
 
@@ -979,7 +982,7 @@ class Orchestrator:
         """Get predecessor node IDs for a given node."""
         if self._graph_sync is None:
             return []
-        return self._graph_sync._edges.get(node_id, [])
+        return self._graph_sync.predecessors(node_id)
 
     def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
         """Check and run sync barrier actions if triggered.

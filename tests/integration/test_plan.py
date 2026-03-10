@@ -240,9 +240,7 @@ class TestPlanCLIEndToEnd:
         second_spec = tmp_git_repo / ".specs" / "02_other"
         second_spec.mkdir(parents=True)
         (second_spec / "tasks.md").write_text(
-            "# Tasks\n\n"
-            "- [ ] 1. Add second feature\n"
-            "  - [ ] 1.1 Implement\n"
+            "# Tasks\n\n- [ ] 1. Add second feature\n  - [ ] 1.1 Implement\n"
         )
 
         first = cli_runner.invoke(main, ["plan"])
@@ -271,13 +269,12 @@ class TestPlanCLIEndToEnd:
 
         assert result.exit_code == 0
 
-    def test_plan_verify_placeholder(
+    def test_plan_verify_removed(
         self, cli_runner: CliRunner, tmp_git_repo: Path
     ) -> None:
-        """plan --verify prints placeholder message."""
+        """plan --verify is no longer a valid option (removed dead code)."""
         _setup_project(tmp_git_repo)
 
         result = cli_runner.invoke(main, ["plan", "--verify"])
 
-        assert result.exit_code == 0
-        assert "not yet implemented" in result.output.lower()
+        assert result.exit_code == 2
