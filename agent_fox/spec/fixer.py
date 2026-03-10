@@ -78,10 +78,12 @@ FIXABLE_RULES = {
     "invalid-archetype-tag",
     "malformed-archetype-tag",
     "invalid-checkbox-state",
+    "traceability-table-mismatch",
+    "coverage-matrix-mismatch",
 }
 
 # AI-specific fixable rules (only active when --ai flag is set)
-AI_FIXABLE_RULES = {"vague-criterion", "implementation-leak"}
+AI_FIXABLE_RULES = {"vague-criterion", "implementation-leak", "untraced-requirement"}
 
 # Regex for locating criterion IDs in requirements.md
 # Supports bracket format: [99-REQ-1.1] and bold format: **99-REQ-1.1:**
@@ -808,6 +810,117 @@ def fix_invalid_checkbox_state(
     return results
 
 
+def fix_traceability_table_mismatch(
+    spec_name: str,
+    spec_path: Path,
+    missing_req_ids: list[str],
+) -> list[FixResult]:
+    """Append missing requirement IDs to the traceability table in tasks.md.
+
+    Adds rows with TODO placeholders for each missing requirement.
+    """
+    tasks_path = spec_path / "tasks.md"
+    if not tasks_path.is_file() or not missing_req_ids:
+        return []
+
+    text = tasks_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Find the last row of the traceability table
+    in_traceability = False
+    last_table_line: int | None = None
+    for i, line in enumerate(lines):
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            in_traceability = (
+                "traceability" in _normalize_heading(section)
+            )
+            continue
+        if in_traceability and line.strip().startswith("|"):
+            last_table_line = i
+
+    if last_table_line is None:
+        return []
+
+    # Append missing rows after the last table line
+    new_rows = []
+    for req_id in sorted(missing_req_ids):
+        new_rows.append(f"| {req_id} | TODO | TODO | TODO |")
+
+    for j, row in enumerate(new_rows):
+        lines.insert(last_table_line + 1 + j, row)
+
+    tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="traceability-table-mismatch",
+            spec_name=spec_name,
+            file=str(tasks_path),
+            description=(
+                f"Appended {len(missing_req_ids)} missing requirement(s) "
+                f"to traceability table"
+            ),
+        )
+    ]
+
+
+def fix_coverage_matrix_mismatch(
+    spec_name: str,
+    spec_path: Path,
+    missing_req_ids: list[str],
+) -> list[FixResult]:
+    """Append missing requirement IDs to the coverage matrix in test_spec.md.
+
+    Adds rows with TODO placeholders for each missing requirement.
+    """
+    ts_path = spec_path / "test_spec.md"
+    if not ts_path.is_file() or not missing_req_ids:
+        return []
+
+    text = ts_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Find the last row of the coverage matrix table
+    in_matrix = False
+    last_table_line: int | None = None
+    for i, line in enumerate(lines):
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_matrix = "coverage" in normalized and "matrix" in normalized
+            continue
+        if in_matrix and line.strip().startswith("|"):
+            last_table_line = i
+
+    if last_table_line is None:
+        return []
+
+    # Append missing rows after the last table line
+    new_rows = []
+    for req_id in sorted(missing_req_ids):
+        new_rows.append(f"| {req_id} | TODO | TODO |")
+
+    for j, row in enumerate(new_rows):
+        lines.insert(last_table_line + 1 + j, row)
+
+    ts_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    return [
+        FixResult(
+            rule="coverage-matrix-mismatch",
+            spec_name=spec_name,
+            file=str(ts_path),
+            description=(
+                f"Appended {len(missing_req_ids)} missing requirement(s) "
+                f"to coverage matrix"
+            ),
+        )
+    ]
+
+
 def apply_fixes(
     findings: list[Finding],
     discovered_specs: list[SpecInfo],
@@ -832,13 +945,23 @@ def apply_fixes(
 
     # Filter to fixable findings and deduplicate by (spec_name, rule)
     fixable: dict[tuple[str, str], Finding] = {}
-    # For stale-dependency, collect ALL findings per spec (not just first)
+    # For rules that need ALL findings per spec (not just first), collect them
     stale_dep_findings: dict[str, list[Finding]] = {}
+    mismatch_findings: dict[tuple[str, str], list[Finding]] = {}
+    _MULTI_FINDING_RULES = {
+        "stale-dependency",
+        "traceability-table-mismatch",
+        "coverage-matrix-mismatch",
+    }
     for finding in findings:
         if finding.rule in FIXABLE_RULES:
             key = (finding.spec_name, finding.rule)
             if finding.rule == "stale-dependency":
                 stale_dep_findings.setdefault(finding.spec_name, []).append(finding)
+                if key not in fixable:
+                    fixable[key] = finding
+            elif finding.rule in _MULTI_FINDING_RULES:
+                mismatch_findings.setdefault(key, []).append(finding)
                 if key not in fixable:
                     fixable[key] = finding
             else:
@@ -934,6 +1057,28 @@ def apply_fixes(
                     results = fix_invalid_checkbox_state(spec_name, tasks_path)
                     all_results.extend(results)
 
+            elif rule == "traceability-table-mismatch":
+                key = (spec_name, rule)
+                missing_ids = _extract_req_ids_from_findings(
+                    mismatch_findings.get(key, [])
+                )
+                if missing_ids:
+                    results = fix_traceability_table_mismatch(
+                        spec_name, spec.path, missing_ids
+                    )
+                    all_results.extend(results)
+
+            elif rule == "coverage-matrix-mismatch":
+                key = (spec_name, rule)
+                missing_ids = _extract_req_ids_from_findings(
+                    mismatch_findings.get(key, [])
+                )
+                if missing_ids:
+                    results = fix_coverage_matrix_mismatch(
+                        spec_name, spec.path, missing_ids
+                    )
+                    all_results.extend(results)
+
         except OSError as exc:
             logger.warning(
                 "Failed to apply fix for rule '%s' on spec '%s': %s",
@@ -944,6 +1089,19 @@ def apply_fixes(
             continue
 
     return all_results
+
+
+_REQ_ID_IN_MESSAGE = re.compile(r"\b(\d{2}-REQ-\d+\.(?:\d+|E\d+))\b")
+
+
+def _extract_req_ids_from_findings(findings: list[Finding]) -> list[str]:
+    """Extract requirement IDs from mismatch finding messages."""
+    ids: list[str] = []
+    for finding in findings:
+        m = _REQ_ID_IN_MESSAGE.search(finding.message)
+        if m:
+            ids.append(m.group(1))
+    return sorted(set(ids))
 
 
 def _parse_stale_dep_fixes(findings: list[Finding]) -> list[IdentifierFix]:
@@ -1052,6 +1210,73 @@ def fix_ai_criteria(
     if results:
         req_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    return results
+
+
+def fix_ai_test_spec_entries(
+    spec_name: str,
+    ts_path: Path,
+    entries: dict[str, str],
+) -> list[FixResult]:
+    """Insert AI-generated test spec entries into test_spec.md.
+
+    Entries are inserted before the Coverage Matrix section if present,
+    otherwise appended to the end of the file.
+
+    Args:
+        spec_name: Spec name for FixResult metadata.
+        ts_path: Path to test_spec.md.
+        entries: Mapping of requirement_id -> test spec entry markdown.
+
+    Returns:
+        List of FixResult for each successfully inserted entry.
+    """
+    if not ts_path.is_file() or not entries:
+        return []
+
+    text = ts_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    # Find the Coverage Matrix heading to insert before it
+    insert_idx: int | None = None
+    for i, line in enumerate(lines):
+        m = _H2_HEADING.match(line)
+        if m:
+            normalized = _normalize_heading(m.group(1))
+            if "coverage" in normalized and "matrix" in normalized:
+                # Insert before the heading, with a blank line
+                insert_idx = i
+                break
+
+    results: list[FixResult] = []
+    new_lines: list[str] = []
+    for req_id, entry_text in entries.items():
+        new_lines.append("")
+        new_lines.extend(entry_text.splitlines())
+        new_lines.append("")
+        results.append(
+            FixResult(
+                rule="untraced-requirement",
+                spec_name=spec_name,
+                file=str(ts_path),
+                description=(
+                    f"Generated test spec entry for {req_id}"
+                ),
+            )
+        )
+
+    if not results:
+        return []
+
+    if insert_idx is not None:
+        # Insert before Coverage Matrix
+        for j, new_line in enumerate(new_lines):
+            lines.insert(insert_idx + j, new_line)
+    else:
+        # Append to end
+        lines.extend(new_lines)
+
+    ts_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return results
 
 

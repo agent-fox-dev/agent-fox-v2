@@ -281,7 +281,8 @@ class TestSectionSchema:
         # Should flag multiple missing required sections
         assert len(missing) >= 3
 
-    def test_extra_section_flagged_as_hint(self, tmp_path: Path) -> None:
+    def test_extra_section_not_flagged(self, tmp_path: Path) -> None:
+        """Domain-specific sections should not produce findings."""
         design = tmp_path / "design.md"
         design.write_text(
             "# Design\n\n"
@@ -296,9 +297,7 @@ class TestSectionSchema:
         )
         findings = check_section_schema("test", tmp_path)
         extra = [f for f in findings if f.rule == "extra-section"]
-        assert len(extra) >= 1
-        assert extra[0].severity == "hint"
-        assert "My Custom Section" in extra[0].message
+        assert len(extra) == 0
 
     def test_missing_file_produces_no_findings(self) -> None:
         fixture = FIXTURES_DIR / "incomplete_spec"
