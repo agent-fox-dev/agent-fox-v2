@@ -23,8 +23,9 @@ from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.engine.state import ExecutionState
-from agent_fox.knowledge.db import open_knowledge_store
+from agent_fox.knowledge.db import KnowledgeDB, open_knowledge_store
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
+from agent_fox.knowledge.ingest import run_background_ingestion
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.reporting.formatters import format_tokens
 from agent_fox.ui.progress import ProgressDisplay
@@ -130,6 +131,23 @@ def _print_summary(state: ExecutionState) -> None:
     click.echo(f"Status: {state.run_status}")
 
 
+def _ingest_if_available(
+    knowledge_db: KnowledgeDB | None,
+    config: AgentFoxConfig,
+) -> None:
+    """Run background knowledge ingestion if the store is available."""
+    if knowledge_db is None:
+        return
+    try:
+        run_background_ingestion(
+            knowledge_db.connection,
+            config.knowledge,
+            Path.cwd(),
+        )
+    except Exception:
+        logger.warning("Background ingestion failed", exc_info=True)
+
+
 @click.command("code")
 @click.option(
     "--parallel",
@@ -230,6 +248,9 @@ def code_cmd(
         jsonl_dir = Path(".agent-fox")
         sink_dispatcher.add(JsonlSink(jsonl_dir))
 
+    # 12-REQ-4.1, 12-REQ-4.2: Ingest ADRs and git commits at startup
+    _ingest_if_available(knowledge_db, config)
+
     # 18-REQ-5.1: Create progress display (suppressed in JSON mode)
     theme = create_theme(config.theme)
     progress = ProgressDisplay(theme, quiet=quiet or json_mode)
@@ -267,6 +288,7 @@ def code_cmd(
             specs_dir=Path(".specs"),
             no_hooks=no_hooks,
             task_callback=progress.task_callback,
+            barrier_callback=lambda: _ingest_if_available(knowledge_db, config),
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
@@ -294,6 +316,8 @@ def code_cmd(
         sys.exit(1)
     finally:
         progress.stop()
+        # 12-REQ-4.1, 12-REQ-4.2: Re-ingest to capture new commits/ADRs
+        _ingest_if_available(knowledge_db, config)
         # Clean up knowledge store connection
         sink_dispatcher.close()
         if knowledge_db is not None:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -164,6 +165,72 @@ class KnowledgeConfig(BaseModel):
         return _clamp(v, ge=1, field_name="knowledge.ask_top_k")
 
 
+class ArchetypeInstancesConfig(BaseModel):
+    """Per-archetype instance count configuration.
+
+    Requirements: 26-REQ-6.2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    skeptic: int = Field(default=1)
+    verifier: int = Field(default=1)
+
+    @field_validator("skeptic", "verifier")
+    @classmethod
+    def clamp_instances(cls, v: int, info: Any) -> int:
+        field = info.field_name
+        return _clamp(v, ge=1, le=5, field_name=f"archetypes.instances.{field}")
+
+
+class SkepticConfig(BaseModel):
+    """Skeptic-specific configuration.
+
+    Requirements: 26-REQ-8.4
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    block_threshold: int = Field(default=3)
+
+    @field_validator("block_threshold")
+    @classmethod
+    def clamp_threshold(cls, v: int) -> int:
+        return _clamp(v, ge=0, field_name="archetypes.skeptic.block_threshold")
+
+
+class ArchetypesConfig(BaseModel):
+    """Archetype enable/disable toggles and per-archetype configuration.
+
+    Requirements: 26-REQ-6.1 through 26-REQ-6.5, 26-REQ-6.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    coder: bool = True
+    skeptic: bool = False
+    verifier: bool = False
+    librarian: bool = False
+    cartographer: bool = False
+
+    instances: ArchetypeInstancesConfig = Field(
+        default_factory=ArchetypeInstancesConfig
+    )
+    skeptic_config: SkepticConfig = Field(
+        default_factory=SkepticConfig, alias="skeptic_settings"
+    )
+    models: dict[str, str] = Field(default_factory=dict)
+    allowlists: dict[str, list[str]] = Field(default_factory=dict)
+    backends: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("coder")
+    @classmethod
+    def coder_always_enabled(cls, v: bool) -> bool:
+        if not v:
+            logger.warning("archetypes.coder cannot be disabled; ignoring")
+        return True
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -175,6 +242,7 @@ class AgentFoxConfig(BaseModel):
     platform: PlatformConfig = Field(default_factory=PlatformConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
+    archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:

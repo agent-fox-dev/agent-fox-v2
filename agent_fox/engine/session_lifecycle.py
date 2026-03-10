@@ -15,7 +15,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_fox.core.config import AgentFoxConfig, HookConfig
+from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import calculate_cost, resolve_model
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
@@ -29,6 +29,7 @@ from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.memory.filter import select_relevant_facts
 from agent_fox.memory.memory import load_all_facts
+from agent_fox.session.archetypes import get_archetype
 from agent_fox.session.prompt import (
     assemble_context,
     build_system_prompt,
@@ -49,6 +50,37 @@ from agent_fox.workspace.workspace import (
 logger = logging.getLogger(__name__)
 
 
+def _clamp_instances(archetype: str, instances: int) -> int:
+    """Clamp instance counts to valid ranges.
+
+    - Coder: always 1 (26-REQ-4.E1).
+    - Any archetype: max 5 (26-REQ-4.E2).
+    - Minimum: 1.
+    """
+    if archetype == "coder" and instances > 1:
+        logger.warning(
+            "Coder archetype does not support multi-instance; "
+            "clamped instances from %d to 1",
+            instances,
+        )
+        return 1
+    if instances > 5:
+        logger.warning(
+            "Instances for archetype '%s' clamped from %d to 5 (maximum)",
+            archetype,
+            instances,
+        )
+        return 5
+    if instances < 1:
+        logger.warning(
+            "Instances for archetype '%s' clamped from %d to 1 (minimum)",
+            archetype,
+            instances,
+        )
+        return 1
+    return instances
+
+
 class NodeSessionRunner:
     """Session runner for a single task graph node.
 
@@ -65,6 +97,8 @@ class NodeSessionRunner:
         node_id: str,
         config: AgentFoxConfig,
         *,
+        archetype: str = "coder",
+        instances: int = 1,
         hook_config: HookConfig | None = None,
         no_hooks: bool = False,
         sink_dispatcher: SinkDispatcher | None = None,
@@ -73,6 +107,8 @@ class NodeSessionRunner:
     ) -> None:
         self._node_id = node_id
         self._config = config
+        self._archetype = archetype
+        self._instances = _clamp_instances(archetype, instances)
         self._hook_config = hook_config
         self._no_hooks = no_hooks
         self._sink = sink_dispatcher
@@ -82,6 +118,10 @@ class NodeSessionRunner:
         parts = node_id.rsplit(":", 1)
         self._spec_name = parts[0]
         self._task_group = int(parts[1])
+
+        # 26-REQ-4.4: Resolve model tier and allowlist from archetype config
+        self._resolved_model_id = self._resolve_model_tier()
+        self._resolved_security = self._resolve_security_config()
 
     def _build_prompts(
         self,
@@ -130,6 +170,7 @@ class NodeSessionRunner:
             context=context,
             task_group=self._task_group,
             spec_name=self._spec_name,
+            archetype=self._archetype,
         )
         task_prompt = build_task_prompt(
             task_group=self._task_group,
@@ -146,6 +187,45 @@ class NodeSessionRunner:
             )
 
         return system_prompt, task_prompt
+
+    def _resolve_model_tier(self) -> str:
+        """Resolve model tier for the archetype.
+
+        Priority: config override > archetype registry default > global coding model.
+
+        Requirements: 26-REQ-4.4, 26-REQ-6.3
+        """
+        # Check config override first
+        config_override = self._config.archetypes.models.get(self._archetype)
+        if config_override:
+            return config_override
+
+        # Fall back to archetype registry default
+        entry = get_archetype(self._archetype)
+        return entry.default_model_tier
+
+    def _resolve_security_config(self) -> SecurityConfig | None:
+        """Resolve security config for the archetype.
+
+        Returns a SecurityConfig with the archetype's allowlist override,
+        or None to use the global default.
+
+        Priority: config override > archetype registry default > None (global).
+
+        Requirements: 26-REQ-3.4, 26-REQ-6.4
+        """
+        # Check config override first
+        config_allowlist = self._config.archetypes.allowlists.get(self._archetype)
+        if config_allowlist is not None:
+            return SecurityConfig(bash_allowlist=config_allowlist)
+
+        # Fall back to archetype registry default
+        entry = get_archetype(self._archetype)
+        if entry.default_allowlist is not None:
+            return SecurityConfig(bash_allowlist=entry.default_allowlist)
+
+        # None means use global config.security
+        return None
 
     def _enhance_with_causal(
         self,
@@ -242,9 +322,11 @@ class NodeSessionRunner:
             task_prompt=task_prompt,
             config=self._config,
             activity_callback=self._activity_callback,
+            model_id=self._resolved_model_id,
+            security_config=self._resolved_security,
         )
 
-        model_entry = resolve_model(self._config.models.coding)
+        model_entry = resolve_model(self._resolved_model_id)
         cost = calculate_cost(
             outcome.input_tokens,
             outcome.output_tokens,

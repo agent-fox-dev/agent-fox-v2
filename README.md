@@ -65,6 +65,41 @@ a GitHub issue or a plain-English description:
 agent-fox ships with a set of [Claude Code skills](docs/skills.md) that assist
 with spec authoring, architecture decisions, code simplification, and more.
 
+### Agent Archetypes
+
+By default every task runs as a **Coder** agent. You can enable specialized
+archetypes to add automated review and verification to the task graph:
+
+| Archetype | Purpose | Injection |
+|-----------|---------|-----------|
+| **Coder** | Implements code (always enabled) | default |
+| **Skeptic** | Reviews specs before coding begins | auto, before first coder group |
+| **Verifier** | Checks code quality after coding | auto, after last coder group |
+| **Librarian** | Documentation tasks | manual assignment |
+| **Cartographer** | Architecture mapping | manual assignment |
+
+Enable archetypes in your `config.toml`:
+
+```toml
+[archetypes]
+skeptic = true
+verifier = true
+
+[archetypes.instances]
+skeptic = 3       # run 3 independent reviewers, converge results
+
+[archetypes.skeptic_settings]
+block_threshold = 3  # block if > 3 majority-agreed critical findings
+```
+
+You can also assign archetypes to specific task groups in `tasks.md`:
+
+```markdown
+- [ ] 5. Update documentation [archetype: librarian]
+```
+
+See the [ADR](docs/adr/agent-archetypes.md) for design rationale.
+
 ## Development
 
 ```bash

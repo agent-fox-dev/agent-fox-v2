@@ -31,6 +31,8 @@ class Node:
     status: NodeStatus = NodeStatus.PENDING
     subtask_count: int = 0  # number of subtasks
     body: str = ""  # raw task body for context
+    archetype: str = "coder"  # 26-REQ-4.1
+    instances: int = 1  # 26-REQ-4.1
 
 
 @dataclass(frozen=True)

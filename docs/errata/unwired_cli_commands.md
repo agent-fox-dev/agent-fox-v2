@@ -14,3 +14,11 @@ The underlying functionality remains intact — the backing modules in
 tested. These commands were deliberately unwired because the knowledge
 management approach is being rethought. They will be re-introduced (possibly in
 a different form) once the new design is settled.
+
+### Resolution: Knowledge Ingestion Restored (2026-03-10)
+
+`agent_fox/knowledge/ingest.py` (deleted during the codebase simplification)
+has been restored and wired into the `agent-fox code` lifecycle as automatic
+background ingestion. ADRs and git commits are now ingested into DuckDB at
+three points: startup, sync barriers, and shutdown — without any CLI command
+required. The `ask`, `patterns`, and `compact` commands remain unwired.

@@ -38,6 +38,15 @@ _DEP_TABLE_HEADER_ALT = re.compile(
 # Table separator row (e.g., |---|---|---|)
 _TABLE_SEP = re.compile(r"^\s*\|[\s\-|]+\|\s*$")
 
+# Archetype tag pattern: [archetype: X]
+_ARCHETYPE_TAG = re.compile(r"\[archetype:\s*(\w+)\]")
+
+# Known archetype names for validation
+_KNOWN_ARCHETYPES = {
+    "coder", "skeptic", "verifier",
+    "librarian", "cartographer", "coordinator",
+}
+
 
 @dataclass(frozen=True)
 class SubtaskDef:
@@ -58,6 +67,7 @@ class TaskGroupDef:
     completed: bool  # True if checkbox is [x]
     subtasks: tuple[SubtaskDef, ...]  # nested subtasks
     body: str  # full raw text of the group
+    archetype: str | None = None  # 26-REQ-5.1: from [archetype: X] tag
 
 
 @dataclass(frozen=True)
@@ -95,6 +105,7 @@ def parse_tasks(tasks_path: Path) -> list[TaskGroupDef]:
     current_completed: bool = False
     current_subtasks: list[SubtaskDef] = []
     current_body_lines: list[str] = []
+    current_archetype: str | None = None
 
     def _finalize_group() -> None:
         """Finalize and append the current group being parsed."""
@@ -108,6 +119,7 @@ def parse_tasks(tasks_path: Path) -> list[TaskGroupDef]:
                     completed=current_completed,
                     subtasks=tuple(current_subtasks),
                     body=body,
+                    archetype=current_archetype,
                 )
             )
 
@@ -123,11 +135,29 @@ def parse_tasks(tasks_path: Path) -> list[TaskGroupDef]:
             title = group_match.group(4)
 
             current_number = int(number_str)
-            current_title = title.strip()
+            raw_title = title.strip()
             current_optional = optional_marker is not None
             current_completed = checkbox == "x"
             current_subtasks = []
             current_body_lines = []
+
+            # 26-REQ-5.1: extract [archetype: X] tag from title
+            arch_match = _ARCHETYPE_TAG.search(raw_title)
+            if arch_match:
+                arch_name = arch_match.group(1)
+                if arch_name not in _KNOWN_ARCHETYPES:
+                    # 26-REQ-5.E2: unknown archetype tag
+                    logger.warning(
+                        "Unknown archetype '%s' in tasks.md tag; "
+                        "will default to 'coder'",
+                        arch_name,
+                    )
+                current_archetype = arch_name
+                # Strip the tag from the title
+                current_title = _ARCHETYPE_TAG.sub("", raw_title).strip()
+            else:
+                current_archetype = None
+                current_title = raw_title
             continue
 
         # Only process subtasks and body if we're inside a group
