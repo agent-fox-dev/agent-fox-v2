@@ -266,12 +266,12 @@ report + CLI integration.
     - [x] Type check passes: `uv run mypy agent_fox/fix/ agent_fox/cli/fix.py`
     - [x] All requirements 31-REQ-* acceptance criteria met
 
-- [ ] 5. Checkpoint — Auto-Improve Complete
-  - [ ] Ensure all new tests pass: `uv run pytest tests/unit/fix/ -q`
-  - [ ] Ensure all existing tests pass (no regressions): `uv run pytest tests/ -q`
-  - [ ] Ensure linter clean: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py tests/unit/fix/`
-  - [ ] Ensure type check clean: `uv run mypy agent_fox/fix/`
-  - [ ] Verify `agent-fox fix --help` shows --auto and --improve-passes options
+- [x] 5. Checkpoint — Auto-Improve Complete
+  - [x] Ensure all new tests pass: `uv run pytest tests/unit/fix/ -q`
+  - [x] Ensure all existing tests pass (no regressions): `uv run pytest tests/ -q`
+  - [x] Ensure linter clean: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py tests/unit/fix/`
+  - [x] Ensure type check clean: `uv run mypy agent_fox/fix/`
+  - [x] Verify `agent-fox fix --help` shows --auto and --improve-passes options
 
 ## Traceability
 
