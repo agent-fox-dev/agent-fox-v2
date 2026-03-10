@@ -158,8 +158,8 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
     - [x] Requirements 1.1-1.6, 1.E1, 1.E2 acceptance criteria met
 
-- [ ] 6. Implement statistical model and calibration
-  - [ ] 6.1 Implement statistical assessor
+- [x] 6. Implement statistical model and calibration
+  - [x] 6.1 Implement statistical assessor
     - Create `agent_fox/routing/calibration.py`: `StatisticalAssessor` class
     - `is_ready()`: check outcome count vs training threshold
     - `train()`: load feature vectors + outcomes from DuckDB, fit logistic
@@ -168,22 +168,22 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Handle training failures (zero variance, numerical errors) gracefully
     - _Requirements: 4.1, 4.2, 4.3, 4.E1_
 
-  - [ ] 6.2 Implement retraining and accuracy tracking
+  - [x] 6.2 Implement retraining and accuracy tracking
     - Add retraining trigger: retrain after every N new outcomes
     - Track last training outcome count to detect when retrain is needed
     - On accuracy degradation below threshold: log warning, flag for hybrid
     - _Requirements: 4.4, 4.5, 4.E2_
 
-  - [ ] 6.3 Add scikit-learn dependency
+  - [x] 6.3 Add scikit-learn dependency
     - Add `scikit-learn` to project dependencies in `pyproject.toml`
     - _Requirements: 4.1_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests for this group pass: `uv run pytest tests/test_routing/test_calibration.py -q`
-    - [ ] Edge case tests TS-30-E7, E8 pass: `uv run pytest tests/test_routing/ -q -k "test_e7 or test_e8"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
-    - [ ] Requirements 4.1-4.5, 4.E1, 4.E2 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest tests/test_routing/test_calibration.py -q`
+    - [x] Edge case tests TS-30-E7, E8 pass: `uv run pytest tests/test_routing/ -q -k "test_e7 or test_e8"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
+    - [x] Requirements 4.1-4.5, 4.E1, 4.E2 acceptance criteria met
 
 - [ ] 7. Integrate with orchestrator and session lifecycle
   - [ ] 7.1 Modify NodeSessionRunner to accept assessed tier

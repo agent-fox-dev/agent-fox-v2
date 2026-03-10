@@ -13,6 +13,7 @@ dependencies = [
     "duckdb>=1.0",
     "sentence-transformers>=3.0",
     "xxhash>=3.0",
+    "scikit-learn>=1.4",
 ]
 
 [project.scripts]

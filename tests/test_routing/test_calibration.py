@@ -33,6 +33,7 @@ def _populate_outcomes(
     import json
     import random
 
+    rng = random.Random(42)  # deterministic for reproducibility
     tiers = [ModelTier.SIMPLE, ModelTier.STANDARD, ModelTier.ADVANCED]
     for i in range(count):
         aid = str(uuid.uuid4())
@@ -60,18 +61,18 @@ def _populate_outcomes(
                 deps = 4
         else:
             # Random/noisy mapping
-            tier = random.choice(tiers)
-            subtasks = random.randint(1, 10)
-            words = random.randint(100, 3000)
-            props = random.choice([True, False])
-            deps = random.randint(0, 5)
+            tier = rng.choice(tiers)
+            subtasks = rng.randint(1, 10)
+            words = rng.randint(100, 3000)
+            props = rng.choice([True, False])
+            deps = rng.randint(0, 5)
 
         fv = json.dumps(
             {
                 "subtask_count": subtasks,
                 "spec_word_count": words,
                 "has_property_tests": props,
-                "edge_case_count": random.randint(0, 5) if not consistent else i % 3,
+                "edge_case_count": rng.randint(0, 5) if not consistent else i % 3,
                 "dependency_count": deps,
                 "archetype": "coder",
             }
