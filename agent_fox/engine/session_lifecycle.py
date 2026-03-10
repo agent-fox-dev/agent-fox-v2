@@ -215,6 +215,7 @@ class NodeSessionRunner:
         task_prompt = build_task_prompt(
             task_group=self._task_group,
             spec_name=self._spec_name,
+            archetype=self._archetype,
         )
 
         if previous_error and attempt > 1:

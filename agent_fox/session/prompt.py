@@ -564,17 +564,29 @@ def build_system_prompt(
 def build_task_prompt(
     task_group: int,
     spec_name: str,
+    archetype: str = "coder",
 ) -> str:
     """Build an enriched task prompt.
 
-    Includes spec name, task group, instructions to update checkbox states,
-    commit on the feature branch, and run quality gates.
+    For coder archetypes: includes spec name, task group, instructions to
+    update checkbox states, commit on the feature branch, and run quality
+    gates.
+
+    For non-coder archetypes (skeptic, verifier, etc.): returns a concise
+    prompt that defers to the system prompt template for detailed
+    instructions.
 
     Raises:
-        ValueError: If *task_group* < 1.
+        ValueError: If *task_group* < 1 for coder archetype.
 
     Requirement: 15-REQ-5.1, 15-REQ-5.2, 15-REQ-5.3, 15-REQ-5.E1
     """
+    if archetype != "coder":
+        return (
+            f"Execute your {archetype} role for specification "
+            f"`{spec_name}`. Follow the instructions in the system prompt.\n"
+        )
+
     if task_group < 1:
         raise ValueError(f"task_group must be >= 1, got {task_group}")
 
