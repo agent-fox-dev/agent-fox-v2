@@ -52,6 +52,8 @@ class TestAutoFlag:
 
         runner = CliRunner()
 
+        improve_result = _make_improve_result()
+
         with (
             patch(
                 "agent_fox.cli.fix.detect_checks",
@@ -61,12 +63,13 @@ class TestAutoFlag:
                 "agent_fox.cli.fix.asyncio.run",
                 side_effect=[
                     _make_fix_result(TerminationReason.ALL_FIXED),
+                    improve_result,
                 ],
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
                 new_callable=AsyncMock,
-                return_value=_make_improve_result(),
+                return_value=improve_result,
             ) as mock_improve,
             patch("agent_fox.cli.fix.render_combined_report"),
         ):
@@ -136,6 +139,7 @@ class TestImprovePassesValidation:
         from agent_fox.cli.fix import fix_cmd
 
         runner = CliRunner()
+        improve_result = _make_improve_result()
 
         with (
             patch(
@@ -144,14 +148,15 @@ class TestImprovePassesValidation:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(
-                    TerminationReason.ALL_FIXED
-                ),
+                side_effect=[
+                    _make_fix_result(TerminationReason.ALL_FIXED),
+                    improve_result,
+                ],
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
                 new_callable=AsyncMock,
-                return_value=_make_improve_result(),
+                return_value=improve_result,
             ) as mock_improve,
             patch("agent_fox.cli.fix.render_combined_report"),
         ):

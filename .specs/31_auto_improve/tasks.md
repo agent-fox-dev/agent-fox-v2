@@ -211,8 +211,8 @@ report + CLI integration.
     - [x] No linter warnings: `uv run ruff check agent_fox/fix/improve.py`
     - [x] Requirements 31-REQ-5.* through 31-REQ-8.* acceptance criteria met
 
-- [ ] 4. Implement report and CLI integration
-  - [ ] 4.1 Implement combined report rendering
+- [x] 4. Implement report and CLI integration
+  - [x] 4.1 Implement combined report rendering
     - `agent_fox/fix/improve_report.py`: `render_combined_report()` function
     - Phase 1 section: passes completed, clusters resolved/remaining,
       sessions consumed, termination reason (reuse format from report.py)
@@ -223,13 +223,13 @@ report + CLI integration.
     - Omit Phase 2 section entirely when improve_result is None
     - _Requirements: 31-REQ-9.1, 31-REQ-9.2, 31-REQ-9.E1_
 
-  - [ ] 4.2 Implement JSON report builder
+  - [x] 4.2 Implement JSON report builder
     - `agent_fox/fix/improve_report.py`: `build_combined_json()` function
     - Return dict with `event: "complete"` and nested summary with phase1,
       phase2 (if present), and total_cost
     - _Requirements: 31-REQ-9.3_
 
-  - [ ] 4.3 Extend CLI with --auto and --improve-passes
+  - [x] 4.3 Extend CLI with --auto and --improve-passes
     - `agent_fox/cli/fix.py`: add `--auto` (is_flag, default False) and
       `--improve-passes` (int, default 3) Click options
     - Validate: `--improve-passes` without `--auto` is an error (emit error,
@@ -239,7 +239,7 @@ report + CLI integration.
     - _Requirements: 31-REQ-1.1, 31-REQ-1.2, 31-REQ-1.3, 31-REQ-1.E1,
       31-REQ-1.E2_
 
-  - [ ] 4.4 Wire Phase 2 into fix_cmd
+  - [x] 4.4 Wire Phase 2 into fix_cmd
     - After Phase 1 completes:
       a. If not `--auto` or Phase 1 reason != ALL_FIXED: use existing report
       b. If `--auto` and ALL_FIXED:
@@ -253,18 +253,18 @@ report + CLI integration.
     - _Requirements: 31-REQ-1.4, 31-REQ-2.1, 31-REQ-2.3, 31-REQ-10.1,
       31-REQ-10.2, 31-REQ-10.3_
 
-  - [ ] 4.5 Handle JSON mode for Phase 2
+  - [x] 4.5 Handle JSON mode for Phase 2
     - Read stdin JSON in json_mode for improve_passes override
     - Emit JSONL events during Phase 2 (pass completion, final summary)
     - Use `build_combined_json` for the complete event
     - _Requirements: 31-REQ-9.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest tests/unit/fix/ -q -k "improve or analyzer or combined or cli_auto"`
-    - [ ] All property tests pass: `uv run pytest tests/unit/fix/ -q -k "prop"`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py`
-    - [ ] Type check passes: `uv run mypy agent_fox/fix/ agent_fox/cli/fix.py`
-    - [ ] All requirements 31-REQ-* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest tests/unit/fix/ -q -k "improve or analyzer or combined or cli_auto"`
+    - [x] All property tests pass: `uv run pytest tests/unit/fix/ -q -k "prop"`
+    - [x] No linter warnings: `uv run ruff check agent_fox/fix/ agent_fox/cli/fix.py`
+    - [x] Type check passes: `uv run mypy agent_fox/fix/ agent_fox/cli/fix.py`
+    - [x] All requirements 31-REQ-* acceptance criteria met
 
 - [ ] 5. Checkpoint — Auto-Improve Complete
   - [ ] Ensure all new tests pass: `uv run pytest tests/unit/fix/ -q`

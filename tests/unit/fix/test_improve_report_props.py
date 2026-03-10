@@ -32,8 +32,13 @@ def _build_consistent_result(
 ) -> ImproveResult:
     """Build a consistent ImproveResult (passes_completed <= max_passes)."""
     passes_completed = min(passes_completed, max_passes)
-    # Distribute verdicts across passes
-    fail_count = 1 if termination_reason == ImproveTermination.VERIFIER_FAIL else 0
+    # Distribute verdicts across passes; ensure fail_count <= passes_completed
+    fail_count = (
+        1
+        if termination_reason == ImproveTermination.VERIFIER_FAIL
+        and passes_completed > 0
+        else 0
+    )
     pass_count = max(0, passes_completed - fail_count)
 
     return ImproveResult(
