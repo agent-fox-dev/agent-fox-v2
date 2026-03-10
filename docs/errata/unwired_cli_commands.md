@@ -22,3 +22,10 @@ has been restored and wired into the `agent-fox code` lifecycle as automatic
 background ingestion. ADRs and git commits are now ingested into DuckDB at
 three points: startup, sync barriers, and shutdown — without any CLI command
 required. The `ask`, `patterns`, and `compact` commands remain unwired.
+
+### Spec 23 Impact (2026-03-10)
+
+Spec 23 (Global `--json` Flag) requirements 23-REQ-3.5 (`patterns`),
+23-REQ-3.6 (`compact`), 23-REQ-3.7 (`ingest`), and 23-REQ-5.2 (`ask`)
+reference these removed commands. These requirements are suspended — see the
+amendment in `.specs/23_global_json_flag/requirements.md`.
