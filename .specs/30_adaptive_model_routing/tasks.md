@@ -29,8 +29,8 @@ Modifications to existing modules (`config.py`, `engine.py`,
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/test_routing/` package with `__init__.py`
     - Create `tests/test_routing/test_features.py` for feature extraction tests
     - Create `tests/test_routing/test_escalation.py` for escalation ladder tests
@@ -42,25 +42,25 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Create `tests/test_routing/conftest.py` with shared fixtures (temp spec dirs, DuckDB instances)
     - _Test Spec: TS-30-1 through TS-30-29, TS-30-P1 through TS-30-P9, TS-30-E1 through TS-30-E11_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - One test function per TS-30-{N} entry (TS-30-1 through TS-30-29)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-30-1 through TS-30-29_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - One test function per TS-30-E{N} entry (TS-30-E1 through TS-30-E11)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-30-E1 through TS-30-E11_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - One property test per TS-30-P{N} entry (TS-30-P1 through TS-30-P9)
     - Use Hypothesis strategies for tier enums, config ranges, feature vectors
     - _Test Spec: TS-30-P1 through TS-30-P9_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/test_routing/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/test_routing/`
 
 - [ ] 2. Implement data types, configuration, and DuckDB schema
   - [ ] 2.1 Create routing package and data types
