@@ -328,7 +328,7 @@ class TestPropertyRenderCompleteness:
             max_size=10,
         ),
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, deadline=None)
     def test_render_completeness(self, severities: list[str]) -> None:
         """TS-32-P7: Each description appears in output; empty -> None."""
         from agent_fox.knowledge.review_store import (

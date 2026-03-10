@@ -150,8 +150,8 @@ graph builder.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/graph/ agent_fox/engine/`
     - [x] Requirements 2.1, 2.2, 2.E1, 3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.E1 acceptance criteria met
 
-- [ ] 5. Prompt template, context rendering, and blocking
-  - [ ] 5.1 Create oracle.md prompt template
+- [x] 5. Prompt template, context rendering, and blocking
+  - [x] 5.1 Create oracle.md prompt template
     - Create `agent_fox/_templates/prompts/oracle.md` with YAML frontmatter
     - Role: oracle, description: Spec assumption validator
     - Instructions: read spec files, extract assumptions, verify against codebase
@@ -159,30 +159,30 @@ graph builder.
     - Constraints: read-only, no file modifications
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 5.2 Implement render_drift_context()
+  - [x] 5.2 Implement render_drift_context()
     - Add `render_drift_context()` to `agent_fox/session/prompt.py`
     - Query active drift findings from DuckDB
     - Render as `## Oracle Drift Report` markdown with severity groups
     - Return None if no findings
     - _Requirements: 8.1, 8.2, 8.E1_
 
-  - [ ] 5.3 Integrate drift context into session preparation
+  - [x] 5.3 Integrate drift context into session preparation
     - Add `("oracle_drift.md", "## Oracle Drift Report")` check in `_ARCHETYPE_SPEC_FILES` or call `render_drift_context()` during context assembly
     - Only include if oracle has run and findings exist
     - _Requirements: 8.1_
 
-  - [ ] 5.4 Implement blocking logic
+  - [x] 5.4 Implement blocking logic
     - After oracle session completes: parse output, count critical findings
     - If block_threshold configured and critical_count > threshold: mark node failed
     - If no threshold or within threshold: mark node completed
     - Wire into session result processing in the orchestrator
     - _Requirements: 9.1, 9.2, 9.3, 9.E1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/oracle/test_context.py tests/unit/oracle/test_blocking.py -k "TS_32_10 or TS_32_11 or TS_32_E6 or TS_32_E7"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/session/ agent_fox/engine/`
-    - [ ] Requirements 5.1-5.4, 5.E1, 5.E2, 8.1, 8.2, 8.E1, 9.1-9.3, 9.E1 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/oracle/test_context.py tests/unit/oracle/test_blocking.py -k "TS_32_10 or TS_32_11 or TS_32_E6 or TS_32_E7"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/session/ agent_fox/engine/`
+    - [x] Requirements 5.1-5.4, 5.E1, 5.E2, 8.1, 8.2, 8.E1, 9.1-9.3, 9.E1 acceptance criteria met
 
 - [ ] 6. Checkpoint - Oracle Complete
   - [ ] 6.1 Full test suite verification

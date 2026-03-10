@@ -47,6 +47,59 @@ _ARCHETYPE_SPEC_FILES: list[tuple[str, str]] = [
 ]
 
 
+def render_drift_context(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> str | None:
+    """Render active drift findings as a markdown section.
+
+    Returns None if no findings exist (32-REQ-8.E1).
+
+    Requirements: 32-REQ-8.1, 32-REQ-8.2
+    """
+    from agent_fox.knowledge.review_store import (
+        query_active_drift_findings,
+    )
+
+    findings = query_active_drift_findings(conn, spec_name)
+    if not findings:
+        return None
+
+    severity_groups = {
+        "critical": "### Critical Findings",
+        "major": "### Major Findings",
+        "minor": "### Minor Findings",
+        "observation": "### Observations",
+    }
+
+    lines = ["## Oracle Drift Report", ""]
+    counts: dict[str, int] = {"critical": 0, "major": 0, "minor": 0, "observation": 0}
+
+    for sev, header in severity_groups.items():
+        sev_findings = [f for f in findings if f.severity == sev]
+        counts[sev] = len(sev_findings)
+        if sev_findings:
+            lines.append(header)
+            for f in sev_findings:
+                desc = f.description
+                refs = []
+                if f.spec_ref:
+                    refs.append(f"spec: {f.spec_ref}")
+                if f.artifact_ref:
+                    refs.append(f"artifact: {f.artifact_ref}")
+                if refs:
+                    desc += f" ({', '.join(refs)})"
+                lines.append(f"- {desc}")
+            lines.append("")
+
+    lines.append(
+        f"Summary: {counts['critical']} critical, {counts['major']} major, "
+        f"{counts['minor']} minor, {counts['observation']} observations."
+    )
+
+    return "\n".join(lines)
+
+
 def render_review_context(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
@@ -245,6 +298,11 @@ def assemble_context(
             if verification_md is not None:
                 sections.append(verification_md)
                 db_rendered_files.add("verification.md")
+
+            # Render oracle drift report (32-REQ-8.1)
+            drift_md = render_drift_context(conn, spec_name)
+            if drift_md is not None:
+                sections.append(drift_md)
         except Exception:
             logger.warning(
                 "DB-backed context rendering failed for %s, falling back to files",
