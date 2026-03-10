@@ -29,8 +29,8 @@ added last.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure and fixtures
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure and fixtures
     - Create `tests/unit/tools/` package with `conftest.py`
     - Create `tests/property/tools/` package
     - Create `tests/integration/tools/` package
@@ -40,19 +40,19 @@ added last.
     - Add conftest helpers: `make_temp_file()`, `make_temp_file_with_lines()`
     - _Test Spec: TS-29-1 through TS-29-28_
 
-  - [ ] 1.2 Write hashing unit tests
+  - [x] 1.2 Write hashing unit tests
     - `tests/unit/tools/test_hashing.py`
     - TS-29-15 (xxh3_64 format), TS-29-16 (deterministic), TS-29-17 (sensitive)
     - TS-29-E13 (blake2b fallback)
     - _Test Spec: TS-29-15, TS-29-16, TS-29-17, TS-29-E13_
 
-  - [ ] 1.3 Write outline unit tests
+  - [x] 1.3 Write outline unit tests
     - `tests/unit/tools/test_outline.py`
     - TS-29-1 (symbols), TS-29-2 (imports), TS-29-3 (summary), TS-29-4 (languages)
     - TS-29-E1 (missing file), TS-29-E2 (empty file), TS-29-E3 (binary file)
     - _Test Spec: TS-29-1, TS-29-2, TS-29-3, TS-29-4, TS-29-E1, TS-29-E2, TS-29-E3_
 
-  - [ ] 1.4 Write read and search unit tests
+  - [x] 1.4 Write read and search unit tests
     - `tests/unit/tools/test_read.py`
     - TS-29-5 (ranges), TS-29-6 (multiple ranges), TS-29-7 (hash correctness)
     - TS-29-E4 (missing file), TS-29-E5 (beyond EOF), TS-29-E6 (invalid range)
@@ -61,14 +61,14 @@ added last.
     - TS-29-E10 (missing file), TS-29-E11 (bad regex), TS-29-E12 (no matches)
     - _Test Spec: TS-29-5 through TS-29-7, TS-29-12 through TS-29-14, TS-29-E4 through TS-29-E6, TS-29-E10 through TS-29-E12_
 
-  - [ ] 1.5 Write edit unit tests
+  - [x] 1.5 Write edit unit tests
     - `tests/unit/tools/test_edit.py`
     - TS-29-8 (hash verify), TS-29-9 (atomicity), TS-29-10 (reverse order),
       TS-29-11 (delete)
     - TS-29-E7 (mismatch), TS-29-E8 (missing file), TS-29-E9 (overlap)
     - _Test Spec: TS-29-8 through TS-29-11, TS-29-E7 through TS-29-E9_
 
-  - [ ] 1.6 Write backend, config, and MCP tests
+  - [x] 1.6 Write backend, config, and MCP tests
     - `tests/unit/tools/test_registry.py` — TS-29-18 through TS-29-21,
       TS-29-E14, TS-29-E15
     - `tests/unit/core/test_config_tools.py` — TS-29-26 through TS-29-28,
@@ -77,11 +77,11 @@ added last.
       TS-29-E16, TS-29-E17
     - _Test Spec: TS-29-18 through TS-29-28, TS-29-E14 through TS-29-E18_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] Property test files created (can be empty stubs for now)
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] Property test files created (can be empty stubs for now)
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Core types and hashing module
   - [ ] 2.1 Create `agent_fox/tools/__init__.py` package
