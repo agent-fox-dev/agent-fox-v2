@@ -16,7 +16,7 @@ flowchart TB
     CLI --> Oracle[Oracle<br/>RAG Pipeline]
 
     subgraph RAG Pipeline
-        Oracle --> EmbedQ[Embed Query<br/>voyage-3 API]
+        Oracle --> EmbedQ[Embed Query<br/>sentence-transformers]
         EmbedQ --> Search[Vector Search<br/>cosine similarity]
         Search --> Assemble[Assemble Context<br/>facts + provenance]
         Assemble --> Synthesize[Synthesize Answer<br/>STANDARD model]
@@ -48,7 +48,7 @@ flowchart TB
 ### Module Responsibilities
 
 1. `agent_fox/knowledge/embeddings.py` -- Generate embeddings using the
-   Anthropic voyage-3 API. Batch embedding for efficiency. Handle API
+   Anthropic sentence-transformers. Batch embedding for efficiency. Handle API
    failures gracefully (return None, let caller proceed without embedding).
 2. `agent_fox/knowledge/search.py` -- Vector similarity search over the
    `memory_embeddings` table. Cosine similarity ranking. Return top-k facts
@@ -72,37 +72,34 @@ flowchart TB
 ```python
 # agent_fox/knowledge/embeddings.py
 import logging
-from anthropic import Anthropic
+from sentence_transformers import SentenceTransformer
 from agent_fox.core.config import KnowledgeConfig
-from agent_fox.core.errors import KnowledgeStoreError
 
 logger = logging.getLogger("agent_fox.knowledge.embeddings")
 
 
 class EmbeddingGenerator:
-    """Generates vector embeddings using the Anthropic voyage-3 API.
+    """Generates vector embeddings using a local sentence-transformers model.
 
-    Handles API failures gracefully: returns None for individual texts
-    that fail to embed, allowing the caller to proceed without an
-    embedding.
+    The model is lazy-loaded on first use. Failures are handled
+    gracefully: returns None for individual texts that fail to embed,
+    allowing the caller to proceed without an embedding.
     """
 
     def __init__(self, config: KnowledgeConfig) -> None:
         self._config = config
-        self._client: Anthropic | None = None
+        self._model: SentenceTransformer | None = None
 
     @property
-    def client(self) -> Anthropic:
-        """Lazy-initialize the Anthropic client."""
-        if self._client is None:
-            self._client = Anthropic()
-        return self._client
+    def embedding_dimensions(self) -> int:
+        """Return the configured embedding dimensions."""
+        return self._config.embedding_dimensions
 
     def embed_text(self, text: str) -> list[float] | None:
         """Generate an embedding for a single text string.
 
-        Returns a list of floats (1024 dimensions for voyage-3) on
-        success, or None if the API call fails. Failures are logged
+        Returns a list of floats (384 dimensions for all-MiniLM-L6-v2)
+        on success, or None if embedding fails. Failures are logged
         as warnings, never raised.
         """
         ...
@@ -196,7 +193,7 @@ SELECT
     f.spec_name,
     f.session_id,
     f.commit_sha,
-    1 - array_cosine_distance(e.embedding, ?::FLOAT[1024]) AS similarity
+    1 - array_cosine_distance(e.embedding, ?::FLOAT[384]) AS similarity
 FROM memory_embeddings e
 JOIN memory_facts f ON e.id = f.id
 WHERE f.superseded_by IS NULL  -- exclude superseded facts
@@ -206,7 +203,7 @@ LIMIT ?;
 
 When `exclude_superseded=False`, the `WHERE` clause is omitted.
 
-The query parameter `?::FLOAT[1024]` receives the query embedding as a
+The query parameter `?::FLOAT[384]` receives the query embedding as a
 list of floats. The `1 - array_cosine_distance(...)` converts distance
 to similarity (higher = more similar).
 
@@ -534,7 +531,7 @@ class EmbeddedFact:
     content: str
     category: str
     spec_name: str
-    embedding: list[float]  # 1024-dim vector for voyage-3
+    embedding: list[float]  # 384-dim vector for all-MiniLM-L6-v2
 ```
 
 ### SearchResult
@@ -597,7 +594,7 @@ CREATE TABLE memory_facts (
 -- Vector embeddings for semantic search
 CREATE TABLE memory_embeddings (
     id        UUID PRIMARY KEY REFERENCES memory_facts(id),
-    embedding FLOAT[1024]
+    embedding FLOAT[384]
 );
 ```
 
@@ -676,7 +673,7 @@ sources and report them as `facts_skipped`.
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | duckdb | >=1.0 | Vector storage and similarity search |
-| anthropic | >=0.40 | Embedding generation (voyage-3) and answer synthesis |
+| sentence-transformers | >=2.0 | Local embedding generation (all-MiniLM-L6-v2) |
 | Python | 3.12+ | Runtime |
 | Click | 8.1+ | CLI command registration |
 | pytest | 8.0+ | Test framework |
@@ -707,7 +704,7 @@ A task group is complete when ALL of the following are true:
 - **All DuckDB tests use in-memory databases** (`duckdb.connect(":memory:")`)
   to avoid polluting the real knowledge store.
 - **The Anthropic API is always mocked** in tests. No network calls.
-  Mock responses provide realistic embedding vectors (1024 floats) and
+  Mock responses provide realistic embedding vectors (384 floats) and
   synthesis text.
 - **CLI tests use Click's CliRunner** with mocked oracle and knowledge store.
 - **Ingestion tests use `tmp_path`** for ADR fixtures and mocked

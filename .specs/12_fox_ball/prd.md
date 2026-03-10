@@ -27,8 +27,8 @@ The institutional knowledge exists but is locked inside the machine.
 
 - Dual-write memory facts to both JSONL (source of truth) and DuckDB
   (queryable index) on every fact extraction
-- Generate vector embeddings for each fact using the Anthropic voyage-3 API
-  and store them in the `memory_embeddings` table
+- Generate vector embeddings for each fact using a local sentence-transformers
+  model (all-MiniLM-L6-v2) and store them in the `memory_embeddings` table
 - Provide vector similarity search over the fact store, returning facts
   ranked by cosine similarity
 - Ingest additional knowledge sources (ADRs, git commits) as embedded facts
@@ -41,7 +41,7 @@ The institutional knowledge exists but is locked inside the machine.
 ## Non-Goals
 
 - Causal graph traversal and temporal queries -- that is spec 13 (Time Vision)
-- Local embedding models (sentence-transformers) -- future enhancement
+- Remote embedding APIs (e.g. Anthropic voyage-3) -- local model is preferred
 - Streaming answer generation -- single API call only
 - Migrating existing v1 JSONL data into DuckDB -- future `--rebuild-knowledge`
 - Automatic embedding backfill -- facts without embeddings are excluded from
@@ -51,8 +51,8 @@ The institutional knowledge exists but is locked inside the machine.
 
 ## Key Decisions
 
-- **Anthropic voyage-3 for embeddings** -- same API key as coding models, no
-  new vendor, 1024-dimensional vectors. Configured via `KnowledgeConfig`.
+- **Local sentence-transformers for embeddings** -- all-MiniLM-L6-v2, 384
+  dimensions, runs offline with no API cost. Configured via `KnowledgeConfig`.
 - **Dual-write, not replace** -- JSONL remains source of truth for fact
   content. DuckDB is a queryable index that can be rebuilt from JSONL if
   corrupted. JSONL deletion is data loss; DuckDB deletion is recoverable.

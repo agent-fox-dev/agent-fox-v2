@@ -14,7 +14,7 @@ tracking. Every requirement traces to PRD requirements REQ-150 through REQ-158.
 |------|-----------|
 | Dual-write | Writing a fact to both JSONL (source of truth) and DuckDB (queryable index) in a single operation |
 | Embedding | A fixed-length vector representation of text content, enabling semantic similarity comparison |
-| voyage-3 | Anthropic's embedding model producing 1024-dimensional vectors |
+| all-MiniLM-L6-v2 | Local sentence-transformers embedding model producing 384-dimensional vectors (runs offline, no API cost) |
 | Vector search | Finding records whose embedding vectors are most similar to a query vector, using cosine similarity |
 | Cosine similarity | A measure of similarity between two vectors, ranging from -1 (opposite) to 1 (identical) |
 | RAG | Retrieval-Augmented Generation -- embedding a query, retrieving relevant context, and synthesizing an answer |
@@ -61,8 +61,9 @@ embedding so that it can be found via semantic similarity search.
 #### Acceptance Criteria
 
 1. [12-REQ-2.1] WHEN a fact is written to DuckDB, THE system SHALL generate a
-   vector embedding using the configured embedding model (default: Anthropic
-   voyage-3, 1024 dimensions) and store it in the `memory_embeddings` table
+   vector embedding using the configured embedding model (default:
+   all-MiniLM-L6-v2 via sentence-transformers, 384 dimensions) and store it
+   in the `memory_embeddings` table
    alongside the fact.
 2. [12-REQ-2.2] THE system SHALL support batch embedding of multiple facts in
    a single API call for efficiency during bulk operations (e.g., ingestion
