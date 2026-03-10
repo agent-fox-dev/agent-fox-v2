@@ -54,6 +54,25 @@ class VerificationResult:
     created_at: datetime | None = None
 
 
+@dataclass(frozen=True)
+class DriftFinding:
+    """A single Oracle drift finding stored in DuckDB.
+
+    Requirements: 32-REQ-6.3
+    """
+
+    id: str
+    severity: str  # "critical" | "major" | "minor" | "observation"
+    description: str
+    spec_ref: str | None
+    artifact_ref: str | None
+    spec_name: str
+    task_group: str
+    session_id: str
+    superseded_by: str | None = None
+    created_at: datetime | None = None
+
+
 def _new_id() -> str:
     """Generate a new UUID string."""
     return str(uuid.uuid4())

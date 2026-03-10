@@ -258,6 +258,25 @@ class SkepticConfig(BaseModel):
         return _clamp(v, ge=0, field_name="archetypes.skeptic.block_threshold")
 
 
+class OracleSettings(BaseModel):
+    """Oracle-specific configuration.
+
+    Requirements: 32-REQ-10.2, 32-REQ-10.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    block_threshold: int | None = None  # None = advisory only
+
+    @field_validator("block_threshold")
+    @classmethod
+    def clamp_threshold(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            logger.warning("oracle block_threshold clamped to 1")
+            return 1
+        return v
+
+
 class ArchetypesConfig(BaseModel):
     """Archetype enable/disable toggles and per-archetype configuration.
 
@@ -271,6 +290,7 @@ class ArchetypesConfig(BaseModel):
     verifier: bool = False
     librarian: bool = False
     cartographer: bool = False
+    oracle: bool = False
 
     instances: ArchetypeInstancesConfig = Field(
         default_factory=ArchetypeInstancesConfig
@@ -278,6 +298,7 @@ class ArchetypesConfig(BaseModel):
     skeptic_config: SkepticConfig = Field(
         default_factory=SkepticConfig, alias="skeptic_settings"
     )
+    oracle_settings: OracleSettings = Field(default_factory=OracleSettings)
     models: dict[str, str] = Field(default_factory=dict)
     allowlists: dict[str, list[str]] = Field(default_factory=dict)
 

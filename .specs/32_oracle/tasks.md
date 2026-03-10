@@ -64,13 +64,13 @@ graph builder.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/oracle/ tests/property/oracle/ tests/integration/oracle/`
 
-- [ ] 2. Data model, parser, and DriftFinding
-  - [ ] 2.1 Create DriftFinding dataclass
+- [x] 2. Data model, parser, and DriftFinding
+  - [x] 2.1 Create DriftFinding dataclass
     - Add `DriftFinding` frozen dataclass to `agent_fox/knowledge/review_store.py`
     - Fields: id, severity, description, spec_ref, artifact_ref, spec_name, task_group, session_id, superseded_by, created_at
     - _Requirements: 6.3_
 
-  - [ ] 2.2 Implement parse_oracle_output()
+  - [x] 2.2 Implement parse_oracle_output()
     - Add `parse_oracle_output()` to `agent_fox/session/review_parser.py`
     - Reuse `_extract_json_blocks()` for JSON extraction
     - Look for `"drift_findings"` key in parsed JSON
@@ -78,25 +78,25 @@ graph builder.
     - Return list of DriftFinding instances
     - _Requirements: 6.1, 6.2_
 
-  - [ ] 2.3 Add oracle archetype registry entry
+  - [x] 2.3 Add oracle archetype registry entry
     - Add `"oracle"` entry to `ARCHETYPE_REGISTRY` in `agent_fox/session/archetypes.py`
     - `injection="auto_pre"`, `default_model_tier="STANDARD"`, `task_assignable=True`
     - `default_allowlist=["ls", "cat", "git", "grep", "find", "head", "tail", "wc"]`
     - `templates=["oracle.md"]`
     - _Requirements: 1.1, 1.3_
 
-  - [ ] 2.4 Add OracleSettings config and oracle toggle
+  - [x] 2.4 Add OracleSettings config and oracle toggle
     - Add `oracle: bool = False` to `ArchetypesConfig` in `agent_fox/core/config.py`
     - Add `OracleSettings` Pydantic model with `block_threshold: int | None = None`
     - Add `oracle_settings: OracleSettings` to `ArchetypesConfig`
     - Add clamping validator for block_threshold (< 1 -> 1)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/oracle/test_registry.py tests/unit/oracle/test_parser.py -k "TS_32_1 or TS_32_2 or TS_32_6 or TS_32_7 or TS_32_12 or TS_32_E1 or TS_32_E4 or TS_32_E5 or TS_32_E8"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/session/archetypes.py agent_fox/session/review_parser.py agent_fox/knowledge/review_store.py agent_fox/core/config.py`
-    - [ ] Requirements 1.1, 1.3, 6.1, 6.2, 6.3, 10.1, 10.2, 10.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/oracle/test_registry.py tests/unit/oracle/test_parser.py -k "TS_32_1 or TS_32_2 or TS_32_6 or TS_32_7 or TS_32_12 or TS_32_E1 or TS_32_E4 or TS_32_E5 or TS_32_E8"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/session/archetypes.py agent_fox/session/review_parser.py agent_fox/knowledge/review_store.py agent_fox/core/config.py`
+    - [x] Requirements 1.1, 1.3, 6.1, 6.2, 6.3, 10.1, 10.2, 10.E1 acceptance criteria met
 
 - [ ] 3. Knowledge store (DuckDB migration and CRUD)
   - [ ] 3.1 Add drift_findings table migration

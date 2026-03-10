@@ -34,6 +34,7 @@ class TestRegistryCompleteness:
         expected = {
             "coder", "skeptic", "verifier",
             "librarian", "cartographer", "coordinator",
+            "oracle",
         }
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
