@@ -244,7 +244,6 @@ class ArchetypesConfig(BaseModel):
     )
     models: dict[str, str] = Field(default_factory=dict)
     allowlists: dict[str, list[str]] = Field(default_factory=dict)
-    backends: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("coder")
     @classmethod
