@@ -147,31 +147,31 @@ checkpoint.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 3.1, 3.2, 3.3, 3.E1, 3.E2 met
 
-- [ ] 5. Context rendering from DB
-  - [ ] 5.1 Implement render_review_context
+- [x] 5. Context rendering from DB
+  - [x] 5.1 Implement render_review_context
     - Query active findings, group by severity
     - Render markdown matching legacy Skeptic format
     - Return None if no findings exist
     - _Requirements: 5.1, 5.3_
 
-  - [ ] 5.2 Implement render_verification_context
+  - [x] 5.2 Implement render_verification_context
     - Query active verdicts, render as markdown table
     - Compute overall verdict (FAIL if any FAIL)
     - Return None if no verdicts exist
     - _Requirements: 5.2, 5.3_
 
-  - [ ] 5.3 Update assemble_context to use DB rendering
+  - [x] 5.3 Update assemble_context to use DB rendering
     - Add optional `conn` parameter to `assemble_context()`
     - Query DB for review/verification sections
     - Fall back to file-based reading if conn is None or query fails
     - Remove review.md and verification.md from `_SPEC_FILES` when DB is used
     - _Requirements: 5.1, 5.2, 5.E1, 5.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: TS-27-9, TS-27-10, TS-27-11, TS-27-E6, TS-27-E7, TS-27-P3
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 5.1, 5.2, 5.3, 5.E1, 5.E2 met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: TS-27-9, TS-27-10, TS-27-11, TS-27-E6, TS-27-E7, TS-27-P3
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 5.1, 5.2, 5.3, 5.E1, 5.E2 met
 
 - [ ] 6. Convergence and GitHub issues
   - [ ] 6.1 Implement converge_skeptic_records
