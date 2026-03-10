@@ -8,11 +8,11 @@ Requirements: 30-REQ-2.1 through 30-REQ-2.4, 30-REQ-2.E1, 30-REQ-2.E2, 30-REQ-3.
 from __future__ import annotations
 
 import pytest
-from agent_fox.routing.escalation import EscalationLadder
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.models import ModelTier
+from agent_fox.routing.escalation import EscalationLadder
 
 TIER_ORDER = {ModelTier.SIMPLE: 0, ModelTier.STANDARD: 1, ModelTier.ADVANCED: 2}
 

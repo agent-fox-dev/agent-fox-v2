@@ -9,10 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
 from agent_fox.routing.features import extract_features
 from agent_fox.routing.types import FeatureVector
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 
 class TestFeatureExtraction:
@@ -60,7 +61,10 @@ class TestFeatureDeterminism:
         task_group=st.integers(min_value=1, max_value=10),
         archetype=st.sampled_from(["coder", "skeptic", "verifier"]),
     )
-    @settings(max_examples=20)
+    @settings(
+        max_examples=20,
+        suppress_health_check=[HealthCheck.function_scoped_fixture],
+    )
     def test_p5_determinism(
         self, spec_dir: Path, task_group: int, archetype: str
     ) -> None:

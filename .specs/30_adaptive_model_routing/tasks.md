@@ -95,15 +95,15 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/ agent_fox/core/config.py`
     - [x] Requirements 5.1, 5.2, 5.E1, 5.E2, 6.1, 6.2, 6.3, 6.E1 acceptance criteria met
 
-- [ ] 3. Implement escalation ladder and feature extraction
-  - [ ] 3.1 Implement escalation ladder
+- [x] 3. Implement escalation ladder and feature extraction
+  - [x] 3.1 Implement escalation ladder
     - Create `agent_fox/routing/escalation.py`: `EscalationLadder` class with
       `current_tier`, `is_exhausted`, `attempt_count`, `escalation_count`
       properties and `record_failure()`, `should_retry()` methods
     - Tier ordering: SIMPLE (0) < STANDARD (1) < ADVANCED (2)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.E1, 2.E2_
 
-  - [ ] 3.2 Implement feature extraction
+  - [x] 3.2 Implement feature extraction
     - Create `agent_fox/routing/features.py`: `extract_features()` function
     - Parse `tasks.md` for subtask count (for the specific task group)
     - Count words across spec files (requirements.md, design.md)
@@ -113,13 +113,13 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Return default values on any parse error
     - _Requirements: 1.2, 1.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest tests/test_routing/test_escalation.py tests/test_routing/test_features.py -q`
-    - [ ] Property tests TS-30-P1, P2, P3, P5 pass: `uv run pytest tests/test_routing/ -q -k "test_p1 or test_p2 or test_p3 or test_p5"`
-    - [ ] Edge case tests TS-30-E3, E4, E5 pass: `uv run pytest tests/test_routing/ -q -k "test_e3 or test_e4 or test_e5"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
-    - [ ] Requirements 2.1-2.4, 2.E1, 2.E2, 1.2, 1.E3 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest tests/test_routing/test_escalation.py tests/test_routing/test_features.py -q`
+    - [x] Property tests TS-30-P1, P2, P3, P5 pass: `uv run pytest tests/test_routing/ -q -k "test_p1 or test_p2 or test_p3 or test_p5"`
+    - [x] Edge case tests TS-30-E3, E4, E5 pass: `uv run pytest tests/test_routing/ -q -k "test_e3 or test_e4 or test_e5"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
+    - [x] Requirements 2.1-2.4, 2.E1, 2.E2, 1.2, 1.E3 acceptance criteria met
 
 - [ ] 4. Checkpoint — Core Components Complete
   - Ensure all tests pass, ask the user if questions arise.
