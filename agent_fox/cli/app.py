@@ -45,12 +45,12 @@ class BannerGroup(click.Group):
             super().invoke(ctx)
         except click.exceptions.Exit:
             raise
-        except click.ClickException:
+        except click.ClickException as exc:
             # In JSON mode, convert Click errors to JSON envelopes
             if ctx.obj and ctx.obj.get("json"):
                 from agent_fox.cli.json_io import emit_error
 
-                emit_error(str(ctx.invoked_subcommand or "unknown"))
+                emit_error(str(exc))
                 sys.exit(1)
             raise
         except AgentFoxError as exc:

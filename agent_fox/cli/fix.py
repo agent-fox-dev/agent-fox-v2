@@ -19,7 +19,7 @@ from rich.console import Console
 from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.checks import detect_checks
-from agent_fox.fix.fix import TerminationReason, run_fix_loop
+from agent_fox.fix.fix import FixSessionRunner, TerminationReason, run_fix_loop
 from agent_fox.fix.report import render_fix_report
 from agent_fox.fix.spec_gen import FixSpec
 from agent_fox.session.session import run_session
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 def _build_fix_session_runner(
     config: AgentFoxConfig, project_root: Path
-) -> TerminationReason | None:
+) -> FixSessionRunner:
     """Build a session runner callable for the fix loop.
 
     Returns an async callable that takes a FixSpec and runs a
@@ -60,7 +60,7 @@ def _build_fix_session_runner(
         model_entry = resolve_model(config.models.coding)
         return calculate_cost(outcome.input_tokens, outcome.output_tokens, model_entry)
 
-    return _run  # type: ignore[return-value]
+    return _run
 
 
 @click.command("fix")
@@ -142,16 +142,18 @@ def fix_cmd(ctx: click.Context, max_passes: int, dry_run: bool) -> None:
 
     # 23-REQ-5.3: emit JSONL in JSON mode
     if json_mode:
-        json_io.emit_line({
-            "event": "complete",
-            "summary": {
-                "passes_completed": result.passes_completed,
-                "clusters_resolved": result.clusters_resolved,
-                "clusters_remaining": result.clusters_remaining,
-                "sessions_consumed": result.sessions_consumed,
-                "termination_reason": str(result.termination_reason),
-            },
-        })
+        json_io.emit_line(
+            {
+                "event": "complete",
+                "summary": {
+                    "passes_completed": result.passes_completed,
+                    "clusters_resolved": result.clusters_resolved,
+                    "clusters_remaining": result.clusters_remaining,
+                    "sessions_consumed": result.sessions_consumed,
+                    "termination_reason": str(result.termination_reason),
+                },
+            }
+        )
     else:
         # Render the report
         render_fix_report(result, console)

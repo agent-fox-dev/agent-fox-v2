@@ -31,6 +31,7 @@ from agent_fox.session.backends.protocol import (
     ToolDefinition,
     ToolUseMessage,
 )
+from agent_fox.tools.server import FoxMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +95,23 @@ class ClaudeBackend:
 
             can_use_tool = _can_use_tool_wrapper
 
+        # Build MCP server config for custom tools (29-REQ-6.2)
+        mcp_servers: dict[str, Any] = {}
+        if tools:
+            fox_server = FoxMCPServer()
+            mcp_servers["agent-fox-tools"] = {
+                "type": "sdk",
+                "name": "agent-fox-tools",
+                "instance": fox_server.mcp_server,
+            }
+
         options = ClaudeCodeOptions(
             cwd=cwd,
             model=model,
             system_prompt=system_prompt,
             permission_mode="bypassPermissions",
             can_use_tool=can_use_tool,
+            mcp_servers=mcp_servers,
         )
 
         try:

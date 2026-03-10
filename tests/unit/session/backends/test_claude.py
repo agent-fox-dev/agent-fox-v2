@@ -79,6 +79,48 @@ class TestExecuteConstructsOptions:
         assert hasattr(backend, "execute")
         assert callable(backend.execute)
 
+    @pytest.mark.asyncio
+    async def test_fox_tools_passed_as_mcp_server(self) -> None:
+        """When tools are provided, ClaudeCodeOptions includes an MCP server."""
+        from unittest.mock import patch
+
+        from agent_fox.session.backends.claude import ClaudeBackend
+        from agent_fox.session.backends.protocol import ToolDefinition
+
+        backend = ClaudeBackend()
+        tools = [
+            ToolDefinition(
+                name="fox_read",
+                description="Read file",
+                input_schema={"type": "object", "properties": {}},
+                handler=lambda **kw: "ok",
+            ),
+        ]
+
+        captured_options = {}
+
+        async def _fake_stream(*, prompt, options):
+            captured_options["opts"] = options
+            # yield nothing — just capture options
+            return
+            yield  # make it an async generator  # noqa: RET503
+
+        with patch.object(backend, "_stream_messages", _fake_stream):
+            async for _ in backend.execute(
+                "test",
+                system_prompt="sys",
+                model="claude-sonnet-4-6",
+                cwd="/tmp",
+                tools=tools,
+            ):
+                pass
+
+        opts = captured_options["opts"]
+        assert "agent-fox-tools" in opts.mcp_servers
+        srv_cfg = opts.mcp_servers["agent-fox-tools"]
+        assert srv_cfg["type"] == "sdk"
+        assert srv_cfg["instance"] is not None
+
 
 # ---------------------------------------------------------------------------
 # TS-26-8: session.py has no claude_code_sdk imports
@@ -94,8 +136,13 @@ class TestSessionNoSdkImports:
 
         session_path = os.path.join(
             os.path.dirname(__file__),
-            "..", "..", "..", "..",
-            "agent_fox", "session", "session.py",
+            "..",
+            "..",
+            "..",
+            "..",
+            "agent_fox",
+            "session",
+            "session.py",
         )
         session_path = os.path.normpath(session_path)
         with open(session_path, encoding="utf-8") as f:

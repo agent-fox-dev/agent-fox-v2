@@ -14,7 +14,12 @@ from typing import Any
 import pytest
 
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.engine.reset import reset_all, reset_task
+from agent_fox.engine.reset import (
+    _task_id_to_branch_name,
+    _task_id_to_worktree_path,
+    reset_all,
+    reset_task,
+)
 from agent_fox.engine.state import ExecutionState, StateManager
 
 # -- Helpers ---------------------------------------------------------------
@@ -80,6 +85,29 @@ def _write_state(
     )
     manager = StateManager(state_path)
     manager.save(state)
+
+
+# ---------------------------------------------------------------------------
+# Branch name and worktree path helpers
+# Regression: branch name must use slash separator to match workspace.py
+# ---------------------------------------------------------------------------
+
+
+class TestBranchAndWorktreeHelpers:
+    """Verify branch name and worktree path match workspace.py conventions."""
+
+    def test_branch_name_uses_slash_separator(self) -> None:
+        """Branch name must use slash (not hyphen) to match create_worktree."""
+        assert _task_id_to_branch_name("my_spec:3") == "feature/my_spec/3"
+
+    def test_branch_name_single_part_fallback(self) -> None:
+        """Single-part task ID uses feature/{id} format."""
+        assert _task_id_to_branch_name("standalone") == "feature/standalone"
+
+    def test_worktree_path_matches_branch_structure(self) -> None:
+        """Worktree path uses the same spec/group structure."""
+        wt = _task_id_to_worktree_path(Path("/wt"), "my_spec:3")
+        assert wt == Path("/wt/my_spec/3")
 
 
 # ---------------------------------------------------------------------------
