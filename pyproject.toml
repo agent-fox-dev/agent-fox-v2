@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0",
     "duckdb>=1.0",
     "sentence-transformers>=3.0",
+    "xxhash>=3.0",
 ]
 
 [project.scripts]

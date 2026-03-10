@@ -83,33 +83,33 @@ added last.
     - [x] Property test files created (can be empty stubs for now)
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Core types and hashing module
-  - [ ] 2.1 Create `agent_fox/tools/__init__.py` package
+- [x] 2. Core types and hashing module
+  - [x] 2.1 Create `agent_fox/tools/__init__.py` package
     - Empty init file establishing the package
     - _Requirements: N/A (structural)_
 
-  - [ ] 2.2 Implement `agent_fox/tools/types.py`
+  - [x] 2.2 Implement `agent_fox/tools/types.py`
     - Frozen dataclasses: `HashedLine`, `Symbol`, `OutlineResult`, `ReadResult`,
       `EditOperation`, `EditResult`, `SearchMatch`, `SearchResult`
     - _Requirements: 29-REQ-1.1, 29-REQ-2.1, 29-REQ-3.1, 29-REQ-4.1_
 
-  - [ ] 2.3 Implement `agent_fox/tools/hashing.py`
+  - [x] 2.3 Implement `agent_fox/tools/hashing.py`
     - `hash_line(content: bytes) -> str` using xxh3_64
     - blake2b fallback with warning on ImportError
     - 16-char lowercase hex output
     - _Requirements: 29-REQ-5.1, 29-REQ-5.2, 29-REQ-5.3, 29-REQ-5.E1_
 
-  - [ ] 2.4 Write property tests for hashing
+  - [x] 2.4 Write property tests for hashing
     - `tests/property/tools/test_hashing_props.py`
     - TS-29-P1 (determinism), TS-29-P2 (sensitivity)
     - _Test Spec: TS-29-P1, TS-29-P2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Hashing tests pass: `uv run pytest tests/unit/tools/test_hashing.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/property/tools/test_hashing_props.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 29-REQ-5.1 through 29-REQ-5.E1 met
+  - [x] 2.V Verify task group 2
+    - [x] Hashing tests pass: `uv run pytest tests/unit/tools/test_hashing.py -q`
+    - [x] Property tests pass: `uv run pytest tests/property/tools/test_hashing_props.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 29-REQ-5.1 through 29-REQ-5.E1 met
 
 - [ ] 3. File outline tool
   - [ ] 3.1 Implement heuristic parser in `agent_fox/tools/outline.py`
