@@ -13,8 +13,7 @@ from unittest.mock import patch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.fix.checks import run_checks
-from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+from agent_fox.fix.checks import CheckCategory, CheckDescriptor, run_checks
 
 # Strategy: generate a list of check descriptors with various exit codes
 check_names = st.sampled_from(["pytest", "ruff", "mypy", "cargo test", "npm test"])

@@ -104,7 +104,9 @@ def partition_commits(
         return [], []
 
     if result.returncode != 0:
-        _git_activity_logger.warning("git log returned non-zero: %s", result.stderr.strip())
+        _git_activity_logger.warning(
+            "git log returned non-zero: %s", result.stderr.strip()
+        )
         return [], []
 
     all_commits = parse_git_log_output(result.stdout)

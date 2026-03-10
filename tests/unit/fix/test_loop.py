@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.fix.clusterer import FailureCluster
 from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+from agent_fox.fix.clusterer import FailureCluster
 from agent_fox.fix.fix import TerminationReason, run_fix_loop
 
 from .conftest import make_failure_record
