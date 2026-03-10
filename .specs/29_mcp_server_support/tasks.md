@@ -143,31 +143,31 @@ added last.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 29-REQ-1.1 through 29-REQ-1.E3 met
 
-- [ ] 4. Read and search tools
-  - [ ] 4.1 Implement `agent_fox/tools/read.py`
+- [x] 4. Read and search tools
+  - [x] 4.1 Implement `agent_fox/tools/read.py`
     - `fox_read()` function: file reading, range extraction, hash annotation
     - Multiple disjoint ranges sorted by ascending line number
     - Edge cases: missing file, range beyond EOF, invalid range
     - _Requirements: 29-REQ-2.1, 29-REQ-2.2, 29-REQ-2.3, 29-REQ-2.E1, 29-REQ-2.E2, 29-REQ-2.E3_
 
-  - [ ] 4.2 Implement `agent_fox/tools/search.py`
+  - [x] 4.2 Implement `agent_fox/tools/search.py`
     - `fox_search()` function: regex matching, context lines, hash annotation
     - Context range merging for overlapping matches
     - Edge cases: missing file, invalid regex, no matches
     - _Requirements: 29-REQ-4.1, 29-REQ-4.2, 29-REQ-4.3, 29-REQ-4.E1, 29-REQ-4.E2, 29-REQ-4.E3_
 
-  - [ ] 4.3 Write property test for search context merge
+  - [x] 4.3 Write property test for search context merge
     - `tests/property/tools/test_search_props.py`
     - TS-29-P7 (no duplicate lines in merged context)
     - _Test Spec: TS-29-P7_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Read tests pass: `uv run pytest tests/unit/tools/test_read.py -q`
-    - [ ] Search tests pass: `uv run pytest tests/unit/tools/test_search.py -q`
-    - [ ] Property test passes: `uv run pytest tests/property/tools/test_search_props.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 29-REQ-2.x and 29-REQ-4.x met
+  - [x] 4.V Verify task group 4
+    - [x] Read tests pass: `uv run pytest tests/unit/tools/test_read.py -q`
+    - [x] Search tests pass: `uv run pytest tests/unit/tools/test_search.py -q`
+    - [x] Property test passes: `uv run pytest tests/property/tools/test_search_props.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 29-REQ-2.x and 29-REQ-4.x met
 
 - [ ] 5. Edit tool
   - [ ] 5.1 Implement `agent_fox/tools/edit.py`
