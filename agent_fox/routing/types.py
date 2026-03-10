@@ -11,7 +11,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from agent_fox.core.config import RoutingConfig
 from agent_fox.core.models import ModelTier
+
+# Re-export RoutingConfig so tests can import from routing.types
+__all__ = [
+    "FeatureVector",
+    "ComplexityAssessment",
+    "ExecutionOutcome",
+    "RoutingConfig",
+]
 
 
 @dataclass(frozen=True)

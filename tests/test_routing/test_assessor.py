@@ -12,11 +12,11 @@ from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
-from agent_fox.routing.assessor import AssessmentPipeline, heuristic_assess
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.models import ModelTier
+from agent_fox.routing.assessor import AssessmentPipeline, heuristic_assess
 from agent_fox.routing.types import FeatureVector, RoutingConfig
 
 

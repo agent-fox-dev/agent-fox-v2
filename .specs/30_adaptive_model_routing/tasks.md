@@ -125,8 +125,8 @@ Modifications to existing modules (`config.py`, `engine.py`,
   - Ensure all tests pass, ask the user if questions arise.
   - Verify escalation ladder, feature extraction, storage, and config are solid.
 
-- [ ] 5. Implement assessment pipeline
-  - [ ] 5.1 Implement heuristic assessor
+- [x] 5. Implement assessment pipeline
+  - [x] 5.1 Implement heuristic assessor
     - Create `agent_fox/routing/assessor.py`: `heuristic_assess()` function
     - Rules: SIMPLE if subtask_count <= 3 AND word_count < 500 AND no property tests;
       ADVANCED if subtask_count >= 6 OR dependency_count >= 3 OR has_property_tests;
@@ -134,7 +134,7 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Fixed confidence = 0.6
     - _Requirements: 1.3_
 
-  - [ ] 5.2 Implement LLM assessor
+  - [x] 5.2 Implement LLM assessor
     - Add `llm_assess()` async function to `assessor.py`
     - Build structured prompt with spec content summary and feature vector
     - Parse LLM response for tier prediction and confidence
@@ -142,7 +142,7 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Handle timeout/API errors gracefully (return None on failure)
     - _Requirements: 1.5, 1.E1_
 
-  - [ ] 5.3 Implement assessment pipeline orchestration
+  - [x] 5.3 Implement assessment pipeline orchestration
     - Add `AssessmentPipeline` class to `assessor.py`
     - Method selection: count outcomes → choose heuristic/statistical/hybrid
     - Execute selected assessor(s), merge results
@@ -150,13 +150,13 @@ Modifications to existing modules (`config.py`, `engine.py`,
     - Wrap entire pipeline in try/except for graceful degradation
     - _Requirements: 1.1, 1.3, 1.4, 1.5, 1.6, 1.E1, 1.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests for this group pass: `uv run pytest tests/test_routing/test_assessor.py -q`
-    - [ ] Property tests TS-30-P6, P7 pass: `uv run pytest tests/test_routing/ -q -k "test_p6 or test_p7"`
-    - [ ] Edge case tests TS-30-E1, E2 pass: `uv run pytest tests/test_routing/ -q -k "test_e1 or test_e2"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
-    - [ ] Requirements 1.1-1.6, 1.E1, 1.E2 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests for this group pass: `uv run pytest tests/test_routing/test_assessor.py -q`
+    - [x] Property tests TS-30-P6, P7 pass: `uv run pytest tests/test_routing/ -q -k "test_p6 or test_p7"`
+    - [x] Edge case tests TS-30-E1, E2 pass: `uv run pytest tests/test_routing/ -q -k "test_e1 or test_e2"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/routing/`
+    - [x] Requirements 1.1-1.6, 1.E1, 1.E2 acceptance criteria met
 
 - [ ] 6. Implement statistical model and calibration
   - [ ] 6.1 Implement statistical assessor
