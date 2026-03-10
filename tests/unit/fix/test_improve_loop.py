@@ -8,6 +8,7 @@ Requirements: 31-REQ-2.3, 31-REQ-3.E2, 31-REQ-5.E1, 31-REQ-7.1, 31-REQ-7.2,
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -243,6 +244,9 @@ class TestImproveLoopTermination:
             ),
             patch(
                 "agent_fox.fix.improve.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout="", stderr=""
+                ),
             ),
         ):
             result = await run_improve_loop(

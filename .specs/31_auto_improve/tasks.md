@@ -158,34 +158,34 @@ report + CLI integration.
     - [x] No linter warnings: `uv run ruff check agent_fox/fix/analyzer.py`
     - [x] Requirements 31-REQ-3.*, 31-REQ-4.* acceptance criteria met
 
-- [ ] 3. Implement improve loop and rollback
-  - [ ] 3.1 Implement verifier verdict parser
+- [x] 3. Implement improve loop and rollback
+  - [x] 3.1 Implement verifier verdict parser
     - `agent_fox/fix/improve.py`: verifier verdict parsing
     - Parse JSON with fields: quality_gates, improvement_valid, verdict,
       evidence
     - Raise ValueError on invalid JSON or missing fields
     - _Requirements: 31-REQ-6.2, 31-REQ-6.E2_
 
-  - [ ] 3.2 Implement rollback function
+  - [x] 3.2 Implement rollback function
     - `agent_fox/fix/improve.py`: `rollback_improvement_pass()` function
     - Run `git reset --hard HEAD~1` via subprocess
     - Log the rollback action with commit hash and reason
     - Raise on non-zero exit from git
     - _Requirements: 31-REQ-7.1, 31-REQ-7.3, 31-REQ-7.E1_
 
-  - [ ] 3.3 Implement discard function
+  - [x] 3.3 Implement discard function
     - `agent_fox/fix/improve.py`: `discard_partial_changes()` function
     - Run `git checkout -- .` via subprocess to discard uncommitted changes
     - Log the action; do not raise on failure (best-effort cleanup)
     - _Requirements: 31-REQ-5.E1_
 
-  - [ ] 3.4 Implement improve loop data models
+  - [x] 3.4 Implement improve loop data models
     - `agent_fox/fix/improve.py`: `ImproveTermination` enum,
       `ImprovePassResult` dataclass, `ImproveResult` dataclass
     - Fields per design.md
     - _Requirements: 31-REQ-8.2_
 
-  - [ ] 3.5 Implement improve loop
+  - [x] 3.5 Implement improve loop
     - `agent_fox/fix/improve.py`: `run_improve_loop()` async function
     - For each pass (up to max_passes):
       a. Check cost budget (compare remaining_budget vs estimated pass cost)
@@ -205,11 +205,11 @@ report + CLI integration.
       31-REQ-5.4, 31-REQ-6.1, 31-REQ-6.3, 31-REQ-7.2, 31-REQ-8.1,
       31-REQ-8.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/fix/test_improve_loop.py tests/unit/fix/test_rollback.py tests/unit/fix/test_improve_verifier.py -q`
-    - [ ] Property tests pass: `uv run pytest tests/unit/fix/test_improve_loop_props.py tests/unit/fix/test_improve_cost_props.py -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/fix/improve.py`
-    - [ ] Requirements 31-REQ-5.* through 31-REQ-8.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/fix/test_improve_loop.py tests/unit/fix/test_rollback.py tests/unit/fix/test_improve_verifier.py -q`
+    - [x] Property tests pass: `uv run pytest tests/unit/fix/test_improve_loop_props.py tests/unit/fix/test_improve_cost_props.py -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/fix/improve.py`
+    - [x] Requirements 31-REQ-5.* through 31-REQ-8.* acceptance criteria met
 
 - [ ] 4. Implement report and CLI integration
   - [ ] 4.1 Implement combined report rendering
