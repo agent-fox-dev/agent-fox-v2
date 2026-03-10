@@ -76,9 +76,7 @@ async def file_or_update_issue(
 
             # Update existing issue
             await platform.update_issue(existing.number, body)
-            await platform.add_issue_comment(
-                existing.number, "Updated on re-run."
-            )
+            await platform.add_issue_comment(existing.number, "Updated on re-run.")
             logger.info(
                 "Updated existing issue #%d: %s",
                 existing.number,
@@ -88,9 +86,7 @@ async def file_or_update_issue(
 
         # 2. Create new issue
         result = await platform.create_issue(title_prefix, body)
-        logger.info(
-            "Created new issue #%d: %s", result.number, result.html_url
-        )
+        logger.info("Created new issue #%d: %s", result.number, result.html_url)
         return result.html_url
 
     except IntegrationError:

@@ -195,33 +195,33 @@ checkpoint.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 6.1, 6.2, 6.3, 6.E1, 7.1, 7.2, 7.E1 met
 
-- [ ] 7. Templates, backward compat, and checkpoint
-  - [ ] 7.1 Update skeptic.md template
+- [x] 7. Templates, backward compat, and checkpoint
+  - [x] 7.1 Update skeptic.md template
     - Add JSON output instructions with schema example
     - Retain read-only constraints and severity guidance
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 7.2 Update verifier.md template
+  - [x] 7.2 Update verifier.md template
     - Add JSON output instructions with schema example
     - Retain verification process guidance
     - _Requirements: 9.1, 9.2_
 
-  - [ ] 7.3 Implement legacy markdown migration
+  - [x] 7.3 Implement legacy markdown migration
     - Parse existing review.md into ReviewFinding records
     - Parse existing verification.md into VerificationResult records
     - Trigger on context assembly when DB records don't exist
     - _Requirements: 10.1, 10.2_
 
-  - [ ] 7.4 Documentation and cleanup
+  - [x] 7.4 Documentation and cleanup
     - Update docs/memory.md with new knowledge pipeline changes
     - Create ADR for the architectural decision
     - Ensure all tests pass
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Spec tests pass: TS-27-15, TS-27-16, TS-27-17, TS-27-18, TS-27-E9, TS-27-P7
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 8.1, 8.2, 8.E1, 9.1, 9.2, 9.E1, 10.1, 10.2, 10.E1 met
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests pass: TS-27-15, TS-27-16, TS-27-17, TS-27-18, TS-27-E9, TS-27-P7
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 8.1, 8.2, 8.E1, 9.1, 9.2, 9.E1, 10.1, 10.2, 10.E1 met
 
 ## Traceability
 
