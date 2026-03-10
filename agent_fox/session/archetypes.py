@@ -30,7 +30,7 @@ class ArchetypeEntry:
 ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "coder": ArchetypeEntry(
         name="coder",
-        templates=["coding.md", "git-flow.md"],
+        templates=["coding.md"],
         default_model_tier="ADVANCED",
         injection=None,
         task_assignable=True,

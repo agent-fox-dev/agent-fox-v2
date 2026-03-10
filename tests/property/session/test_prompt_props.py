@@ -19,8 +19,11 @@ from pathlib import Path
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.session.prompt import assemble_context
-from agent_fox.session.prompt import build_system_prompt, build_task_prompt
+from agent_fox.session.prompt import (
+    assemble_context,
+    build_system_prompt,
+    build_task_prompt,
+)
 
 # Strategies for spec names: alphanumeric + underscores, common for spec folders
 _spec_name_strategy = st.text(
@@ -106,7 +109,7 @@ class TestTemplateContentPresent:
         result = build_system_prompt("ctx", 1, spec_name, role=role)
         assert len(result) > 100
         if role == "coding":
-            assert "CODING AGENT" in result
+            assert "CODER ARCHETYPE" in result
         else:
             assert "COORDINATOR AGENT" in result
 
@@ -150,10 +153,16 @@ class TestFrontmatterNeverLeaks:
 
     @given(spec_name=_spec_name_strategy)
     @settings(max_examples=20)
-    def test_frontmatter_key_not_in_output(self, spec_name: str) -> None:
-        """Output does not contain 'inclusion:' (frontmatter from git-flow.md)."""
+    def test_frontmatter_not_in_coder_output(self, spec_name: str) -> None:
+        """Coder prompt does not contain frontmatter delimiters."""
         result = build_system_prompt("ctx", 1, spec_name, role="coding")
-        assert "inclusion:" not in result
+        assert not result.startswith("---")
+
+    def test_frontmatter_stripped_from_skeptic(self) -> None:
+        """Skeptic template has frontmatter; verify it's stripped."""
+        result = build_system_prompt("ctx", 1, "test_spec", archetype="skeptic")
+        assert "role: skeptic" not in result
+        assert not result.startswith("---")
 
 
 # ---------------------------------------------------------------------------

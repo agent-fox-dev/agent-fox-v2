@@ -92,33 +92,38 @@ class TestMissingTemplateRaises:
 # ---------------------------------------------------------------------------
 
 
-class TestCoderEquivalence:
-    """Verify coder archetype produces identical output to old coding role."""
+class TestCoderArchetypeResolution:
+    """Verify coder archetype resolves correctly via both paths."""
 
-    def test_coder_matches_coding(self) -> None:
+    def test_coder_archetype_produces_output(self) -> None:
         from agent_fox.session.prompt import build_system_prompt
 
-        # After refactor, archetype="coder" should produce same output
-        # as role="coding" did before
-        # For now, test that the new parameter exists
-        try:
-            new_output = build_system_prompt(
-                context="ctx",
-                task_group=1,
-                spec_name="03_session",
-                archetype="coder",
-            )
-        except TypeError:
-            # archetype parameter doesn't exist yet - expected failure
-            pytest.skip("archetype parameter not yet implemented")
+        result = build_system_prompt(
+            context="ctx",
+            task_group=1,
+            spec_name="03_session",
+            archetype="coder",
+        )
+        assert "CODER ARCHETYPE" in result
+        assert "ctx" in result
 
+    def test_role_coding_maps_to_coder(self) -> None:
+        """Legacy role='coding' maps to the coder archetype."""
+        from agent_fox.session.prompt import build_system_prompt
+
+        new_output = build_system_prompt(
+            context="ctx",
+            task_group=1,
+            spec_name="03_session",
+            archetype="coder",
+        )
         old_output = build_system_prompt(
             context="ctx",
             task_group=1,
             spec_name="03_session",
             role="coding",
         )
-
+        # Both paths resolve to the same archetype and produce identical output
         assert new_output == old_output
 
 
@@ -244,7 +249,7 @@ class TestRunnerUsesArchetype:
 
 
 class TestPropertyTemplateEquivalence:
-    """Coder archetype produces identical prompts to old role='coding'."""
+    """Coder archetype and role='coding' resolve to the same templates."""
 
     def test_prop_equivalence_sample(self) -> None:
         from agent_fox.session.prompt import build_system_prompt
@@ -254,24 +259,22 @@ class TestPropertyTemplateEquivalence:
 
         for ctx in contexts:
             for spec in spec_names:
-                try:
-                    new = build_system_prompt(
-                        context=ctx,
-                        task_group=1,
-                        spec_name=spec,
-                        archetype="coder",
-                    )
-                    old = build_system_prompt(
-                        context=ctx,
-                        task_group=1,
-                        spec_name=spec,
-                        role="coding",
-                    )
-                    assert new == old, (
-                        f"Mismatch for ctx={ctx!r}, spec={spec}"
-                    )
-                except TypeError:
-                    pytest.skip("archetype parameter not yet implemented")
+                new = build_system_prompt(
+                    context=ctx,
+                    task_group=1,
+                    spec_name=spec,
+                    archetype="coder",
+                )
+                old = build_system_prompt(
+                    context=ctx,
+                    task_group=1,
+                    spec_name=spec,
+                    role="coding",
+                )
+                # Both paths resolve to the same archetype entry
+                assert new == old, (
+                    f"Mismatch for ctx={ctx!r}, spec={spec}"
+                )
 
 
 # ---------------------------------------------------------------------------

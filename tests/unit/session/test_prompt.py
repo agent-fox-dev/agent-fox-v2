@@ -29,17 +29,17 @@ from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 
 
 class TestSystemPromptCodingTemplate:
-    """TS-15-3: build_system_prompt with role='coding' loads coding.md + git-flow.md."""
+    """TS-15-3: build_system_prompt with role='coding' loads coding.md."""
 
-    def test_contains_coding_agent_keyword(self) -> None:
+    def test_contains_coder_archetype_keyword(self) -> None:
         """Output contains recognizable text from coding.md."""
         result = build_system_prompt("context", 2, "my_spec", role="coding")
-        assert "CODING AGENT" in result
+        assert "CODER ARCHETYPE" in result
 
-    def test_contains_git_workflow_keyword(self) -> None:
-        """Output contains recognizable text from git-flow.md."""
+    def test_contains_git_workflow_section(self) -> None:
+        """Output contains git workflow instructions (inlined in coding.md)."""
         result = build_system_prompt("context", 2, "my_spec", role="coding")
-        assert "Git Workflow" in result
+        assert "GIT WORKFLOW" in result
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ class TestRoleDefaultsToCoding:
     def test_default_role_is_coding(self) -> None:
         """Calling without role argument loads coding template."""
         result = build_system_prompt("context", 2, "my_spec")
-        assert "CODING AGENT" in result
+        assert "CODER ARCHETYPE" in result
 
 
 # ---------------------------------------------------------------------------
@@ -114,12 +114,15 @@ class TestPlaceholderInterpolation:
 
 
 class TestFrontmatterStripped:
-    """TS-15-8: YAML frontmatter from git-flow.md is stripped."""
+    """TS-15-8: YAML frontmatter is stripped from templates."""
 
     def test_frontmatter_not_in_output(self) -> None:
-        """Output does NOT contain the frontmatter key 'inclusion: always'."""
+        """Output does NOT contain YAML frontmatter delimiters."""
         result = build_system_prompt("ctx", 1, "spec", role="coding")
+        # Coding.md has no frontmatter; verify none leaks from any template
         assert "inclusion: always" not in result
+        # Also verify no frontmatter delimiter at the start
+        assert not result.startswith("---")
 
 
 # ---------------------------------------------------------------------------
