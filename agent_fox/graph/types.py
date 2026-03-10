@@ -53,6 +53,7 @@ class PlanMetadata:
     filtered_spec: str | None = None
     version: str = ""  # agent-fox version
     specs_hash: str = ""  # content hash of all spec files
+    config_hash: str = ""  # hash of archetypes config
 
 
 @dataclass

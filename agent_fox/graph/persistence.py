@@ -57,6 +57,7 @@ def _metadata_from_dict(data: dict[str, Any]) -> PlanMetadata:
         filtered_spec=data.get("filtered_spec"),
         version=data.get("version", ""),
         specs_hash=data.get("specs_hash", ""),
+        config_hash=data.get("config_hash", ""),
     )
 
 

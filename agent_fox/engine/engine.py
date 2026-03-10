@@ -26,7 +26,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from agent_fox.core.config import HookConfig, OrchestratorConfig, RoutingConfig
+from agent_fox.core.config import (
+    ArchetypesConfig,
+    HookConfig,
+    OrchestratorConfig,
+    RoutingConfig,
+)
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
@@ -375,6 +380,119 @@ def _load_plan_data(plan_path: Path) -> dict:
         ) from exc
 
 
+def _ensure_archetype_nodes(
+    plan_data: dict,
+    archetypes_config: ArchetypesConfig | None,
+) -> bool:
+    """Inject missing archetype nodes into plan_data based on config.
+
+    Examines each spec in the plan and adds auto_pre/auto_post nodes
+    if they're enabled in config but absent from the plan. This ensures
+    archetypes activate at runtime even with a stale cached plan.
+
+    Returns True if any nodes were injected (plan needs re-persisting).
+    """
+    if archetypes_config is None:
+        return False
+
+    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+
+    nodes = plan_data.get("nodes", {})
+    edges = plan_data.get("edges", [])
+    order = plan_data.get("order", [])
+    injected = False
+
+    # Group existing coder nodes by spec
+    spec_groups: dict[str, list[int]] = {}
+    for nid, node in nodes.items():
+        spec = node.get("spec_name", "")
+        group = node.get("group_number", 0)
+        arch = node.get("archetype", "coder")
+        if arch == "coder":
+            spec_groups.setdefault(spec, []).append(group)
+
+    for spec, groups in spec_groups.items():
+        sorted_groups = sorted(groups)
+        first_group = sorted_groups[0]
+        last_group = sorted_groups[-1]
+
+        # auto_pre injection (e.g., Skeptic at group 0)
+        for arch_name, entry in ARCHETYPE_REGISTRY.items():
+            if entry.injection != "auto_pre":
+                continue
+            if not getattr(archetypes_config, arch_name, False):
+                continue
+
+            node_id = f"{spec}:0"
+            if node_id in nodes:
+                continue  # already present
+
+            instances_cfg = getattr(archetypes_config, "instances", None)
+            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
+
+            nodes[node_id] = {
+                "id": node_id,
+                "spec_name": spec,
+                "group_number": 0,
+                "title": f"{arch_name.capitalize()} Review",
+                "optional": False,
+                "status": "pending",
+                "subtask_count": 0,
+                "body": "",
+                "archetype": arch_name,
+                "instances": instances if isinstance(instances, int) else 1,
+            }
+            first_id = f"{spec}:{first_group}"
+            if first_id in nodes:
+                edges.append({
+                    "source": node_id, "target": first_id, "kind": "intra_spec",
+                })
+            order.insert(0, node_id)
+            injected = True
+            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
+
+        # auto_post injection (e.g., Verifier after last group)
+        offset = 1
+        for arch_name, entry in ARCHETYPE_REGISTRY.items():
+            if entry.injection != "auto_post":
+                continue
+            if not getattr(archetypes_config, arch_name, False):
+                continue
+
+            post_group = last_group + offset
+            node_id = f"{spec}:{post_group}"
+            if node_id in nodes:
+                offset += 1
+                continue  # already present
+
+            instances_cfg = getattr(archetypes_config, "instances", None)
+            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
+
+            nodes[node_id] = {
+                "id": node_id,
+                "spec_name": spec,
+                "group_number": post_group,
+                "title": f"{arch_name.capitalize()} Check",
+                "optional": False,
+                "status": "pending",
+                "subtask_count": 0,
+                "body": "",
+                "archetype": arch_name,
+                "instances": instances if isinstance(instances, int) else 1,
+            }
+            last_id = f"{spec}:{last_group}"
+            if last_id in nodes:
+                edges.append({
+                    "source": last_id, "target": node_id, "kind": "intra_spec",
+                })
+            order.append(node_id)
+            offset += 1
+            injected = True
+            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
+
+    return injected
+
+
 def _build_edges_dict(
     nodes: dict,
     edges_list: list[dict],
@@ -541,6 +659,7 @@ class Orchestrator:
         barrier_callback: Callable[[], None] | None = None,
         routing_config: RoutingConfig | None = None,
         assessment_pipeline: Any | None = None,
+        archetypes_config: ArchetypesConfig | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -557,6 +676,7 @@ class Orchestrator:
         self._plan_nodes: dict = {}
         self._edges_list: list[dict] = []
         self._plan_data: dict = {}  # Full plan data for plan.json updates
+        self._archetypes_config = archetypes_config
 
         # 30-REQ-7: Adaptive routing state
         self._routing_config = routing_config or RoutingConfig()
@@ -756,6 +876,23 @@ class Orchestrator:
             PlanError: if plan.json is missing or corrupted
         """
         plan_data = _load_plan_data(self._plan_path)
+
+        # Runtime archetype injection: ensure config-enabled archetypes
+        # have nodes in the plan even if the plan was built before they
+        # were enabled.
+        if _ensure_archetype_nodes(plan_data, self._archetypes_config):
+            try:
+                self._plan_path.write_text(
+                    json.dumps(plan_data, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                logger.info("Persisted plan with injected archetype nodes")
+            except OSError:
+                logger.warning(
+                    "Failed to persist plan after archetype injection",
+                    exc_info=True,
+                )
+
         nodes = plan_data.get("nodes", {})
         edges_list = plan_data.get("edges", [])
 
