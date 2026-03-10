@@ -17,6 +17,7 @@ from pathlib import Path
 import click
 
 from agent_fox import __version__
+from agent_fox.core.config import load_config
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.builder import build_graph
 from agent_fox.graph.persistence import load_plan, save_plan
@@ -109,7 +110,11 @@ def _build_plan(
     ]
 
     # Step 3: Build graph
-    graph = build_graph(specs, task_groups, cross_deps)
+    config_path = specs_dir.parent / ".agent-fox" / "config.toml"
+    config = load_config(config_path if config_path.exists() else None)
+    graph = build_graph(
+        specs, task_groups, cross_deps, archetypes_config=config.archetypes,
+    )
 
     # Step 4: Resolve ordering or apply fast mode
     if fast:
