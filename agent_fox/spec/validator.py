@@ -1405,24 +1405,9 @@ def check_section_schema(
                     )
                 )
 
-        # Check for extra (unexpected) sections
-        expected_normalized = {_normalize_heading(s) for s, _ in schema}
-        for heading in actual_headings:
-            normalized = _normalize_heading(heading)
-            if normalized not in expected_normalized:
-                findings.append(
-                    Finding(
-                        spec_name=spec_name,
-                        file=filename,
-                        rule="extra-section",
-                        severity=SEVERITY_HINT,
-                        message=(
-                            f"{filename} has unexpected section '## {heading}' "
-                            f"(not in standard template)"
-                        ),
-                        line=None,
-                    )
-                )
+        # NOTE: We intentionally do NOT flag extra sections. Specs can have
+        # domain-specific sections beyond the standard template (e.g.,
+        # "Detection Rules", "Cross-Reference Consistency").
 
     return findings
 
