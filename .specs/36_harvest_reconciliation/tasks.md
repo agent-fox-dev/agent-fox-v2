@@ -76,31 +76,31 @@ into three task groups:
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/workspace/workspace.py && uv run ruff format --check agent_fox/workspace/workspace.py`
     - [x] Requirements 1.1, 1.2, 1.3, 1.4, 1.E1, 3.1, 3.2 acceptance criteria met
 
-- [ ] 3. Harden `_push_develop_if_pushable()`
-  - [ ] 3.1 Add reconciliation before push
+- [x] 3. Harden `_push_develop_if_pushable()`
+  - [x] 3.1 Add reconciliation before push
     - When origin/develop is ahead, call `_sync_develop_with_remote()` to
       reconcile before attempting the push
     - Import `_sync_develop_with_remote` from workspace.py into harvest.py
     - _Requirements: 2.1_
 
-  - [ ] 3.2 Retry push after reconciliation
+  - [x] 3.2 Retry push after reconciliation
     - After reconciliation, attempt the push regardless of whether
       reconciliation fully succeeded (the push itself will fail safely if
       local is still behind)
     - Log warning if push fails after reconciliation attempt
     - _Requirements: 2.2, 2.3, 2.E1_
 
-  - [ ] 3.3 Handle fetch failure during post-harvest
+  - [x] 3.3 Handle fetch failure during post-harvest
     - If fetch fails during reconciliation, skip reconciliation and attempt
       push as-is
     - _Requirements: 2.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/workspace/test_develop_reconciliation.py tests/integration/test_develop_reconciliation.py -k "post_harvest or push"`
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/workspace/test_develop_reconciliation.py tests/integration/test_develop_reconciliation.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/workspace/harvest.py && uv run ruff format --check agent_fox/workspace/harvest.py`
-    - [ ] Requirements 2.1-2.4, 2.E1, 2.E2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/workspace/test_develop_reconciliation.py tests/integration/test_develop_reconciliation.py -k "post_harvest or push"`
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/workspace/test_develop_reconciliation.py tests/integration/test_develop_reconciliation.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/workspace/harvest.py && uv run ruff format --check agent_fox/workspace/harvest.py`
+    - [x] Requirements 2.1-2.4, 2.E1, 2.E2 acceptance criteria met
 
 ### Checkbox States
 

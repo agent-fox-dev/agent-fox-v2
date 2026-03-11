@@ -19,6 +19,7 @@ from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace.workspace import (
     WorkspaceInfo,
+    _sync_develop_with_remote,
     abort_rebase,
     checkout_branch,
     get_changed_files,
@@ -158,8 +159,12 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
     """Push develop to origin, but only if the push won't be rejected.
 
     Checks whether origin/develop has commits not on local develop
-    (which would cause a non-fast-forward rejection) and skips the
-    push with a debug log instead of attempting and failing noisily.
+    (which would cause a non-fast-forward rejection). If remote is ahead,
+    attempts reconciliation via _sync_develop_with_remote() before pushing.
+    If fetch fails during reconciliation, skips reconciliation and attempts
+    push as-is.
+
+    Requirements: 36-REQ-2.1, 36-REQ-2.2, 36-REQ-2.E1, 36-REQ-2.E2
     """
     _rc, remote_ahead_str, _ = await run_git(
         ["rev-list", "--count", "develop..origin/develop"],
@@ -168,14 +173,27 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
     )
     remote_ahead = int(remote_ahead_str.strip()) if remote_ahead_str.strip() else 0
     if remote_ahead > 0:
-        logger.debug(
-            "Skipping develop push: origin/develop is %d commit(s) ahead",
+        # Origin is ahead — attempt reconciliation before push (36-REQ-2.1)
+        logger.info(
+            "origin/develop is %d commit(s) ahead. "
+            "Attempting reconciliation before push.",
             remote_ahead,
         )
-        return
+        try:
+            await _sync_develop_with_remote(repo_root)
+        except Exception as e:
+            # If reconciliation fails (e.g., fetch failed), skip and attempt
+            # push as-is (36-REQ-2.E2)
+            logger.debug(
+                "Reconciliation failed: %s. Skipping reconciliation and "
+                "attempting push as-is.",
+                e,
+            )
+        # Proceed to push regardless of reconciliation outcome (36-REQ-2.2)
 
     result = await push_to_remote(repo_root, "develop")
     if not result:
+        # Log warning if push fails after reconciliation (36-REQ-2.E1)
         logger.warning("Failed to push develop to origin")
 
 
