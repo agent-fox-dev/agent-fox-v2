@@ -145,30 +145,30 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py agent_fox/memory/filter.py`
     - [x] Requirements 39-REQ-3.*, 39-REQ-4.* met
 
-- [ ] 5. Fact cache and cross-group finding propagation
-  - [ ] 5.1 Create `agent_fox/engine/fact_cache.py`
+- [x] 5. Fact cache and cross-group finding propagation
+  - [x] 5.1 Create `agent_fox/engine/fact_cache.py`
     - Implement RankedFactCache dataclass
     - Implement `precompute_fact_rankings()` — compute and cache per-spec ranked facts
     - Implement `get_cached_facts()` — return cached if valid, None if stale
     - Add ranked_fact_cache DuckDB table
     - _Requirements: 39-REQ-5.1, 39-REQ-5.2, 39-REQ-5.3_
 
-  - [ ] 5.2 Integrate fact cache into context assembly
+  - [x] 5.2 Integrate fact cache into context assembly
     - Update `assemble_context()` in `agent_fox/session/prompt.py`
     - Use cached rankings when available, fall back to live computation
     - _Requirements: 39-REQ-5.2_
 
-  - [ ] 5.3 Add cross-group finding propagation to `agent_fox/session/prompt.py`
+  - [x] 5.3 Add cross-group finding propagation to `agent_fox/session/prompt.py`
     - Query findings from groups 1..K-1 when assembling context for group K
     - Render propagated findings under "Prior Group Findings" section
     - _Requirements: 39-REQ-6.1, 39-REQ-6.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest tests/unit/engine/test_fact_cache.py tests/unit/knowledge/test_project_model.py::TestFindingPropagation -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_fact_cache_consistency tests/property/planning/test_predictive_props.py::test_cross_group_finding_visibility -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/fact_cache.py agent_fox/session/prompt.py`
-    - [ ] Requirements 39-REQ-5.*, 39-REQ-6.* met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest tests/unit/engine/test_fact_cache.py tests/unit/knowledge/test_project_model.py::TestFindingPropagation -v`
+    - [x] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_fact_cache_consistency tests/property/planning/test_predictive_props.py::test_cross_group_finding_visibility -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/fact_cache.py agent_fox/session/prompt.py`
+    - [x] Requirements 39-REQ-5.*, 39-REQ-6.* met
 
 - [ ] 6. Project model and critical path
   - [ ] 6.1 Create `agent_fox/knowledge/project_model.py`

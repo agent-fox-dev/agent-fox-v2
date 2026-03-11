@@ -334,8 +334,96 @@ def assemble_context(
         facts_text = "\n".join(f"- {fact}" for fact in memory_facts)
         sections.append(f"## Memory Facts\n\n{facts_text}")
 
+    # 39-REQ-6.1, 39-REQ-6.2: Include prior group findings
+    if task_group > 1:
+        try:
+            prior_findings = get_prior_group_findings(
+                conn, spec_name, task_group=task_group,
+            )
+            if prior_findings:
+                prior_section = render_prior_group_findings(prior_findings)
+                sections.append(prior_section)
+        except Exception:
+            logger.debug(
+                "Failed to fetch prior group findings for %s group %d",
+                spec_name,
+                task_group,
+            )
+
     # 03-REQ-4.3: Return formatted string with section headers
     return "\n\n---\n\n".join(sections)
+
+
+def get_prior_group_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    *,
+    task_group: int,
+) -> list:
+    """Query active review findings from prior task groups.
+
+    Returns findings from groups 1 through task_group-1 for the
+    given spec, excluding superseded findings.
+
+    Requirements: 39-REQ-6.1
+    """
+    from agent_fox.knowledge.review_store import ReviewFinding
+
+    if task_group <= 1:
+        return []
+
+    # Build list of prior group identifiers (as strings, matching DB format)
+    prior_groups = [str(g) for g in range(1, task_group)]
+    placeholders = ", ".join("?" for _ in prior_groups)
+
+    rows = conn.execute(
+        f"SELECT CAST(id AS VARCHAR), severity, description, requirement_ref, "
+        f"spec_name, task_group, session_id, superseded_by, created_at "
+        f"FROM review_findings "
+        f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+        f"AND superseded_by IS NULL "
+        f"ORDER BY created_at",
+        [spec_name, *prior_groups],
+    ).fetchall()
+
+    findings = []
+    for row in rows:
+        findings.append(
+            ReviewFinding(
+                id=str(row[0]),
+                severity=row[1],
+                description=row[2],
+                requirement_ref=row[3],
+                spec_name=row[4],
+                task_group=row[5],
+                session_id=row[6],
+                superseded_by=row[7],
+                created_at=row[8],
+            )
+        )
+
+    return findings
+
+
+def render_prior_group_findings(findings: list) -> str:
+    """Render prior group findings as a markdown section.
+
+    Findings are grouped under a "Prior Group Findings" header
+    to distinguish them from the current group's findings.
+
+    Requirements: 39-REQ-6.2
+    """
+    if not findings:
+        return ""
+
+    lines = ["## Prior Group Findings", ""]
+
+    for f in findings:
+        group_label = f"[group {f.task_group}]"
+        sev_label = f"[{f.severity}]"
+        lines.append(f"- {group_label} {sev_label} {f.description}")
+
+    return "\n".join(lines)
 
 
 def select_context_with_causal(
