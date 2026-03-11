@@ -96,32 +96,32 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - [x] No linter warnings: `uv run ruff check agent_fox/routing/duration.py agent_fox/routing/duration_presets.py agent_fox/engine/graph_sync.py`
     - [x] Requirements 39-REQ-1.* met
 
-- [ ] 3. Duration regression model and dispatch integration
-  - [ ] 3.1 Add `train_duration_model()` to `agent_fox/routing/duration.py`
+- [x] 3. Duration regression model and dispatch integration
+  - [x] 3.1 Add `train_duration_model()` to `agent_fox/routing/duration.py`
     - Train LinearRegression from execution_outcomes feature vectors
     - Return None if fewer than min_outcomes_for_regression outcomes
     - _Requirements: 39-REQ-2.1_
 
-  - [ ] 3.2 Integrate regression into `get_duration_hint()`
+  - [x] 3.2 Integrate regression into `get_duration_hint()`
     - Check for trained model first (source="regression")
     - Fall back to historical > preset > default
     - _Requirements: 39-REQ-2.2_
 
-  - [ ] 3.3 Add retraining trigger
+  - [x] 3.3 Add retraining trigger
     - Retrain model when new outcomes are recorded (same trigger as tier classifier)
     - _Requirements: 39-REQ-2.3_
 
-  - [ ] 3.4 Integrate duration ordering into `engine/engine.py` dispatch
+  - [x] 3.4 Integrate duration ordering into `engine/engine.py` dispatch
     - Call `get_duration_hint()` for each ready task
     - Pass hints to `ready_tasks()` ordering
     - _Requirements: 39-REQ-1.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/routing/test_duration.py::TestDurationRegression -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_duration_ordering_correctness tests/property/planning/test_predictive_props.py::test_duration_hint_source_precedence -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/routing/duration.py agent_fox/engine/engine.py`
-    - [ ] Requirements 39-REQ-2.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/routing/test_duration.py::TestDurationRegression -v`
+    - [x] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_duration_ordering_correctness tests/property/planning/test_predictive_props.py::test_duration_hint_source_precedence -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/routing/duration.py agent_fox/engine/engine.py`
+    - [x] Requirements 39-REQ-2.* met
 
 - [ ] 4. Causal graph review integration and confidence filtering
   - [ ] 4.1 Add `traverse_with_reviews()` to `agent_fox/knowledge/causal.py`

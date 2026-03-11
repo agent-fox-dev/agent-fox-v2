@@ -322,6 +322,7 @@ def code_cmd(
             routing_config=full_config.routing,
             assessment_pipeline=assessment_pipeline,
             archetypes_config=full_config.archetypes,
+            planning_config=full_config.planning,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
