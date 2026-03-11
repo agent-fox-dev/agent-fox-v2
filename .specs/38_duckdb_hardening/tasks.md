@@ -61,33 +61,33 @@ migrated.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings: `uv run ruff check tests/unit/knowledge/test_duckdb_hardening.py tests/unit/engine/test_hardening_lifecycle.py tests/unit/memory/test_hardening_store.py tests/property/knowledge/test_duckdb_hardening_props.py`
 
-- [ ] 2. Harden initialization and add test fixture
-  - [ ] 2.1 Update `open_knowledge_store()` in `agent_fox/knowledge/db.py`
+- [x] 2. Harden initialization and add test fixture
+  - [x] 2.1 Update `open_knowledge_store()` in `agent_fox/knowledge/db.py`
     - Change return type from `KnowledgeDB | None` to `KnowledgeDB`
     - Replace try/except that returns None with RuntimeError raise
     - Include file path and underlying error in message
     - _Requirements: 38-REQ-1.1, 38-REQ-1.2, 38-REQ-1.E1_
 
-  - [ ] 2.2 Add DuckDB test fixture
+  - [x] 2.2 Add DuckDB test fixture
     - Add `knowledge_conn` fixture to `tests/conftest.py`
     - Creates in-memory DuckDB with all migrations applied
     - Fresh per test (function-scoped)
     - Add `knowledge_db` fixture wrapping `KnowledgeDB`
     - _Requirements: 38-REQ-5.1, 38-REQ-5.2_
 
-  - [ ] 2.3 Update CLI initialization in `agent_fox/cli/code.py`
+  - [x] 2.3 Update CLI initialization in `agent_fox/cli/code.py`
     - Remove `if knowledge_db is not None` guards (4 locations)
     - Let RuntimeError from `open_knowledge_store()` propagate
     - Always register DuckDBSink
     - Always pass knowledge_db to AssessmentPipeline
     - _Requirements: 38-REQ-1.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_duckdb_hardening.py::TestInitialization tests/unit/knowledge/test_duckdb_hardening.py::TestFixtureIsolation -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_duckdb_hardening_props.py -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/db.py agent_fox/cli/code.py`
-    - [ ] Requirements 38-REQ-1.*, 38-REQ-5.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_duckdb_hardening.py::TestInitialization tests/unit/knowledge/test_duckdb_hardening.py::TestFixtureIsolation -v`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_duckdb_hardening_props.py -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/db.py agent_fox/cli/code.py`
+    - [x] Requirements 38-REQ-1.*, 38-REQ-5.* met
 
 - [ ] 3. Harden session lifecycle and knowledge harvest
   - [ ] 3.1 Update `NodeSessionRunner` in `agent_fox/engine/session_lifecycle.py`

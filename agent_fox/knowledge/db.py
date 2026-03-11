@@ -165,16 +165,23 @@ class KnowledgeDB:
         self.close()
 
 
-def open_knowledge_store(config: KnowledgeConfig) -> KnowledgeDB | None:
-    """Open the knowledge store with graceful degradation.
+def open_knowledge_store(config: KnowledgeConfig) -> KnowledgeDB:
+    """Open the knowledge store. Raises on failure.
 
-    Returns a KnowledgeDB instance on success, or None if the store
-    cannot be opened (logs a warning and continues).
+    Returns a KnowledgeDB instance on success.
+
+    Raises:
+        RuntimeError: If the knowledge store cannot be opened,
+            with message containing "Knowledge store initialization failed"
+            and the underlying error detail including the file path.
+
+    Requirements: 38-REQ-1.1, 38-REQ-1.2, 38-REQ-1.E1
     """
     try:
         db = KnowledgeDB(config)
         db.open()
         return db
     except Exception as exc:
-        logger.warning("Knowledge store unavailable, continuing without it: %s", exc)
-        return None
+        raise RuntimeError(
+            f"Knowledge store initialization failed ({config.store_path}): {exc}"
+        ) from exc

@@ -6,6 +6,7 @@ Requirements: 38-REQ-1.1, 38-REQ-1.2, 38-REQ-5.1, 38-REQ-5.2
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 import duckdb
@@ -37,18 +38,19 @@ class TestInitNeverNone:
 
     @given(subdir=st.text(min_size=1, max_size=10, alphabet="abcdefghijklmnop"))
     @settings(max_examples=10, deadline=5000)
-    def test_valid_path_returns_knowledgedb(self, tmp_path: Path, subdir: str) -> None:
+    def test_valid_path_returns_knowledgedb(self, subdir: str) -> None:
         """For any valid path, open_knowledge_store returns KnowledgeDB (not None)."""
-        db_path = tmp_path / subdir / "knowledge.duckdb"
-        config = KnowledgeConfig(store_path=str(db_path))
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / subdir / "knowledge.duckdb"
+            config = KnowledgeConfig(store_path=str(db_path))
 
-        try:
-            result = open_knowledge_store(config)
-            assert isinstance(result, KnowledgeDB)
-            assert result is not None
-            result.close()
-        except RuntimeError:
-            pass  # expected for some paths; key: never returns None
+            try:
+                result = open_knowledge_store(config)
+                assert isinstance(result, KnowledgeDB)
+                assert result is not None
+                result.close()
+            except RuntimeError:
+                pass  # expected for some paths; key: never returns None
 
     def test_invalid_path_raises_not_none(self, tmp_path: Path) -> None:
         """For an invalid path, open_knowledge_store raises (not returns None)."""

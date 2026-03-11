@@ -4,10 +4,45 @@ from __future__ import annotations
 
 import os
 import subprocess
+from collections.abc import Generator
 from pathlib import Path
 
+import duckdb
 import pytest
 from click.testing import CliRunner
+
+from agent_fox.knowledge.db import KnowledgeDB
+from agent_fox.knowledge.migrations import apply_pending_migrations
+from tests.unit.knowledge.conftest import SCHEMA_DDL
+
+
+@pytest.fixture
+def knowledge_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """Provide a fresh in-memory DuckDB with all migrations applied.
+
+    Creates a new in-memory database per test (function-scoped) with the
+    full schema and all migrations applied. No cross-test contamination.
+
+    Requirements: 38-REQ-5.1, 38-REQ-5.2
+    """
+    conn = duckdb.connect(":memory:")
+    conn.execute(SCHEMA_DDL)
+    apply_pending_migrations(conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def knowledge_db(
+    knowledge_conn: duckdb.DuckDBPyConnection,
+) -> Generator[KnowledgeDB, None, None]:
+    """Provide a KnowledgeDB wrapper around in-memory DuckDB.
+
+    Requirements: 38-REQ-5.1, 38-REQ-5.2
+    """
+    db = KnowledgeDB.__new__(KnowledgeDB)
+    db._conn = knowledge_conn
+    yield db
 
 
 @pytest.fixture
