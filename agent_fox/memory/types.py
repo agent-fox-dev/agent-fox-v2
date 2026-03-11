@@ -71,6 +71,12 @@ def parse_confidence(value: str | float | int | None) -> float:
         mapped = CONFIDENCE_MAP.get(value.lower())
         if mapped is not None:
             return mapped
+        # Try parsing as a numeric string (e.g. "0.9")
+        try:
+            numeric = float(value)
+            return max(0.0, min(1.0, numeric))
+        except (ValueError, OverflowError):
+            pass
         logger.warning(
             "Unknown confidence string '%s', defaulting to %.1f",
             value,

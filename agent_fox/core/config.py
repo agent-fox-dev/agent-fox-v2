@@ -225,6 +225,11 @@ class PlatformConfig(BaseModel):
 
 
 class KnowledgeConfig(BaseModel):
+    """Knowledge store and fact selection configuration.
+
+    Requirements: 39-REQ-4.2
+    """
+
     model_config = ConfigDict(extra="ignore")
 
     store_path: str = Field(
@@ -242,11 +247,26 @@ class KnowledgeConfig(BaseModel):
     ask_synthesis_model: str = Field(
         default="STANDARD", description="Model tier for answer synthesis"
     )
+    confidence_threshold: float = Field(
+        default=0.5,
+        description="Minimum confidence for fact inclusion in session context",
+    )
+    fact_cache_enabled: bool = Field(
+        default=True,
+        description="Pre-compute fact rankings at plan time",
+    )
 
     @field_validator("ask_top_k")
     @classmethod
     def clamp_ask_top_k(cls, v: int) -> int:
         return _clamp(v, ge=1, field_name="knowledge.ask_top_k")
+
+    @field_validator("confidence_threshold")
+    @classmethod
+    def clamp_confidence_threshold(cls, v: float) -> float:
+        return float(
+            _clamp(v, ge=0.0, le=1.0, field_name="knowledge.confidence_threshold")
+        )
 
 
 class ToolsConfig(BaseModel):

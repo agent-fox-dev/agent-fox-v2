@@ -123,27 +123,27 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - [x] No linter warnings: `uv run ruff check agent_fox/routing/duration.py agent_fox/engine/engine.py`
     - [x] Requirements 39-REQ-2.* met
 
-- [ ] 4. Causal graph review integration and confidence filtering
-  - [ ] 4.1 Add `traverse_with_reviews()` to `agent_fox/knowledge/causal.py`
+- [x] 4. Causal graph review integration and confidence filtering
+  - [x] 4.1 Add `traverse_with_reviews()` to `agent_fox/knowledge/causal.py`
     - Query review_findings, drift_findings, verification_results alongside fact_causes
     - Match review findings to facts by requirement ID keywords
     - _Requirements: 39-REQ-3.1, 39-REQ-3.2, 39-REQ-3.3_
 
-  - [ ] 4.2 Update `select_relevant_facts()` in `agent_fox/memory/filter.py`
+  - [x] 4.2 Update `select_relevant_facts()` in `agent_fox/memory/filter.py`
     - Add confidence_threshold parameter (default 0.5)
     - Filter facts by confidence before keyword scoring
     - _Requirements: 39-REQ-4.1, 39-REQ-4.3_
 
-  - [ ] 4.3 Add `[knowledge]` config section
+  - [x] 4.3 Add `[knowledge]` config section
     - Add confidence_threshold and fact_cache_enabled settings
     - _Requirements: 39-REQ-4.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_causal_reviews.py tests/unit/memory/test_confidence_filter.py -v`
-    - [ ] Property test passes: `uv run pytest tests/property/planning/test_predictive_props.py::test_confidence_filter_monotonicity -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py agent_fox/memory/filter.py`
-    - [ ] Requirements 39-REQ-3.*, 39-REQ-4.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_causal_reviews.py tests/unit/memory/test_confidence_filter.py -v`
+    - [x] Property test passes: `uv run pytest tests/property/planning/test_predictive_props.py::test_confidence_filter_monotonicity -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/causal.py agent_fox/memory/filter.py`
+    - [x] Requirements 39-REQ-3.*, 39-REQ-4.* met
 
 - [ ] 5. Fact cache and cross-group finding propagation
   - [ ] 5.1 Create `agent_fox/engine/fact_cache.py`
