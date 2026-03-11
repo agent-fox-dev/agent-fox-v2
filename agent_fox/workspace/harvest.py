@@ -77,8 +77,11 @@ async def harvest(
         dev_branch,
     )
 
-    # Step 2: Checkout the development branch in the main repo
-    await checkout_branch(repo_root, dev_branch)
+    # Step 2: Checkout the development branch in the main repo.
+    # Use force=True because agent-fox runtime files (.agent-fox/,
+    # .claude/, docs/memory.md) may exist as untracked files in the
+    # working directory and conflict with tracked files on develop.
+    await checkout_branch(repo_root, dev_branch, force=True)
 
     # Step 3: Attempt fast-forward merge (03-REQ-7.1)
     try:
