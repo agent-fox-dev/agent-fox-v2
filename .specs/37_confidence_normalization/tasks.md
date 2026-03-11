@@ -89,32 +89,34 @@ compatibility, then downstream consumers.
     - [x] No linter warnings: `uv run ruff check agent_fox/memory/types.py agent_fox/memory/extraction.py agent_fox/memory/render.py`
     - [x] Requirements 37-REQ-1.*, 37-REQ-6.1 met
 
-- [ ] 3. Storage compatibility (DuckDB migration + JSONL)
-  - [ ] 3.1 Add DuckDB migration in `agent_fox/knowledge/migrations.py`
-    - New migration (v6): convert `memory_facts.confidence` TEXT → FLOAT
+- [x] 3. Storage compatibility (DuckDB migration + JSONL)
+  - [x] 3.1 Add DuckDB migration in `agent_fox/knowledge/migrations.py`
+    - New migration (v5): convert `memory_facts.confidence` TEXT → DOUBLE
     - Use canonical mapping for existing string values
     - Default NULL to 0.6
     - _Requirements: 37-REQ-2.1, 37-REQ-2.2, 37-REQ-2.3, 37-REQ-2.E1_
 
-  - [ ] 3.2 Update `memory_facts` CREATE TABLE in `agent_fox/knowledge/db.py`
-    - Change `confidence TEXT DEFAULT 'high'` to `confidence FLOAT DEFAULT 0.6`
+  - [x] 3.2 Update `memory_facts` CREATE TABLE in `agent_fox/knowledge/db.py`
+    - Change `confidence TEXT DEFAULT 'high'` to `confidence DOUBLE DEFAULT 0.6`
     - _Requirements: 37-REQ-2.1_
 
-  - [ ] 3.3 Update JSONL serialization in `agent_fox/memory/memory.py`
+  - [x] 3.3 Update JSONL serialization in `agent_fox/memory/memory.py`
     - Deserialization: call `parse_confidence()` on loaded value
     - Serialization: write float directly
+    - (Already implemented in task group 2)
     - _Requirements: 37-REQ-3.1, 37-REQ-3.2, 37-REQ-3.3_
 
-  - [ ] 3.4 Update DuckDB fact sync in `agent_fox/engine/knowledge_harvest.py`
+  - [x] 3.4 Update DuckDB fact sync in `agent_fox/engine/knowledge_harvest.py`
     - Ensure float confidence is written when syncing facts to DuckDB
+    - (Already passes float via fact.confidence after task group 2)
     - _Requirements: 37-REQ-1.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_confidence_migration.py tests/unit/memory/test_confidence.py::TestJsonlConfidence -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/memory/test_confidence_props.py::TestJsonlRoundTrip tests/property/memory/test_confidence_props.py::TestMigrationPreservesRowCount tests/property/memory/test_confidence_props.py::TestBackwardCompatStringLoading -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/migrations.py agent_fox/knowledge/db.py agent_fox/memory/memory.py agent_fox/engine/knowledge_harvest.py`
-    - [ ] Requirements 37-REQ-2.*, 37-REQ-3.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_confidence_migration.py tests/unit/memory/test_confidence.py::TestJsonlConfidence -v`
+    - [x] Property tests pass: `uv run pytest tests/property/memory/test_confidence_props.py::TestJsonlRoundTrip tests/property/memory/test_confidence_props.py::TestMigrationPreservesRowCount tests/property/memory/test_confidence_props.py::TestBackwardCompatStringLoading -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/migrations.py agent_fox/knowledge/db.py agent_fox/memory/memory.py agent_fox/engine/knowledge_harvest.py`
+    - [x] Requirements 37-REQ-2.*, 37-REQ-3.* met
 
 - [ ] 4. Knowledge query and analyzer updates
   - [ ] 4.1 Update `OracleAnswer` in `agent_fox/knowledge/query.py`

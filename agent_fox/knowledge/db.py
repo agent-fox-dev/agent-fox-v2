@@ -106,7 +106,7 @@ class KnowledgeDB:
             spec_name     TEXT,
             session_id    TEXT,
             commit_sha    TEXT,
-            confidence    TEXT DEFAULT 'high',
+            confidence    DOUBLE DEFAULT 0.6,
             created_at    TIMESTAMP,
             superseded_by UUID
         );

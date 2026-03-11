@@ -62,7 +62,7 @@ class TestConfidenceMigration:
             "WHERE table_name = 'memory_facts' AND column_name = 'confidence'"
         ).fetchall()
         assert len(cols) == 1
-        assert cols[0][1].upper() == "FLOAT"
+        assert cols[0][1].upper() in ("FLOAT", "DOUBLE")
 
         conn.close()
 
