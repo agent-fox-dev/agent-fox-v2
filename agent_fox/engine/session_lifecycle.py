@@ -17,7 +17,7 @@ from pathlib import Path
 
 from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
+from agent_fox.core.models import ModelTier, calculate_cost
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
@@ -366,11 +366,14 @@ class NodeSessionRunner:
             security_config=self._resolved_security,
         )
 
-        model_entry = resolve_model(self._resolved_model_id)
+        from agent_fox.core.config import PricingConfig
+
+        pricing = getattr(self._config, "pricing", PricingConfig())
         cost = calculate_cost(
             outcome.input_tokens,
             outcome.output_tokens,
-            model_entry,
+            self._resolved_model_id,
+            pricing,
         )
 
         error_message = outcome.error_message
@@ -459,7 +462,7 @@ class NodeSessionRunner:
             duration_ms=outcome.duration_ms,
             error_message=error_message,
             timestamp=datetime.now(UTC).isoformat(),
-            model=model_entry.model_id,
+            model=self._resolved_model_id,
             files_touched=touched_files,
         )
 

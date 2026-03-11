@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from agent_fox.core.config import PricingConfig
 from agent_fox.core.errors import ConfigError
 from agent_fox.core.models import (
     ModelEntry,
@@ -27,8 +28,6 @@ class TestModelResolutionByTier:
         assert isinstance(entry, ModelEntry)
         assert entry.tier == ModelTier.SIMPLE
         assert entry.model_id != ""
-        assert entry.input_price_per_m > 0
-        assert entry.output_price_per_m > 0
 
     def test_resolve_standard_tier(self) -> None:
         """STANDARD tier resolves to a valid model entry."""
@@ -37,7 +36,6 @@ class TestModelResolutionByTier:
         assert isinstance(entry, ModelEntry)
         assert entry.tier == ModelTier.STANDARD
         assert entry.model_id != ""
-        assert entry.input_price_per_m > 0
 
     def test_resolve_advanced_tier(self) -> None:
         """ADVANCED tier resolves to a valid model entry."""
@@ -46,7 +44,6 @@ class TestModelResolutionByTier:
         assert isinstance(entry, ModelEntry)
         assert entry.tier == ModelTier.ADVANCED
         assert entry.model_id != ""
-        assert entry.input_price_per_m > 0
 
     def test_resolve_by_model_id(self) -> None:
         """A specific model ID resolves to its entry."""
@@ -63,27 +60,30 @@ class TestCostCalculation:
     def test_cost_standard_model(self) -> None:
         """Cost calculation returns correct USD value for Sonnet."""
         model = resolve_model("STANDARD")
+        pricing = PricingConfig()
 
         # Sonnet: $3.00/M input, $15.00/M output
         # 1M input + 500K output = (1.0 * 3.00) + (0.5 * 15.00) = $10.50
-        cost = calculate_cost(1_000_000, 500_000, model)
+        cost = calculate_cost(1_000_000, 500_000, model.model_id, pricing)
 
         assert abs(cost - 10.50) < 0.01
 
     def test_cost_zero_tokens(self) -> None:
         """Zero tokens produces zero cost."""
         model = resolve_model("STANDARD")
+        pricing = PricingConfig()
 
-        cost = calculate_cost(0, 0, model)
+        cost = calculate_cost(0, 0, model.model_id, pricing)
 
         assert cost == 0.0
 
     def test_cost_input_only(self) -> None:
         """Cost with only input tokens is correct."""
         model = resolve_model("SIMPLE")
+        pricing = PricingConfig()
 
         # Haiku: $1.00/M input
-        cost = calculate_cost(1_000_000, 0, model)
+        cost = calculate_cost(1_000_000, 0, model.model_id, pricing)
 
         assert abs(cost - 1.00) < 0.01
 

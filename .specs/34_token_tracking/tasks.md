@@ -57,8 +57,8 @@ the call sites are instrumented — each group building on the previous.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings: `uv run ruff check tests/unit/core/test_token_tracker.py tests/unit/core/test_pricing.py tests/unit/reporting/test_cost_reporting.py tests/property/core/test_token_tracking_props.py`
 
-- [ ] 2. Token accumulator and pricing config
-  - [ ] 2.1 Create `agent_fox/core/token_tracker.py`
+- [x] 2. Token accumulator and pricing config
+  - [x] 2.1 Create `agent_fox/core/token_tracker.py`
     - `TokenUsage` dataclass
     - `TokenAccumulator` class with `record()`, `flush()`, `total()`, `reset()`
     - Thread-safe via `threading.Lock`
@@ -66,7 +66,7 @@ the call sites are instrumented — each group building on the previous.
       `flush_auxiliary_usage()`, `get_auxiliary_totals()`
     - _Requirements: 34-REQ-1.1, 34-REQ-1.2_
 
-  - [ ] 2.2 Add `PricingConfig` and `ModelPricing` to `agent_fox/core/config.py`
+  - [x] 2.2 Add `PricingConfig` and `ModelPricing` to `agent_fox/core/config.py`
     - `ModelPricing` with `input_price_per_m` and `output_price_per_m` fields
     - Clamping validator for negative values (clamp to 0, log warning)
     - `PricingConfig` with `models: dict[str, ModelPricing]` and factory default
@@ -74,7 +74,7 @@ the call sites are instrumented — each group building on the previous.
     - Add `pricing: PricingConfig` field to `AgentFoxConfig`
     - _Requirements: 34-REQ-2.1, 34-REQ-2.2, 34-REQ-2.E1, 34-REQ-2.E2_
 
-  - [ ] 2.3 Update `calculate_cost()` in `agent_fox/core/models.py`
+  - [x] 2.3 Update `calculate_cost()` in `agent_fox/core/models.py`
     - Change signature to accept `model_id: str` and `pricing: PricingConfig`
       instead of `model: ModelEntry`
     - Look up model in pricing config, fall back to zero with warning
@@ -82,18 +82,18 @@ the call sites are instrumented — each group building on the previous.
     - Update `MODEL_REGISTRY` entries to remove pricing fields
     - _Requirements: 34-REQ-2.3, 34-REQ-2.4, 34-REQ-5.1, 34-REQ-5.2_
 
-  - [ ] 2.4 Update all callers of `calculate_cost()`
+  - [x] 2.4 Update all callers of `calculate_cost()`
     - `agent_fox/engine/session_lifecycle.py` — pass pricing config
     - `agent_fox/reporting/standup.py` — pass pricing config (if it calls calculate_cost)
     - Any other callers found via grep
     - _Requirements: 34-REQ-2.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/core/test_token_tracker.py tests/unit/core/test_pricing.py -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/core/test_token_tracking_props.py::TestAccumulatorCompleteness tests/property/core/test_token_tracking_props.py::TestPricingConfigPrecedence tests/property/core/test_token_tracking_props.py::TestPricingDefaultsPresent -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/core/token_tracker.py agent_fox/core/config.py agent_fox/core/models.py`
-    - [ ] Requirements 34-REQ-1.1, 34-REQ-1.2, 34-REQ-2.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/core/test_token_tracker.py tests/unit/core/test_pricing.py -v`
+    - [-] Property tests pass: `uv run pytest tests/property/core/test_token_tracking_props.py::TestAccumulatorCompleteness tests/property/core/test_token_tracking_props.py::TestPricingConfigPrecedence tests/property/core/test_token_tracking_props.py::TestPricingDefaultsPresent -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/core/token_tracker.py agent_fox/core/config.py agent_fox/core/models.py`
+    - [x] Requirements 34-REQ-1.1, 34-REQ-1.2, 34-REQ-2.* met
 
 - [ ] 3. Integrate accumulator into state and add archetype
   - [ ] 3.1 Add `archetype` field to `SessionRecord` in `agent_fox/engine/state.py`

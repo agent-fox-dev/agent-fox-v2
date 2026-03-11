@@ -310,6 +310,65 @@ class ArchetypesConfig(BaseModel):
         return True
 
 
+class ModelPricing(BaseModel):
+    """Pricing for a single model.
+
+    Requirements: 34-REQ-2.1, 34-REQ-2.E2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    input_price_per_m: float = 0.0  # USD per million input tokens
+    output_price_per_m: float = 0.0  # USD per million output tokens
+
+    @field_validator("input_price_per_m", "output_price_per_m")
+    @classmethod
+    def clamp_negative_price(cls, v: float, info: Any) -> float:
+        """Clamp negative pricing values to zero.
+
+        Requirements: 34-REQ-2.E2
+        """
+        if v < 0:
+            logger.warning(
+                "Pricing field '%s' value %s is negative, clamped to 0.0",
+                info.field_name,
+                v,
+            )
+            return 0.0
+        return v
+
+
+def _default_pricing_models() -> dict[str, ModelPricing]:
+    """Return default pricing for all known Claude models.
+
+    Requirements: 34-REQ-2.2, 34-REQ-5.1
+    """
+    return {
+        "claude-haiku-4-5": ModelPricing(
+            input_price_per_m=1.00, output_price_per_m=5.00
+        ),
+        "claude-sonnet-4-6": ModelPricing(
+            input_price_per_m=3.00, output_price_per_m=15.00
+        ),
+        "claude-opus-4-6": ModelPricing(
+            input_price_per_m=15.00, output_price_per_m=75.00
+        ),
+    }
+
+
+class PricingConfig(BaseModel):
+    """Per-model pricing configuration.
+
+    Requirements: 34-REQ-2.1, 34-REQ-2.2, 34-REQ-2.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    models: dict[str, ModelPricing] = Field(
+        default_factory=_default_pricing_models
+    )
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -324,6 +383,7 @@ class AgentFoxConfig(BaseModel):
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    pricing: PricingConfig = Field(default_factory=PricingConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:
