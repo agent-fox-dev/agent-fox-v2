@@ -180,12 +180,6 @@ class PlatformConfig(BaseModel):
     auto_merge: bool = False  # only meaningful when type = "github"
 
 
-class MemoryConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    model: str = "SIMPLE"
-
-
 class KnowledgeConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -379,7 +373,6 @@ class AgentFoxConfig(BaseModel):
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
     platform: PlatformConfig = Field(default_factory=PlatformConfig)
-    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)

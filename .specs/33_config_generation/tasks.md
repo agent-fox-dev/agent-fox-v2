@@ -49,13 +49,13 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/core/test_config_gen.py tests/property/core/test_config_gen_props.py`
 
-- [ ] 2. Schema extraction and template generation
-  - [ ] 2.1 Add `tomlkit` dependency
+- [x] 2. Schema extraction and template generation
+  - [x] 2.1 Add `tomlkit` dependency
     - Add to `pyproject.toml` dependencies
     - Run `uv sync` to install
     - _Requirements: 33-REQ-1.1_
 
-  - [ ] 2.2 Create `agent_fox/core/config_gen.py` — schema extraction
+  - [x] 2.2 Create `agent_fox/core/config_gen.py` — schema extraction
     - Implement `FieldSpec` and `SectionSpec` dataclasses
     - Implement `extract_schema(model, prefix)` that walks Pydantic `model_fields`
     - Handle nested `BaseModel` fields recursively as subsections
@@ -64,7 +64,7 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - Extract bounds from `_clamp` calls via field validator inspection or hardcoded map
     - _Requirements: 33-REQ-4.1, 33-REQ-4.2, 33-REQ-4.E1_
 
-  - [ ] 2.3 Implement `generate_config_template(schema)` in `config_gen.py`
+  - [x] 2.3 Implement `generate_config_template(schema)` in `config_gen.py`
     - Render each section as `# [section_name]` header
     - Render each field as description comment + commented key-value pair
     - Handle None defaults with "not set by default" comment
@@ -73,16 +73,16 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - _Requirements: 33-REQ-1.1, 33-REQ-1.2, 33-REQ-1.3, 33-REQ-1.4, 33-REQ-1.5_
     - _Requirements: 33-REQ-1.E1, 33-REQ-1.E2, 33-REQ-1.E3_
 
-  - [ ] 2.4 Implement `generate_default_config()` convenience function
+  - [x] 2.4 Implement `generate_default_config()` convenience function
     - Combines `extract_schema` + `generate_config_template`
     - _Requirements: 33-REQ-3.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest tests/unit/core/test_config_gen.py::TestTemplateGeneration tests/unit/core/test_config_gen.py::TestSchemaExtraction tests/unit/core/test_config_gen.py::TestTemplateEdgeCases -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/core/test_config_gen_props.py::TestTemplateCompleteness tests/property/core/test_config_gen_props.py::TestRoundTripDefaultEquivalence tests/property/core/test_config_gen_props.py::TestSchemaExtractionDeterminism -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
-    - [ ] Requirements 33-REQ-1.*, 33-REQ-3.*, 33-REQ-4.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest tests/unit/core/test_config_gen.py::TestTemplateGeneration tests/unit/core/test_config_gen.py::TestSchemaExtraction tests/unit/core/test_config_gen.py::TestTemplateEdgeCases -v`
+    - [x] Property tests pass: `uv run pytest tests/property/core/test_config_gen_props.py::TestTemplateCompleteness tests/property/core/test_config_gen_props.py::TestRoundTripDefaultEquivalence tests/property/core/test_config_gen_props.py::TestSchemaExtractionDeterminism -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
+    - [x] Requirements 33-REQ-1.*, 33-REQ-3.*, 33-REQ-4.* acceptance criteria met
 
 - [ ] 3. Config merge logic
   - [ ] 3.1 Implement `merge_config(existing_content, schema)` in `config_gen.py`

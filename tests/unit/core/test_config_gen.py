@@ -12,17 +12,17 @@ import tomllib
 from pathlib import Path
 
 import pytest
-from agent_fox.core.config_gen import (
-    extract_schema,
-    generate_default_config,
-    merge_existing_config,
-)
 from pydantic import BaseModel, create_model
 
 from agent_fox.core.config import (
     AgentFoxConfig,
     OrchestratorConfig,
     load_config,
+)
+from agent_fox.core.config_gen import (
+    extract_schema,
+    generate_default_config,
+    merge_existing_config,
 )
 
 
@@ -71,7 +71,7 @@ def _extract_field_names_in_order(template: str, section: str) -> list[str]:
             break
         # Extract field names from commented key-value pairs
         if in_section:
-            m = re.match(r"^# (\w+)\s*=", line)
+            m = re.match(r"^#{1,2} (\w+)\s*=", line)
             if m:
                 field_names.append(m.group(1))
     return field_names

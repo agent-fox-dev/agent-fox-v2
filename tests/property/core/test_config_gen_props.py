@@ -10,16 +10,16 @@ import re
 from pathlib import Path
 from typing import Any
 
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from agent_fox.core.config import AgentFoxConfig, load_config
 from agent_fox.core.config_gen import (
     SectionSpec,
     extract_schema,
     generate_default_config,
     merge_existing_config,
 )
-from hypothesis import given, settings
-from hypothesis import strategies as st
-
-from agent_fox.core.config import AgentFoxConfig, load_config
 
 
 def _strip_comment_prefixes(template: str) -> str:
@@ -52,7 +52,7 @@ def _count_commented_field_lines(template: str) -> int:
     count = 0
     for line in template.split("\n"):
         # Match '# key = value' but not section headers '# [section]'
-        if re.match(r"^# \w+\s*=", line):
+        if re.match(r"^#{1,2} \w+\s*=", line):
             count += 1
     return count
 
