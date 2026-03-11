@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.knowledge.causal import store_causal_links
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.memory.extraction import (
@@ -143,6 +144,18 @@ def _extract_causal_links(
             max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
+
+        # Track auxiliary token usage (34-REQ-1.5)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_auxiliary_usage(
+                input_tokens=getattr(usage, "input_tokens", 0),
+                output_tokens=getattr(usage, "output_tokens", 0),
+                model=model_entry.model_id,
+            )
+        else:
+            logger.warning("API response for causal link extraction lacks usage data")
+            record_auxiliary_usage(0, 0, model_entry.model_id)
 
         raw_text = getattr(response.content[0], "text", "[]")
         links = parse_causal_links(raw_text)

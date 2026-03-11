@@ -145,39 +145,39 @@ the call sites are instrumented — each group building on the previous.
     - [x] No linter warnings: `uv run ruff check agent_fox/reporting/status.py agent_fox/reporting/formatters.py`
     - [x] Requirements 34-REQ-3.3, 34-REQ-4.* met
 
-- [ ] 5. Instrument auxiliary call sites and checkpoint
-  - [ ] 5.1 Instrument memory fact extraction
+- [x] 5. Instrument auxiliary call sites and checkpoint
+  - [x] 5.1 Instrument memory fact extraction
     - Add `record_auxiliary_usage()` call after `client.messages.create()`
       in `agent_fox/memory/extraction.py`
     - Handle missing `usage` attribute gracefully
     - _Requirements: 34-REQ-1.5, 34-REQ-1.E1, 34-REQ-1.E2_
 
-  - [ ] 5.2 Instrument causal link extraction
+  - [x] 5.2 Instrument causal link extraction
     - Add `record_auxiliary_usage()` call after `client.messages.create()`
       in `agent_fox/engine/knowledge_harvest.py`
     - _Requirements: 34-REQ-1.5_
 
-  - [ ] 5.3 Instrument remaining call sites
+  - [x] 5.3 Instrument remaining call sites
     - `agent_fox/spec/ai_validation.py` (4 call sites)
     - `agent_fox/fix/clusterer.py` (1 call site)
     - `agent_fox/routing/assessor.py` (1 call site)
     - `agent_fox/knowledge/query.py` (1 call site)
     - _Requirements: 34-REQ-1.5_
 
-  - [ ] 5.4 Verify all call sites instrumented (TS-34-5)
+  - [x] 5.4 Verify all call sites instrumented (TS-34-5)
     - Grep all six files for `record_auxiliary_usage`
     - _Test Spec: TS-34-5_
 
-  - [ ] 5.5 Update documentation
+  - [x] 5.5 Update documentation
     - Update `docs/cli-reference.md` for new `status` output format
     - Document `[pricing]` config section
     - _Requirements: documentation_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `uv run pytest tests/unit/core/test_token_tracker.py tests/unit/core/test_pricing.py tests/unit/reporting/test_cost_reporting.py tests/property/core/test_token_tracking_props.py -v`
-    - [ ] Full test suite passes: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] All 34-REQ-* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `uv run pytest tests/unit/core/test_token_tracker.py tests/unit/core/test_pricing.py tests/unit/reporting/test_cost_reporting.py tests/property/core/test_token_tracking_props.py -v`
+    - [x] Full test suite passes: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] All 34-REQ-* acceptance criteria met
 
 ## Traceability
 

@@ -16,6 +16,7 @@ from anthropic.types import TextBlock
 
 from agent_fox.core.client import create_async_anthropic_client
 from agent_fox.core.models import resolve_model
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.memory.types import Category, ConfidenceLevel, Fact
 
 logger = logging.getLogger("agent_fox.memory.extraction")
@@ -75,6 +76,18 @@ async def extract_facts(
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
+
+    # Track auxiliary token usage (34-REQ-1.5)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model_entry.model_id,
+        )
+    else:
+        logger.warning("API response for fact extraction lacks usage data")
+        record_auxiliary_usage(0, 0, model_entry.model_id)
 
     first_block = response.content[0]
     if isinstance(first_block, TextBlock):

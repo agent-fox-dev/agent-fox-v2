@@ -160,7 +160,8 @@ agent-fox status
 ```
 
 Displays task counts (done, in-progress, pending, failed, blocked), token
-usage, estimated cost, and problem tasks with reasons.
+usage, estimated cost, problem tasks with reasons, per-archetype cost breakdown,
+and per-spec cost breakdown.
 
 Use `agent-fox --json status` for structured JSON output.
 
@@ -388,6 +389,40 @@ If both are set, `bash_allowlist` takes precedence (with a warning).
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `oracle` | list[string] | see below | Override oracle command allowlist (default: ls, cat, git, grep, find, head, tail, wc) |
+
+### `[pricing]`
+
+Configurable per-model pricing for cost calculations. If this section is absent,
+built-in defaults matching current Anthropic API rates are used.
+
+#### `[pricing.models.<model-id>]`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `input_price_per_m` | float | varies | USD per million input tokens |
+| `output_price_per_m` | float | varies | USD per million output tokens |
+
+Default pricing:
+
+| Model | Input $/M | Output $/M |
+|-------|-----------|------------|
+| `claude-haiku-4-5` | `1.00` | `5.00` |
+| `claude-sonnet-4-6` | `3.00` | `15.00` |
+| `claude-opus-4-6` | `15.00` | `75.00` |
+
+Example:
+
+```toml
+[pricing.models.claude-haiku-4-5]
+input_price_per_m = 1.00
+output_price_per_m = 5.00
+
+[pricing.models.claude-sonnet-4-6]
+input_price_per_m = 3.00
+output_price_per_m = 15.00
+```
+
+Negative pricing values are clamped to zero with a warning.
 
 ### `[knowledge]`
 

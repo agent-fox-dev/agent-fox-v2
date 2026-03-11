@@ -21,6 +21,7 @@ from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.core.models import resolve_model
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
 from agent_fox.knowledge.search import SearchResult, VectorSearch
@@ -113,6 +114,18 @@ class Oracle:
             max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
+
+        # Track auxiliary token usage (34-REQ-1.5)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_auxiliary_usage(
+                input_tokens=getattr(usage, "input_tokens", 0),
+                output_tokens=getattr(usage, "output_tokens", 0),
+                model=model.model_id,
+            )
+        else:
+            logger.warning("API response for oracle synthesis lacks usage data")
+            record_auxiliary_usage(0, 0, model.model_id)
 
         response_text = response.content[0].text  # type: ignore[union-attr]
 

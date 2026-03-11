@@ -21,6 +21,7 @@ from typing import Any
 from anthropic.types import TextBlock
 
 from agent_fox.core.client import create_async_anthropic_client
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import _DEP_TABLE_HEADER_ALT, _parse_table_rows
 from agent_fox.spec.validator import (
@@ -230,6 +231,18 @@ async def validate_dependency_interfaces(
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
+
+    # Track auxiliary token usage (34-REQ-1.5)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model,
+        )
+    else:
+        _ai_logger.warning("API response for stale-dep check lacks usage data")
+        record_auxiliary_usage(0, 0, model)
 
     # Extract text from response
     response_text = _extract_response_text(
@@ -442,6 +455,20 @@ async def analyze_acceptance_criteria(
             ],
         )
 
+    # Track auxiliary token usage (34-REQ-1.5)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model,
+        )
+    else:
+        _ai_logger.warning(
+            "API response for acceptance criteria analysis lacks usage data"
+        )
+        record_auxiliary_usage(0, 0, model)
+
     # Parse the response
     response_text = _extract_response_text(response, f"spec '{spec_name}'")
     if response_text is None:
@@ -653,7 +680,20 @@ async def generate_test_spec_entries(
             spec_name,
             exc,
         )
+        record_auxiliary_usage(0, 0, model)
         return {}
+
+    # Track auxiliary token usage (34-REQ-1.5)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model,
+        )
+    else:
+        _ai_logger.warning("API response for test spec generation lacks usage data")
+        record_auxiliary_usage(0, 0, model)
 
     response_text = _extract_response_text(
         response, f"test spec generation for '{spec_name}'"
@@ -737,7 +777,20 @@ async def rewrite_criteria(
             spec_name,
             exc,
         )
+        record_auxiliary_usage(0, 0, model)
         return {}
+
+    # Track auxiliary token usage (34-REQ-1.5)
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model,
+        )
+    else:
+        _ai_logger.warning("API response for criteria rewrite lacks usage data")
+        record_auxiliary_usage(0, 0, model)
 
     # Extract text from response
     response_text = _extract_response_text(response, f"rewrite for spec '{spec_name}'")
