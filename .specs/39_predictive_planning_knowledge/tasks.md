@@ -29,41 +29,41 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/routing/test_duration.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/routing/test_duration.py`
     - Test class `TestDurationOrdering` with TS-39-1
     - Test class `TestDurationHints` with TS-39-2, TS-39-3, TS-39-4
     - Test class `TestDurationRegression` with TS-39-5, TS-39-6, TS-39-7
     - _Test Spec: TS-39-1 through TS-39-7, TS-39-E1_
 
-  - [ ] 1.2 Create `tests/unit/knowledge/test_causal_reviews.py`
+  - [x] 1.2 Create `tests/unit/knowledge/test_causal_reviews.py`
     - Test class `TestCausalTraversalWithReviews` with TS-39-8, TS-39-9, TS-39-10
     - _Test Spec: TS-39-8, TS-39-9, TS-39-10_
 
-  - [ ] 1.3 Create `tests/unit/memory/test_confidence_filter.py`
+  - [x] 1.3 Create `tests/unit/memory/test_confidence_filter.py`
     - Test class `TestConfidenceFiltering` with TS-39-11, TS-39-12, TS-39-13
     - _Test Spec: TS-39-11, TS-39-12, TS-39-13_
 
-  - [ ] 1.4 Create `tests/unit/engine/test_fact_cache.py` and `tests/unit/knowledge/test_project_model.py`
+  - [x] 1.4 Create `tests/unit/engine/test_fact_cache.py` and `tests/unit/knowledge/test_project_model.py`
     - Test class `TestFactCache` with TS-39-14, TS-39-15, TS-39-16
     - Test class `TestFindingPropagation` with TS-39-17, TS-39-18
     - Test class `TestProjectModel` with TS-39-19, TS-39-20, TS-39-21, TS-39-22
     - _Test Spec: TS-39-14 through TS-39-22_
 
-  - [ ] 1.5 Create `tests/unit/graph/test_critical_path.py` and `tests/unit/graph/test_file_impacts.py` and `tests/unit/knowledge/test_blocking_history.py`
+  - [x] 1.5 Create `tests/unit/graph/test_critical_path.py` and `tests/unit/graph/test_file_impacts.py` and `tests/unit/knowledge/test_blocking_history.py`
     - Test class `TestCriticalPath` with TS-39-23, TS-39-24, TS-39-25
     - Test class `TestFileImpacts` with TS-39-26, TS-39-27, TS-39-28
     - Test class `TestBlockingHistory` with TS-39-29, TS-39-30, TS-39-31
     - _Test Spec: TS-39-23 through TS-39-31, TS-39-E2_
 
-  - [ ] 1.6 Create `tests/property/planning/test_predictive_props.py`
+  - [x] 1.6 Create `tests/property/planning/test_predictive_props.py`
     - Property tests TS-39-P1 through TS-39-P8
     - _Test Spec: TS-39-P1 through TS-39-P8_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings: `uv run ruff check tests/unit/routing/test_duration.py tests/unit/knowledge/test_causal_reviews.py tests/unit/memory/test_confidence_filter.py tests/unit/engine/test_fact_cache.py tests/unit/knowledge/test_project_model.py tests/unit/graph/test_critical_path.py tests/unit/graph/test_file_impacts.py tests/unit/knowledge/test_blocking_history.py tests/property/planning/test_predictive_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings: `uv run ruff check tests/unit/routing/test_duration.py tests/unit/knowledge/test_causal_reviews.py tests/unit/memory/test_confidence_filter.py tests/unit/engine/test_fact_cache.py tests/unit/knowledge/test_project_model.py tests/unit/graph/test_critical_path.py tests/unit/graph/test_file_impacts.py tests/unit/knowledge/test_blocking_history.py tests/property/planning/test_predictive_props.py`
 
 - [ ] 2. Duration hints with presets and historical median
   - [ ] 2.1 Create `agent_fox/routing/duration_presets.py`
