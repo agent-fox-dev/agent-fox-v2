@@ -84,36 +84,36 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
     - [x] Requirements 33-REQ-1.*, 33-REQ-3.*, 33-REQ-4.* acceptance criteria met
 
-- [ ] 3. Config merge logic
-  - [ ] 3.1 Implement `merge_config(existing_content, schema)` in `config_gen.py`
+- [x] 3. Config merge logic
+  - [x] 3.1 Implement `merge_config(existing_content, schema)` in `config_gen.py`
     - Parse existing content with `tomlkit`
     - Identify active user values and preserve them
     - Add missing schema fields as commented entries with descriptions
     - Preserve user comments and formatting
     - _Requirements: 33-REQ-2.1, 33-REQ-2.2, 33-REQ-2.3_
 
-  - [ ] 3.2 Implement deprecated field detection
+  - [x] 3.2 Implement deprecated field detection
     - Compare active keys against schema field names per section
     - Prefix unrecognized fields with `# DEPRECATED: '<key>' is no longer recognized`
     - Comment out the deprecated value
     - _Requirements: 33-REQ-2.4_
 
-  - [ ] 3.3 Implement no-op detection and edge cases
+  - [x] 3.3 Implement no-op detection and edge cases
     - Skip merge when output would be identical (byte-for-byte)
     - Handle invalid TOML: catch parse error, log warning, return unchanged
     - Handle empty/whitespace content: delegate to fresh generation
     - _Requirements: 33-REQ-2.5, 33-REQ-2.E1, 33-REQ-2.E2_
 
-  - [ ] 3.4 Implement `merge_existing_config(existing_content)` convenience function
+  - [x] 3.4 Implement `merge_existing_config(existing_content)` convenience function
     - Combines `extract_schema` + `merge_config`
     - _Requirements: 33-REQ-2.1 through 33-REQ-2.5_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest tests/unit/core/test_config_gen.py::TestConfigMerge tests/unit/core/test_config_gen.py::TestMergeEdgeCases -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/core/test_config_gen_props.py::TestMergeValuePreservation tests/property/core/test_config_gen_props.py::TestMergeCompleteness tests/property/core/test_config_gen_props.py::TestDeprecatedFieldDetection tests/property/core/test_config_gen_props.py::TestMergeIdempotency -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
-    - [ ] Requirements 33-REQ-2.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest tests/unit/core/test_config_gen.py::TestConfigMerge tests/unit/core/test_config_gen.py::TestMergeEdgeCases -v`
+    - [x] Property tests pass: `uv run pytest tests/property/core/test_config_gen_props.py::TestMergeValuePreservation tests/property/core/test_config_gen_props.py::TestMergeCompleteness tests/property/core/test_config_gen_props.py::TestDeprecatedFieldDetection tests/property/core/test_config_gen_props.py::TestMergeIdempotency -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
+    - [x] Requirements 33-REQ-2.* acceptance criteria met
 
 - [ ] 4. Wire into init and clean up dead code
   - [ ] 4.1 Remove `MemoryConfig` from `agent_fox/core/config.py`

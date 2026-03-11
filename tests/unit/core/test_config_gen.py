@@ -280,6 +280,7 @@ class TestSchemaExtraction:
             "knowledge",
             "archetypes",
             "tools",
+            "pricing",
         }
         assert section_paths == expected
 
