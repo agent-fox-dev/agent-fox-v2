@@ -495,6 +495,40 @@ class PlanningConfig(BaseModel):
         return int(_clamp(v, ge=5, le=10000, field_name=field))
 
 
+class BlockingConfig(BaseModel):
+    """Blocking threshold learning configuration.
+
+    Requirements: 39-REQ-10.2, 39-REQ-10.3
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    learn_thresholds: bool = Field(
+        default=False,
+        description="Learn blocking thresholds from history",
+    )
+    min_decisions_for_learning: int = Field(
+        default=20,
+        description="Minimum blocking decisions before learning thresholds",
+    )
+    max_false_negative_rate: float = Field(
+        default=0.1,
+        description="Maximum acceptable false negative rate",
+    )
+
+    @field_validator("min_decisions_for_learning")
+    @classmethod
+    def clamp_min_decisions(cls, v: int) -> int:
+        field = "blocking.min_decisions_for_learning"
+        return int(_clamp(v, ge=1, le=1000, field_name=field))
+
+    @field_validator("max_false_negative_rate")
+    @classmethod
+    def clamp_fnr(cls, v: float) -> float:
+        field = "blocking.max_false_negative_rate"
+        return _clamp(v, ge=0.0, le=1.0, field_name=field)
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -510,6 +544,7 @@ class AgentFoxConfig(BaseModel):
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
+    blocking: BlockingConfig = Field(default_factory=BlockingConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:

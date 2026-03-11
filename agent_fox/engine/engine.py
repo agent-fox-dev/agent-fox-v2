@@ -847,6 +847,14 @@ class Orchestrator:
                     duration_hints=duration_hints
                 )
 
+                # 39-REQ-9.3: Filter conflicting tasks when enabled
+                if (
+                    self._planning_config.file_conflict_detection
+                    and self._is_parallel
+                    and len(ready) > 1
+                ):
+                    ready = self._filter_file_conflicts(ready)
+
                 if not ready:
                     if self._graph_sync.is_stalled():
                         state.run_status = RunStatus.STALLED
@@ -944,6 +952,61 @@ class Orchestrator:
                 exc_info=True,
             )
             return None
+
+    def _filter_file_conflicts(self, ready: list[str]) -> list[str]:
+        """Filter conflicting tasks from the ready set.
+
+        When file_conflict_detection is enabled, extracts predicted file
+        impacts for each ready task and serializes conflicting pairs.
+
+        Args:
+            ready: List of ready task node IDs.
+
+        Returns:
+            Filtered list with conflicting tasks serialized.
+
+        Requirements: 39-REQ-9.3
+        """
+        try:
+            from agent_fox.graph.file_impacts import (
+                FileImpact,
+                filter_conflicts_from_dispatch,
+            )
+
+            impacts: list[FileImpact] = []
+            for node_id in ready:
+                node_data = self._plan_nodes.get(node_id, {})
+                spec_name = node_data.get("spec_name", "")
+                task_group = node_data.get("task_group", 1)
+
+                # Try to extract file impacts from spec dir
+                if self._specs_dir is not None:
+                    spec_dir = self._specs_dir / spec_name
+                    if spec_dir.is_dir():
+                        from agent_fox.graph.file_impacts import extract_file_impacts
+
+                        predicted = extract_file_impacts(spec_dir, task_group)
+                        impacts.append(FileImpact(node_id, predicted))
+                    else:
+                        impacts.append(FileImpact(node_id, set()))
+                else:
+                    impacts.append(FileImpact(node_id, set()))
+
+            filtered = filter_conflicts_from_dispatch(ready, impacts)
+            if len(filtered) < len(ready):
+                deferred = set(ready) - set(filtered)
+                logger.info(
+                    "File conflict detection deferred %d tasks: %s",
+                    len(deferred),
+                    deferred,
+                )
+            return filtered
+        except Exception:
+            logger.warning(
+                "File conflict detection failed, dispatching all ready tasks",
+                exc_info=True,
+            )
+            return ready
 
     @property
     def node_states(self) -> dict[str, str]:

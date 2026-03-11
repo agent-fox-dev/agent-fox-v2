@@ -197,38 +197,38 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/project_model.py agent_fox/graph/critical_path.py`
     - [x] Requirements 39-REQ-7.*, 39-REQ-8.* met
 
-- [ ] 7. File conflict detection and learned blocking thresholds
-  - [ ] 7.1 Create `agent_fox/graph/file_impacts.py`
+- [x] 7. File conflict detection and learned blocking thresholds
+  - [x] 7.1 Create `agent_fox/graph/file_impacts.py`
     - Implement FileImpact dataclass
     - Implement `extract_file_impacts()` — regex extraction from tasks.md and design.md
     - Implement `detect_conflicts()` — pairwise overlap detection
     - Add task_file_impacts DuckDB table
     - _Requirements: 39-REQ-9.1, 39-REQ-9.2, 39-REQ-9.E1_
 
-  - [ ] 7.2 Integrate conflict detection into dispatch
+  - [x] 7.2 Integrate conflict detection into dispatch
     - When file_conflict_detection is enabled, serialize conflicting task pairs
     - Add `[planning] file_conflict_detection` config flag
     - _Requirements: 39-REQ-9.3_
 
-  - [ ] 7.3 Create `agent_fox/knowledge/blocking_history.py`
+  - [x] 7.3 Create `agent_fox/knowledge/blocking_history.py`
     - Implement BlockingDecision dataclass
     - Implement `record_blocking_decision()` — store to blocking_history table
     - Implement `compute_optimal_threshold()` — minimize false positives at target FNR
     - Add blocking_history and learned_thresholds DuckDB tables
     - _Requirements: 39-REQ-10.1, 39-REQ-10.2, 39-REQ-10.3_
 
-  - [ ] 7.4 Integrate learned thresholds into convergence
+  - [x] 7.4 Integrate learned thresholds into convergence
     - Update `agent_fox/session/convergence.py` to use learned thresholds
     - Add `[blocking]` config section with learn_thresholds, min_decisions, max_fnr
     - Surface learned thresholds in status --model output
     - _Requirements: 39-REQ-10.2, 39-REQ-10.3_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Spec tests pass: `uv run pytest tests/unit/graph/test_file_impacts.py tests/unit/knowledge/test_blocking_history.py -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_file_conflict_symmetry tests/property/planning/test_predictive_props.py::test_blocking_threshold_convergence -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/graph/file_impacts.py agent_fox/knowledge/blocking_history.py agent_fox/session/convergence.py`
-    - [ ] Requirements 39-REQ-9.*, 39-REQ-10.* met
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests pass: `uv run pytest tests/unit/graph/test_file_impacts.py tests/unit/knowledge/test_blocking_history.py -v`
+    - [x] Property tests pass: `uv run pytest tests/property/planning/test_predictive_props.py::test_file_conflict_symmetry tests/property/planning/test_predictive_props.py::test_blocking_threshold_convergence -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/graph/file_impacts.py agent_fox/knowledge/blocking_history.py agent_fox/session/convergence.py`
+    - [x] Requirements 39-REQ-9.*, 39-REQ-10.* met
 
 ## Traceability
 
