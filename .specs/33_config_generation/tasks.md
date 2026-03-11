@@ -141,26 +141,26 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/core/config_gen.py agent_fox/cli/init.py`
     - [x] Requirements 33-REQ-5.* acceptance criteria met
 
-- [ ] 5. Checkpoint — Integration and documentation
-  - [ ] 5.1 Update or add integration tests in `tests/integration/test_init.py`
+- [x] 5. Checkpoint — Integration and documentation
+  - [x] 5.1 Update or add integration tests in `tests/integration/test_init.py`
     - Test fresh init produces a complete config.toml (TS-33-11)
     - Test re-init merges correctly (new fields added, user values preserved)
     - Test re-init with deprecated fields marks them
     - _Test Spec: TS-33-11_
 
-  - [ ] 5.2 Verify all tests pass end-to-end
+  - [x] 5.2 Verify all tests pass end-to-end
     - `uv run pytest -x -q`
     - `uv run ruff check agent_fox/ tests/`
 
-  - [ ] 5.3 Update documentation
+  - [x] 5.3 Update documentation
     - Update `docs/cli-reference.md` — describe the merge behavior on re-init
     - Update `README.md` if it references config setup
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All spec tests pass: `uv run pytest tests/unit/core/test_config_gen.py tests/property/core/test_config_gen_props.py tests/integration/test_init.py -v`
-    - [ ] Full test suite passes: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] All 33-REQ-* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All spec tests pass: `uv run pytest tests/unit/core/test_config_gen.py tests/property/core/test_config_gen_props.py tests/integration/test_init.py -v`
+    - [x] Full test suite passes: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] All 33-REQ-* acceptance criteria met
 
 ## Traceability
 

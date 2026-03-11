@@ -84,8 +84,22 @@ Creates the `.agent-fox/` directory structure with a default configuration file,
 sets up the `develop` branch, updates `.gitignore`, and creates
 `.claude/settings.local.json` with canonical permissions.
 
-Idempotent -- re-running on an already-initialized project preserves the
-existing `config.toml`.
+**Fresh init:** Generates `config.toml` programmatically from the Pydantic
+configuration models. Every available option appears as a commented-out entry
+with its description, valid range (if constrained), and default value.
+
+**Re-init (config merge):** When `config.toml` already exists, `init` merges
+it with the current schema non-destructively:
+
+- **Preserves** all active (uncommented) user values.
+- **Adds** new schema fields as commented-out entries with descriptions and
+  defaults.
+- **Marks deprecated** any active fields not recognized by the current schema
+  with a `# DEPRECATED` prefix.
+- **Preserves** user comments and formatting.
+- **No-op** if the config is already up to date (byte-for-byte identical).
+- If the existing file contains invalid TOML, a warning is logged and the
+  file is left untouched.
 
 **Exit codes:** `0` success, `1` not inside a git repository.
 
@@ -357,12 +371,6 @@ If both are set, `bash_allowlist` takes precedence (with a warning).
 | `auto_merge` | bool | `false` | Auto-merge approved PRs |
 | `ci_timeout` | int | `600` | CI wait timeout in seconds |
 | `labels` | list[string] | `[]` | Labels to apply to PRs |
-
-### `[memory]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `model` | string | `"SIMPLE"` | Model tier for memory extraction |
 
 ### `[archetypes]`
 
