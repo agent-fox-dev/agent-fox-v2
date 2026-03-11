@@ -92,7 +92,7 @@ class TestFixtureIsolation:
                 "(id, content, category, confidence, "
                 "created_at) VALUES ("
                 "gen_random_uuid(), ?, 'decision', "
-                "'high', CURRENT_TIMESTAMP)",
+                "0.9, CURRENT_TIMESTAMP)",
                 [f"fact_{i}"],
             )
         count1 = conn1.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]

@@ -73,7 +73,7 @@ class TestParseAnalyzerResponse:
 
         assert len(result.improvements) == 2
         assert result.improvements[0].tier == "quick_win"
-        assert result.improvements[1].confidence == "medium"
+        assert result.improvements[1].confidence == 0.6
         assert result.diminishing_returns is False
 
     def test_parse_invalid_json(self) -> None:
@@ -92,25 +92,25 @@ class TestFilterImprovements:
 
     def test_filter_excludes_low_confidence(self) -> None:
         """TS-31-12: Low-confidence improvements are filtered out."""
-        high_imp = make_improvement(id="H1", confidence="high")
-        medium_imp = make_improvement(id="M1", confidence="medium")
-        low_imp = make_improvement(id="L1", confidence="low")
+        high_imp = make_improvement(id="H1", confidence=0.9)
+        medium_imp = make_improvement(id="M1", confidence=0.6)
+        low_imp = make_improvement(id="L1", confidence=0.3)
 
         filtered = filter_improvements([high_imp, medium_imp, low_imp])
 
         assert len(filtered) == 2
-        assert all(i.confidence in ("high", "medium") for i in filtered)
+        assert all(i.confidence >= 0.5 for i in filtered)
 
     def test_filter_sorts_by_tier_priority(self) -> None:
         """TS-31-13: Filtered improvements sorted by tier priority."""
         design_imp = make_improvement(
-            id="D1", tier="design_level", confidence="high"
+            id="D1", tier="design_level", confidence=0.9
         )
         quick_imp = make_improvement(
-            id="Q1", tier="quick_win", confidence="high"
+            id="Q1", tier="quick_win", confidence=0.9
         )
         structural_imp = make_improvement(
-            id="S1", tier="structural", confidence="high"
+            id="S1", tier="structural", confidence=0.9
         )
 
         filtered = filter_improvements(

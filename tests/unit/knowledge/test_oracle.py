@@ -97,7 +97,8 @@ class TestOracleGroundedAnswer:
         assert isinstance(answer, OracleAnswer)
         assert answer.answer != ""
         assert len(answer.sources) == 3
-        assert answer.confidence in ["high", "medium", "low"]
+        assert isinstance(answer.confidence, float)
+        assert 0.0 <= answer.confidence <= 1.0
 
     def test_sources_have_provenance(
         self,
@@ -282,7 +283,7 @@ class TestOracleConfidenceLevels:
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
         results_high = _make_search_results(count=3, similarity=0.85)
-        assert oracle._determine_confidence(results_high) == "high"
+        assert oracle._determine_confidence(results_high) == 0.9
 
     def test_medium_confidence(
         self,
@@ -304,7 +305,7 @@ class TestOracleConfidenceLevels:
                 similarity=0.6,
             )
         ]
-        assert oracle._determine_confidence(results_med) == "medium"
+        assert oracle._determine_confidence(results_med) == 0.6
 
     def test_low_confidence(
         self,
@@ -315,4 +316,4 @@ class TestOracleConfidenceLevels:
         mock_search = MagicMock(spec=VectorSearch)
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
-        assert oracle._determine_confidence([]) == "low"
+        assert oracle._determine_confidence([]) == 0.3

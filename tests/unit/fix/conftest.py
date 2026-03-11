@@ -122,7 +122,7 @@ def make_improvement(
     description: str = "Remove unused import os from foo.py",
     files: list[str] | None = None,
     impact: str = "low",
-    confidence: str = "high",
+    confidence: float = 0.9,
 ) -> Improvement:
     """Create an Improvement with sensible defaults."""
     return Improvement(
@@ -148,7 +148,7 @@ def sample_analyzer_result() -> AnalyzerResult:
     return AnalyzerResult(
         improvements=[
             make_improvement(
-                id="IMP-1", tier="quick_win", confidence="high"
+                id="IMP-1", tier="quick_win", confidence=0.9
             ),
             make_improvement(
                 id="IMP-2",
@@ -157,7 +157,7 @@ def sample_analyzer_result() -> AnalyzerResult:
                 description="Merge a.py and b.py validators",
                 files=["a.py", "b.py"],
                 impact="medium",
-                confidence="medium",
+                confidence=0.6,
             ),
         ],
         summary="Found 2 improvements.",

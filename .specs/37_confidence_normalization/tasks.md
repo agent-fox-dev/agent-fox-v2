@@ -118,34 +118,34 @@ compatibility, then downstream consumers.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/migrations.py agent_fox/knowledge/db.py agent_fox/memory/memory.py agent_fox/engine/knowledge_harvest.py`
     - [x] Requirements 37-REQ-2.*, 37-REQ-3.* met
 
-- [ ] 4. Knowledge query and analyzer updates
-  - [ ] 4.1 Update `OracleAnswer` in `agent_fox/knowledge/query.py`
+- [x] 4. Knowledge query and analyzer updates
+  - [x] 4.1 Update `OracleAnswer` in `agent_fox/knowledge/query.py`
     - Change `confidence: str` to `confidence: float`
     - Update `_determine_confidence()` to return float
     - _Requirements: 37-REQ-4.1, 37-REQ-4.2_
 
-  - [ ] 4.2 Update `Pattern` in `agent_fox/knowledge/query.py`
+  - [x] 4.2 Update `Pattern` in `agent_fox/knowledge/query.py`
     - Change `confidence: str` to `confidence: float`
     - Update `_assign_confidence()` to return float (5+ → 0.9, 3-4 → 0.7, 2 → 0.4)
     - _Requirements: 37-REQ-4.3, 37-REQ-4.4_
 
-  - [ ] 4.3 Update `Improvement` in `agent_fox/fix/analyzer.py`
+  - [x] 4.3 Update `Improvement` in `agent_fox/fix/analyzer.py`
     - Change `confidence: str` to `confidence: float`
     - Update LLM response parsing to call `parse_confidence()`
     - Update filter from `!= "low"` to `< 0.5`
     - _Requirements: 37-REQ-5.1, 37-REQ-5.2, 37-REQ-5.3_
 
-  - [ ] 4.4 Update documentation
+  - [x] 4.4 Update documentation
     - Update `docs/cli-reference.md` if confidence is user-visible
     - Update `docs/memory.md` if it references confidence format
     - _Requirements: documentation_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_query_confidence.py tests/unit/fix/test_analyzer_confidence.py -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/memory/test_confidence_props.py::TestThresholdFilterCorrectness -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/query.py agent_fox/fix/analyzer.py`
-    - [ ] Requirements 37-REQ-4.*, 37-REQ-5.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_query_confidence.py tests/unit/fix/test_analyzer_confidence.py -v`
+    - [x] Property tests pass: `uv run pytest tests/property/memory/test_confidence_props.py::TestThresholdFilterCorrectness -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/query.py agent_fox/fix/analyzer.py`
+    - [x] Requirements 37-REQ-4.*, 37-REQ-5.* met
 
 ## Traceability
 

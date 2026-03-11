@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.memory.types import parse_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class Improvement:
     description: str
     files: list[str]
     impact: str  # "low" | "medium" | "high"
-    confidence: str  # "high" | "medium" | "low"
+    confidence: float  # [0.0, 1.0]
 
 
 @dataclass
@@ -242,13 +243,13 @@ def filter_improvements(
 ) -> list[Improvement]:
     """Filter out low-confidence improvements and sort by tier priority.
 
-    Returns improvements with confidence 'high' or 'medium', sorted:
+    Returns improvements with confidence >= 0.5, sorted:
     quick_win first, structural second, design_level third.
 
-    Requirements: 31-REQ-3.4, 31-REQ-3.5
+    Requirements: 31-REQ-3.4, 31-REQ-3.5, 37-REQ-5.3
     """
-    # Exclude low-confidence items (31-REQ-3.4)
-    filtered = [i for i in improvements if i.confidence != "low"]
+    # Exclude low-confidence items (37-REQ-5.3: threshold < 0.5)
+    filtered = [i for i in improvements if i.confidence >= 0.5]
 
     # Sort by tier priority (31-REQ-3.5)
     filtered.sort(key=lambda imp: _TIER_PRIORITY.get(imp.tier, 99))
@@ -460,5 +461,5 @@ def _parse_improvement(data: Any, *, index: int) -> Improvement:
         description=str(data["description"]),
         files=[str(f) for f in files],
         impact=str(data["impact"]),
-        confidence=str(data["confidence"]),
+        confidence=parse_confidence(data["confidence"]),
     )
