@@ -6,6 +6,29 @@ dependencies so the orchestrator knows the correct execution order.
 
 Treat this file as executable workflow policy.
 
+## WHAT YOU RECEIVE
+
+The orchestrator embeds the following into your context:
+
+1. All `requirements.md` files (one per spec) — user stories and acceptance criteria
+2. All `design.md` files (one per spec) — architecture, interfaces, data models
+3. All `test_spec.md` files (one per spec) — language-agnostic test contracts
+4. All `tasks.md` files (one per spec) — implementation plan with task groups and subtasks
+5. The current task graph state (if one exists from a prior run)
+6. A directive indicating the mode: `plan`, `replan`, or `pre-code`
+
+## ORIENTATION
+
+Before analyzing dependencies, orient yourself:
+
+1. Read all spec documents provided in context below (they're already there).
+2. Explore the codebase structure to understand existing modules, packages,
+   and how components interact. This grounds your dependency analysis in
+   reality rather than spec assumptions.
+3. Check git state: `git log --oneline -20`, `git status --short --branch`.
+
+Only read files tracked by git. Skip anything matched by `.gitignore`.
+
 ## CONTEXT
 
 agent-fox processes specifications (`.specs/{NN}_{name}/`) through a task graph.
@@ -30,17 +53,6 @@ spec requires work from a different spec to be completed first.
 
 The orchestrator executes one node at a time from the ready set, ordered by
 spec number (ascending) then group number (ascending).
-
-## WHAT YOU RECEIVE
-
-The orchestrator embeds the following into your context:
-
-1. All `requirements.md` files (one per spec) — user stories and acceptance criteria
-2. All `design.md` files (one per spec) — architecture, interfaces, data models
-3. All `test_spec.md` files (one per spec) — language-agnostic test contracts
-4. All `tasks.md` files (one per spec) — implementation plan with task groups and subtasks
-5. The current task graph state (if one exists from a prior run)
-6. A directive indicating the mode: `plan`, `replan`, or `pre-code`
 
 ## WORKFLOW
 
@@ -67,11 +79,23 @@ exists when B **technically requires** output from A. Specifically:
 | **Interface contract** | Spec B implements or extends an interface defined by Spec A |
 | **Test fixture** | Spec B's tests depend on factories, fixtures, or helpers from Spec A |
 
-Do NOT create dependencies for:
+#### What is NOT a dependency
 
-- Vague conceptual relationships ("both deal with users")
-- Runtime ordering preferences with no technical coupling
-- Specs that happen to touch the same file but at different layers
+Be disciplined about false positives. Do NOT create dependencies for:
+
+- **Conceptual similarity**: two specs that "both deal with users" or "both
+  touch the session module" are not dependent unless one imports or extends
+  artifacts from the other.
+- **Runtime ordering preferences**: "it would be nice if X ran first" is not
+  a dependency. Only technical requirements that would cause import errors,
+  missing types, or broken contracts qualify.
+- **Shared file edits at different layers**: two specs that both modify
+  `config.py` but add independent settings are not dependent — they can be
+  merged independently.
+- **Transitive relationships**: if A->B and B->C already exist, do NOT
+  also declare A->C. The graph engine computes transitive closure
+  automatically. Adding redundant transitive edges clutters the graph and
+  can mask the true dependency structure.
 
 ### Step 3: Target the Right Node
 
@@ -87,7 +111,7 @@ Example: if `02_streaming` task group 1 imports `BaseModel` defined in
 `01_base_app` task group 3, the edge is:
 
 ```
-from: 01_base_app/3  →  to: 02_streaming/1
+from: 01_base_app/3  ->  to: 02_streaming/1
 ```
 
 ### Step 4: Validate the Graph
@@ -101,7 +125,17 @@ Before emitting your output:
 3. Confirm that each edge has a concrete technical justification — not just
    a hunch.
 
-### Step 5: Handle Existing State
+### Step 5: Confidence Check
+
+For each edge you are about to emit, ask yourself:
+
+- "If this edge were missing, would the `to` node's coding session fail with
+  an import error, missing type, or broken API call?" If yes, keep the edge.
+  If no, omit it.
+- "Does this edge duplicate a path that already exists through other edges?"
+  If yes, omit it — transitive closure handles it.
+
+### Step 6: Handle Existing State
 
 When existing state is provided:
 
@@ -152,6 +186,6 @@ Respond with a single JSON object. No commentary before or after the JSON.
 2. **Be precise.** Target the exact task group that introduces or first needs the dependency, not a neighboring group.
 3. **Be conservative.** When uncertain, omit the edge. A missing edge means a task may fail (retriable); a spurious edge may block execution indefinitely.
 4. **Reference real nodes only.** Every `from` and `to` must match a `{spec_name}/{group_number}` that exists in the specs you received.
-5. **Declare direct edges only.** The graph engine computes transitive closure. If A→B and B→C exist, do not also declare A→C.
+5. **Declare direct edges only.** The graph engine computes transitive closure. If A->B and B->C exist, do not also declare A->C.
 6. **Give reasons.** Every edge must have a concrete, one-line `reason`. "Probably needed" is not a valid reason.
 7. **Emit valid JSON.** The orchestrator machine-parses your output. Malformed output causes an abort.
