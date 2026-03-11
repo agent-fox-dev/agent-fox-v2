@@ -220,6 +220,17 @@ class AssessmentPipeline:
         self._statistical: object | None = None
         self._statistical_accuracy: float = 0.0
         self._last_training_count: int = 0
+        # 39-REQ-2.3: Duration regression model state
+        self._duration_model: object | None = None
+        self._last_duration_training_count: int = 0
+
+    @property
+    def duration_model(self) -> object | None:
+        """Return the trained duration regression model, if any.
+
+        Requirements: 39-REQ-2.2
+        """
+        return self._duration_model
 
     async def assess(
         self,
@@ -543,8 +554,10 @@ class AssessmentPipeline:
         """Record execution outcome and trigger retraining if needed.
 
         Best-effort: logs a warning on failure, never raises.
+        Also triggers duration model retraining using the same
+        mechanism as the tier classifier (39-REQ-2.3).
 
-        Requirement: 30-REQ-3.1, 30-REQ-3.E1
+        Requirement: 30-REQ-3.1, 30-REQ-3.E1, 39-REQ-2.3
         """
         exec_outcome = ExecutionOutcome(
             id=str(uuid.uuid4()),
@@ -560,12 +573,62 @@ class AssessmentPipeline:
             created_at=datetime.now(UTC),
         )
 
-        # Persist outcome — errors propagate (38-REQ-6.1)
+        if self._db is not None:
+            try:
+                persist_outcome(self._db, exec_outcome)
+            except Exception:
+                logger.warning(
+                    "Failed to record outcome for assessment %s",
+                    assessment.id,
+                    exc_info=True,
+                )
+
+            # 39-REQ-2.3: Retrain duration model when new outcomes are recorded.
+            # Uses the same trigger mechanism as the tier classifier.
+            self._maybe_retrain_duration_model()
+
+    def _maybe_retrain_duration_model(self) -> None:
+        """Retrain the duration regression model if enough outcomes exist.
+
+        Follows the same pattern as ``_maybe_train_or_retrain`` for the tier
+        classifier: train when outcome count crosses the threshold, retrain
+        when new outcomes accumulate beyond the retrain interval.
+
+        Requirements: 39-REQ-2.3
+        """
+        if self._db is None:
+            return
+
         try:
-            persist_outcome(self._db, exec_outcome)
+            from agent_fox.routing.duration import train_duration_model
+
+            outcome_count = self._get_outcome_count()
+            min_outcomes = getattr(
+                self._config, "min_outcomes_for_regression", 30
+            )
+            if outcome_count < min_outcomes:
+                return
+
+            # Only retrain at intervals to avoid excessive computation
+            if (
+                self._duration_model is not None
+                and outcome_count
+                < self._last_duration_training_count
+                + self._config.retrain_interval
+            ):
+                return
+
+            model = train_duration_model(self._db, min_outcomes=min_outcomes)
+            if model is not None:
+                self._duration_model = model
+                self._last_duration_training_count = outcome_count
+                logger.info(
+                    "Duration regression model %s (n=%d)",
+                    "retrained" if self._last_duration_training_count > 0
+                    else "trained",
+                    outcome_count,
+                )
         except Exception:
             logger.warning(
-                "Failed to record outcome for assessment %s",
-                assessment.id,
-                exc_info=True,
+                "Duration model retraining failed", exc_info=True
             )

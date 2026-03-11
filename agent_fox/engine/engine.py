@@ -29,6 +29,7 @@ from agent_fox.core.config import (
     ArchetypesConfig,
     HookConfig,
     OrchestratorConfig,
+    PlanningConfig,
     RoutingConfig,
 )
 from agent_fox.core.errors import PlanError
@@ -549,6 +550,7 @@ class Orchestrator:
         routing_config: RoutingConfig | None = None,
         assessment_pipeline: Any | None = None,
         archetypes_config: ArchetypesConfig | None = None,
+        planning_config: PlanningConfig | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -566,6 +568,7 @@ class Orchestrator:
         self._edges_list: list[dict] = []
         self._plan_data: dict = {}  # Full plan data for plan.json updates
         self._archetypes_config = archetypes_config
+        self._planning_config = planning_config or PlanningConfig()
 
         # 30-REQ-7: Adaptive routing state
         _rc = routing_config or RoutingConfig()
@@ -838,7 +841,11 @@ class Orchestrator:
                     self._state_manager.save(state)
                     return state
 
-                ready = self._graph_sync.ready_tasks()
+                # 39-REQ-1.1: Sort ready tasks by predicted duration
+                duration_hints = self._compute_duration_hints()
+                ready = self._graph_sync.ready_tasks(
+                    duration_hints=duration_hints
+                )
 
                 if not ready:
                     if self._graph_sync.is_stalled():
@@ -881,6 +888,69 @@ class Orchestrator:
                 render_summary()
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
+
+    def _compute_duration_hints(self) -> dict[str, int] | None:
+        """Compute duration hints for ready task ordering.
+
+        When duration ordering is enabled and an assessment pipeline with
+        a DB connection is available, queries historical/regression/preset
+        duration hints for all pending nodes.
+
+        Returns:
+            Mapping of node_id to predicted duration in ms, or None
+            if duration ordering is disabled.
+
+        Requirements: 39-REQ-1.1, 39-REQ-2.2
+        """
+        if not self._planning_config.duration_ordering:
+            return None
+
+        pipeline = self._routing.pipeline
+        if pipeline is None:
+            return None
+
+        db = getattr(pipeline, "_db", None)
+        if db is None:
+            return None
+
+        try:
+            from agent_fox.routing.duration import get_duration_hint
+
+            duration_model = getattr(pipeline, "duration_model", None)
+            hints: dict[str, int] = {}
+
+            for node_id in self.node_states:
+                # Extract spec_name and archetype from plan node data
+                node_data = self._plan_nodes.get(node_id, {})
+                spec_name = node_data.get("spec_name", "")
+                archetype = node_data.get("archetype", "coder")
+                tier = node_data.get("tier", "STANDARD")
+
+                hint = get_duration_hint(
+                    db,
+                    node_id,
+                    spec_name,
+                    archetype,
+                    tier,
+                    min_outcomes=self._planning_config.min_outcomes_for_historical,
+                    model=duration_model,
+                )
+                hints[node_id] = hint.predicted_ms
+
+            return hints
+        except Exception:
+            logger.warning(
+                "Failed to compute duration hints, using default ordering",
+                exc_info=True,
+            )
+            return None
+
+    @property
+    def node_states(self) -> dict[str, str]:
+        """Return node states from graph sync, or empty dict."""
+        if self._graph_sync is not None:
+            return self._graph_sync.node_states
+        return {}
 
     def _compute_plan_hash(self) -> str:
         """Compute plan hash, returning empty string if file doesn't exist."""
@@ -1105,7 +1175,9 @@ class Orchestrator:
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
-                new_ready = graph_sync.ready_tasks()
+                new_ready = graph_sync.ready_tasks(
+                    duration_hints=self._compute_duration_hints()
+                )
                 await _fill_pool(new_ready)
 
             parallel_runner.track_tasks(list(pool))
