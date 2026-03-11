@@ -170,8 +170,8 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/fact_cache.py agent_fox/session/prompt.py`
     - [x] Requirements 39-REQ-5.*, 39-REQ-6.* met
 
-- [ ] 6. Project model and critical path
-  - [ ] 6.1 Create `agent_fox/knowledge/project_model.py`
+- [x] 6. Project model and critical path
+  - [x] 6.1 Create `agent_fox/knowledge/project_model.py`
     - Implement SpecMetrics and ProjectModel dataclasses
     - Implement `build_project_model()` — aggregate from execution_outcomes
     - Compute avg_cost, avg_duration_ms, failure_rate, session_count per spec
@@ -179,23 +179,23 @@ improvements. Groups 6-7 cover model/conflict/threshold features.
     - Compute archetype_effectiveness as success rate per archetype
     - _Requirements: 39-REQ-7.1, 39-REQ-7.2, 39-REQ-7.3_
 
-  - [ ] 6.2 Create `agent_fox/graph/critical_path.py`
+  - [x] 6.2 Create `agent_fox/graph/critical_path.py`
     - Implement CriticalPathResult dataclass
     - Implement `compute_critical_path()` using forward/backward pass
     - Handle tied paths (multiple critical paths with equal duration)
     - _Requirements: 39-REQ-8.1, 39-REQ-8.3_
 
-  - [ ] 6.3 Integrate into status output
+  - [x] 6.3 Integrate into status output
     - Add project model to `agent-fox status --model` output
     - Add critical path to `agent-fox status` output
     - _Requirements: 39-REQ-7.4, 39-REQ-8.2_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests pass: `uv run pytest tests/unit/knowledge/test_project_model.py::TestProjectModel tests/unit/graph/test_critical_path.py -v`
-    - [ ] Property test passes: `uv run pytest tests/property/planning/test_predictive_props.py::test_critical_path_validity -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/project_model.py agent_fox/graph/critical_path.py`
-    - [ ] Requirements 39-REQ-7.*, 39-REQ-8.* met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests pass: `uv run pytest tests/unit/knowledge/test_project_model.py::TestProjectModel tests/unit/graph/test_critical_path.py -v`
+    - [x] Property test passes: `uv run pytest tests/property/planning/test_predictive_props.py::test_critical_path_validity -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/project_model.py agent_fox/graph/critical_path.py`
+    - [x] Requirements 39-REQ-7.*, 39-REQ-8.* met
 
 - [ ] 7. File conflict detection and learned blocking thresholds
   - [ ] 7.1 Create `agent_fox/graph/file_impacts.py`
