@@ -142,14 +142,13 @@ class TestQueryOracleContext:
         assert len(context) > 0
         assert "dataclasses" in context
 
-    def test_oracle_returns_empty_when_unavailable(
+    def test_oracle_propagates_error_when_unavailable(
         self, mock_config: AgentFoxConfig
     ) -> None:
-        """TS-31-30: Oracle returns empty string when unavailable."""
+        """TS-31-30 (superseded by 38-REQ-3.1): Oracle errors propagate."""
         with patch(
             "agent_fox.fix.analyzer._query_oracle_facts",
             side_effect=Exception("Knowledge store unavailable"),
         ):
-            context = query_oracle_context(mock_config)
-
-        assert context == ""
+            with pytest.raises(Exception, match="Knowledge store unavailable"):
+                query_oracle_context(mock_config)

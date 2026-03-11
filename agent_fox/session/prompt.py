@@ -16,10 +16,8 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import duckdb
+import duckdb
 
 from agent_fox.core.errors import ConfigError
 from agent_fox.knowledge.causal import traverse_causal_chain
@@ -254,7 +252,7 @@ def assemble_context(
     spec_dir: Path,
     task_group: int,
     memory_facts: list[str] | None = None,
-    conn: duckdb.DuckDBPyConnection | None = None,
+    conn: duckdb.DuckDBPyConnection = None,  # type: ignore[assignment]
 ) -> str:
     """Assemble task-specific context for a coding session.
 
@@ -264,10 +262,9 @@ def assemble_context(
     - test_spec.md
     - tasks.md
 
-    When a DB connection is provided, renders review/verification
-    sections from DuckDB instead of reading files (27-REQ-5.1, 27-REQ-5.2).
-    Falls back to file reading if DB is unavailable or has no records
-    (27-REQ-5.E1).
+    Renders review/verification/drift sections from DuckDB
+    (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.1, 38-REQ-4.2).
+    DB errors propagate — no file-based fallback (38-REQ-3.E1).
 
     Appends relevant memory facts (if provided).
 
@@ -284,31 +281,25 @@ def assemble_context(
     db_rendered_files: set[str] = set()
 
     if conn is not None:
-        try:
-            # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
-            _migrate_legacy_files(conn, spec_dir, spec_name)
+        # DB-backed rendering — errors propagate (38-REQ-3.E1, 38-REQ-4.2)
+        # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
+        _migrate_legacy_files(conn, spec_dir, spec_name)
 
-            # Try DB-backed rendering (27-REQ-5.1, 27-REQ-5.2)
-            review_md = render_review_context(conn, spec_name)
-            if review_md is not None:
-                sections.append(review_md)
-                db_rendered_files.add("review.md")
+        # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
+        review_md = render_review_context(conn, spec_name)
+        if review_md is not None:
+            sections.append(review_md)
+            db_rendered_files.add("review.md")
 
-            verification_md = render_verification_context(conn, spec_name)
-            if verification_md is not None:
-                sections.append(verification_md)
-                db_rendered_files.add("verification.md")
+        verification_md = render_verification_context(conn, spec_name)
+        if verification_md is not None:
+            sections.append(verification_md)
+            db_rendered_files.add("verification.md")
 
-            # Render oracle drift report (32-REQ-8.1)
-            drift_md = render_drift_context(conn, spec_name)
-            if drift_md is not None:
-                sections.append(drift_md)
-        except Exception:
-            logger.warning(
-                "DB-backed context rendering failed for %s, falling back to files",
-                spec_name,
-                exc_info=True,
-            )
+        # Render oracle drift report (32-REQ-8.1)
+        drift_md = render_drift_context(conn, spec_name)
+        if drift_md is not None:
+            sections.append(drift_md)
 
     # 03-REQ-4.1: Read spec documents
     file_sections: list[str] = []

@@ -119,39 +119,39 @@ migrated.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/session_lifecycle.py agent_fox/engine/knowledge_harvest.py`
     - [x] Requirements 38-REQ-2.1, 38-REQ-2.3, 38-REQ-3.3, 38-REQ-3.4 met
 
-- [ ] 4. Harden memory store, context assembly, routing, and sink
-  - [ ] 4.1 Update `MemoryStore` in `agent_fox/memory/memory.py`
+- [x] 4. Harden memory store, context assembly, routing, and sink
+  - [x] 4.1 Update `MemoryStore` in `agent_fox/memory/memory.py`
     - Change `db_conn: duckdb.DuckDBPyConnection | None = None` to required
     - Remove `if self._db_conn is None` guards in `write_fact()` and `mark_superseded()`
     - Remove try/except around DuckDB writes — let errors propagate
     - _Requirements: 38-REQ-2.2, 38-REQ-2.4, 38-REQ-3.2_
 
-  - [ ] 4.2 Update `assemble_context()` in `agent_fox/session/prompt.py`
+  - [x] 4.2 Update `assemble_context()` in `agent_fox/session/prompt.py`
     - Change `conn: duckdb.DuckDBPyConnection | None = None` to required
     - Remove file-based fallback for review/verification/drift rendering
     - Remove outer try/except around DB rendering
     - _Requirements: 38-REQ-4.1, 38-REQ-4.2, 38-REQ-4.3, 38-REQ-3.E1_
 
-  - [ ] 4.3 Update `AssessmentPipeline` in `agent_fox/routing/assessor.py`
+  - [x] 4.3 Update `AssessmentPipeline` in `agent_fox/routing/assessor.py`
     - Change `db: duckdb.DuckDBPyConnection | None` to required
     - Remove `_get_outcome_count()` fallback returning 0 when db is None
     - _Requirements: 38-REQ-6.1, 38-REQ-6.2_
 
-  - [ ] 4.4 Update `DuckDBSink` in `agent_fox/knowledge/duckdb_sink.py`
+  - [x] 4.4 Update `DuckDBSink` in `agent_fox/knowledge/duckdb_sink.py`
     - Remove try/except in `record_session_outcome()`, `record_tool_call()`,
       `record_tool_error()` — let DuckDB errors propagate
     - _Requirements: 38-REQ-3.1_
 
-  - [ ] 4.5 Update `fix/analyzer.py`
+  - [x] 4.5 Update `fix/analyzer.py`
     - Remove try/except around `query_oracle_context()` and `load_review_context()`
     - Let DuckDB errors propagate
     - _Requirements: 38-REQ-3.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/memory/test_hardening_store.py tests/unit/knowledge/test_duckdb_hardening.py::TestDuckDBSinkPropagation tests/unit/knowledge/test_duckdb_hardening.py::TestContextAssemblyRequired tests/unit/knowledge/test_duckdb_hardening.py::TestRoutingRequired -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/memory/memory.py agent_fox/session/prompt.py agent_fox/routing/assessor.py agent_fox/knowledge/duckdb_sink.py agent_fox/fix/analyzer.py`
-    - [ ] Requirements 38-REQ-2.2, 38-REQ-2.4, 38-REQ-3.*, 38-REQ-4.*, 38-REQ-6.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/memory/test_hardening_store.py tests/unit/knowledge/test_duckdb_hardening.py::TestDuckDBSinkPropagation tests/unit/knowledge/test_duckdb_hardening.py::TestContextAssemblyRequired tests/unit/knowledge/test_duckdb_hardening.py::TestRoutingRequired -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/memory/memory.py agent_fox/session/prompt.py agent_fox/routing/assessor.py agent_fox/knowledge/duckdb_sink.py agent_fox/fix/analyzer.py`
+    - [x] Requirements 38-REQ-2.2, 38-REQ-2.4, 38-REQ-3.*, 38-REQ-4.*, 38-REQ-6.* met
 
 - [ ] 5. Migrate existing tests to use DuckDB fixture
   - [ ] 5.1 Audit existing tests for None connection patterns

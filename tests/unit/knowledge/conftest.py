@@ -116,6 +116,19 @@ CREATE TABLE IF NOT EXISTS verification_results (
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS drift_findings (
+    id              UUID PRIMARY KEY,
+    severity        TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    spec_ref        TEXT,
+    artifact_ref    TEXT,
+    spec_name       TEXT NOT NULL,
+    task_group      TEXT NOT NULL,
+    session_id      TEXT NOT NULL,
+    superseded_by   TEXT,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT INTO schema_version (version, description)
     SELECT 1, 'initial schema'
     WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);

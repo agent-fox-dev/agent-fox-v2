@@ -213,7 +213,7 @@ class AssessmentPipeline:
     def __init__(
         self,
         config: RoutingConfig,
-        db: duckdb.DuckDBPyConnection | None,
+        db: duckdb.DuckDBPyConnection,
     ) -> None:
         self._config = config
         self._db = db
@@ -432,8 +432,6 @@ class AssessmentPipeline:
 
     def _get_outcome_count(self) -> int:
         """Get the number of execution outcomes from DB."""
-        if self._db is None:
-            return 0
         try:
             return count_outcomes(self._db)
         except Exception:

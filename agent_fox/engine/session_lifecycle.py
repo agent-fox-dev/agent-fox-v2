@@ -238,6 +238,7 @@ class NodeSessionRunner:
             spec_dir,
             self._task_group,
             memory_facts=memory_facts,
+            conn=self._knowledge_db.connection,
         )
 
         system_prompt = build_system_prompt(

@@ -40,10 +40,19 @@ class TestMemoryStoreRequired:
 
     def test_db_conn_parameter_is_required(self) -> None:
         """TS-38-5: db_conn type is non-optional."""
-        hints = get_type_hints(MemoryStore.__init__)
-        assert "db_conn" in hints
-        db_type = hints["db_conn"]
-        assert db_type is duckdb.DuckDBPyConnection
+        import inspect
+
+        sig = inspect.signature(MemoryStore.__init__)
+        param = sig.parameters["db_conn"]
+        # Must not have a default value (i.e., it's required)
+        assert param.default is inspect.Parameter.empty
+        # Resolve type hint — need full namespace including TYPE_CHECKING imports
+        import agent_fox.memory.memory as mem_mod
+        from agent_fox.knowledge.embeddings import EmbeddingGenerator
+
+        ns = {**vars(mem_mod), "EmbeddingGenerator": EmbeddingGenerator}
+        hints = get_type_hints(MemoryStore.__init__, globalns=ns)
+        assert hints["db_conn"] is duckdb.DuckDBPyConnection
 
 
 class TestMemoryStorePropagation:

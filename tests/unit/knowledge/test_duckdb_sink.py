@@ -127,41 +127,47 @@ class TestDuckDBSinkMultipleTouchedPaths:
 # -- Edge Case Tests ---------------------------------------------------------
 
 
-class TestDuckDBSinkWriteFailureNonFatal:
-    """TS-11-E3: DuckDB sink write failure is non-fatal.
+class TestDuckDBSinkWriteFailurePropagates:
+    """TS-11-E3 (superseded by 38-REQ-3.1): DuckDB sink errors propagate.
 
-    Requirement: 11-REQ-5.E1
+    Requirement: 38-REQ-3.1 (supersedes 11-REQ-5.E1)
     """
 
-    def test_closed_connection_does_not_raise(self, caplog: object) -> None:
-        """Verify write to closed connection logs warning but does not raise."""
+    def test_closed_connection_raises(self) -> None:
+        """Verify write to closed connection raises (38-REQ-3.1)."""
+        import pytest
+
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=False)
         conn.close()  # force failure
 
-        # Should not raise
-        sink.record_session_outcome(SessionOutcome(status="completed"))
+        with pytest.raises(duckdb.ConnectionException):
+            sink.record_session_outcome(SessionOutcome(status="completed"))
 
-    def test_tool_call_on_closed_conn_does_not_raise(self) -> None:
-        """Verify tool call on closed connection does not raise."""
+    def test_tool_call_on_closed_conn_raises(self) -> None:
+        """Verify tool call on closed connection raises (38-REQ-3.1)."""
+        import pytest
+
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=True)
         conn.close()
 
-        # Should not raise
-        sink.record_tool_call(ToolCall(tool_name="bash"))
+        with pytest.raises(duckdb.ConnectionException):
+            sink.record_tool_call(ToolCall(tool_name="bash"))
 
-    def test_tool_error_on_closed_conn_does_not_raise(self) -> None:
-        """Verify tool error on closed connection does not raise."""
+    def test_tool_error_on_closed_conn_raises(self) -> None:
+        """Verify tool error on closed connection raises (38-REQ-3.1)."""
+        import pytest
+
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=True)
         conn.close()
 
-        # Should not raise
-        sink.record_tool_error(ToolError(tool_name="bash"))
+        with pytest.raises(duckdb.ConnectionException):
+            sink.record_tool_error(ToolError(tool_name="bash"))
 
 
 class TestDuckDBSinkEmptyTouchedPaths:

@@ -16,11 +16,11 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import duckdb
+
 from agent_fox.memory.types import Fact, parse_confidence
 
 if TYPE_CHECKING:
-    import duckdb
-
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
 
 logger = logging.getLogger("agent_fox.memory.store")
@@ -142,27 +142,25 @@ def _dict_to_fact(data: dict) -> Fact:
 class MemoryStore:
     """Dual-write fact store: JSONL (source of truth) + DuckDB (queryable index).
 
-    Extends the existing JSONL persistence with optional DuckDB dual-write
-    and embedding generation.  If ``db_conn`` is ``None``, facts are written
-    to JSONL only (graceful degradation).  If ``embedder`` is ``None``, facts
-    are written without embeddings.
+    Both JSONL and DuckDB writes must succeed.  If ``embedder`` is ``None``,
+    facts are written without embeddings.
 
     Requirements: 12-REQ-1.1, 12-REQ-1.2, 12-REQ-1.3, 12-REQ-1.E1,
-                  12-REQ-2.E1, 12-REQ-7.1
+                  12-REQ-2.E1, 12-REQ-7.1, 38-REQ-2.2, 38-REQ-2.4,
+                  38-REQ-3.2
     """
 
     def __init__(
         self,
         jsonl_path: Path,
-        db_conn: duckdb.DuckDBPyConnection | None = None,
+        db_conn: duckdb.DuckDBPyConnection,
         embedder: EmbeddingGenerator | None = None,
     ) -> None:
-        """Initialize with JSONL path and optional DuckDB connection.
+        """Initialize with JSONL path and required DuckDB connection.
 
         Args:
             jsonl_path: Path to the JSONL file (source of truth).
-            db_conn: Optional DuckDB connection for the queryable index.
-                If ``None``, facts are written to JSONL only.
+            db_conn: DuckDB connection for the queryable index (required).
             embedder: Optional embedding generator.  If ``None``, facts
                 are written without embeddings.
         """
@@ -176,34 +174,19 @@ class MemoryStore:
         """Dual-write a fact to JSONL and DuckDB.
 
         1. Append the fact to JSONL (always succeeds or raises).
-        2. Insert the fact into DuckDB ``memory_facts`` (best-effort).
+        2. Insert the fact into DuckDB ``memory_facts`` (raises on failure).
         3. Generate an embedding and insert into ``memory_embeddings``
            (best-effort, non-fatal on failure).
 
-        If step 2 fails, log a warning and continue.
+        If step 2 fails, the exception propagates (38-REQ-3.2).
         If step 3 fails, log a warning and continue -- the fact
         exists in DuckDB without an embedding.
         """
         # Step 1: JSONL write -- never skipped
         append_facts([fact], self._jsonl_path)
 
-        # Step 2: DuckDB write -- best-effort
-        if self._db_conn is None:
-            logger.warning(
-                "DuckDB unavailable; fact %s written to JSONL only",
-                fact.id,
-            )
-            return
-
-        try:
-            self._write_to_duckdb(fact)
-        except Exception:
-            logger.warning(
-                "DuckDB write failed for fact %s; JSONL write succeeded",
-                fact.id,
-                exc_info=True,
-            )
-            return
+        # Step 2: DuckDB write -- must succeed (38-REQ-3.2)
+        self._write_to_duckdb(fact)
 
         # Step 3: Embedding -- best-effort
         if self._embedder is None:
@@ -238,13 +221,6 @@ class MemoryStore:
             old_fact_id: UUID of the fact being superseded.
             new_fact_id: UUID of the superseding fact.
         """
-        if self._db_conn is None:
-            logger.warning(
-                "DuckDB unavailable; cannot mark fact %s as superseded",
-                old_fact_id,
-            )
-            return
-
         self._db_conn.execute(
             "UPDATE memory_facts SET superseded_by = ?::UUID "
             "WHERE CAST(id AS VARCHAR) = ?",

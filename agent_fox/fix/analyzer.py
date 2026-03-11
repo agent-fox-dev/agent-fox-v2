@@ -261,18 +261,11 @@ def query_oracle_context(config: AgentFoxConfig) -> str:
 
     Runs the oracle RAG pipeline with the seed question about patterns,
     conventions, and architectural decisions. Returns formatted context
-    string, or empty string if the knowledge store is unavailable.
+    string. DuckDB errors propagate to the caller (38-REQ-3.1).
 
     Requirements: 31-REQ-4.1, 31-REQ-4.2, 31-REQ-4.3, 31-REQ-4.E1
     """
-    try:
-        results = _query_oracle_facts(config)
-    except Exception:
-        logger.info(
-            "Knowledge store unavailable; analyzer will run without "
-            "oracle context"
-        )
-        return ""
+    results = _query_oracle_facts(config)
 
     if not results:
         return ""
@@ -312,40 +305,34 @@ def load_review_context(project_root: Path) -> str:
     """Load existing skeptic/verifier findings from DuckDB.
 
     Returns a formatted context string, or empty string if no findings
-    exist or DuckDB is unavailable.
+    exist. DuckDB errors propagate to the caller (38-REQ-3.1).
 
     Requirements: 31-REQ-3.2
     """
-    try:
-        from agent_fox.knowledge.db import KnowledgeDB
-        from agent_fox.knowledge.review_store import (
-            query_active_findings,
-        )
+    from agent_fox.knowledge.db import KnowledgeDB
+    from agent_fox.knowledge.review_store import (
+        query_active_findings,
+    )
 
-        config = AgentFoxConfig()
-        db = KnowledgeDB(config.knowledge)
-        db.open()
-        conn = db.connection
+    config = AgentFoxConfig()
+    db = KnowledgeDB(config.knowledge)
+    db.open()
+    conn = db.connection
 
-        findings = query_active_findings(conn, spec_name="")
-        if not findings:
-            db.close()
-            return ""
-
-        parts: list[str] = []
-        for f in findings:
-            parts.append(
-                f"- [{f.severity}] {f.description} "
-                f"(spec: {f.spec_name}, task: {f.task_group})"
-            )
-
+    findings = query_active_findings(conn, spec_name="")
+    if not findings:
         db.close()
-        return "\n".join(parts)
-    except Exception:
-        logger.info(
-            "DuckDB unavailable; analyzer will run without review context"
-        )
         return ""
+
+    parts: list[str] = []
+    for f in findings:
+        parts.append(
+            f"- [{f.severity}] {f.description} "
+            f"(spec: {f.spec_name}, task: {f.task_group})"
+        )
+
+    db.close()
+    return "\n".join(parts)
 
 
 def _query_oracle_facts(config: AgentFoxConfig) -> list[Any]:
