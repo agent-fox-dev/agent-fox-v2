@@ -25,8 +25,8 @@ extraction and template generation, (3) config merge logic, (4) wire into
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/core/test_config_gen.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/core/test_config_gen.py`
     - Test class `TestTemplateGeneration` with tests for TS-33-1 through TS-33-5
     - Test class `TestConfigMerge` with tests for TS-33-6 through TS-33-10
     - Test class `TestSchemaExtraction` with tests for TS-33-12, TS-33-13
@@ -34,20 +34,20 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - Tests import from `agent_fox.core.config_gen` (module does not exist yet)
     - _Test Spec: TS-33-1 through TS-33-15_
 
-  - [ ] 1.2 Create edge case tests in `tests/unit/core/test_config_gen.py`
+  - [x] 1.2 Create edge case tests in `tests/unit/core/test_config_gen.py`
     - Test class `TestTemplateEdgeCases` with TS-33-E1 through TS-33-E4
     - Test class `TestMergeEdgeCases` with TS-33-E5 through TS-33-E7
     - _Test Spec: TS-33-E1 through TS-33-E7_
 
-  - [ ] 1.3 Create `tests/property/core/test_config_gen_props.py`
+  - [x] 1.3 Create `tests/property/core/test_config_gen_props.py`
     - Property tests TS-33-P1 through TS-33-P7
     - Use Hypothesis strategies for generating random config overrides and field subsets
     - _Test Spec: TS-33-P1 through TS-33-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/core/test_config_gen.py tests/property/core/test_config_gen_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/core/test_config_gen.py tests/property/core/test_config_gen_props.py`
 
 - [ ] 2. Schema extraction and template generation
   - [ ] 2.1 Add `tomlkit` dependency
