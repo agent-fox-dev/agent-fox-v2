@@ -661,7 +661,8 @@ class Orchestrator:
         predicted_tier = tier_ceiling  # fallback
         try:
             # Parse node_id to get spec_name and task_group
-            parts = node_id.rsplit(":", 1)
+            # node_id format: "spec_name:task_group" or "spec_name:task_group:role"
+            parts = node_id.split(":")
             spec_name = parts[0]
             task_group = int(parts[1]) if len(parts) > 1 else 1
             spec_dir = Path(".specs") / spec_name
