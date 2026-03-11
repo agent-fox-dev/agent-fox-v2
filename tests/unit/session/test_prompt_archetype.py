@@ -48,8 +48,13 @@ class TestRegistryBasedResolution:
         import os
 
         prompt_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..",
-            "agent_fox", "session", "prompt.py",
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "agent_fox",
+            "session",
+            "prompt.py",
         )
         prompt_path = os.path.normpath(prompt_path)
         with open(prompt_path, encoding="utf-8") as f:
@@ -188,7 +193,7 @@ class TestRunnerUsesArchetype:
             knowledge_db=_MOCK_KB,
         )
         # Skeptic default model tier is STANDARD
-        assert runner._resolved_model_id == "STANDARD"
+        assert runner._resolved_model_id == "claude-sonnet-4-6"
 
     def test_runner_model_tier_config_override(self) -> None:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
@@ -203,7 +208,7 @@ class TestRunnerUsesArchetype:
             archetype="skeptic",
             knowledge_db=_MOCK_KB,
         )
-        assert runner._resolved_model_id == "SIMPLE"
+        assert runner._resolved_model_id == "claude-haiku-4-5"
 
     def test_runner_resolves_allowlist_from_registry(self) -> None:
         from agent_fox.core.config import AgentFoxConfig
@@ -226,9 +231,7 @@ class TestRunnerUsesArchetype:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                allowlists={"skeptic": ["ls", "cat"]}
-            )
+            archetypes=ArchetypesConfig(allowlists={"skeptic": ["ls", "cat"]})
         )
         runner = NodeSessionRunner(
             "spec:0",
@@ -285,9 +288,7 @@ class TestPropertyTemplateEquivalence:
                     role="coding",
                 )
                 # Both paths resolve to the same archetype entry
-                assert new == old, (
-                    f"Mismatch for ctx={ctx!r}, spec={spec}"
-                )
+                assert new == old, f"Mismatch for ctx={ctx!r}, spec={spec}"
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +302,8 @@ class TestPropertyAssignmentPriority:
     """The highest-priority layer always wins in archetype assignment."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         has_tag=st.booleans(),

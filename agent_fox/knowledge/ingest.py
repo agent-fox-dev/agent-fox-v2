@@ -119,7 +119,7 @@ class KnowledgeIngestor:
                 INSERT INTO memory_facts
                     (id, content, category, spec_name, session_id,
                      commit_sha, confidence, created_at)
-                VALUES (?::UUID, ?, 'adr', ?, NULL, NULL, 'high',
+                VALUES (?::UUID, ?, 'adr', ?, NULL, NULL, 0.9,
                         CURRENT_TIMESTAMP)
                 """,
                 [fact_id, content, filename],
@@ -230,7 +230,7 @@ class KnowledgeIngestor:
                 INSERT INTO memory_facts
                     (id, content, category, spec_name, session_id,
                      commit_sha, confidence, created_at)
-                VALUES (?::UUID, ?, 'git', NULL, NULL, ?, 'high', ?::TIMESTAMP)
+                VALUES (?::UUID, ?, 'git', NULL, NULL, ?, 0.9, ?::TIMESTAMP)
                 """,
                 [fact_id, message, sha, date],
             )

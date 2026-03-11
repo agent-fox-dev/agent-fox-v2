@@ -79,11 +79,16 @@ You are running inside a git worktree already on the correct feature branch.
 2. Add or update tests.
 3. Update documentation if the task changes user-facing behavior, public APIs,
    configuration, or architecture:
-   - ADRs in `docs/adr/{decision}.md`
+   - ADRs in `docs/adr/NN-imperative-verb-phrase.md` (list existing files,
+     find the max numeric prefix, use the next number zero-padded to two digits)
    - Other docs in `docs/{topic}.md`
    - Update README when features or usage change
 4. If implementation diverges from `design.md` or `requirements.md`, create a
    delta document in `docs/errata/` — never modify the spec files.
+   - **Errata naming:** `NN_snake_case_topic.md` where NN is the spec number
+     the erratum relates to (e.g. `28_github_issue_rest_api.md` for spec 28).
+     For project-wide errata not tied to a specific spec, omit the prefix.
+   - List existing files in `docs/errata/` to check for name collisions.
 5. Update checkbox states in `.specs/{spec_name}/tasks.md`:
    `- [ ]` not started, `- [x]` completed, `- [-]` in progress.
 

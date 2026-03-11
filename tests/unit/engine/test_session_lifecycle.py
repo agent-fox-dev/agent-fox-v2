@@ -56,20 +56,20 @@ class TestResolveModelTier:
     def test_default_coder_uses_advanced(self) -> None:
         """Coder archetype defaults to ADVANCED from the registry."""
         runner = NodeSessionRunner("spec:1", AgentFoxConfig(), knowledge_db=_MOCK_KB)
-        assert runner._resolved_model_id == "ADVANCED"
+        assert runner._resolved_model_id == "claude-opus-4-6"
 
     def test_config_override_takes_priority(self) -> None:
         """Config override in archetypes.models takes priority over registry."""
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "SIMPLE"}))
         runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
-        assert runner._resolved_model_id == "SIMPLE"
+        assert runner._resolved_model_id == "claude-haiku-4-5"
 
     def test_skeptic_defaults_to_standard(self) -> None:
         """Skeptic archetype defaults to STANDARD from the registry."""
         runner = NodeSessionRunner(
             "spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB
         )
-        assert runner._resolved_model_id == "STANDARD"
+        assert runner._resolved_model_id == "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
