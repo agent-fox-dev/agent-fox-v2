@@ -44,6 +44,7 @@ class SessionRecord:
     model: str = ""  # Model ID used for this session
     files_touched: list[str] = field(default_factory=list)
     archetype: str = "coder"  # Archetype name; defaults for backward compat
+    commit_sha: str = ""  # develop HEAD after harvest (empty if no code merged)
 
 
 @dataclass

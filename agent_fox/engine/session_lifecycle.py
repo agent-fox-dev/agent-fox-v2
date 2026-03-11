@@ -9,6 +9,7 @@ Requirements: 16-REQ-5.1, 16-REQ-5.E1, 06-REQ-1.1, 06-REQ-2.1,
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import logging
@@ -47,6 +48,40 @@ from agent_fox.workspace.workspace import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _capture_develop_head(repo_root: Path) -> str:
+    """Return the current SHA of the develop branch HEAD.
+
+    Returns empty string if git rev-parse fails.
+
+    Requirements: 35-REQ-1.1, 35-REQ-1.E1
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            "develop",
+            cwd=str(repo_root),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, _ = await proc.communicate()
+        if proc.returncode != 0:
+            logger.warning(
+                "git rev-parse develop failed (returncode %d) in %s",
+                proc.returncode,
+                repo_root,
+            )
+            return ""
+        return stdout_bytes.decode().strip()
+    except Exception as exc:
+        logger.warning(
+            "Failed to capture develop HEAD in %s: %s",
+            repo_root,
+            exc,
+        )
+        return ""
 
 
 def resolve_tier_ceiling(config: AgentFoxConfig, archetype: str) -> ModelTier:
@@ -400,6 +435,11 @@ class NodeSessionRunner:
                     exc,
                 )
 
+        # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
+        commit_sha = ""
+        if touched_files and status == "completed":
+            commit_sha = await _capture_develop_head(repo_root)
+
         # 19-REQ-3.4: Post-harvest remote integration (after successful harvest)
         if touched_files and status == "completed":
             try:
@@ -465,6 +505,7 @@ class NodeSessionRunner:
             model=self._resolved_model_id,
             files_touched=touched_files,
             archetype=self._archetype,
+            commit_sha=commit_sha,
         )
 
     def _record_session_to_sink(
@@ -498,8 +539,7 @@ class NodeSessionRunner:
             await ensure_develop(repo_root)
         except Exception:
             logger.warning(
-                "ensure_develop failed for %s, continuing with "
-                "existing branch state",
+                "ensure_develop failed for %s, continuing with existing branch state",
                 node_id,
                 exc_info=True,
             )

@@ -53,24 +53,24 @@ The implementation is split into four task groups:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/engine/test_hard_reset.py tests/unit/engine/test_hard_reset_props.py tests/integration/test_hard_reset_git.py && uv run ruff format --check tests/unit/engine/test_hard_reset.py tests/unit/engine/test_hard_reset_props.py tests/integration/test_hard_reset_git.py`
 
-- [ ] 2. Git revision tracking (SessionRecord.commit_sha)
-  - [ ] 2.1 Add `commit_sha` field to `SessionRecord`
+- [x] 2. Git revision tracking (SessionRecord.commit_sha)
+  - [x] 2.1 Add `commit_sha` field to `SessionRecord`
     - Add `commit_sha: str = ""` field to the dataclass in `state.py`
     - Verify `_deserialize_state` handles missing key via existing `.get()` pattern
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ] 2.2 Capture develop HEAD after harvest in `session_lifecycle.py`
+  - [x] 2.2 Capture develop HEAD after harvest in `session_lifecycle.py`
     - After successful `harvest()` call in `_run_and_harvest()`, run
       `git rev-parse develop` via `run_git()` to get the current HEAD SHA
     - Store the SHA in the `SessionRecord` constructor call
     - Wrap in try/except: on failure, log warning and use `commit_sha=""`
     - _Requirements: 1.1, 1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_hard_reset.py -k "commit_sha or backward_compat or deserialization or rev_parse_fail"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/engine/state.py agent_fox/engine/session_lifecycle.py && uv run ruff format --check agent_fox/engine/state.py agent_fox/engine/session_lifecycle.py`
-    - [ ] Requirements 1.1, 1.2, 1.3, 1.E1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_hard_reset.py -k "commit_sha or backward_compat or deserialization or rev_parse_fail"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/state.py agent_fox/engine/session_lifecycle.py && uv run ruff format --check agent_fox/engine/state.py agent_fox/engine/session_lifecycle.py`
+    - [x] Requirements 1.1, 1.2, 1.3, 1.E1 acceptance criteria met
 
 - [ ] 3. Hard reset engine
   - [ ] 3.1 Implement `find_rollback_target()` in `reset.py`
