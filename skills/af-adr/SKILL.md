@@ -60,24 +60,18 @@ Look for an existing ADR directory in this priority order:
 
 If none exists, create `docs/adr/` and note this in your response.
 
-### Numbering
-Scan existing ADR files to determine the next sequential number.
-Use zero-padded two-digit numbers: `01`, `02`, etc.
+### ADR file naming
 
-### File name format
-```
-{NN}-{imperative-verb-phrase}.md
-```
+- **Format:** `NN-imperative-verb-phrase.md` (e.g. `01-use-postgresql-for-primary-database.md`).
+- **NN** is a zero-padded running number (01, 02, 03, …) indicating the order the ADR was created.
+- **To choose the next number when creating a new ADR:**
+  1. List the contents of the ADR directory.
+  2. Find existing files whose names start with digits and a hyphen (e.g. `01-*`, `02-*`). If none exist, use `01`.
+  3. Take the maximum numeric prefix and use the next number, zero-padded to two digits (e.g. after `03-foo` use `04-new-decision`).
+- Use a specific, imperative verb phrase in lowercase-with-hyphens (e.g. `use-redis-for-session-cache`, `adopt-hexagonal-architecture`).
+- Present-tense imperative verb (use, adopt, replace, migrate, define, choose).
 
-Examples:
-- `01-use-postgresql-for-primary-database.md`
-- `02-adopt-hexagonal-architecture.md`
-- `03-replace-rest-with-grpc-for-internal-services.md`
-
-Rules:
-- Present-tense imperative verb (use, adopt, replace, migrate, define, choose)
-- Lowercase with hyphens only — no spaces, no underscores
-- Be specific: `use-redis-for-session-cache` beats `cache-decision`
+**Uniqueness check:** After choosing the next number, verify that no existing file in the ADR directory already uses that prefix. If a collision is found (e.g., a file was manually created with the same number), increment until a unique prefix is available. Flag the collision to the user as a warning.
 
 ---
 

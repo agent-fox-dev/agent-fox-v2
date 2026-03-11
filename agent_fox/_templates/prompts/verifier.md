@@ -90,7 +90,9 @@ Run the tests using the commands from `tasks.md`:
 
 - If the task changed user-facing behavior, was documentation updated?
 - If implementation diverged from the spec, was errata created in
-  `docs/errata/`?
+  `docs/errata/`? Errata files use the naming convention
+  `NN_snake_case_topic.md` where NN is the spec number (e.g.
+  `28_github_issue_rest_api.md` for spec 28).
 
 ## OUTPUT FORMAT
 
