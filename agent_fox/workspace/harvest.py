@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 
 from agent_fox.core.config import PlatformConfig
-from agent_fox.core.errors import IntegrationError, WorkspaceError
+from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     _sync_develop_with_remote,
@@ -39,45 +39,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Harvest: integrate worktree changes into develop
 # ---------------------------------------------------------------------------
-
-
-async def _remove_conflicting_untracked(
-    repo_root: Path,
-    target_branch: str,
-) -> None:
-    """Remove untracked files that conflict with tracked files on target_branch.
-
-    When checking out a branch, git refuses if untracked files in the working
-    tree would be overwritten by tracked files on the target branch.  This
-    function finds those files and removes them so the checkout can proceed.
-    The target branch's versions will be restored by the subsequent checkout.
-    """
-    # List files that exist on target_branch but not on HEAD
-    _rc, stdout, _stderr = await run_git(
-        ["diff", "--name-only", "--diff-filter=A", "HEAD", target_branch],
-        cwd=repo_root,
-        check=False,
-    )
-    for fname in stdout.strip().splitlines():
-        if not fname:
-            continue
-        fpath = repo_root / fname
-        if not fpath.exists():
-            continue
-        # Confirm the file is truly untracked (not staged or committed)
-        rc, _, _ = await run_git(
-            ["ls-files", "--error-unmatch", fname],
-            cwd=repo_root,
-            check=False,
-        )
-        if rc != 0:
-            # File is untracked — safe to remove
-            logger.info(
-                "Removing untracked file '%s' that conflicts with '%s'",
-                fname,
-                target_branch,
-            )
-            fpath.unlink()
 
 
 async def harvest(
@@ -117,16 +78,10 @@ async def harvest(
     )
 
     # Step 2: Checkout the development branch in the main repo.
-    # If untracked files conflict with tracked files on dev_branch,
-    # remove them first — they'll be restored by the checkout.
-    try:
-        await checkout_branch(repo_root, dev_branch)
-    except WorkspaceError as exc:
-        if "untracked working tree files would be overwritten" in str(exc):
-            await _remove_conflicting_untracked(repo_root, dev_branch)
-            await checkout_branch(repo_root, dev_branch)
-        else:
-            raise
+    # Use force=True because agent-fox runtime files (.agent-fox/,
+    # .claude/, docs/memory.md) may exist as untracked files in the
+    # working directory and conflict with tracked files on develop.
+    await checkout_branch(repo_root, dev_branch, force=True)
 
     # Step 3: Attempt fast-forward merge (03-REQ-7.1)
     try:

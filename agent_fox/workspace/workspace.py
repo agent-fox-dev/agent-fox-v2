@@ -101,13 +101,23 @@ async def delete_branch(
 async def checkout_branch(
     repo_path: Path,
     branch_name: str,
+    force: bool = False,
 ) -> None:
     """Check out a branch in the given working directory.
+
+    When *force* is True, uses ``git checkout -f`` to overwrite
+    untracked files that would otherwise block the checkout (e.g.
+    runtime artifacts created in the working directory that also
+    exist on the target branch).
 
     Raises:
         WorkspaceError: If checkout fails.
     """
-    await run_git(["checkout", branch_name], cwd=repo_path)
+    cmd = ["checkout"]
+    if force:
+        cmd.append("-f")
+    cmd.append(branch_name)
+    await run_git(cmd, cwd=repo_path)
 
 
 async def has_new_commits(

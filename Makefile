@@ -51,6 +51,7 @@ check: lint test
 
 clean-branches:
 	@git branch --list 'feature/*' | xargs -r git branch -d
+	@git branch --list 'fix/*' | xargs -r git branch -d
 
 SKILLS_DIR := $(CURDIR)/skills
 SKILLS_TEMPLATES_DIR := $(CURDIR)/agent_fox/_templates/skills

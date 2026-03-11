@@ -274,3 +274,58 @@ class TestHarvesterConflictAutoResolve:
         assert (tmp_worktree_repo / "shared.py").read_text() == "feature content\n"
         # Develop's non-conflicting file is preserved
         assert (tmp_worktree_repo / "other.py").read_text() == "other content\n"
+
+
+class TestHarvesterUntrackedFileConflict:
+    """Harvest succeeds when untracked files conflict with develop."""
+
+    @pytest.mark.asyncio
+    async def test_untracked_files_do_not_block_checkout(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """When untracked files in the working dir would be overwritten
+        by checkout develop, the harvest still succeeds (force checkout).
+
+        Reproduces the bug where agent-fox runtime files (.agent-fox/,
+        .claude/, docs/memory.md) block ``git checkout develop``.
+        """
+        # Track a file on develop that we'll later create as untracked
+        add_commit_to_branch(
+            tmp_worktree_repo,
+            "docs/memory.md",
+            "tracked on develop\n",
+        )
+
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+
+        # Add a file on the feature branch
+        add_commit_to_branch(ws.path, "new_feature.py", "feature\n")
+
+        # Switch main repo to a branch that does NOT track docs/memory.md.
+        # The initial branch (master/main) was created before we added it.
+        result = subprocess.run(
+            ["git", "rev-list", "--max-parents=0", "HEAD"],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        initial_sha = result.stdout.strip()
+        subprocess.run(
+            ["git", "checkout", initial_sha],
+            cwd=tmp_worktree_repo,
+            check=True,
+            capture_output=True,
+        )
+
+        # Create the conflicting untracked file
+        # (simulates agent-fox runtime creating docs/memory.md)
+        (tmp_worktree_repo / "docs").mkdir(exist_ok=True)
+        (tmp_worktree_repo / "docs" / "memory.md").write_text(
+            "untracked runtime artifact\n"
+        )
+
+        # Without the force checkout fix, this would raise WorkspaceError
+        files = await harvest(tmp_worktree_repo, ws)
+        assert "new_feature.py" in files
