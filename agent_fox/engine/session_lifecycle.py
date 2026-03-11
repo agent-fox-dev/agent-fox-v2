@@ -184,8 +184,8 @@ class NodeSessionRunner:
         self._sink = sink_dispatcher
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
-        # Parse node_id format: "{spec_name}:{group_number}"
-        parts = node_id.rsplit(":", 1)
+        # Parse node_id: "{spec_name}:{group_number}" or with ":role" suffix
+        parts = node_id.split(":")
         self._spec_name = parts[0]
         self._task_group = int(parts[1])
 
