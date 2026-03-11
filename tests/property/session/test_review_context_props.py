@@ -132,16 +132,17 @@ class TestFallbackCorrectness:
     """TS-27-P7: Property 7 -- Fallback Correctness.
 
     Context includes review content when available from DB or file.
+    Updated for spec 38: DuckDB is now mandatory, so conn is always provided.
     """
 
     @given(
-        has_db=st.booleans(),
+        has_db_findings=st.booleans(),
         has_file=st.booleans(),
     )
     @settings(max_examples=10)
     def test_fallback_correctness(
         self,
-        has_db: bool,
+        has_db_findings: bool,
         has_file: bool,
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
@@ -150,18 +151,18 @@ class TestFallbackCorrectness:
 
         from agent_fox.session.prompt import assemble_context
 
-        assume(has_db or has_file)
+        assume(has_db_findings or has_file)
 
         tmp_path = tmp_path_factory.mktemp("fallback")
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
 
-        conn = None
+        # DuckDB is always required (38-REQ-4.1)
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)
 
-        if has_db:
-            conn = duckdb.connect(":memory:")
-            create_schema(conn)
+        if has_db_findings:
             finding = ReviewFinding(
                 id=str(uuid.uuid4()),
                 severity="major",
@@ -175,7 +176,9 @@ class TestFallbackCorrectness:
 
         if has_file:
             (spec_dir / "review.md").write_text(
-                "# Skeptic Review\n- [severity: major] File finding\n"
+                "# Skeptic Review\n\n"
+                "## Critical Findings\n"
+                "- [severity: major] File finding\n"
             )
 
         result = assemble_context(spec_dir, 1, conn=conn)
@@ -184,8 +187,7 @@ class TestFallbackCorrectness:
         has_review = "Skeptic Review" in result or "review" in result.lower()
         assert has_review
 
-        if conn is not None:
-            conn.close()
+        conn.close()
 
 
 # Need pytest for tmp_path_factory

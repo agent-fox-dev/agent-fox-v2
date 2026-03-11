@@ -153,27 +153,27 @@ migrated.
     - [x] No linter warnings: `uv run ruff check agent_fox/memory/memory.py agent_fox/session/prompt.py agent_fox/routing/assessor.py agent_fox/knowledge/duckdb_sink.py agent_fox/fix/analyzer.py`
     - [x] Requirements 38-REQ-2.2, 38-REQ-2.4, 38-REQ-3.*, 38-REQ-4.*, 38-REQ-6.* met
 
-- [ ] 5. Migrate existing tests to use DuckDB fixture
-  - [ ] 5.1 Audit existing tests for None connection patterns
+- [x] 5. Migrate existing tests to use DuckDB fixture
+  - [x] 5.1 Audit existing tests for None connection patterns
     - Grep for `db_conn=None`, `knowledge_db=None`, `conn=None` in tests/
     - List all test files that need updating
     - _Requirements: 38-REQ-5.3_
 
-  - [ ] 5.2 Update existing tests to use `knowledge_conn` fixture
+  - [x] 5.2 Update existing tests to use `knowledge_conn` fixture
     - Replace `None` connections with fixture
     - Ensure all tests pass with real DuckDB connections
     - _Requirements: 38-REQ-5.3_
 
-  - [ ] 5.3 Update documentation
+  - [x] 5.3 Update documentation
     - Document DuckDB as hard requirement in README.md
     - Update any developer setup guides
     - _Requirements: documentation_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] All tests pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] No remaining `knowledge_db=None` or `db_conn=None` patterns in production code
-    - [ ] All 38-REQ-* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] All tests pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] No remaining `knowledge_db=None` or `db_conn=None` patterns in production code
+    - [x] All 38-REQ-* acceptance criteria met
 
 ## Traceability
 

@@ -307,14 +307,13 @@ class AssessmentPipeline:
             created_at=datetime.now(UTC),
         )
 
-        # 7. Persist (best-effort)
-        if self._db is not None:
-            try:
-                persist_assessment(self._db, assessment)
-            except Exception:
-                logger.warning(
-                    "Failed to persist assessment %s", assessment.id, exc_info=True
-                )
+        # 7. Persist — errors propagate (38-REQ-6.1)
+        try:
+            persist_assessment(self._db, assessment)
+        except Exception:
+            logger.warning(
+                "Failed to persist assessment %s", assessment.id, exc_info=True
+            )
 
         logger.info(
             "Assessment for %s: tier=%s confidence=%.2f method=%s",
@@ -561,12 +560,12 @@ class AssessmentPipeline:
             created_at=datetime.now(UTC),
         )
 
-        if self._db is not None:
-            try:
-                persist_outcome(self._db, exec_outcome)
-            except Exception:
-                logger.warning(
-                    "Failed to record outcome for assessment %s",
-                    assessment.id,
-                    exc_info=True,
-                )
+        # Persist outcome — errors propagate (38-REQ-6.1)
+        try:
+            persist_outcome(self._db, exec_outcome)
+        except Exception:
+            logger.warning(
+                "Failed to record outcome for assessment %s",
+                assessment.id,
+                exc_info=True,
+            )

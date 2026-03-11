@@ -179,6 +179,18 @@ The MCP server exposes the same four tools over the standard MCP stdio
 transport. Path sandboxing via `--allowed-dirs` restricts file operations to
 the specified directories and their descendants.
 
+## Dependencies
+
+### DuckDB (Required)
+
+DuckDB is a **hard requirement** for all agent-fox operations. The knowledge
+store (an embedded DuckDB database) must be available for sessions to run.
+If DuckDB cannot be initialized, agent-fox will abort immediately with a
+clear error message rather than running with degraded functionality.
+
+All knowledge-dependent features (memory facts, causal links, review findings,
+session outcomes, complexity assessments) require a working DuckDB connection.
+
 ## Development
 
 ```bash

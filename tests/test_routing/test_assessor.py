@@ -24,13 +24,15 @@ class TestAssessmentProduction:
     """TS-30-2: Complexity assessment production."""
 
     @pytest.mark.asyncio
-    async def test_assessment_production(self, spec_dir: Path) -> None:
+    async def test_assessment_production(
+        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
         """TS-30-2: Verify assessment has all required fields.
 
         Requirement: 30-REQ-1.1
         """
         config = RoutingConfig()
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
         result = await pipeline.assess(
             node_id="test_spec:2",
             spec_name="test_spec",
@@ -172,16 +174,22 @@ class TestLlmFailureFallback:
 
 
 class TestNoDbAssessment:
-    """TS-30-E2: DuckDB unavailable during assessment."""
+    """TS-30-E2: DuckDB unavailable during assessment.
+
+    Updated for spec 38: DuckDB is now mandatory. This test verifies
+    the heuristic fallback works with a real (empty) DB connection.
+    """
 
     @pytest.mark.asyncio
-    async def test_no_db_assessment(self, spec_dir: Path) -> None:
-        """TS-30-E2: Assessment works without DuckDB.
+    async def test_no_db_assessment(
+        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
+        """TS-30-E2: Assessment works with empty DuckDB (heuristic).
 
         Requirement: 30-REQ-1.E2
         """
         config = RoutingConfig()
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
         result = await pipeline.assess(
             node_id="test_spec:1",
             spec_name="test_spec",
@@ -280,13 +288,15 @@ class TestP7GracefulDegradation:
     """TS-30-P7: Assessment pipeline always returns a valid result."""
 
     @pytest.mark.asyncio
-    async def test_p7_graceful_degradation_no_db(self, spec_dir: Path) -> None:
-        """Assessment pipeline with no DB still returns valid result.
+    async def test_p7_graceful_degradation_no_db(
+        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
+        """Assessment pipeline with empty DB returns valid result.
 
         Requirement: 30-REQ-1.E2, 30-REQ-7.E1
         """
         config = RoutingConfig()
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
         result = await pipeline.assess(
             node_id="test_spec:1",
             spec_name="test_spec",
@@ -304,13 +314,15 @@ class TestP7GracefulDegradation:
         assert result.predicted_tier in valid_tiers
 
     @pytest.mark.asyncio
-    async def test_p7_graceful_degradation_bad_dir(self) -> None:
+    async def test_p7_graceful_degradation_bad_dir(
+        self, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
         """Assessment pipeline with bad spec dir still returns valid result.
 
         Requirement: 30-REQ-1.E3, 30-REQ-7.E1
         """
         config = RoutingConfig()
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
         result = await pipeline.assess(
             node_id="test_spec:1",
             spec_name="test_spec",

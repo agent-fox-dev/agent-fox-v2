@@ -252,7 +252,8 @@ def assemble_context(
     spec_dir: Path,
     task_group: int,
     memory_facts: list[str] | None = None,
-    conn: duckdb.DuckDBPyConnection = None,  # type: ignore[assignment]
+    *,
+    conn: duckdb.DuckDBPyConnection,
 ) -> str:
     """Assemble task-specific context for a coding session.
 
@@ -277,29 +278,27 @@ def assemble_context(
     # Derive spec_name from directory name
     spec_name = spec_dir.name
 
-    # Determine which files to skip if DB rendering succeeds
+    # DB-backed rendering — errors propagate (38-REQ-3.E1, 38-REQ-4.2)
     db_rendered_files: set[str] = set()
 
-    if conn is not None:
-        # DB-backed rendering — errors propagate (38-REQ-3.E1, 38-REQ-4.2)
-        # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
-        _migrate_legacy_files(conn, spec_dir, spec_name)
+    # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
+    _migrate_legacy_files(conn, spec_dir, spec_name)
 
-        # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
-        review_md = render_review_context(conn, spec_name)
-        if review_md is not None:
-            sections.append(review_md)
-            db_rendered_files.add("review.md")
+    # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
+    review_md = render_review_context(conn, spec_name)
+    if review_md is not None:
+        sections.append(review_md)
+        db_rendered_files.add("review.md")
 
-        verification_md = render_verification_context(conn, spec_name)
-        if verification_md is not None:
-            sections.append(verification_md)
-            db_rendered_files.add("verification.md")
+    verification_md = render_verification_context(conn, spec_name)
+    if verification_md is not None:
+        sections.append(verification_md)
+        db_rendered_files.add("verification.md")
 
-        # Render oracle drift report (32-REQ-8.1)
-        drift_md = render_drift_context(conn, spec_name)
-        if drift_md is not None:
-            sections.append(drift_md)
+    # Render oracle drift report (32-REQ-8.1)
+    drift_md = render_drift_context(conn, spec_name)
+    if drift_md is not None:
+        sections.append(drift_md)
 
     # 03-REQ-4.1: Read spec documents
     file_sections: list[str] = []

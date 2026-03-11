@@ -242,7 +242,7 @@ class TestFixtureIsolation:
             "(id, content, category, confidence, created_at) "
             "VALUES ("
             "'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::UUID, "
-            "'test', 'decision', 'high', CURRENT_TIMESTAMP)"
+            "'test', 'decision', 0.9, CURRENT_TIMESTAMP)"
         )
         count = knowledge_conn.execute(
             "SELECT COUNT(*) FROM memory_facts"

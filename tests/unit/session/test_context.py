@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import duckdb
 import pytest
 
 from agent_fox.session.prompt import assemble_context
@@ -22,33 +23,37 @@ class TestContextAssemblySpecDocs:
     def test_includes_requirements_content(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context includes requirements.md content."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         assert "REQ content here" in ctx
 
     def test_includes_design_content(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context includes design.md content."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         assert "Design content here" in ctx
 
     def test_includes_tasks_content(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context includes tasks.md content."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         assert "Task content here" in ctx
 
     def test_has_section_headers(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context has section headers separating documents."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         # Should have some kind of header/separator for each document
         # The exact format is implementation-defined, but each section
         # should be clearly delineated
@@ -61,12 +66,14 @@ class TestContextAssemblyMemoryFacts:
     def test_includes_memory_facts(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Memory facts appear in the assembled context."""
         ctx = assemble_context(
             tmp_spec_dir,
             task_group=1,
             memory_facts=["Fact 1", "Fact 2"],
+            conn=knowledge_conn,
         )
         assert "Fact 1" in ctx
         assert "Fact 2" in ctx
@@ -74,12 +81,14 @@ class TestContextAssemblyMemoryFacts:
     def test_memory_facts_in_labeled_section(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Memory facts appear in a clearly labeled section."""
         ctx = assemble_context(
             tmp_spec_dir,
             task_group=1,
             memory_facts=["Important fact"],
+            conn=knowledge_conn,
         )
         # The memory section should have some label
         lower_ctx = ctx.lower()
@@ -89,26 +98,29 @@ class TestContextAssemblyMemoryFacts:
 class TestContextAssemblyMissingFile:
     """TS-03-E4: Context assembly with missing spec file."""
 
-    def test_missing_file_does_not_raise(self, tmp_path: Path) -> None:
+    def test_missing_file_does_not_raise(
+        self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """A missing spec file is skipped without error."""
         spec_dir = tmp_path / "specs" / "partial"
         spec_dir.mkdir(parents=True)
         # Only create requirements.md, skip design.md and tasks.md
         (spec_dir / "requirements.md").write_text("REQ content\n")
 
-        ctx = assemble_context(spec_dir, task_group=1)
+        ctx = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         assert "REQ content" in ctx
 
     def test_returns_nonempty_with_partial_files(
         self,
         tmp_path: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Context is non-empty even when some files are missing."""
         spec_dir = tmp_path / "specs" / "partial"
         spec_dir.mkdir(parents=True)
         (spec_dir / "requirements.md").write_text("REQ content\n")
 
-        ctx = assemble_context(spec_dir, task_group=1)
+        ctx = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         assert len(ctx) > 0
 
 
@@ -121,17 +133,19 @@ class TestContextIncludesTestSpec:
     def test_context_includes_test_spec_content(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context includes test_spec.md content."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         assert "Test spec content here" in ctx
 
     def test_context_has_test_specification_header(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Assembled context includes the ## Test Specification header."""
-        ctx = assemble_context(tmp_spec_dir, task_group=2)
+        ctx = assemble_context(tmp_spec_dir, task_group=2, conn=knowledge_conn)
         assert "## Test Specification" in ctx
 
 
@@ -144,9 +158,10 @@ class TestTestSpecOrdering:
     def test_test_spec_between_design_and_tasks(
         self,
         tmp_spec_dir: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """## Test Specification appears after ## Design and before ## Tasks."""
-        ctx = assemble_context(tmp_spec_dir, task_group=1)
+        ctx = assemble_context(tmp_spec_dir, task_group=1, conn=knowledge_conn)
         design_pos = ctx.index("## Design")
         test_spec_pos = ctx.index("## Test Specification")
         tasks_pos = ctx.index("## Tasks")
@@ -159,7 +174,9 @@ class TestMissingTestSpecFile:
     Requirement: 15-REQ-1.E1
     """
 
-    def test_missing_test_spec_does_not_raise(self, tmp_path: Path) -> None:
+    def test_missing_test_spec_does_not_raise(
+        self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Context assembly succeeds when test_spec.md is absent."""
         spec_dir = tmp_path / "specs" / "no_test_spec"
         spec_dir.mkdir(parents=True)
@@ -168,12 +185,13 @@ class TestMissingTestSpecFile:
         (spec_dir / "tasks.md").write_text("Task content\n")
 
         # Should not raise
-        ctx = assemble_context(spec_dir, task_group=1)
+        ctx = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         assert "## Test Specification" not in ctx
 
     def test_missing_test_spec_logs_warning(
         self,
         tmp_path: Path,
+        knowledge_conn: duckdb.DuckDBPyConnection,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """A warning is logged when test_spec.md is missing."""
@@ -184,6 +202,6 @@ class TestMissingTestSpecFile:
         (spec_dir / "tasks.md").write_text("Task content\n")
 
         with caplog.at_level(logging.WARNING):
-            assemble_context(spec_dir, task_group=1)
+            assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
 
         assert any("test_spec.md" in record.message for record in caplog.records)

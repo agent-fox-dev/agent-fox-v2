@@ -16,14 +16,17 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
+import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from agent_fox.knowledge.migrations import apply_pending_migrations
 from agent_fox.session.prompt import (
     assemble_context,
     build_system_prompt,
     build_task_prompt,
 )
+from tests.unit.knowledge.conftest import SCHEMA_DDL
 
 # Strategies for spec names: alphanumeric + underscores, common for spec folders
 _spec_name_strategy = st.text(
@@ -75,7 +78,11 @@ class TestContextAlwaysIncludesTestSpec:
         """## Test Specification always between ## Design and ## Tasks."""
         with tempfile.TemporaryDirectory() as tmp:
             spec_dir = _make_spec_dir(Path(tmp))
-            ctx = assemble_context(spec_dir, task_group)
+            conn = duckdb.connect(":memory:")
+            conn.execute(SCHEMA_DDL)
+            apply_pending_migrations(conn)
+            ctx = assemble_context(spec_dir, task_group, conn=conn)
+            conn.close()
 
             design_pos = ctx.index("## Design")
             test_spec_pos = ctx.index("## Test Specification")

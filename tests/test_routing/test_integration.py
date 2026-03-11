@@ -88,13 +88,15 @@ class TestAssessmentBeforeSession:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_assessment_before_session(self, spec_dir: Path) -> None:
+    async def test_assessment_before_session(
+        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
         """TS-30-26: Verify assessment runs before session execution.
 
         Requirement: 30-REQ-7.1
         """
         config = RoutingConfig()
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
 
         # Assessment should complete before any session would start
         assessment = await pipeline.assess(
@@ -206,7 +208,9 @@ class TestAssessmentFailureFallback:
     """TS-30-E11: Assessment pipeline unhandled exception."""
 
     @pytest.mark.asyncio
-    async def test_assessment_failure_fallback(self, spec_dir: Path) -> None:
+    async def test_assessment_failure_fallback(
+        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
+    ) -> None:
         """TS-30-E11: Unhandled exception falls back to default tier.
 
         Requirement: 30-REQ-7.E1
@@ -214,7 +218,7 @@ class TestAssessmentFailureFallback:
         config = RoutingConfig()
 
         # Create a pipeline that will raise during assessment
-        pipeline = AssessmentPipeline(config=config, db=None)
+        pipeline = AssessmentPipeline(config=config, db=routing_db)
 
         # Even with a broken feature extraction, pipeline should not raise
         with patch(
