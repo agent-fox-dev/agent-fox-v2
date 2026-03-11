@@ -15,7 +15,7 @@ import pytest
 
 
 class TestSkepticTemplate:
-    """Verify Skeptic template references severity categories and review.md."""
+    """Verify Skeptic template references severity categories and JSON output."""
 
     def test_template_has_severity_categories(self) -> None:
         import os
@@ -33,7 +33,7 @@ class TestSkepticTemplate:
         assert "critical" in content_lower
         assert "major" in content_lower
         assert "minor" in content_lower
-        assert "review.md" in content
+        assert "findings" in content_lower
 
 
 # ---------------------------------------------------------------------------

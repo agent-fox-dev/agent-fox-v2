@@ -15,7 +15,7 @@ import pytest
 
 
 class TestVerifierTemplate:
-    """Verify Verifier template references per-requirement assessment and verdict."""
+    """Verify Verifier template references per-requirement verdict and JSON output."""
 
     def test_template_has_verdict_and_assessment(self) -> None:
         import os
@@ -31,7 +31,7 @@ class TestVerifierTemplate:
 
         assert "PASS" in content
         assert "FAIL" in content
-        assert "verification.md" in content
+        assert "verdicts" in content
 
 
 # ---------------------------------------------------------------------------
