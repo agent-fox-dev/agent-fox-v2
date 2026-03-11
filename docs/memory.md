@@ -4,6 +4,12 @@
 
 - Critical path analysis must handle tied critical paths in disconnected graphs, where multiple paths may have equal length. _(spec: 20_plan_analysis, confidence: high)_
 - Overlap detection in edit operations is critical to reject conflicting line modifications within a single batch before atomicity is compromised. _(spec: 29_mcp_server_support, confidence: high)_
+- ModuleNotFoundError when importing a non-existent package is expected during test-first development and serves as a clear signal that the module needs to be created. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Hypothesis framework has health checks that may fail during test execution; these need to be addressed when implementing property-based tests with Hypothesis. _(spec: 30_adaptive_model_routing, confidence: high)_
+- When adding new migrations, existing migration idempotency tests can break if not properly isolated or if the new migration introduces state that interferes with test assumptions. _(spec: 30_adaptive_model_routing, confidence: high)_
+- When implementing CLI extensions with new options, ensure corresponding test mocks are updated to match the actual call patterns (e.g., dual asyncio.run calls in Phase 2 integration). _(spec: 31_auto_improve, confidence: high)_
+- When migrating routing logic to a new version (v3), existing schema idempotency tests must be updated to account for the structural changes, even if the test infrastructure itself was working previously. _(spec: 30_adaptive_model_routing, confidence: high)_
+- When integrating assessment pipelines with CLI argument handling, be aware of max_retries parameter deprecation and plan migration strategy accordingly. _(spec: 30_adaptive_model_routing, confidence: high)_
 
 ## Patterns
 
@@ -110,6 +116,28 @@
 - When implementing MCP server support, create equivalence tests that verify MCP protocol behavior matches in-process tool execution to ensure consistency across interfaces. _(spec: 29_mcp_server_support, confidence: high)_
 - MCP server tools should be registered as Click commands in the CLI application, creating a unified interface for both direct CLI usage and MCP protocol access. _(spec: 29_mcp_server_support, confidence: high)_
 - Architecture decisions between competing approaches (e.g., regex heuristics vs tree-sitter) should be documented in ADRs to capture rationale and trade-offs. _(spec: 29_mcp_server_support, confidence: high)_
+- When implementing a new package feature (like agent_fox.routing), create comprehensive failing tests first covering acceptance criteria, edge cases, and property-based tests before implementing the module. _(spec: 30_adaptive_model_routing, confidence: high)_
+- A comprehensive analyzer module can be organized into 6 focused subtasks: data models, response parser, improvement filter, oracle context query, review context loader, and prompt builder. _(spec: 31_auto_improve, confidence: high)_
+- When adding new tables to a DuckDB-based system, create a new versioned migration file (e.g., v3) rather than modifying existing migrations, and update existing tests to reference the new migration version. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Use clamping validators in Pydantic config classes to constrain numeric values to valid ranges, ensuring data integrity at the configuration layer. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Implement best-effort storage operations for new data entities to allow graceful degradation if persistence fails, rather than blocking on storage errors. _(spec: 30_adaptive_model_routing, confidence: medium)_
+- When implementing a multi-stage pipeline (analyzer/coder/verifier), include explicit rollback mechanisms triggered by downstream stage failures to maintain system consistency. _(spec: 31_auto_improve, confidence: high)_
+- Async task groups with multiple interdependent stages require termination conditions and cost budget tracking to prevent infinite loops and resource exhaustion. _(spec: 31_auto_improve, confidence: high)_
+- Data model improvements for improvement loops should account for tracking analyzer, coder, and verifier state transitions to support rollback and decision logging. _(spec: 31_auto_improve, confidence: medium)_
+- Feature extraction from specification files should parse multiple dimensions: subtask count, word count, property tests, edge cases, and dependencies to inform routing decisions. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Escalation routing logic should implement a tier-based ladder with retry-at-tier semantics to progressively route tasks to higher capability levels. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Checkpoint-based validation with test counts (e.g., 29 core routing tests passing) serves as a useful verification that core component functionality is complete before moving to integration or advanced features. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Report generation functions should support multiple output formats (e.g., combined report object and JSON) to enable both display and programmatic use. _(spec: 31_auto_improve, confidence: high)_
+- When wiring multi-phase workflows into existing CLI commands, separate concerns by implementing phase logic in dedicated modules and integrating via clear handoff points. _(spec: 31_auto_improve, confidence: medium)_
+- Quality gate verification for auto-improvement features includes: fix test suite passage (76 tests), no regression detection, linter cleanliness, type checker validation, and CLI option visibility in help output. _(spec: 31_auto_improve, confidence: high)_
+- Assessment pipeline for adaptive model routing should be decomposed into heuristic assessment, LLM-based assessment, method selection, and a coordinating AssessmentPipeline class. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Statistical assessment logic should be separated into its own calibration module (StatisticalAssessor) rather than embedded in the main assessment pipeline. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Routing assessors benefit from multiple assessment strategies (heuristic and LLM-based) that can be composed together in a pipeline pattern. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Test data generation should be made deterministic to ensure reproducible test runs and reliable CI/CD pipelines, especially when dealing with statistical models that depend on randomness. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Adaptive model routing can be integrated into an orchestrator by adding assessed_tier parameter to session runners and embedding EscalationLadder into both serial and parallel dispatch loops. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Graceful degradation should be implemented as a wrapper component when integrating adaptive model routing to handle fallback scenarios. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Adaptive model routing design benefits from comprehensive documentation including ADRs and README configuration examples alongside test verification. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Full integration testing should verify specification tests, property tests, and the complete test suite pass alongside lint checks before checkpoint completion. _(spec: 30_adaptive_model_routing, confidence: high)_
 
 ## Decisions
 
@@ -165,6 +193,14 @@
 - Running full regression test suites (1540+ tests) after implementing interconnected components (protocol, config, registry) is critical to catch integration issues early. _(spec: 29_mcp_server_support, confidence: high)_
 - Path sandboxing is a critical security consideration when exposing file system operations through MCP servers to prevent unauthorized access outside intended directories. _(spec: 29_mcp_server_support, confidence: high)_
 - Documentation should accompany feature implementation, including README updates for new CLI commands and tool configuration options. _(spec: 29_mcp_server_support, confidence: high)_
+- Organizing tests by concern (acceptance, edge case, property tests) provides clear coverage categories and helps ensure comprehensive test coverage before implementation. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Running both unit tests and property-based tests together (test_analyzer.py + test_analyzer_props.py) with zero linter warnings indicates a well-structured, production-ready implementation. _(spec: 31_auto_improve, confidence: high)_
+- Organize domain-specific code into dedicated packages (e.g., agent_fox/routing/) with internal data types, configuration, and CRUD operations to maintain separation of concerns. _(spec: 30_adaptive_model_routing, confidence: high)_
+- Parser implementations for structured outputs (like verifier verdicts) should be thoroughly tested with property tests alongside spec tests to catch edge cases. _(spec: 31_auto_improve, confidence: medium)_
+- Property-based tests (P1-P5) and edge case tests (E3-E5) should be explicitly defined and tracked in routing specifications to ensure comprehensive test coverage. _(spec: 30_adaptive_model_routing, confidence: medium)_
+- Import sorting lint issues are common in test files and should be checked as part of the standard test suite validation process. _(spec: 30_adaptive_model_routing, confidence: medium)_
+- Checkpoint task groups serve as verification milestones where multiple quality criteria must be confirmed simultaneously before advancing to the next specification phase. _(spec: 31_auto_improve, confidence: high)_
+- Adding external dependencies like scikit-learn to a project should be documented in pyproject.toml with a minimum version constraint (e.g., >=1.4) to ensure compatibility with the implementation. _(spec: 30_adaptive_model_routing, confidence: high)_
 
 ## Anti-Patterns
 
@@ -176,3 +212,5 @@
 - When working with migration tests, ensure proper error handling verification is in place to catch exception-related regressions. _(spec: 27_structured_review_records, confidence: medium)_
 - A regex-based outline parser requires deliberate edge case handling for each language to maintain correctness; without it, false positives/negatives are likely. _(spec: 29_mcp_server_support, confidence: high)_
 - Dual consumption paths in architecture require careful design and testing to ensure both paths work correctly and pass comprehensive test suites. _(spec: 29_mcp_server_support, confidence: high)_
+- Property tests may have edge cases that fail under certain input combinations; validate edge case handling separately from property-based assertions. _(spec: 31_auto_improve, confidence: medium)_
+- Session lifecycle and orchestrator integration points should be carefully mapped when wiring up assessment pipelines to ensure proper tier assessment at the right execution stages. _(spec: 30_adaptive_model_routing, confidence: medium)_

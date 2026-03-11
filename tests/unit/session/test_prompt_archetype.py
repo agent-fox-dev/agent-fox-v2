@@ -6,7 +6,13 @@ Requirements: 26-REQ-3.5, 26-REQ-4.4
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
+
+from agent_fox.knowledge.db import KnowledgeDB
+
+_MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 try:
     from hypothesis import given, settings
@@ -148,6 +154,7 @@ class TestRunnerUsesArchetype:
                 "spec:3",
                 config,
                 archetype="librarian",
+                knowledge_db=_MOCK_KB,
             )
         except TypeError:
             pytest.fail("NodeSessionRunner should accept archetype parameter")
@@ -165,6 +172,7 @@ class TestRunnerUsesArchetype:
             config,
             archetype="skeptic",
             instances=3,
+            knowledge_db=_MOCK_KB,
         )
         assert runner._instances == 3
 
@@ -177,6 +185,7 @@ class TestRunnerUsesArchetype:
             "spec:3",
             config,
             archetype="skeptic",
+            knowledge_db=_MOCK_KB,
         )
         # Skeptic default model tier is STANDARD
         assert runner._resolved_model_id == "STANDARD"
@@ -192,6 +201,7 @@ class TestRunnerUsesArchetype:
             "spec:3",
             config,
             archetype="skeptic",
+            knowledge_db=_MOCK_KB,
         )
         assert runner._resolved_model_id == "SIMPLE"
 
@@ -204,6 +214,7 @@ class TestRunnerUsesArchetype:
             "spec:0",
             config,
             archetype="skeptic",
+            knowledge_db=_MOCK_KB,
         )
         # Skeptic has a default allowlist in the registry
         assert runner._resolved_security is not None
@@ -223,6 +234,7 @@ class TestRunnerUsesArchetype:
             "spec:0",
             config,
             archetype="skeptic",
+            knowledge_db=_MOCK_KB,
         )
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["ls", "cat"]
@@ -236,6 +248,7 @@ class TestRunnerUsesArchetype:
             "spec:1",
             config,
             archetype="coder",
+            knowledge_db=_MOCK_KB,
         )
         # Coder has no allowlist override — uses global
         assert runner._resolved_security is None

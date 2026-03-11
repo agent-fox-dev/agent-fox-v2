@@ -62,10 +62,15 @@ def _build_fix_session_runner(
             task_prompt=fix_spec.task_prompt,
             config=config,
         )
+        from agent_fox.core.config import PricingConfig
         from agent_fox.core.models import calculate_cost, resolve_model
 
         model_entry = resolve_model(config.models.coding)
-        return calculate_cost(outcome.input_tokens, outcome.output_tokens, model_entry)
+        pricing = getattr(config, "pricing", PricingConfig())
+        return calculate_cost(
+            outcome.input_tokens, outcome.output_tokens,
+            model_entry.model_id, pricing,
+        )
 
     return _run
 
@@ -94,11 +99,14 @@ def _build_improve_session_runner(
             task_prompt=task_prompt,
             config=config,
         )
+        from agent_fox.core.config import PricingConfig
         from agent_fox.core.models import calculate_cost, resolve_model
 
         model_entry = resolve_model(config.models.coding)
+        pricing = getattr(config, "pricing", PricingConfig())
         cost = calculate_cost(
-            outcome.input_tokens, outcome.output_tokens, model_entry
+            outcome.input_tokens, outcome.output_tokens,
+            model_entry.model_id, pricing,
         )
         response = outcome.output if hasattr(outcome, "output") else ""
         return cost, response

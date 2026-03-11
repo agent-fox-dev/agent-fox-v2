@@ -74,15 +74,20 @@ archetypes to add automated review and verification to the task graph:
 |-----------|---------|-----------|
 | **Coder** | Implements code (always enabled) | default |
 | **Skeptic** | Reviews specs before coding begins | auto, before first coder group |
+| **Oracle** | Validates spec assumptions against codebase | auto, before first coder group |
 | **Verifier** | Checks code quality after coding | auto, after last coder group |
 | **Librarian** | Documentation tasks | manual assignment |
 | **Cartographer** | Architecture mapping | manual assignment |
+
+When both Skeptic and Oracle are enabled, they run in parallel before the first
+coder group.
 
 Enable archetypes in your `config.toml`:
 
 ```toml
 [archetypes]
 skeptic = true
+oracle = true
 verifier = true
 
 [archetypes.instances]
@@ -90,6 +95,9 @@ skeptic = 3       # run 3 independent reviewers, converge results
 
 [archetypes.skeptic_settings]
 block_threshold = 3  # block if > 3 majority-agreed critical findings
+
+[archetypes.oracle_settings]
+block_threshold = 5  # block if > 5 critical drift findings (omit for advisory only)
 ```
 
 You can also assign archetypes to specific task groups in `tasks.md`:
@@ -170,6 +178,18 @@ agent-fox serve-tools --allowed-dirs /path/to/project --allowed-dirs /path/to/ot
 The MCP server exposes the same four tools over the standard MCP stdio
 transport. Path sandboxing via `--allowed-dirs` restricts file operations to
 the specified directories and their descendants.
+
+## Dependencies
+
+### DuckDB (Required)
+
+DuckDB is a **hard requirement** for all agent-fox operations. The knowledge
+store (an embedded DuckDB database) must be available for sessions to run.
+If DuckDB cannot be initialized, agent-fox will abort immediately with a
+clear error message rather than running with degraded functionality.
+
+All knowledge-dependent features (memory facts, causal links, review findings,
+session outcomes, complexity assessments) require a working DuckDB connection.
 
 ## Development
 

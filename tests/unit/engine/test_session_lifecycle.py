@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner, _clamp_instances
+from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.workspace.workspace import WorkspaceInfo
+
+_MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 # ---------------------------------------------------------------------------
 # _clamp_instances
@@ -52,18 +55,20 @@ class TestResolveModelTier:
 
     def test_default_coder_uses_advanced(self) -> None:
         """Coder archetype defaults to ADVANCED from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig())
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), knowledge_db=_MOCK_KB)
         assert runner._resolved_model_id == "ADVANCED"
 
     def test_config_override_takes_priority(self) -> None:
         """Config override in archetypes.models takes priority over registry."""
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "SIMPLE"}))
-        runner = NodeSessionRunner("spec:1", config)
+        runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
         assert runner._resolved_model_id == "SIMPLE"
 
     def test_skeptic_defaults_to_standard(self) -> None:
         """Skeptic archetype defaults to STANDARD from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic")
+        runner = NodeSessionRunner(
+            "spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB
+        )
         assert runner._resolved_model_id == "STANDARD"
 
 
@@ -77,12 +82,14 @@ class TestResolveSecurityConfig:
 
     def test_coder_returns_none_for_global(self) -> None:
         """Coder has no default allowlist, returns None (use global)."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig())
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), knowledge_db=_MOCK_KB)
         assert runner._resolved_security is None
 
     def test_skeptic_returns_default_allowlist(self) -> None:
         """Skeptic has a default allowlist from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic")
+        runner = NodeSessionRunner(
+            "spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB
+        )
         assert runner._resolved_security is not None
         assert "ls" in runner._resolved_security.bash_allowlist
         assert "git" in runner._resolved_security.bash_allowlist
@@ -92,7 +99,9 @@ class TestResolveSecurityConfig:
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(allowlists={"skeptic": ["echo", "pwd"]})
         )
-        runner = NodeSessionRunner("spec:1", config, archetype="skeptic")
+        runner = NodeSessionRunner(
+            "spec:1", config, archetype="skeptic", knowledge_db=_MOCK_KB
+        )
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["echo", "pwd"]
 
@@ -143,7 +152,7 @@ class TestExecuteErrorHandling:
     async def test_worktree_creation_failure_returns_failed_record(self) -> None:
         """If create_worktree raises, a failed SessionRecord is returned."""
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("spec:1", config)
+        runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
 
         with (
             patch(
@@ -165,7 +174,7 @@ class TestExecuteErrorHandling:
     async def test_retry_prompt_includes_previous_error(self) -> None:
         """On retry (attempt > 1), the task prompt includes the previous error."""
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("spec:1", config)
+        runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
 
         workspace = WorkspaceInfo(
             path=Path("/tmp/ws"),

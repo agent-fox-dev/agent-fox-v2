@@ -8,7 +8,7 @@ Requirements: 04-REQ-1.1, 04-REQ-3.1, 04-REQ-3.2, 04-REQ-3.E1,
 
 from __future__ import annotations
 
-from agent_fox.engine.engine import GraphSync
+from agent_fox.engine.graph_sync import GraphSync
 
 
 class TestReadyTasksIdentified:

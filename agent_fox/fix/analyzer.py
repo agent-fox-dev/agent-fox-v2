@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.memory.types import parse_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class Improvement:
     description: str
     files: list[str]
     impact: str  # "low" | "medium" | "high"
-    confidence: str  # "high" | "medium" | "low"
+    confidence: float  # [0.0, 1.0]
 
 
 @dataclass
@@ -242,13 +243,13 @@ def filter_improvements(
 ) -> list[Improvement]:
     """Filter out low-confidence improvements and sort by tier priority.
 
-    Returns improvements with confidence 'high' or 'medium', sorted:
+    Returns improvements with confidence >= 0.5, sorted:
     quick_win first, structural second, design_level third.
 
-    Requirements: 31-REQ-3.4, 31-REQ-3.5
+    Requirements: 31-REQ-3.4, 31-REQ-3.5, 37-REQ-5.3
     """
-    # Exclude low-confidence items (31-REQ-3.4)
-    filtered = [i for i in improvements if i.confidence != "low"]
+    # Exclude low-confidence items (37-REQ-5.3: threshold < 0.5)
+    filtered = [i for i in improvements if i.confidence >= 0.5]
 
     # Sort by tier priority (31-REQ-3.5)
     filtered.sort(key=lambda imp: _TIER_PRIORITY.get(imp.tier, 99))
@@ -261,18 +262,11 @@ def query_oracle_context(config: AgentFoxConfig) -> str:
 
     Runs the oracle RAG pipeline with the seed question about patterns,
     conventions, and architectural decisions. Returns formatted context
-    string, or empty string if the knowledge store is unavailable.
+    string. DuckDB errors propagate to the caller (38-REQ-3.1).
 
     Requirements: 31-REQ-4.1, 31-REQ-4.2, 31-REQ-4.3, 31-REQ-4.E1
     """
-    try:
-        results = _query_oracle_facts(config)
-    except Exception:
-        logger.info(
-            "Knowledge store unavailable; analyzer will run without "
-            "oracle context"
-        )
-        return ""
+    results = _query_oracle_facts(config)
 
     if not results:
         return ""
@@ -312,40 +306,34 @@ def load_review_context(project_root: Path) -> str:
     """Load existing skeptic/verifier findings from DuckDB.
 
     Returns a formatted context string, or empty string if no findings
-    exist or DuckDB is unavailable.
+    exist. DuckDB errors propagate to the caller (38-REQ-3.1).
 
     Requirements: 31-REQ-3.2
     """
-    try:
-        from agent_fox.knowledge.db import KnowledgeDB
-        from agent_fox.knowledge.review_store import (
-            query_active_findings,
-        )
+    from agent_fox.knowledge.db import KnowledgeDB
+    from agent_fox.knowledge.review_store import (
+        query_active_findings,
+    )
 
-        config = AgentFoxConfig()
-        db = KnowledgeDB(config.knowledge)
-        db.open()
-        conn = db.connection
+    config = AgentFoxConfig()
+    db = KnowledgeDB(config.knowledge)
+    db.open()
+    conn = db.connection
 
-        findings = query_active_findings(conn, spec_name="")
-        if not findings:
-            db.close()
-            return ""
-
-        parts: list[str] = []
-        for f in findings:
-            parts.append(
-                f"- [{f.severity}] {f.description} "
-                f"(spec: {f.spec_name}, task: {f.task_group})"
-            )
-
+    findings = query_active_findings(conn, spec_name="")
+    if not findings:
         db.close()
-        return "\n".join(parts)
-    except Exception:
-        logger.info(
-            "DuckDB unavailable; analyzer will run without review context"
-        )
         return ""
+
+    parts: list[str] = []
+    for f in findings:
+        parts.append(
+            f"- [{f.severity}] {f.description} "
+            f"(spec: {f.spec_name}, task: {f.task_group})"
+        )
+
+    db.close()
+    return "\n".join(parts)
 
 
 def _query_oracle_facts(config: AgentFoxConfig) -> list[Any]:
@@ -460,5 +448,5 @@ def _parse_improvement(data: Any, *, index: int) -> Improvement:
         description=str(data["description"]),
         files=[str(f) for f in files],
         impact=str(data["impact"]),
-        confidence=str(data["confidence"]),
+        confidence=parse_confidence(data["confidence"]),
     )

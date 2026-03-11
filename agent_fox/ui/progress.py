@@ -19,6 +19,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
 
+from agent_fox.ui.display import AppTheme
 from agent_fox.ui.events import (
     ActivityEvent,
     TaskEvent,
@@ -26,7 +27,6 @@ from agent_fox.ui.events import (
     format_tokens,
     verbify_tool,
 )
-from agent_fox.ui.theme import AppTheme
 
 logger = logging.getLogger(__name__)
 

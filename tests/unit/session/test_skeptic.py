@@ -6,6 +6,7 @@ Requirements: 26-REQ-8.1 through 26-REQ-8.5, 26-REQ-8.E1
 
 from __future__ import annotations
 
+import duckdb
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -15,7 +16,7 @@ import pytest
 
 
 class TestSkepticTemplate:
-    """Verify Skeptic template references severity categories and review.md."""
+    """Verify Skeptic template references severity categories and JSON output."""
 
     def test_template_has_severity_categories(self) -> None:
         import os
@@ -33,7 +34,7 @@ class TestSkepticTemplate:
         assert "critical" in content_lower
         assert "major" in content_lower
         assert "minor" in content_lower
-        assert "review.md" in content
+        assert "findings" in content_lower
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +81,11 @@ class TestSkepticGithubIssue:
 class TestReviewPassedToCoder:
     """Verify Skeptic's review.md content is included in Coder's prompt."""
 
-    def test_review_included_in_context(self, tmp_path: pytest.TempPathFactory) -> None:
+    def test_review_included_in_context(
+        self,
+        tmp_path: pytest.TempPathFactory,
+        knowledge_conn: duckdb.DuckDBPyConnection,
+    ) -> None:
         from agent_fox.session.prompt import assemble_context
 
         # Create a spec dir with a review.md
@@ -92,7 +97,7 @@ class TestReviewPassedToCoder:
         # requirements.md needed for assemble_context
         (spec_dir / "requirements.md").write_text("# Requirements\nTest req\n")
 
-        context = assemble_context(spec_dir, task_group=1)
+        context = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         # 26-REQ-8.3: Skeptic review content is included in Coder context
         assert "Test req" in context
         assert "Missing edge case handling" in context

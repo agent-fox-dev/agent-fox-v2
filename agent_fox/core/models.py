@@ -1,15 +1,25 @@
-"""AI model registry with pricing.
+"""AI model registry.
 
 Defines the model tier enum, model entry dataclass, a registry of known
-models with pricing, and functions for model resolution and cost calculation.
+models, and functions for model resolution and cost calculation.
 
-Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4, 01-REQ-5.E1
+Pricing has been moved to config.toml via PricingConfig (spec 34).
+
+Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4, 01-REQ-5.E1,
+              34-REQ-2.3, 34-REQ-2.4, 34-REQ-5.2
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_fox.core.config import PricingConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ModelTier(StrEnum):
@@ -22,18 +32,12 @@ class ModelTier(StrEnum):
 class ModelEntry:
     model_id: str
     tier: ModelTier
-    input_price_per_m: float  # USD per million input tokens
-    output_price_per_m: float  # USD per million output tokens
 
 
 MODEL_REGISTRY: dict[str, ModelEntry] = {
-    "claude-haiku-4-5": ModelEntry(
-        "claude-haiku-4-5", ModelTier.SIMPLE, 1.00, 5.00
-    ),
-    "claude-sonnet-4-6": ModelEntry(
-        "claude-sonnet-4-6", ModelTier.STANDARD, 3.00, 15.00
-    ),
-    "claude-opus-4-6": ModelEntry("claude-opus-4-6", ModelTier.ADVANCED, 5.00, 25.00),
+    "claude-haiku-4-5": ModelEntry("claude-haiku-4-5", ModelTier.SIMPLE),
+    "claude-sonnet-4-6": ModelEntry("claude-sonnet-4-6", ModelTier.STANDARD),
+    "claude-opus-4-6": ModelEntry("claude-opus-4-6", ModelTier.ADVANCED),
 }
 
 TIER_DEFAULTS: dict[ModelTier, str] = {
@@ -74,17 +78,35 @@ def resolve_model(name: str) -> ModelEntry:
     )
 
 
-def calculate_cost(input_tokens: int, output_tokens: int, model: ModelEntry) -> float:
-    """Calculate estimated cost in USD.
+def calculate_cost(
+    input_tokens: int,
+    output_tokens: int,
+    model_id: str,
+    pricing: PricingConfig,
+) -> float:
+    """Calculate estimated cost in USD using config-based pricing.
+
+    Falls back to zero cost if model not found in pricing config.
 
     Args:
         input_tokens: Number of input tokens consumed.
         output_tokens: Number of output tokens produced.
-        model: The model entry with pricing information.
+        model_id: The model identifier string.
+        pricing: The pricing configuration with per-model rates.
 
     Returns:
         Estimated cost in USD as a float.
+
+    Requirements: 34-REQ-2.3, 34-REQ-2.4
     """
-    input_cost = (input_tokens / 1_000_000) * model.input_price_per_m
-    output_cost = (output_tokens / 1_000_000) * model.output_price_per_m
+    model_pricing = pricing.models.get(model_id)
+    if model_pricing is None:
+        logger.warning(
+            "Model '%s' not found in pricing config; using zero cost",
+            model_id,
+        )
+        return 0.0
+
+    input_cost = (input_tokens / 1_000_000) * model_pricing.input_price_per_m
+    output_cost = (output_tokens / 1_000_000) * model_pricing.output_price_per_m
     return input_cost + output_cost

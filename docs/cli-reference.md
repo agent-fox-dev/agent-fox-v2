@@ -84,8 +84,22 @@ Creates the `.agent-fox/` directory structure with a default configuration file,
 sets up the `develop` branch, updates `.gitignore`, and creates
 `.claude/settings.local.json` with canonical permissions.
 
-Idempotent -- re-running on an already-initialized project preserves the
-existing `config.toml`.
+**Fresh init:** Generates `config.toml` programmatically from the Pydantic
+configuration models. Every available option appears as a commented-out entry
+with its description, valid range (if constrained), and default value.
+
+**Re-init (config merge):** When `config.toml` already exists, `init` merges
+it with the current schema non-destructively:
+
+- **Preserves** all active (uncommented) user values.
+- **Adds** new schema fields as commented-out entries with descriptions and
+  defaults.
+- **Marks deprecated** any active fields not recognized by the current schema
+  with a `# DEPRECATED` prefix.
+- **Preserves** user comments and formatting.
+- **No-op** if the config is already up to date (byte-for-byte identical).
+- If the existing file contains invalid TOML, a warning is logged and the
+  file is left untouched.
 
 **Exit codes:** `0` success, `1` not inside a git repository.
 
@@ -160,7 +174,8 @@ agent-fox status
 ```
 
 Displays task counts (done, in-progress, pending, failed, blocked), token
-usage, estimated cost, and problem tasks with reasons.
+usage, estimated cost, problem tasks with reasons, per-archetype cost breakdown,
+and per-spec cost breakdown.
 
 Use `agent-fox --json status` for structured JSON output.
 
@@ -224,6 +239,7 @@ agent-fox reset [OPTIONS] [TASK_ID]
 
 | Option | Short | Description |
 |--------|-------|-------------|
+| `--hard` | | Full state wipe including completed tasks and code rollback |
 | `--yes` | `-y` | Skip confirmation prompt |
 
 | Argument | Required | Description |
@@ -235,6 +251,26 @@ confirmation). Cleans up worktree directories and feature branches.
 
 With `TASK_ID`, resets a single task and unblocks downstream dependents. No
 confirmation prompt.
+
+#### Hard Reset (`--hard`)
+
+With `--hard`, performs a comprehensive state wipe:
+
+- Resets **all** tasks to pending (including completed tasks).
+- Cleans up all worktree directories and local feature branches.
+- Compacts the knowledge base (deduplication and supersession).
+- Rolls back the `develop` branch to its pre-task state (if commit
+  tracking data is available).
+- Preserves session history, token counters, and cost totals.
+
+With `--hard <TASK_ID>`, performs a partial rollback:
+
+- Rolls back `develop` to the commit immediately before the target task.
+- Resets the target task and any tasks whose code is no longer on develop
+  (cascaded reset).
+- Earlier tasks remain completed.
+
+Hard reset requires confirmation unless `--yes` or `--json` is provided.
 
 **Exit codes:** `0` success, `1` error.
 
@@ -357,11 +393,65 @@ If both are set, `bash_allowlist` takes precedence (with a warning).
 | `ci_timeout` | int | `600` | CI wait timeout in seconds |
 | `labels` | list[string] | `[]` | Labels to apply to PRs |
 
-### `[memory]`
+### `[archetypes]`
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `model` | string | `"SIMPLE"` | Model tier for memory extraction |
+| `skeptic` | bool | `false` | Enable skeptic archetype (spec review) |
+| `oracle` | bool | `false` | Enable oracle archetype (spec drift detection) |
+| `verifier` | bool | `false` | Enable verifier archetype (post-code checks) |
+
+### `[archetypes.oracle_settings]`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `block_threshold` | int | none | Block if critical drift findings exceed this count (advisory if omitted) |
+
+### `[archetypes.models]`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `oracle` | string | `"STANDARD"` | Model tier ceiling for oracle sessions |
+
+### `[archetypes.allowlists]`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `oracle` | list[string] | see below | Override oracle command allowlist (default: ls, cat, git, grep, find, head, tail, wc) |
+
+### `[pricing]`
+
+Configurable per-model pricing for cost calculations. If this section is absent,
+built-in defaults matching current Anthropic API rates are used.
+
+#### `[pricing.models.<model-id>]`
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `input_price_per_m` | float | varies | USD per million input tokens |
+| `output_price_per_m` | float | varies | USD per million output tokens |
+
+Default pricing:
+
+| Model | Input $/M | Output $/M |
+|-------|-----------|------------|
+| `claude-haiku-4-5` | `1.00` | `5.00` |
+| `claude-sonnet-4-6` | `3.00` | `15.00` |
+| `claude-opus-4-6` | `15.00` | `75.00` |
+
+Example:
+
+```toml
+[pricing.models.claude-haiku-4-5]
+input_price_per_m = 1.00
+output_price_per_m = 5.00
+
+[pricing.models.claude-sonnet-4-6]
+input_price_per_m = 3.00
+output_price_per_m = 15.00
+```
+
+Negative pricing values are clamped to zero with a warning.
 
 ### `[knowledge]`
 

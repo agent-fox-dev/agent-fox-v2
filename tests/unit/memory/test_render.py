@@ -32,14 +32,14 @@ class TestRenderMarkdownByCategory:
                 content="A gotcha about testing.",
                 category="gotcha",
                 spec_name="01_core_foundation",
-                confidence="high",
+                confidence=0.9,
             ),
             make_fact(
                 id="p1",
                 content="A useful pattern.",
                 category="pattern",
                 spec_name="02_planning_engine",
-                confidence="medium",
+                confidence=0.6,
             ),
         ]
         write_facts(facts, path=memory_path)
@@ -62,7 +62,7 @@ class TestRenderMarkdownByCategory:
                 content="A gotcha about testing.",
                 category="gotcha",
                 spec_name="01_core_foundation",
-                confidence="high",
+                confidence=0.9,
             ),
         ]
         write_facts(facts, path=memory_path)
@@ -72,7 +72,7 @@ class TestRenderMarkdownByCategory:
         content = output_path.read_text()
         assert "A gotcha about testing." in content
         assert "spec: 01_core_foundation" in content
-        assert "confidence: high" in content
+        assert "confidence: 0.90" in content
 
 
 class TestRenderCreatesDocsDir:

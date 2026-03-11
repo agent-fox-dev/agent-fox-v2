@@ -12,6 +12,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from agent_fox.core.config import PricingConfig
 from agent_fox.core.errors import (
     AgentFoxError,
     ConfigError,
@@ -65,8 +66,11 @@ class TestCostNonNegativity:
         self, input_tokens: int, output_tokens: int
     ) -> None:
         """Cost is never negative for any model and non-negative token counts."""
+        pricing = PricingConfig()
         for model_entry in MODEL_REGISTRY.values():
-            cost = calculate_cost(input_tokens, output_tokens, model_entry)
+            cost = calculate_cost(
+                input_tokens, output_tokens, model_entry.model_id, pricing
+            )
             assert cost >= 0.0, (
                 f"Negative cost {cost} for {model_entry.model_id} "
                 f"with {input_tokens} input, {output_tokens} output"
@@ -77,7 +81,7 @@ class TestModelRegistryCompleteness:
     """TS-01-P4: Model registry completeness.
 
     Property 5: For any tier in ModelTier, resolve_model(tier.value) returns
-    a ModelEntry with matching tier and positive prices.
+    a ModelEntry with matching tier.
     """
 
     @pytest.mark.parametrize("tier", list(ModelTier))
@@ -88,8 +92,6 @@ class TestModelRegistryCompleteness:
         assert isinstance(entry, ModelEntry)
         assert entry.tier == tier
         assert entry.model_id != ""
-        assert entry.input_price_per_m > 0
-        assert entry.output_price_per_m > 0
 
 
 class TestErrorHierarchyCatches:

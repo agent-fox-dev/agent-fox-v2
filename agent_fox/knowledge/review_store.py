@@ -54,6 +54,25 @@ class VerificationResult:
     created_at: datetime | None = None
 
 
+@dataclass(frozen=True)
+class DriftFinding:
+    """A single Oracle drift finding stored in DuckDB.
+
+    Requirements: 32-REQ-6.3
+    """
+
+    id: str
+    severity: str  # "critical" | "major" | "minor" | "observation"
+    description: str
+    spec_ref: str | None
+    artifact_ref: str | None
+    spec_name: str
+    task_group: str
+    session_id: str
+    superseded_by: str | None = None
+    created_at: datetime | None = None
+
+
 def _new_id() -> str:
     """Generate a new UUID string."""
     return str(uuid.uuid4())
@@ -304,6 +323,111 @@ def query_verdicts_by_session(
     ).fetchall()
 
     return [_row_to_verdict(r) for r in rows]
+
+
+def insert_drift_findings(
+    conn: duckdb.DuckDBPyConnection,
+    findings: list[DriftFinding],
+) -> int:
+    """Insert drift findings, superseding existing active records for the same
+    (spec_name, task_group). Returns count of inserted records.
+
+    Requirements: 32-REQ-7.1, 32-REQ-7.3, 32-REQ-7.E1
+    """
+    if not findings:
+        return 0
+
+    spec_name = findings[0].spec_name
+    task_group = findings[0].task_group
+
+    try:
+        # Supersede existing active records (32-REQ-7.3)
+        # Use the first new finding's ID as the supersession marker.
+        supersession_id = findings[0].id
+        conn.execute(
+            "UPDATE drift_findings SET superseded_by = ?::UUID "
+            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
+            [supersession_id, spec_name, task_group],
+        )
+
+        # Insert new records
+        for f in findings:
+            conn.execute(
+                "INSERT INTO drift_findings "
+                "(id, severity, description, spec_ref, artifact_ref, spec_name, "
+                "task_group, session_id, created_at) "
+                "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                [
+                    f.id,
+                    f.severity,
+                    f.description,
+                    f.spec_ref,
+                    f.artifact_ref,
+                    f.spec_name,
+                    f.task_group,
+                    f.session_id,
+                ],
+            )
+    except Exception as exc:
+        logger.warning("Failed to insert drift findings: %s", exc)
+        return 0
+
+    logger.info(
+        "Inserted %d drift findings for %s/%s",
+        len(findings),
+        spec_name,
+        task_group,
+    )
+    return len(findings)
+
+
+def query_active_drift_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str | None = None,
+) -> list[DriftFinding]:
+    """Query non-superseded drift findings for a spec, sorted by severity.
+
+    Requirements: 32-REQ-7.4
+    """
+    if task_group is not None:
+        rows = conn.execute(
+            "SELECT id::VARCHAR, severity, description, spec_ref, artifact_ref, "
+            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
+            "FROM drift_findings "
+            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name, task_group],
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT id::VARCHAR, severity, description, spec_ref, artifact_ref, "
+            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
+            "FROM drift_findings "
+            "WHERE spec_name = ? AND superseded_by IS NULL "
+            "ORDER BY severity, description",
+            [spec_name],
+        ).fetchall()
+
+    findings = [_row_to_drift_finding(r) for r in rows]
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
+    return findings
+
+
+def _row_to_drift_finding(row: tuple) -> DriftFinding:
+    """Convert a DB row to a DriftFinding."""
+    return DriftFinding(
+        id=row[0],
+        severity=row[1],
+        description=row[2],
+        spec_ref=row[3],
+        artifact_ref=row[4],
+        spec_name=row[5],
+        task_group=row[6],
+        session_id=row[7],
+        superseded_by=row[8],
+        created_at=row[9],
+    )
 
 
 def _row_to_finding(row: tuple) -> ReviewFinding:

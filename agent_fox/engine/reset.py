@@ -1,11 +1,14 @@
-"""Reset engine: clear failed/blocked tasks, cascade unblock.
+"""Reset engine: clear failed/blocked tasks, cascade unblock, hard reset.
 
-Requirements: 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1, 07-REQ-5.2
+Requirements: 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1, 07-REQ-5.2,
+              35-REQ-3.1 .. 35-REQ-4.5, 35-REQ-7.1 .. 35-REQ-7.2
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -13,9 +16,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
+from agent_fox.memory.compaction import compact
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,17 @@ class ResetResult:
     skipped_completed: list[str] = field(
         default_factory=list,
     )  # completed tasks that could not be reset
+
+
+@dataclass(frozen=True)
+class HardResetResult:
+    """Result of a hard reset operation."""
+
+    reset_tasks: list[str]  # all task IDs reset to pending
+    cleaned_worktrees: list[str]  # worktree dirs removed
+    cleaned_branches: list[str]  # local branches deleted
+    compaction: tuple[int, int]  # (original_count, surviving_count)
+    rollback_sha: str | None  # target commit SHA, or None if skipped
 
 
 def _load_or_raise[T](
@@ -390,4 +405,363 @@ def reset_task(
         unblocked_tasks=unblocked_tasks,
         cleaned_worktrees=cleaned_worktrees,
         cleaned_branches=cleaned_branches,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hard Reset Engine
+# Requirements: 35-REQ-3.1 .. 35-REQ-4.5, 35-REQ-7.1 .. 35-REQ-7.2
+# ---------------------------------------------------------------------------
+
+
+def find_rollback_target(
+    session_history: list[SessionRecord],
+    repo_path: Path,
+    target_commit_sha: str | None = None,
+) -> str | None:
+    """Determine the rollback commit SHA.
+
+    For full reset (target_commit_sha=None): finds the earliest
+    commit_sha in session_history and returns its first-parent
+    predecessor on develop.
+
+    For partial reset (target_commit_sha given): returns the
+    first-parent predecessor of target_commit_sha on develop.
+
+    Returns None if no valid rollback target can be determined.
+    """
+    if target_commit_sha is not None:
+        sha = target_commit_sha
+    else:
+        # Find earliest non-empty commit_sha in session history
+        shas = [
+            r.commit_sha
+            for r in session_history
+            if r.commit_sha and r.status == "completed"
+        ]
+        if not shas:
+            return None
+        sha = shas[0]  # First in history order = earliest
+
+    # Get the first-parent predecessor
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", f"{sha}~1"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            logger.warning(
+                "Cannot resolve rollback target for %s: %s",
+                sha,
+                result.stderr.strip(),
+            )
+            return None
+        return result.stdout.strip()
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Git rev-parse failed for %s: %s", sha, exc)
+        return None
+
+
+def rollback_develop(
+    repo_path: Path,
+    target_sha: str,
+) -> None:
+    """Reset the develop branch to the given commit SHA.
+
+    Checks out develop and runs git reset --hard <target_sha>.
+
+    Raises:
+        AgentFoxError: If the SHA cannot be resolved.
+    """
+    try:
+        # Checkout develop
+        checkout_result = subprocess.run(
+            ["git", "checkout", "develop"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+        )
+        if checkout_result.returncode != 0:
+            raise AgentFoxError(
+                f"Failed to checkout develop: {checkout_result.stderr.strip()}"
+            )
+
+        # Reset to target SHA
+        reset_result = subprocess.run(
+            ["git", "reset", "--hard", target_sha],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+        )
+        if reset_result.returncode != 0:
+            raise AgentFoxError(
+                f"Failed to reset develop to {target_sha}: "
+                f"{reset_result.stderr.strip()}"
+            )
+        logger.info("Rolled back develop to %s", target_sha)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise AgentFoxError(f"Git rollback failed: {exc}") from exc
+
+
+def find_affected_tasks(
+    session_history: list[SessionRecord],
+    new_head: str,
+    repo_path: Path,
+) -> list[str]:
+    """Find task IDs whose commit_sha is not an ancestor of new_head.
+
+    Uses ``git merge-base --is-ancestor`` to check each completed
+    task's commit_sha against the new develop HEAD.
+    """
+    affected: list[str] = []
+    for record in session_history:
+        if not record.commit_sha or record.status != "completed":
+            continue
+        try:
+            result = subprocess.run(
+                [
+                    "git",
+                    "merge-base",
+                    "--is-ancestor",
+                    record.commit_sha,
+                    new_head,
+                ],
+                cwd=str(repo_path),
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                # Not an ancestor => affected by rollback
+                affected.append(record.node_id)
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning(
+                "merge-base check failed for %s: %s",
+                record.node_id,
+                exc,
+            )
+            affected.append(record.node_id)
+    return affected
+
+
+def reset_tasks_md_checkboxes(
+    affected_task_ids: list[str],
+    specs_dir: Path,
+) -> None:
+    """Reset tasks.md checkboxes for affected task groups to ``[ ]``.
+
+    For each affected task ID (format: spec_name:group_number),
+    finds the corresponding tasks.md, locates the top-level
+    checkbox for that group number, and replaces ``[x]`` or ``[-]``
+    with ``[ ]``. Skips missing files silently.
+    """
+    # Group task IDs by spec name
+    spec_groups: dict[str, list[int]] = {}
+    for task_id in affected_task_ids:
+        parts = task_id.split(":")
+        if len(parts) != 2:
+            continue
+        spec_name = parts[0]
+        try:
+            group_num = int(parts[1])
+        except ValueError:
+            continue
+        spec_groups.setdefault(spec_name, []).append(group_num)
+
+    for spec_name, group_nums in spec_groups.items():
+        tasks_md = specs_dir / spec_name / "tasks.md"
+        if not tasks_md.exists():
+            logger.info("Skipping missing tasks.md for spec %s", spec_name)
+            continue
+
+        text = tasks_md.read_text()
+        for group_num in group_nums:
+            # Match top-level checkboxes like "- [x] 1." or "- [-] 2."
+            # Only match lines starting with "- " (not indented subtasks)
+            pattern = rf"^(- \[)[x\-](\] {group_num}\.)"
+            text = re.sub(pattern, r"\1 \2", text, flags=re.MULTILINE)
+
+        tasks_md.write_text(text)
+
+
+def reset_plan_statuses(
+    plan_path: Path,
+    affected_task_ids: list[str],
+) -> None:
+    """Set node statuses in plan.json to ``pending`` for affected tasks.
+
+    Reads plan.json, updates each affected node's status field,
+    and writes it back. Skips if plan.json does not exist.
+    """
+    if not plan_path.exists():
+        logger.info("Skipping plan status update: %s not found", plan_path)
+        return
+
+    try:
+        data = json.loads(plan_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to read plan.json: %s", exc)
+        return
+
+    nodes = data.get("nodes", {})
+    for task_id in affected_task_ids:
+        if task_id in nodes:
+            nodes[task_id]["status"] = "pending"
+
+    plan_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def hard_reset_all(
+    state_path: Path,
+    plan_path: Path,
+    worktrees_dir: Path,
+    repo_path: Path,
+    memory_path: Path,
+) -> HardResetResult:
+    """Full hard reset: all tasks, all artifacts, code rollback.
+
+    Requirements: 35-REQ-3.1 .. 35-REQ-3.7, 35-REQ-3.E1, 35-REQ-3.E2
+    """
+    state = _load_state_or_raise(state_path)
+    _load_plan_or_raise(plan_path)
+
+    # Determine rollback target
+    rollback_sha: str | None = None
+    target = find_rollback_target(state.session_history, repo_path)
+    if target is not None:
+        try:
+            rollback_develop(repo_path, target)
+            rollback_sha = target
+        except AgentFoxError:
+            logger.warning("Rollback failed, skipping code rollback.")
+
+    # Reset ALL node states to pending
+    all_task_ids = list(state.node_states.keys())
+    for task_id in all_task_ids:
+        state.node_states[task_id] = "pending"
+
+    # Clean up ALL worktrees and branches
+    cleaned_worktrees: list[str] = []
+    cleaned_branches: list[str] = []
+    for task_id in all_task_ids:
+        _collect_cleanup(
+            task_id,
+            worktrees_dir,
+            repo_path,
+            cleaned_worktrees,
+            cleaned_branches,
+        )
+
+    # Compact knowledge base
+    compaction_result = compact(memory_path)
+
+    # Reset artifact synchronization
+    specs_dir = repo_path / ".specs"
+    reset_tasks_md_checkboxes(all_task_ids, specs_dir)
+    reset_plan_statuses(plan_path, all_task_ids)
+
+    # Save state (preserving counters and session history)
+    StateManager(state_path).save(state)
+
+    return HardResetResult(
+        reset_tasks=all_task_ids,
+        cleaned_worktrees=cleaned_worktrees,
+        cleaned_branches=cleaned_branches,
+        compaction=compaction_result,
+        rollback_sha=rollback_sha,
+    )
+
+
+def hard_reset_task(
+    task_id: str,
+    state_path: Path,
+    plan_path: Path,
+    worktrees_dir: Path,
+    repo_path: Path,
+    memory_path: Path,
+) -> HardResetResult:
+    """Partial hard reset: target task + cascaded tasks, code rollback.
+
+    Requirements: 35-REQ-4.1 .. 35-REQ-4.5, 35-REQ-4.E1, 35-REQ-4.E2
+    """
+    state = _load_state_or_raise(state_path)
+    plan = _load_plan_or_raise(plan_path)
+
+    # Validate task_id
+    if task_id not in plan.nodes:
+        valid_ids = sorted(plan.nodes.keys())
+        raise AgentFoxError(
+            f"Unknown task ID: {task_id}. Valid task IDs: {', '.join(valid_ids)}",
+            task_id=task_id,
+        )
+
+    # Find commit_sha for target task from session history
+    target_sha: str | None = None
+    for record in state.session_history:
+        if (
+            record.node_id == task_id
+            and record.commit_sha
+            and record.status == "completed"
+        ):
+            target_sha = record.commit_sha
+            break
+
+    # Determine rollback target and find affected tasks
+    rollback_sha: str | None = None
+    affected_ids: list[str] = [task_id]
+
+    if target_sha:
+        target = find_rollback_target(
+            state.session_history, repo_path, target_commit_sha=target_sha
+        )
+        if target is not None:
+            try:
+                rollback_develop(repo_path, target)
+                rollback_sha = target
+
+                # Find all tasks affected by the rollback
+                cascaded = find_affected_tasks(state.session_history, target, repo_path)
+                for tid in cascaded:
+                    if tid not in affected_ids:
+                        affected_ids.append(tid)
+            except AgentFoxError:
+                logger.warning("Rollback failed, skipping code rollback.")
+
+    # Reset affected tasks to pending
+    for tid in affected_ids:
+        state.node_states[tid] = "pending"
+
+    # Clean worktrees and branches for affected tasks
+    cleaned_worktrees: list[str] = []
+    cleaned_branches: list[str] = []
+    for tid in affected_ids:
+        _collect_cleanup(
+            tid,
+            worktrees_dir,
+            repo_path,
+            cleaned_worktrees,
+            cleaned_branches,
+        )
+
+    # Compact knowledge base
+    compaction_result = compact(memory_path)
+
+    # Reset artifact synchronization for affected tasks
+    specs_dir = repo_path / ".specs"
+    reset_tasks_md_checkboxes(affected_ids, specs_dir)
+    reset_plan_statuses(plan_path, affected_ids)
+
+    # Save state
+    StateManager(state_path).save(state)
+
+    return HardResetResult(
+        reset_tasks=affected_ids,
+        cleaned_worktrees=cleaned_worktrees,
+        cleaned_branches=cleaned_branches,
+        compaction=compaction_result,
+        rollback_sha=rollback_sha,
     )

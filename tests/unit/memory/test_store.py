@@ -47,7 +47,7 @@ class TestStoreAppendAndLoadRoundTrip:
             category="convention",
             spec_name="02_planning_engine",
             keywords=["planning", "graph", "resolver"],
-            confidence="medium",
+            confidence=0.6,
             created_at="2026-02-15T12:00:00+00:00",
             supersedes="old-uuid",
         )

@@ -53,10 +53,18 @@ class RoutingConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    retries_before_escalation: int = Field(default=1)
-    training_threshold: int = Field(default=20)
-    accuracy_threshold: float = Field(default=0.75)
-    retrain_interval: int = Field(default=10)
+    retries_before_escalation: int = Field(
+        default=1, description="Retries before model escalation"
+    )
+    training_threshold: int = Field(
+        default=20, description="Training data threshold"
+    )
+    accuracy_threshold: float = Field(
+        default=0.75, description="Accuracy threshold for routing"
+    )
+    retrain_interval: int = Field(
+        default=10, description="Retrain interval"
+    )
 
     @field_validator("retries_before_escalation")
     @classmethod
@@ -84,14 +92,28 @@ class RoutingConfig(BaseModel):
 class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    parallel: int = Field(default=1)
-    sync_interval: int = Field(default=5)
-    hot_load: bool = True
-    max_retries: int = Field(default=2)
-    session_timeout: int = Field(default=30)  # minutes
-    inter_session_delay: int = Field(default=3)  # seconds
-    max_cost: float | None = None
-    max_sessions: int | None = None
+    parallel: int = Field(default=1, description="Maximum parallel sessions")
+    sync_interval: int = Field(
+        default=5, description="Sync interval in task groups"
+    )
+    hot_load: bool = Field(
+        default=True, description="Hot-load specs between sessions"
+    )
+    max_retries: int = Field(
+        default=2, description="Maximum retries per task group"
+    )
+    session_timeout: int = Field(
+        default=30, description="Session timeout in minutes"
+    )
+    inter_session_delay: int = Field(
+        default=3, description="Delay between sessions in seconds"
+    )
+    max_cost: float | None = Field(
+        default=None, description="Maximum cost limit"
+    )
+    max_sessions: int | None = Field(
+        default=None, description="Maximum number of sessions"
+    )
 
     @field_validator("parallel")
     @classmethod
@@ -122,20 +144,34 @@ class OrchestratorConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    coding: str = "ADVANCED"
-    coordinator: str = "STANDARD"
-    memory_extraction: str = "SIMPLE"
-    embedding: str = "voyage-3"
+    coding: str = Field(default="ADVANCED", description="Model tier for coding tasks")
+    coordinator: str = Field(
+        default="STANDARD", description="Model tier for coordination"
+    )
+    memory_extraction: str = Field(
+        default="SIMPLE", description="Model tier for memory extraction"
+    )
+    embedding: str = Field(default="voyage-3", description="Embedding model name")
 
 
 class HookConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    pre_code: list[str] = Field(default_factory=list)
-    post_code: list[str] = Field(default_factory=list)
-    sync_barrier: list[str] = Field(default_factory=list)
-    timeout: int = Field(default=300)
-    modes: dict[str, str] = Field(default_factory=dict)
+    pre_code: list[str] = Field(
+        default_factory=list, description="Commands to run before coding"
+    )
+    post_code: list[str] = Field(
+        default_factory=list, description="Commands to run after coding"
+    )
+    sync_barrier: list[str] = Field(
+        default_factory=list, description="Commands to run at sync barriers"
+    )
+    timeout: int = Field(
+        default=300, description="Hook command timeout in seconds"
+    )
+    modes: dict[str, str] = Field(
+        default_factory=dict, description="Hook modes configuration"
+    )
 
     @field_validator("timeout")
     @classmethod
@@ -146,21 +182,25 @@ class HookConfig(BaseModel):
 class SecurityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    bash_allowlist: list[str] | None = None
-    bash_allowlist_extend: list[str] = Field(default_factory=list)
+    bash_allowlist: list[str] | None = Field(
+        default=None, description="Allowed bash commands"
+    )
+    bash_allowlist_extend: list[str] = Field(
+        default_factory=list, description="Additional allowed bash commands"
+    )
 
 
 class ThemeConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    playful: bool = True
-    header: str = "bold #ff8c00"
-    success: str = "bold green"
-    error: str = "bold red"
-    warning: str = "bold yellow"
-    info: str = "#daa520"
-    tool: str = "bold #cd853f"
-    muted: str = "dim"
+    playful: bool = Field(default=True, description="Enable playful output style")
+    header: str = Field(default="bold #ff8c00", description="Header text style")
+    success: str = Field(default="bold green", description="Success text style")
+    error: str = Field(default="bold red", description="Error text style")
+    warning: str = Field(default="bold yellow", description="Warning text style")
+    info: str = Field(default="#daa520", description="Info text style")
+    tool: str = Field(default="bold #cd853f", description="Tool text style")
+    muted: str = Field(default="dim", description="Muted text style")
 
 
 class PlatformConfig(BaseModel):
@@ -176,29 +216,57 @@ class PlatformConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    type: str = "none"  # "none" | "github"
-    auto_merge: bool = False  # only meaningful when type = "github"
-
-
-class MemoryConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    model: str = "SIMPLE"
+    type: str = Field(
+        default="none", description="Platform type (none or github)"
+    )
+    auto_merge: bool = Field(
+        default=False, description="Auto-merge pull requests"
+    )
 
 
 class KnowledgeConfig(BaseModel):
+    """Knowledge store and fact selection configuration.
+
+    Requirements: 39-REQ-4.2
+    """
+
     model_config = ConfigDict(extra="ignore")
 
-    store_path: str = ".agent-fox/knowledge.duckdb"
-    embedding_model: str = "all-MiniLM-L6-v2"
-    embedding_dimensions: int = 384
-    ask_top_k: int = Field(default=20)
-    ask_synthesis_model: str = "STANDARD"
+    store_path: str = Field(
+        default=".agent-fox/knowledge.duckdb", description="Path to knowledge store"
+    )
+    embedding_model: str = Field(
+        default="all-MiniLM-L6-v2", description="Embedding model for knowledge"
+    )
+    embedding_dimensions: int = Field(
+        default=384, description="Embedding vector dimensions"
+    )
+    ask_top_k: int = Field(
+        default=20, description="Number of results for knowledge queries"
+    )
+    ask_synthesis_model: str = Field(
+        default="STANDARD", description="Model tier for answer synthesis"
+    )
+    confidence_threshold: float = Field(
+        default=0.5,
+        description="Minimum confidence for fact inclusion in session context",
+    )
+    fact_cache_enabled: bool = Field(
+        default=True,
+        description="Pre-compute fact rankings at plan time",
+    )
 
     @field_validator("ask_top_k")
     @classmethod
     def clamp_ask_top_k(cls, v: int) -> int:
         return _clamp(v, ge=1, field_name="knowledge.ask_top_k")
+
+    @field_validator("confidence_threshold")
+    @classmethod
+    def clamp_confidence_threshold(cls, v: float) -> float:
+        return float(
+            _clamp(v, ge=0.0, le=1.0, field_name="knowledge.confidence_threshold")
+        )
 
 
 class ToolsConfig(BaseModel):
@@ -209,7 +277,7 @@ class ToolsConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    fox_tools: bool = False
+    fox_tools: bool = Field(default=False, description="Enable fox tools")
 
     @field_validator("fox_tools", mode="before")
     @classmethod
@@ -232,8 +300,8 @@ class ArchetypeInstancesConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    skeptic: int = Field(default=1)
-    verifier: int = Field(default=1)
+    skeptic: int = Field(default=1, description="Number of skeptic instances")
+    verifier: int = Field(default=1, description="Number of verifier instances")
 
     @field_validator("skeptic", "verifier")
     @classmethod
@@ -250,12 +318,35 @@ class SkepticConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    block_threshold: int = Field(default=3)
+    block_threshold: int = Field(
+        default=3, description="Finding count to block merge"
+    )
 
     @field_validator("block_threshold")
     @classmethod
     def clamp_threshold(cls, v: int) -> int:
         return _clamp(v, ge=0, field_name="archetypes.skeptic.block_threshold")
+
+
+class OracleSettings(BaseModel):
+    """Oracle-specific configuration.
+
+    Requirements: 32-REQ-10.2, 32-REQ-10.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    block_threshold: int | None = Field(
+        default=None, description="Drift count to block (None = advisory)"
+    )
+
+    @field_validator("block_threshold")
+    @classmethod
+    def clamp_threshold(cls, v: int | None) -> int | None:
+        if v is not None and v < 1:
+            logger.warning("oracle block_threshold clamped to 1")
+            return 1
+        return v
 
 
 class ArchetypesConfig(BaseModel):
@@ -266,20 +357,34 @@ class ArchetypesConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    coder: bool = True
-    skeptic: bool = False
-    verifier: bool = False
-    librarian: bool = False
-    cartographer: bool = False
+    coder: bool = Field(default=True, description="Enable coder archetype")
+    skeptic: bool = Field(default=False, description="Enable skeptic archetype")
+    verifier: bool = Field(default=False, description="Enable verifier archetype")
+    librarian: bool = Field(default=False, description="Enable librarian archetype")
+    cartographer: bool = Field(
+        default=False, description="Enable cartographer archetype"
+    )
+    oracle: bool = Field(default=False, description="Enable oracle archetype")
 
     instances: ArchetypeInstancesConfig = Field(
-        default_factory=ArchetypeInstancesConfig
+        default_factory=ArchetypeInstancesConfig,
+        description="Per-archetype instance counts",
     )
     skeptic_config: SkepticConfig = Field(
-        default_factory=SkepticConfig, alias="skeptic_settings"
+        default_factory=SkepticConfig,
+        alias="skeptic_settings",
+        description="Skeptic-specific configuration",
     )
-    models: dict[str, str] = Field(default_factory=dict)
-    allowlists: dict[str, list[str]] = Field(default_factory=dict)
+    oracle_settings: OracleSettings = Field(
+        default_factory=OracleSettings,
+        description="Oracle-specific configuration",
+    )
+    models: dict[str, str] = Field(
+        default_factory=dict, description="Per-archetype model overrides"
+    )
+    allowlists: dict[str, list[str]] = Field(
+        default_factory=dict, description="Per-archetype command allowlists"
+    )
 
     @field_validator("coder")
     @classmethod
@@ -287,6 +392,141 @@ class ArchetypesConfig(BaseModel):
         if not v:
             logger.warning("archetypes.coder cannot be disabled; ignoring")
         return True
+
+
+class ModelPricing(BaseModel):
+    """Pricing for a single model.
+
+    Requirements: 34-REQ-2.1, 34-REQ-2.E2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    input_price_per_m: float = Field(
+        default=0.0, description="USD per million input tokens"
+    )
+    output_price_per_m: float = Field(
+        default=0.0, description="USD per million output tokens"
+    )
+
+    @field_validator("input_price_per_m", "output_price_per_m")
+    @classmethod
+    def clamp_negative_price(cls, v: float, info: Any) -> float:
+        """Clamp negative pricing values to zero.
+
+        Requirements: 34-REQ-2.E2
+        """
+        if v < 0:
+            logger.warning(
+                "Pricing field '%s' value %s is negative, clamped to 0.0",
+                info.field_name,
+                v,
+            )
+            return 0.0
+        return v
+
+
+def _default_pricing_models() -> dict[str, ModelPricing]:
+    """Return default pricing for all known Claude models.
+
+    Requirements: 34-REQ-2.2, 34-REQ-5.1
+    """
+    return {
+        "claude-haiku-4-5": ModelPricing(
+            input_price_per_m=1.00, output_price_per_m=5.00
+        ),
+        "claude-sonnet-4-6": ModelPricing(
+            input_price_per_m=3.00, output_price_per_m=15.00
+        ),
+        "claude-opus-4-6": ModelPricing(
+            input_price_per_m=15.00, output_price_per_m=75.00
+        ),
+    }
+
+
+class PricingConfig(BaseModel):
+    """Per-model pricing configuration.
+
+    Requirements: 34-REQ-2.1, 34-REQ-2.2, 34-REQ-2.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    models: dict[str, ModelPricing] = Field(
+        default_factory=_default_pricing_models,
+        description="Per-model pricing configuration",
+    )
+
+
+class PlanningConfig(BaseModel):
+    """Planning and dispatch configuration.
+
+    Requirements: 39-REQ-1.E1, 39-REQ-2.1, 39-REQ-9.3
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    duration_ordering: bool = Field(
+        default=True, description="Sort ready tasks by predicted duration"
+    )
+    min_outcomes_for_historical: int = Field(
+        default=10,
+        description="Minimum outcomes before using historical duration data",
+    )
+    min_outcomes_for_regression: int = Field(
+        default=30,
+        description="Minimum outcomes before training duration regression model",
+    )
+    file_conflict_detection: bool = Field(
+        default=False,
+        description="Detect file conflicts between parallel tasks",
+    )
+
+    @field_validator("min_outcomes_for_historical")
+    @classmethod
+    def clamp_min_outcomes_historical(cls, v: int) -> int:
+        field = "planning.min_outcomes_for_historical"
+        return int(_clamp(v, ge=1, le=1000, field_name=field))
+
+    @field_validator("min_outcomes_for_regression")
+    @classmethod
+    def clamp_min_outcomes_regression(cls, v: int) -> int:
+        field = "planning.min_outcomes_for_regression"
+        return int(_clamp(v, ge=5, le=10000, field_name=field))
+
+
+class BlockingConfig(BaseModel):
+    """Blocking threshold learning configuration.
+
+    Requirements: 39-REQ-10.2, 39-REQ-10.3
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    learn_thresholds: bool = Field(
+        default=False,
+        description="Learn blocking thresholds from history",
+    )
+    min_decisions_for_learning: int = Field(
+        default=20,
+        description="Minimum blocking decisions before learning thresholds",
+    )
+    max_false_negative_rate: float = Field(
+        default=0.1,
+        description="Maximum acceptable false negative rate",
+    )
+
+    @field_validator("min_decisions_for_learning")
+    @classmethod
+    def clamp_min_decisions(cls, v: int) -> int:
+        field = "blocking.min_decisions_for_learning"
+        return int(_clamp(v, ge=1, le=1000, field_name=field))
+
+    @field_validator("max_false_negative_rate")
+    @classmethod
+    def clamp_fnr(cls, v: float) -> float:
+        field = "blocking.max_false_negative_rate"
+        return _clamp(v, ge=0.0, le=1.0, field_name=field)
 
 
 class AgentFoxConfig(BaseModel):
@@ -299,10 +539,12 @@ class AgentFoxConfig(BaseModel):
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
     platform: PlatformConfig = Field(default_factory=PlatformConfig)
-    memory: MemoryConfig = Field(default_factory=MemoryConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
+    pricing: PricingConfig = Field(default_factory=PricingConfig)
+    planning: PlanningConfig = Field(default_factory=PlanningConfig)
+    blocking: BlockingConfig = Field(default_factory=BlockingConfig)
 
 
 def load_config(path: Path | None = None) -> AgentFoxConfig:

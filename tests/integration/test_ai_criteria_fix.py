@@ -65,7 +65,7 @@ class TestNoRewriteWithoutAiFlag:
         os.chdir(tmp_path)
         try:
             with patch(
-                "agent_fox.spec.validator.create_async_anthropic_client"
+                "agent_fox.spec.ai_validation.create_async_anthropic_client"
             ) as mock_cls:
                 mock_client = AsyncMock()
                 mock_client.__aenter__.return_value = mock_client
@@ -128,7 +128,7 @@ class TestNoReRewrite:
                 )
 
                 with patch(
-                    "agent_fox.spec.validator.create_async_anthropic_client"
+                    "agent_fox.spec.ai_validation.create_async_anthropic_client"
                 ) as mock_cls:
                     mock_client = AsyncMock()
 

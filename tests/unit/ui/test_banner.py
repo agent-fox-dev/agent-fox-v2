@@ -19,8 +19,7 @@ from rich.theme import Theme
 
 from agent_fox import __version__
 from agent_fox.core.config import ModelConfig, ThemeConfig
-from agent_fox.ui.banner import render_banner
-from agent_fox.ui.theme import create_theme
+from agent_fox.ui.display import create_theme, render_banner
 
 # Expected fox art from design.md — used to verify banner output content.
 EXPECTED_FOX_ART = r"""   /\_/\   _
@@ -84,7 +83,7 @@ class TestBannerFoxArt:
 
     def test_fox_art_constant_exists(self) -> None:
         """FOX_ART constant is exported from banner module."""
-        from agent_fox.ui.banner import FOX_ART  # type: ignore[attr-error]
+        from agent_fox.ui.display import FOX_ART  # type: ignore[attr-error]
 
         assert FOX_ART is not None
         lines = FOX_ART.splitlines()
@@ -119,7 +118,7 @@ class TestBannerVersionModel:
 
     def test_version_and_model_line_with_revision(self) -> None:
         """Banner output contains version, revision, and resolved model ID."""
-        with patch("agent_fox.ui.banner._get_git_revision", return_value="abc1234"):
+        with patch("agent_fox.ui.display._get_git_revision", return_value="abc1234"):
             output = _capture_banner(ThemeConfig(), ModelConfig())
 
         expected = f"agent-fox v{__version__} (abc1234).  model: claude-opus-4-6"
@@ -129,7 +128,7 @@ class TestBannerVersionModel:
 
     def test_version_and_model_line_without_revision(self) -> None:
         """Banner omits revision gracefully when git is unavailable."""
-        with patch("agent_fox.ui.banner._get_git_revision", return_value=None):
+        with patch("agent_fox.ui.display._get_git_revision", return_value=None):
             output = _capture_banner(ThemeConfig(), ModelConfig())
 
         expected = f"agent-fox v{__version__}  model: claude-opus-4-6"

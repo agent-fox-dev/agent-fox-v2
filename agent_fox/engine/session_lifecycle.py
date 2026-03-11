@@ -9,6 +9,7 @@ Requirements: 16-REQ-5.1, 16-REQ-5.E1, 06-REQ-1.1, 06-REQ-2.1,
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import logging
@@ -17,7 +18,7 @@ from pathlib import Path
 
 from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
+from agent_fox.core.models import ModelTier, calculate_cost
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
@@ -38,8 +39,7 @@ from agent_fox.session.prompt import (
 )
 from agent_fox.session.session import run_session
 from agent_fox.ui.events import ActivityCallback
-from agent_fox.workspace.harvester import harvest
-from agent_fox.workspace.integration import post_harvest_integrate
+from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     create_worktree,
@@ -48,6 +48,40 @@ from agent_fox.workspace.workspace import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _capture_develop_head(repo_root: Path) -> str:
+    """Return the current SHA of the develop branch HEAD.
+
+    Returns empty string if git rev-parse fails.
+
+    Requirements: 35-REQ-1.1, 35-REQ-1.E1
+    """
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git",
+            "rev-parse",
+            "develop",
+            cwd=str(repo_root),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout_bytes, _ = await proc.communicate()
+        if proc.returncode != 0:
+            logger.warning(
+                "git rev-parse develop failed (returncode %d) in %s",
+                proc.returncode,
+                repo_root,
+            )
+            return ""
+        return stdout_bytes.decode().strip()
+    except Exception as exc:
+        logger.warning(
+            "Failed to capture develop HEAD in %s: %s",
+            repo_root,
+            exc,
+        )
+        return ""
 
 
 def resolve_tier_ceiling(config: AgentFoxConfig, archetype: str) -> ModelTier:
@@ -137,7 +171,7 @@ class NodeSessionRunner:
         hook_config: HookConfig | None = None,
         no_hooks: bool = False,
         sink_dispatcher: SinkDispatcher | None = None,
-        knowledge_db: KnowledgeDB | None = None,
+        knowledge_db: KnowledgeDB,
         activity_callback: ActivityCallback | None = None,
         assessed_tier: ModelTier | None = None,
     ) -> None:
@@ -204,6 +238,7 @@ class NodeSessionRunner:
             spec_dir,
             self._task_group,
             memory_facts=memory_facts,
+            conn=self._knowledge_db.connection,
         )
 
         system_prompt = build_system_prompt(
@@ -274,12 +309,10 @@ class NodeSessionRunner:
     ) -> list[str]:
         """Enhance keyword-selected facts with causal context.
 
-        When the DuckDB knowledge store is available, uses
-        select_context_with_causal() to augment the keyword-matched
-        facts with causally-linked facts. Falls back to keyword-only
-        content if DB is unavailable.
+        Uses select_context_with_causal() to augment the keyword-matched
+        facts with causally-linked facts from the DuckDB knowledge store.
 
-        Requirements: 13-REQ-7.1, 13-REQ-7.2
+        Requirements: 13-REQ-7.1, 13-REQ-7.2, 38-REQ-2.1, 38-REQ-2.3
         """
         keyword_dicts = [
             {
@@ -290,22 +323,13 @@ class NodeSessionRunner:
             for f in relevant_facts
         ]
 
-        if self._knowledge_db is not None:
-            try:
-                enhanced = select_context_with_causal(
-                    self._knowledge_db.connection,
-                    self._spec_name,
-                    touched_files=[],
-                    keyword_facts=keyword_dicts,
-                )
-                return [f["content"] for f in enhanced]
-            except Exception:
-                logger.debug(
-                    "Causal context enhancement failed, falling back to keyword-only",
-                    exc_info=True,
-                )
-
-        return [f.content for f in relevant_facts]
+        enhanced = select_context_with_causal(
+            self._knowledge_db.connection,
+            self._spec_name,
+            touched_files=[],
+            keyword_facts=keyword_dicts,
+        )
+        return [f["content"] for f in enhanced]
 
     def _build_hook_context(self, workspace: WorkspaceInfo) -> HookContext:
         """Build a HookContext for pre/post-session hooks."""
@@ -367,11 +391,14 @@ class NodeSessionRunner:
             security_config=self._resolved_security,
         )
 
-        model_entry = resolve_model(self._resolved_model_id)
+        from agent_fox.core.config import PricingConfig
+
+        pricing = getattr(self._config, "pricing", PricingConfig())
         cost = calculate_cost(
             outcome.input_tokens,
             outcome.output_tokens,
-            model_entry,
+            self._resolved_model_id,
+            pricing,
         )
 
         error_message = outcome.error_message
@@ -397,6 +424,11 @@ class NodeSessionRunner:
                     node_id,
                     exc,
                 )
+
+        # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
+        commit_sha = ""
+        if touched_files and status == "completed":
+            commit_sha = await _capture_develop_head(repo_root)
 
         # 19-REQ-3.4: Post-harvest remote integration (after successful harvest)
         if touched_files and status == "completed":
@@ -460,8 +492,10 @@ class NodeSessionRunner:
             duration_ms=outcome.duration_ms,
             error_message=error_message,
             timestamp=datetime.now(UTC).isoformat(),
-            model=model_entry.model_id,
+            model=self._resolved_model_id,
             files_touched=touched_files,
+            archetype=self._archetype,
+            commit_sha=commit_sha,
         )
 
     def _record_session_to_sink(
@@ -480,6 +514,92 @@ class NodeSessionRunner:
                 node_id,
                 exc_info=True,
             )
+
+    async def _setup_workspace(
+        self,
+        repo_root: Path,
+        node_id: str,
+    ) -> WorkspaceInfo:
+        """Ensure develop is ready and create an isolated worktree.
+
+        19-REQ-1.1, 19-REQ-1.6: ensure develop branch exists and is
+        up-to-date before creating the worktree.
+        """
+        try:
+            await ensure_develop(repo_root)
+        except Exception:
+            logger.warning(
+                "ensure_develop failed for %s, continuing with existing branch state",
+                node_id,
+                exc_info=True,
+            )
+
+        return await create_worktree(
+            repo_root,
+            self._spec_name,
+            self._task_group,
+        )
+
+    async def _run_session_lifecycle(
+        self,
+        node_id: str,
+        attempt: int,
+        previous_error: str | None,
+        repo_root: Path,
+        workspace: WorkspaceInfo,
+    ) -> SessionRecord:
+        """Run hooks, build prompts, execute session, and read artifacts.
+
+        06-REQ-1.1: pre-session hooks
+        06-REQ-2.1: post-session hooks
+        """
+        if self._hook_config is not None:
+            hook_ctx = self._build_hook_context(workspace)
+            run_pre_session_hooks(
+                hook_ctx,
+                self._hook_config,
+                no_hooks=self._no_hooks,
+            )
+
+        system_prompt, task_prompt = self._build_prompts(
+            repo_root,
+            attempt,
+            previous_error,
+        )
+
+        record = await self._run_and_harvest(
+            node_id,
+            attempt,
+            workspace,
+            system_prompt,
+            task_prompt,
+            repo_root,
+        )
+
+        if self._hook_config is not None:
+            hook_ctx = self._build_hook_context(workspace)
+            try:
+                run_post_session_hooks(
+                    hook_ctx,
+                    self._hook_config,
+                    no_hooks=self._no_hooks,
+                )
+            except Exception:
+                logger.warning(
+                    "Post-session hooks failed for %s",
+                    node_id,
+                    exc_info=True,
+                )
+
+        summary = self._read_session_artifacts(workspace)
+        if summary:
+            logger.info(
+                "Session summary for %s: %s",
+                node_id,
+                summary.get("summary", ""),
+            )
+
+        return record
 
     async def execute(
         self,
@@ -506,74 +626,10 @@ class NodeSessionRunner:
         workspace: WorkspaceInfo | None = None
 
         try:
-            # 19-REQ-1.1, 19-REQ-1.6: Ensure develop branch exists
-            # and is up-to-date before creating the worktree.
-            try:
-                await ensure_develop(repo_root)
-            except Exception:
-                logger.warning(
-                    "ensure_develop failed for %s, continuing with "
-                    "existing branch state",
-                    node_id,
-                    exc_info=True,
-                )
-
-            workspace = await create_worktree(
-                repo_root,
-                self._spec_name,
-                self._task_group,
+            workspace = await self._setup_workspace(repo_root, node_id)
+            return await self._run_session_lifecycle(
+                node_id, attempt, previous_error, repo_root, workspace
             )
-
-            # 06-REQ-1.1: Run pre-session hooks
-            if self._hook_config is not None:
-                hook_ctx = self._build_hook_context(workspace)
-                run_pre_session_hooks(
-                    hook_ctx,
-                    self._hook_config,
-                    no_hooks=self._no_hooks,
-                )
-
-            system_prompt, task_prompt = self._build_prompts(
-                repo_root,
-                attempt,
-                previous_error,
-            )
-
-            record = await self._run_and_harvest(
-                node_id,
-                attempt,
-                workspace,
-                system_prompt,
-                task_prompt,
-                repo_root,
-            )
-
-            # 06-REQ-2.1: Run post-session hooks
-            if self._hook_config is not None:
-                hook_ctx = self._build_hook_context(workspace)
-                try:
-                    run_post_session_hooks(
-                        hook_ctx,
-                        self._hook_config,
-                        no_hooks=self._no_hooks,
-                    )
-                except Exception:
-                    logger.warning(
-                        "Post-session hooks failed for %s",
-                        node_id,
-                        exc_info=True,
-                    )
-
-            # Read session artifacts before worktree cleanup
-            summary = self._read_session_artifacts(workspace)
-            if summary:
-                logger.info(
-                    "Session summary for %s: %s",
-                    node_id,
-                    summary.get("summary", ""),
-                )
-
-            return record
 
         except Exception as exc:
             logger.error(
@@ -592,6 +648,7 @@ class NodeSessionRunner:
                 duration_ms=0,
                 error_message=str(exc),
                 timestamp=datetime.now(UTC).isoformat(),
+                archetype=self._archetype,
             )
 
         finally:

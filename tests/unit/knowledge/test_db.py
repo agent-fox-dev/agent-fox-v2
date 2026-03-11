@@ -32,6 +32,7 @@ EXPECTED_TABLES = {
     "verification_results",
     "complexity_assessments",
     "execution_outcomes",
+    "drift_findings",
 }
 
 
@@ -72,13 +73,14 @@ class TestSchemaVersionRecordedOnCreation:
             "SELECT version, applied_at, description FROM schema_version "
             "ORDER BY version"
         ).fetchall()
-        # Version 1 (initial) + version 2 (review tables) + version 3 (routing)
-        assert len(rows) == 3
+        # v1 + v2 (review) + v3 (routing) + v4 (drift)
+        assert len(rows) == 4
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
         assert rows[1][0] == 2
         assert rows[2][0] == 3
+        assert rows[3][0] == 4
         db.close()
 
 
@@ -140,8 +142,8 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        # Version 1 (initial) + version 2 (review tables) + version 3 (routing) = 3 rows
-        assert count[0] == 3
+        # v1 + v2 (review) + v3 (routing) + v4 (drift) = 4
+        assert count[0] == 4
         db2.close()
 
 
@@ -170,13 +172,16 @@ class TestCorruptedDatabaseDegradesGracefully:
     Requirement: 11-REQ-7.1
     """
 
-    def test_corrupted_db_returns_none(self, tmp_path: Path) -> None:
-        """Verify corrupted database file causes open_knowledge_store to return None."""
+    def test_corrupted_db_raises(self, tmp_path: Path) -> None:
+        """Verify corrupted database file causes open_knowledge_store to raise.
+
+        Updated for 38-REQ-1.1: DuckDB is now a hard requirement.
+        """
         db_path = tmp_path / "knowledge.duckdb"
         db_path.write_bytes(b"this is not a duckdb file")
         config = KnowledgeConfig(store_path=str(db_path))
-        result = open_knowledge_store(config)
-        assert result is None
+        with pytest.raises(RuntimeError, match="Knowledge store initialization failed"):
+            open_knowledge_store(config)
 
 
 # -- Additional failure mode tests -------------------------------------------
@@ -204,15 +209,17 @@ class TestConnectionClosedRaisesError:
             _ = db.connection
 
 
-class TestOpenKnowledgeStoreGracefulDegradation:
-    """open_knowledge_store returns None on various failure modes."""
+class TestOpenKnowledgeStoreFailureModes:
+    """open_knowledge_store raises RuntimeError on failure modes.
 
-    def test_unwritable_path_returns_none(self, tmp_path: Path) -> None:
-        """Database path in a non-existent root returns None."""
+    Updated for 38-REQ-1.1: DuckDB is now a hard requirement.
+    """
+
+    def test_unwritable_path_raises(self, tmp_path: Path) -> None:
+        """Database path in a non-existent root raises RuntimeError."""
         config = KnowledgeConfig(store_path="/nonexistent/deep/path/db.duckdb")
-        result = open_knowledge_store(config)
-        # On some OSes this may raise PermissionError or OSError — either way, None
-        assert result is None
+        with pytest.raises(RuntimeError, match="Knowledge store initialization failed"):
+            open_knowledge_store(config)
 
     def test_double_close_is_safe(self, knowledge_config: KnowledgeConfig) -> None:
         """Calling close() twice does not raise."""

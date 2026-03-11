@@ -95,6 +95,149 @@ def _migrate_v3(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v4(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add drift_findings table for Oracle archetype.
+
+    Requirements: 32-REQ-7.2
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS drift_findings (
+            id UUID PRIMARY KEY,
+            severity VARCHAR NOT NULL,
+            description VARCHAR NOT NULL,
+            spec_ref VARCHAR,
+            artifact_ref VARCHAR,
+            spec_name VARCHAR NOT NULL,
+            task_group VARCHAR NOT NULL,
+            session_id VARCHAR NOT NULL,
+            superseded_by UUID,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+
+def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
+    """Convert memory_facts.confidence from TEXT to FLOAT.
+
+    Uses the canonical mapping: high -> 0.9, medium -> 0.6, low -> 0.3.
+    Unknown or NULL values default to 0.6.
+
+    DuckDB does not allow ALTER TABLE DROP COLUMN when foreign keys
+    reference the table, so we recreate the table with the new schema
+    and copy data over.
+
+    Requirements: 37-REQ-2.1, 37-REQ-2.2, 37-REQ-2.3, 37-REQ-2.E1
+    """
+    # Check if memory_facts table exists; skip if not
+    tables = {
+        r[0]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'main'"
+        ).fetchall()
+    }
+    if "memory_facts" not in tables:
+        logger.info("memory_facts table not found, skipping v5 migration")
+        return
+
+    # Check if confidence column is already numeric (idempotency)
+    col_info = conn.execute(
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_name = 'memory_facts' AND column_name = 'confidence'"
+    ).fetchone()
+    if col_info and col_info[0].upper() in ("FLOAT", "DOUBLE"):
+        logger.info("memory_facts.confidence already numeric, skipping v5 migration")
+        return
+
+    # Step 1: Create a temp table with the new DOUBLE column
+    conn.execute("""
+        CREATE TABLE memory_facts_new (
+            id            UUID PRIMARY KEY,
+            content       TEXT NOT NULL,
+            category      TEXT,
+            spec_name     TEXT,
+            session_id    TEXT,
+            commit_sha    TEXT,
+            confidence    DOUBLE DEFAULT 0.6,
+            created_at    TIMESTAMP,
+            superseded_by UUID
+        )
+    """)
+
+    # Step 2: Copy data with canonical mapping conversion
+    conn.execute("""
+        INSERT INTO memory_facts_new
+            (id, content, category, spec_name, session_id, commit_sha,
+             confidence, created_at, superseded_by)
+        SELECT id, content, category, spec_name, session_id, commit_sha,
+            CASE
+                WHEN confidence = 'high' THEN 0.9
+                WHEN confidence = 'medium' THEN 0.6
+                WHEN confidence = 'low' THEN 0.3
+                WHEN confidence IS NULL THEN 0.6
+                ELSE 0.6
+            END,
+            created_at, superseded_by
+        FROM memory_facts
+    """)
+
+    # Step 3: Drop dependent tables temporarily, swap, recreate deps
+    # Save embeddings data if it exists
+    has_embeddings = False
+    try:
+        embedding_count = conn.execute(
+            "SELECT COUNT(*) FROM memory_embeddings"
+        ).fetchone()[0]
+        has_embeddings = embedding_count > 0
+    except Exception:
+        pass
+
+    if has_embeddings:
+        conn.execute(
+            "CREATE TEMP TABLE embeddings_backup AS "
+            "SELECT * FROM memory_embeddings"
+        )
+
+    # Drop memory_embeddings (depends on memory_facts via FK)
+    conn.execute("DROP TABLE IF EXISTS memory_embeddings")
+
+    # Swap tables
+    conn.execute("DROP TABLE memory_facts")
+    conn.execute("ALTER TABLE memory_facts_new RENAME TO memory_facts")
+
+    # Recreate memory_embeddings with FK to new memory_facts
+    # Detect embedding dimensions from backup if available
+    dim = 384  # default
+    try:
+        col_info = conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'embeddings_backup' AND column_name = 'embedding'"
+        ).fetchone()
+        if col_info:
+            dim_str = col_info[0]
+            # Parse "FLOAT[N]" format
+            import re
+
+            m = re.search(r"\[(\d+)\]", dim_str)
+            if m:
+                dim = int(m.group(1))
+    except Exception:
+        pass
+
+    conn.execute(f"""
+        CREATE TABLE memory_embeddings (
+            id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+            embedding FLOAT[{dim}]
+        )
+    """)
+
+    if has_embeddings:
+        conn.execute(
+            "INSERT INTO memory_embeddings SELECT * FROM embeddings_backup"
+        )
+        conn.execute("DROP TABLE embeddings_backup")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -106,6 +249,16 @@ MIGRATIONS: list[Migration] = [
         version=3,
         description="add complexity_assessments and execution_outcomes tables",
         apply=_migrate_v3,
+    ),
+    Migration(
+        version=4,
+        description="add drift_findings table for oracle archetype",
+        apply=_migrate_v4,
+    ),
+    Migration(
+        version=5,
+        description="convert memory_facts.confidence from TEXT to FLOAT",
+        apply=_migrate_v5,
     ),
 ]
 

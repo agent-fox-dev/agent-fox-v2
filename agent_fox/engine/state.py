@@ -43,6 +43,8 @@ class SessionRecord:
     timestamp: str  # ISO 8601
     model: str = ""  # Model ID used for this session
     files_touched: list[str] = field(default_factory=list)
+    archetype: str = "coder"  # Archetype name; defaults for backward compat
+    commit_sha: str = ""  # develop HEAD after harvest (empty if no code merged)
 
 
 @dataclass
@@ -151,18 +153,40 @@ class StateManager:
     ) -> ExecutionState:
         """Update state with a completed session record.
 
+        - Flushes auxiliary token accumulator and adds to totals
         - Appends record to session_history
         - Updates total_input_tokens, total_output_tokens, total_cost
         - Increments total_sessions
         - Updates updated_at timestamp
 
+        Requirements: 34-REQ-1.3, 34-REQ-1.4
+
         Returns:
             The updated ExecutionState (same object, mutated).
         """
+        from agent_fox.core.config import PricingConfig
+        from agent_fox.core.models import calculate_cost
+        from agent_fox.core.token_tracker import flush_auxiliary_usage
+
+        # Flush auxiliary tokens accumulated since last session
+        aux_entries = flush_auxiliary_usage()
+        aux_input = sum(e.input_tokens for e in aux_entries)
+        aux_output = sum(e.output_tokens for e in aux_entries)
+        aux_cost = 0.0
+        if aux_entries:
+            pricing = PricingConfig()
+            for entry in aux_entries:
+                aux_cost += calculate_cost(
+                    entry.input_tokens,
+                    entry.output_tokens,
+                    entry.model,
+                    pricing,
+                )
+
         state.session_history.append(record)
-        state.total_input_tokens += record.input_tokens
-        state.total_output_tokens += record.output_tokens
-        state.total_cost += record.cost
+        state.total_input_tokens += record.input_tokens + aux_input
+        state.total_output_tokens += record.output_tokens + aux_output
+        state.total_cost += record.cost + aux_cost
         state.total_sessions += 1
         state.updated_at = datetime.now(UTC).isoformat()
         return state
@@ -233,4 +257,5 @@ async def invoke_runner(
         timestamp=getattr(result, "timestamp", ""),
         model=getattr(result, "model", ""),
         files_touched=getattr(result, "files_touched", []),
+        archetype=getattr(result, "archetype", "coder"),
     )

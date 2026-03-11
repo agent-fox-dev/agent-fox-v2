@@ -68,7 +68,7 @@ def random_memory_fact(draw: st.DrawFn) -> Fact:
         category=category,
         spec_name="test_spec",
         keywords=["test"],
-        confidence="high",
+        confidence=0.9,
         created_at="2025-11-01T10:00:00Z",
         supersedes=None,
     )

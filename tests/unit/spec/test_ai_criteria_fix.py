@@ -16,7 +16,7 @@ from agent_fox.spec.validator import SEVERITY_HINT, Finding
 
 # -- Constants -----------------------------------------------------------------
 
-_MOCK_CLIENT = "agent_fox.spec.validator.create_async_anthropic_client"
+_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
 
 # -- Fixture content -----------------------------------------------------------
 
@@ -94,7 +94,7 @@ class TestRewriteProducesReplacement:
 
     @pytest.mark.asyncio
     async def test_returns_mapping_with_criterion_id(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -136,7 +136,7 @@ class TestEarsKeywordsInPrompt:
 
     @pytest.mark.asyncio
     async def test_prompt_contains_ears_keywords(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -181,7 +181,7 @@ class TestPromptIncludesFullRequirements:
 
     @pytest.mark.asyncio
     async def test_prompt_contains_marker_string(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -226,7 +226,7 @@ class TestRewritePreservesIntent:
 
     @pytest.mark.asyncio
     async def test_prompt_mentions_intent(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response([])
 
@@ -260,7 +260,7 @@ class TestRewritePreventFixLoops:
 
     @pytest.mark.asyncio
     async def test_prompt_mentions_not_flagged(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response([])
 
@@ -296,7 +296,7 @@ class TestResponseJsonParsed:
 
     @pytest.mark.asyncio
     async def test_parsed_to_dict(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -337,7 +337,7 @@ class TestBatchingOneCallPerSpec:
 
     @pytest.mark.asyncio
     async def test_single_api_call_for_multiple_findings(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -392,7 +392,7 @@ class TestNoCallWithoutFindings:
 
     @pytest.mark.asyncio
     async def test_empty_findings_returns_empty(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         with patch(_MOCK_CLIENT) as mock_cls:
             mock_client = AsyncMock()
@@ -420,7 +420,7 @@ class TestStandardModelUsed:
 
     @pytest.mark.asyncio
     async def test_model_passed_to_api(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [
@@ -635,7 +635,7 @@ class TestApiFailureLeavesFileUnchanged:
 
     @pytest.mark.asyncio
     async def test_api_exception_returns_empty(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         with patch(_MOCK_CLIENT) as mock_cls:
             mock_client = AsyncMock()
@@ -699,7 +699,7 @@ class TestFencedJsonParsed:
 
     @pytest.mark.asyncio
     async def test_fenced_json_extracted(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         fenced = (
             "```json\n"
@@ -738,7 +738,7 @@ class TestOmittedCriterionSkipped:
 
     @pytest.mark.asyncio
     async def test_partial_response(self) -> None:
-        from agent_fox.spec.validator import rewrite_criteria
+        from agent_fox.spec.ai_validation import rewrite_criteria
 
         response_text = _make_mock_rewrite_response(
             [

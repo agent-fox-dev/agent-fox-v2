@@ -21,7 +21,7 @@ def make_fact(
     category: str = "pattern",
     spec_name: str = "01_core_foundation",
     keywords: list[str] | None = None,
-    confidence: str = "high",
+    confidence: float = 0.9,
     created_at: str = "2026-03-01T10:00:00+00:00",
     supersedes: str | None = None,
 ) -> Fact:

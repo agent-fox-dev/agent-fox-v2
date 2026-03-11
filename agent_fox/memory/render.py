@@ -80,7 +80,8 @@ def _render_fact(fact: Fact) -> str:
     Format:
         - {content} _(spec: {spec_name}, confidence: {confidence})_
     """
-    return f"- {fact.content} _(spec: {fact.spec_name}, confidence: {fact.confidence})_"
+    conf = f"{fact.confidence:.2f}"
+    return f"- {fact.content} _(spec: {fact.spec_name}, confidence: {conf})_"
 
 
 def _render_empty_summary() -> str:

@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
-from agent_fox.workspace.integration import post_harvest_integrate
+from agent_fox.workspace.harvest import post_harvest_integrate
 from agent_fox.workspace.workspace import WorkspaceInfo
 
 # ---- Helper to create a minimal workspace ----
@@ -54,11 +54,11 @@ class TestPostHarvestNoPlatform:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
         ):
@@ -96,16 +96,16 @@ class TestPostHarvestGithubAutoMerge:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.integration.get_remote_url",
+                "agent_fox.workspace.harvest.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
         ):
@@ -149,16 +149,16 @@ class TestPostHarvestGithubCreatePR:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.integration.get_remote_url",
+                "agent_fox.workspace.harvest.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
             patch(
@@ -200,11 +200,11 @@ class TestPostHarvestPushFailureContinues:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
         ):
@@ -243,16 +243,16 @@ class TestPostHarvestPRFailureContinues:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.integration.get_remote_url",
+                "agent_fox.workspace.harvest.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
             patch(
@@ -297,11 +297,11 @@ class TestPostHarvestMissingPAT:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
             patch.dict("os.environ", env_without_pat, clear=True),
@@ -351,16 +351,16 @@ class TestPostHarvestFeatureBranchDeleted:
 
         with (
             patch(
-                "agent_fox.workspace.integration.push_to_remote",
+                "agent_fox.workspace.harvest.push_to_remote",
                 side_effect=mock_push,
             ),
             patch(
-                "agent_fox.workspace.integration.local_branch_exists",
+                "agent_fox.workspace.harvest.local_branch_exists",
                 side_effect=mock_local_exists,
             ),
             patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.integration.get_remote_url",
+                "agent_fox.workspace.harvest.get_remote_url",
                 return_value="https://github.com/owner/repo.git",
             ),
         ):

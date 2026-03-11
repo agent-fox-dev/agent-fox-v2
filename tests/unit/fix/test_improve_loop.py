@@ -31,7 +31,7 @@ def _make_analyzer_result(
     """Helper to create AnalyzerResult for tests."""
     if improvements is None:
         improvements = [
-            make_improvement(id="IMP-1", confidence="high"),
+            make_improvement(id="IMP-1", confidence=0.9),
         ]
     return AnalyzerResult(
         improvements=improvements,
@@ -112,7 +112,7 @@ class TestImproveLoopTermination:
     ) -> None:
         """TS-31-20: Loop stops when no high/medium confidence improvements."""
         low_only = _make_analyzer_result(
-            improvements=[make_improvement(id="L1", confidence="low")],
+            improvements=[make_improvement(id="L1", confidence=0.3)],
         )
 
         async def mock_runner(

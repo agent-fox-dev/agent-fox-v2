@@ -24,7 +24,7 @@ class TestFactCreation:
             category="gotcha",
             spec_name="spec_01",
             keywords=["k1", "k2"],
-            confidence="high",
+            confidence=0.9,
             created_at="2026-03-01T00:00:00+00:00",
             supersedes=None,
         )
@@ -33,7 +33,7 @@ class TestFactCreation:
         assert fact.category == "gotcha"
         assert fact.spec_name == "spec_01"
         assert fact.keywords == ["k1", "k2"]
-        assert fact.confidence == "high"
+        assert fact.confidence == 0.9
         assert fact.created_at == "2026-03-01T00:00:00+00:00"
         assert fact.supersedes is None
 
@@ -45,7 +45,7 @@ class TestFactCreation:
             category="pattern",
             spec_name="spec_01",
             keywords=["k1"],
-            confidence="medium",
+            confidence=0.6,
             created_at="2026-03-01T00:00:00+00:00",
             supersedes="uuid-1",
         )
@@ -59,7 +59,7 @@ class TestFactCreation:
             category="gotcha",
             spec_name="spec_01",
             keywords=["k1"],
-            confidence="high",
+            confidence=0.9,
             created_at="2026-03-01T00:00:00+00:00",
             supersedes=None,
         )
@@ -101,7 +101,7 @@ class TestCategoryEnum:
 
 
 class TestConfidenceLevelEnum:
-    """Verify ConfidenceLevel enum defines three levels."""
+    """Verify ConfidenceLevel enum defines three levels (deprecated)."""
 
     def test_confidence_has_three_values(self) -> None:
         """Verify the ConfidenceLevel enum has high, medium, low."""

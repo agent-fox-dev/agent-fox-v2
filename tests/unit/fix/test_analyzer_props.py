@@ -13,7 +13,7 @@ from hypothesis import strategies as st
 from agent_fox.fix.analyzer import Improvement, filter_improvements
 
 TIERS = ["quick_win", "structural", "design_level"]
-CONFIDENCES = ["high", "medium", "low"]
+CONFIDENCES = [0.9, 0.6, 0.3]
 IMPACTS = ["low", "medium", "high"]
 TIER_ORDER = {"quick_win": 0, "structural": 1, "design_level": 2}
 
@@ -41,7 +41,7 @@ class TestFilteringSoundness:
         self, improvements: list[Improvement]
     ) -> None:
         filtered = filter_improvements(improvements)
-        assert all(i.confidence in ("high", "medium") for i in filtered)
+        assert all(i.confidence >= 0.5 for i in filtered)
 
 
 class TestTierPriorityOrdering:
@@ -50,7 +50,7 @@ class TestTierPriorityOrdering:
     @given(
         improvements=st.lists(
             improvement_strategy().filter(
-                lambda i: i.confidence in ("high", "medium")
+                lambda i: i.confidence >= 0.5
             ),
             max_size=20,
         )

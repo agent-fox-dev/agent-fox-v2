@@ -321,9 +321,7 @@ async def ensure_develop(repo_root: Path) -> None:
     try:
         await run_git(["fetch", "origin"], cwd=repo_root)
     except WorkspaceError:
-        logger.warning(
-            "Failed to fetch from origin; proceeding with local state only"
-        )
+        logger.warning("Failed to fetch from origin; proceeding with local state only")
         fetch_ok = False
 
     has_local = await local_branch_exists(repo_root, "develop")
@@ -347,9 +345,7 @@ async def ensure_develop(repo_root: Path) -> None:
                 ["branch", "develop", "origin/develop"],
                 cwd=repo_root,
             )
-            logger.info(
-                "Created local develop branch tracking origin/develop"
-            )
+            logger.info("Created local develop branch tracking origin/develop")
             return
 
     # 19-REQ-1.3: No remote develop — create from default branch
@@ -408,7 +404,9 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
 
         # Checkout develop so we can rebase it
         rc_co, _, _ = await run_git(
-            ["checkout", "develop"], cwd=repo_root, check=False,
+            ["checkout", "develop"],
+            cwd=repo_root,
+            check=False,
         )
         if rc_co != 0:
             logger.warning(
@@ -422,18 +420,58 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
             cwd=repo_root,
             check=False,
         )
-        if rc_rb != 0:
-            # Rebase failed (conflicts) — abort and leave as-is
-            await run_git(["rebase", "--abort"], cwd=repo_root, check=False)
-            logger.warning(
-                "Rebase of local develop onto origin/develop failed "
-                "(conflicts). Using local as-is.",
-            )
-        else:
+        if rc_rb == 0:
+            # Rebase succeeded
             logger.info(
                 "Rebased %d local commit(s) onto origin/develop successfully.",
                 local_ahead,
             )
+        else:
+            # Rebase failed (conflicts) — attempt merge commit fallback
+            await run_git(["rebase", "--abort"], cwd=repo_root, check=False)
+            logger.info(
+                "Rebase failed; attempting merge commit fallback.",
+            )
+
+            # Try merge commit without conflict resolution
+            rc_merge, _, _ = await run_git(
+                ["merge", "--no-edit", "origin/develop"],
+                cwd=repo_root,
+                check=False,
+            )
+            if rc_merge == 0:
+                # Merge succeeded
+                logger.info(
+                    "Merged origin/develop into local develop via merge commit.",
+                )
+            else:
+                # Merge failed — abort and try merge with -X ours
+                await run_git(["merge", "--abort"], cwd=repo_root, check=False)
+                logger.info(
+                    "Merge commit failed; attempting merge with -X ours strategy.",
+                )
+
+                # Try merge with -X ours (prefer local on conflicts)
+                rc_ours, _, _ = await run_git(
+                    ["merge", "-X", "ours", "--no-edit", "origin/develop"],
+                    cwd=repo_root,
+                    check=False,
+                )
+                if rc_ours == 0:
+                    # Merge with -X ours succeeded
+                    logger.warning(
+                        "Merged origin/develop using -X ours strategy "
+                        "(local changes preserved, remote changes may be discarded). "
+                        "Verify reconciliation is correct."
+                    )
+                else:
+                    # All strategies failed
+                    await run_git(["merge", "--abort"], cwd=repo_root, check=False)
+                    logger.warning(
+                        "All reconciliation strategies "
+                        "(rebase, merge, merge -X ours) failed. "
+                        "Using local develop as-is; verify manually."
+                    )
 
         # Restore original branch
         if original_branch and original_branch != "develop":
@@ -449,10 +487,19 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
         "Fast-forwarding local develop (%d commits behind origin/develop)",
         remote_ahead,
     )
-    await run_git(
-        ["branch", "-f", "develop", "origin/develop"],
+
+    # Attempt fast-forward merge if on develop, else use branch force update
+    rc_ff, _, _ = await run_git(
+        ["merge", "--ff-only", "origin/develop"],
         cwd=repo_root,
+        check=False,
     )
+    if rc_ff != 0:
+        # Fast-forward merge failed (maybe not on develop), try branch force update
+        await run_git(
+            ["branch", "-f", "develop", "origin/develop"],
+            cwd=repo_root,
+        )
 
 
 async def push_to_remote(

@@ -170,14 +170,22 @@ def _inject_archetype_nodes(
         first_group = sorted_groups[0].number
         last_group = sorted_groups[-1].number
 
-        # auto_pre injection (e.g., Skeptic at group 0)
-        for arch_name, entry in ARCHETYPE_REGISTRY.items():
-            if entry.injection != "auto_pre":
-                continue
-            if not _is_archetype_enabled(arch_name, archetypes_config):
-                continue
+        # auto_pre injection (e.g., Skeptic/Oracle at group 0)
+        # 32-REQ-3.1/3.2: Collect enabled auto_pre archetypes first to
+        # determine whether to use suffixed IDs (multi) or plain :0 (single).
+        enabled_auto_pre: list[tuple[str, Any]] = [
+            (arch_name, entry)
+            for arch_name, entry in ARCHETYPE_REGISTRY.items()
+            if entry.injection == "auto_pre"
+            and _is_archetype_enabled(arch_name, archetypes_config)
+        ]
+        use_suffix = len(enabled_auto_pre) > 1
 
-            node_id = f"{spec.name}:0"
+        for arch_name, entry in enabled_auto_pre:
+            node_id = (
+                f"{spec.name}:0:{arch_name}" if use_suffix
+                else f"{spec.name}:0"
+            )
             instances = getattr(
                 getattr(archetypes_config, "instances", None),
                 arch_name,
@@ -192,7 +200,7 @@ def _inject_archetype_nodes(
                 archetype=arch_name,
                 instances=instances if isinstance(instances, int) else 1,
             )
-            # Edge from group 0 to first real group
+            # Edge from auto_pre node to first real group
             first_id = f"{spec.name}:{first_group}"
             if first_id in nodes:
                 edges.append(

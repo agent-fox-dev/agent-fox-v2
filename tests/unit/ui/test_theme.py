@@ -7,7 +7,7 @@ Requirements: 01-REQ-7.1, 01-REQ-7.3, 01-REQ-7.4, 01-REQ-7.E1
 from __future__ import annotations
 
 from agent_fox.core.config import ThemeConfig
-from agent_fox.ui.theme import AppTheme, create_theme
+from agent_fox.ui.display import AppTheme, create_theme
 
 
 class TestThemePlayfulToggle:

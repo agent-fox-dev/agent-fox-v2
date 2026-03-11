@@ -16,6 +16,9 @@ from click.testing import CliRunner
 from agent_fox.cli.app import main
 from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
 from agent_fox.engine.state import ExecutionState
+from agent_fox.knowledge.db import KnowledgeDB
+
+_MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 
 def _make_execution_state(
@@ -521,6 +524,9 @@ class TestDebugFlag:
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
 
+        mock_kb = MagicMock()
+        mock_kb.connection = MagicMock()
+
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
             patch("agent_fox.cli.code.Path") as MockPath,
@@ -529,18 +535,21 @@ class TestDebugFlag:
             patch("agent_fox.knowledge.jsonl_sink.JsonlSink"),
         ):
             MockPath.return_value.exists.return_value = True
-            mock_open_ks.return_value = None  # no DuckDB, isolate JsonlSink
+            mock_open_ks.return_value = mock_kb
             mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code", "--debug"])
 
-        # JsonlSink was added to the dispatcher
-        mock_dispatcher_inst.add.assert_called_once()
+        # DuckDBSink + JsonlSink both added
+        assert mock_dispatcher_inst.add.call_count == 2
 
     def test_no_debug_skips_jsonl_sink(self, cli_runner: CliRunner) -> None:
-        """Without --debug, no JsonlSink is attached."""
+        """Without --debug, only DuckDBSink is attached (no JsonlSink)."""
         state = _make_execution_state(run_status="completed")
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(return_value=state)
+
+        mock_kb = MagicMock()
+        mock_kb.connection = MagicMock()
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
@@ -549,12 +558,12 @@ class TestDebugFlag:
             patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             MockPath.return_value.exists.return_value = True
-            mock_open_ks.return_value = None  # no DuckDB
+            mock_open_ks.return_value = mock_kb
             mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code"])
 
-        # No sinks added when no knowledge DB and no debug
-        mock_dispatcher_inst.add.assert_not_called()
+        # Only DuckDBSink added (always), no JsonlSink
+        mock_dispatcher_inst.add.assert_called_once()
 
 
 class TestNodeSessionRunnerHarvestError:
@@ -575,7 +584,7 @@ class TestNodeSessionRunnerHarvestError:
         from agent_fox.knowledge.sink import SessionOutcome
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         mock_outcome = SessionOutcome(
             spec_name="test_spec",
@@ -634,7 +643,9 @@ class TestNodeSessionRunnerHarvestError:
 
         config = AgentFoxConfig()
         sink = MagicMock()
-        runner = NodeSessionRunner("test_spec:1", config, sink_dispatcher=sink)
+        runner = NodeSessionRunner(
+            "test_spec:1", config, sink_dispatcher=sink, knowledge_db=_MOCK_KB
+        )
 
         mock_outcome = SessionOutcome(
             spec_name="test_spec",

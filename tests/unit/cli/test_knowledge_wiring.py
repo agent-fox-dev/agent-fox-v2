@@ -16,9 +16,12 @@ import pytest
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
+from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.sink import SessionOutcome
 from agent_fox.memory.types import Fact
 from agent_fox.workspace.workspace import WorkspaceInfo
+
+_MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 
 def _make_workspace(tmp_path: Path) -> WorkspaceInfo:
@@ -49,7 +52,7 @@ def _make_fact(content: str = "Test fact") -> Fact:
         category="gotcha",
         spec_name="test_spec",
         keywords=["test"],
-        confidence="high",
+        confidence=0.9,
         created_at="2026-03-03T00:00:00+00:00",
         supersedes=None,
     )
@@ -73,7 +76,7 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         mock_extract = AsyncMock()
 
@@ -115,7 +118,7 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         mock_extract = AsyncMock()
 
@@ -157,7 +160,7 @@ class TestFactExtractionAfterSession:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         mock_extract = AsyncMock(side_effect=RuntimeError("API error"))
 
@@ -201,7 +204,7 @@ class TestKnowledgeInjectionIntoContext:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         facts = [_make_fact("Pydantic requires ConfigDict")]
         mock_assemble = MagicMock(return_value="context text")
@@ -254,7 +257,7 @@ class TestKnowledgeInjectionIntoContext:
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
-        runner = NodeSessionRunner("test_spec:1", config)
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB)
 
         mock_assemble = MagicMock(return_value="context text")
 
@@ -310,6 +313,7 @@ class TestSinkWiring:
             "test_spec:1",
             config,
             sink_dispatcher=mock_sink,
+            knowledge_db=_MOCK_KB,
         )
 
         with (
@@ -358,6 +362,7 @@ class TestSinkWiring:
             "test_spec:1",
             config,
             sink_dispatcher=mock_sink,
+            knowledge_db=_MOCK_KB,
         )
 
         with (

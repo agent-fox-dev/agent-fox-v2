@@ -98,6 +98,20 @@ class TableFormatter:
             f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}"
         )
 
+        # Per-archetype cost breakdown (34-REQ-3.3)
+        if report.cost_by_archetype:
+            lines.append("")
+            lines.append("Cost by Archetype:")
+            for archetype, cost in sorted(report.cost_by_archetype.items()):
+                lines.append(f"  {archetype}: ${cost:.2f}")
+
+        # Per-spec cost breakdown (34-REQ-4.1)
+        if report.cost_by_spec:
+            lines.append("")
+            lines.append("Cost by Spec:")
+            for spec, cost in sorted(report.cost_by_spec.items()):
+                lines.append(f"  {spec}: ${cost:.2f}")
+
         # Problem tasks (compact)
         if report.problem_tasks:
             lines.append("")

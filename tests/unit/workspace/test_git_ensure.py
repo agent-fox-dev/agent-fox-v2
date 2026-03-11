@@ -461,7 +461,7 @@ class TestEnsureDevelopDiverged:
     async def test_rebase_fails_warns_and_keeps_local(
         self, tmp_path: Path, caplog
     ) -> None:
-        """ensure_develop warns when rebase fails and leaves local as-is."""
+        """ensure_develop falls back to merge when rebase fails."""
         calls: list[list[str]] = []
 
         async def mock_run_git(args, cwd, check=True):
@@ -485,6 +485,8 @@ class TestEnsureDevelopDiverged:
                 return 1, "", "CONFLICT"  # rebase fails
             if "rebase" in key and "--abort" in key:
                 return 0, "", ""
+            if "merge" in key and "--no-edit" in key and "-X" not in key:
+                return 0, "", ""  # merge succeeds
             if key == "checkout main":
                 return 0, "", ""
             return 0, "", ""
@@ -492,12 +494,12 @@ class TestEnsureDevelopDiverged:
         with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             import logging
 
-            with caplog.at_level(logging.WARNING):
+            with caplog.at_level(logging.INFO):
                 await ensure_develop(tmp_path)
 
         # Verify rebase was attempted and aborted
         rebase_calls = [c for c in calls if "rebase" in c]
         assert any("--abort" in c for c in rebase_calls)
-        # Verify warning about failed rebase
-        assert any("rebase" in r.message.lower() and "failed" in r.message.lower()
-                    for r in caplog.records)
+        # Verify merge fallback was attempted
+        merge_calls = [c for c in calls if "merge" in c and "--no-edit" in c]
+        assert any(c for c in merge_calls if "-X" not in c)

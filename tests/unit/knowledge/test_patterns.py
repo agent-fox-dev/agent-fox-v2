@@ -30,7 +30,7 @@ class TestDetectPatterns:
         assert len(patterns) >= 1
         assert any("src/auth/" in p.trigger for p in patterns)
         assert all(p.occurrences >= 2 for p in patterns)
-        assert all(p.confidence in ("high", "medium", "low") for p in patterns)
+        assert all(isinstance(p.confidence, float) for p in patterns)
 
     def test_pattern_has_required_fields(
         self, causal_db: duckdb.DuckDBPyConnection
@@ -42,7 +42,7 @@ class TestDetectPatterns:
             assert isinstance(p.effect, str)
             assert isinstance(p.occurrences, int)
             assert isinstance(p.last_seen, str)
-            assert p.confidence in ("high", "medium", "low")
+            assert isinstance(p.confidence, float)
 
 
 class TestDetectPatternsInsufficientData:
@@ -75,7 +75,7 @@ class TestRenderPatterns:
                 effect="test failures",
                 occurrences=3,
                 last_seen="2026-01-05",
-                confidence="medium",
+                confidence=0.7,
             ),
         ]
         text = render_patterns(patterns, use_color=False)

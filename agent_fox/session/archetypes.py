@@ -35,6 +35,16 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         injection=None,
         task_assignable=True,
     ),
+    "oracle": ArchetypeEntry(
+        name="oracle",
+        templates=["oracle.md"],
+        default_model_tier="STANDARD",
+        injection="auto_pre",
+        task_assignable=True,
+        default_allowlist=[
+            "ls", "cat", "git", "grep", "find", "head", "tail", "wc",
+        ],
+    ),
     "skeptic": ArchetypeEntry(
         name="skeptic",
         templates=["skeptic.md"],

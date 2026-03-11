@@ -1,6 +1,6 @@
 """Causal graph operations: store links, traverse causal chains.
 
-Requirements: 13-REQ-3.1, 13-REQ-3.4
+Requirements: 13-REQ-3.1, 13-REQ-3.4, 39-REQ-3.1, 39-REQ-3.2, 39-REQ-3.3
 """
 
 from __future__ import annotations
@@ -192,3 +192,146 @@ def traverse_causal_chain(
                 queue.append((cause_id, depth - 1))
 
     return sorted(result, key=lambda f: (f.created_at or "", f.depth))
+
+
+def _query_review_findings_for_spec(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> list:
+    """Query review_findings for a spec, returning ReviewFinding objects."""
+    from agent_fox.knowledge.review_store import ReviewFinding
+
+    try:
+        rows = conn.execute(
+            "SELECT id::VARCHAR, severity, description, requirement_ref, "
+            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
+            "FROM review_findings "
+            "WHERE spec_name = ? AND superseded_by IS NULL",
+            [spec_name],
+        ).fetchall()
+    except Exception:
+        logger.debug("Failed to query review_findings for spec %s", spec_name)
+        return []
+
+    return [
+        ReviewFinding(
+            id=r[0], severity=r[1], description=r[2], requirement_ref=r[3],
+            spec_name=r[4], task_group=r[5], session_id=r[6],
+            superseded_by=r[7], created_at=r[8],
+        )
+        for r in rows
+    ]
+
+
+def _query_drift_findings_for_spec(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> list:
+    """Query drift_findings for a spec, returning DriftFinding objects."""
+    from agent_fox.knowledge.review_store import DriftFinding
+
+    try:
+        rows = conn.execute(
+            "SELECT id::VARCHAR, severity, description, spec_ref, artifact_ref, "
+            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
+            "FROM drift_findings "
+            "WHERE spec_name = ? AND superseded_by IS NULL",
+            [spec_name],
+        ).fetchall()
+    except Exception:
+        logger.debug("Failed to query drift_findings for spec %s", spec_name)
+        return []
+
+    return [
+        DriftFinding(
+            id=r[0], severity=r[1], description=r[2], spec_ref=r[3],
+            artifact_ref=r[4], spec_name=r[5], task_group=r[6],
+            session_id=r[7], superseded_by=r[8], created_at=r[9],
+        )
+        for r in rows
+    ]
+
+
+def _query_verification_results_for_spec(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> list:
+    """Query verification_results for a spec, returning VerificationResult objects."""
+    from agent_fox.knowledge.review_store import VerificationResult
+
+    try:
+        rows = conn.execute(
+            "SELECT id::VARCHAR, requirement_id, verdict, evidence, "
+            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
+            "FROM verification_results "
+            "WHERE spec_name = ? AND superseded_by IS NULL",
+            [spec_name],
+        ).fetchall()
+    except Exception:
+        logger.debug(
+            "Failed to query verification_results for spec %s", spec_name,
+        )
+        return []
+
+    return [
+        VerificationResult(
+            id=r[0], requirement_id=r[1], verdict=r[2], evidence=r[3],
+            spec_name=r[4], task_group=r[5], session_id=r[6],
+            superseded_by=r[7], created_at=r[8],
+        )
+        for r in rows
+    ]
+
+
+def traverse_with_reviews(
+    conn: duckdb.DuckDBPyConnection,
+    fact_id: str,
+    *,
+    max_depth: int = 3,
+    direction: str = "both",
+) -> list[CausalFact | object]:
+    """Traverse causal chain including review findings.
+
+    Extends ``traverse_causal_chain`` to also query review_findings,
+    drift_findings, and verification_results tables for facts linked
+    to the traversal seeds. Review findings referencing a requirement
+    ID that matches a memory fact's spec are treated as causally related.
+
+    Returns a mixed list of CausalFact, ReviewFinding, DriftFinding,
+    and VerificationResult objects.
+
+    Requirements: 39-REQ-3.1, 39-REQ-3.2, 39-REQ-3.3
+    """
+    # 1. Start with the regular causal traversal
+    causal_results = traverse_causal_chain(
+        conn, fact_id, max_depth=max_depth, direction=direction,
+    )
+    result: list = list(causal_results)
+
+    # 2. Collect spec_names from traversed facts for review finding lookup
+    spec_names: set[str] = set()
+    for cf in causal_results:
+        if cf.spec_name:
+            spec_names.add(cf.spec_name)
+
+    # 3. Query review findings, drift findings, and verification results
+    #    for all related specs
+    seen_ids: set[str] = {cf.fact_id for cf in causal_results}
+
+    for spec_name in spec_names:
+        for finding in _query_review_findings_for_spec(conn, spec_name):
+            if finding.id not in seen_ids:
+                seen_ids.add(finding.id)
+                result.append(finding)
+
+        for drift in _query_drift_findings_for_spec(conn, spec_name):
+            if drift.id not in seen_ids:
+                seen_ids.add(drift.id)
+                result.append(drift)
+
+        for verdict in _query_verification_results_for_spec(conn, spec_name):
+            if verdict.id not in seen_ids:
+                seen_ids.add(verdict.id)
+                result.append(verdict)
+
+    return result

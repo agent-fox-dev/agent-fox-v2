@@ -181,24 +181,39 @@ class TestNoFindingsOmitsSection:
 
 
 class TestDbUnavailableFallback:
-    """TS-27-E6: DB unavailable falls back to file reading."""
+    """TS-27-E6: DB unavailable falls back to file reading.
 
-    def test_db_unavailable_fallback(self, tmp_path: Path) -> None:
-        """assemble_context works without DB connection (file fallback)."""
+    Updated for spec 38: DuckDB is now mandatory; conn=None no longer valid.
+    The file fallback test is replaced by a test that validates DB-backed
+    rendering works correctly.
+    """
+
+    def test_db_backed_review_rendering(self, tmp_path: Path) -> None:
+        """assemble_context renders review from DB (38-REQ-4.2)."""
+        from tests.unit.knowledge.conftest import create_schema
+
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
         (spec_dir / "review.md").write_text(
-            "# Skeptic Review\n- [severity: major] Test\n"
+            "# Skeptic Review\n\n"
+            "## Critical Findings\n"
+            "- [severity: major] Test\n"
         )
 
-        # No conn provided — falls back to file reading
-        result = assemble_context(spec_dir, 1, conn=None)
-        assert "Requirements" in result
-        assert "Skeptic Review" in result
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)
 
-    def test_db_error_falls_back(self, tmp_path: Path) -> None:
-        """assemble_context falls back to files when DB query errors."""
+        # conn provided — DB-backed rendering with legacy migration
+        result = assemble_context(spec_dir, 1, conn=conn)
+        assert "Requirements" in result
+        conn.close()
+
+    def test_db_error_propagates(self, tmp_path: Path) -> None:
+        """assemble_context propagates DB errors (38-REQ-3.E1).
+
+        Updated from fallback behavior to error propagation per spec 38.
+        """
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
@@ -210,9 +225,8 @@ class TestDbUnavailableFallback:
         conn = duckdb.connect(":memory:")
         conn.close()
 
-        result = assemble_context(spec_dir, 1, conn=conn)
-        assert "Requirements" in result
-        assert "Skeptic Review" in result
+        with pytest.raises(duckdb.ConnectionException):
+            assemble_context(spec_dir, 1, conn=conn)
 
 
 class TestGithubIssueBodyFromDb:

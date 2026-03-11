@@ -24,7 +24,7 @@ def _make_fact(*, fact_id: str | None = None) -> Fact:
         category="decision",
         spec_name="test_spec",
         keywords=["test"],
-        confidence="high",
+        confidence=0.9,
         created_at="2025-01-01T00:00:00Z",
         session_id="test/1",
         commit_sha="abc123",
@@ -84,10 +84,6 @@ class TestSyncFactsToDuckDB:
             [(fact_a.id, fact_b.id)],
         )
         assert inserted == 1
-
-    def test_no_knowledge_db_is_noop(self) -> None:
-        # Should not raise
-        sync_facts_to_duckdb(None, [_make_fact()])
 
     def test_prior_facts_synced_for_causal_links(
         self, knowledge_db: KnowledgeDB

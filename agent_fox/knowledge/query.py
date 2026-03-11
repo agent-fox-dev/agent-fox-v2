@@ -21,6 +21,7 @@ from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.core.models import resolve_model
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
 from agent_fox.knowledge.search import SearchResult, VectorSearch
@@ -39,7 +40,7 @@ class OracleAnswer:
     answer: str
     sources: list[SearchResult]
     contradictions: list[str] | None
-    confidence: str  # "high" | "medium" | "low"
+    confidence: float  # [0.0, 1.0]
 
 
 class Oracle:
@@ -114,6 +115,18 @@ class Oracle:
             messages=[{"role": "user", "content": prompt}],
         )
 
+        # Track auxiliary token usage (34-REQ-1.5)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            record_auxiliary_usage(
+                input_tokens=getattr(usage, "input_tokens", 0),
+                output_tokens=getattr(usage, "output_tokens", 0),
+                model=model.model_id,
+            )
+        else:
+            logger.warning("API response for oracle synthesis lacks usage data")
+            record_auxiliary_usage(0, 0, model.model_id)
+
         response_text = response.content[0].text  # type: ignore[union-attr]
 
         # Step 5: Parse the response
@@ -175,22 +188,25 @@ class Oracle:
             f"## Question\n\n{question}"
         )
 
-    def _determine_confidence(self, results: list[SearchResult]) -> str:
+    def _determine_confidence(self, results: list[SearchResult]) -> float:
         """Determine confidence based on result count and similarity.
 
-        - "high": 3+ results with similarity > 0.7
-        - "medium": 1-2 results with similarity > 0.5
-        - "low": fewer or lower-similarity results
+        Returns a float in [0.0, 1.0]:
+        - 0.9: 3+ results with similarity > 0.7
+        - 0.6: 1-2 results with similarity > 0.5
+        - 0.3: fewer or lower-similarity results
+
+        Requirements: 37-REQ-4.1, 37-REQ-4.2
         """
         high_quality = [r for r in results if r.similarity > 0.7]
         if len(high_quality) >= 3:
-            return "high"
+            return 0.9
 
         medium_quality = [r for r in results if r.similarity > 0.5]
         if len(medium_quality) >= 1:
-            return "medium"
+            return 0.6
 
-        return "low"
+        return 0.3
 
     def _parse_synthesis_response(
         self,
@@ -244,16 +260,23 @@ class Pattern:
     effect: str  # e.g., "test_payments.py failures"
     occurrences: int  # number of times this pattern was observed
     last_seen: str  # ISO timestamp of most recent occurrence
-    confidence: str  # "high" (5+), "medium" (3-4), "low" (2)
+    confidence: float  # 0.9 (5+), 0.7 (3-4), 0.4 (2)
 
 
-def _assign_confidence(occurrences: int) -> str:
-    """Assign confidence level based on occurrence count."""
+def _assign_confidence(occurrences: int) -> float:
+    """Assign confidence as float based on occurrence count.
+
+    - 5+ occurrences → 0.9
+    - 3-4 occurrences → 0.7
+    - 2 or fewer → 0.4
+
+    Requirements: 37-REQ-4.3, 37-REQ-4.4
+    """
     if occurrences >= 5:
-        return "high"
+        return 0.9
     if occurrences >= 3:
-        return "medium"
-    return "low"
+        return 0.7
+    return 0.4
 
 
 def detect_patterns(

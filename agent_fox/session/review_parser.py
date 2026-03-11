@@ -16,6 +16,7 @@ import uuid
 from agent_fox.knowledge.review_store import (
     VALID_SEVERITIES,
     VALID_VERDICTS,
+    DriftFinding,
     ReviewFinding,
     VerificationResult,
 )
@@ -199,6 +200,75 @@ def parse_verification_output(
         logger.warning("No valid verdicts extracted from Verifier output")
 
     return verdicts
+
+
+def parse_oracle_output(
+    response: str,
+    spec_name: str,
+    task_group: str,
+    session_id: str,
+) -> list[DriftFinding]:
+    """Extract DriftFinding objects from oracle agent response JSON.
+
+    Looks for a JSON object with a "drift_findings" array. Each entry
+    must have "severity" and "description". Returns empty list if no
+    valid JSON found.
+
+    Requirements: 32-REQ-6.1, 32-REQ-6.2, 32-REQ-6.E1, 32-REQ-6.E2
+    """
+    findings: list[DriftFinding] = []
+    blocks = _extract_json_blocks(response)
+
+    if not blocks:
+        logger.warning("No valid JSON blocks found in Oracle output")
+        return findings
+
+    for block in blocks:
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON block in Oracle output, skipping")
+            continue
+
+        # Handle {"drift_findings": [...]} wrapper or bare array
+        items: list[dict] = []
+        if isinstance(data, dict) and "drift_findings" in data:
+            items = data["drift_findings"]
+        elif isinstance(data, list):
+            items = data
+        elif isinstance(data, dict) and "severity" in data and "description" in data:
+            items = [data]
+        else:
+            continue
+
+        for item in items:
+            if not isinstance(item, dict):
+                logger.warning("Non-dict drift finding item, skipping")
+                continue
+            if "severity" not in item or "description" not in item:
+                logger.warning(
+                    "Drift finding missing required fields "
+                    "(severity, description), skipping"
+                )
+                continue
+
+            findings.append(
+                DriftFinding(
+                    id=str(uuid.uuid4()),
+                    severity=_normalize_severity(item["severity"]),
+                    description=item["description"],
+                    spec_ref=item.get("spec_ref"),
+                    artifact_ref=item.get("artifact_ref"),
+                    spec_name=spec_name,
+                    task_group=task_group,
+                    session_id=session_id,
+                )
+            )
+
+    if not findings:
+        logger.warning("No valid drift findings extracted from Oracle output")
+
+    return findings
 
 
 def parse_legacy_review_md(

@@ -31,7 +31,7 @@ def fact_strategy(draw: st.DrawFn) -> Fact:
         keywords=draw(
             st.lists(st.text(min_size=1, max_size=20), min_size=1, max_size=5)
         ),
-        confidence=draw(st.sampled_from(["high", "medium", "low"])),
+        confidence=draw(st.sampled_from([0.9, 0.6, 0.3])),
         created_at=draw(
             st.from_regex(
                 r"2026-0[1-9]-[0-2][0-9]T[0-2][0-9]:00:00\+00:00",

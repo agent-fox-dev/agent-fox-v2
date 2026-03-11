@@ -9,7 +9,6 @@ Requirements: 12-REQ-1.1, 12-REQ-1.3, 12-REQ-1.E1, 12-REQ-2.E1,
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -105,62 +104,78 @@ class TestDualWriteBothStores:
         assert emb is not None
 
 
-class TestDualWriteContinuesOnDuckDBFailure:
-    """TS-12-9: Dual-write continues on DuckDB failure.
+class TestDualWritePropagatesDuckDBFailure:
+    """TS-12-9 (superseded by 38-REQ-3.2): DuckDB errors propagate.
 
-    Requirement: 12-REQ-1.E1
+    Requirement: 38-REQ-3.2 (supersedes 12-REQ-1.E1)
     """
 
-    def test_jsonl_written_without_duckdb(
+    def test_jsonl_written_before_duckdb_error(
         self,
         tmp_path: Path,
     ) -> None:
-        """Verify JSONL write succeeds when DuckDB is None."""
+        """Verify JSONL write succeeds even when DuckDB write fails (38-REQ-3.2)."""
+        from unittest.mock import MagicMock
+
         from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
 
         jsonl_path = tmp_path / "memory.jsonl"
         fact = make_sample_fact(fact_id=FACT_AAA)
 
-        store = MemoryStore(jsonl_path, db_conn=None, embedder=None)
-        store.write_fact(fact)
+        failing_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
+        failing_conn.execute.side_effect = duckdb.Error("mock failure")
 
-        # Fact should be in JSONL
+        store = MemoryStore(jsonl_path, db_conn=failing_conn, embedder=None)
+        with pytest.raises(duckdb.Error):
+            store.write_fact(fact)
+
+        # Fact should be in JSONL despite DuckDB error
         lines = jsonl_path.read_text().strip().split("\n")
         assert len(lines) >= 1
         data = json.loads(lines[-1])
         assert data["id"] == FACT_AAA
 
-    def test_no_exception_raised(self, tmp_path: Path) -> None:
-        """Verify no exception when DuckDB is unavailable."""
+    def test_duckdb_error_propagates(self, tmp_path: Path) -> None:
+        """Verify DuckDB error propagates (38-REQ-3.2)."""
+        from unittest.mock import MagicMock
+
         from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
 
         jsonl_path = tmp_path / "memory.jsonl"
         fact = make_sample_fact(fact_id=FACT_AAA)
 
-        store = MemoryStore(jsonl_path, db_conn=None, embedder=None)
-        # Should not raise
-        store.write_fact(fact)
+        failing_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
+        failing_conn.execute.side_effect = duckdb.Error("mock failure")
 
-    def test_warning_logged(
-        self,
-        tmp_path: Path,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        """Verify a warning is logged about DuckDB unavailability."""
-        from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
-
-        jsonl_path = tmp_path / "memory.jsonl"
-        fact = make_sample_fact(fact_id=FACT_AAA)
-
-        store = MemoryStore(jsonl_path, db_conn=None, embedder=None)
-        with caplog.at_level(logging.WARNING):
+        store = MemoryStore(jsonl_path, db_conn=failing_conn, embedder=None)
+        with pytest.raises(duckdb.Error, match="mock failure"):
             store.write_fact(fact)
 
-        assert (
-            "warning" in caplog.text.lower()
-            or "duckdb" in caplog.text.lower()
-            or "unavailable" in caplog.text.lower()
-        )
+    def test_successful_dual_write(
+        self,
+        tmp_path: Path,
+        schema_conn: duckdb.DuckDBPyConnection,
+    ) -> None:
+        """Verify both JSONL and DuckDB writes succeed normally."""
+        from agent_fox.memory.memory import MemoryStore  # type: ignore[attr-error]
+
+        jsonl_path = tmp_path / "memory.jsonl"
+        fact = make_sample_fact(fact_id=FACT_AAA)
+
+        store = MemoryStore(jsonl_path, db_conn=schema_conn, embedder=None)
+        store.write_fact(fact)
+
+        # Check JSONL
+        lines = jsonl_path.read_text().strip().split("\n")
+        assert len(lines) >= 1
+
+        # Check DuckDB
+        row = schema_conn.execute(
+            "SELECT CAST(id AS VARCHAR) FROM memory_facts "
+            "WHERE CAST(id AS VARCHAR) = ?",
+            [FACT_AAA],
+        ).fetchone()
+        assert row is not None
 
 
 class TestDualWriteWithoutEmbedding:

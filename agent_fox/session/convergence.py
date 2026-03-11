@@ -17,7 +17,7 @@ import math
 import uuid
 from collections import Counter
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.review_store import ReviewFinding, VerificationResult
@@ -249,3 +249,48 @@ def converge_verifier_records(
         )
 
     return merged
+
+
+# ---------------------------------------------------------------------------
+# Learned blocking threshold integration (spec 39)
+# Requirements: 39-REQ-10.2, 39-REQ-10.3
+# ---------------------------------------------------------------------------
+
+
+def resolve_block_threshold(
+    configured_threshold: int,
+    archetype: str,
+    conn: Any = None,
+    *,
+    learn_thresholds: bool = False,
+) -> int:
+    """Resolve the effective blocking threshold.
+
+    When learned thresholds are enabled and available, uses the learned
+    threshold instead of the configured one. Falls back to the configured
+    threshold when learning is disabled or insufficient data exists.
+
+    Args:
+        configured_threshold: The statically configured threshold.
+        archetype: The archetype type ("skeptic" or "oracle").
+        conn: Optional DuckDB connection for querying learned thresholds.
+        learn_thresholds: Whether threshold learning is enabled.
+
+    Returns:
+        The effective blocking threshold to use.
+
+    Requirements: 39-REQ-10.2, 39-REQ-10.3
+    """
+    if not learn_thresholds or conn is None:
+        return configured_threshold
+
+    try:
+        from agent_fox.knowledge.blocking_history import get_learned_threshold
+
+        learned = get_learned_threshold(conn, archetype)
+        if learned is not None:
+            return learned
+    except Exception:
+        pass
+
+    return configured_threshold

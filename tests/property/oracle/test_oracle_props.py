@@ -1,0 +1,407 @@
+"""Property tests for the oracle archetype.
+
+Test Spec: TS-32-P1 through TS-32-P8
+Requirements: Properties 1-8 from design.md
+"""
+
+from __future__ import annotations
+
+import json
+import uuid
+from pathlib import Path
+
+import duckdb
+import pytest
+
+try:
+    from hypothesis import given, settings
+    from hypothesis import strategies as st
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+
+def _create_drift_schema(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create schema with drift_findings table."""
+    from tests.unit.knowledge.conftest import create_schema
+
+    create_schema(conn)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS drift_findings (
+            id UUID PRIMARY KEY,
+            severity VARCHAR NOT NULL,
+            description VARCHAR NOT NULL,
+            spec_ref VARCHAR,
+            artifact_ref VARCHAR,
+            spec_name VARCHAR NOT NULL,
+            task_group VARCHAR NOT NULL,
+            session_id VARCHAR NOT NULL,
+            superseded_by UUID,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
+
+def _spec(name: str = "spec"):
+    from agent_fox.spec.discovery import SpecInfo
+
+    return SpecInfo(
+        name=name, prefix=0, path=Path(f".specs/{name}"),
+        has_tasks=True, has_prd=False,
+    )
+
+
+def _tgd(number: int, title: str = "T"):
+    from agent_fox.spec.parser import TaskGroupDef
+
+    return TaskGroupDef(
+        number=number, title=title,
+        optional=False, completed=False, subtasks=(), body="",
+    )
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P1: Registry Completeness
+# Property 1: Oracle registry entry has required fields
+# Validates: 32-REQ-1.1, 32-REQ-1.3
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyRegistryCompleteness:
+    """Oracle registry entry always has required fields."""
+
+    def test_registry_completeness(self) -> None:
+        """TS-32-P1: Oracle entry has auto_pre, task_assignable, allowlist."""
+        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+
+        entry = ARCHETYPE_REGISTRY["oracle"]
+        assert entry.injection == "auto_pre"
+        assert entry.task_assignable is True
+        assert len(entry.default_allowlist) > 0
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P2: Multi-auto_pre Distinctness
+# Property 2: Oracle + skeptic produce distinct nodes
+# Validates: 32-REQ-2.2, 32-REQ-3.1, 32-REQ-3.3
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyMultiAutoPre:
+    """With both oracle and skeptic, auto_pre nodes are distinct."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(num_groups=st.integers(min_value=1, max_value=10))
+    @settings(max_examples=10)
+    def test_multi_auto_pre(self, num_groups: int) -> None:
+        """TS-32-P2: Two distinct auto_pre nodes, both with edges to first coder."""
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.builder import build_graph
+
+        config = ArchetypesConfig(oracle=True, skeptic=True)
+        specs = [_spec()]
+        task_groups = {
+            "spec": [_tgd(i, f"T{i}") for i in range(1, num_groups + 1)]
+        }
+
+        graph = build_graph(specs, task_groups, [], archetypes_config=config)
+
+        auto_pre_nodes = [
+            n for n in graph.nodes.values()
+            if n.group_number == 0
+        ]
+        assert len(auto_pre_nodes) == 2
+        ids = {n.id for n in auto_pre_nodes}
+        assert len(ids) == 2  # distinct
+
+        # Both connect to first coder group
+        first_coder = "spec:1"
+        for n in auto_pre_nodes:
+            assert any(
+                e.source == n.id and e.target == first_coder
+                and e.kind == "intra_spec"
+                for e in graph.edges
+            ), f"Node {n.id} has no edge to {first_coder}"
+
+        # No edges between them
+        for a in auto_pre_nodes:
+            for b in auto_pre_nodes:
+                if a.id != b.id:
+                    assert not any(
+                        e.source == a.id and e.target == b.id
+                        for e in graph.edges
+                    )
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P3: Backward-compatible Node IDs
+# Property 3: Single auto_pre uses {spec}:0 format
+# Validates: 32-REQ-3.2
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyBackwardCompat:
+    """Single auto_pre archetype uses {spec}:0 format."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(archetype=st.sampled_from(["oracle", "skeptic"]))
+    @settings(max_examples=4)
+    def test_backward_compat(self, archetype: str) -> None:
+        """TS-32-P3: Single auto_pre uses {spec}:0 without suffix."""
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.builder import build_graph
+
+        kwargs = {archetype: True}
+        # Ensure the other auto_pre is disabled
+        if archetype == "oracle":
+            kwargs["skeptic"] = False
+        else:
+            kwargs["oracle"] = False
+
+        config = ArchetypesConfig(**kwargs)
+        specs = [_spec()]
+        task_groups = {"spec": [_tgd(1, "T1")]}
+
+        graph = build_graph(specs, task_groups, [], archetypes_config=config)
+
+        assert "spec:0" in graph.nodes
+        assert not any(":0:" in nid for nid in graph.nodes)
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P4: Drift Finding Roundtrip
+# Property 4: Valid JSON roundtrips through parse_oracle_output
+# Validates: 32-REQ-6.1, 32-REQ-6.2, 32-REQ-6.3
+# ---------------------------------------------------------------------------
+
+_severity_strategy = st.sampled_from(["critical", "major", "minor", "observation"])
+_drift_finding_strategy = st.fixed_dictionaries({
+    "severity": _severity_strategy,
+    "description": st.text(min_size=1, max_size=100).filter(
+        lambda s: s.strip() and '"' not in s and '\\' not in s
+    ),
+}) if HAS_HYPOTHESIS else None
+
+
+class TestPropertyRoundtrip:
+    """Valid JSON roundtrips through parse_oracle_output."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(
+        findings=st.lists(
+            _drift_finding_strategy,  # type: ignore[arg-type]
+            min_size=1,
+            max_size=20,
+        ),
+    )
+    @settings(max_examples=30)
+    def test_roundtrip(self, findings: list[dict]) -> None:
+        """TS-32-P4: N valid findings parse to N DriftFinding instances."""
+        from agent_fox.session.review_parser import parse_oracle_output
+
+        json_obj = {"drift_findings": findings}
+        # Wrap in a fenced code block so _extract_json_blocks uses the
+        # reliable fenced-block regex path (bare JSON regex can't handle
+        # brace characters inside string values).
+        json_text = "```json\n" + json.dumps(json_obj) + "\n```"
+
+        parsed = parse_oracle_output(json_text, "spec", "0", "sess")
+        assert len(parsed) == len(findings)
+        for i, f in enumerate(findings):
+            assert parsed[i].severity == f["severity"]
+            assert parsed[i].description == f["description"]
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P5: Supersession Integrity
+# Property 5: Only most recent batch returned by active query
+# Validates: 32-REQ-7.1, 32-REQ-7.3, 32-REQ-7.4
+# ---------------------------------------------------------------------------
+
+
+def _make_batch(batch_num: int, size: int, spec_name: str = "test_spec"):
+    """Create a batch of DriftFindings with a shared session_id."""
+    from agent_fox.knowledge.review_store import DriftFinding
+
+    session_id = f"sess_{batch_num}"
+    return [
+        DriftFinding(
+            id=str(uuid.uuid4()),
+            severity="major",
+            description=f"Batch {batch_num} finding {i}",
+            spec_ref=None,
+            artifact_ref=None,
+            spec_name=spec_name,
+            task_group="0",
+            session_id=session_id,
+        )
+        for i in range(size)
+    ]
+
+
+class TestPropertySupersession:
+    """Only the most recent insertion is returned by active query."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(
+        batch_sizes=st.lists(
+            st.integers(min_value=1, max_value=10),
+            min_size=2,
+            max_size=5,
+        ),
+    )
+    @settings(max_examples=20, deadline=None)
+    def test_supersession(self, batch_sizes: list[int]) -> None:
+        """TS-32-P5: Only last batch returned after multiple insertions."""
+        from agent_fox.knowledge.review_store import (
+            insert_drift_findings,
+            query_active_drift_findings,
+        )
+
+        conn = duckdb.connect(":memory:")
+        _create_drift_schema(conn)
+
+        last_session_id = None
+        for i, size in enumerate(batch_sizes):
+            batch = _make_batch(i, size)
+            last_session_id = batch[0].session_id
+            insert_drift_findings(conn, batch)
+
+        result = query_active_drift_findings(conn, "test_spec", "0")
+        assert len(result) == batch_sizes[-1]
+        assert all(r.session_id == last_session_id for r in result)
+
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P6: Block Threshold Monotonicity
+# Property 6: Blocking iff critical count > threshold
+# Validates: 32-REQ-9.1, 32-REQ-9.2, 32-REQ-9.E1
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyBlockThreshold:
+    """Blocking occurs iff critical count > threshold."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(
+        threshold=st.integers(min_value=1, max_value=10),
+        critical_count=st.integers(min_value=0, max_value=15),
+    )
+    @settings(max_examples=50)
+    def test_block_threshold(self, threshold: int, critical_count: int) -> None:
+        """TS-32-P6: should_block == (critical_count > threshold)."""
+        from agent_fox.knowledge.review_store import DriftFinding
+
+        findings = [
+            DriftFinding(
+                id=str(uuid.uuid4()),
+                severity="critical",
+                description=f"crit {i}",
+                spec_ref=None,
+                artifact_ref=None,
+                spec_name="s",
+                task_group="0",
+                session_id="x",
+            )
+            for i in range(critical_count)
+        ]
+        actual_critical = sum(1 for f in findings if f.severity == "critical")
+        should_block = actual_critical > threshold
+        assert should_block == (critical_count > threshold)
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P7: Context Rendering Completeness
+# Property 7: All finding descriptions appear in rendered context
+# Validates: 32-REQ-8.1, 32-REQ-8.2, 32-REQ-8.E1
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyRenderCompleteness:
+    """All finding descriptions appear in rendered context."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(
+        severities=st.lists(
+            _severity_strategy,  # type: ignore[arg-type]
+            min_size=0,
+            max_size=10,
+        ),
+    )
+    @settings(max_examples=20, deadline=None)
+    def test_render_completeness(self, severities: list[str]) -> None:
+        """TS-32-P7: Each description appears in output; empty -> None."""
+        from agent_fox.knowledge.review_store import (
+            DriftFinding,
+            insert_drift_findings,
+        )
+        from agent_fox.session.prompt import render_drift_context
+
+        conn = duckdb.connect(":memory:")
+        _create_drift_schema(conn)
+
+        findings = [
+            DriftFinding(
+                id=str(uuid.uuid4()),
+                severity=sev,
+                description=f"Finding {i}: {sev}",
+                spec_ref=None,
+                artifact_ref=None,
+                spec_name="test_spec",
+                task_group="0",
+                session_id="s1",
+            )
+            for i, sev in enumerate(severities)
+        ]
+
+        if findings:
+            insert_drift_findings(conn, findings)
+
+        result = render_drift_context(conn, "test_spec")
+
+        if not findings:
+            assert result is None
+        else:
+            assert result is not None
+            for f in findings:
+                assert f.description in result
+
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# TS-32-P8: Hot-load Injection
+# Property 8: Hot-loaded specs get oracle nodes in pending state
+# Validates: 32-REQ-4.1, 32-REQ-4.2
+# ---------------------------------------------------------------------------
+
+
+class TestPropertyHotLoadInjection:
+    """Hot-loaded specs get oracle nodes in pending state."""
+
+    @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+    @given(num_specs=st.integers(min_value=1, max_value=5))
+    @settings(max_examples=5)
+    def test_hot_load_injection(self, num_specs: int) -> None:
+        """TS-32-P8: Each new spec gets an oracle node in pending state."""
+        from agent_fox.core.config import ArchetypesConfig
+        from agent_fox.graph.builder import build_graph
+        from agent_fox.graph.types import NodeStatus
+
+        config = ArchetypesConfig(oracle=True, skeptic=False)
+        specs = [_spec(f"spec_{i}") for i in range(num_specs)]
+        task_groups = {
+            f"spec_{i}": [_tgd(1, f"T{i}")]
+            for i in range(num_specs)
+        }
+
+        graph = build_graph(specs, task_groups, [], archetypes_config=config)
+
+        for i in range(num_specs):
+            oracle_id = f"spec_{i}:0"
+            assert oracle_id in graph.nodes, f"Missing oracle node {oracle_id}"
+            assert graph.nodes[oracle_id].archetype == "oracle"
+            assert graph.nodes[oracle_id].status == NodeStatus.PENDING

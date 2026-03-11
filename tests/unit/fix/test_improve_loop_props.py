@@ -44,7 +44,7 @@ class TestTerminationBound:
         config = AgentFoxConfig()
 
         analyzer_result = AnalyzerResult(
-            improvements=[make_improvement(id="IMP-1", confidence="high")],
+            improvements=[make_improvement(id="IMP-1", confidence=0.9)],
             summary="Test",
             diminishing_returns=False,
             raw_response="{}",

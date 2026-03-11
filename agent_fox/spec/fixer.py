@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -810,6 +811,42 @@ def fix_invalid_checkbox_state(
     return results
 
 
+def _find_last_table_line_in_section(
+    lines: list[str],
+    section_keywords: list[str],
+) -> int | None:
+    """Find the last table row inside a markdown section.
+
+    Scans for a ## heading whose normalized text contains all
+    *section_keywords*, then returns the index of the last pipe-delimited
+    row in that section.  Returns ``None`` if no matching section or
+    table is found.
+    """
+    in_section = False
+    last_table_line: int | None = None
+    for i, line in enumerate(lines):
+        heading = _H2_HEADING.match(line)
+        if heading:
+            normalized = _normalize_heading(heading.group(1).strip())
+            in_section = all(kw in normalized for kw in section_keywords)
+            continue
+        if in_section and line.strip().startswith("|"):
+            last_table_line = i
+    return last_table_line
+
+
+def _append_rows_to_table(
+    file_path: Path,
+    lines: list[str],
+    last_table_line: int,
+    new_rows: list[str],
+) -> None:
+    """Insert *new_rows* after *last_table_line* and write back."""
+    for j, row in enumerate(new_rows):
+        lines.insert(last_table_line + 1 + j, row)
+    file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def fix_traceability_table_mismatch(
     spec_name: str,
     spec_path: Path,
@@ -823,35 +860,13 @@ def fix_traceability_table_mismatch(
     if not tasks_path.is_file() or not missing_req_ids:
         return []
 
-    text = tasks_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-
-    # Find the last row of the traceability table
-    in_traceability = False
-    last_table_line: int | None = None
-    for i, line in enumerate(lines):
-        heading = _H2_HEADING.match(line)
-        if heading:
-            section = heading.group(1).strip()
-            in_traceability = (
-                "traceability" in _normalize_heading(section)
-            )
-            continue
-        if in_traceability and line.strip().startswith("|"):
-            last_table_line = i
-
-    if last_table_line is None:
+    lines = tasks_path.read_text(encoding="utf-8").splitlines()
+    last = _find_last_table_line_in_section(lines, ["traceability"])
+    if last is None:
         return []
 
-    # Append missing rows after the last table line
-    new_rows = []
-    for req_id in sorted(missing_req_ids):
-        new_rows.append(f"| {req_id} | TODO | TODO | TODO |")
-
-    for j, row in enumerate(new_rows):
-        lines.insert(last_table_line + 1 + j, row)
-
-    tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows = [f"| {rid} | TODO | TODO | TODO |" for rid in sorted(missing_req_ids)]
+    _append_rows_to_table(tasks_path, lines, last, rows)
 
     return [
         FixResult(
@@ -879,34 +894,13 @@ def fix_coverage_matrix_mismatch(
     if not ts_path.is_file() or not missing_req_ids:
         return []
 
-    text = ts_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-
-    # Find the last row of the coverage matrix table
-    in_matrix = False
-    last_table_line: int | None = None
-    for i, line in enumerate(lines):
-        heading = _H2_HEADING.match(line)
-        if heading:
-            section = heading.group(1).strip()
-            normalized = _normalize_heading(section)
-            in_matrix = "coverage" in normalized and "matrix" in normalized
-            continue
-        if in_matrix and line.strip().startswith("|"):
-            last_table_line = i
-
-    if last_table_line is None:
+    lines = ts_path.read_text(encoding="utf-8").splitlines()
+    last = _find_last_table_line_in_section(lines, ["coverage", "matrix"])
+    if last is None:
         return []
 
-    # Append missing rows after the last table line
-    new_rows = []
-    for req_id in sorted(missing_req_ids):
-        new_rows.append(f"| {req_id} | TODO | TODO |")
-
-    for j, row in enumerate(new_rows):
-        lines.insert(last_table_line + 1 + j, row)
-
-    ts_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows = [f"| {rid} | TODO | TODO |" for rid in sorted(missing_req_ids)]
+    _append_rows_to_table(ts_path, lines, last, rows)
 
     return [
         FixResult(
@@ -976,26 +970,66 @@ def apply_fixes(
 
     all_results: list[FixResult] = []
 
+    # Dispatch table: rule -> (filename, fixer_fn) for fixers that take
+    # (spec_name, file_path) and need only a file-existence guard.
+    _fixer = tuple[str, Callable[..., list[FixResult]]]
+    _FILE_FIXERS: dict[str, _fixer] = {
+        "missing-verification": (
+            "tasks.md", fix_missing_verification,
+        ),
+        "inconsistent-req-id-format": (
+            "requirements.md", fix_inconsistent_req_id_format,
+        ),
+        "missing-definition-of-done": (
+            "design.md", fix_missing_definition_of_done,
+        ),
+        "missing-error-table": (
+            "design.md", fix_missing_error_table,
+        ),
+        "missing-correctness-properties": (
+            "design.md", fix_missing_correctness_properties,
+        ),
+        "invalid-archetype-tag": (
+            "tasks.md", fix_invalid_archetype_tag,
+        ),
+        "malformed-archetype-tag": (
+            "tasks.md", fix_malformed_archetype_tag,
+        ),
+        "invalid-checkbox-state": (
+            "tasks.md", fix_invalid_checkbox_state,
+        ),
+    }
+
+    # Dispatch table: rule -> fixer_fn for fixers that take (spec_name, spec_path).
+    _DIR_FIXERS: dict[str, Callable[..., list[FixResult]]] = {
+        "missing-traceability-table": fix_missing_traceability_table,
+        "missing-coverage-matrix": fix_missing_coverage_matrix,
+    }
+
     for (spec_name, rule), _finding in fixable.items():
         spec = spec_by_name.get(spec_name)
         if spec is None:
             continue
 
         try:
-            if rule == "coarse-dependency":
+            if rule in _FILE_FIXERS:
+                filename, fixer_fn = _FILE_FIXERS[rule]
+                path = spec.path / filename
+                if path.is_file():
+                    all_results.extend(fixer_fn(spec_name, path))
+
+            elif rule in _DIR_FIXERS:
+                all_results.extend(_DIR_FIXERS[rule](spec_name, spec.path))
+
+            elif rule == "coarse-dependency":
                 prd_path = spec.path / "prd.md"
                 if prd_path.is_file():
                     current_groups = known_specs.get(spec_name, [])
-                    results = fix_coarse_dependency(
-                        spec_name, prd_path, known_specs, current_groups
+                    all_results.extend(
+                        fix_coarse_dependency(
+                            spec_name, prd_path, known_specs, current_groups
+                        )
                     )
-                    all_results.extend(results)
-
-            elif rule == "missing-verification":
-                tasks_path = spec.path / "tasks.md"
-                if tasks_path.is_file():
-                    results = fix_missing_verification(spec_name, tasks_path)
-                    all_results.extend(results)
 
             elif rule == "stale-dependency":
                 prd_path = spec.path / "prd.md"
@@ -1004,58 +1038,9 @@ def apply_fixes(
                         stale_dep_findings.get(spec_name, [])
                     )
                     if id_fixes:
-                        results = fix_stale_dependency(spec_name, prd_path, id_fixes)
-                        all_results.extend(results)
-
-            elif rule == "inconsistent-req-id-format":
-                req_path = spec.path / "requirements.md"
-                if req_path.is_file():
-                    results = fix_inconsistent_req_id_format(spec_name, req_path)
-                    all_results.extend(results)
-
-            elif rule == "missing-traceability-table":
-                results = fix_missing_traceability_table(spec_name, spec.path)
-                all_results.extend(results)
-
-            elif rule == "missing-coverage-matrix":
-                results = fix_missing_coverage_matrix(spec_name, spec.path)
-                all_results.extend(results)
-
-            elif rule == "missing-definition-of-done":
-                design_path = spec.path / "design.md"
-                if design_path.is_file():
-                    results = fix_missing_definition_of_done(spec_name, design_path)
-                    all_results.extend(results)
-
-            elif rule == "missing-error-table":
-                design_path = spec.path / "design.md"
-                if design_path.is_file():
-                    results = fix_missing_error_table(spec_name, design_path)
-                    all_results.extend(results)
-
-            elif rule == "missing-correctness-properties":
-                design_path = spec.path / "design.md"
-                if design_path.is_file():
-                    results = fix_missing_correctness_properties(spec_name, design_path)
-                    all_results.extend(results)
-
-            elif rule == "invalid-archetype-tag":
-                tasks_path = spec.path / "tasks.md"
-                if tasks_path.is_file():
-                    results = fix_invalid_archetype_tag(spec_name, tasks_path)
-                    all_results.extend(results)
-
-            elif rule == "malformed-archetype-tag":
-                tasks_path = spec.path / "tasks.md"
-                if tasks_path.is_file():
-                    results = fix_malformed_archetype_tag(spec_name, tasks_path)
-                    all_results.extend(results)
-
-            elif rule == "invalid-checkbox-state":
-                tasks_path = spec.path / "tasks.md"
-                if tasks_path.is_file():
-                    results = fix_invalid_checkbox_state(spec_name, tasks_path)
-                    all_results.extend(results)
+                        all_results.extend(
+                            fix_stale_dependency(spec_name, prd_path, id_fixes)
+                        )
 
             elif rule == "traceability-table-mismatch":
                 key = (spec_name, rule)
@@ -1063,10 +1048,11 @@ def apply_fixes(
                     mismatch_findings.get(key, [])
                 )
                 if missing_ids:
-                    results = fix_traceability_table_mismatch(
-                        spec_name, spec.path, missing_ids
+                    all_results.extend(
+                        fix_traceability_table_mismatch(
+                            spec_name, spec.path, missing_ids
+                        )
                     )
-                    all_results.extend(results)
 
             elif rule == "coverage-matrix-mismatch":
                 key = (spec_name, rule)
@@ -1074,10 +1060,11 @@ def apply_fixes(
                     mismatch_findings.get(key, [])
                 )
                 if missing_ids:
-                    results = fix_coverage_matrix_mismatch(
-                        spec_name, spec.path, missing_ids
+                    all_results.extend(
+                        fix_coverage_matrix_mismatch(
+                            spec_name, spec.path, missing_ids
+                        )
                     )
-                    all_results.extend(results)
 
         except OSError as exc:
             logger.warning(

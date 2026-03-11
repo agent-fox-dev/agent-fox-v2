@@ -203,6 +203,21 @@ EARS defines five requirement patterns. Use the appropriate pattern for each req
 | Unwanted      | IF \<condition\>, THEN THE \<system\> SHALL \<action\>                        | Error/exception handling              |
 | Optional      | WHERE \<feature\>, THE \<system\> SHALL \<action\>                            | Configurable/optional behavior        |
 
+### Good vs. Bad Requirements
+
+Every acceptance criterion line **must** contain the EARS keyword `SHALL`.
+The `lint-spec` validator flags criteria missing `SHALL` as `missing-ears-keyword`.
+
+**Bad** (vague, untestable, no EARS keyword):
+- `[05-REQ-1.1] The system should handle errors gracefully.`
+- `[05-REQ-1.2] Data processing must be fast and efficient.`
+- `[05-REQ-1.3] The system validates user input.`
+
+**Good** (precise, testable, EARS syntax):
+- `[05-REQ-1.1] IF an API call returns an HTTP 5xx status, THEN THE system SHALL retry up to 3 times with exponential backoff starting at 1 second.`
+- `[05-REQ-1.2] WHEN the user submits a batch of records, THE system SHALL process all records within 500ms per record.`
+- `[05-REQ-1.3] WHEN the user submits input, THE system SHALL validate all fields against the schema and return a 400 response listing each invalid field.`
+
 ### Identify Edge Cases
 
 For each requirement, ask:
@@ -245,11 +260,14 @@ Define all domain-specific terms used in this document.
 
 ### Requirement ID Format
 
-Prefix all requirement IDs with the spec number to create globally unique dentifiers:
+Prefix all requirement IDs with the spec number to create globally unique identifiers.
 
-- Format: `{NN}-REQ-{N}.{C}` where NN is the spec number, N is the requirement number, and C is the criterion number.
-- Example: `05-REQ-3.2` means spec 05, requirement 3, acceptance criterion 2.
-- Edge cases use the same prefix: `05-REQ-3.E1`.
+- Format: `[{NN}-REQ-{N}.{C}]` where NN is the spec number, N is the requirement number, and C is the criterion number.
+- Example: `[05-REQ-3.2]` means spec 05, requirement 3, acceptance criterion 2.
+- Edge cases use the same prefix: `[05-REQ-3.E1]`.
+
+**Always use bracket format** `[NN-REQ-N.C]` — never the bold format `**NN-REQ-N.C:**`.
+The validator flags mixed formats as inconsistent. Bracket format is the standard.
 
 Use these global IDs in cross-spec references, design doc property validation links, and traceability tables.
 
@@ -260,6 +278,10 @@ Use these global IDs in cross-spec references, design doc property validation li
 - Number acceptance criteria within each requirement for cross-referencing.
 - Include error-handling requirements using the Unwanted (IF/THEN) pattern.
 - Include a glossary entry for every domain term or abbreviation.
+- **Glossary cross-check:** After writing requirements.md, scan all acceptance
+  criteria for domain-specific terms. Every term that is not common English must
+  appear in the `## Glossary` section. If you used a term that readers might
+  interpret differently, define it.
 - Group related requirements logically.
 - Add explicit non-functional requirements where relevant (latency, throughput, reliability, security, observability, compatibility).
 - For each external dependency, specify failure behavior and fallback strategy.
@@ -737,12 +759,16 @@ Present the draft to the user for review.
 
 When a new spec replaces an existing one:
 
-1. Add a `## Supersedes` section to the new spec's PRD:
+1. Add a `## Supersedes` section to the new spec's PRD. **Use exactly this
+   heading** — the audit tooling (`af-spec-audit`) only recognizes
+   `## Supersedes` (not `## Superseded By`, `## Replaces`, etc.):
 
 ```markdown
 ## Supersedes
 - `09_bundled_templates` — fully replaced by this spec.
 ```
+
+   Each list item **must** use backtick-quoted spec folder name + dash + reason.
 
 2. Add a deprecation banner to the **top** of every file in the old spec folder:
 
@@ -771,3 +797,36 @@ specs/NN_specification_name/
 If the PRD was provided as a file, leave it in its original location.
 If the PRD was provided as a prompt, save it as `.specs/NN_specification_name/prd.md`, together with all clarifications and additional user input.
 If the PRD was provided as a GitHub issue, save the finalized PRD as `.specs/NN_specification_name/prd.md` and post it back to the issue as a comment (see Step 1).
+
+
+## Completeness Checklist
+
+After generating all 5 spec files, verify the following before presenting to the
+user. These checks mirror what `agent-fox lint-spec` validates:
+
+### Requirements (requirements.md)
+- [ ] Every acceptance criterion contains the EARS keyword `SHALL`
+- [ ] All requirement IDs use bracket format `[NN-REQ-N.C]` (not bold `**NN-REQ-N.C:**`)
+- [ ] `## Introduction` and `## Glossary` sections are present
+- [ ] Every domain-specific term used in criteria appears in the Glossary
+- [ ] No more than 10 requirements per spec
+
+### Design (design.md)
+- [ ] `## Correctness Properties` section with at least one `### Property N:` entry
+- [ ] `## Error Handling` section with a markdown table referencing requirement IDs
+- [ ] `## Definition of Done` section is present
+- [ ] `## Overview`, `## Architecture` sections are present
+- [ ] Every requirement ID in the error table exists in requirements.md
+
+### Test Specification (test_spec.md)
+- [ ] Every acceptance criterion has a `TS-NN-N` entry
+- [ ] Every correctness property has a `TS-NN-PN` entry
+- [ ] Every edge case has a `TS-NN-EN` entry
+- [ ] `## Coverage Matrix` section with a table listing every requirement ID
+
+### Implementation Tasks (tasks.md)
+- [ ] Task group 1 is "Write failing spec tests"
+- [ ] Every `TS-NN-N` entry is referenced by at least one task
+- [ ] Each task group has a verification subtask (N.V)
+- [ ] `## Traceability` section with a table listing every requirement ID
+- [ ] No task group has more than 6 non-verification subtasks

@@ -18,7 +18,7 @@ from agent_fox.spec.validator import Finding, sort_findings
 
 # -- Constants ----------------------------------------------------------------
 
-_MOCK_CLIENT = "agent_fox.spec.validator.create_async_anthropic_client"
+_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -101,7 +101,7 @@ class TestExtractBacktickIdentifiers:
 
     def test_extracts_two_identifiers(self, tmp_path: Path) -> None:
         """Two backtick-delimited tokens produce two DependencyRef objects."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(
             tmp_path,
@@ -118,7 +118,7 @@ class TestExtractBacktickIdentifiers:
 
     def test_declaring_spec_set(self, tmp_path: Path) -> None:
         """DependencyRef.declaring_spec is set to the calling spec name."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(tmp_path, "Uses `Config` for settings")
         prd_path = tmp_path / "prd.md"
@@ -129,7 +129,7 @@ class TestExtractBacktickIdentifiers:
 
     def test_upstream_spec_set(self, tmp_path: Path) -> None:
         """DependencyRef.upstream_spec is set from the Spec column."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(tmp_path, "Uses `Config` for settings")
         prd_path = tmp_path / "prd.md"
@@ -150,7 +150,7 @@ class TestStripTrailingParentheses:
 
     def test_parentheses_stripped(self, tmp_path: Path) -> None:
         """Trailing parentheses are removed from identifiers."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(
             tmp_path,
@@ -174,7 +174,7 @@ class TestPreserveDottedPaths:
 
     def test_dotted_path_preserved(self, tmp_path: Path) -> None:
         """Dotted paths remain unchanged."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(
             tmp_path,
@@ -198,7 +198,7 @@ class TestSkipRowsNoBacticks:
 
     def test_no_backticks_returns_empty(self, tmp_path: Path) -> None:
         """Plain-text Relationship produces no DependencyRef objects."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd_no_backticks(tmp_path)
         prd_path = tmp_path / "prd.md"
@@ -219,7 +219,7 @@ class TestStdlibTokensExtracted:
 
     def test_stdlib_extracted(self, tmp_path: Path) -> None:
         """Standard library tokens like `slog` and `context.Context` are extracted."""
-        from agent_fox.spec.validator import extract_relationship_identifiers
+        from agent_fox.spec.ai_validation import extract_relationship_identifiers
 
         _write_prd(
             tmp_path,
@@ -246,7 +246,7 @@ class TestAIValidatesFound:
     @pytest.mark.asyncio
     async def test_found_identifier_no_findings(self) -> None:
         """Identifiers found in design produce no findings."""
-        from agent_fox.spec.validator import (
+        from agent_fox.spec.ai_validation import (
             DependencyRef,
             validate_dependency_interfaces,
         )
@@ -294,7 +294,7 @@ class TestAIFlagsUnresolved:
     @pytest.mark.asyncio
     async def test_unfound_produces_warning(self) -> None:
         """Unresolved identifier produces a warning finding."""
-        from agent_fox.spec.validator import (
+        from agent_fox.spec.ai_validation import (
             DependencyRef,
             validate_dependency_interfaces,
         )
@@ -346,7 +346,7 @@ class TestMissingDesignSkips:
     @pytest.mark.asyncio
     async def test_missing_design_no_findings(self, tmp_path: Path) -> None:
         """Missing design.md produces no findings and no AI call."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         # Create spec with prd.md referencing 01_core, but 01_core has no design.md
         spec_dir = tmp_path / "10_downstream"
@@ -384,7 +384,7 @@ class TestAIUnavailableSkips:
     @pytest.mark.asyncio
     async def test_ai_error_returns_empty(self, tmp_path: Path) -> None:
         """AI error returns empty findings list."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         # Create spec with prd.md and upstream with design.md
         spec_dir = tmp_path / "10_downstream"
@@ -414,7 +414,7 @@ class TestAIUnavailableSkips:
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         """AI error produces a log warning."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         spec_dir = tmp_path / "10_downstream"
         spec_dir.mkdir()
@@ -455,7 +455,7 @@ class TestMalformedResponse:
     @pytest.mark.asyncio
     async def test_malformed_json_returns_empty(self) -> None:
         """Malformed JSON response returns empty findings."""
-        from agent_fox.spec.validator import (
+        from agent_fox.spec.ai_validation import (
             DependencyRef,
             validate_dependency_interfaces,
         )
@@ -497,7 +497,7 @@ class TestBatchSameUpstream:
         self, tmp_path: Path
     ) -> None:
         """Two specs referencing same upstream produce one AI call."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         # Spec A depends on 01_core
         spec_a_dir = tmp_path / "10_spec_a"
@@ -571,7 +571,7 @@ class TestNoBactickTokensZeroCalls:
     @pytest.mark.asyncio
     async def test_no_backticks_no_ai_calls(self, tmp_path: Path) -> None:
         """Plain-text Relationships produce zero AI calls."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         spec_dir = tmp_path / "10_downstream"
         spec_dir.mkdir()
@@ -608,7 +608,7 @@ class TestFindingSeverityFormat:
     @pytest.mark.asyncio
     async def test_findings_are_warning_severity(self) -> None:
         """stale-dependency findings have severity='warning'."""
-        from agent_fox.spec.validator import (
+        from agent_fox.spec.ai_validation import (
             DependencyRef,
             validate_dependency_interfaces,
         )
@@ -651,7 +651,7 @@ class TestFindingSeverityFormat:
 
         Requirements: 21-REQ-4.1, 21-REQ-4.2
         """
-        from agent_fox.spec.validator import run_ai_validation
+        from agent_fox.spec.ai_validation import run_ai_validation
 
         # Create spec with prd.md and requirements.md
         spec_dir = tmp_path / "10_downstream"
@@ -740,7 +740,7 @@ class TestMultipleUpstreamsSeparateCalls:
     @pytest.mark.asyncio
     async def test_two_upstreams_two_calls(self, tmp_path: Path) -> None:
         """Deps on two different upstreams produce two AI calls."""
-        from agent_fox.spec.validator import run_stale_dependency_validation
+        from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
         # Spec that depends on both 01_core and 02_store
         spec_dir = tmp_path / "10_downstream"

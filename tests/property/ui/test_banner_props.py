@@ -19,8 +19,7 @@ from rich.theme import Theme
 
 from agent_fox import __version__
 from agent_fox.core.config import ModelConfig, ThemeConfig
-from agent_fox.ui.banner import render_banner
-from agent_fox.ui.theme import create_theme
+from agent_fox.ui.display import create_theme, render_banner
 
 # Expected fox art from design.md
 EXPECTED_FOX_ART = r"""   /\_/\   _
@@ -98,7 +97,7 @@ class TestVersionLineAlwaysPresent:
     def test_version_model_line_for_valid_models(self, model_name: str) -> None:
         """Version/model line appears with correct resolved model ID."""
         model_config = ModelConfig(coding=model_name)
-        with patch("agent_fox.ui.banner._get_git_revision", return_value="abc1234"):
+        with patch("agent_fox.ui.display._get_git_revision", return_value="abc1234"):
             output = _capture_banner(ThemeConfig(), model_config)
 
         resolved_id = _MODEL_RESOLUTION[model_name]

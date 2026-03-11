@@ -16,10 +16,8 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    import duckdb
+import duckdb
 
 from agent_fox.core.errors import ConfigError
 from agent_fox.knowledge.causal import traverse_causal_chain
@@ -45,6 +43,59 @@ _ARCHETYPE_SPEC_FILES: list[tuple[str, str]] = [
     ("review.md", "## Skeptic Review"),
     ("verification.md", "## Verification Report"),
 ]
+
+
+def render_drift_context(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> str | None:
+    """Render active drift findings as a markdown section.
+
+    Returns None if no findings exist (32-REQ-8.E1).
+
+    Requirements: 32-REQ-8.1, 32-REQ-8.2
+    """
+    from agent_fox.knowledge.review_store import (
+        query_active_drift_findings,
+    )
+
+    findings = query_active_drift_findings(conn, spec_name)
+    if not findings:
+        return None
+
+    severity_groups = {
+        "critical": "### Critical Findings",
+        "major": "### Major Findings",
+        "minor": "### Minor Findings",
+        "observation": "### Observations",
+    }
+
+    lines = ["## Oracle Drift Report", ""]
+    counts: dict[str, int] = {"critical": 0, "major": 0, "minor": 0, "observation": 0}
+
+    for sev, header in severity_groups.items():
+        sev_findings = [f for f in findings if f.severity == sev]
+        counts[sev] = len(sev_findings)
+        if sev_findings:
+            lines.append(header)
+            for f in sev_findings:
+                desc = f.description
+                refs = []
+                if f.spec_ref:
+                    refs.append(f"spec: {f.spec_ref}")
+                if f.artifact_ref:
+                    refs.append(f"artifact: {f.artifact_ref}")
+                if refs:
+                    desc += f" ({', '.join(refs)})"
+                lines.append(f"- {desc}")
+            lines.append("")
+
+    lines.append(
+        f"Summary: {counts['critical']} critical, {counts['major']} major, "
+        f"{counts['minor']} minor, {counts['observation']} observations."
+    )
+
+    return "\n".join(lines)
 
 
 def render_review_context(
@@ -201,7 +252,8 @@ def assemble_context(
     spec_dir: Path,
     task_group: int,
     memory_facts: list[str] | None = None,
-    conn: duckdb.DuckDBPyConnection | None = None,
+    *,
+    conn: duckdb.DuckDBPyConnection,
 ) -> str:
     """Assemble task-specific context for a coding session.
 
@@ -211,10 +263,9 @@ def assemble_context(
     - test_spec.md
     - tasks.md
 
-    When a DB connection is provided, renders review/verification
-    sections from DuckDB instead of reading files (27-REQ-5.1, 27-REQ-5.2).
-    Falls back to file reading if DB is unavailable or has no records
-    (27-REQ-5.E1).
+    Renders review/verification/drift sections from DuckDB
+    (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.1, 38-REQ-4.2).
+    DB errors propagate — no file-based fallback (38-REQ-3.E1).
 
     Appends relevant memory facts (if provided).
 
@@ -227,30 +278,27 @@ def assemble_context(
     # Derive spec_name from directory name
     spec_name = spec_dir.name
 
-    # Determine which files to skip if DB rendering succeeds
+    # DB-backed rendering — errors propagate (38-REQ-3.E1, 38-REQ-4.2)
     db_rendered_files: set[str] = set()
 
-    if conn is not None:
-        try:
-            # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
-            _migrate_legacy_files(conn, spec_dir, spec_name)
+    # Attempt legacy file migration first (27-REQ-10.1, 27-REQ-10.2)
+    _migrate_legacy_files(conn, spec_dir, spec_name)
 
-            # Try DB-backed rendering (27-REQ-5.1, 27-REQ-5.2)
-            review_md = render_review_context(conn, spec_name)
-            if review_md is not None:
-                sections.append(review_md)
-                db_rendered_files.add("review.md")
+    # DB-backed rendering (27-REQ-5.1, 27-REQ-5.2, 38-REQ-4.3)
+    review_md = render_review_context(conn, spec_name)
+    if review_md is not None:
+        sections.append(review_md)
+        db_rendered_files.add("review.md")
 
-            verification_md = render_verification_context(conn, spec_name)
-            if verification_md is not None:
-                sections.append(verification_md)
-                db_rendered_files.add("verification.md")
-        except Exception:
-            logger.warning(
-                "DB-backed context rendering failed for %s, falling back to files",
-                spec_name,
-                exc_info=True,
-            )
+    verification_md = render_verification_context(conn, spec_name)
+    if verification_md is not None:
+        sections.append(verification_md)
+        db_rendered_files.add("verification.md")
+
+    # Render oracle drift report (32-REQ-8.1)
+    drift_md = render_drift_context(conn, spec_name)
+    if drift_md is not None:
+        sections.append(drift_md)
 
     # 03-REQ-4.1: Read spec documents
     file_sections: list[str] = []
@@ -286,8 +334,96 @@ def assemble_context(
         facts_text = "\n".join(f"- {fact}" for fact in memory_facts)
         sections.append(f"## Memory Facts\n\n{facts_text}")
 
+    # 39-REQ-6.1, 39-REQ-6.2: Include prior group findings
+    if task_group > 1:
+        try:
+            prior_findings = get_prior_group_findings(
+                conn, spec_name, task_group=task_group,
+            )
+            if prior_findings:
+                prior_section = render_prior_group_findings(prior_findings)
+                sections.append(prior_section)
+        except Exception:
+            logger.debug(
+                "Failed to fetch prior group findings for %s group %d",
+                spec_name,
+                task_group,
+            )
+
     # 03-REQ-4.3: Return formatted string with section headers
     return "\n\n---\n\n".join(sections)
+
+
+def get_prior_group_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    *,
+    task_group: int,
+) -> list:
+    """Query active review findings from prior task groups.
+
+    Returns findings from groups 1 through task_group-1 for the
+    given spec, excluding superseded findings.
+
+    Requirements: 39-REQ-6.1
+    """
+    from agent_fox.knowledge.review_store import ReviewFinding
+
+    if task_group <= 1:
+        return []
+
+    # Build list of prior group identifiers (as strings, matching DB format)
+    prior_groups = [str(g) for g in range(1, task_group)]
+    placeholders = ", ".join("?" for _ in prior_groups)
+
+    rows = conn.execute(
+        f"SELECT CAST(id AS VARCHAR), severity, description, requirement_ref, "
+        f"spec_name, task_group, session_id, superseded_by, created_at "
+        f"FROM review_findings "
+        f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+        f"AND superseded_by IS NULL "
+        f"ORDER BY created_at",
+        [spec_name, *prior_groups],
+    ).fetchall()
+
+    findings = []
+    for row in rows:
+        findings.append(
+            ReviewFinding(
+                id=str(row[0]),
+                severity=row[1],
+                description=row[2],
+                requirement_ref=row[3],
+                spec_name=row[4],
+                task_group=row[5],
+                session_id=row[6],
+                superseded_by=row[7],
+                created_at=row[8],
+            )
+        )
+
+    return findings
+
+
+def render_prior_group_findings(findings: list) -> str:
+    """Render prior group findings as a markdown section.
+
+    Findings are grouped under a "Prior Group Findings" header
+    to distinguish them from the current group's findings.
+
+    Requirements: 39-REQ-6.2
+    """
+    if not findings:
+        return ""
+
+    lines = ["## Prior Group Findings", ""]
+
+    for f in findings:
+        group_label = f"[group {f.task_group}]"
+        sev_label = f"[{f.severity}]"
+        lines.append(f"- {group_label} {sev_label} {f.description}")
+
+    return "\n".join(lines)
 
 
 def select_context_with_causal(

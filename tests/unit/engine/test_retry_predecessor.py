@@ -9,7 +9,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from agent_fox.core.config import OrchestratorConfig
-from agent_fox.engine.engine import GraphSync, Orchestrator
+from agent_fox.engine.engine import Orchestrator
+from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 
 

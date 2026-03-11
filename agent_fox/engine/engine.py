@@ -19,7 +19,6 @@ import asyncio
 import json
 import logging
 import signal
-from collections import Counter, deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,10 +29,12 @@ from agent_fox.core.config import (
     ArchetypesConfig,
     HookConfig,
     OrchestratorConfig,
+    PlanningConfig,
     RoutingConfig,
 )
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
+from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.state import (
@@ -50,6 +51,17 @@ from agent_fox.session.archetypes import get_archetype
 from agent_fox.ui.events import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _RoutingState:
+    """Groups all adaptive routing state for the Orchestrator."""
+
+    config: RoutingConfig
+    pipeline: Any | None
+    ladders: dict[str, Any]
+    assessments: dict[str, Any]
+    retries_before_escalation: int
 
 
 # ---------------------------------------------------------------------------
@@ -213,145 +225,6 @@ class CircuitBreaker:
 
 
 # ---------------------------------------------------------------------------
-# GraphSync (merged from sync.py)
-# ---------------------------------------------------------------------------
-
-
-class GraphSync:
-    """Graph state propagation: ready detection, cascade blocking.
-
-    Maintains a mutable view of node statuses and provides methods to
-    transition nodes through states, detect ready tasks, cascade-block
-    dependents, and detect stall conditions.
-    """
-
-    def __init__(
-        self,
-        node_states: dict[str, str],
-        edges: dict[str, list[str]],
-    ) -> None:
-        """Initialise graph sync with node states and dependency edges.
-
-        Args:
-            node_states: Mutable dict of node_id -> status string.
-                This is a shared reference — the same dict object is
-                held by ExecutionState.node_states, so mutations here
-                are immediately visible to the orchestrator and vice
-                versa.
-            edges: Adjacency list where each key is a node_id and its
-                value is a list of dependency node_ids (predecessors
-                that must complete before this node can execute).
-        """
-        self.node_states = node_states
-        self._edges = edges
-
-        # Build reverse adjacency: node -> list of nodes that depend on it.
-        # Used for cascade blocking (BFS forward through dependents).
-        self._dependents: dict[str, list[str]] = {n: [] for n in node_states}
-        for node, deps in edges.items():
-            for dep in deps:
-                if dep in self._dependents:
-                    self._dependents[dep].append(node)
-
-    def ready_tasks(self) -> list[str]:
-        """Return node_ids of all tasks that are ready to execute.
-
-        A task is ready when:
-        - Its status is ``pending``
-        - All of its dependencies have status ``completed``
-
-        Returns:
-            List of ready node_ids, sorted alphabetically for
-            deterministic ordering.
-        """
-        ready: list[str] = []
-        for node_id, status in self.node_states.items():
-            if status != "pending":
-                continue
-            deps = self._edges.get(node_id, [])
-            if all(self.node_states.get(d) == "completed" for d in deps):
-                ready.append(node_id)
-        return sorted(ready)
-
-    def predecessors(self, node_id: str) -> list[str]:
-        """Return predecessor node IDs for *node_id*."""
-        return self._edges.get(node_id, [])
-
-    def mark_completed(self, node_id: str) -> None:
-        """Mark a task as completed."""
-        self.node_states[node_id] = "completed"
-
-    def mark_failed(self, node_id: str) -> None:
-        """Mark a task as failed (before retry decision)."""
-        self.node_states[node_id] = "failed"
-
-    def mark_blocked(self, node_id: str, reason: str) -> list[str]:
-        """Mark a task as blocked and cascade-block all dependents.
-
-        Uses BFS to find all transitively dependent nodes and marks
-        them as blocked.
-
-        Args:
-            node_id: The task that exhausted retries.
-            reason: Human-readable blocking reason.
-
-        Returns:
-            List of node_ids that were cascade-blocked (does not include
-            the originally blocked node itself).
-        """
-        self.node_states[node_id] = "blocked"
-
-        # BFS through dependents to cascade the block
-        cascade_blocked: list[str] = []
-        queue: deque[str] = deque([node_id])
-        visited: set[str] = {node_id}
-
-        while queue:
-            current = queue.popleft()
-            for dependent in self._dependents.get(current, []):
-                if dependent in visited:
-                    continue
-                # Skip completed nodes (work is done) and in_progress
-                # nodes (actively executing; their result will be
-                # processed when they finish).
-                if self.node_states.get(dependent) in (
-                    "completed",
-                    "in_progress",
-                ):
-                    continue
-                visited.add(dependent)
-                self.node_states[dependent] = "blocked"
-                cascade_blocked.append(dependent)
-                queue.append(dependent)
-
-        return cascade_blocked
-
-    def mark_in_progress(self, node_id: str) -> None:
-        """Mark a task as in_progress (being executed)."""
-        self.node_states[node_id] = "in_progress"
-
-    def is_stalled(self) -> bool:
-        """Check if no progress is possible.
-
-        Returns True when no tasks are ready, no tasks are in_progress,
-        but incomplete tasks remain (i.e. there are still pending or
-        blocked tasks that are not completed).
-        """
-        has_ready = bool(self.ready_tasks())
-        has_in_progress = any(s == "in_progress" for s in self.node_states.values())
-        all_completed = all(s == "completed" for s in self.node_states.values())
-
-        if has_ready or has_in_progress or all_completed:
-            return False
-
-        return True
-
-    def summary(self) -> dict[str, int]:
-        """Return counts by status: {pending: N, completed: N, ...}."""
-        return dict(Counter(self.node_states.values()))
-
-
-# ---------------------------------------------------------------------------
 # Orchestrator (from orchestrator.py)
 # ---------------------------------------------------------------------------
 
@@ -416,14 +289,31 @@ def _ensure_archetype_nodes(
         first_group = sorted_groups[0]
         last_group = sorted_groups[-1]
 
-        # auto_pre injection (e.g., Skeptic at group 0)
-        for arch_name, entry in ARCHETYPE_REGISTRY.items():
-            if entry.injection != "auto_pre":
-                continue
-            if not getattr(archetypes_config, arch_name, False):
-                continue
+        # auto_pre injection (e.g., Skeptic/Oracle at group 0)
+        # 32-REQ-3.E1: When a legacy plan has {spec}:0 and we need to add
+        # another auto_pre, add the new one with a suffixed ID to avoid
+        # conflicting with the existing node.
+        enabled_auto_pre: list[tuple[str, Any]] = [
+            (arch_name, entry)
+            for arch_name, entry in ARCHETYPE_REGISTRY.items()
+            if entry.injection == "auto_pre"
+            and getattr(archetypes_config, arch_name, False)
+        ]
 
-            node_id = f"{spec}:0"
+        # Find existing auto_pre archetypes for this spec (group_number == 0)
+        existing_archetypes: set[str] = set()
+        for nid, n in nodes.items():
+            if n.get("spec_name") == spec and n.get("group_number") == 0:
+                existing_archetypes.add(n.get("archetype", ""))
+
+        needed = [
+            (arch_name, entry) for arch_name, entry in enabled_auto_pre
+            if arch_name not in existing_archetypes
+        ]
+
+        for arch_name, entry in needed:
+            # Use suffixed ID to avoid conflict with existing :0 node
+            node_id = f"{spec}:0:{arch_name}"
             if node_id in nodes:
                 continue  # already present
 
@@ -660,6 +550,7 @@ class Orchestrator:
         routing_config: RoutingConfig | None = None,
         assessment_pipeline: Any | None = None,
         archetypes_config: ArchetypesConfig | None = None,
+        planning_config: PlanningConfig | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -677,16 +568,17 @@ class Orchestrator:
         self._edges_list: list[dict] = []
         self._plan_data: dict = {}  # Full plan data for plan.json updates
         self._archetypes_config = archetypes_config
+        self._planning_config = planning_config or PlanningConfig()
 
         # 30-REQ-7: Adaptive routing state
-        self._routing_config = routing_config or RoutingConfig()
-        self._assessment_pipeline = assessment_pipeline
-        # Per-node escalation ladders and assessments (populated on first dispatch)
-        self._escalation_ladders: dict[str, Any] = {}
-        self._assessments: dict[str, Any] = {}
-
-        # 30-REQ-5.1: Handle max_retries deprecation
-        self._retries_before_escalation = self._resolve_retries_before_escalation()
+        _rc = routing_config or RoutingConfig()
+        self._routing = _RoutingState(
+            config=_rc,
+            pipeline=assessment_pipeline,
+            ladders={},
+            assessments={},
+            retries_before_escalation=self._resolve_retries_before_escalation(_rc),
+        )
 
         self._serial_runner = SerialRunner(
             session_runner_factory=session_runner_factory,
@@ -700,7 +592,9 @@ class Orchestrator:
                 inter_session_delay=float(config.inter_session_delay),
             )
 
-    def _resolve_retries_before_escalation(self) -> int:
+    def _resolve_retries_before_escalation(
+        self, routing_config: RoutingConfig,
+    ) -> int:
         """Resolve retries_before_escalation with max_retries deprecation.
 
         If routing.retries_before_escalation is at its default (1) and
@@ -709,7 +603,7 @@ class Orchestrator:
 
         Requirements: 30-REQ-5.1
         """
-        routing_retries = self._routing_config.retries_before_escalation
+        routing_retries = routing_config.retries_before_escalation
         orch_retries = self._config.max_retries
 
         # If routing config is explicitly set (non-default), it takes precedence
@@ -741,12 +635,12 @@ class Orchestrator:
 
         Requirements: 30-REQ-7.1, 30-REQ-7.E1
         """
-        if node_id in self._escalation_ladders:
+        if node_id in self._routing.ladders:
             return  # Already assessed
 
         # Without an assessment pipeline, skip adaptive routing entirely
         # and rely on the legacy retry path in _process_session_result.
-        if self._assessment_pipeline is None:
+        if self._routing.pipeline is None:
             return
 
         from agent_fox.routing.escalation import EscalationLadder
@@ -772,7 +666,7 @@ class Orchestrator:
             task_group = int(parts[1]) if len(parts) > 1 else 1
             spec_dir = Path(".specs") / spec_name
 
-            assessment = await self._assessment_pipeline.assess(
+            assessment = await self._routing.pipeline.assess(
                 node_id=node_id,
                 spec_name=spec_name,
                 task_group=task_group,
@@ -781,7 +675,7 @@ class Orchestrator:
                 tier_ceiling=tier_ceiling,
             )
             predicted_tier = assessment.predicted_tier
-            self._assessments[node_id] = assessment
+            self._routing.assessments[node_id] = assessment
 
             logger.info(
                 "Adaptive routing for %s: predicted_tier=%s confidence=%.2f "
@@ -807,9 +701,9 @@ class Orchestrator:
         ladder = EscalationLadder(
             starting_tier=predicted_tier,
             tier_ceiling=tier_ceiling,
-            retries_before_escalation=self._retries_before_escalation,
+            retries_before_escalation=self._routing.retries_before_escalation,
         )
-        self._escalation_ladders[node_id] = ladder
+        self._routing.ladders[node_id] = ladder
 
     def _record_node_outcome(
         self,
@@ -824,13 +718,13 @@ class Orchestrator:
 
         Requirements: 30-REQ-7.4, 30-REQ-3.1
         """
-        if self._assessment_pipeline is None:
+        if self._routing.pipeline is None:
             return
-        assessment = self._assessments.get(node_id)
+        assessment = self._routing.assessments.get(node_id)
         if assessment is None:
             return
 
-        ladder = self._escalation_ladders.get(node_id)
+        ladder = self._routing.ladders.get(node_id)
 
         # Aggregate metrics from all session records for this node
         node_records = [r for r in state.session_history if r.node_id == node_id]
@@ -842,7 +736,7 @@ class Orchestrator:
             files_touched.update(r.files_touched)
 
         try:
-            self._assessment_pipeline.record_outcome(
+            self._routing.pipeline.record_outcome(
                 assessment=assessment,
                 actual_tier=(
                     ladder.current_tier if ladder else assessment.predicted_tier
@@ -947,7 +841,19 @@ class Orchestrator:
                     self._state_manager.save(state)
                     return state
 
-                ready = self._graph_sync.ready_tasks()
+                # 39-REQ-1.1: Sort ready tasks by predicted duration
+                duration_hints = self._compute_duration_hints()
+                ready = self._graph_sync.ready_tasks(
+                    duration_hints=duration_hints
+                )
+
+                # 39-REQ-9.3: Filter conflicting tasks when enabled
+                if (
+                    self._planning_config.file_conflict_detection
+                    and self._is_parallel
+                    and len(ready) > 1
+                ):
+                    ready = self._filter_file_conflicts(ready)
 
                 if not ready:
                     if self._graph_sync.is_stalled():
@@ -990,6 +896,124 @@ class Orchestrator:
                 render_summary()
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
+
+    def _compute_duration_hints(self) -> dict[str, int] | None:
+        """Compute duration hints for ready task ordering.
+
+        When duration ordering is enabled and an assessment pipeline with
+        a DB connection is available, queries historical/regression/preset
+        duration hints for all pending nodes.
+
+        Returns:
+            Mapping of node_id to predicted duration in ms, or None
+            if duration ordering is disabled.
+
+        Requirements: 39-REQ-1.1, 39-REQ-2.2
+        """
+        if not self._planning_config.duration_ordering:
+            return None
+
+        pipeline = self._routing.pipeline
+        if pipeline is None:
+            return None
+
+        db = getattr(pipeline, "_db", None)
+        if db is None:
+            return None
+
+        try:
+            from agent_fox.routing.duration import get_duration_hint
+
+            duration_model = getattr(pipeline, "duration_model", None)
+            hints: dict[str, int] = {}
+
+            for node_id in self.node_states:
+                # Extract spec_name and archetype from plan node data
+                node_data = self._plan_nodes.get(node_id, {})
+                spec_name = node_data.get("spec_name", "")
+                archetype = node_data.get("archetype", "coder")
+                tier = node_data.get("tier", "STANDARD")
+
+                hint = get_duration_hint(
+                    db,
+                    node_id,
+                    spec_name,
+                    archetype,
+                    tier,
+                    min_outcomes=self._planning_config.min_outcomes_for_historical,
+                    model=duration_model,
+                )
+                hints[node_id] = hint.predicted_ms
+
+            return hints
+        except Exception:
+            logger.warning(
+                "Failed to compute duration hints, using default ordering",
+                exc_info=True,
+            )
+            return None
+
+    def _filter_file_conflicts(self, ready: list[str]) -> list[str]:
+        """Filter conflicting tasks from the ready set.
+
+        When file_conflict_detection is enabled, extracts predicted file
+        impacts for each ready task and serializes conflicting pairs.
+
+        Args:
+            ready: List of ready task node IDs.
+
+        Returns:
+            Filtered list with conflicting tasks serialized.
+
+        Requirements: 39-REQ-9.3
+        """
+        try:
+            from agent_fox.graph.file_impacts import (
+                FileImpact,
+                filter_conflicts_from_dispatch,
+            )
+
+            impacts: list[FileImpact] = []
+            for node_id in ready:
+                node_data = self._plan_nodes.get(node_id, {})
+                spec_name = node_data.get("spec_name", "")
+                task_group = node_data.get("task_group", 1)
+
+                # Try to extract file impacts from spec dir
+                if self._specs_dir is not None:
+                    spec_dir = self._specs_dir / spec_name
+                    if spec_dir.is_dir():
+                        from agent_fox.graph.file_impacts import extract_file_impacts
+
+                        predicted = extract_file_impacts(spec_dir, task_group)
+                        impacts.append(FileImpact(node_id, predicted))
+                    else:
+                        impacts.append(FileImpact(node_id, set()))
+                else:
+                    impacts.append(FileImpact(node_id, set()))
+
+            filtered = filter_conflicts_from_dispatch(ready, impacts)
+            if len(filtered) < len(ready):
+                deferred = set(ready) - set(filtered)
+                logger.info(
+                    "File conflict detection deferred %d tasks: %s",
+                    len(deferred),
+                    deferred,
+                )
+            return filtered
+        except Exception:
+            logger.warning(
+                "File conflict detection failed, dispatching all ready tasks",
+                exc_info=True,
+            )
+            return ready
+
+    @property
+    def node_states(self) -> dict[str, str]:
+        """Return node states from graph sync, or empty dict."""
+        if self._graph_sync is not None:
+            return self._graph_sync.node_states
+        return {}
 
     def _compute_plan_hash(self) -> str:
         """Compute plan hash, returning empty string if file doesn't exist."""
@@ -1067,7 +1091,7 @@ class Orchestrator:
             node_instances = self._get_node_instances(node_id)
 
             # 30-REQ-7.2: Pass assessed tier from escalation ladder
-            ladder = self._escalation_ladders.get(node_id)
+            ladder = self._routing.ladders.get(node_id)
             assessed_tier = ladder.current_tier if ladder else None
 
             record = await self._serial_runner.execute(
@@ -1156,7 +1180,7 @@ class Orchestrator:
                 node_instances = self._get_node_instances(node_id)
 
                 # 30-REQ-7.2: Pass assessed tier from escalation ladder
-                ladder = self._escalation_ladders.get(node_id)
+                ladder = self._routing.ladders.get(node_id)
                 assessed_tier = ladder.current_tier if ladder else None
 
                 task = asyncio.create_task(
@@ -1214,7 +1238,9 @@ class Orchestrator:
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
-                new_ready = graph_sync.ready_tasks()
+                new_ready = graph_sync.ready_tasks(
+                    duration_hints=self._compute_duration_hints()
+                )
                 await _fill_pool(new_ready)
 
             parallel_runner.track_tasks(list(pool))
@@ -1255,7 +1281,7 @@ class Orchestrator:
             archetype_entry = get_archetype(node_archetype)
 
             # 30-REQ-7.3: Use escalation ladder for retry/escalation decisions
-            ladder = self._escalation_ladders.get(node_id)
+            ladder = self._routing.ladders.get(node_id)
 
             if ladder is not None:
                 # Record failure on the escalation ladder
@@ -1457,7 +1483,21 @@ class Orchestrator:
                     "status": "pending",
                     "subtask_count": node.subtask_count,
                     "body": node.body,
+                    "archetype": node.archetype,
+                    "instances": node.instances,
                 }
+                state.node_states[nid] = "pending"
+
+        # 32-REQ-4.1: Inject archetype nodes for hot-loaded specs
+        plan_data = {
+            "nodes": self._plan_nodes,
+            "edges": self._edges_list,
+            "order": [],
+        }
+        _ensure_archetype_nodes(plan_data, self._archetypes_config)
+        # Sync any newly injected archetype nodes into state
+        for nid in self._plan_nodes:
+            if nid not in state.node_states:
                 state.node_states[nid] = "pending"
 
         # Rebuild edges and GraphSync with new nodes/edges
@@ -1465,6 +1505,14 @@ class Orchestrator:
             {"source": e.source, "target": e.target, "kind": e.kind}
             for e in updated_graph.edges
         ]
+        # Include any edges added by archetype injection
+        existing_edge_set = {
+            (e["source"], e["target"]) for e in self._edges_list
+        }
+        for e in plan_data.get("edges", []):
+            key = (e["source"], e["target"])
+            if key not in existing_edge_set:
+                self._edges_list.append(e)
         edges_dict = _build_edges_dict(self._plan_nodes, self._edges_list)
         self._graph_sync = GraphSync(state.node_states, edges_dict)
 

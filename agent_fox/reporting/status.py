@@ -42,6 +42,24 @@ class StatusReport:
     per_spec: dict[str, dict[str, int]]  # spec_name -> {status -> count}
     memory_total: int = 0
     memory_by_category: dict[str, int] = field(default_factory=dict)
+    cost_by_archetype: dict[str, float] = field(default_factory=dict)
+    cost_by_spec: dict[str, float] = field(default_factory=dict)
+
+
+def extract_spec_name(node_id: str) -> str:
+    """Extract spec name from a node_id by stripping the last colon-separated segment.
+
+    Requirements: 34-REQ-4.2, 34-REQ-4.E1
+
+    Args:
+        node_id: The node identifier string (e.g. "01_core_foundation:3").
+
+    Returns:
+        The spec name prefix. If no colon is present, returns the full node_id.
+    """
+    if ":" not in node_id:
+        return node_id
+    return node_id.rsplit(":", 1)[0]
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
@@ -255,6 +273,15 @@ def generate_status(
     memory_total = len(facts)
     memory_by_category = dict(Counter(f.category for f in facts))
 
+    # Compute per-archetype and per-spec cost breakdowns (34-REQ-3.3, 34-REQ-4.1)
+    cost_by_archetype: dict[str, float] = defaultdict(float)
+    cost_by_spec_agg: dict[str, float] = defaultdict(float)
+    if state is not None:
+        for record in state.session_history:
+            cost_by_archetype[record.archetype] += record.cost
+            spec_name = extract_spec_name(record.node_id)
+            cost_by_spec_agg[spec_name] += record.cost
+
     return StatusReport(
         counts=counts,
         total_tasks=total_tasks,
@@ -265,4 +292,6 @@ def generate_status(
         per_spec=per_spec,
         memory_total=memory_total,
         memory_by_category=memory_by_category,
+        cost_by_archetype=dict(cost_by_archetype),
+        cost_by_spec=dict(cost_by_spec_agg),
     )

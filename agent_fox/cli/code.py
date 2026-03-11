@@ -29,8 +29,8 @@ from agent_fox.knowledge.duckdb_sink import DuckDBSink
 from agent_fox.knowledge.ingest import run_background_ingestion
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.reporting.formatters import format_tokens
+from agent_fox.ui.display import create_theme
 from agent_fox.ui.progress import ProgressDisplay
-from agent_fox.ui.theme import create_theme
 
 logger = logging.getLogger(__name__)
 
@@ -132,13 +132,14 @@ def _print_summary(state: ExecutionState) -> None:
     click.echo(f"Status: {state.run_status}")
 
 
-def _ingest_if_available(
-    knowledge_db: KnowledgeDB | None,
+def _run_ingestion(
+    knowledge_db: KnowledgeDB,
     config: AgentFoxConfig,
 ) -> None:
-    """Run background knowledge ingestion if the store is available."""
-    if knowledge_db is None:
-        return
+    """Run background knowledge ingestion.
+
+    Requirements: 38-REQ-1.3
+    """
     try:
         run_background_ingestion(
             knowledge_db.connection,
@@ -234,12 +235,11 @@ def code_cmd(
     full_config: AgentFoxConfig = config
     hook_cfg: HookConfig | None = config.hooks
 
-    # 11-REQ-4.2: Create DuckDB sink for session outcome recording
-    # v2 three-layer model: session outcomes always, tool signals debug-only
+    # 11-REQ-4.2, 38-REQ-1.3: Create DuckDB sink for session outcome recording
+    # DuckDB is a hard requirement — open_knowledge_store raises on failure
     sink_dispatcher = SinkDispatcher()
     knowledge_db = open_knowledge_store(config.knowledge)
-    if knowledge_db is not None:
-        sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
+    sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
 
     # v2: attach JSONL audit sink when --debug is active
     if debug:
@@ -249,7 +249,7 @@ def code_cmd(
         sink_dispatcher.add(JsonlSink(jsonl_dir))
 
     # 12-REQ-4.1, 12-REQ-4.2: Ingest ADRs and git commits at startup
-    _ingest_if_available(knowledge_db, config)
+    _run_ingestion(knowledge_db, config)
 
     # 18-REQ-5.1: Create progress display (suppressed in JSON mode)
     theme = create_theme(config.theme)
@@ -290,15 +290,14 @@ def code_cmd(
             assessed_tier=assessed_tier,
         )
 
-    # 30-REQ-7.1: Create assessment pipeline for adaptive routing
+    # 30-REQ-7.1, 38-REQ-1.3: Create assessment pipeline for adaptive routing
     assessment_pipeline = None
     try:
         from agent_fox.routing.assessor import AssessmentPipeline
 
-        db_conn = knowledge_db.connection if knowledge_db else None
         assessment_pipeline = AssessmentPipeline(
             config=full_config.routing,
-            db=db_conn,
+            db=knowledge_db.connection,
         )
     except Exception:
         logger.warning(
@@ -319,10 +318,11 @@ def code_cmd(
             specs_dir=Path(".specs"),
             no_hooks=no_hooks,
             task_callback=progress.task_callback,
-            barrier_callback=lambda: _ingest_if_available(knowledge_db, config),
+            barrier_callback=lambda: _run_ingestion(knowledge_db, config),
             routing_config=full_config.routing,
             assessment_pipeline=assessment_pipeline,
             archetypes_config=full_config.archetypes,
+            planning_config=full_config.planning,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
@@ -351,11 +351,10 @@ def code_cmd(
     finally:
         progress.stop()
         # 12-REQ-4.1, 12-REQ-4.2: Re-ingest to capture new commits/ADRs
-        _ingest_if_available(knowledge_db, config)
+        _run_ingestion(knowledge_db, config)
         # Clean up knowledge store connection
         sink_dispatcher.close()
-        if knowledge_db is not None:
-            knowledge_db.close()
+        knowledge_db.close()
 
     # 23-REQ-5.1: emit JSONL summary in JSON mode
     if json_mode:
