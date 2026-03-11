@@ -115,31 +115,31 @@ extraction and template generation, (3) config merge logic, (4) wire into
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config_gen.py`
     - [x] Requirements 33-REQ-2.* acceptance criteria met
 
-- [ ] 4. Wire into init and clean up dead code
-  - [ ] 4.1 Remove `MemoryConfig` from `agent_fox/core/config.py`
+- [x] 4. Wire into init and clean up dead code
+  - [x] 4.1 Remove `MemoryConfig` from `agent_fox/core/config.py`
     - Delete `MemoryConfig` class
     - Remove `memory` field from `AgentFoxConfig`
     - Ensure `[memory]` in TOML is silently ignored (root model has `extra="ignore"`)
     - _Requirements: 33-REQ-5.1, 33-REQ-5.2_
 
-  - [ ] 4.2 Add `description` metadata to `Field()` calls in `config.py`
+  - [x] 4.2 Add `description` metadata to `Field()` calls in `config.py`
     - Add `description=` kwarg to fields that lack it, so the generator can
       extract meaningful comments
     - _Requirements: 33-REQ-1.2_
 
-  - [ ] 4.3 Update `agent_fox/cli/init.py` to use the generator
+  - [x] 4.3 Update `agent_fox/cli/init.py` to use the generator
     - Remove `_DEFAULT_CONFIG` string constant
     - Fresh init: call `generate_default_config()` and write result
     - Re-init: read existing file, call `merge_existing_config()`, write result
     - Update log messages to report merge actions
     - _Requirements: 33-REQ-1.1, 33-REQ-2.1 through 33-REQ-2.5_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest tests/unit/core/test_config_gen.py::TestDeadCodeRemoval -v`
-    - [ ] Integration tests pass: `uv run pytest tests/integration/test_init.py -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/core/config_gen.py agent_fox/cli/init.py`
-    - [ ] Requirements 33-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest tests/unit/core/test_config_gen.py::TestDeadCodeRemoval -v`
+    - [x] Integration tests pass: `uv run pytest tests/integration/test_init.py -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/core/config_gen.py agent_fox/cli/init.py`
+    - [x] Requirements 33-REQ-5.* acceptance criteria met
 
 - [ ] 5. Checkpoint — Integration and documentation
   - [ ] 5.1 Update or add integration tests in `tests/integration/test_init.py`

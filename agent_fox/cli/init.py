@@ -20,29 +20,6 @@ import click
 
 logger = logging.getLogger(__name__)
 
-# Default config.toml template with all sections commented out
-_DEFAULT_CONFIG = """\
-# agent-fox configuration
-# See documentation for all available settings.
-
-# [orchestrator]
-# parallel = 1
-# sync_interval = 5
-# session_timeout = 30
-# max_retries = 2
-
-# [models]
-# coding = "ADVANCED"
-# coordinator = "STANDARD"
-# memory_extraction = "SIMPLE"
-
-# [theme]
-# playful = true
-
-# [platform]
-# type = "none"
-"""
-
 # Lines to add to .gitignore
 _GITIGNORE_ENTRIES = [
     "# agent-fox",
@@ -142,13 +119,26 @@ def init_cmd(ctx: click.Context) -> None:
     agent_fox_dir = project_root / ".agent-fox"
     config_path = agent_fox_dir / "config.toml"
 
-    # 01-REQ-3.3: idempotency — preserve existing config
+    # 01-REQ-3.3, 33-REQ-2.*: re-init merges existing config with schema
     if config_path.exists():
-        if not json_mode:
-            click.echo(
-                "Project is already initialized. "
-                "Existing configuration preserved."
-            )
+        from agent_fox.core.config_gen import merge_existing_config
+
+        existing_content = config_path.read_text(encoding="utf-8")
+        merged_content = merge_existing_config(existing_content)
+        if merged_content != existing_content:
+            config_path.write_text(merged_content, encoding="utf-8")
+            logger.info("Config merged with current schema")
+            if not json_mode:
+                click.echo(
+                    "Project is already initialized. "
+                    "Configuration updated with new options."
+                )
+        else:
+            if not json_mode:
+                click.echo(
+                    "Project is already initialized. "
+                    "Existing configuration preserved."
+                )
         # Still ensure directory structure and gitignore are complete
         (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
@@ -169,8 +159,10 @@ def init_cmd(ctx: click.Context) -> None:
     (agent_fox_dir / "worktrees").mkdir(exist_ok=True)
     logger.debug("Created .agent-fox/ directory structure")
 
-    # 01-REQ-3.E1: create default config.toml
-    config_path.write_text(_DEFAULT_CONFIG)
+    # 01-REQ-3.E1, 33-REQ-1.1: create default config.toml from schema
+    from agent_fox.core.config_gen import generate_default_config
+
+    config_path.write_text(generate_default_config())
     logger.debug("Created default config.toml")
 
     # 01-REQ-3.2: create or verify develop branch
