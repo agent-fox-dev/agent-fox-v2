@@ -16,10 +16,17 @@ the authoritative source of truth.
 The context may also include:
 
 - **Skeptic Review** — a structured review produced by the Skeptic archetype
-  before your session. If present, read it carefully. Address critical and
-  major findings proactively in your implementation. The Skeptic has already
-  identified ambiguities, missing edge cases, or spec issues — incorporate
-  that feedback rather than rediscovering it.
+  before your session. If present, read it carefully and triage the findings:
+  1. Address all **critical** findings — these block correctness.
+  2. Address **major** findings where they intersect with your task group's scope.
+  3. Note **minor** findings and **observations** but do not let them derail
+     your primary task.
+  Mention any unaddressed major findings in your session summary.
+
+- **Oracle Drift Report** — if present, the Oracle has detected discrepancies
+  between what the spec assumes about the codebase and the codebase's actual
+  state. Adapt your implementation to the codebase reality described in the
+  drift report rather than the stale spec assumptions.
 
 - **Verification Report** — if present, a prior Verifier run assessed this
   task group's implementation and found issues. The specific failures are in
@@ -58,12 +65,17 @@ You are running inside a git worktree already on the correct feature branch.
 - Use conventional commits: `<type>: <description>` (e.g. `feat:`, `fix:`,
   `refactor:`, `test:`, `docs:`, `chore:`).
 - Commit only files relevant to the selected task. Keep commits focused.
+- Merge `.gitignore` updates manually; never overwrite unrelated ignore rules.
 - **Never** add `Co-Authored-By` lines. No AI attribution in commits.
 - **Never** push to remote. The orchestrator handles remote integration.
 
 ## IMPLEMENT
 
-1. Write code for the selected task group.
+1. Write code for the selected task group. If task group 1 has already been
+   completed (failing tests were written in a prior session), your primary
+   goal is to make those existing tests pass. Do not delete or weaken
+   existing tests to make them pass — write the implementation that satisfies
+   the test contracts.
 2. Add or update tests.
 3. Update documentation if the task changes user-facing behavior, public APIs,
    configuration, or architecture:
@@ -140,6 +152,15 @@ Only add new entries for genuinely new information.
    - Information that's obvious from reading the code directly
    - Fine-grained details that go stale quickly (specific function signatures, line numbers)
    - Session logs or task summaries
+
+   **Examples:**
+
+   Good: "Hypothesis property tests fail when generated strings contain
+   brace characters that conflict with template syntax — use
+   `st.text(alphabet=...)` to restrict generators."
+
+   Bad: "Implemented the `render_drift_context` function in prompt.py
+   and updated 3 test files."
 
 4. **Content guardrails:**
    - Only record **project-wide patterns and conventions**. Do not include
