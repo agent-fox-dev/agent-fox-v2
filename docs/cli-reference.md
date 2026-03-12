@@ -338,7 +338,6 @@ defaults are used for any absent field. Unknown keys are logged and ignored.
 | `coding` | string | `"ADVANCED"` | Model tier or ID for coding sessions |
 | `coordinator` | string | `"STANDARD"` | Model tier or ID for coordination |
 | `memory_extraction` | string | `"SIMPLE"` | Model tier or ID for fact extraction |
-| `embedding` | string | `"voyage-3"` | Embedding model name |
 
 Model tiers: `SIMPLE`, `STANDARD`, `ADVANCED`. You can also specify a model ID
 directly (e.g., `claude-sonnet-4-6`).

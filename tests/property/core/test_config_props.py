@@ -53,7 +53,6 @@ class TestConfigDefaultsCompleteness:
         assert config.models.coding == "ADVANCED"
         assert config.models.coordinator == "STANDARD"
         assert config.models.memory_extraction == "SIMPLE"
-        assert config.models.embedding == "voyage-3"
 
 
 class TestConfigNumericClamping:

@@ -70,7 +70,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("ModelConfig", "coding"): "Model tier for coding tasks",
     ("ModelConfig", "coordinator"): "Model tier for coordination",
     ("ModelConfig", "memory_extraction"): "Model tier for memory extraction",
-    ("ModelConfig", "embedding"): "Embedding model name",
     # HookConfig
     ("HookConfig", "pre_code"): "Commands to run before coding",
     ("HookConfig", "post_code"): "Commands to run after coding",

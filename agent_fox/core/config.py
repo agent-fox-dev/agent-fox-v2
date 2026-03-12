@@ -151,7 +151,6 @@ class ModelConfig(BaseModel):
     memory_extraction: str = Field(
         default="SIMPLE", description="Model tier for memory extraction"
     )
-    embedding: str = Field(default="voyage-3", description="Embedding model name")
 
 
 class HookConfig(BaseModel):

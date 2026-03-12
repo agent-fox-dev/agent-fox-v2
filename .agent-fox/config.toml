@@ -37,8 +37,6 @@
 # coordinator = "STANDARD"
 ## Model tier for memory extraction (default: "SIMPLE")
 # memory_extraction = "SIMPLE"
-## Embedding model name (default: "voyage-3")
-# embedding = "voyage-3"
 
 # [hooks]
 ## Commands to run before coding (default: [])
