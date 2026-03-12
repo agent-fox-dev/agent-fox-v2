@@ -4,6 +4,9 @@ Validates that structured findings from skeptic, verifier, and oracle
 sessions are parsed and persisted to DuckDB.
 
 Requirements: 27-REQ-3.1, 27-REQ-4.1, 27-REQ-4.2
+
+Updated for spec 38: Tests now use the shared knowledge_db fixture
+(38-REQ-5.3) instead of creating inline duckdb.connect() connections.
 """
 
 from __future__ import annotations
@@ -11,71 +14,20 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, PropertyMock
 
-import duckdb
-
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.db import KnowledgeDB
 
 
-def _make_db() -> MagicMock:
-    """Create a mock KnowledgeDB backed by an in-memory DuckDB."""
-    conn = duckdb.connect(":memory:")
-    conn.execute("""
-        CREATE TABLE review_findings (
-            id              UUID PRIMARY KEY,
-            severity        TEXT NOT NULL,
-            description     TEXT NOT NULL,
-            requirement_ref TEXT,
-            spec_name       TEXT NOT NULL,
-            task_group      TEXT NOT NULL,
-            session_id      TEXT NOT NULL,
-            superseded_by   TEXT,
-            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE verification_results (
-            id              UUID PRIMARY KEY,
-            requirement_id  TEXT NOT NULL,
-            verdict         TEXT NOT NULL,
-            evidence        TEXT,
-            spec_name       TEXT NOT NULL,
-            task_group      TEXT NOT NULL,
-            session_id      TEXT NOT NULL,
-            superseded_by   TEXT,
-            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE drift_findings (
-            id              UUID PRIMARY KEY,
-            severity        VARCHAR NOT NULL,
-            description     VARCHAR NOT NULL,
-            spec_ref        VARCHAR,
-            artifact_ref    VARCHAR,
-            spec_name       VARCHAR NOT NULL,
-            task_group      VARCHAR NOT NULL,
-            session_id      VARCHAR NOT NULL,
-            superseded_by   UUID,
-            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE fact_causes (
-            cause_id  UUID,
-            effect_id UUID,
-            PRIMARY KEY (cause_id, effect_id)
-        );
-    """)
-    mock_kb = MagicMock(spec=KnowledgeDB)
-    type(mock_kb).connection = PropertyMock(return_value=conn)
-    # Stash conn so tests can query it directly
-    mock_kb._test_conn = conn
-    return mock_kb
-
-
 class TestPersistSkepticFindings:
     """Skeptic findings are parsed from JSON and inserted into review_findings."""
 
-    def test_findings_persisted(self) -> None:
-        mock_kb = _make_db()
+    def test_findings_persisted(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(
-            "my_spec:0", AgentFoxConfig(), archetype="skeptic", knowledge_db=mock_kb
+            "my_spec:0",
+            AgentFoxConfig(),
+            archetype="skeptic",
+            knowledge_db=knowledge_db,
         )
         transcript = json.dumps(
             {
@@ -94,7 +46,7 @@ class TestPersistSkepticFindings:
         )
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
-        rows = mock_kb._test_conn.execute(
+        rows = knowledge_db._conn.execute(
             "SELECT severity, description, requirement_ref, spec_name, task_group "
             "FROM review_findings ORDER BY severity"
         ).fetchall()
@@ -108,14 +60,16 @@ class TestPersistSkepticFindings:
         )
         assert rows[1] == ("minor", "Docstring inconsistency", None, "my_spec", "0")
 
-    def test_no_json_logs_warning_no_crash(self) -> None:
-        mock_kb = _make_db()
+    def test_no_json_logs_warning_no_crash(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(
-            "my_spec:0", AgentFoxConfig(), archetype="skeptic", knowledge_db=mock_kb
+            "my_spec:0",
+            AgentFoxConfig(),
+            archetype="skeptic",
+            knowledge_db=knowledge_db,
         )
         runner._persist_review_findings("No JSON here at all.", "my_spec:0", 1)
 
-        rows = mock_kb._test_conn.execute(
+        rows = knowledge_db._conn.execute(
             "SELECT COUNT(*) FROM review_findings"
         ).fetchone()
         assert rows[0] == 0
@@ -124,10 +78,12 @@ class TestPersistSkepticFindings:
 class TestPersistVerifierVerdicts:
     """Verifier verdicts are parsed from JSON and inserted into verification_results."""
 
-    def test_verdicts_persisted(self) -> None:
-        mock_kb = _make_db()
+    def test_verdicts_persisted(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(
-            "my_spec:7", AgentFoxConfig(), archetype="verifier", knowledge_db=mock_kb
+            "my_spec:7",
+            AgentFoxConfig(),
+            archetype="verifier",
+            knowledge_db=knowledge_db,
         )
         transcript = json.dumps(
             {
@@ -147,7 +103,7 @@ class TestPersistVerifierVerdicts:
         )
         runner._persist_review_findings(transcript, "my_spec:7", 1)
 
-        rows = mock_kb._test_conn.execute(
+        rows = knowledge_db._conn.execute(
             "SELECT requirement_id, verdict, evidence, spec_name, task_group "
             "FROM verification_results ORDER BY requirement_id"
         ).fetchall()
@@ -165,10 +121,9 @@ class TestPersistVerifierVerdicts:
 class TestPersistOracleDrift:
     """Oracle drift findings are parsed and inserted into drift_findings."""
 
-    def test_drift_findings_persisted(self) -> None:
-        mock_kb = _make_db()
+    def test_drift_findings_persisted(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(
-            "my_spec:0", AgentFoxConfig(), archetype="oracle", knowledge_db=mock_kb
+            "my_spec:0", AgentFoxConfig(), archetype="oracle", knowledge_db=knowledge_db
         )
         transcript = json.dumps(
             {
@@ -184,7 +139,7 @@ class TestPersistOracleDrift:
         )
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
-        rows = mock_kb._test_conn.execute(
+        rows = knowledge_db._conn.execute(
             "SELECT severity, description, spec_ref, artifact_ref, spec_name "
             "FROM drift_findings"
         ).fetchall()
@@ -201,17 +156,16 @@ class TestPersistOracleDrift:
 class TestCoderSkipped:
     """Non-review archetypes are silently skipped."""
 
-    def test_coder_does_nothing(self) -> None:
-        mock_kb = _make_db()
+    def test_coder_does_nothing(self, knowledge_db: KnowledgeDB) -> None:
         runner = NodeSessionRunner(
-            "my_spec:1", AgentFoxConfig(), archetype="coder", knowledge_db=mock_kb
+            "my_spec:1", AgentFoxConfig(), archetype="coder", knowledge_db=knowledge_db
         )
         transcript = json.dumps(
             {"findings": [{"severity": "critical", "description": "x"}]}
         )
         runner._persist_review_findings(transcript, "my_spec:1", 1)
 
-        rows = mock_kb._test_conn.execute(
+        rows = knowledge_db._conn.execute(
             "SELECT COUNT(*) FROM review_findings"
         ).fetchone()
         assert rows[0] == 0

@@ -4,11 +4,15 @@ Test Spec: TS-11-7 (always-on outcomes), TS-11-8 (debug gating),
            TS-11-9 (multiple touched paths)
 Edge cases: TS-11-E3 (write failure non-fatal), TS-11-E7 (empty touched paths)
 Requirements: 11-REQ-5.1, 11-REQ-5.2, 11-REQ-5.3, 11-REQ-5.4, 11-REQ-5.E1
+
+Updated for spec 38: Tests now use the shared knowledge_conn fixture
+(38-REQ-5.3) instead of creating inline duckdb.connect() connections.
 """
 
 from __future__ import annotations
 
 import duckdb
+import pytest
 
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
 from agent_fox.knowledge.sink import SessionOutcome, ToolCall, ToolError
@@ -21,11 +25,11 @@ class TestDuckDBSinkRecordsSessionOutcome:
     Requirements: 11-REQ-5.1, 11-REQ-5.2
     """
 
-    def test_records_outcome_with_debug_false(self) -> None:
+    def test_records_outcome_with_debug_false(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify outcome is written even with debug=False."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=False)
+        sink = DuckDBSink(knowledge_conn, debug=False)
 
         outcome = SessionOutcome(
             spec_name="test_spec",
@@ -39,17 +43,18 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
+        rows = knowledge_conn.execute(
+            "SELECT spec_name, status FROM session_outcomes"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "test_spec"
         assert rows[0][1] == "completed"
-        conn.close()
 
-    def test_records_outcome_with_debug_true(self) -> None:
+    def test_records_outcome_with_debug_true(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify outcome is written with debug=True."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=True)
+        sink = DuckDBSink(knowledge_conn, debug=True)
 
         outcome = SessionOutcome(
             spec_name="debug_spec",
@@ -57,11 +62,12 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
+        rows = knowledge_conn.execute(
+            "SELECT spec_name, status FROM session_outcomes"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "debug_spec"
         assert rows[0][1] == "failed"
-        conn.close()
 
 
 class TestDuckDBSinkDebugGating:
@@ -70,31 +76,39 @@ class TestDuckDBSinkDebugGating:
     Requirements: 11-REQ-5.3, 11-REQ-5.4
     """
 
-    def test_tool_calls_no_op_when_debug_false(self) -> None:
+    def test_tool_calls_no_op_when_debug_false(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify tool_calls table empty when debug=False."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=False)
+        sink = DuckDBSink(knowledge_conn, debug=False)
 
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0
-        conn.close()
+        assert (
+            knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
+        )
+        assert (
+            knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0]
+            == 0
+        )
 
-    def test_tool_calls_written_when_debug_true(self) -> None:
+    def test_tool_calls_written_when_debug_true(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify tool_calls and tool_errors are written when debug=True."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=True)
+        sink = DuckDBSink(knowledge_conn, debug=True)
 
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
-        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1
-        conn.close()
+        assert (
+            knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
+        )
+        assert (
+            knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0]
+            == 1
+        )
 
 
 class TestDuckDBSinkMultipleTouchedPaths:
@@ -103,11 +117,11 @@ class TestDuckDBSinkMultipleTouchedPaths:
     Requirement: 11-REQ-5.2
     """
 
-    def test_creates_one_row_per_path(self) -> None:
+    def test_creates_one_row_per_path(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify 3 touched paths produce 3 rows with same id."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=False)
+        sink = DuckDBSink(knowledge_conn, debug=False)
 
         outcome = SessionOutcome(
             spec_name="multi",
@@ -116,12 +130,11 @@ class TestDuckDBSinkMultipleTouchedPaths:
         )
         sink.record_session_outcome(outcome)
 
-        rows = conn.execute(
+        rows = knowledge_conn.execute(
             "SELECT touched_path FROM session_outcomes ORDER BY touched_path"
         ).fetchall()
         assert len(rows) == 3
         assert [r[0] for r in rows] == ["a.py", "b.py", "c.py"]
-        conn.close()
 
 
 # -- Edge Case Tests ---------------------------------------------------------
@@ -131,12 +144,13 @@ class TestDuckDBSinkWriteFailurePropagates:
     """TS-11-E3 (superseded by 38-REQ-3.1): DuckDB sink errors propagate.
 
     Requirement: 38-REQ-3.1 (supersedes 11-REQ-5.E1)
+
+    Note: These tests deliberately close the connection to trigger errors,
+    so they cannot use the knowledge_conn fixture (whose teardown would fail).
     """
 
     def test_closed_connection_raises(self) -> None:
         """Verify write to closed connection raises (38-REQ-3.1)."""
-        import pytest
-
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=False)
@@ -147,8 +161,6 @@ class TestDuckDBSinkWriteFailurePropagates:
 
     def test_tool_call_on_closed_conn_raises(self) -> None:
         """Verify tool call on closed connection raises (38-REQ-3.1)."""
-        import pytest
-
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=True)
@@ -159,8 +171,6 @@ class TestDuckDBSinkWriteFailurePropagates:
 
     def test_tool_error_on_closed_conn_raises(self) -> None:
         """Verify tool error on closed connection raises (38-REQ-3.1)."""
-        import pytest
-
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=True)
@@ -176,15 +186,16 @@ class TestDuckDBSinkEmptyTouchedPaths:
     Requirement: 11-REQ-5.2
     """
 
-    def test_empty_paths_creates_one_null_row(self) -> None:
+    def test_empty_paths_creates_one_null_row(
+        self, knowledge_conn: duckdb.DuckDBPyConnection
+    ) -> None:
         """Verify empty touched_paths creates one row with NULL touched_path."""
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-        sink = DuckDBSink(conn, debug=False)
+        sink = DuckDBSink(knowledge_conn, debug=False)
 
         sink.record_session_outcome(SessionOutcome(status="failed", touched_paths=[]))
 
-        rows = conn.execute("SELECT touched_path FROM session_outcomes").fetchall()
+        rows = knowledge_conn.execute(
+            "SELECT touched_path FROM session_outcomes"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] is None
-        conn.close()

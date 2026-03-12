@@ -2,6 +2,9 @@
 
 Test Spec: TS-39-14, TS-39-15, TS-39-16
 Requirements: 39-REQ-5.1, 39-REQ-5.2, 39-REQ-5.3
+
+Updated for spec 38: Tests now use the shared knowledge_conn fixture
+(38-REQ-5.3) instead of creating inline duckdb.connect() connections.
 """
 
 from __future__ import annotations
@@ -11,7 +14,6 @@ import uuid
 import duckdb
 import pytest
 
-from tests.unit.knowledge.conftest import create_schema
 from tests.unit.memory.conftest import make_fact
 
 # ---------------------------------------------------------------------------
@@ -26,19 +28,17 @@ def _seed_facts(conn: duckdb.DuckDBPyConnection, spec_name: str, n: int = 5) -> 
         conn.execute(
             """INSERT INTO memory_facts
                (id, content, spec_name, category, confidence, created_at)
-               VALUES (?::UUID, ?, ?, 'pattern', 'high', CURRENT_TIMESTAMP)""",
+               VALUES (?::UUID, ?, ?, 'pattern', 0.9, CURRENT_TIMESTAMP)""",
             [fact_id, f"Fact {i} for {spec_name}", spec_name],
         )
 
 
 @pytest.fixture
-def cache_db() -> duckdb.DuckDBPyConnection:
-    """In-memory DuckDB with schema and seeded facts for cache tests."""
-    conn = duckdb.connect(":memory:")
-    create_schema(conn)
-    _seed_facts(conn, "spec_a", n=5)
-    _seed_facts(conn, "spec_b", n=3)
-    return conn
+def cache_db(knowledge_conn: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyConnection:
+    """knowledge_conn with seeded facts for cache tests."""
+    _seed_facts(knowledge_conn, "spec_a", n=5)
+    _seed_facts(knowledge_conn, "spec_b", n=3)
+    return knowledge_conn
 
 
 # ---------------------------------------------------------------------------
@@ -52,9 +52,7 @@ class TestFactCache:
     Requirements: 39-REQ-5.1, 39-REQ-5.2, 39-REQ-5.3
     """
 
-    def test_precompute_rankings(
-        self, cache_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_precompute_rankings(self, cache_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-14: Pre-computed rankings exist for each spec.
 
         Requirement: 39-REQ-5.1
