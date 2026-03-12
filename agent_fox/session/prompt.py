@@ -20,7 +20,12 @@ from pathlib import Path
 import duckdb
 
 from agent_fox.core.errors import ConfigError
-from agent_fox.knowledge.causal import traverse_causal_chain
+from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews
+from agent_fox.knowledge.review_store import (
+    DriftFinding,
+    ReviewFinding,
+    VerificationResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -426,6 +431,49 @@ def render_prior_group_findings(findings: list) -> str:
     return "\n".join(lines)
 
 
+def _traversal_item_to_dict(item: object) -> dict | None:
+    """Convert a traversal result item to a dict for context assembly.
+
+    Handles CausalFact, ReviewFinding, DriftFinding, and VerificationResult
+    objects, tagging non-CausalFact items with a ``type`` key.
+
+    Requirements: 42-REQ-1.2
+    """
+    if isinstance(item, CausalFact):
+        return {
+            "id": item.fact_id,
+            "content": item.content,
+            "spec_name": item.spec_name,
+            "session_id": item.session_id,
+            "commit_sha": item.commit_sha,
+        }
+    if isinstance(item, ReviewFinding):
+        return {
+            "id": item.id,
+            "type": "review",
+            "severity": item.severity,
+            "content": f"[review] [severity: {item.severity}] {item.description}",
+            "spec_name": item.spec_name,
+        }
+    if isinstance(item, DriftFinding):
+        return {
+            "id": item.id,
+            "type": "drift",
+            "severity": item.severity,
+            "content": f"[drift] [severity: {item.severity}] {item.description}",
+            "spec_name": item.spec_name,
+        }
+    if isinstance(item, VerificationResult):
+        return {
+            "id": item.id,
+            "type": "verification",
+            "severity": item.verdict,
+            "content": f"[verification] {item.requirement_id}: {item.verdict}",
+            "spec_name": item.spec_name,
+        }
+    return None
+
+
 def select_context_with_causal(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
@@ -458,28 +506,21 @@ def select_context_with_causal(
     result: list[dict] = list(selected_keywords)
 
     # 2. For each keyword fact, traverse causal graph for linked facts
+    #    using traverse_with_reviews to include review/drift/verification findings.
+    #    Requirements: 42-REQ-1.1, 42-REQ-1.2, 42-REQ-1.3
     causal_candidates: list[tuple[int, dict]] = []  # (abs_depth, fact_dict)
     for kw_fact in selected_keywords:
         fact_id = kw_fact["id"]
         try:
-            chain = traverse_causal_chain(conn, fact_id, max_depth=3)
+            chain = traverse_with_reviews(conn, fact_id, max_depth=3)
         except Exception:
             logger.debug("Failed to traverse causal chain for fact %s", fact_id)
             continue
-        for cf in chain:
-            if cf.fact_id not in seen_ids:
-                causal_candidates.append(
-                    (
-                        abs(cf.depth),
-                        {
-                            "id": cf.fact_id,
-                            "content": cf.content,
-                            "spec_name": cf.spec_name,
-                            "session_id": cf.session_id,
-                            "commit_sha": cf.commit_sha,
-                        },
-                    )
-                )
+        for item in chain:
+            item_dict = _traversal_item_to_dict(item)
+            if item_dict is not None and item_dict["id"] not in seen_ids:
+                depth = abs(item.depth) if isinstance(item, CausalFact) else 0
+                causal_candidates.append((depth, item_dict))
 
     # 3. Also query for facts linked to the current spec_name
     try:
@@ -492,23 +533,14 @@ def select_context_with_causal(
             fid = row[0]
             if fid not in seen_ids:
                 try:
-                    chain = traverse_causal_chain(conn, fid, max_depth=2)
+                    chain = traverse_with_reviews(conn, fid, max_depth=2)
                 except Exception:
                     continue
-                for cf in chain:
-                    if cf.fact_id not in seen_ids:
-                        causal_candidates.append(
-                            (
-                                abs(cf.depth),
-                                {
-                                    "id": cf.fact_id,
-                                    "content": cf.content,
-                                    "spec_name": cf.spec_name,
-                                    "session_id": cf.session_id,
-                                    "commit_sha": cf.commit_sha,
-                                },
-                            )
-                        )
+                for item in chain:
+                    item_dict = _traversal_item_to_dict(item)
+                    if item_dict is not None and item_dict["id"] not in seen_ids:
+                        depth = abs(item.depth) if isinstance(item, CausalFact) else 0
+                        causal_candidates.append((depth, item_dict))
     except Exception:
         logger.debug("Failed to query facts for spec_name %s", spec_name)
 

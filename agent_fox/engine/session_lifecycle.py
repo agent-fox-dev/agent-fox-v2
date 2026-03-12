@@ -232,6 +232,7 @@ class NodeSessionRunner:
                     all_facts,
                     self._spec_name,
                     task_keywords=[self._spec_name],
+                    confidence_threshold=self._config.knowledge.confidence_threshold,
                 )
                 if relevant:
                     # 13-REQ-7.1: Enhance with causal context if DB available

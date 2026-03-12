@@ -62,8 +62,8 @@ rendering logic.
     - Run spec tests: all new tests should fail (red phase)
     - Run full suite: existing tests must still pass
 
-- [ ] 2. Causal traversal integration + confidence threshold propagation
-  - [ ] 2.1 Update `select_context_with_causal()` in `agent_fox/session/prompt.py`
+- [x] 2. Causal traversal integration + confidence threshold propagation
+  - [x] 2.1 Update `select_context_with_causal()` in `agent_fox/session/prompt.py`
     - Replace `traverse_causal_chain` import with `traverse_with_reviews`
     - Update traversal calls to use `traverse_with_reviews()`
     - Handle non-CausalFact objects in the result processing loop
@@ -71,13 +71,13 @@ rendering logic.
     - Maintain deduplication via `seen_ids` set
     - _Test Spec: TS-42-1 through TS-42-5, TS-42-E1, TS-42-E2_
 
-  - [ ] 2.2 Thread confidence threshold from config through session lifecycle
+  - [x] 2.2 Thread confidence threshold from config through session lifecycle
     - Identify all call sites of `select_relevant_facts()` in the codebase
     - Update each call site to pass `config.knowledge.confidence_threshold`
     - Update `precompute_fact_rankings()` call sites to pass threshold from config
     - _Test Spec: TS-42-6 through TS-42-9_
 
-  - [ ] 2.3 Verify task group 2 tests pass
+  - [x] 2.3 Verify task group 2 tests pass
     - Run spec tests for causal and confidence: TS-42-1 through TS-42-9, TS-42-E1, TS-42-E2
     - Run property tests TS-42-P1 and TS-42-P2
     - Run full test suite to confirm no regressions
