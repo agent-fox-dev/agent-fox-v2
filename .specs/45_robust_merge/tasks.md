@@ -95,30 +95,30 @@ merge agent, then integration into harvest/workspace flows.
     - [x] No linter warnings: `uv run ruff check agent_fox/workspace/merge_agent.py`
     - [x] Requirements 45-REQ-4.* met
 
-- [ ] 4. Integrate lock and agent into harvest/workspace
-  - [ ] 4.1 Modify `harvest()` in `agent_fox/workspace/harvest.py`
+- [x] 4. Integrate lock and agent into harvest/workspace
+  - [x] 4.1 Modify `harvest()` in `agent_fox/workspace/harvest.py`
     - Wrap entire harvest + post-harvest in `async with MergeLock(...)`
     - Replace `-X theirs` fallback with `run_merge_agent()` call
     - On agent failure, raise IntegrationError
     - _Requirements: 45-REQ-3.1, 45-REQ-4.1, 45-REQ-6.1_
 
-  - [ ] 4.2 Modify `_sync_develop_with_remote()` in `agent_fox/workspace/workspace.py`
+  - [x] 4.2 Modify `_sync_develop_with_remote()` in `agent_fox/workspace/workspace.py`
     - Wrap develop-sync in `async with MergeLock(...)`
     - Replace `-X ours` fallback with `run_merge_agent()` call
     - On agent failure, log warning and leave develop as-is
     - _Requirements: 45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1,
       45-REQ-6.2_
 
-  - [ ] 4.3 Modify `_push_develop_if_pushable()` in `agent_fox/workspace/harvest.py`
+  - [x] 4.3 Modify `_push_develop_if_pushable()` in `agent_fox/workspace/harvest.py`
     - Ensure it runs inside the merge lock (already covered by harvest lock
       scope, but verify the develop-sync call within it is also locked)
     - _Requirements: 45-REQ-3.1, 45-REQ-3.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Harvest locking tests pass: `uv run pytest tests/unit/workspace/test_harvest_locking.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/workspace/harvest.py agent_fox/workspace/workspace.py`
-    - [ ] Requirements 45-REQ-3.*, 45-REQ-5.*, 45-REQ-6.* met
+  - [x] 4.V Verify task group 4
+    - [x] Harvest locking tests pass: `uv run pytest tests/unit/workspace/test_harvest_locking.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/workspace/harvest.py agent_fox/workspace/workspace.py`
+    - [x] Requirements 45-REQ-3.*, 45-REQ-5.*, 45-REQ-6.* met
 
 - [ ] 5. Checkpoint — Robust Merge Complete
   - Ensure all tests pass: `uv run pytest -q`

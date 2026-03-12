@@ -3,14 +3,15 @@
 Test Spec: TS-36-3, TS-36-8, TS-36-9, TS-36-E1, TS-36-E2, TS-36-E3,
            TS-36-P1, TS-36-P2
 Requirements: 36-REQ-1.1 through 36-REQ-1.3, 36-REQ-1.E1, 36-REQ-2.E1,
-              36-REQ-2.E2, 36-REQ-3.1, 36-REQ-3.2
+              36-REQ-2.E2, 36-REQ-3.1, 36-REQ-3.2,
+              45-REQ-5.1, 45-REQ-6.2
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -421,12 +422,23 @@ class TestFallbackChainOrdering:
 
     @pytest.mark.asyncio
     async def test_full_chain_when_rebase_and_merge_fail(self, tmp_path: Path) -> None:
-        """When rebase and merge fail, -X ours is attempted."""
+        """When rebase and merge fail, merge agent is spawned (45-REQ-5.1).
+
+        Previously tested -X ours fallback; now verifies agent fallback
+        per 45-REQ-6.2 (removal of blind -X ours strategy).
+        """
         mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=True, merge_fails=True, ours_fails=False
+            rebase_fails=True, merge_fails=True, ours_fails=True
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with (
+            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch(
+                "agent_fox.workspace.workspace.run_merge_agent",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_agent,
+        ):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
@@ -435,20 +447,33 @@ class TestFallbackChainOrdering:
             "merge" in cmd and "--no-edit" in cmd and "-X" not in cmd
             for cmd in all_cmds
         )
-        assert any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
+        # No -X ours (45-REQ-6.2); merge agent called instead (45-REQ-5.1)
+        assert not any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
+        mock_agent.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_all_fail_warns(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """When all strategies fail, all were attempted in order."""
+        """When all strategies and merge agent fail, warning is logged.
+
+        Previously tested all strategies including -X ours; now verifies
+        agent fallback per 45-REQ-5.E1 and 45-REQ-6.2.
+        """
         mock_run_git, calls = _make_diverged_mock(
             rebase_fails=True, merge_fails=True, ours_fails=True
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
-            with caplog.at_level(logging.WARNING):
-                await _sync_develop_with_remote(tmp_path)
+        with (
+            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch(
+                "agent_fox.workspace.workspace.run_merge_agent",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
         assert any("rebase" in cmd and "origin/develop" in cmd for cmd in all_cmds)
@@ -456,7 +481,8 @@ class TestFallbackChainOrdering:
             "merge" in cmd and "--no-edit" in cmd and "-X" not in cmd
             for cmd in all_cmds
         )
-        assert any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
+        # No -X ours (45-REQ-6.2)
+        assert not any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
 
 
 # ---------------------------------------------------------------------------

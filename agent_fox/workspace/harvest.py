@@ -6,7 +6,8 @@ integration (push, PR creation).
 Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
               19-REQ-3.1, 19-REQ-3.2, 19-REQ-3.3, 19-REQ-3.4,
               19-REQ-3.E1, 19-REQ-3.E2, 19-REQ-3.E3,
-              19-REQ-4.E1, 19-REQ-4.E4
+              19-REQ-4.E1, 19-REQ-4.E4,
+              45-REQ-3.1, 45-REQ-4.1, 45-REQ-6.1
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from pathlib import Path
 
 from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
+from agent_fox.workspace.merge_agent import run_merge_agent
+from agent_fox.workspace.merge_lock import MergeLock
 from agent_fox.workspace.workspace import (
     WorkspaceInfo,
     _sync_develop_with_remote,
@@ -70,6 +73,23 @@ async def harvest(
         )
         return []
 
+    # Wrap all merge operations in the merge lock (45-REQ-3.1)
+    lock = MergeLock(repo_root)
+    async with lock:
+        return await _harvest_under_lock(repo_root, workspace, dev_branch)
+
+
+async def _harvest_under_lock(
+    repo_root: Path,
+    workspace: WorkspaceInfo,
+    dev_branch: str,
+) -> list[str]:
+    """Execute the harvest merge strategies under the merge lock.
+
+    Called from harvest() after the lock is acquired.
+
+    Requirements: 45-REQ-4.1, 45-REQ-6.1
+    """
     # Capture the list of changed files before switching branches
     changed_files = await get_changed_files(
         repo_root,
@@ -112,16 +132,26 @@ async def harvest(
         # Step 5: Fall back to regular merge (03-REQ-7.E1)
         try:
             await merge_commit(repo_root, workspace.branch)
-        except IntegrationError:
-            # Step 6: Auto-resolve conflicts preferring the feature branch.
-            # This handles add/add conflicts from parallel sessions where
-            # multiple task groups independently create the same files.
+        except IntegrationError as merge_err:
+            # Step 6: Spawn merge agent to resolve conflicts (45-REQ-4.1)
+            # Replaces blind -X theirs strategy (45-REQ-6.1)
             logger.info(
-                "Merge commit of '%s' failed, retrying with "
-                "-X theirs to auto-resolve conflicts",
+                "Merge commit of '%s' failed, spawning merge agent "
+                "to resolve conflicts",
                 workspace.branch,
             )
-            await merge_commit(repo_root, workspace.branch, strategy_option="theirs")
+            conflict_output = str(merge_err)
+            resolved = await run_merge_agent(
+                worktree_path=repo_root,
+                conflict_output=conflict_output,
+                model_id="ADVANCED",
+            )
+            if not resolved:
+                raise IntegrationError(
+                    f"Merge agent failed to resolve conflicts for "
+                    f"'{workspace.branch}' into '{dev_branch}'",
+                    branch=workspace.branch,
+                ) from merge_err
         changed_files = await get_changed_files(
             repo_root,
             workspace.branch,

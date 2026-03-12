@@ -3,7 +3,8 @@
 All operations are async and use ``asyncio.create_subprocess_exec`` to run git
 commands without blocking the event loop.
 
-Requirements: 03-REQ-9.1, 03-REQ-9.2, 19-REQ-1.1 through 19-REQ-1.6
+Requirements: 03-REQ-9.1, 03-REQ-9.2, 19-REQ-1.1 through 19-REQ-1.6,
+              45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
 """
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent_fox.core.errors import IntegrationError, WorkspaceError
+from agent_fox.workspace.merge_agent import run_merge_agent
+from agent_fox.workspace.merge_lock import MergeLock
 
 logger = logging.getLogger(__name__)
 
@@ -363,7 +366,21 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
     Checks commit counts to determine if local is behind, ahead,
     or diverged from remote. Fast-forwards if behind only.
 
-    Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4
+    All operations are wrapped in the merge lock to serialize access
+    to the develop branch (45-REQ-3.2).
+
+    Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4,
+                  45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
+    """
+    lock = MergeLock(repo_root)
+    async with lock:
+        await _sync_develop_under_lock(repo_root)
+
+
+async def _sync_develop_under_lock(repo_root: Path) -> None:
+    """Execute the develop sync strategies under the merge lock.
+
+    Called from _sync_develop_with_remote() after the lock is acquired.
     """
     # Commits on remote not on local (remote is ahead)
     _rc, remote_ahead_str, _stderr = await run_git(
@@ -434,7 +451,7 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
             )
 
             # Try merge commit without conflict resolution
-            rc_merge, _, _ = await run_git(
+            rc_merge, stdout_merge, stderr_merge = await run_git(
                 ["merge", "--no-edit", "origin/develop"],
                 cwd=repo_root,
                 check=False,
@@ -445,32 +462,31 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
                     "Merged origin/develop into local develop via merge commit.",
                 )
             else:
-                # Merge failed — abort and try merge with -X ours
+                # Merge failed — abort and spawn merge agent (45-REQ-5.1)
+                # Replaces blind -X ours strategy (45-REQ-6.2)
                 await run_git(["merge", "--abort"], cwd=repo_root, check=False)
                 logger.info(
-                    "Merge commit failed; attempting merge with -X ours strategy.",
+                    "Merge commit failed; spawning merge agent to resolve conflicts.",
                 )
 
-                # Try merge with -X ours (prefer local on conflicts)
-                rc_ours, _, _ = await run_git(
-                    ["merge", "-X", "ours", "--no-edit", "origin/develop"],
-                    cwd=repo_root,
-                    check=False,
+                conflict_output = (
+                    stderr_merge.strip() or stdout_merge.strip() or "merge conflict"
                 )
-                if rc_ours == 0:
-                    # Merge with -X ours succeeded
-                    logger.warning(
-                        "Merged origin/develop using -X ours strategy "
-                        "(local changes preserved, remote changes may be discarded). "
-                        "Verify reconciliation is correct."
+                resolved = await run_merge_agent(
+                    worktree_path=repo_root,
+                    conflict_output=conflict_output,
+                    model_id="ADVANCED",
+                )
+                if resolved:
+                    # Agent resolved conflicts (45-REQ-5.2)
+                    logger.info(
+                        "Merge agent resolved develop-sync conflicts successfully.",
                     )
                 else:
-                    # All strategies failed
-                    await run_git(["merge", "--abort"], cwd=repo_root, check=False)
+                    # Agent failed (45-REQ-5.E1) — log warning and leave as-is
                     logger.warning(
-                        "All reconciliation strategies "
-                        "(rebase, merge, merge -X ours) failed. "
-                        "Using local develop as-is; verify manually."
+                        "Merge agent failed to resolve develop-sync conflicts. "
+                        "Using local develop as-is; verify manually.",
                     )
 
         # Restore original branch

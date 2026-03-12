@@ -2,7 +2,8 @@
 
 Test Spec: TS-03-10 (fast-forward merge), TS-03-11 (rebase on conflict),
            TS-03-E5 (no commits), TS-03-E6 (unresolvable conflict)
-Requirements: 03-REQ-7.1 through 03-REQ-7.E2
+Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
+              45-REQ-4.1, 45-REQ-6.1
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace.harvest import harvest
 from agent_fox.workspace.workspace import create_worktree
 
@@ -157,15 +159,23 @@ class TestHarvesterNoCommits:
 
 
 class TestHarvesterConflictAutoResolve:
-    """Harvester auto-resolves add/add conflicts preferring feature branch."""
+    """Harvester delegates conflict resolution to the merge agent.
+
+    Previously these tests verified -X theirs auto-resolution. With the
+    removal of blind strategy options (45-REQ-6.1), conflicts that cannot
+    be resolved deterministically are delegated to the merge agent. In test
+    environments (without a real agent), the agent fails and harvest raises
+    IntegrationError.
+    """
 
     @pytest.mark.asyncio
-    async def test_add_add_conflict_resolved_with_theirs(
+    async def test_add_add_conflict_raises_without_agent(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
         """When both branches add the same file with different content,
-        the harvester auto-resolves by keeping the feature branch version."""
+        the harvester delegates to the merge agent. Without a real agent,
+        this raises IntegrationError (45-REQ-4.E1)."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Add a file on the feature branch
@@ -188,19 +198,9 @@ class TestHarvesterConflictAutoResolve:
             "develop content\n",
         )
 
-        # Harvest should succeed (no IntegrationError)
-        files = await harvest(tmp_worktree_repo, ws)
-        assert isinstance(files, list)
-
-        # The feature branch content should win on develop
-        subprocess.run(
-            ["git", "checkout", "develop"],
-            cwd=tmp_worktree_repo,
-            check=True,
-            capture_output=True,
-        )
-        shared = (tmp_worktree_repo / "shared.py").read_text()
-        assert shared == "feature content\n"
+        # Without a real merge agent, harvest should raise IntegrationError
+        with pytest.raises(IntegrationError, match="(?i)agent"):
+            await harvest(tmp_worktree_repo, ws)
 
     @pytest.mark.asyncio
     async def test_parallel_add_add_multiple_files(
@@ -208,7 +208,8 @@ class TestHarvesterConflictAutoResolve:
         tmp_worktree_repo: Path,
     ) -> None:
         """Simulates parallel sessions creating overlapping files —
-        the exact scenario from issue #84."""
+        the exact scenario from issue #84. Without a merge agent,
+        raises IntegrationError."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Feature branch creates several files (simulating a task group)
@@ -225,26 +226,18 @@ class TestHarvesterConflictAutoResolve:
         add_commit_to_branch(tmp_worktree_repo, "Makefile", "develop-makefile\n")
         add_commit_to_branch(tmp_worktree_repo, "go.mod", "develop-gomod\n")
 
-        # Harvest should succeed (no IntegrationError)
-        files = await harvest(tmp_worktree_repo, ws)
-        assert isinstance(files, list)
-
-        # Feature branch content should win for both files
-        subprocess.run(
-            ["git", "checkout", "develop"],
-            cwd=tmp_worktree_repo,
-            check=True,
-            capture_output=True,
-        )
-        assert (tmp_worktree_repo / "Makefile").read_text() == "feature-makefile\n"
-        assert (tmp_worktree_repo / "go.mod").read_text() == "feature-gomod\n"
+        # Without a real merge agent, harvest should raise IntegrationError
+        with pytest.raises(IntegrationError, match="(?i)agent"):
+            await harvest(tmp_worktree_repo, ws)
 
     @pytest.mark.asyncio
     async def test_auto_resolve_preserves_non_conflicting_develop_changes(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """Non-conflicting changes from develop are preserved."""
+        """Non-conflicting changes from develop are preserved only when merge
+        succeeds. With conflicting files, the merge agent is needed.
+        Without a real agent, raises IntegrationError."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Feature branch creates one file
@@ -260,17 +253,6 @@ class TestHarvesterConflictAutoResolve:
         add_commit_to_branch(tmp_worktree_repo, "shared.py", "develop content\n")
         add_commit_to_branch(tmp_worktree_repo, "other.py", "other content\n")
 
-        files = await harvest(tmp_worktree_repo, ws)
-        assert isinstance(files, list)
-
-        # Checkout develop to verify merged content
-        subprocess.run(
-            ["git", "checkout", "develop"],
-            cwd=tmp_worktree_repo,
-            check=True,
-            capture_output=True,
-        )
-        # Feature wins for the conflict
-        assert (tmp_worktree_repo / "shared.py").read_text() == "feature content\n"
-        # Develop's non-conflicting file is preserved
-        assert (tmp_worktree_repo / "other.py").read_text() == "other content\n"
+        # Without a real merge agent, harvest should raise IntegrationError
+        with pytest.raises(IntegrationError, match="(?i)agent"):
+            await harvest(tmp_worktree_repo, ws)
