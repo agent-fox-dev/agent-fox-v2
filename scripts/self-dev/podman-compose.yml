@@ -22,13 +22,13 @@ services:
       - ../..:/workspace
 
       # Pass through git configuration
-      - ~/.gitconfig:/root/.gitconfig:ro
+      - ~/.gitconfig:/home/agent-fox/.gitconfig:ro
 
       # SSH keys for git push/pull (optional)
-      - ~/.ssh:/root/.ssh:ro
+      - ~/.ssh:/home/agent-fox/.ssh:ro
 
       # Claude Code config/auth (persistent across runs)
-      - claude-config:/root/.claude
+      - claude-config:/home/agent-fox/.claude
     environment:
       # API keys — set these in your shell or in a .env file
       - ANTHROPIC_API_KEY

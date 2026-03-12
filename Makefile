@@ -1,4 +1,4 @@
-.PHONY: install install-local uninstall clean test test-unit test-property test-integration lint format check clean-branches install-skills uninstall-skills bundle-skills stamp-version unstamp-version
+.PHONY: install install-local uninstall clean test test-unit test-property test-integration lint format check clean-branches install-skills uninstall-skills bundle-skills stamp-version unstamp-version build-container
 
 BUILD_INFO := agent_fox/_build_info.py
 
@@ -51,6 +51,12 @@ check: lint test
 
 clean-branches:
 	@git branch --list 'feature/*' | xargs -r git branch -d
+
+CONTAINER_IMAGE ?= agent-fox-dev
+CONTAINER_FILE := scripts/self-dev/Containerfile
+
+build-container:
+	podman build -t $(CONTAINER_IMAGE) -f $(CONTAINER_FILE) .
 
 SKILLS_DIR := $(CURDIR)/skills
 SKILLS_TEMPLATES_DIR := $(CURDIR)/agent_fox/_templates/skills
