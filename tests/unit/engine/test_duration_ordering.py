@@ -1,11 +1,15 @@
-"""Tests for duration-based ordering in graph_sync and config.
+"""Tests for duration-based ordering in graph_sync, config, and orchestrator.
 
 Test Spec: TS-41-1, TS-41-2, TS-41-3, TS-41-4, TS-41-16, TS-41-17, TS-41-18
-Edge Cases: TS-41-E2, TS-41-E6, TS-41-E7
-Requirements: 41-REQ-1.1 through 41-REQ-1.E2, 41-REQ-5.1, 41-REQ-5.2, 41-REQ-5.E1
+Edge Cases: TS-41-E1, TS-41-E2, TS-41-E6, TS-41-E7, TS-41-E8
+Requirements: 41-REQ-1.1 through 41-REQ-1.E2, 41-REQ-5.1, 41-REQ-5.2,
+              41-REQ-5.E1, 41-REQ-5.E2
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # TS-41-1, TS-41-2, TS-41-3: order_by_duration()
@@ -184,3 +188,88 @@ class TestConfigClamping:
 
         c = PlanningConfig(min_outcomes_for_regression=50000)
         assert c.min_outcomes_for_regression == 10000
+
+
+# ---------------------------------------------------------------------------
+# TS-41-17, TS-41-E1, TS-41-E8: Orchestrator _compute_duration_hints()
+# ---------------------------------------------------------------------------
+
+
+class TestComputeDurationHints:
+    """Tests for Orchestrator._compute_duration_hints() integration.
+
+    Test Spec: TS-41-17, TS-41-E1, TS-41-E8
+    """
+
+    def _make_orchestrator(
+        self,
+        tmp_path: Path,
+        *,
+        duration_ordering: bool = True,
+        pipeline: object | None = None,
+    ) -> object:
+        """Create an Orchestrator with minimal plan for testing."""
+        from agent_fox.core.config import OrchestratorConfig, PlanningConfig
+        from agent_fox.engine.engine import Orchestrator
+
+        from .conftest import write_plan_file
+
+        plan_dir = tmp_path / ".agent-fox"
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        plan_path = write_plan_file(
+            plan_dir,
+            nodes={"a:1": {"title": "Task A"}, "b:1": {"title": "Task B"}},
+            edges=[],
+            order=["a:1", "b:1"],
+        )
+        state_path = plan_dir / "state.jsonl"
+
+        planning_config = PlanningConfig(duration_ordering=duration_ordering)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        orch = Orchestrator(
+            config=config,
+            plan_path=plan_path,
+            state_path=state_path,
+            session_runner_factory=lambda nid, **kw: MagicMock(),
+            planning_config=planning_config,
+            assessment_pipeline=pipeline,
+        )
+        return orch
+
+    def test_duration_ordering_disabled_returns_none(self, tmp_path: Path) -> None:
+        """TS-41-17: _compute_duration_hints() returns None when disabled.
+
+        Requirement: 41-REQ-5.2
+        """
+        orch = self._make_orchestrator(tmp_path, duration_ordering=False)
+        result = orch._compute_duration_hints()
+        assert result is None
+
+    def test_pipeline_unavailable_returns_none(self, tmp_path: Path) -> None:
+        """TS-41-E8: _compute_duration_hints() returns None when pipeline is None.
+
+        Requirement: 41-REQ-5.E2
+        """
+        orch = self._make_orchestrator(tmp_path, pipeline=None)
+        result = orch._compute_duration_hints()
+        assert result is None
+
+    def test_db_exception_returns_none(self, tmp_path: Path) -> None:
+        """TS-41-E1: _compute_duration_hints() returns None on DB exception.
+
+        Requirement: 41-REQ-1.E1
+        """
+        from agent_fox.engine.graph_sync import GraphSync
+
+        # Create a pipeline mock with a _db that raises on execute
+        mock_pipeline = MagicMock()
+        mock_db = MagicMock()
+        mock_db.execute.side_effect = RuntimeError("DB connection failed")
+        mock_pipeline._db = mock_db
+        mock_pipeline.duration_model = None
+
+        orch = self._make_orchestrator(tmp_path, pipeline=mock_pipeline)
+        # Set up graph_sync with pending nodes so the loop iterates
+        orch._graph_sync = GraphSync({"a:1": "pending", "b:1": "pending"}, {})
+        result = orch._compute_duration_hints()
+        assert result is None

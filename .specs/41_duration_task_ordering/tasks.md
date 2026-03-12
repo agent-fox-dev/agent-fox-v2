@@ -107,32 +107,32 @@ implementation against the focused requirements extracted from spec 39.
     - [x] Property tests TS-41-P1, TS-41-P2, TS-41-P3, TS-41-P5, TS-41-P6 pass
     - [x] `make check` passes
 
-- [ ] 3. Implement regression model and orchestrator integration
-  - [ ] 3.1 Validate and harden `train_duration_model()` in `agent_fox/routing/duration.py`
+- [x] 3. Implement regression model and orchestrator integration
+  - [x] 3.1 Validate and harden `train_duration_model()` in `agent_fox/routing/duration.py`
     - Verify training with sufficient outcomes returns LinearRegression
     - Verify None returned with insufficient outcomes
     - Verify feature vector extraction from execution_outcomes
     - Verify scikit-learn import guard
     - _Requirements: 41-REQ-4.1, 41-REQ-4.2, 41-REQ-4.3, 41-REQ-4.E2_
 
-  - [ ] 3.2 Validate regression prediction in `get_duration_hint()`
+  - [x] 3.2 Validate regression prediction in `get_duration_hint()`
     - Verify regression predictions take precedence over all other sources
     - Verify prediction clamping to minimum 1 ms
     - Verify fallthrough on predict() failure
     - Verify fallthrough on missing feature vector
     - _Requirements: 41-REQ-4.4, 41-REQ-4.5, 41-REQ-4.E1, 41-REQ-4.E3_
 
-  - [ ] 3.3 Validate orchestrator integration in `agent_fox/engine/engine.py`
+  - [x] 3.3 Validate orchestrator integration in `agent_fox/engine/engine.py`
     - Verify `_compute_duration_hints()` respects `duration_ordering` config
     - Verify hints are computed for all pending nodes
     - Verify pipeline/DB unavailability returns None
     - Verify exception handling returns None with warning
     - _Requirements: 41-REQ-5.2, 41-REQ-5.3, 41-REQ-5.4, 41-REQ-5.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All remaining tests pass: TS-41-11 through TS-41-18
-    - [ ] Edge case tests TS-41-E1, TS-41-E4, TS-41-E8 pass
-    - [ ] Property test TS-41-P4 passes
-    - [ ] All spec tests pass (full suite)
-    - [ ] `make check` passes
-    - [ ] No regressions in existing test suite
+  - [x] 3.V Verify task group 3
+    - [x] All remaining tests pass: TS-41-11 through TS-41-18
+    - [x] Edge case tests TS-41-E1, TS-41-E4, TS-41-E8 pass
+    - [x] Property test TS-41-P4 passes
+    - [x] All spec tests pass (full suite)
+    - [x] `make check` passes
+    - [x] No regressions in existing test suite
