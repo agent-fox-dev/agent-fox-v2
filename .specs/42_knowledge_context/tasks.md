@@ -38,27 +38,27 @@ rendering logic.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/knowledge/test_knowledge_context.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/knowledge/test_knowledge_context.py`
     - Test class `TestTraverseWithReviews` with TS-42-1, TS-42-2, TS-42-3, TS-42-4, TS-42-E1, TS-42-E2
     - Test class `TestConfidenceFiltering` with TS-42-6, TS-42-7, TS-42-8, TS-42-9
     - Test class `TestFactCache` with TS-42-10, TS-42-11, TS-42-12, TS-42-13, TS-42-E3
     - _Test Spec: TS-42-1 through TS-42-4, TS-42-6 through TS-42-13, TS-42-E1, TS-42-E2, TS-42-E3_
 
-  - [ ] 1.2 Create `tests/unit/session/test_context_assembly.py`
+  - [x] 1.2 Create `tests/unit/session/test_context_assembly.py`
     - Test class `TestCausalContextAssembly` with TS-42-5
     - Test class `TestPriorGroupFindings` with TS-42-15 through TS-42-20, TS-42-E4, TS-42-E5
     - Test class `TestCacheIntegration` with TS-42-14
     - _Test Spec: TS-42-5, TS-42-14, TS-42-15 through TS-42-20, TS-42-E4, TS-42-E5_
 
-  - [ ] 1.3 Create `tests/property/knowledge/test_knowledge_context_props.py`
+  - [x] 1.3 Create `tests/property/knowledge/test_knowledge_context_props.py`
     - Property test `test_confidence_monotonicity` (TS-42-P1)
     - Property test `test_deduplication_invariant` (TS-42-P2)
     - Property test `test_group_boundary_invariant` (TS-42-P3)
     - Property test `test_cache_staleness_detection` (TS-42-P4)
     - _Test Spec: TS-42-P1 through TS-42-P4_
 
-  - [ ] 1.4 Verify all new tests fail and no regressions in existing tests
+  - [x] 1.4 Verify all new tests fail and no regressions in existing tests
     - Run spec tests: all new tests should fail (red phase)
     - Run full suite: existing tests must still pass
 
