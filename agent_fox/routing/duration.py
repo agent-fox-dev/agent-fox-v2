@@ -285,13 +285,9 @@ def order_by_duration(
     """
     # Partition into nodes with and without hints
     with_hints = [
-        (nid, duration_hints[nid])
-        for nid in node_ids
-        if nid in duration_hints
+        (nid, duration_hints[nid]) for nid in node_ids if nid in duration_hints
     ]
-    without_hints = sorted(
-        nid for nid in node_ids if nid not in duration_hints
-    )
+    without_hints = sorted(nid for nid in node_ids if nid not in duration_hints)
 
     # Sort by duration descending, then alphabetically for ties
     with_hints.sort(key=lambda t: (-t[1], t[0]))

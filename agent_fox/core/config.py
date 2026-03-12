@@ -56,15 +56,11 @@ class RoutingConfig(BaseModel):
     retries_before_escalation: int = Field(
         default=1, description="Retries before model escalation"
     )
-    training_threshold: int = Field(
-        default=20, description="Training data threshold"
-    )
+    training_threshold: int = Field(default=20, description="Training data threshold")
     accuracy_threshold: float = Field(
         default=0.75, description="Accuracy threshold for routing"
     )
-    retrain_interval: int = Field(
-        default=10, description="Retrain interval"
-    )
+    retrain_interval: int = Field(default=10, description="Retrain interval")
 
     @field_validator("retries_before_escalation")
     @classmethod
@@ -93,24 +89,14 @@ class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     parallel: int = Field(default=1, description="Maximum parallel sessions")
-    sync_interval: int = Field(
-        default=5, description="Sync interval in task groups"
-    )
-    hot_load: bool = Field(
-        default=True, description="Hot-load specs between sessions"
-    )
-    max_retries: int = Field(
-        default=2, description="Maximum retries per task group"
-    )
-    session_timeout: int = Field(
-        default=30, description="Session timeout in minutes"
-    )
+    sync_interval: int = Field(default=5, description="Sync interval in task groups")
+    hot_load: bool = Field(default=True, description="Hot-load specs between sessions")
+    max_retries: int = Field(default=2, description="Maximum retries per task group")
+    session_timeout: int = Field(default=30, description="Session timeout in minutes")
     inter_session_delay: int = Field(
         default=3, description="Delay between sessions in seconds"
     )
-    max_cost: float | None = Field(
-        default=None, description="Maximum cost limit"
-    )
+    max_cost: float | None = Field(default=None, description="Maximum cost limit")
     max_sessions: int | None = Field(
         default=None, description="Maximum number of sessions"
     )
@@ -165,9 +151,7 @@ class HookConfig(BaseModel):
     sync_barrier: list[str] = Field(
         default_factory=list, description="Commands to run at sync barriers"
     )
-    timeout: int = Field(
-        default=300, description="Hook command timeout in seconds"
-    )
+    timeout: int = Field(default=300, description="Hook command timeout in seconds")
     modes: dict[str, str] = Field(
         default_factory=dict, description="Hook modes configuration"
     )
@@ -215,12 +199,8 @@ class PlatformConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    type: str = Field(
-        default="none", description="Platform type (none or github)"
-    )
-    auto_merge: bool = Field(
-        default=False, description="Auto-merge pull requests"
-    )
+    type: str = Field(default="none", description="Platform type (none or github)")
+    auto_merge: bool = Field(default=False, description="Auto-merge pull requests")
 
 
 class KnowledgeConfig(BaseModel):
@@ -317,9 +297,7 @@ class SkepticConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    block_threshold: int = Field(
-        default=3, description="Finding count to block merge"
-    )
+    block_threshold: int = Field(default=3, description="Finding count to block merge")
 
     @field_validator("block_threshold")
     @classmethod

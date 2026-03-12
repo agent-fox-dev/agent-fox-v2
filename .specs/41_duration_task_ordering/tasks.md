@@ -73,14 +73,14 @@ implementation against the focused requirements extracted from spec 39.
     - [x] No linter warnings introduced
     - [x] `make lint` passes
 
-- [ ] 2. Implement duration hints, presets, and ordering
-  - [ ] 2.1 Validate and harden `agent_fox/routing/duration_presets.py`
+- [x] 2. Implement duration hints, presets, and ordering
+  - [x] 2.1 Validate and harden `agent_fox/routing/duration_presets.py`
     - Verify `DURATION_PRESETS` covers all 6 archetypes x 3 tiers
     - Verify `DEFAULT_DURATION_MS` is 300,000
     - Add any missing archetype/tier combinations
     - _Requirements: 41-REQ-3.1, 41-REQ-3.2, 41-REQ-3.3, 41-REQ-3.4_
 
-  - [ ] 2.2 Validate and harden `agent_fox/routing/duration.py` core functions
+  - [x] 2.2 Validate and harden `agent_fox/routing/duration.py` core functions
     - Verify `DurationHint` dataclass fields (node_id, predicted_ms, source)
     - Verify `get_duration_hint()` source precedence chain
     - Verify `_get_historical_median()` median computation (odd/even)
@@ -89,23 +89,23 @@ implementation against the focused requirements extracted from spec 39.
     - _Requirements: 41-REQ-1.1, 41-REQ-1.2, 41-REQ-1.3, 41-REQ-2.1,
       41-REQ-2.2, 41-REQ-2.3, 41-REQ-3.2, 41-REQ-3.3_
 
-  - [ ] 2.3 Validate `agent_fox/engine/graph_sync.py` integration
+  - [x] 2.3 Validate `agent_fox/engine/graph_sync.py` integration
     - Verify `ready_tasks()` accepts `duration_hints` parameter
     - Verify delegation to `order_by_duration()` when hints provided
     - Verify alphabetical fallback when hints is None or empty
     - _Requirements: 41-REQ-1.1, 41-REQ-1.4, 41-REQ-1.E2_
 
-  - [ ] 2.4 Validate `agent_fox/core/config.py` PlanningConfig
+  - [x] 2.4 Validate `agent_fox/core/config.py` PlanningConfig
     - Verify `duration_ordering`, `min_outcomes_for_historical`,
       `min_outcomes_for_regression` fields with correct defaults
     - Verify clamping validators for numeric fields
     - _Requirements: 41-REQ-5.1, 41-REQ-5.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Tests from TS-41-1 through TS-41-10, TS-41-16 pass
-    - [ ] Edge case tests TS-41-E2, TS-41-E3, TS-41-E5, TS-41-E6, TS-41-E7 pass
-    - [ ] Property tests TS-41-P1, TS-41-P2, TS-41-P3, TS-41-P5, TS-41-P6 pass
-    - [ ] `make check` passes
+  - [x] 2.V Verify task group 2
+    - [x] Tests from TS-41-1 through TS-41-10, TS-41-16 pass
+    - [x] Edge case tests TS-41-E2, TS-41-E3, TS-41-E5, TS-41-E6, TS-41-E7 pass
+    - [x] Property tests TS-41-P1, TS-41-P2, TS-41-P3, TS-41-P5, TS-41-P6 pass
+    - [x] `make check` passes
 
 - [ ] 3. Implement regression model and orchestrator integration
   - [ ] 3.1 Validate and harden `train_duration_model()` in `agent_fox/routing/duration.py`
