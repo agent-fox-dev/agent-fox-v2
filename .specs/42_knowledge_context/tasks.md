@@ -82,8 +82,8 @@ rendering logic.
     - Run property tests TS-42-P1 and TS-42-P2
     - Run full test suite to confirm no regressions
 
-- [ ] 3. Pre-computed fact ranking cache integration
-  - [ ] 3.1 Wire cache population into orchestrator plan dispatch
+- [x] 3. Pre-computed fact ranking cache integration
+  - [x] 3.1 Wire cache population into orchestrator plan dispatch
     - In `agent_fox/engine/engine.py`, after plan construction:
       - Check `config.knowledge.fact_cache_enabled`
       - If enabled, call `precompute_fact_rankings()` with plan spec names
@@ -91,13 +91,13 @@ rendering logic.
       - Store cache dict on orchestrator instance
     - _Test Spec: TS-42-10, TS-42-14, TS-42-E3_
 
-  - [ ] 3.2 Wire cache lookup into session context assembly
+  - [x] 3.2 Wire cache lookup into session context assembly
     - Before calling `select_relevant_facts()`, query current active fact count
     - Call `get_cached_facts()` with spec name and current count
     - If cache hit, use cached facts; if miss, fall back to live computation
     - _Test Spec: TS-42-11, TS-42-12, TS-42-13, TS-42-E3_
 
-  - [ ] 3.3 Verify task group 3 tests pass
+  - [x] 3.3 Verify task group 3 tests pass
     - Run spec tests for cache: TS-42-10 through TS-42-14, TS-42-E3
     - Run property test TS-42-P4
     - Run full test suite to confirm no regressions

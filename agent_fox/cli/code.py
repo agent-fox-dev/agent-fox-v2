@@ -22,6 +22,7 @@ from agent_fox.core.config import AgentFoxConfig, HookConfig, OrchestratorConfig
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.core.models import ModelTier
 from agent_fox.engine.engine import Orchestrator
+from agent_fox.engine.fact_cache import RankedFactCache, precompute_fact_rankings
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.db import KnowledgeDB, open_knowledge_store
@@ -150,6 +151,50 @@ def _run_ingestion(
         logger.warning("Background ingestion failed", exc_info=True)
 
 
+def _precompute_plan_fact_cache(
+    plan_path: Path,
+    knowledge_db: KnowledgeDB,
+    config: AgentFoxConfig,
+) -> dict[str, RankedFactCache] | None:
+    """Pre-compute ranked fact cache for all specs in the plan.
+
+    Reads spec names from plan.json and calls precompute_fact_rankings()
+    with the configured confidence threshold. Returns None if computation
+    fails so callers fall back to live fact selection.
+
+    Requirements: 42-REQ-3.1
+    """
+    import json as _json
+
+    try:
+        plan_data = _json.loads(plan_path.read_text(encoding="utf-8"))
+        nodes = plan_data.get("nodes", {})
+        spec_names = sorted({
+            n.get("spec_name", "")
+            for n in nodes.values()
+            if n.get("spec_name")
+        })
+        if not spec_names:
+            return None
+        cache = precompute_fact_rankings(
+            knowledge_db.connection,
+            spec_names,
+            confidence_threshold=config.knowledge.confidence_threshold,
+        )
+        logger.debug(
+            "Pre-computed fact rankings for %d specs: %s",
+            len(cache),
+            ", ".join(spec_names),
+        )
+        return cache
+    except Exception:
+        logger.warning(
+            "Failed to pre-compute fact rankings; will use live computation",
+            exc_info=True,
+        )
+        return None
+
+
 @click.command("code")
 @click.option(
     "--parallel",
@@ -251,6 +296,15 @@ def code_cmd(
     # 12-REQ-4.1, 12-REQ-4.2: Ingest ADRs and git commits at startup
     _run_ingestion(knowledge_db, config)
 
+    # 42-REQ-3.1: Pre-compute fact rankings at plan dispatch time if enabled
+    fact_cache: dict[str, RankedFactCache] | None = None
+    if config.knowledge.fact_cache_enabled:
+        fact_cache = _precompute_plan_fact_cache(
+            plan_path,
+            knowledge_db,
+            config,
+        )
+
     # 18-REQ-5.1: Create progress display (suppressed in JSON mode)
     theme = create_theme(config.theme)
     progress = ProgressDisplay(theme, quiet=quiet or json_mode)
@@ -288,6 +342,7 @@ def code_cmd(
             knowledge_db=knowledge_db,
             activity_callback=progress.activity_callback,
             assessed_tier=assessed_tier,
+            fact_cache=fact_cache,
         )
 
     # 30-REQ-7.1, 38-REQ-1.3: Create assessment pipeline for adaptive routing
