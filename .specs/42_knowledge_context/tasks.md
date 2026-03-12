@@ -102,12 +102,12 @@ rendering logic.
     - Run property test TS-42-P4
     - Run full test suite to confirm no regressions
 
-- [ ] 4. Cross-task-group finding propagation
-  - [ ] 4.1 Define `PriorFinding` dataclass in `agent_fox/session/prompt.py`
+- [x] 4. Cross-task-group finding propagation
+  - [x] 4.1 Define `PriorFinding` dataclass in `agent_fox/session/prompt.py`
     - Frozen dataclass with fields: type, group, severity, description, created_at
     - _Test Spec: TS-42-19_
 
-  - [ ] 4.2 Extend `get_prior_group_findings()` to query all three tables
+  - [x] 4.2 Extend `get_prior_group_findings()` to query all three tables
     - Add queries for `drift_findings` and `verification_results`
     - Convert results to `PriorFinding` objects with appropriate type labels
     - Merge results from all three tables
@@ -115,18 +115,18 @@ rendering logic.
     - Change return type from `list[ReviewFinding]` to `list[PriorFinding]`
     - _Test Spec: TS-42-15, TS-42-16, TS-42-17, TS-42-18, TS-42-20, TS-42-E4_
 
-  - [ ] 4.3 Update `render_prior_group_findings()` for new data structure
+  - [x] 4.3 Update `render_prior_group_findings()` for new data structure
     - Render each PriorFinding with group, type, and severity/verdict labels
     - Handle verification results (render as `requirement_id: verdict`)
     - Return empty string when no findings (causes section omission)
     - _Test Spec: TS-42-19, TS-42-E5_
 
-  - [ ] 4.4 Update `assemble_context()` to use new prior findings
+  - [x] 4.4 Update `assemble_context()` to use new prior findings
     - Ensure the call to `get_prior_group_findings()` and
       `render_prior_group_findings()` works with the new return types
     - _Test Spec: TS-42-E5_
 
-  - [ ] 4.5 Verify task group 4 tests pass
+  - [x] 4.5 Verify task group 4 tests pass
     - Run spec tests for propagation: TS-42-15 through TS-42-20, TS-42-E4, TS-42-E5
     - Run property test TS-42-P3
     - Run full test suite: `uv run pytest -x -q`

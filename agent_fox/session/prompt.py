@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
@@ -28,6 +29,21 @@ from agent_fox.knowledge.review_store import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PriorFinding:
+    """A finding from a prior task group, tagged by type.
+
+    Requirements: 42-REQ-4.1, 42-REQ-4.2
+    """
+
+    type: str          # "review" | "drift" | "verification"
+    group: str         # task_group value
+    severity: str      # severity level or verdict
+    description: str   # description text or evidence
+    created_at: str    # ISO timestamp string for sorting
+
 
 # ---------------------------------------------------------------------------
 # Context assembly (merged from context.py)
@@ -364,16 +380,18 @@ def get_prior_group_findings(
     spec_name: str,
     *,
     task_group: int,
-) -> list:
-    """Query active review findings from prior task groups.
+) -> list[PriorFinding]:
+    """Query active findings from all three tables for prior task groups.
 
-    Returns findings from groups 1 through task_group-1 for the
-    given spec, excluding superseded findings.
+    Returns PriorFinding objects from groups 1 through task_group-1 for the
+    given spec, excluding superseded findings, sorted by created_at ascending.
 
-    Requirements: 39-REQ-6.1
+    Queries review_findings, drift_findings, and verification_results tables.
+    If any table does not exist (pre-migration database), that table's results
+    are silently skipped.
+
+    Requirements: 42-REQ-4.1, 42-REQ-4.E1
     """
-    from agent_fox.knowledge.review_store import ReviewFinding
-
     if task_group <= 1:
         return []
 
@@ -381,52 +399,119 @@ def get_prior_group_findings(
     prior_groups = [str(g) for g in range(1, task_group)]
     placeholders = ", ".join("?" for _ in prior_groups)
 
-    rows = conn.execute(
-        f"SELECT CAST(id AS VARCHAR), severity, description, requirement_ref, "
-        f"spec_name, task_group, session_id, superseded_by, created_at "
-        f"FROM review_findings "
-        f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
-        f"AND superseded_by IS NULL "
-        f"ORDER BY created_at",
-        [spec_name, *prior_groups],
-    ).fetchall()
+    findings: list[PriorFinding] = []
 
-    findings = []
-    for row in rows:
-        findings.append(
-            ReviewFinding(
-                id=str(row[0]),
-                severity=row[1],
-                description=row[2],
-                requirement_ref=row[3],
-                spec_name=row[4],
-                task_group=row[5],
-                session_id=row[6],
-                superseded_by=row[7],
-                created_at=row[8],
+    # Query review_findings
+    try:
+        rows = conn.execute(
+            f"SELECT CAST(id AS VARCHAR), severity, description, "
+            f"task_group, CAST(created_at AS VARCHAR) "
+            f"FROM review_findings "
+            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+            f"AND superseded_by IS NULL",
+            [spec_name, *prior_groups],
+        ).fetchall()
+        for row in rows:
+            findings.append(
+                PriorFinding(
+                    type="review",
+                    group=str(row[3]),
+                    severity=str(row[1]),
+                    description=str(row[2]),
+                    created_at=str(row[4]) if row[4] is not None else "",
+                )
             )
+    except Exception:
+        logger.debug(
+            "Failed to query review_findings for prior groups (table may not exist)"
         )
 
+    # Query drift_findings
+    try:
+        rows = conn.execute(
+            f"SELECT CAST(id AS VARCHAR), severity, description, "
+            f"task_group, CAST(created_at AS VARCHAR) "
+            f"FROM drift_findings "
+            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+            f"AND superseded_by IS NULL",
+            [spec_name, *prior_groups],
+        ).fetchall()
+        for row in rows:
+            findings.append(
+                PriorFinding(
+                    type="drift",
+                    group=str(row[3]),
+                    severity=str(row[1]),
+                    description=str(row[2]),
+                    created_at=str(row[4]) if row[4] is not None else "",
+                )
+            )
+    except Exception:
+        logger.debug(
+            "Failed to query drift_findings for prior groups (table may not exist)"
+        )
+
+    # Query verification_results
+    try:
+        rows = conn.execute(
+            f"SELECT CAST(id AS VARCHAR), verdict, requirement_id, evidence, "
+            f"task_group, CAST(created_at AS VARCHAR) "
+            f"FROM verification_results "
+            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+            f"AND superseded_by IS NULL",
+            [spec_name, *prior_groups],
+        ).fetchall()
+        for row in rows:
+            verdict = str(row[1])
+            req_id = str(row[2])
+            evidence = str(row[3]) if row[3] is not None else ""
+            description = f"{req_id}: {verdict}"
+            if evidence:
+                description = f"{req_id}: {verdict} — {evidence}"
+            findings.append(
+                PriorFinding(
+                    type="verification",
+                    group=str(row[4]),
+                    severity=verdict,
+                    description=description,
+                    created_at=str(row[5]) if row[5] is not None else "",
+                )
+            )
+    except Exception:
+        logger.debug(
+            "Failed to query verification_results for prior groups"
+            " (table may not exist)"
+        )
+
+    # Sort all findings by created_at ascending (42-REQ-4.3)
+    findings.sort(key=lambda f: f.created_at)
     return findings
 
 
-def render_prior_group_findings(findings: list) -> str:
+def render_prior_group_findings(findings: list[PriorFinding]) -> str:
     """Render prior group findings as a markdown section.
 
-    Findings are grouped under a "Prior Group Findings" header
-    to distinguish them from the current group's findings.
+    Findings are rendered under a "Prior Group Findings" header with each
+    finding prefixed by its group number and type label. Findings are
+    sorted by created_at ascending.
 
-    Requirements: 39-REQ-6.2
+    Returns empty string when findings list is empty (causes section omission).
+
+    Requirements: 42-REQ-4.2, 42-REQ-4.3, 42-REQ-4.E2
     """
     if not findings:
         return ""
 
+    # Sort by created_at ascending (42-REQ-4.3)
+    sorted_findings = sorted(findings, key=lambda f: f.created_at)
+
     lines = ["## Prior Group Findings", ""]
 
-    for f in findings:
-        group_label = f"[group {f.task_group}]"
+    for f in sorted_findings:
+        group_label = f"[group {f.group}]"
+        type_label = f"[{f.type}]"
         sev_label = f"[{f.severity}]"
-        lines.append(f"- {group_label} {sev_label} {f.description}")
+        lines.append(f"- {group_label} {type_label} {sev_label} {f.description}")
 
     return "\n".join(lines)
 
