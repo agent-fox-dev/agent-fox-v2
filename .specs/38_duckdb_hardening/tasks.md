@@ -89,35 +89,35 @@ migrated.
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/db.py agent_fox/cli/code.py`
     - [x] Requirements 38-REQ-1.*, 38-REQ-5.* met
 
-- [ ] 3. Harden session lifecycle and knowledge harvest
-  - [ ] 3.1 Update `NodeSessionRunner` in `agent_fox/engine/session_lifecycle.py`
+- [x] 3. Harden session lifecycle and knowledge harvest
+  - [x] 3.1 Update `NodeSessionRunner` in `agent_fox/engine/session_lifecycle.py`
     - Change `knowledge_db: KnowledgeDB | None = None` to `knowledge_db: KnowledgeDB`
     - Remove `if self._knowledge_db is not None` guard in causal enhancement
     - Remove try/except fallback to keyword-only facts
     - _Requirements: 38-REQ-2.1, 38-REQ-2.3_
 
-  - [ ] 3.2 Update `extract_and_store_knowledge()` in `agent_fox/engine/knowledge_harvest.py`
+  - [x] 3.2 Update `extract_and_store_knowledge()` in `agent_fox/engine/knowledge_harvest.py`
     - Change `knowledge_db: KnowledgeDB | None = None` to `knowledge_db: KnowledgeDB`
     - Remove `if knowledge_db is None: return` guard
     - _Requirements: 38-REQ-2.1, 38-REQ-2.3_
 
-  - [ ] 3.3 Update `sync_facts_to_duckdb()` in `agent_fox/engine/knowledge_harvest.py`
+  - [x] 3.3 Update `sync_facts_to_duckdb()` in `agent_fox/engine/knowledge_harvest.py`
     - Change `knowledge_db: KnowledgeDB | None` to `knowledge_db: KnowledgeDB`
     - Remove `if knowledge_db is None: return` guard
     - Remove per-fact try/except that silently continues
     - _Requirements: 38-REQ-2.1, 38-REQ-3.4_
 
-  - [ ] 3.4 Update `_extract_causal_links()` in `agent_fox/engine/knowledge_harvest.py`
+  - [x] 3.4 Update `_extract_causal_links()` in `agent_fox/engine/knowledge_harvest.py`
     - Change `knowledge_db: KnowledgeDB | None` to `knowledge_db: KnowledgeDB`
     - Remove `if knowledge_db is None: return` guard
     - Remove outer try/except that silently logs
     - _Requirements: 38-REQ-2.1, 38-REQ-3.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest tests/unit/engine/test_hardening_lifecycle.py tests/unit/knowledge/test_duckdb_hardening.py::TestKnowledgeHarvestPropagation -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/session_lifecycle.py agent_fox/engine/knowledge_harvest.py`
-    - [ ] Requirements 38-REQ-2.1, 38-REQ-2.3, 38-REQ-3.3, 38-REQ-3.4 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest tests/unit/engine/test_hardening_lifecycle.py tests/unit/knowledge/test_duckdb_hardening.py::TestKnowledgeHarvestPropagation -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/session_lifecycle.py agent_fox/engine/knowledge_harvest.py`
+    - [x] Requirements 38-REQ-2.1, 38-REQ-2.3, 38-REQ-3.3, 38-REQ-3.4 met
 
 - [ ] 4. Harden memory store, context assembly, routing, and sink
   - [ ] 4.1 Update `MemoryStore` in `agent_fox/memory/memory.py`
