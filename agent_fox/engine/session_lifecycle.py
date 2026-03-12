@@ -20,6 +20,7 @@ from pathlib import Path
 from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
+from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
@@ -182,6 +183,7 @@ class NodeSessionRunner:
         activity_callback: ActivityCallback | None = None,
         assessed_tier: ModelTier | None = None,
         run_id: str = "",
+        fact_cache: dict[str, RankedFactCache] | None = None,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -193,6 +195,7 @@ class NodeSessionRunner:
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
+        self._fact_cache = fact_cache
         # Parse node_id format: "{spec_name}:{group_number}"
         parts = node_id.rsplit(":", 1)
         self._spec_name = parts[0]
@@ -226,17 +229,10 @@ class NodeSessionRunner:
         # 05-REQ-4.1: Load and select relevant facts for context injection
         memory_facts: list[str] | None = None
         try:
-            all_facts = load_all_facts()
-            if all_facts:
-                relevant = select_relevant_facts(
-                    all_facts,
-                    self._spec_name,
-                    task_keywords=[self._spec_name],
-                    confidence_threshold=self._config.knowledge.confidence_threshold,
-                )
-                if relevant:
-                    # 13-REQ-7.1: Enhance with causal context if DB available
-                    memory_facts = self._enhance_with_causal(relevant)
+            relevant = self._load_relevant_facts()
+            if relevant:
+                # 13-REQ-7.1: Enhance with causal context if DB available
+                memory_facts = self._enhance_with_causal(relevant)
         except Exception:
             logger.warning(
                 "Failed to load memory facts for %s, continuing without",
@@ -312,6 +308,58 @@ class NodeSessionRunner:
 
         # None means use global config.security
         return None
+
+    def _load_relevant_facts(self) -> list:
+        """Load relevant facts, using the pre-computed cache when available.
+
+        When a valid cache entry exists for the current spec and the fact
+        count has not changed since the cache was built, return cached facts
+        directly. Otherwise fall back to live computation via
+        select_relevant_facts().
+
+        Requirements: 42-REQ-3.2, 42-REQ-3.3, 42-REQ-3.4
+        """
+        # 42-REQ-3.2: Try cache first when cache is available
+        if self._fact_cache is not None:
+            try:
+                current_count: int = self._knowledge_db.connection.execute(
+                    "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
+                ).fetchone()[0]
+                cached = get_cached_facts(
+                    self._fact_cache,
+                    self._spec_name,
+                    current_count,
+                )
+                if cached is not None:
+                    logger.debug(
+                        "Using cached fact rankings for %s (%d facts)",
+                        self._spec_name,
+                        len(cached),
+                    )
+                    return cached
+                # 42-REQ-3.3: Cache is stale or missing — fall through to live
+                logger.debug(
+                    "Cache miss for %s (count mismatch or absent); "
+                    "falling back to live computation",
+                    self._spec_name,
+                )
+            except Exception:
+                logger.debug(
+                    "Cache lookup failed for %s; falling back to live computation",
+                    self._spec_name,
+                    exc_info=True,
+                )
+
+        # Live computation (no cache, stale cache, or cache lookup failure)
+        all_facts = load_all_facts()
+        if not all_facts:
+            return []
+        return select_relevant_facts(
+            all_facts,
+            self._spec_name,
+            task_keywords=[self._spec_name],
+            confidence_threshold=self._config.knowledge.confidence_threshold,
+        )
 
     def _enhance_with_causal(
         self,
