@@ -311,18 +311,18 @@ reporting).
     - [x] No linter warnings: `uv run ruff check agent_fox/reporting/status.py agent_fox/reporting/standup.py`
     - [x] Requirements 40-REQ-14.* met
 
-- [ ] 10. Final checkpoint
-  - [ ] 10.1 Update documentation
+- [x] 10. Final checkpoint
+  - [x] 10.1 Update documentation
     - Update `docs/cli-reference.md` for `agent-fox audit` command
     - Document `audit_retention_runs` config setting
     - _Requirements: documentation_
 
-  - [ ] 10.V Verify task group 10
-    - [ ] All spec tests pass: `uv run pytest tests/unit/knowledge/test_audit.py tests/unit/knowledge/test_audit_sink.py tests/unit/knowledge/test_audit_retention.py tests/unit/cli/test_audit_cli.py tests/integration/test_audit_events.py tests/property/knowledge/test_audit_props.py -v`
-    - [ ] Full test suite passes: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
-    - [ ] All 40-REQ-* acceptance criteria met
-    - [ ] `make check` passes
+  - [x] 10.V Verify task group 10
+    - [x] All spec tests pass: `uv run pytest tests/unit/knowledge/test_audit.py tests/unit/knowledge/test_audit_sink.py tests/unit/knowledge/test_audit_retention.py tests/unit/cli/test_audit_cli.py tests/integration/test_audit_events.py tests/property/knowledge/test_audit_props.py -v`
+    - [x] Full test suite passes: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
+    - [x] All 40-REQ-* acceptance criteria met
+    - [x] `make check` passes
 
 ## Traceability
 
