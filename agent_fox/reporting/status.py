@@ -1,14 +1,17 @@
 """Status report generator: task counts, token usage, cost, problem tasks.
 
-Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3
+Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3,
+              40-REQ-14.1, 40-REQ-14.3
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
@@ -16,7 +19,86 @@ from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.store import load_all_facts
 
+if TYPE_CHECKING:
+    import duckdb
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AuditStatusReport:
+    """Status report built from DuckDB audit_events table.
+
+    Requirements: 40-REQ-14.1
+    """
+
+    total_sessions: int
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost: float
+    cost_by_archetype: dict[str, float] = field(default_factory=dict)
+
+
+def build_status_report_from_audit(
+    conn: duckdb.DuckDBPyConnection | None,
+) -> AuditStatusReport | None:
+    """Build a status report by reading from the DuckDB audit_events table.
+
+    Queries session.complete and session.fail events to compute session
+    metrics. Returns None when DuckDB is unavailable.
+
+    Requirements: 40-REQ-14.1, 40-REQ-14.3
+    """
+    if conn is None:
+        return None
+
+    try:
+        rows = conn.execute(
+            """
+            SELECT payload
+            FROM audit_events
+            WHERE event_type IN ('session.complete', 'session.fail')
+            ORDER BY timestamp
+            """
+        ).fetchall()
+    except Exception:
+        logger.warning("Failed to query audit_events for status report", exc_info=True)
+        return None
+
+    total_sessions = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_cost = 0.0
+    cost_by_archetype: dict[str, float] = defaultdict(float)
+
+    for (payload_raw,) in rows:
+        total_sessions += 1
+        try:
+            if isinstance(payload_raw, str):
+                payload = json.loads(payload_raw)
+            elif isinstance(payload_raw, dict):
+                payload = payload_raw
+            else:
+                payload = {}
+        except (json.JSONDecodeError, TypeError):
+            payload = {}
+
+        tokens = payload.get("tokens", 0)
+        cost = payload.get("cost", 0.0)
+        archetype = payload.get("archetype", "unknown")
+
+        # tokens field contains total tokens; split evenly as approximation
+        total_input_tokens += int(tokens)
+        total_cost += float(cost)
+        cost_by_archetype[archetype] += float(cost)
+
+    return AuditStatusReport(
+        total_sessions=total_sessions,
+        total_input_tokens=total_input_tokens,
+        total_output_tokens=total_output_tokens,
+        total_cost=total_cost,
+        cost_by_archetype=dict(cost_by_archetype),
+    )
 
 
 @dataclass(frozen=True)

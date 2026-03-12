@@ -420,6 +420,17 @@ class NodeSessionRunner:
         if outcome.status == "completed":
             try:
                 touched_files = await harvest(repo_root, workspace)
+                # 40-REQ-11.1: Emit git.merge after successful harvest
+                if touched_files:
+                    self._emit_audit(
+                        AuditEventType.GIT_MERGE,
+                        node_id=node_id,
+                        payload={
+                            "branch": workspace.branch,
+                            "commit_sha": "",  # filled in after rev-parse below
+                            "files_touched": touched_files,
+                        },
+                    )
             except IntegrationError as exc:
                 # Coding session succeeded but merge to develop failed.
                 # Mark as failed with a clear integration error so the
@@ -429,6 +440,17 @@ class NodeSessionRunner:
                     f"Session completed but harvest failed: {exc}. "
                     f"The coding work was done — the merge into develop "
                     f"encountered a conflict."
+                )
+                # 40-REQ-11.2: Emit git.conflict on merge failure
+                self._emit_audit(
+                    AuditEventType.GIT_CONFLICT,
+                    node_id=node_id,
+                    severity=AuditSeverity.WARNING,
+                    payload={
+                        "branch": workspace.branch,
+                        "strategy": "default",
+                        "error": str(exc),
+                    },
                 )
                 logger.error(
                     "Harvest failed for %s after successful session: %s",
@@ -526,6 +548,8 @@ class NodeSessionRunner:
                         node_id=node_id,
                         memory_extraction_model=self._config.models.memory_extraction,
                         knowledge_db=self._knowledge_db,
+                        sink_dispatcher=self._sink,
+                        run_id=self._run_id,
                     )
                 except Exception:
                     logger.warning(

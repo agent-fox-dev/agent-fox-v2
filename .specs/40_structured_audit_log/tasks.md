@@ -189,8 +189,8 @@ reporting).
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/session_lifecycle.py agent_fox/session/session.py`
     - [x] Requirements 40-REQ-7.*, 40-REQ-8.*, 40-REQ-11.3 met
 
-- [ ] 6. Orchestrator, routing, harvest, and knowledge events
-  - [ ] 6.1 Generate run ID and wire `run.start` / `run.complete` in
+- [x] 6. Orchestrator, routing, harvest, and knowledge events
+  - [x] 6.1 Generate run ID and wire `run.start` / `run.complete` in
     `agent_fox/engine/engine.py`
     - Call `generate_run_id()` at start of `execute()`
     - Propagate run ID to sink dispatcher and session runners
@@ -200,50 +200,50 @@ reporting).
     - Register `AuditJsonlSink` in the sink dispatcher at engine start
     - _Requirements: 40-REQ-2.1, 40-REQ-2.2, 40-REQ-9.1, 40-REQ-9.2_
 
-  - [ ] 6.2 Wire `run.limit_reached` in `agent_fox/engine/engine.py`
+  - [x] 6.2 Wire `run.limit_reached` in `agent_fox/engine/engine.py`
     - Emit with severity `warning` and payload: `limit_type`, `limit_value`
     - _Requirements: 40-REQ-9.3_
 
-  - [ ] 6.3 Wire `session.retry` and `task.status_change` in
+  - [x] 6.3 Wire `session.retry` and `task.status_change` in
     `agent_fox/engine/engine.py`
     - `session.retry` with `attempt`, `reason`
     - `task.status_change` with `from_status`, `to_status`, `reason`
     - _Requirements: 40-REQ-7.4, 40-REQ-9.4_
 
-  - [ ] 6.4 Wire `sync.barrier` in `agent_fox/engine/engine.py`
+  - [x] 6.4 Wire `sync.barrier` in `agent_fox/engine/engine.py`
     - Emit with `completed_nodes`, `pending_nodes`
     - _Requirements: 40-REQ-9.5_
 
-  - [ ] 6.5 Wire `model.escalation` and `model.assessment` in
+  - [x] 6.5 Wire `model.escalation` and `model.assessment` in
     `agent_fox/routing/router.py`
     - `model.escalation` with `from_tier`, `to_tier`, `reason`
     - `model.assessment` with `predicted_tier`, `confidence`, `method`
     - _Requirements: 40-REQ-10.1, 40-REQ-10.2_
 
-  - [ ] 6.6 Wire `git.merge` and `git.conflict` in
+  - [x] 6.6 Wire `git.merge` and `git.conflict` in
     `agent_fox/engine/knowledge_harvest.py`
     - `git.merge` with `branch`, `commit_sha`, `files_touched`
     - `git.conflict` with severity `warning` and `branch`, `strategy`, `error`
     - _Requirements: 40-REQ-11.1, 40-REQ-11.2_
 
-  - [ ] 6.7 Wire `fact.extracted` in `agent_fox/engine/knowledge_harvest.py`
+  - [x] 6.7 Wire `fact.extracted` in `agent_fox/engine/knowledge_harvest.py`
     - Emit with `fact_count`, `categories`
     - _Requirements: 40-REQ-11.4_
 
-  - [ ] 6.8 Wire `fact.compacted` in `agent_fox/knowledge/compaction.py`
+  - [x] 6.8 Wire `fact.compacted` in `agent_fox/knowledge/compaction.py`
     - Emit with `facts_before`, `facts_after`, `superseded_count`
     - _Requirements: 40-REQ-11.5_
 
-  - [ ] 6.9 Wire `knowledge.ingested` in `agent_fox/knowledge/ingest.py`
+  - [x] 6.9 Wire `knowledge.ingested` in `agent_fox/knowledge/ingest.py`
     - Emit with `source_type`, `source_path`, `item_count`
     - _Requirements: 40-REQ-11.6_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests pass: `uv run pytest tests/integration/test_audit_events.py::TestOrchestratorEvents -v`
-    - [ ] Property tests pass: `uv run pytest tests/property/knowledge/test_audit_props.py::TestEventCompleteness -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/engine.py agent_fox/routing/router.py agent_fox/engine/knowledge_harvest.py agent_fox/knowledge/compaction.py agent_fox/knowledge/ingest.py`
-    - [ ] Requirements 40-REQ-2.*, 40-REQ-9.*, 40-REQ-10.*, 40-REQ-11.* met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests pass: `uv run pytest tests/integration/test_audit_events.py::TestOrchestratorEvents -v`
+    - [x] Property tests pass: `uv run pytest tests/property/knowledge/test_audit_props.py::TestEventCompleteness -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/engine.py agent_fox/routing/router.py agent_fox/engine/knowledge_harvest.py agent_fox/knowledge/compaction.py agent_fox/knowledge/ingest.py`
+    - [x] Requirements 40-REQ-2.*, 40-REQ-9.*, 40-REQ-10.*, 40-REQ-11.* met
 
 - [ ] 7. Log retention
   - [ ] 7.1 Add `audit_retention_runs` config setting
@@ -268,8 +268,8 @@ reporting).
     - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/audit.py agent_fox/engine/engine.py`
     - [ ] Requirements 40-REQ-12.* met
 
-- [ ] 8. CLI command
-  - [ ] 8.1 Create `agent_fox/cli/audit.py`
+- [x] 8. CLI command
+  - [x] 8.1 Create `agent_fox/cli/audit.py`
     - `audit_cmd` Click command with options: `--list-runs`, `--run`,
       `--event-type`, `--node-id`, `--since`
     - `--list-runs` queries distinct run_ids with counts
@@ -279,37 +279,37 @@ reporting).
     - _Requirements: 40-REQ-13.1 through 40-REQ-13.7, 40-REQ-13.E1,
       40-REQ-13.E2_
 
-  - [ ] 8.2 Register `audit_cmd` in `agent_fox/cli/app.py`
+  - [x] 8.2 Register `audit_cmd` in `agent_fox/cli/app.py`
     - Add to the main CLI group
     - _Requirements: 40-REQ-13.1_
 
-  - [ ] 8.V Verify task group 8
-    - [ ] Spec tests pass: `uv run pytest tests/unit/cli/test_audit_cli.py -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/cli/audit.py agent_fox/cli/app.py`
-    - [ ] Requirements 40-REQ-13.* met
+  - [x] 8.V Verify task group 8
+    - [x] Spec tests pass: `uv run pytest tests/unit/cli/test_audit_cli.py -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/cli/audit.py agent_fox/cli/app.py`
+    - [x] Requirements 40-REQ-13.* met
 
-- [ ] 9. Reporting migration
-  - [ ] 9.1 Add `build_status_report_from_audit()` to
+- [x] 9. Reporting migration
+  - [x] 9.1 Add `build_status_report_from_audit()` to
     `agent_fox/reporting/status.py`
     - Query `session.complete` and `session.fail` events from `audit_events`
     - Compute total sessions, tokens, costs, per-archetype, per-spec breakdowns
     - _Requirements: 40-REQ-14.1_
 
-  - [ ] 9.2 Update `agent_fox/reporting/status.py` to prefer DuckDB
+  - [x] 9.2 Update `agent_fox/reporting/status.py` to prefer DuckDB
     - Try DuckDB first, fall back to state.jsonl if unavailable
     - _Requirements: 40-REQ-14.1, 40-REQ-14.3_
 
-  - [ ] 9.3 Update `agent_fox/reporting/standup.py` to read from DuckDB
+  - [x] 9.3 Update `agent_fox/reporting/standup.py` to read from DuckDB
     - Query recent audit events for standup report generation
     - Fall back to existing JSONL parsing if DuckDB unavailable
     - _Requirements: 40-REQ-14.2, 40-REQ-14.3_
 
-  - [ ] 9.V Verify task group 9
-    - [ ] Spec tests pass: `uv run pytest tests/integration/test_audit_events.py::TestReportingMigration -v`
-    - [ ] All existing tests still pass: `uv run pytest -x -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/reporting/status.py agent_fox/reporting/standup.py`
-    - [ ] Requirements 40-REQ-14.* met
+  - [x] 9.V Verify task group 9
+    - [x] Spec tests pass: `uv run pytest tests/integration/test_audit_events.py::TestReportingMigration -v`
+    - [x] All existing tests still pass: `uv run pytest -x -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/reporting/status.py agent_fox/reporting/standup.py`
+    - [x] Requirements 40-REQ-14.* met
 
 - [ ] 10. Final checkpoint
   - [ ] 10.1 Update documentation

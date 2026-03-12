@@ -1,10 +1,12 @@
 """Standup report generator: agent activity, human commits, file overlaps.
 
-Requirements: 07-REQ-2.1, 07-REQ-2.2, 07-REQ-2.3, 07-REQ-2.4, 07-REQ-2.5
+Requirements: 07-REQ-2.1, 07-REQ-2.2, 07-REQ-2.3, 07-REQ-2.4, 07-REQ-2.5,
+              40-REQ-14.2, 40-REQ-14.3
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 import subprocess
@@ -12,12 +14,94 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
 
+if TYPE_CHECKING:
+    import duckdb
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AuditStandupReport:
+    """Standup report built from DuckDB audit_events table.
+
+    Requirements: 40-REQ-14.2
+    """
+
+    total_sessions: int
+    total_cost: float
+    recent_events: list[dict]
+
+
+def build_standup_from_audit(
+    conn: duckdb.DuckDBPyConnection | None,
+    *,
+    lookback_hours: int = 24,
+) -> AuditStandupReport | None:
+    """Build a standup report by reading from the DuckDB audit_events table.
+
+    Queries recent session events to produce a standup-style summary.
+    Returns None when DuckDB is unavailable.
+
+    Requirements: 40-REQ-14.2, 40-REQ-14.3
+    """
+    if conn is None:
+        return None
+
+    try:
+        rows = conn.execute(
+            """
+            SELECT event_type, timestamp, node_id, archetype, payload
+            FROM audit_events
+            WHERE event_type IN ('session.complete', 'session.fail')
+            ORDER BY timestamp DESC
+            LIMIT 100
+            """
+        ).fetchall()
+    except Exception:
+        logger.warning(
+            "Failed to query audit_events for standup report", exc_info=True
+        )
+        return None
+
+    total_sessions = len(rows)
+    total_cost = 0.0
+    recent_events: list[dict] = []
+
+    for event_type, timestamp, node_id, archetype, payload_raw in rows:
+        try:
+            if isinstance(payload_raw, str):
+                payload = json.loads(payload_raw)
+            elif isinstance(payload_raw, dict):
+                payload = payload_raw
+            else:
+                payload = {}
+        except (json.JSONDecodeError, TypeError):
+            payload = {}
+
+        cost = payload.get("cost", 0.0)
+        total_cost += float(cost)
+
+        recent_events.append(
+            {
+                "event_type": event_type,
+                "timestamp": str(timestamp),
+                "node_id": node_id,
+                "archetype": archetype,
+                "cost": cost,
+            }
+        )
+
+    return AuditStandupReport(
+        total_sessions=total_sessions,
+        total_cost=total_cost,
+        recent_events=recent_events,
+    )
 
 # ---------------------------------------------------------------------------
 # Git activity (merged from git_activity.py)

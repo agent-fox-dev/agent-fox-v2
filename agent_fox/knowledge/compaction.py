@@ -1,7 +1,7 @@
 """Knowledge base compaction: dedup and supersession resolution.
 
 Requirements: 05-REQ-5.1, 05-REQ-5.2, 05-REQ-5.3, 05-REQ-5.E1,
-              05-REQ-5.E2
+              05-REQ-5.E2, 40-REQ-11.5
 """
 
 from __future__ import annotations
@@ -9,14 +9,23 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.knowledge.facts import Fact
 from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, load_all_facts, write_facts
 
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
+
 logger = logging.getLogger("agent_fox.knowledge.compaction")
 
 
-def compact(path: Path = DEFAULT_MEMORY_PATH) -> tuple[int, int]:
+def compact(
+    path: Path = DEFAULT_MEMORY_PATH,
+    *,
+    sink_dispatcher: SinkDispatcher | None = None,
+    run_id: str = "",
+) -> tuple[int, int]:
     """Compact the knowledge base by removing duplicates and superseded facts.
 
     Steps:
@@ -29,6 +38,8 @@ def compact(path: Path = DEFAULT_MEMORY_PATH) -> tuple[int, int]:
 
     Args:
         path: Path to the JSONL file.
+        sink_dispatcher: Optional sink to emit fact.compacted audit event.
+        run_id: Run identifier for audit events.
 
     Returns:
         A tuple of (original_count, surviving_count).
@@ -44,6 +55,7 @@ def compact(path: Path = DEFAULT_MEMORY_PATH) -> tuple[int, int]:
     facts = _resolve_supersession(facts)
 
     surviving_count = len(facts)
+    superseded_count = original_count - surviving_count
     write_facts(facts, path)
 
     logger.info(
@@ -51,6 +63,27 @@ def compact(path: Path = DEFAULT_MEMORY_PATH) -> tuple[int, int]:
         original_count,
         surviving_count,
     )
+
+    # 40-REQ-11.5: Emit fact.compacted audit event
+    if sink_dispatcher is not None and run_id:
+        try:
+            from agent_fox.knowledge.audit import AuditEvent, AuditEventType
+
+            event = AuditEvent(
+                run_id=run_id,
+                event_type=AuditEventType.FACT_COMPACTED,
+                payload={
+                    "facts_before": original_count,
+                    "facts_after": surviving_count,
+                    "superseded_count": superseded_count,
+                },
+            )
+            sink_dispatcher.emit_audit_event(event)
+        except Exception:
+            logger.debug(
+                "Failed to emit fact.compacted audit event", exc_info=True
+            )
+
     return (original_count, surviving_count)
 
 

@@ -3,13 +3,14 @@
 Separated from session_lifecycle.py to isolate the LLM-powered knowledge
 extraction concern from the session lifecycle orchestration.
 
-Requirements: 05-REQ-1.1, 05-REQ-1.E1, 13-REQ-2.1, 13-REQ-2.2, 13-REQ-3.1
+Requirements: 05-REQ-1.1, 05-REQ-1.E1, 13-REQ-2.1, 13-REQ-2.2, 13-REQ-3.1,
+              40-REQ-11.4
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.knowledge.causal import store_causal_links
@@ -21,6 +22,9 @@ from agent_fox.knowledge.extraction import (
 )
 from agent_fox.knowledge.store import append_facts, load_all_facts
 
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +34,9 @@ async def extract_and_store_knowledge(
     node_id: str,
     memory_extraction_model: str,
     knowledge_db: KnowledgeDB,
+    *,
+    sink_dispatcher: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> None:
     """Extract facts and causal links from a session transcript.
 
@@ -50,6 +57,25 @@ async def extract_and_store_knowledge(
             len(facts),
             node_id,
         )
+        # 40-REQ-11.4: Emit fact.extracted audit event
+        if sink_dispatcher is not None and run_id:
+            try:
+                from agent_fox.knowledge.audit import AuditEvent, AuditEventType
+
+                categories = list({f.category for f in facts if hasattr(f, "category")})
+                event = AuditEvent(
+                    run_id=run_id,
+                    event_type=AuditEventType.FACT_EXTRACTED,
+                    node_id=node_id,
+                    payload={
+                        "fact_count": len(facts),
+                        "categories": categories,
+                    },
+                )
+                sink_dispatcher.emit_audit_event(event)
+            except Exception:
+                logger.debug("Failed to emit fact.extracted audit event", exc_info=True)
+
         _extract_causal_links(facts, node_id, memory_extraction_model, knowledge_db)
 
 

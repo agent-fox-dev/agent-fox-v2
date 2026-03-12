@@ -96,6 +96,7 @@ class ParallelRunner:
         archetype: str = "coder",
         instances: int = 1,
         assessed_tier: Any | None = None,
+        run_id: str = "",
     ) -> SessionRecord:
         """Execute a single session and return the record.
 
@@ -110,6 +111,7 @@ class ParallelRunner:
             archetype: Archetype name from the plan node.
             instances: Instance count from the plan node.
             assessed_tier: Model tier from adaptive routing assessment.
+            run_id: Audit run identifier for correlation.
 
         Returns:
             A SessionRecord with outcome, cost, and timing.
@@ -122,6 +124,7 @@ class ParallelRunner:
                 archetype=archetype,
                 instances=instances,
                 assessed_tier=assessed_tier,
+                run_id=run_id,
             )
         except Exception as exc:
             logger.error(
@@ -236,6 +239,7 @@ class ParallelRunner:
         archetype: str = "coder",
         instances: int = 1,
         assessed_tier: Any | None = None,
+        run_id: str = "",
     ) -> SessionRecord:
         """Execute a single session via the factory-created runner."""
         runner = self._session_runner_factory(
@@ -243,5 +247,6 @@ class ParallelRunner:
             archetype=archetype,
             instances=instances,
             assessed_tier=assessed_tier,
+            run_id=run_id,
         )
         return await invoke_runner(runner, node_id, attempt, previous_error)

@@ -261,6 +261,7 @@ def code_cmd(
         archetype: str = "coder",
         instances: int = 1,
         assessed_tier: ModelTier | None = None,
+        run_id: str = "",
     ) -> NodeSessionRunner:
         """Create a session runner for the given node.
 
@@ -273,6 +274,8 @@ def code_cmd(
 
         30-REQ-7.2: Passes assessed_tier from adaptive routing to override
         static model resolution.
+
+        40-REQ-2.2: Passes run_id for audit event correlation.
 
         16-REQ-5.E1: If construction fails, the runner's execute()
         method will catch and report the failure as a session error.
@@ -288,6 +291,7 @@ def code_cmd(
             knowledge_db=knowledge_db,
             activity_callback=progress.activity_callback,
             assessed_tier=assessed_tier,
+            run_id=run_id,
         )
 
     # 30-REQ-7.1, 38-REQ-1.3: Create assessment pipeline for adaptive routing
@@ -309,6 +313,7 @@ def code_cmd(
     progress.start()
     try:
         # 16-REQ-1.3: construct Orchestrator
+        # 40-REQ-9.1: pass sink_dispatcher for audit event emission
         orchestrator = Orchestrator(
             orch_config,
             plan_path=plan_path,
@@ -323,6 +328,7 @@ def code_cmd(
             assessment_pipeline=assessment_pipeline,
             archetypes_config=full_config.archetypes,
             planning_config=full_config.planning,
+            sink_dispatcher=sink_dispatcher,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()

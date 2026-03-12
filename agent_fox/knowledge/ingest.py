@@ -3,7 +3,7 @@
 Ingests additional knowledge sources (ADRs, git commits) into the
 knowledge store alongside session-extracted facts.
 
-Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3
+Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3, 40-REQ-11.6
 """
 
 from __future__ import annotations
@@ -13,11 +13,15 @@ import subprocess
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import duckdb
 
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger("agent_fox.knowledge.ingest")
 
@@ -296,12 +300,17 @@ def run_background_ingestion(
     conn: duckdb.DuckDBPyConnection,
     config: KnowledgeConfig,
     project_root: Path,
+    *,
+    sink_dispatcher: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> None:
     """Run background knowledge ingestion (ADRs + git commits).
 
     Creates an EmbeddingGenerator and KnowledgeIngestor, then ingests
     ADRs and recent git commits. Best-effort: all failures are logged
     and silently ignored.
+
+    Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3, 40-REQ-11.6
     """
     try:
         embedder = EmbeddingGenerator(config)
@@ -314,6 +323,14 @@ def run_background_ingestion(
                 adr_result.facts_added,
                 adr_result.facts_skipped,
             )
+            # 40-REQ-11.6: Emit knowledge.ingested audit event for ADRs
+            _emit_knowledge_ingested(
+                sink_dispatcher,
+                run_id,
+                source_type="adr",
+                source_path=str(project_root / "docs" / "adr"),
+                item_count=adr_result.facts_added,
+            )
 
         git_result = ingestor.ingest_git_commits()
         if git_result.facts_added > 0:
@@ -322,5 +339,44 @@ def run_background_ingestion(
                 git_result.facts_added,
                 git_result.facts_skipped,
             )
+            # 40-REQ-11.6: Emit knowledge.ingested audit event for git commits
+            _emit_knowledge_ingested(
+                sink_dispatcher,
+                run_id,
+                source_type="git",
+                source_path=str(project_root),
+                item_count=git_result.facts_added,
+            )
     except Exception:
         logger.warning("Background knowledge ingestion failed", exc_info=True)
+
+
+def _emit_knowledge_ingested(
+    sink_dispatcher: SinkDispatcher | None,
+    run_id: str,
+    *,
+    source_type: str,
+    source_path: str,
+    item_count: int,
+) -> None:
+    """Emit a knowledge.ingested audit event (best-effort).
+
+    Requirements: 40-REQ-11.6
+    """
+    if sink_dispatcher is None or not run_id:
+        return
+    try:
+        from agent_fox.knowledge.audit import AuditEvent, AuditEventType
+
+        event = AuditEvent(
+            run_id=run_id,
+            event_type=AuditEventType.KNOWLEDGE_INGESTED,
+            payload={
+                "source_type": source_type,
+                "source_path": source_path,
+                "item_count": item_count,
+            },
+        )
+        sink_dispatcher.emit_audit_event(event)
+    except Exception:
+        logger.debug("Failed to emit knowledge.ingested audit event", exc_info=True)

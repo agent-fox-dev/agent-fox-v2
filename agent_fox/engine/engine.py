@@ -46,7 +46,15 @@ from agent_fox.engine.state import (
 )
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
+from agent_fox.knowledge.audit import (
+    AuditEvent,
+    AuditEventType,
+    AuditSeverity,
+    default_severity_for,
+    generate_run_id,
+)
 from agent_fox.knowledge.rendering import render_summary
+from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.session.archetypes import get_archetype
 from agent_fox.ui.events import TaskCallback, TaskEvent
 
@@ -89,6 +97,7 @@ class SerialRunner:
         archetype: str = "coder",
         instances: int = 1,
         assessed_tier: Any | None = None,
+        run_id: str = "",
     ) -> SessionRecord:
         """Execute a single session and return the outcome record."""
         runner = self._session_runner_factory(
@@ -96,6 +105,7 @@ class SerialRunner:
             archetype=archetype,
             instances=instances,
             assessed_tier=assessed_tier,
+            run_id=run_id,
         )
         return await invoke_runner(runner, node_id, attempt, previous_error)
 
@@ -589,6 +599,7 @@ class Orchestrator:
         assessment_pipeline: Any | None = None,
         archetypes_config: ArchetypesConfig | None = None,
         planning_config: PlanningConfig | None = None,
+        sink_dispatcher: SinkDispatcher | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -607,6 +618,8 @@ class Orchestrator:
         self._plan_data: dict = {}  # Full plan data for plan.json updates
         self._archetypes_config = archetypes_config
         self._planning_config = planning_config or PlanningConfig()
+        self._sink = sink_dispatcher
+        self._run_id: str = ""  # populated in run()
 
         # 30-REQ-7: Adaptive routing state
         _rc = routing_config or RoutingConfig()
@@ -660,6 +673,39 @@ class Orchestrator:
             return min(orch_retries, 3)  # Clamp to valid range
 
         return routing_retries
+
+    def _emit_audit(
+        self,
+        event_type: AuditEventType,
+        *,
+        node_id: str = "",
+        session_id: str = "",
+        severity: AuditSeverity | None = None,
+        payload: dict | None = None,
+    ) -> None:
+        """Emit an audit event to the sink dispatcher (best-effort).
+
+        Requirements: 40-REQ-9.1, 40-REQ-9.2, 40-REQ-9.3, 40-REQ-9.4,
+                      40-REQ-9.5, 40-REQ-10.1, 40-REQ-10.2
+        """
+        if self._sink is None or not self._run_id:
+            return
+        try:
+            event = AuditEvent(
+                run_id=self._run_id,
+                event_type=event_type,
+                severity=severity or default_severity_for(event_type),
+                node_id=node_id,
+                session_id=session_id,
+                payload=payload or {},
+            )
+            self._sink.emit_audit_event(event)
+        except Exception:
+            logger.debug(
+                "Failed to emit orchestrator audit event %s",
+                event_type,
+                exc_info=True,
+            )
 
     async def _assess_node(self, node_id: str) -> None:
         """Run complexity assessment for a node and create an escalation ladder.
@@ -723,6 +769,16 @@ class Orchestrator:
                 assessment.confidence,
                 assessment.assessment_method,
                 tier_ceiling,
+            )
+            # 40-REQ-10.2: Emit model.assessment audit event
+            self._emit_audit(
+                AuditEventType.MODEL_ASSESSMENT,
+                node_id=node_id,
+                payload={
+                    "predicted_tier": predicted_tier.value,
+                    "confidence": assessment.confidence,
+                    "method": assessment.assessment_method,
+                },
             )
         except Exception:
             # 30-REQ-7.E1: Fall back to archetype default tier
@@ -807,6 +863,11 @@ class Orchestrator:
         Raises:
             PlanError: if plan.json is missing or corrupted
         """
+        # 40-REQ-2.1: Generate unique run ID at start of execute()
+        self._run_id = generate_run_id()
+        run_start_time = datetime.now(UTC)
+        logger.debug("Audit run ID: %s", self._run_id)
+
         plan_data = _load_plan_data(self._plan_path)
 
         # Runtime archetype injection: ensure config-enabled archetypes
@@ -855,6 +916,16 @@ class Orchestrator:
 
         self._signal.install()
 
+        # 40-REQ-9.1: Emit run.start audit event
+        self._emit_audit(
+            AuditEventType.RUN_START,
+            payload={
+                "plan_hash": plan_hash,
+                "total_nodes": len(nodes),
+                "parallel": self._is_parallel,
+            },
+        )
+
         first_dispatch = True
         try:
             while True:
@@ -870,11 +941,24 @@ class Orchestrator:
                         and state.total_cost >= self._config.max_cost
                     ):
                         state.run_status = RunStatus.COST_LIMIT
+                        limit_type = "cost"
+                        limit_value: float = float(self._config.max_cost)
                     else:
                         state.run_status = RunStatus.SESSION_LIMIT
+                        limit_type = "sessions"
+                        limit_value = float(self._config.max_sessions or 0)
                     logger.info(
                         "Circuit breaker tripped: %s",
                         stop_decision.reason,
+                    )
+                    # 40-REQ-9.3: Emit run.limit_reached with severity warning
+                    self._emit_audit(
+                        AuditEventType.RUN_LIMIT_REACHED,
+                        severity=AuditSeverity.WARNING,
+                        payload={
+                            "limit_type": limit_type,
+                            "limit_value": limit_value,
+                        },
                     )
                     self._state_manager.save(state)
                     return state
@@ -934,6 +1018,21 @@ class Orchestrator:
                 render_summary()
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
+            # 40-REQ-9.2: Emit run.complete at end of execute()
+            run_duration_ms = int(
+                (datetime.now(UTC) - run_start_time).total_seconds() * 1000
+            )
+            self._emit_audit(
+                AuditEventType.RUN_COMPLETE,
+                payload={
+                    "total_sessions": len(state.session_history),
+                    "total_cost": state.total_cost,
+                    "duration_ms": run_duration_ms,
+                    "run_status": state.run_status.value
+                    if hasattr(state.run_status, "value")
+                    else str(state.run_status),
+                },
+            )
 
     def _compute_duration_hints(self) -> dict[str, int] | None:
         """Compute duration hints for ready task ordering.
@@ -1139,6 +1238,7 @@ class Orchestrator:
                 archetype=node_archetype,
                 instances=node_instances,
                 assessed_tier=assessed_tier,
+                run_id=self._run_id,
             )
 
             self._process_session_result(
@@ -1229,6 +1329,7 @@ class Orchestrator:
                         archetype=node_archetype,
                         instances=node_instances,
                         assessed_tier=assessed_tier,
+                        run_id=self._run_id,
                     ),
                     name=f"parallel-{node_id}",
                 )
@@ -1299,7 +1400,18 @@ class Orchestrator:
         self._state_manager.record_session(state, record)
 
         if record.status == "completed":
+            prev_status = self._graph_sync.node_states.get(node_id, "in_progress")
             self._graph_sync.mark_completed(node_id)
+            # 40-REQ-9.4: Emit task.status_change on completion
+            self._emit_audit(
+                AuditEventType.TASK_STATUS_CHANGE,
+                node_id=node_id,
+                payload={
+                    "from_status": prev_status,
+                    "to_status": "completed",
+                    "reason": "session completed successfully",
+                },
+            )
             error_tracker.pop(node_id, None)
             # 18-REQ-5.4: Emit task completion event
             if self._task_callback is not None:
@@ -1373,6 +1485,28 @@ class Orchestrator:
                             prev_tier,
                             ladder.current_tier,
                         )
+                        # 40-REQ-10.1: Emit model.escalation audit event
+                        self._emit_audit(
+                            AuditEventType.MODEL_ESCALATION,
+                            node_id=node_id,
+                            payload={
+                                "from_tier": prev_tier,
+                                "to_tier": ladder.current_tier.value,
+                                "reason": (
+                                    f"retry limit at tier exhausted "
+                                    f"for {node_id}"
+                                ),
+                            },
+                        )
+                    # 40-REQ-9.4: Emit session.retry on pending reset
+                    self._emit_audit(
+                        AuditEventType.SESSION_RETRY,
+                        node_id=node_id,
+                        payload={
+                            "attempt": attempt,
+                            "reason": record.error_message or "retrying after failure",
+                        },
+                    )
                     self._graph_sync.node_states[node_id] = "pending"
             else:
                 # Fallback: no ladder (backward compat) — use original retry logic
@@ -1414,6 +1548,15 @@ class Orchestrator:
                         f"Retries exhausted for {node_id}: {record.error_message}",
                     )
                 else:
+                    # 40-REQ-9.4: Emit session.retry on pending reset (fallback path)
+                    self._emit_audit(
+                        AuditEventType.SESSION_RETRY,
+                        node_id=node_id,
+                        payload={
+                            "attempt": attempt,
+                            "reason": record.error_message or "retrying after failure",
+                        },
+                    )
                     self._graph_sync.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
@@ -1460,6 +1603,22 @@ class Orchestrator:
             "Sync barrier %d triggered at %d completed tasks",
             barrier_number,
             completed_count,
+        )
+
+        # 40-REQ-9.5: Emit sync.barrier audit event
+        completed_nodes = [
+            nid for nid, s in state.node_states.items() if s == "completed"
+        ]
+        pending_nodes = [
+            nid for nid, s in state.node_states.items()
+            if s in ("pending", "in_progress")
+        ]
+        self._emit_audit(
+            AuditEventType.SYNC_BARRIER,
+            payload={
+                "completed_nodes": completed_nodes,
+                "pending_nodes": pending_nodes,
+            },
         )
 
         # 06-REQ-6.1: Run sync barrier hooks
