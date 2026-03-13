@@ -150,7 +150,41 @@ class TestParseCausalLinksInvalidJSON:
         links = parse_causal_links("This is not JSON at all")
         assert len(links) == 0
 
-    def test_partial_json_returns_empty_list(self) -> None:
-        """Truncated JSON returns an empty list."""
+    def test_partial_json_no_complete_entries_returns_empty(self) -> None:
+        """Truncated JSON with no complete entries returns an empty list."""
         links = parse_causal_links('[{"cause_id": "aaa", "effect_id":')
         assert len(links) == 0
+
+
+class TestParseCausalLinksTruncatedRecovery:
+    """parse_causal_links recovers valid entries from truncated JSON."""
+
+    def test_recovers_complete_entries_from_truncated_array(self) -> None:
+        """Complete entries before the truncation point are recovered."""
+        response = (
+            '[{"cause_id": "aaa", "effect_id": "bbb"}, '
+            '{"cause_id": "ccc", "effect_id": "ddd"}, '
+            '{"cause_id": "eee", "effect_'
+        )
+        links = parse_causal_links(response)
+        assert len(links) == 2
+        assert links[0] == ("aaa", "bbb")
+        assert links[1] == ("ccc", "ddd")
+
+    def test_recovers_from_truncated_fenced_response(self) -> None:
+        """Truncated ```json fenced response recovers valid entries."""
+        response = (
+            '```json\n'
+            '[{"cause_id": "x1", "effect_id": "x2"}, '
+            '{"cause_id": "y1"'
+        )
+        links = parse_causal_links(response)
+        assert len(links) == 1
+        assert links[0] == ("x1", "x2")
+
+    def test_single_complete_entry_before_truncation(self) -> None:
+        """A single complete entry followed by truncation is recovered."""
+        response = '[{"cause_id": "a", "effect_id": "b"}, {"cause_id":'
+        links = parse_causal_links(response)
+        assert len(links) == 1
+        assert links[0] == ("a", "b")

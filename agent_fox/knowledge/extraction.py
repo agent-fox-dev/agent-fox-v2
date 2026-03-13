@@ -168,12 +168,19 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     try:
         data = json.loads(cleaned)
     except (json.JSONDecodeError, ValueError):
-        logger.warning(
-            "Failed to parse causal links JSON, returning empty list. "
-            "Response (first 300 chars): %s",
-            extraction_response[:300],
+        # Attempt to salvage truncated JSON by closing open brackets
+        data = _repair_truncated_json_array(cleaned)
+        if data is None:
+            logger.warning(
+                "Failed to parse causal links JSON, returning empty list. "
+                "Response (first 300 chars): %s",
+                extraction_response[:300],
+            )
+            return []
+        logger.debug(
+            "Recovered %d entries from truncated causal links JSON",
+            len(data),
         )
-        return []
 
     if not isinstance(data, list):
         logger.warning("Causal links response is not a JSON array")
@@ -204,6 +211,12 @@ def _strip_markdown_fences(text: str) -> str:
     if fence_match:
         return fence_match.group(1).strip()
 
+    # 1b. Handle unclosed fence (truncated LLM output) — extract everything
+    # after the opening fence marker.
+    open_fence = re.search(r"```(?:json)?\s*\n?", text)
+    if open_fence:
+        return text[open_fence.end() :].strip()
+
     # 2. If the raw text isn't already valid JSON, try to extract [...]
     stripped = text.strip()
     if stripped.startswith("["):
@@ -230,6 +243,39 @@ def _strip_markdown_fences(text: str) -> str:
 
     # 4. Give up — return original text so json.loads produces a clear error
     return stripped
+
+
+def _repair_truncated_json_array(text: str) -> list[dict] | None:
+    """Try to recover valid entries from a truncated JSON array.
+
+    When an LLM response is cut off mid-stream, the JSON may be
+    incomplete (e.g. ``[{"a":1},{"b":2},{"c"``). This function
+    finds the last complete object in the array and returns a list
+    of all complete objects parsed so far.
+
+    Returns None if no valid entries can be recovered.
+    """
+    stripped = text.strip()
+    if not stripped.startswith("["):
+        return None
+
+    # Find the last complete object by looking for the last "},"
+    # or "}" that closes a top-level array element.
+    last_complete = stripped.rfind("},")
+    if last_complete == -1:
+        last_complete = stripped.rfind("}")
+    if last_complete == -1:
+        return None
+
+    # Close the array after the last complete object
+    candidate = stripped[: last_complete + 1] + "]"
+    try:
+        data = json.loads(candidate)
+        if isinstance(data, list) and len(data) > 0:
+            return data
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return None
 
 
 def _parse_extraction_response(
