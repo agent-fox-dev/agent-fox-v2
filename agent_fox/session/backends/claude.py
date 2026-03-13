@@ -114,8 +114,11 @@ class ClaudeBackend:
             mcp_servers=mcp_servers,
         )
 
+        saw_result = False
         try:
             async for message in self._stream_messages(prompt=prompt, options=options):
+                if isinstance(message, ResultMessage):
+                    saw_result = True
                 yield message
         except Exception as exc:
             # 26-REQ-2.E1: Streaming error yields ResultMessage with is_error=True
@@ -126,6 +129,18 @@ class ClaudeBackend:
                 output_tokens=0,
                 duration_ms=0,
                 error_message=str(exc),
+                is_error=True,
+            )
+            return
+
+        if not saw_result:
+            logger.warning("ClaudeBackend stream ended without a ResultMessage")
+            yield ResultMessage(
+                status="failed",
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0,
+                error_message="Backend stream ended without a result message.",
                 is_error=True,
             )
 
