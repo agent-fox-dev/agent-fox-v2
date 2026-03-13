@@ -15,6 +15,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
 | `agent-fox audit` | Query the structured audit log |
 | `agent-fox lint-spec` | Validate specification files |
+| `agent-fox serve-tools` | Launch fox tools MCP server |
 
 ## Global Options
 
@@ -133,7 +134,7 @@ agent-fox plan [OPTIONS]
 | `--fast` | flag | off | Exclude optional tasks |
 | `--spec NAME` | string | all | Plan a single spec |
 | `--reanalyze` | flag | off | Discard cached plan and rebuild |
-| `--verify` | flag | off | Verify dependency consistency (placeholder) |
+| `--analyze` | flag | off | Show parallelism analysis |
 
 Scans `.specs/` for specification folders, parses task groups, builds a
 dependency graph, resolves topological ordering, and persists the plan to
@@ -160,6 +161,7 @@ agent-fox code [OPTIONS]
 | `--no-hooks` | flag | off | Skip all hook scripts |
 | `--max-cost USD` | float | from config | Cost ceiling in USD |
 | `--max-sessions N` | int | from config | Session count limit |
+| `--debug` | flag | off | Enable debug audit trail (JSONL + DuckDB tool signals) |
 
 Runs the orchestrator, which dispatches coding sessions to a Claude agent for
 each ready task in the plan. Sessions execute in isolated git worktrees with
@@ -185,8 +187,12 @@ Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
 Show execution progress dashboard.
 
 ```
-agent-fox status
+agent-fox status [OPTIONS]
 ```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--model` | flag | off | Include project model and critical path analysis |
 
 Displays task counts (done, in-progress, pending, failed, blocked), token
 usage, estimated cost, problem tasks with reasons, per-archetype cost breakdown,
@@ -232,6 +238,8 @@ agent-fox fix [OPTIONS]
 |--------|------|---------|-------------|
 | `--max-passes N` | int | 3 | Maximum fix iterations (min 1) |
 | `--dry-run` | flag | off | Generate fix specs only, skip sessions |
+| `--auto` | flag | off | After repair, run iterative improvement passes |
+| `--improve-passes N` | int | 3 | Maximum improvement passes (requires `--auto`) |
 
 Runs quality checks (pytest, ruff, mypy, npm test, cargo test, etc.), clusters
 failures by root cause using AI, generates fix specifications, and runs coding
@@ -355,6 +363,7 @@ agent-fox lint-spec [OPTIONS]
 |--------|------|---------|-------------|
 | `--ai` | flag | off | Enable AI-powered semantic analysis |
 | `--fix` | flag | off | Auto-fix findings where possible |
+| `--all` | flag | off | Lint all specs, including fully-implemented ones |
 
 Use `agent-fox --json lint-spec` for structured JSON output.
 
@@ -380,152 +389,25 @@ the original criteria are left unchanged.
 
 ---
 
-## Configuration
+### serve-tools
 
-Configuration lives in `.agent-fox/config.toml`. All fields are optional;
-defaults are used for any absent field. Unknown keys are logged and ignored.
+Launch the fox tools MCP server on stdio.
 
-### `[orchestrator]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `parallel` | int | `1` | Max parallel sessions (1-8) |
-| `sync_interval` | int | `5` | Sessions between sync barriers (0 = disabled) |
-| `hot_load` | bool | `true` | Scan for new specs at sync barriers |
-| `max_retries` | int | `2` | Retries per failed task (0 = no retry) |
-| `session_timeout` | int | `30` | Session timeout in minutes (min 1) |
-| `inter_session_delay` | int | `3` | Seconds between sessions (0 = no delay) |
-| `max_cost` | float | none | Cost ceiling in USD |
-| `max_sessions` | int | none | Session count limit |
-| `audit_retention_runs` | int | `20` | Maximum number of runs to retain in the audit log (min 1) |
-
-### `[models]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `coding` | string | `"ADVANCED"` | Model tier or ID for coding sessions |
-| `coordinator` | string | `"STANDARD"` | Model tier or ID for coordination |
-| `memory_extraction` | string | `"SIMPLE"` | Model tier or ID for fact extraction |
-
-Model tiers: `SIMPLE`, `STANDARD`, `ADVANCED`. You can also specify a model ID
-directly (e.g., `claude-sonnet-4-6`).
-
-### `[hooks]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `pre_code` | list[string] | `[]` | Scripts to run before each session |
-| `post_code` | list[string] | `[]` | Scripts to run after each session |
-| `sync_barrier` | list[string] | `[]` | Scripts to run at sync barriers |
-| `timeout` | int | `300` | Hook timeout in seconds (min 1) |
-| `modes` | dict | `{}` | Per-script failure mode (`"abort"` or `"warn"`) |
-
-Default failure mode is `abort` (non-zero exit stops execution). Set a
-script's mode to `"warn"` to log a warning and continue.
-
-Hook environment variables: `AF_SPEC_NAME`, `AF_TASK_GROUP`, `AF_WORKSPACE`,
-`AF_BRANCH`.
-
-### `[security]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `bash_allowlist` | list[string] | none | Replace default command allowlist entirely |
-| `bash_allowlist_extend` | list[string] | `[]` | Add commands to the default allowlist |
-
-If both are set, `bash_allowlist` takes precedence (with a warning).
-
-### `[theme]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `playful` | bool | `true` | Use fox-themed messages |
-| `header` | string | `"bold #ff8c00"` | Rich style for headers |
-| `success` | string | `"bold green"` | Rich style for success |
-| `error` | string | `"bold red"` | Rich style for errors |
-| `warning` | string | `"bold yellow"` | Rich style for warnings |
-| `info` | string | `"#daa520"` | Rich style for info |
-| `tool` | string | `"bold #cd853f"` | Rich style for tool output |
-| `muted` | string | `"dim"` | Rich style for muted text |
-
-### `[platform]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `type` | string | `"none"` | Platform type: `"none"` or `"github"` |
-| `pr_granularity` | string | `"session"` | PR creation granularity |
-| `wait_for_ci` | bool | `false` | Wait for CI checks after PR creation |
-| `wait_for_review` | bool | `false` | Wait for PR review approval |
-| `auto_merge` | bool | `false` | Auto-merge approved PRs |
-| `ci_timeout` | int | `600` | CI wait timeout in seconds |
-| `labels` | list[string] | `[]` | Labels to apply to PRs |
-
-### `[archetypes]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `skeptic` | bool | `false` | Enable skeptic archetype (spec review) |
-| `oracle` | bool | `false` | Enable oracle archetype (spec drift detection) |
-| `verifier` | bool | `false` | Enable verifier archetype (post-code checks) |
-
-### `[archetypes.oracle_settings]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `block_threshold` | int | none | Block if critical drift findings exceed this count (advisory if omitted) |
-
-### `[archetypes.models]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `oracle` | string | `"STANDARD"` | Model tier ceiling for oracle sessions |
-
-### `[archetypes.allowlists]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `oracle` | list[string] | see below | Override oracle command allowlist (default: ls, cat, git, grep, find, head, tail, wc) |
-
-### `[pricing]`
-
-Configurable per-model pricing for cost calculations. If this section is absent,
-built-in defaults matching current Anthropic API rates are used.
-
-#### `[pricing.models.<model-id>]`
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `input_price_per_m` | float | varies | USD per million input tokens |
-| `output_price_per_m` | float | varies | USD per million output tokens |
-
-Default pricing:
-
-| Model | Input $/M | Output $/M |
-|-------|-----------|------------|
-| `claude-haiku-4-5` | `1.00` | `5.00` |
-| `claude-sonnet-4-6` | `3.00` | `15.00` |
-| `claude-opus-4-6` | `5.00` | `25.00` |
-
-Example:
-
-```toml
-[pricing.models.claude-haiku-4-5]
-input_price_per_m = 1.00
-output_price_per_m = 5.00
-
-[pricing.models.claude-sonnet-4-6]
-input_price_per_m = 3.00
-output_price_per_m = 15.00
+```
+agent-fox serve-tools [OPTIONS]
 ```
 
-Negative pricing values are clamped to zero with a warning.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--allowed-dirs PATH` | path (multiple) | none | Restrict file operations to these directories |
 
-### `[knowledge]`
+Exposes the four fox tools (`fox_outline`, `fox_read`, `fox_edit`,
+`fox_search`) over the standard MCP stdio transport. Path sandboxing via
+`--allowed-dirs` restricts file operations to the specified directories and
+their descendants.
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `store_path` | string | `".agent-fox/knowledge.duckdb"` | DuckDB database path |
-| `embedding_model` | string | `"all-MiniLM-L6-v2"` | Embedding model name (sentence-transformers) |
-| `embedding_dimensions` | int | `384` | Embedding vector dimensions |
-| `ask_top_k` | int | `20` | Default top-k for `ask` queries (min 1) |
-| `ask_synthesis_model` | string | `"STANDARD"` | Model for answer synthesis |
+---
+
+## Configuration
+
+For the complete configuration reference, see [configuration.md](configuration.md).

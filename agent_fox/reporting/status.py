@@ -148,7 +148,7 @@ def extract_spec_name(node_id: str) -> str:
     """
     if ":" not in node_id:
         return node_id
-    return node_id.rsplit(":", 1)[0]
+    return node_id.split(":")[0]
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:

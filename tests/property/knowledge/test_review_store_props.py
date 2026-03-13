@@ -116,10 +116,10 @@ class TestMigrationIdempotency:
         for _ in range(n_runs):
             apply_pending_migrations(conn)
 
-        # Version should be 5 (latest migration: v5 confidence float)
+        # Version should be 6 (latest migration: v6 audit_events)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 5
+        assert version[0] == 6
 
         # Tables should exist (v2 + v3 + v4 migrations)
         tables = conn.execute(

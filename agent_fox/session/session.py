@@ -272,9 +272,7 @@ async def _execute_query(
         query_state.input_tokens = message.input_tokens
         query_state.output_tokens = message.output_tokens
         query_state.cache_read_input_tokens = message.cache_read_input_tokens
-        query_state.cache_creation_input_tokens = (
-            message.cache_creation_input_tokens
-        )
+        query_state.cache_creation_input_tokens = message.cache_creation_input_tokens
         query_state.duration_ms = message.duration_ms
 
         # Update cumulative tokens from the final result

@@ -21,9 +21,9 @@ def _sort_key(node_id: str) -> tuple[str, int]:
     """Extract sort key from a node ID for deterministic tie-breaking.
 
     Breaks ties by spec prefix (ascending), then group number (ascending).
-    Node IDs have the format ``{spec_name}:{group_number}``.
+    Node IDs have the format ``{spec_name}:{group_number}[:{role}]``.
     """
-    parts = node_id.rsplit(":", 1)
+    parts = node_id.split(":")
     spec_name = parts[0]
     group_number = int(parts[1]) if len(parts) > 1 else 0
     return (spec_name, group_number)

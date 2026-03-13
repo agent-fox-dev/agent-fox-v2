@@ -67,20 +67,18 @@ with spec authoring, architecture decisions, code simplification, and more.
 
 ### Agent Archetypes
 
-By default every task runs as a **Coder** agent. You can enable specialized
-archetypes to add automated review and verification to the task graph:
+By default every task runs as a **Coder** agent. Specialized archetypes add
+automated review and verification at different stages of the pipeline:
 
-| Archetype | Purpose | Injection |
-|-----------|---------|-----------|
-| **Coder** | Implements code (always enabled) | default |
-| **Skeptic** | Reviews specs before coding begins | auto, before first coder group |
-| **Oracle** | Validates spec assumptions against codebase | auto, before first coder group |
-| **Verifier** | Checks code quality after coding | auto, after last coder group |
-| **Librarian** | Documentation tasks | manual assignment |
-| **Cartographer** | Architecture mapping | manual assignment |
-
-When both Skeptic and Oracle are enabled, they run in parallel before the first
-coder group.
+| Archetype | Purpose | Default |
+|-----------|---------|---------|
+| **Coder** | Implements code | always enabled |
+| **Skeptic** | Reviews specs before coding | enabled |
+| **Oracle** | Validates spec assumptions against codebase | disabled |
+| **Auditor** | Validates test code against test_spec contracts | disabled |
+| **Verifier** | Checks code quality after coding | enabled |
+| **Librarian** | Documentation tasks | disabled |
+| **Cartographer** | Architecture mapping | disabled |
 
 Skeptic and Verifier are enabled by default. Configure archetypes in your
 `config.toml`:
@@ -88,24 +86,10 @@ Skeptic and Verifier are enabled by default. Configure archetypes in your
 ```toml
 [archetypes]
 oracle = true         # enable oracle (disabled by default)
-
-[archetypes.instances]
-skeptic = 3           # run 3 independent reviewers, converge results
-
-[archetypes.skeptic_settings]
-block_threshold = 3   # block if > 3 majority-agreed critical findings
-
-[archetypes.oracle_settings]
-block_threshold = 5   # block if > 5 critical drift findings (omit for advisory only)
 ```
 
-You can also assign archetypes to specific task groups in `tasks.md`:
-
-```markdown
-- [ ] 5. Update documentation [archetype: librarian]
-```
-
-See the [ADR](docs/adr/agent-archetypes.md) for design rationale.
+See the [archetypes reference](docs/archetypes.md) for details on each
+archetype, and the [ADR](docs/adr/agent-archetypes.md) for design rationale.
 
 ### Adaptive Model Routing
 
@@ -118,41 +102,16 @@ The routing system learns from past executions: after enough history
 accumulates, a statistical model replaces the default heuristic rules and
 predictions improve over time.
 
-Configure routing behavior in `config.toml`:
-
-```toml
-[routing]
-retries_before_escalation = 1   # retries at same tier before escalating (0-3)
-training_threshold = 20         # min outcomes before training statistical model
-accuracy_threshold = 0.75       # min accuracy to prefer statistical over LLM
-retrain_interval = 10           # new outcomes between retraining cycles
-```
-
-Archetype model overrides act as tier ceilings — the system may start lower but
-never escalates above the configured tier:
-
-```toml
-[archetypes.models]
-coder = "STANDARD"    # coder tasks will never use ADVANCED
-```
-
-See the [ADR](docs/adr/adaptive-model-routing.md) for design rationale.
+See the [configuration reference](docs/configuration.md#routing) for routing
+options and the [ADR](docs/adr/adaptive-model-routing.md) for design rationale.
 
 ## Fox Tools (Token-Efficient File Tools)
 
 agent-fox includes four token-efficient file tools that reduce token usage
 and prevent silent corruption during file operations.
 
-### Enabling Fox Tools
-
-Add the following to your `config.toml`:
-
-```toml
-[tools]
-fox_tools = true
-```
-
-When enabled, the session runner registers four tools with the agent backend:
+Fox tools are enabled by default. When enabled, the session runner registers
+four tools with the agent backend:
 
 | Tool | Description |
 |------|-------------|
@@ -189,6 +148,15 @@ clear error message rather than running with degraded functionality.
 
 All knowledge-dependent features (memory facts, causal links, review findings,
 session outcomes, complexity assessments) require a working DuckDB connection.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [CLI Reference](docs/cli-reference.md) | All commands, flags, and options |
+| [Configuration Reference](docs/configuration.md) | All `config.toml` sections and options |
+| [Archetypes](docs/archetypes.md) | Agent archetype details and configuration |
+| [Skills](docs/skills.md) | Claude Code skill reference |
 
 ## Development
 

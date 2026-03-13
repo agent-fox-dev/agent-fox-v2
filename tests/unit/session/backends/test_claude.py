@@ -267,6 +267,32 @@ class TestStreamingErrorYieldsResult:
         assert result.status == "failed"
         assert "network failure" in result.error_message
 
+    @pytest.mark.asyncio
+    async def test_empty_stream_yields_synthetic_error_result(self) -> None:
+        """When _stream_messages yields no ResultMessage, execute yields a synthetic one."""
+        backend = ClaudeBackend()
+
+        async def _empty_stream(*, prompt, options):
+            return
+            yield  # noqa: RET503
+
+        with patch.object(backend, "_stream_messages", _empty_stream):
+            messages = []
+            async for msg in backend.execute(
+                "test",
+                system_prompt="sys",
+                model="claude-sonnet-4-6",
+                cwd="/tmp",
+            ):
+                messages.append(msg)
+
+        assert len(messages) == 1
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is True
+        assert result.status == "failed"
+        assert "without a result" in result.error_message
+
 
 # ---------------------------------------------------------------------------
 # TS-26-P2: Message Type Completeness (Property)

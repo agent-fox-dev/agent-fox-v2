@@ -129,9 +129,9 @@ class TestLockReleaseOnFailure:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.workspace.harvest.merge_commit",
+                "agent_fox.workspace.harvest.run_git",
                 new_callable=AsyncMock,
-                side_effect=IntegrationError("merge failed"),
+                return_value=(1, "CONFLICT", "merge failed"),
             ),
             patch(
                 "agent_fox.workspace.harvest.run_merge_agent",
@@ -280,9 +280,9 @@ class TestAgentFailureAbortsHarvest:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.workspace.harvest.merge_commit",
+                "agent_fox.workspace.harvest.run_git",
                 new_callable=AsyncMock,
-                side_effect=IntegrationError("merge failed"),
+                return_value=(1, "CONFLICT", "merge failed"),
             ),
             patch(
                 "agent_fox.workspace.harvest.run_merge_agent",

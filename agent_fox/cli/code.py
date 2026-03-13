@@ -348,6 +348,7 @@ def code_cmd(
             activity_callback=progress.activity_callback,
             assessed_tier=assessed_tier,
             run_id=run_id,
+            fact_cache=fact_cache,
         )
 
     # 30-REQ-7.1, 38-REQ-1.3: Create assessment pipeline for adaptive routing

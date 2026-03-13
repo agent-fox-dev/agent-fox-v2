@@ -157,7 +157,7 @@ class TestCommitShaCaptured:
 
         import asyncio
 
-        sha = asyncio.get_event_loop().run_until_complete(_capture_develop_head(repo))
+        sha = asyncio.run(_capture_develop_head(repo))
 
         assert len(sha) == 40
         assert sha == expected_sha
@@ -171,9 +171,7 @@ class TestCommitShaCaptured:
 
         import asyncio
 
-        sha = asyncio.get_event_loop().run_until_complete(
-            _capture_develop_head(bad_path)
-        )
+        sha = asyncio.run(_capture_develop_head(bad_path))
 
         assert sha == ""
 

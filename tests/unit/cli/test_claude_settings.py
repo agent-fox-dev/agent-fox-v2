@@ -157,8 +157,8 @@ class TestEdgeCases:
 
 @pytest.fixture()
 def caplog(caplog):
-    """Enable log capture at DEBUG level."""
+    """Enable log capture at DEBUG level for agent_fox.cli.init."""
     import logging
 
-    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.DEBUG, logger="agent_fox.cli.init")
     return caplog

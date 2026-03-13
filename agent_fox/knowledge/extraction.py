@@ -119,15 +119,18 @@ Review the facts you have extracted above. For each fact, consider whether
 it was CAUSED BY a prior fact from the knowledge base, or whether it CAUSES
 a change that affects other known facts.
 
-For each causal relationship you identify, output a JSON object:
-{{
+Respond with ONLY a JSON array of causal link objects. Example:
+[
+  {{
     "cause_id": "<UUID of the cause fact>",
     "effect_id": "<UUID of the effect fact>"
-}}
+  }}
+]
+
+If no causal relationships are apparent, respond with exactly: []
 
 Only include relationships where the causal connection is clear and direct.
-Do not speculate. If no causal relationships are apparent, output an empty
-list.
+Do not speculate. Do not include any prose or explanation — only the JSON array.
 
 Prior facts for reference:
 {prior_facts}
@@ -165,7 +168,11 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     try:
         data = json.loads(cleaned)
     except (json.JSONDecodeError, ValueError):
-        logger.warning("Failed to parse causal links JSON, returning empty list")
+        logger.warning(
+            "Failed to parse causal links JSON, returning empty list. "
+            "Response (first 300 chars): %s",
+            extraction_response[:300],
+        )
         return []
 
     if not isinstance(data, list):
