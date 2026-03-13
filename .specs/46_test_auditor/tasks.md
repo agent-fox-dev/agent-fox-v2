@@ -30,28 +30,28 @@ Implementation is split into four groups plus a checkpoint:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create registry and config test files
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create registry and config test files
     - Create `tests/unit/session/test_auditor.py` with tests for TS-46-1,
       TS-46-2 (registry entry, get_archetype)
     - Create `tests/unit/core/test_config_auditor.py` with tests for TS-46-3
       through TS-46-6 (config defaults, clamping, AuditorConfig)
     - _Test Spec: TS-46-1 through TS-46-6_
 
-  - [ ] 1.2 Create detection and injection test files
+  - [x] 1.2 Create detection and injection test files
     - Create `tests/unit/graph/test_builder_auditor.py` with tests for
       TS-46-7 through TS-46-16 (detection function, injection logic,
       coexistence, multiple test groups)
     - Include TS-46-E1 (no test groups), TS-46-E4, TS-46-E5 (TS entry counting)
     - _Test Spec: TS-46-7 through TS-46-16, TS-46-E1, TS-46-E4, TS-46-E5_
 
-  - [ ] 1.3 Create convergence and prompt template test files
+  - [x] 1.3 Create convergence and prompt template test files
     - Add convergence tests to `tests/unit/session/test_auditor.py`:
       TS-46-19 through TS-46-22 (union, passthrough, empty, no LLM)
     - Add prompt template tests: TS-46-17, TS-46-18
     - _Test Spec: TS-46-17 through TS-46-22_
 
-  - [ ] 1.4 Create circuit breaker and output test files
+  - [x] 1.4 Create circuit breaker and output test files
     - Create `tests/unit/engine/test_auditor_circuit_breaker.py` with tests
       for TS-46-23 through TS-46-28 (retry trigger, re-run, circuit breaker
       block, GitHub issue, max_retries=0, PASS no retry)
@@ -60,7 +60,7 @@ Implementation is split into four groups plus a checkpoint:
     - Add TS-46-E2 (gh unavailable), TS-46-E3 (write failure)
     - _Test Spec: TS-46-23 through TS-46-32, TS-46-E2, TS-46-E3_
 
-  - [ ] 1.5 Create property test cases
+  - [x] 1.5 Create property test cases
     - Add TS-46-P1, TS-46-P2 to `tests/unit/graph/test_builder_auditor.py`
       (detection completeness/specificity)
     - Add TS-46-P3 to `tests/unit/graph/test_builder_auditor.py`
@@ -73,10 +73,10 @@ Implementation is split into four groups plus a checkpoint:
       (config clamping)
     - _Test Spec: TS-46-P1 through TS-46-P7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Registry entry, config, detection, and prompt template
   - [ ] 2.1 Add auditor to archetype registry
