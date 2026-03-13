@@ -131,7 +131,14 @@ class TestAllStrategiesFailWarning:
             rebase_fails=True, merge_fails=True, ours_fails=True
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with (
+            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch(
+                "agent_fox.workspace.workspace.run_merge_agent",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
             with caplog.at_level(logging.WARNING):
                 await _sync_develop_with_remote(tmp_path)
 
@@ -151,7 +158,14 @@ class TestAllStrategiesFailWarning:
             rebase_fails=True, merge_fails=True, ours_fails=True
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with (
+            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch(
+                "agent_fox.workspace.workspace.run_merge_agent",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
             # Should not raise
             await _sync_develop_with_remote(tmp_path)
 

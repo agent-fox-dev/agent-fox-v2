@@ -29,7 +29,6 @@ from agent_fox.workspace.workspace import (
     get_remote_url,
     has_new_commits,
     local_branch_exists,
-    merge_commit,
     merge_fast_forward,
     push_to_remote,
     rebase_onto,
@@ -90,6 +89,11 @@ async def _harvest_under_lock(
 
     Requirements: 45-REQ-4.1, 45-REQ-6.1
     """
+    # Ensure a clean working tree before any merge operation. A prior
+    # failed harvest may have left tracked files dirty, which would cause
+    # subsequent checkout/merge commands to fail.
+    await run_git(["checkout", "--", "."], cwd=repo_root, check=False)
+
     # Capture the list of changed files before switching branches
     changed_files = await get_changed_files(
         repo_root,
@@ -129,29 +133,48 @@ async def _harvest_under_lock(
             dev_branch,
         )
         await abort_rebase(workspace.path)
+        # Clean working tree in repo root — a failed rebase in the worktree
+        # can leave tracked files dirty in the main repo, which blocks merge.
+        await run_git(
+            ["checkout", "--", "."],
+            cwd=repo_root,
+            check=False,
+        )
         # Step 5: Fall back to regular merge (03-REQ-7.E1)
-        try:
-            await merge_commit(repo_root, workspace.branch)
-        except IntegrationError as merge_err:
+        # Run merge directly (not via merge_commit which auto-aborts on
+        # failure). We need conflicts to remain so the merge agent can
+        # resolve them.
+        merge_rc, merge_stdout, merge_stderr = await run_git(
+            ["merge", "--no-edit", workspace.branch],
+            cwd=repo_root,
+            check=False,
+        )
+        if merge_rc != 0:
             # Step 6: Spawn merge agent to resolve conflicts (45-REQ-4.1)
             # Replaces blind -X theirs strategy (45-REQ-6.1)
+            merge_detail = merge_stderr.strip() or merge_stdout.strip()
             logger.info(
                 "Merge commit of '%s' failed, spawning merge agent "
                 "to resolve conflicts",
                 workspace.branch,
             )
-            conflict_output = str(merge_err)
             resolved = await run_merge_agent(
                 worktree_path=repo_root,
-                conflict_output=conflict_output,
+                conflict_output=merge_detail,
                 model_id="ADVANCED",
             )
             if not resolved:
+                # Abort the failed merge and raise
+                await run_git(
+                    ["merge", "--abort"],
+                    cwd=repo_root,
+                    check=False,
+                )
                 raise IntegrationError(
                     f"Merge agent failed to resolve conflicts for "
                     f"'{workspace.branch}' into '{dev_branch}'",
                     branch=workspace.branch,
-                ) from merge_err
+                )
         changed_files = await get_changed_files(
             repo_root,
             workspace.branch,

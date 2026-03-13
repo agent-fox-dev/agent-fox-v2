@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -163,9 +164,8 @@ class TestHarvesterConflictAutoResolve:
 
     Previously these tests verified -X theirs auto-resolution. With the
     removal of blind strategy options (45-REQ-6.1), conflicts that cannot
-    be resolved deterministically are delegated to the merge agent. In test
-    environments (without a real agent), the agent fails and harvest raises
-    IntegrationError.
+    be resolved deterministically are delegated to the merge agent. When
+    the agent fails, harvest raises IntegrationError.
     """
 
     @pytest.mark.asyncio
@@ -174,7 +174,7 @@ class TestHarvesterConflictAutoResolve:
         tmp_worktree_repo: Path,
     ) -> None:
         """When both branches add the same file with different content,
-        the harvester delegates to the merge agent. Without a real agent,
+        the harvester delegates to the merge agent. When the agent fails,
         this raises IntegrationError (45-REQ-4.E1)."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
@@ -198,9 +198,14 @@ class TestHarvesterConflictAutoResolve:
             "develop content\n",
         )
 
-        # Without a real merge agent, harvest should raise IntegrationError
-        with pytest.raises(IntegrationError, match="(?i)agent"):
-            await harvest(tmp_worktree_repo, ws)
+        # With the merge agent mocked to fail, harvest should raise
+        with patch(
+            "agent_fox.workspace.harvest.run_merge_agent",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            with pytest.raises(IntegrationError, match="(?i)agent"):
+                await harvest(tmp_worktree_repo, ws)
 
     @pytest.mark.asyncio
     async def test_parallel_add_add_multiple_files(
@@ -208,7 +213,7 @@ class TestHarvesterConflictAutoResolve:
         tmp_worktree_repo: Path,
     ) -> None:
         """Simulates parallel sessions creating overlapping files —
-        the exact scenario from issue #84. Without a merge agent,
+        the exact scenario from issue #84. When the merge agent fails,
         raises IntegrationError."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
@@ -226,9 +231,14 @@ class TestHarvesterConflictAutoResolve:
         add_commit_to_branch(tmp_worktree_repo, "Makefile", "develop-makefile\n")
         add_commit_to_branch(tmp_worktree_repo, "go.mod", "develop-gomod\n")
 
-        # Without a real merge agent, harvest should raise IntegrationError
-        with pytest.raises(IntegrationError, match="(?i)agent"):
-            await harvest(tmp_worktree_repo, ws)
+        # With the merge agent mocked to fail, harvest should raise
+        with patch(
+            "agent_fox.workspace.harvest.run_merge_agent",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            with pytest.raises(IntegrationError, match="(?i)agent"):
+                await harvest(tmp_worktree_repo, ws)
 
     @pytest.mark.asyncio
     async def test_auto_resolve_preserves_non_conflicting_develop_changes(
@@ -237,7 +247,7 @@ class TestHarvesterConflictAutoResolve:
     ) -> None:
         """Non-conflicting changes from develop are preserved only when merge
         succeeds. With conflicting files, the merge agent is needed.
-        Without a real agent, raises IntegrationError."""
+        When the agent fails, raises IntegrationError."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Feature branch creates one file
@@ -253,6 +263,11 @@ class TestHarvesterConflictAutoResolve:
         add_commit_to_branch(tmp_worktree_repo, "shared.py", "develop content\n")
         add_commit_to_branch(tmp_worktree_repo, "other.py", "other content\n")
 
-        # Without a real merge agent, harvest should raise IntegrationError
-        with pytest.raises(IntegrationError, match="(?i)agent"):
-            await harvest(tmp_worktree_repo, ws)
+        # With the merge agent mocked to fail, harvest should raise
+        with patch(
+            "agent_fox.workspace.harvest.run_merge_agent",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            with pytest.raises(IntegrationError, match="(?i)agent"):
+                await harvest(tmp_worktree_repo, ws)

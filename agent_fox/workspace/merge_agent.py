@@ -106,16 +106,17 @@ async def _run_agent_session(
     Returns:
         True if the session completed successfully, False otherwise.
     """
-    from agent_fox.core.config import AgentFoxConfig
+    from agent_fox.core.config import load_config
     from agent_fox.session.session import run_session
     from agent_fox.workspace.workspace import WorkspaceInfo
 
-    config = AgentFoxConfig.load()
+    config = load_config()
 
     workspace = WorkspaceInfo(
-        repo_root=worktree_path,
+        path=worktree_path,
         branch="merge-resolution",
-        worktree_path=worktree_path,
+        spec_name="merge-agent",
+        task_group=0,
     )
 
     try:
