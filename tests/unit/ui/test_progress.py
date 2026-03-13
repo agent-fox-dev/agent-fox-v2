@@ -77,8 +77,11 @@ class TestProgressDisplayActivity:
         display.start()
         display.on_activity(
             ActivityEvent(
-                node_id="03_session:2", tool_name="Read", argument="config.py",
-                turn=3, tokens=1200,
+                node_id="03_session:2",
+                tool_name="Read",
+                argument="config.py",
+                turn=3,
+                tokens=1200,
             )
         )
         text = display._get_spinner_text()
@@ -93,8 +96,9 @@ class TestProgressDisplayActivity:
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(node_id="x:1", tool_name="Edit", argument="foo.py",
-                          turn=1, tokens=500)
+            ActivityEvent(
+                node_id="x:1", tool_name="Edit", argument="foo.py", turn=1, tokens=500
+            )
         )
         text = display._get_spinner_text()
         display.stop()
@@ -114,8 +118,13 @@ class TestProgressDisplayThinking:
         display = ProgressDisplay(theme, quiet=False)
         display.start()
         display.on_activity(
-            ActivityEvent(node_id="03_session:2", tool_name="thinking...", argument="",
-                          turn=5, tokens=None)
+            ActivityEvent(
+                node_id="03_session:2",
+                tool_name="thinking...",
+                argument="",
+                turn=5,
+                tokens=None,
+            )
         )
         text = display._get_spinner_text()
         display.stop()

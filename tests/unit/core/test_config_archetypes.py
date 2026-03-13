@@ -134,9 +134,7 @@ class TestCoderAlwaysEnabled:
             cfg = ArchetypesConfig(coder=False)
 
         assert cfg.coder is True
-        assert any(
-            "cannot be disabled" in r.message for r in caplog.records
-        )
+        assert any("cannot be disabled" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +156,8 @@ class TestMissingArchetypesSection:
         assert cfg.archetypes.instances.skeptic == 1
 
     def test_load_config_without_archetypes(
-        self, tmp_path: pytest.TempPathFactory,
+        self,
+        tmp_path: pytest.TempPathFactory,
     ) -> None:
         from agent_fox.core.config import load_config
 

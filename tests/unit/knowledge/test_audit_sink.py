@@ -161,9 +161,7 @@ class TestDuckDBSinkAudit:
         assert payload["plan_hash"] == "abc123"
         assert payload["total_nodes"] == 5
 
-    def test_all_fields_stored(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_all_fields_stored(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """All AuditEvent fields are stored correctly."""
         sink = DuckDBSink(knowledge_conn)
         event = AuditEvent(
@@ -276,9 +274,7 @@ class TestMigration:
     Requirements: 40-REQ-3.1, 40-REQ-3.2, 40-REQ-3.3
     """
 
-    def test_creates_table(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_creates_table(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-7: Migration v6 creates audit_events table with correct columns."""
         result = knowledge_conn.execute("SELECT * FROM audit_events LIMIT 0")
         columns = {desc[0] for desc in result.description}
@@ -295,14 +291,11 @@ class TestMigration:
         }
         assert expected <= columns
 
-    def test_creates_indexes(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_creates_indexes(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-7: Indexes on run_id and event_type exist."""
         # DuckDB stores index info in duckdb_indexes()
         indexes = knowledge_conn.execute(
-            "SELECT index_name FROM duckdb_indexes() "
-            "WHERE table_name = 'audit_events'"
+            "SELECT index_name FROM duckdb_indexes() WHERE table_name = 'audit_events'"
         ).fetchall()
         index_names = {row[0] for row in indexes}
         assert "idx_audit_run_id" in index_names

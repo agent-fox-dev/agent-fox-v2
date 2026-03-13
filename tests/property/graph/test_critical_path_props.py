@@ -14,9 +14,9 @@ from agent_fox.graph.critical_path import compute_critical_path
 
 
 @st.composite
-def dag_strategy(draw: st.DrawFn) -> tuple[
-    dict[str, str], dict[str, list[str]], dict[str, int]
-]:
+def dag_strategy(
+    draw: st.DrawFn,
+) -> tuple[dict[str, str], dict[str, list[str]], dict[str, int]]:
     """Generate random DAGs with duration hints.
 
     Nodes are named n0..n(N-1). Edges only go from lower to higher IDs
@@ -43,8 +43,7 @@ def dag_strategy(draw: st.DrawFn) -> tuple[
         edges[nid] = preds
 
     durations = {
-        nid: draw(st.integers(min_value=0, max_value=1000))
-        for nid in node_ids
+        nid: draw(st.integers(min_value=0, max_value=1000)) for nid in node_ids
     }
 
     return nodes, edges, durations

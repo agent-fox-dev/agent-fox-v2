@@ -147,9 +147,7 @@ def sample_analyzer_result() -> AnalyzerResult:
     """An AnalyzerResult with 2 improvements."""
     return AnalyzerResult(
         improvements=[
-            make_improvement(
-                id="IMP-1", tier="quick_win", confidence=0.9
-            ),
+            make_improvement(id="IMP-1", tier="quick_win", confidence=0.9),
             make_improvement(
                 id="IMP-2",
                 tier="structural",

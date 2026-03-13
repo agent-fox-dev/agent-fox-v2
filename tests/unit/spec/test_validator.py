@@ -622,7 +622,9 @@ class TestAltTableNonExistentSpec:
 
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
         findings = check_broken_dependencies(
-            "test_spec", spec_path, known_specs,
+            "test_spec",
+            spec_path,
+            known_specs,
             current_spec_groups=[1, 2, 3],
         )
 
@@ -650,7 +652,9 @@ class TestAltTableNonExistentFromGroup:
 
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
         findings = check_broken_dependencies(
-            "test_spec", spec_path, known_specs,
+            "test_spec",
+            spec_path,
+            known_specs,
             current_spec_groups=[1],
         )
 
@@ -678,7 +682,9 @@ class TestAltTableNonExistentToGroup:
 
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
         findings = check_broken_dependencies(
-            "test_spec", spec_path, known_specs,
+            "test_spec",
+            spec_path,
+            known_specs,
             current_spec_groups=[1, 2, 3],
         )
 
@@ -706,7 +712,9 @@ class TestBothTableFormatsValidated:
 
         known_specs = {"01_core_foundation": [1, 2, 3, 4, 5]}
         findings = check_broken_dependencies(
-            "test_spec", spec_path, known_specs,
+            "test_spec",
+            spec_path,
+            known_specs,
             current_spec_groups=[1],
         )
 
@@ -746,19 +754,14 @@ class TestCheckArchetypeTags:
     def test_valid_archetype_no_findings(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Write tests [archetype: coder]\n"
-            "  - [ ] 1.1 Subtask\n"
+            "## Tasks\n\n- [ ] 1. Write tests [archetype: coder]\n  - [ ] 1.1 Subtask\n"
         )
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 0
 
     def test_unknown_archetype_warning(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: hacker]\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Do stuff [archetype: hacker]\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 1
         assert findings[0].rule == "invalid-archetype-tag"
@@ -767,10 +770,7 @@ class TestCheckArchetypeTags:
 
     def test_malformed_tag_detected(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archtype: coder]\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Do stuff [archtype: coder]\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 1
         assert findings[0].rule == "malformed-archetype-tag"
@@ -779,8 +779,7 @@ class TestCheckArchetypeTags:
     def test_duplicate_tags_error(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n"
+            "## Tasks\n\n- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n"
         )
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 1
@@ -789,11 +788,7 @@ class TestCheckArchetypeTags:
 
     def test_no_tag_no_finding(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Write tests\n"
-            "  - [ ] 1.1 Subtask\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Subtask\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 0
 
@@ -829,10 +824,7 @@ class TestCheckCheckboxStates:
 
     def test_invalid_state_detected(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [?] 1. Bad state\n"
-        )
+        tasks.write_text("## Tasks\n\n- [?] 1. Bad state\n")
         findings = check_checkbox_states("test_spec", tasks)
         assert len(findings) == 1
         assert findings[0].rule == "invalid-checkbox-state"
@@ -841,20 +833,13 @@ class TestCheckCheckboxStates:
 
     def test_multiple_invalid_states(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [!] 1. Bad one\n"
-            "- [X] 2. Wrong case\n"
-        )
+        tasks.write_text("## Tasks\n\n- [!] 1. Bad one\n- [X] 2. Wrong case\n")
         findings = check_checkbox_states("test_spec", tasks)
         assert len(findings) == 2
 
     def test_optional_marker_valid(self, tmp_path: Path) -> None:
         """The [ ]* optional marker should NOT trigger a finding."""
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] * 1. Optional task\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] * 1. Optional task\n")
         findings = check_checkbox_states("test_spec", tasks)
         assert len(findings) == 0

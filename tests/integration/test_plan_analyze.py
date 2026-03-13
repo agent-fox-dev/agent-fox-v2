@@ -35,9 +35,7 @@ def _setup_project(project_dir: Path) -> None:
     spec2 = project_dir / ".specs" / "02_beta"
     spec2.mkdir(parents=True)
     (spec2 / "tasks.md").write_text(
-        "# Tasks\n\n"
-        "- [ ] 1. Write tests\n"
-        "  - [ ] 1.1 Unit tests\n"
+        "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Unit tests\n"
     )
     (spec2 / "prd.md").write_text(
         "# PRD\n\n"
@@ -50,9 +48,7 @@ def _setup_project(project_dir: Path) -> None:
 class TestPlanAnalyzeCLI:
     """Verify plan --analyze produces expected output sections."""
 
-    def test_exits_zero(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_exits_zero(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --analyze exits with code 0."""
         _setup_project(tmp_git_repo)
         result = cli_runner.invoke(main, ["plan", "--analyze"])

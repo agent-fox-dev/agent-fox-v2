@@ -17,8 +17,11 @@ from agent_fox.spec.parser import TaskGroupDef
 def _spec(name: str = "spec") -> SpecInfo:
     """Build a SpecInfo with short defaults."""
     return SpecInfo(
-        name=name, prefix=0, path=Path(f".specs/{name}"),
-        has_tasks=True, has_prd=False,
+        name=name,
+        prefix=0,
+        path=Path(f".specs/{name}"),
+        has_tasks=True,
+        has_prd=False,
     )
 
 
@@ -52,8 +55,7 @@ class TestOracleNodeInjected:
         assert "spec:0" in graph.nodes
         assert graph.nodes["spec:0"].archetype == "oracle"
         assert any(
-            e.source == "spec:0" and e.target == "spec:1"
-            and e.kind == "intra_spec"
+            e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec"
             for e in graph.edges
         )
 
@@ -85,19 +87,18 @@ class TestDualAutoPre:
 
         # Both connect to first coder group
         assert any(
-            e.source == oracle_id and e.target == "spec:1"
-            and e.kind == "intra_spec"
+            e.source == oracle_id and e.target == "spec:1" and e.kind == "intra_spec"
             for e in graph.edges
         )
         assert any(
-            e.source == skeptic_id and e.target == "spec:1"
-            and e.kind == "intra_spec"
+            e.source == skeptic_id and e.target == "spec:1" and e.kind == "intra_spec"
             for e in graph.edges
         )
 
         # No edge between them
         edges_between = [
-            e for e in graph.edges
+            e
+            for e in graph.edges
             if (e.source == oracle_id and e.target == skeptic_id)
             or (e.source == skeptic_id and e.target == oracle_id)
         ]
@@ -207,7 +208,8 @@ class TestLegacyPlanCompat:
 
         # Oracle node added with distinct ID
         oracle_nodes = [
-            nid for nid, n in plan_data["nodes"].items()
+            nid
+            for nid, n in plan_data["nodes"].items()
             if n.get("archetype") == "oracle"
         ]
         assert len(oracle_nodes) == 1

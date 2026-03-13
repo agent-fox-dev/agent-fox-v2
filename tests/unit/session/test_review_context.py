@@ -196,9 +196,7 @@ class TestDbUnavailableFallback:
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
         (spec_dir / "review.md").write_text(
-            "# Skeptic Review\n\n"
-            "## Critical Findings\n"
-            "- [severity: major] Test\n"
+            "# Skeptic Review\n\n## Critical Findings\n- [severity: major] Test\n"
         )
 
         conn = duckdb.connect(":memory:")

@@ -36,14 +36,9 @@ def _setup_project_with_vague_criterion(project_dir: Path) -> None:
         "#### Acceptance Criteria\n\n"
         "1. [01-REQ-1.1] THE system SHALL be fast.\n"
     )
-    (spec / "test_spec.md").write_text(
-        "# Test Spec\n\n**Requirement:** 01-REQ-1.1\n"
-    )
+    (spec / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 01-REQ-1.1\n")
     (spec / "tasks.md").write_text(
-        "# Tasks\n\n"
-        "- [ ] 1. Task\n"
-        "  - [ ] 1.1 Sub\n"
-        "  - [ ] 1.V Verify task group 1\n"
+        "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n"
     )
 
 
@@ -96,9 +91,7 @@ class TestNoReRewrite:
         os.chdir(tmp_path)
         try:
             # Mock the rewrite_criteria function directly
-            with patch(
-                "agent_fox.cli.lint_spec.resolve_model"
-            ) as mock_model:
+            with patch("agent_fox.cli.lint_spec.resolve_model") as mock_model:
                 mock_model.return_value = MagicMock(model_id="test-model")
 
                 # Mock AI analysis to always return a vague-criterion finding
@@ -141,9 +134,7 @@ class TestNoReRewrite:
                     ]
 
                     mock_response_rewrite = MagicMock()
-                    mock_response_rewrite.content = [
-                        MagicMock(text=rewrite_response)
-                    ]
+                    mock_response_rewrite.content = [MagicMock(text=rewrite_response)]
 
                     mock_client.messages.create.side_effect = [
                         mock_response_analysis,  # initial AI analysis
@@ -153,9 +144,7 @@ class TestNoReRewrite:
                     mock_client.__aenter__.return_value = mock_client
                     mock_cls.return_value = mock_client
 
-                    runner.invoke(
-                        main, ["lint-spec", "--ai", "--fix"]
-                    )
+                    runner.invoke(main, ["lint-spec", "--ai", "--fix"])
 
                     # rewrite_criteria should be called at most once
                     # (analysis + rewrite + re-analysis = 3 calls max,

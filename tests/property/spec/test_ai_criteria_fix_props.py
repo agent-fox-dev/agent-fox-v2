@@ -21,9 +21,7 @@ _MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
 # -- Strategies ----------------------------------------------------------------
 
 # Criterion ID: two digits, hyphen, REQ, hyphen, digit(s).digit(s)
-criterion_id_strategy = st.from_regex(
-    r"[0-9]{2}-REQ-[1-9]\.[1-9]", fullmatch=True
-)
+criterion_id_strategy = st.from_regex(r"[0-9]{2}-REQ-[1-9]\.[1-9]", fullmatch=True)
 
 # Non-empty replacement text (printable ASCII, no empty)
 replacement_strategy = st.text(
@@ -51,16 +49,13 @@ def _make_multi_section_fixture(n_reqs: int, criterion_id: str) -> str:
     sections = []
     for i in range(1, n_reqs + 1):
         sections.append(
-            f"### Requirement {i}: Feature {i}\n\n"
-            f"#### Acceptance Criteria\n\n"
+            f"### Requirement {i}: Feature {i}\n\n#### Acceptance Criteria\n\n"
         )
         if i == 1:
             sections.append(f"1. [{criterion_id}] THE system SHALL be fast.\n")
         else:
             cid = criterion_id.replace(".", f".{i}")
-            sections.append(
-                f"1. [{cid}] THE system SHALL do thing {i}.\n"
-            )
+            sections.append(f"1. [{cid}] THE system SHALL do thing {i}.\n")
     return "# Requirements\n\n" + "\n".join(sections)
 
 

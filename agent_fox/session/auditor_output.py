@@ -57,13 +57,15 @@ def persist_auditor_results(
             notes = entry.notes or "-"
             lines.append(f"| {entry.ts_entry} | {entry.verdict} | {funcs} | {notes} |")
 
-        lines.extend([
-            "",
-            "## Summary",
-            "",
-            result.summary or "No summary provided.",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Summary",
+                "",
+                result.summary or "No summary provided.",
+                "",
+            ]
+        )
 
         audit_path = spec_dir / "audit.md"
         audit_path.write_text("\n".join(lines))
@@ -110,8 +112,7 @@ async def handle_auditor_github_issue(
     """
     if platform is None:
         logger.warning(
-            "No GitHub platform available; skipping auditor issue management "
-            "for %s",
+            "No GitHub platform available; skipping auditor issue management for %s",
             spec_name,
         )
         return
@@ -171,12 +172,14 @@ def _format_issue_body(spec_name: str, result: AuditResult) -> str:
         notes = entry.notes or "-"
         lines.append(f"| {entry.ts_entry} | {entry.verdict} | {notes} |")
 
-    lines.extend([
-        "",
-        "### Summary",
-        "",
-        result.summary or "No summary.",
-    ])
+    lines.extend(
+        [
+            "",
+            "### Summary",
+            "",
+            result.summary or "No summary.",
+        ]
+    )
 
     return "\n".join(lines)
 

@@ -29,6 +29,7 @@ from tests.unit.knowledge.conftest import create_schema
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _new_id() -> str:
     return str(uuid.uuid4())
 
@@ -53,8 +54,7 @@ def _insert_causal_link(
     effect_id: str,
 ) -> None:
     conn.execute(
-        "INSERT INTO fact_causes (cause_id, effect_id) "
-        "VALUES (?::UUID, ?::UUID)",
+        "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
         [cause_id, effect_id],
     )
 
@@ -76,8 +76,15 @@ def _insert_review_finding(
             "(id, severity, description, requirement_ref, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, NULL, ?, ?, ?, ?::TIMESTAMP)",
-            [finding_id, severity, description, spec_name,
-             task_group, session_id, created_at],
+            [
+                finding_id,
+                severity,
+                description,
+                spec_name,
+                task_group,
+                session_id,
+                created_at,
+            ],
         )
     else:
         conn.execute(
@@ -85,8 +92,7 @@ def _insert_review_finding(
             "(id, severity, description, requirement_ref, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, NULL, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [finding_id, severity, description, spec_name,
-             task_group, session_id],
+            [finding_id, severity, description, spec_name, task_group, session_id],
         )
 
 
@@ -107,8 +113,15 @@ def _insert_drift_finding(
             "(id, severity, description, spec_ref, artifact_ref, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, NULL, NULL, ?, ?, ?, ?::TIMESTAMP)",
-            [finding_id, severity, description, spec_name,
-             task_group, session_id, created_at],
+            [
+                finding_id,
+                severity,
+                description,
+                spec_name,
+                task_group,
+                session_id,
+                created_at,
+            ],
         )
     else:
         conn.execute(
@@ -116,8 +129,7 @@ def _insert_drift_finding(
             "(id, severity, description, spec_ref, artifact_ref, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, NULL, NULL, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [finding_id, severity, description, spec_name,
-             task_group, session_id],
+            [finding_id, severity, description, spec_name, task_group, session_id],
         )
 
 
@@ -139,8 +151,16 @@ def _insert_verification_result(
             "(id, requirement_id, verdict, evidence, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, ?::TIMESTAMP)",
-            [result_id, requirement_id, verdict, evidence, spec_name,
-             task_group, session_id, created_at],
+            [
+                result_id,
+                requirement_id,
+                verdict,
+                evidence,
+                spec_name,
+                task_group,
+                session_id,
+                created_at,
+            ],
         )
     else:
         conn.execute(
@@ -148,8 +168,15 @@ def _insert_verification_result(
             "(id, requirement_id, verdict, evidence, spec_name, "
             "task_group, session_id, created_at) "
             "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [result_id, requirement_id, verdict, evidence, spec_name,
-             task_group, session_id],
+            [
+                result_id,
+                requirement_id,
+                verdict,
+                evidence,
+                spec_name,
+                task_group,
+                session_id,
+            ],
         )
 
 
@@ -177,7 +204,8 @@ class TestCausalContextAssembly:
     """
 
     def test_includes_review_findings_in_result(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-5: select_context_with_causal includes review findings."""
         fact_id = _new_id()
@@ -185,7 +213,9 @@ class TestCausalContextAssembly:
 
         _insert_fact(schema_conn, fact_id, "A test fact", "test_spec")
         _insert_review_finding(
-            schema_conn, review_id, "test_spec",
+            schema_conn,
+            review_id,
+            "test_spec",
             description="Review issue found",
         )
 
@@ -209,8 +239,7 @@ class TestCausalContextAssembly:
         # The result should include an entry representing the review finding,
         # distinguishable from regular fact dicts (has a "type" key or similar)
         has_review = any(
-            isinstance(item, dict) and item.get("type") == "review"
-            for item in result
+            isinstance(item, dict) and item.get("type") == "review" for item in result
         )
         assert has_review, (
             "Expected review finding in select_context_with_causal result"
@@ -229,23 +258,32 @@ class TestPriorGroupFindings:
     """
 
     def test_includes_review_findings_from_earlier_groups(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-15: prior findings include review findings from earlier groups."""
         id1 = _new_id()
         id2 = _new_id()
 
         _insert_review_finding(
-            schema_conn, id1, "test_spec", task_group="1",
+            schema_conn,
+            id1,
+            "test_spec",
+            task_group="1",
             description="Finding from group 1",
         )
         _insert_review_finding(
-            schema_conn, id2, "test_spec", task_group="2",
+            schema_conn,
+            id2,
+            "test_spec",
+            task_group="2",
             description="Finding from group 2",
         )
 
         result = get_prior_group_findings(
-            schema_conn, "test_spec", task_group=3,
+            schema_conn,
+            "test_spec",
+            task_group=3,
         )
 
         assert len(result) == 2
@@ -255,68 +293,93 @@ class TestPriorGroupFindings:
         assert "2" in groups
 
     def test_includes_drift_findings_from_earlier_groups(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-16: prior findings include drift findings from earlier groups."""
         id1 = _new_id()
         id2 = _new_id()
 
         _insert_drift_finding(
-            schema_conn, id1, "test_spec", task_group="1",
+            schema_conn,
+            id1,
+            "test_spec",
+            task_group="1",
             description="Drift from group 1",
         )
         _insert_drift_finding(
-            schema_conn, id2, "test_spec", task_group="2",
+            schema_conn,
+            id2,
+            "test_spec",
+            task_group="2",
             description="Drift from group 2",
         )
 
         result = get_prior_group_findings(
-            schema_conn, "test_spec", task_group=3,
+            schema_conn,
+            "test_spec",
+            task_group=3,
         )
 
         # Should include drift findings from both prior groups
         descriptions = [
-            r.description if hasattr(r, "description") else str(r)
-            for r in result
+            r.description if hasattr(r, "description") else str(r) for r in result
         ]
         assert any("Drift from group 1" in d for d in descriptions)
         assert any("Drift from group 2" in d for d in descriptions)
 
     def test_includes_verification_results_from_earlier_groups(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-17: prior findings include verification results from earlier groups."""
         id1 = _new_id()
         id2 = _new_id()
 
         _insert_verification_result(
-            schema_conn, id1, "test_spec", task_group="1",
-            requirement_id="REQ-1", verdict="FAIL",
+            schema_conn,
+            id1,
+            "test_spec",
+            task_group="1",
+            requirement_id="REQ-1",
+            verdict="FAIL",
         )
         _insert_verification_result(
-            schema_conn, id2, "test_spec", task_group="2",
-            requirement_id="REQ-2", verdict="PASS",
+            schema_conn,
+            id2,
+            "test_spec",
+            task_group="2",
+            requirement_id="REQ-2",
+            verdict="PASS",
         )
 
         result = get_prior_group_findings(
-            schema_conn, "test_spec", task_group=3,
+            schema_conn,
+            "test_spec",
+            task_group=3,
         )
 
         # Should include verification results from both prior groups
         assert len(result) >= 2
 
     def test_excludes_current_and_future_groups(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-18: prior findings exclude current and future groups."""
         for group in ["1", "2", "3", "4"]:
             _insert_review_finding(
-                schema_conn, _new_id(), "test_spec", task_group=group,
+                schema_conn,
+                _new_id(),
+                "test_spec",
+                task_group=group,
                 description=f"Finding from group {group}",
             )
 
         result = get_prior_group_findings(
-            schema_conn, "test_spec", task_group=3,
+            schema_conn,
+            "test_spec",
+            task_group=3,
         )
 
         # Only groups 1 and 2 should be present
@@ -332,16 +395,25 @@ class TestPriorGroupFindings:
 
         findings = [
             PriorFinding(
-                type="review", group="1", severity="major",
-                description="Review issue", created_at="2026-01-01T00:00:00",
+                type="review",
+                group="1",
+                severity="major",
+                description="Review issue",
+                created_at="2026-01-01T00:00:00",
             ),
             PriorFinding(
-                type="drift", group="1", severity="minor",
-                description="Drift issue", created_at="2026-01-02T00:00:00",
+                type="drift",
+                group="1",
+                severity="minor",
+                description="Drift issue",
+                created_at="2026-01-02T00:00:00",
             ),
             PriorFinding(
-                type="verification", group="2", severity="FAIL",
-                description="REQ-1: FAIL", created_at="2026-01-03T00:00:00",
+                type="verification",
+                group="2",
+                severity="FAIL",
+                description="REQ-1: FAIL",
+                created_at="2026-01-03T00:00:00",
             ),
         ]
 
@@ -360,16 +432,25 @@ class TestPriorGroupFindings:
 
         findings = [
             PriorFinding(
-                type="review", group="2", severity="major",
-                description="Later finding", created_at="2026-01-03T00:00:00",
+                type="review",
+                group="2",
+                severity="major",
+                description="Later finding",
+                created_at="2026-01-03T00:00:00",
             ),
             PriorFinding(
-                type="drift", group="1", severity="minor",
-                description="Earlier finding", created_at="2026-01-01T00:00:00",
+                type="drift",
+                group="1",
+                severity="minor",
+                description="Earlier finding",
+                created_at="2026-01-01T00:00:00",
             ),
             PriorFinding(
-                type="review", group="1", severity="minor",
-                description="Middle finding", created_at="2026-01-02T00:00:00",
+                type="review",
+                group="1",
+                severity="minor",
+                description="Middle finding",
+                created_at="2026-01-02T00:00:00",
             ),
         ]
 
@@ -382,16 +463,21 @@ class TestPriorGroupFindings:
         assert "Later finding" in lines[2]
 
     def test_task_group_1_returns_no_prior_findings(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-E4: task_group=1 returns no prior findings."""
         result = get_prior_group_findings(
-            schema_conn, "test_spec", task_group=1,
+            schema_conn,
+            "test_spec",
+            task_group=1,
         )
         assert result == []
 
     def test_no_active_findings_omits_section(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
+        tmp_path: Path,
     ) -> None:
         """TS-42-E5: no active findings omits the Prior Group Findings section."""
         # Create a minimal spec directory
@@ -403,7 +489,9 @@ class TestPriorGroupFindings:
         (spec_dir / "tasks.md").write_text("# Tasks\n")
 
         context = assemble_context(
-            spec_dir, task_group=2, conn=schema_conn,
+            spec_dir,
+            task_group=2,
+            conn=schema_conn,
         )
 
         assert "Prior Group Findings" not in context

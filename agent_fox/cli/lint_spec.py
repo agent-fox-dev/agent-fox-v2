@@ -410,9 +410,7 @@ def _apply_ai_fixes(
     # Separate criteria rewrites from test spec generation
     criteria_rules = {"vague-criterion", "implementation-leak"}
     criteria_findings = [f for f in ai_findings if f.rule in criteria_rules]
-    untraced_findings = [
-        f for f in ai_findings if f.rule == "untraced-requirement"
-    ]
+    untraced_findings = [f for f in ai_findings if f.rule == "untraced-requirement"]
 
     # Build spec lookup
     spec_by_name: dict[str, SpecInfo] = {s.name: s for s in discovered}
@@ -438,9 +436,7 @@ def _apply_ai_fixes(
 
             batches = [
                 spec_findings[i : i + _MAX_CRITERIA_PER_BATCH]
-                for i in range(
-                    0, len(spec_findings), _MAX_CRITERIA_PER_BATCH
-                )
+                for i in range(0, len(spec_findings), _MAX_CRITERIA_PER_BATCH)
             ]
 
             for batch in batches:
@@ -470,9 +466,7 @@ def _apply_ai_fixes(
                     if cid:
                         findings_map[cid] = f.rule
 
-                results = fix_ai_criteria(
-                    spec_name, req_path, rewrites, findings_map
-                )
+                results = fix_ai_criteria(spec_name, req_path, rewrites, findings_map)
                 all_results.extend(results)
 
     # --- 2. Test spec generation (untraced-requirement) ---
@@ -523,9 +517,7 @@ def _apply_ai_fixes(
                 continue
 
             if entries:
-                results = fix_ai_test_spec_entries(
-                    spec_name, ts_path, entries
-                )
+                results = fix_ai_test_spec_entries(spec_name, ts_path, entries)
                 all_results.extend(results)
 
     return all_results

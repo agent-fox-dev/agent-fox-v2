@@ -44,18 +44,24 @@ def tmp_project(tmp_path: Path) -> Path:
     subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
     subprocess.run(
         ["git", "config", "user.email", "test@test.com"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "config", "user.name", "Test"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
     readme = repo / "README.md"
     readme.write_text("# Test\n")
     subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
     subprocess.run(
         ["git", "commit", "-m", "initial"],
-        cwd=repo, check=True, capture_output=True,
+        cwd=repo,
+        check=True,
+        capture_output=True,
     )
 
     agent_dir = repo / ".agent-fox"
@@ -113,8 +119,13 @@ _BATCH_COMMANDS_WITH_MOCKS = {
             agent_commits=[],
             human_commits=[],
             queue=QueueSummary(
-                total=0, completed=0, in_progress=0, pending=0,
-                ready=0, blocked=0, failed=0,
+                total=0,
+                completed=0,
+                in_progress=0,
+                pending=0,
+                ready=0,
+                blocked=0,
+                failed=0,
             ),
             file_overlaps=[],
             total_cost=0.0,
@@ -188,6 +199,7 @@ class TestErrorEnvelopeStructure:
         """Plan with no specs produces error envelope."""
         # Remove specs dir to trigger error
         import shutil
+
         specs_dir = tmp_project / ".specs"
         if specs_dir.exists():
             shutil.rmtree(specs_dir)

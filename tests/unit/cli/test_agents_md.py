@@ -243,9 +243,7 @@ class TestInitJsonCreated:
 class TestInitSilentSkip:
     """TS-44-8: No AGENTS.md message on re-init when file already exists."""
 
-    def test_init_silent_skip(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_silent_skip(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """44-REQ-3.2: stdout does not mention AGENTS.md on skip."""
         from agent_fox.cli.app import main
 

@@ -17,14 +17,20 @@ from agent_fox.graph.file_impacts import (
 )
 
 # Strategy: generate file impact lists
-file_path_strategy = st.sampled_from([
-    "a.py", "b.py", "c.py", "d.py", "e.py",
-    "x/f.py", "x/g.py", "y/h.py",
-])
-
-node_id_strategy = st.text(
-    alphabet="abcdefghij", min_size=1, max_size=3
+file_path_strategy = st.sampled_from(
+    [
+        "a.py",
+        "b.py",
+        "c.py",
+        "d.py",
+        "e.py",
+        "x/f.py",
+        "x/g.py",
+        "y/h.py",
+    ]
 )
+
+node_id_strategy = st.text(alphabet="abcdefghij", min_size=1, max_size=3)
 
 
 @st.composite
@@ -36,9 +42,7 @@ def file_impact_strategy(
     node_ids = [f"node_{i}" for i in range(n)]
     impacts = []
     for nid in node_ids:
-        files = draw(
-            st.frozensets(file_path_strategy, max_size=4)
-        )
+        files = draw(st.frozensets(file_path_strategy, max_size=4))
         impacts.append(FileImpact(nid, set(files)))
     return impacts
 
@@ -107,6 +111,5 @@ class TestDispatchSafety:
                 files_j = impact_map.get(dispatched[j], set())
                 overlap = files_i & files_j
                 assert overlap == set(), (
-                    f"Tasks {dispatched[i]} and {dispatched[j]} "
-                    f"share files: {overlap}"
+                    f"Tasks {dispatched[i]} and {dispatched[j]} share files: {overlap}"
                 )

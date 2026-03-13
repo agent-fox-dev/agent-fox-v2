@@ -80,9 +80,7 @@ class TestIdempotency:
         mock.add_issue_comment = AsyncMock()
 
         for i in range(n):
-            await file_or_update_issue(
-                "[Skeptic] spec", f"body {i}", platform=mock
-            )
+            await file_or_update_issue("[Skeptic] spec", f"body {i}", platform=mock)
 
         # create_issue is called via mock_create, tracked by created_issues
         assert len(created_issues) <= 1
@@ -103,18 +101,14 @@ class TestGracefulDegradation:
 
     @pytest.mark.asyncio
     async def test_platform_none(self) -> None:
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=None
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=None)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_search_raises(self) -> None:
         mock = AsyncMock()
         mock.search_issues.side_effect = IntegrationError("search fail")
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=mock)
         assert result is None
 
     @pytest.mark.asyncio
@@ -122,9 +116,7 @@ class TestGracefulDegradation:
         mock = AsyncMock()
         mock.search_issues.return_value = []
         mock.create_issue.side_effect = IntegrationError("create fail")
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=mock)
         assert result is None
 
     @pytest.mark.asyncio
@@ -137,9 +129,7 @@ class TestGracefulDegradation:
         mock = AsyncMock()
         mock.search_issues.return_value = [existing]
         mock.update_issue.side_effect = IntegrationError("update fail")
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=mock)
         assert result is None
 
 
@@ -157,39 +147,49 @@ class TestAuthConsistency:
     @pytest.mark.parametrize(
         "method_name,setup",
         [
-            ("search_issues", {
-                "args": ("prefix",),
-                "resp_code": 200,
-                "resp_json": {"items": []},
-                "http_method": "get",
-            }),
-            ("create_issue", {
-                "args": ("title", "body"),
-                "resp_code": 201,
-                "resp_json": {
-                    "number": 1,
-                    "title": "t",
-                    "html_url": "u",
+            (
+                "search_issues",
+                {
+                    "args": ("prefix",),
+                    "resp_code": 200,
+                    "resp_json": {"items": []},
+                    "http_method": "get",
                 },
-                "http_method": "post",
-            }),
-            ("update_issue", {
-                "args": (1, "body"),
-                "resp_code": 200,
-                "resp_json": None,
-                "http_method": "patch",
-            }),
-            ("add_issue_comment", {
-                "args": (1, "comment"),
-                "resp_code": 201,
-                "resp_json": None,
-                "http_method": "post",
-            }),
+            ),
+            (
+                "create_issue",
+                {
+                    "args": ("title", "body"),
+                    "resp_code": 201,
+                    "resp_json": {
+                        "number": 1,
+                        "title": "t",
+                        "html_url": "u",
+                    },
+                    "http_method": "post",
+                },
+            ),
+            (
+                "update_issue",
+                {
+                    "args": (1, "body"),
+                    "resp_code": 200,
+                    "resp_json": None,
+                    "http_method": "patch",
+                },
+            ),
+            (
+                "add_issue_comment",
+                {
+                    "args": (1, "comment"),
+                    "resp_code": 201,
+                    "resp_json": None,
+                    "http_method": "post",
+                },
+            ),
         ],
     )
-    async def test_auth_headers_present(
-        self, method_name: str, setup: dict
-    ) -> None:
+    async def test_auth_headers_present(self, method_name: str, setup: dict) -> None:
         platform = GitHubPlatform(owner="org", repo="repo", token="my-token")
 
         resp = MagicMock()
@@ -239,9 +239,7 @@ class TestSearchQueryCorrectness:
             ("simple-prefix", "open"),
         ],
     )
-    async def test_query_components(
-        self, title_prefix: str, state: str
-    ) -> None:
+    async def test_query_components(self, title_prefix: str, state: str) -> None:
         platform = GitHubPlatform(owner="myorg", repo="myrepo", token="tok")
 
         resp = MagicMock()

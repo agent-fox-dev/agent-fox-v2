@@ -300,10 +300,7 @@ class TestApplyFixesSkipsUnfixable:
             "| 02_beta | 01_alpha | Core types |\n"
         )
         (spec_dir / "tasks.md").write_text(
-            "# Tasks\n\n"
-            "- [ ] 1. Task\n"
-            "  - [ ] 1.1 Sub\n"
-            "  - [ ] 1.V Verify\n"
+            "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n"
         )
 
         specs = [
@@ -377,9 +374,7 @@ class TestFixInvalidArchetypeTag:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: hacker]\n"
-            "  - [ ] 1.1 Subtask\n",
+            "## Tasks\n\n- [ ] 1. Do stuff [archetype: hacker]\n  - [ ] 1.1 Subtask\n",
         )
         results = fix_invalid_archetype_tag("test_spec", tasks_path)
         assert len(results) == 1
@@ -392,8 +387,7 @@ class TestFixInvalidArchetypeTag:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: coder]\n",
+            "## Tasks\n\n- [ ] 1. Do stuff [archetype: coder]\n",
         )
         results = fix_invalid_archetype_tag("test_spec", tasks_path)
         assert len(results) == 0
@@ -411,8 +405,7 @@ class TestFixMalformedArchetypeTag:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archtype: coder]\n",
+            "## Tasks\n\n- [ ] 1. Do stuff [archtype: coder]\n",
         )
         results = fix_malformed_archetype_tag("test_spec", tasks_path)
         assert len(results) == 1
@@ -424,8 +417,7 @@ class TestFixMalformedArchetypeTag:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n",
+            "## Tasks\n\n- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n",
         )
         results = fix_malformed_archetype_tag("test_spec", tasks_path)
         assert len(results) == 1
@@ -437,8 +429,7 @@ class TestFixMalformedArchetypeTag:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Do stuff [archetype: skeptic]\n",
+            "## Tasks\n\n- [ ] 1. Do stuff [archetype: skeptic]\n",
         )
         results = fix_malformed_archetype_tag("test_spec", tasks_path)
         assert len(results) == 0
@@ -454,9 +445,7 @@ class TestFixInvalidCheckboxState:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [?] 1. Bad state\n"
-            "  - [ ] 1.1 Subtask\n",
+            "## Tasks\n\n- [?] 1. Bad state\n  - [ ] 1.1 Subtask\n",
         )
         results = fix_invalid_checkbox_state("test_spec", tasks_path)
         assert len(results) == 1
@@ -482,8 +471,7 @@ class TestFixInvalidCheckboxState:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [X] 1. Uppercase X\n",
+            "## Tasks\n\n- [X] 1. Uppercase X\n",
         )
         results = fix_invalid_checkbox_state("test_spec", tasks_path)
         assert len(results) == 1
@@ -522,9 +510,7 @@ class TestFixTraceabilityTableMismatch:
         spec_dir = tmp_path / "01_test"
         spec_dir.mkdir()
         (spec_dir / "tasks.md").write_text("## Tasks\n\n- [ ] 1. Do stuff\n")
-        results = fix_traceability_table_mismatch(
-            "01_test", spec_dir, ["01-REQ-1.1"]
-        )
+        results = fix_traceability_table_mismatch("01_test", spec_dir, ["01-REQ-1.1"])
         assert len(results) == 0
 
 
@@ -557,9 +543,7 @@ class TestFixCoverageMatrixMismatch:
         spec_dir = tmp_path / "01_test"
         spec_dir.mkdir()
         (spec_dir / "test_spec.md").write_text("## Test Cases\n\nSome tests.\n")
-        results = fix_coverage_matrix_mismatch(
-            "01_test", spec_dir, ["01-REQ-1.1"]
-        )
+        results = fix_coverage_matrix_mismatch("01_test", spec_dir, ["01-REQ-1.1"])
         assert len(results) == 0
 
 

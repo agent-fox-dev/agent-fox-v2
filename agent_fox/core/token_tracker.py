@@ -85,9 +85,7 @@ class TokenAccumulator:
 _global_accumulator = TokenAccumulator()
 
 
-def record_auxiliary_usage(
-    input_tokens: int, output_tokens: int, model: str
-) -> None:
+def record_auxiliary_usage(input_tokens: int, output_tokens: int, model: str) -> None:
     """Record auxiliary token usage to the global accumulator."""
     _global_accumulator.record(input_tokens, output_tokens, model)
 

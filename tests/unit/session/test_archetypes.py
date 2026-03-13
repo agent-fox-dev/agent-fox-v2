@@ -32,9 +32,14 @@ class TestRegistryCompleteness:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         expected = {
-            "coder", "skeptic", "verifier",
-            "librarian", "cartographer", "coordinator",
-            "oracle", "auditor",
+            "coder",
+            "skeptic",
+            "verifier",
+            "librarian",
+            "cartographer",
+            "coordinator",
+            "oracle",
+            "auditor",
         }
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
@@ -113,9 +118,7 @@ class TestUnknownArchetypeFallback:
             entry = get_archetype("nonexistent_archetype")
 
         assert entry.name == "coder"
-        assert any(
-            "nonexistent_archetype" in r.message for r in caplog.records
-        )
+        assert any("nonexistent_archetype" in r.message for r in caplog.records)
 
     def test_known_archetype_returns_self(self) -> None:
         from agent_fox.session.archetypes import get_archetype
@@ -138,8 +141,12 @@ class TestPropertyRegistryCompleteness:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         roster = {
-            "coder", "skeptic", "verifier",
-            "librarian", "cartographer", "coordinator",
+            "coder",
+            "skeptic",
+            "verifier",
+            "librarian",
+            "cartographer",
+            "coordinator",
         }
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
 
@@ -161,14 +168,24 @@ class TestPropertyArchetypeFallback:
     """Unknown archetype names always fall back to coder."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
-    @given(name=st.text(min_size=1, max_size=50).filter(
-        lambda s: s not in {
-            "coder", "skeptic", "verifier",
-            "librarian", "cartographer", "coordinator",
-        }
-    ))
+    @given(
+        name=st.text(min_size=1, max_size=50).filter(
+            lambda s: (
+                s
+                not in {
+                    "coder",
+                    "skeptic",
+                    "verifier",
+                    "librarian",
+                    "cartographer",
+                    "coordinator",
+                }
+            )
+        )
+    )
     @settings(max_examples=50)
     def test_prop_unknown_falls_back_to_coder(self, name: str) -> None:
         from agent_fox.session.archetypes import get_archetype

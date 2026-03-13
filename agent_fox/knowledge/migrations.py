@@ -194,8 +194,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
 
     if has_embeddings:
         conn.execute(
-            "CREATE TEMP TABLE embeddings_backup AS "
-            "SELECT * FROM memory_embeddings"
+            "CREATE TEMP TABLE embeddings_backup AS SELECT * FROM memory_embeddings"
         )
 
     # Drop memory_embeddings (depends on memory_facts via FK)
@@ -232,9 +231,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
     if has_embeddings:
-        conn.execute(
-            "INSERT INTO memory_embeddings SELECT * FROM embeddings_backup"
-        )
+        conn.execute("INSERT INTO memory_embeddings SELECT * FROM embeddings_backup")
         conn.execute("DROP TABLE embeddings_backup")
 
 

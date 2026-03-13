@@ -80,7 +80,8 @@ class TestInsertAndQuery:
     """Insert drift findings and query active ones back."""
 
     def test_insert_query(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-32-8: Insert 3 findings, query returns all ordered by severity."""
         from agent_fox.knowledge.review_store import (
@@ -104,7 +105,8 @@ class TestInsertAndQuery:
         assert result[2].severity == "minor"
 
     def test_query_filters_by_spec(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Findings for different specs are independent."""
         from agent_fox.knowledge.review_store import (
@@ -122,7 +124,8 @@ class TestInsertAndQuery:
         assert result_a[0].spec_name == "spec_a"
 
     def test_query_with_task_group_filter(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Task group filter narrows results."""
         from agent_fox.knowledge.review_store import (
@@ -150,7 +153,8 @@ class TestSupersession:
     """Re-inserting findings supersedes previous ones."""
 
     def test_supersession(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-32-9: Batch 2 supersedes batch 1."""
         from agent_fox.knowledge.review_store import (
@@ -160,17 +164,23 @@ class TestSupersession:
 
         batch_1 = [
             _make_drift_finding(
-                severity="critical", description="Old 1", session_id="s1",
+                severity="critical",
+                description="Old 1",
+                session_id="s1",
             ),
             _make_drift_finding(
-                severity="major", description="Old 2", session_id="s1",
+                severity="major",
+                description="Old 2",
+                session_id="s1",
             ),
         ]
         insert_drift_findings(drift_conn, batch_1)
 
         batch_2 = [
             _make_drift_finding(
-                severity="minor", description="New 1", session_id="s2",
+                severity="minor",
+                description="New 1",
+                session_id="s2",
             ),
         ]
         insert_drift_findings(drift_conn, batch_2)
@@ -181,7 +191,8 @@ class TestSupersession:
         assert result[0].description == "New 1"
 
     def test_empty_insert_no_error(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Inserting empty list returns 0 and does not error."""
         from agent_fox.knowledge.review_store import insert_drift_findings
@@ -215,21 +226,29 @@ class TestHotLoadOracleInjection:
 
         config = ArchetypesConfig(oracle=True)
         new_spec = SpecInfo(
-            name="new_feature", prefix=99,
+            name="new_feature",
+            prefix=99,
             path=Path(".specs/new_feature"),
-            has_tasks=True, has_prd=False,
+            has_tasks=True,
+            has_prd=False,
         )
         task_groups = {
             "new_feature": [
                 TaskGroupDef(
-                    number=1, title="Task 1", optional=False,
-                    completed=False, subtasks=(), body="",
+                    number=1,
+                    title="Task 1",
+                    optional=False,
+                    completed=False,
+                    subtasks=(),
+                    body="",
                 ),
             ]
         }
 
         graph = build_graph(
-            [new_spec], task_groups, [],
+            [new_spec],
+            task_groups,
+            [],
             archetypes_config=config,
         )
 

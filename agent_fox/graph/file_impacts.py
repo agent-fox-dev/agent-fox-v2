@@ -31,9 +31,7 @@ class FileImpact:
 _BACKTICK_FILE_RE = re.compile(r"`([a-zA-Z0-9_/\-]+\.\w+)`")
 
 # Regex to match bare Python-style paths (e.g. agent_fox/routing/duration.py)
-_BARE_FILE_RE = re.compile(
-    r"(?<!\w)([a-zA-Z_][a-zA-Z0-9_/\-]*\.\w{1,10})(?!\w)"
-)
+_BARE_FILE_RE = re.compile(r"(?<!\w)([a-zA-Z_][a-zA-Z0-9_/\-]*\.\w{1,10})(?!\w)")
 
 
 def extract_file_impacts(
@@ -87,9 +85,7 @@ def _extract_task_group_section(content: str, task_group: int) -> str:
     section_lines: list[str] = []
 
     # Pattern for top-level task group: "- [ ] N." or "- [x] N." or "- [-] N."
-    group_pattern = re.compile(
-        rf"^- \[.\] {task_group}\."
-    )
+    group_pattern = re.compile(rf"^- \[.\] {task_group}\.")
     next_group_pattern = re.compile(r"^- \[.\] \d+\.")
 
     for line in lines:
@@ -128,9 +124,27 @@ def _is_likely_file_path(path: str) -> bool:
     # Filter out common non-file patterns
     ext = path.rsplit(".", 1)[-1] if "." in path else ""
     valid_extensions = {
-        "py", "js", "ts", "tsx", "jsx", "rs", "go", "java",
-        "md", "toml", "yaml", "yml", "json", "sql", "sh",
-        "css", "html", "xml", "txt", "cfg", "ini",
+        "py",
+        "js",
+        "ts",
+        "tsx",
+        "jsx",
+        "rs",
+        "go",
+        "java",
+        "md",
+        "toml",
+        "yaml",
+        "yml",
+        "json",
+        "sql",
+        "sh",
+        "css",
+        "html",
+        "xml",
+        "txt",
+        "cfg",
+        "ini",
     }
     return ext.lower() in valid_extensions
 

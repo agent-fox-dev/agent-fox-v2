@@ -74,9 +74,7 @@ class TestAddFact:
         assert state_machine.pending[0].content == "Buffered fact"
 
         # Fact should NOT be in DuckDB yet
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
         assert rows is not None
         assert rows[0] == 0
 
@@ -96,9 +94,7 @@ class TestFlush:
         assert state_machine.pending == []
 
         # All 3 facts should be in DuckDB
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
         assert rows is not None
         assert rows[0] == 3
 
@@ -112,9 +108,7 @@ class TestFlushEmpty:
         assert state_machine.pending == []
 
         # No DuckDB writes
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
         assert rows is not None
         assert rows[0] == 0
 
@@ -148,8 +142,6 @@ class TestPartialFlushFailure:
         assert state_machine.pending[0].content == "Fact 2"
 
         # First 2 facts should be in DuckDB
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
         assert rows is not None
         assert rows[0] == 2

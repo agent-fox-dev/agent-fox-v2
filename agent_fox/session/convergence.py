@@ -379,9 +379,7 @@ def converge_auditor(
 
     # 46-REQ-6.3: Overall FAIL if any instance FAILs
     overall = (
-        "FAIL"
-        if any(r.overall_verdict == "FAIL" for r in instance_results)
-        else "PASS"
+        "FAIL" if any(r.overall_verdict == "FAIL" for r in instance_results) else "PASS"
     )
 
     summaries = [r.summary for r in instance_results if r.summary]

@@ -333,18 +333,26 @@ class TestPlanHashMismatch:
     ) -> None:
         """Changing a node's status does not change the plan hash."""
         path1 = tmp_path / "plan1.json"
-        path1.write_text(json.dumps({
-            "nodes": {"A": {"id": "A", "status": "pending"}},
-            "edges": [],
-            "order": ["A"],
-        }))
+        path1.write_text(
+            json.dumps(
+                {
+                    "nodes": {"A": {"id": "A", "status": "pending"}},
+                    "edges": [],
+                    "order": ["A"],
+                }
+            )
+        )
 
         path2 = tmp_path / "plan2.json"
-        path2.write_text(json.dumps({
-            "nodes": {"A": {"id": "A", "status": "completed"}},
-            "edges": [],
-            "order": ["A"],
-        }))
+        path2.write_text(
+            json.dumps(
+                {
+                    "nodes": {"A": {"id": "A", "status": "completed"}},
+                    "edges": [],
+                    "order": ["A"],
+                }
+            )
+        )
 
         assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(
             path2

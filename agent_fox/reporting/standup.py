@@ -64,9 +64,7 @@ def build_standup_from_audit(
             """
         ).fetchall()
     except Exception:
-        logger.warning(
-            "Failed to query audit_events for standup report", exc_info=True
-        )
+        logger.warning("Failed to query audit_events for standup report", exc_info=True)
         return None
 
     total_sessions = len(rows)
@@ -102,6 +100,7 @@ def build_standup_from_audit(
         total_cost=total_cost,
         recent_events=recent_events,
     )
+
 
 # ---------------------------------------------------------------------------
 # Git activity (merged from git_activity.py)

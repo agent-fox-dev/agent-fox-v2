@@ -57,7 +57,8 @@ def select_relevant_facts(
 
     # 39-REQ-4.3: Filter by confidence BEFORE keyword scoring
     confident_facts = [
-        fact for fact in all_facts
+        fact
+        for fact in all_facts
         if parse_confidence(fact.confidence) >= confidence_threshold
     ]
 

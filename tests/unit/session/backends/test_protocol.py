@@ -123,9 +123,7 @@ class TestExecuteParameters:
         backend = _Mock()
         assert isinstance(backend, AgentBackend)
         # Should not raise TypeError
-        result = backend.execute(
-            "task", system_prompt="sp", model="m", cwd="/tmp"
-        )
+        result = backend.execute("task", system_prompt="sp", model="m", cwd="/tmp")
         assert result is not None
 
     @pytest.mark.asyncio
@@ -322,9 +320,7 @@ class TestPropertyProtocolIsolation:
             os.path.join(agent_fox_dir, "session", "backends", "claude.py")
         )
 
-        py_files = glob.glob(
-            os.path.join(agent_fox_dir, "**", "*.py"), recursive=True
-        )
+        py_files = glob.glob(os.path.join(agent_fox_dir, "**", "*.py"), recursive=True)
 
         violations = []
         for py_file in py_files:
@@ -334,14 +330,11 @@ class TestPropertyProtocolIsolation:
             with open(py_file, encoding="utf-8") as f:
                 content = f.read()
             if "claude_code_sdk" in content:
-                violations.append(
-                    os.path.relpath(py_file, agent_fox_dir)
-                )
+                violations.append(os.path.relpath(py_file, agent_fox_dir))
 
         # Currently session.py imports claude_code_sdk directly.
         # This test will pass after task group 3 refactors session.py.
         # For now, we expect it to fail.
         assert violations == [], (
-            f"Files outside backends/claude.py import claude_code_sdk: "
-            f"{violations}"
+            f"Files outside backends/claude.py import claude_code_sdk: {violations}"
         )

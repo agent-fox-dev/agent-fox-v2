@@ -119,9 +119,7 @@ class TestFindingPropagation:
     Requirements: 39-REQ-6.1, 39-REQ-6.2
     """
 
-    def test_cross_group_findings(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_cross_group_findings(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-17: Context for group N includes findings from groups 1..N-1.
 
         Requirement: 39-REQ-6.1
@@ -147,9 +145,7 @@ class TestFindingPropagation:
         assert "group 1 finding text" in finding_texts
         assert "group 2 finding text" in finding_texts
 
-    def test_prior_group_label(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_prior_group_label(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-18: Propagated findings appear under 'Prior Group Findings'.
 
         Requirement: 39-REQ-6.2
@@ -192,14 +188,13 @@ class TestProjectModel:
         from agent_fox.knowledge.project_model import build_project_model
 
         # Insert 3 outcomes: costs [1.0, 2.0, 3.0], durations [100, 200, 300]
+        _insert_outcome(model_db, spec_name="foo", cost=1.0, duration_ms=100_000)
+        _insert_outcome(model_db, spec_name="foo", cost=2.0, duration_ms=200_000)
         _insert_outcome(
-            model_db, spec_name="foo", cost=1.0, duration_ms=100_000
-        )
-        _insert_outcome(
-            model_db, spec_name="foo", cost=2.0, duration_ms=200_000
-        )
-        _insert_outcome(
-            model_db, spec_name="foo", cost=3.0, duration_ms=300_000,
+            model_db,
+            spec_name="foo",
+            cost=3.0,
+            duration_ms=300_000,
             outcome="failed",
         )
 
@@ -210,9 +205,7 @@ class TestProjectModel:
         assert metrics.failure_rate == pytest.approx(1 / 3)
         assert metrics.session_count == 3
 
-    def test_module_stability(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_module_stability(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-20: Module stability from finding density.
 
         Requirement: 39-REQ-7.2
@@ -238,9 +231,7 @@ class TestProjectModel:
         # 6 findings / 3 sessions = 2.0 density
         assert model.module_stability["foo"] == pytest.approx(2.0)
 
-    def test_archetype_effectiveness(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_archetype_effectiveness(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-21: Archetype effectiveness as success rate per archetype.
 
         Requirement: 39-REQ-7.3
@@ -250,23 +241,31 @@ class TestProjectModel:
         # Coder: 8 success, 2 fail
         for _ in range(8):
             _insert_outcome(
-                model_db, spec_name="spec_c", archetype="coder",
+                model_db,
+                spec_name="spec_c",
+                archetype="coder",
                 outcome="completed",
             )
         for _ in range(2):
             _insert_outcome(
-                model_db, spec_name="spec_c", archetype="coder",
+                model_db,
+                spec_name="spec_c",
+                archetype="coder",
                 outcome="failed",
             )
 
         # Skeptic: 9 success, 1 fail
         for _ in range(9):
             _insert_outcome(
-                model_db, spec_name="spec_s", archetype="skeptic",
+                model_db,
+                spec_name="spec_s",
+                archetype="skeptic",
                 outcome="completed",
             )
         _insert_outcome(
-            model_db, spec_name="spec_s", archetype="skeptic",
+            model_db,
+            spec_name="spec_s",
+            archetype="skeptic",
             outcome="failed",
         )
 
@@ -274,9 +273,7 @@ class TestProjectModel:
         assert model.archetype_effectiveness["coder"] == pytest.approx(0.8)
         assert model.archetype_effectiveness["skeptic"] == pytest.approx(0.9)
 
-    def test_status_output(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_status_output(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-22: Project model visible in status --model output.
 
         Requirement: 39-REQ-7.4
@@ -331,9 +328,7 @@ class TestBuildProjectModel:
         assert model.spec_outcomes["spec_b"].session_count == 1
         assert model.spec_outcomes["spec_b"].failure_rate == 0.0
 
-    def test_module_stability(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_module_stability(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-2: Module stability computed as finding density.
 
         Requirement: 43-REQ-1.2
@@ -361,9 +356,7 @@ class TestBuildProjectModel:
         # 6 findings / 3 sessions = 2.0 density
         assert model.module_stability["spec_a"] == 2.0
 
-    def test_archetype_effectiveness(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_archetype_effectiveness(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-3: Archetype effectiveness as success rate per archetype.
 
         Requirement: 43-REQ-1.3
@@ -376,19 +369,25 @@ class TestBuildProjectModel:
         # Coder: 8 completed, 2 failed
         for _ in range(8):
             _insert_outcome(
-                model_db, spec_name="spec_c", archetype="coder",
+                model_db,
+                spec_name="spec_c",
+                archetype="coder",
                 outcome="completed",
             )
         for _ in range(2):
             _insert_outcome(
-                model_db, spec_name="spec_c", archetype="coder",
+                model_db,
+                spec_name="spec_c",
+                archetype="coder",
                 outcome="failed",
             )
 
         # Reviewer: 3 completed, 0 failed
         for _ in range(3):
             _insert_outcome(
-                model_db, spec_name="spec_r", archetype="reviewer",
+                model_db,
+                spec_name="spec_r",
+                archetype="reviewer",
                 outcome="completed",
             )
 

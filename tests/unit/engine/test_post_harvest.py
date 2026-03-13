@@ -22,6 +22,7 @@ from agent_fox.workspace.workspace import WorkspaceInfo
 
 # ---- Helper to create a minimal workspace ----
 
+
 def _make_workspace(branch: str = "feature/test_spec/1") -> WorkspaceInfo:
     return WorkspaceInfo(
         path=Path("/tmp/test-worktree"),
@@ -188,9 +189,7 @@ class TestPostHarvestPushFailureContinues:
     Requirement: 19-REQ-3.E1
     """
 
-    async def test_no_exception_on_push_failure(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_no_exception_on_push_failure(self, tmp_path: Path, caplog) -> None:
         """Post-harvest doesn't raise when push fails."""
         config = PlatformConfig(type="none")
         workspace = _make_workspace()
@@ -228,9 +227,7 @@ class TestPostHarvestPRFailureContinues:
     Requirement: 19-REQ-3.E2
     """
 
-    async def test_no_exception_on_pr_failure(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_no_exception_on_pr_failure(self, tmp_path: Path, caplog) -> None:
         """Post-harvest doesn't raise when PR creation fails."""
         config = PlatformConfig(type="github", auto_merge=False)
         workspace = _make_workspace()
@@ -280,9 +277,7 @@ class TestPostHarvestMissingPAT:
     Requirement: 19-REQ-4.E1
     """
 
-    async def test_falls_back_to_push_develop(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_falls_back_to_push_develop(self, tmp_path: Path, caplog) -> None:
         """Without GITHUB_PAT, falls back to pushing develop only."""
         config = PlatformConfig(type="github", auto_merge=False)
         workspace = _make_workspace()
@@ -333,9 +328,7 @@ class TestPostHarvestFeatureBranchDeleted:
     Requirement: 19-REQ-3.E3
     """
 
-    async def test_skips_feature_push(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_skips_feature_push(self, tmp_path: Path, caplog) -> None:
         """Post-harvest skips feature branch push when branch deleted."""
         config = PlatformConfig(type="github", auto_merge=True)
         workspace = _make_workspace()

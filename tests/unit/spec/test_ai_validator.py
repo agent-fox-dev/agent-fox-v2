@@ -22,9 +22,7 @@ from agent_fox.spec.discovery import SpecInfo
 # -- Fixtures ------------------------------------------------------------------
 
 FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures" / "specs"
-_MOCK_CLIENT = (
-    "agent_fox.spec.ai_validation.create_async_anthropic_client"
-)
+_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
 
 
 def _make_spec_info(

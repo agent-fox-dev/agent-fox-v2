@@ -33,9 +33,7 @@ class TestBuildAnalyzerPrompt:
         claude_md = tmp_path / "CLAUDE.md"
         claude_md.write_text("Use ruff for formatting")
 
-        system_prompt, task_prompt = build_analyzer_prompt(
-            tmp_path, mock_config
-        )
+        system_prompt, task_prompt = build_analyzer_prompt(tmp_path, mock_config)
 
         assert "ruff" in system_prompt
         assert "formatting" in system_prompt
@@ -103,19 +101,11 @@ class TestFilterImprovements:
 
     def test_filter_sorts_by_tier_priority(self) -> None:
         """TS-31-13: Filtered improvements sorted by tier priority."""
-        design_imp = make_improvement(
-            id="D1", tier="design_level", confidence=0.9
-        )
-        quick_imp = make_improvement(
-            id="Q1", tier="quick_win", confidence=0.9
-        )
-        structural_imp = make_improvement(
-            id="S1", tier="structural", confidence=0.9
-        )
+        design_imp = make_improvement(id="D1", tier="design_level", confidence=0.9)
+        quick_imp = make_improvement(id="Q1", tier="quick_win", confidence=0.9)
+        structural_imp = make_improvement(id="S1", tier="structural", confidence=0.9)
 
-        filtered = filter_improvements(
-            [design_imp, quick_imp, structural_imp]
-        )
+        filtered = filter_improvements([design_imp, quick_imp, structural_imp])
 
         assert filtered[0].tier == "quick_win"
         assert filtered[1].tier == "structural"
@@ -125,9 +115,7 @@ class TestFilterImprovements:
 class TestQueryOracleContext:
     """TS-31-29, TS-31-30: Oracle context queries."""
 
-    def test_oracle_returns_formatted_facts(
-        self, mock_config: AgentFoxConfig
-    ) -> None:
+    def test_oracle_returns_formatted_facts(self, mock_config: AgentFoxConfig) -> None:
         """TS-31-29: Oracle returns formatted context with provenance."""
         mock_result = MagicMock()
         mock_result.content = "Use dataclasses for models"

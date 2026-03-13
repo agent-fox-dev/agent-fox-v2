@@ -37,9 +37,7 @@ class TestFilteringSoundness:
 
     @given(improvements=st.lists(improvement_strategy(), max_size=20))
     @settings(max_examples=50)
-    def test_no_low_confidence_in_output(
-        self, improvements: list[Improvement]
-    ) -> None:
+    def test_no_low_confidence_in_output(self, improvements: list[Improvement]) -> None:
         filtered = filter_improvements(improvements)
         assert all(i.confidence >= 0.5 for i in filtered)
 
@@ -49,16 +47,12 @@ class TestTierPriorityOrdering:
 
     @given(
         improvements=st.lists(
-            improvement_strategy().filter(
-                lambda i: i.confidence >= 0.5
-            ),
+            improvement_strategy().filter(lambda i: i.confidence >= 0.5),
             max_size=20,
         )
     )
     @settings(max_examples=50)
-    def test_tier_order_maintained(
-        self, improvements: list[Improvement]
-    ) -> None:
+    def test_tier_order_maintained(self, improvements: list[Improvement]) -> None:
         filtered = filter_improvements(improvements)
         orders = [TIER_ORDER[i.tier] for i in filtered]
         assert orders == sorted(orders)

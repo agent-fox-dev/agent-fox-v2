@@ -172,17 +172,20 @@ class TestConvergenceNoLlm:
         import os
 
         convergence_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..",
-            "agent_fox", "session", "convergence.py",
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "agent_fox",
+            "session",
+            "convergence.py",
         )
         convergence_path = os.path.normpath(convergence_path)
         with open(convergence_path, encoding="utf-8") as f:
             content = f.read()
 
         for sdk in ["claude_code_sdk", "anthropic", "openai", "langchain"]:
-            assert sdk not in content, (
-                f"convergence.py should not import {sdk}"
-            )
+            assert sdk not in content, f"convergence.py should not import {sdk}"
 
 
 # ---------------------------------------------------------------------------
@@ -201,9 +204,7 @@ class TestPartialInstanceFailure:
         instance_1 = [Finding(severity="minor", description="note")]
         instance_2 = [Finding(severity="minor", description="note")]
 
-        merged, blocked = converge_skeptic(
-            [instance_1, instance_2], block_threshold=3
-        )
+        merged, blocked = converge_skeptic([instance_1, instance_2], block_threshold=3)
         assert merged is not None
         assert len(merged) >= 1
 

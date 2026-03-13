@@ -91,9 +91,7 @@ class TestTemplateGeneration:
         for section in schema:
             for field in section.fields:
                 if not field.is_nested:
-                    assert (
-                        f"# {field.name} =" in template
-                    ), (
+                    assert f"# {field.name} =" in template, (
                         f"Missing field entry for '{field.name}' "
                         f"in section '{section.path}'"
                     )
@@ -134,9 +132,9 @@ class TestTemplateGeneration:
             "archetypes",
             "tools",
         ]:
-            assert (
-                f"# [{section}]" in template
-            ), f"Missing section header for [{section}]"
+            assert f"# [{section}]" in template, (
+                f"Missing section header for [{section}]"
+            )
 
         # Sub-table headers
         assert "# [archetypes.instances]" in template
@@ -238,11 +236,7 @@ class TestConfigMerge:
 
         Requirement: 33-REQ-2.4
         """
-        existing = (
-            "[orchestrator]\n"
-            "parallel = 4\n"
-            'removed_old_option = "value"\n'
-        )
+        existing = '[orchestrator]\nparallel = 4\nremoved_old_option = "value"\n'
         merged = merge_existing_config(existing)
 
         assert "DEPRECATED" in merged
@@ -345,15 +339,11 @@ class TestTemplateEdgeCases:
 
         # The 'not set by default' comment should appear near max_cost
         lines = template.split("\n")
-        max_cost_indices = [
-            i for i, line in enumerate(lines) if "max_cost" in line
-        ]
+        max_cost_indices = [i for i, line in enumerate(lines) if "max_cost" in line]
         assert max_cost_indices, "max_cost field not found in template"
         max_cost_idx = max_cost_indices[0]
         # Check the line above or the same line has 'not set by default'
-        context = "\n".join(
-            lines[max(0, max_cost_idx - 1) : max_cost_idx + 1]
-        )
+        context = "\n".join(lines[max(0, max_cost_idx - 1) : max_cost_idx + 1])
         assert "not set by default" in context
 
     def test_empty_list_default(self) -> None:
@@ -397,8 +387,11 @@ class TestMergeEdgeCases:
 
         assert result == bad
         # Should have logged a warning
-        assert any("invalid" in r.message.lower() or "toml" in r.message.lower()
-                    for r in caplog.records if r.levelno >= logging.WARNING)
+        assert any(
+            "invalid" in r.message.lower() or "toml" in r.message.lower()
+            for r in caplog.records
+            if r.levelno >= logging.WARNING
+        )
 
     def test_empty_config_treated_as_fresh(self) -> None:
         """TS-33-E6: Empty/whitespace config treated as fresh generation.

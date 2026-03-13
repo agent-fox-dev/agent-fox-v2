@@ -174,8 +174,11 @@ class TestActivityEventConstruction:
     def test_with_turn_and_tokens(self) -> None:
         """ActivityEvent can be constructed with turn and tokens."""
         event = ActivityEvent(
-            node_id="x:1", tool_name="Bash", argument="ls",
-            turn=5, tokens=2400,
+            node_id="x:1",
+            tool_name="Bash",
+            argument="ls",
+            turn=5,
+            tokens=2400,
         )
         assert event.turn == 5
         assert event.tokens == 2400

@@ -104,11 +104,13 @@ class MergeLock:
 
         # Write diagnostic content
         try:
-            content = json.dumps({
-                "pid": os.getpid(),
-                "hostname": socket.gethostname(),
-                "acquired_at": datetime.now(UTC).isoformat(),
-            })
+            content = json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "hostname": socket.gethostname(),
+                    "acquired_at": datetime.now(UTC).isoformat(),
+                }
+            )
             os.write(fd, content.encode())
         finally:
             os.close(fd)

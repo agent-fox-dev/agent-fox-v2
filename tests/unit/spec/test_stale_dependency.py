@@ -438,9 +438,7 @@ class TestAIUnavailableSkips:
                 )
 
             assert not _findings  # also empty
-            assert any(
-                record.levelno >= logging.WARNING for record in caplog.records
-            )
+            assert any(record.levelno >= logging.WARNING for record in caplog.records)
 
 
 # -- TS-21-10: Malformed AI response logs warning -----------------------------
@@ -493,9 +491,7 @@ class TestBatchSameUpstream:
     """
 
     @pytest.mark.asyncio
-    async def test_single_ai_call_for_same_upstream(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_single_ai_call_for_same_upstream(self, tmp_path: Path) -> None:
         """Two specs referencing same upstream produce one AI call."""
         from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
@@ -694,9 +690,7 @@ class TestFindingSeverityFormat:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await run_ai_validation(
-                specs, "STANDARD", specs_dir=tmp_path
-            )
+            findings = await run_ai_validation(specs, "STANDARD", specs_dir=tmp_path)
 
             stale = [f for f in findings if f.rule == "stale-dependency"]
             assert len(stale) == 1

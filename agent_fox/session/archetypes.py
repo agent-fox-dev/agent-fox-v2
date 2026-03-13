@@ -42,7 +42,14 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
-            "ls", "cat", "git", "grep", "find", "head", "tail", "wc",
+            "ls",
+            "cat",
+            "git",
+            "grep",
+            "find",
+            "head",
+            "tail",
+            "wc",
         ],
     ),
     "skeptic": ArchetypeEntry(
@@ -52,7 +59,12 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
-            "ls", "cat", "git", "wc", "head", "tail",
+            "ls",
+            "cat",
+            "git",
+            "wc",
+            "head",
+            "tail",
         ],
     ),
     "verifier": ArchetypeEntry(
@@ -92,7 +104,15 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         task_assignable=True,
         retry_predecessor=True,
         default_allowlist=[
-            "ls", "cat", "git", "grep", "find", "head", "tail", "wc", "uv",
+            "ls",
+            "cat",
+            "git",
+            "grep",
+            "find",
+            "head",
+            "tail",
+            "wc",
+            "uv",
         ],
     ),
 }

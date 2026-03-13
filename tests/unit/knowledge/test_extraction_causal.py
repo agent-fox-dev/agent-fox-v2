@@ -133,8 +133,7 @@ class TestParseCausalLinksWithEchoedRefs:
     def test_parses_empty_array_after_echoed_refs(self) -> None:
         """Empty JSON array is parsed when LLM echoes [uuid] refs in prose."""
         response = (
-            "Reviewing [fact-1] and [fact-2], no causal relationship found.\n\n"
-            "[]"
+            "Reviewing [fact-1] and [fact-2], no causal relationship found.\n\n[]"
         )
         links = parse_causal_links(response)
         assert len(links) == 0

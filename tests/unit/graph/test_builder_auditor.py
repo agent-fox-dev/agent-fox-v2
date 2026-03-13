@@ -126,9 +126,7 @@ class TestAutoMidInjection:
         # Create a test_spec.md with enough TS entries
         spec_dir = tmp_path / ".specs" / "spec"
         spec_dir.mkdir(parents=True)
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
@@ -145,20 +143,16 @@ class TestAutoMidInjection:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 1
 
         auditor_node = auditor_nodes[0]
         # Verify edges: group 1 -> auditor -> group 2
         assert any(
-            e.source == "spec:1" and e.target == auditor_node.id
-            for e in graph.edges
+            e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges
         )
         assert any(
-            e.source == auditor_node.id and e.target == "spec:2"
-            for e in graph.edges
+            e.source == auditor_node.id and e.target == "spec:2" for e in graph.edges
         )
         assert auditor_node.instances == config.instances.auditor
 
@@ -187,9 +181,7 @@ class TestInjectionDisabled:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 0
 
 
@@ -203,7 +195,9 @@ class TestInjectionSkippedBelowThreshold:
     """Verify injection skipped when TS entry count is below threshold."""
 
     def test_injection_skipped_below_threshold(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture,
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         from agent_fox.core.config import ArchetypesConfig, AuditorConfig
         from agent_fox.graph.builder import build_graph
@@ -211,9 +205,7 @@ class TestInjectionSkippedBelowThreshold:
         # Create test_spec.md with only 3 TS entries (below threshold of 5)
         spec_dir = tmp_path / ".specs" / "spec"
         spec_dir.mkdir(parents=True)
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 4)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 4))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
@@ -231,9 +223,7 @@ class TestInjectionSkippedBelowThreshold:
         with caplog.at_level(logging.INFO, logger="agent_fox.graph.builder"):
             graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 0
         assert any("skip" in r.message.lower() for r in caplog.records)
 
@@ -253,9 +243,7 @@ class TestInjectionLastGroup:
 
         spec_dir = tmp_path / ".specs" / "spec"
         spec_dir.mkdir(parents=True)
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
@@ -270,16 +258,13 @@ class TestInjectionLastGroup:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 1
 
         auditor_node = auditor_nodes[0]
         # Should have incoming edge from group 1
         assert any(
-            e.source == "spec:1" and e.target == auditor_node.id
-            for e in graph.edges
+            e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges
         )
         # No outgoing edge from auditor
         outgoing = [e for e in graph.edges if e.source == auditor_node.id]
@@ -301,9 +286,7 @@ class TestCoexistenceSkeptic:
 
         spec_dir = tmp_path / ".specs" / "spec"
         spec_dir.mkdir(parents=True)
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
@@ -321,12 +304,8 @@ class TestCoexistenceSkeptic:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        skeptic_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "skeptic"
-        ]
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        skeptic_nodes = [n for n in graph.nodes.values() if n.archetype == "skeptic"]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(skeptic_nodes) >= 1
         assert len(auditor_nodes) >= 1
 
@@ -346,9 +325,7 @@ class TestMultipleTestGroups:
 
         spec_dir = tmp_path / ".specs" / "spec"
         spec_dir.mkdir(parents=True)
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
@@ -367,9 +344,7 @@ class TestMultipleTestGroups:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 2
 
 
@@ -397,9 +372,7 @@ class TestNoTestGroupsDetected:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 0
 
 
@@ -417,9 +390,7 @@ class TestTSEntryCount:
 
         spec_dir = tmp_path / "spec"
         spec_dir.mkdir()
-        ts_content = "\n".join(
-            f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-        )
+        ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         count = count_ts_entries(spec_dir)
@@ -461,7 +432,8 @@ class TestPropertyDetectionCompleteness:
     """Any string containing a test-writing pattern is detected."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         prefix=st.text(max_size=20),
@@ -470,7 +442,10 @@ class TestPropertyDetectionCompleteness:
     )
     @settings(max_examples=50)
     def test_prop_detection_completeness(
-        self, prefix: str, pattern: str, suffix: str,
+        self,
+        prefix: str,
+        pattern: str,
+        suffix: str,
     ) -> None:
         from agent_fox.graph.builder import is_test_writing_group
 
@@ -489,7 +464,8 @@ class TestPropertyDetectionSpecificity:
     """Strings not containing any pattern are not detected."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         title=st.text(
@@ -520,7 +496,8 @@ class TestPropertyInjectionIntegrity:
     """Injected auditor nodes have correct edge structure."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         n_groups=st.integers(min_value=1, max_value=5),
@@ -528,16 +505,16 @@ class TestPropertyInjectionIntegrity:
     )
     @settings(max_examples=15)
     def test_prop_injection_integrity(
-        self, n_groups: int, test_group_idx: st.DataObject,
+        self,
+        n_groups: int,
+        test_group_idx: st.DataObject,
     ) -> None:
         import tempfile
 
         from agent_fox.core.config import ArchetypesConfig, AuditorConfig
         from agent_fox.graph.builder import build_graph
 
-        idx = test_group_idx.draw(
-            st.integers(min_value=0, max_value=n_groups - 1)
-        )
+        idx = test_group_idx.draw(st.integers(min_value=0, max_value=n_groups - 1))
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test_spec.md with enough entries
@@ -569,9 +546,7 @@ class TestPropertyInjectionIntegrity:
                 archetypes_config=config,
             )
 
-        auditor_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "auditor"
-        ]
+        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
         assert len(auditor_nodes) == 1
 
         auditor_node = auditor_nodes[0]

@@ -62,15 +62,18 @@ class TestSearchIssues:
         """search_issues returns list of IssueResult from API response."""
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
 
-        mock_resp = _json_response(200, {
-            "items": [
-                {
-                    "number": 42,
-                    "title": "[Skeptic Review] my_spec",
-                    "html_url": "https://github.com/org/repo/issues/42",
-                },
-            ],
-        })
+        mock_resp = _json_response(
+            200,
+            {
+                "items": [
+                    {
+                        "number": 42,
+                        "title": "[Skeptic Review] my_spec",
+                        "html_url": "https://github.com/org/repo/issues/42",
+                    },
+                ],
+            },
+        )
 
         requests_made: list[tuple[str, dict]] = []
 
@@ -157,11 +160,14 @@ class TestCreateIssue:
     async def test_creates_issue_and_returns_result(self) -> None:
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
 
-        mock_resp = _json_response(201, {
-            "number": 1,
-            "title": "[Skeptic Review] spec",
-            "html_url": "https://github.com/org/repo/issues/1",
-        })
+        mock_resp = _json_response(
+            201,
+            {
+                "number": 1,
+                "title": "[Skeptic Review] spec",
+                "html_url": "https://github.com/org/repo/issues/1",
+            },
+        )
 
         requests_made: list[tuple[str, str, dict]] = []
 
@@ -172,9 +178,7 @@ class TestCreateIssue:
         client = _mock_client(post=mock_post)
 
         with patch(_TARGET, return_value=client):
-            result = await platform.create_issue(
-                "[Skeptic Review] spec", "findings..."
-            )
+            result = await platform.create_issue("[Skeptic Review] spec", "findings...")
 
         assert result.number == 1
         assert result.html_url == "https://github.com/org/repo/issues/1"
@@ -278,9 +282,7 @@ class TestCloseIssue:
         client = _mock_client(post=mock_post, patch=mock_patch)
 
         with patch(_TARGET, return_value=client):
-            await platform.close_issue(
-                42, comment="Closing: no findings on re-run."
-            )
+            await platform.close_issue(42, comment="Closing: no findings on re-run.")
 
         # Should have comment POST and close PATCH
         post_reqs = [r for r in requests_made if r[1] == "POST"]

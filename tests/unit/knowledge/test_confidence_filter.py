@@ -34,9 +34,7 @@ class TestConfidenceFiltering:
             make_fact(id="f5", confidence="0.1", keywords=["test"], spec_name="s"),
         ]
 
-        result = select_relevant_facts(
-            facts, "s", ["test"], confidence_threshold=0.5
-        )
+        result = select_relevant_facts(facts, "s", ["test"], confidence_threshold=0.5)
 
         assert len(result) == 3
         assert all(float(f.confidence) >= 0.5 for f in result)

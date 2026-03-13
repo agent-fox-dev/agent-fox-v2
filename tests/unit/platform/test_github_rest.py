@@ -65,9 +65,7 @@ class TestGitHubPlatformRestCreatePr:
 
         target = "agent_fox.platform.github.httpx.AsyncClient"
         with patch(target, return_value=mock_client):
-            result = await platform.create_pr(
-                "feature/test", "Test PR", "Desc"
-            )
+            result = await platform.create_pr("feature/test", "Test PR", "Desc")
 
         assert result == "https://github.com/o/r/pull/1"
 
@@ -152,9 +150,7 @@ class TestGitHubPlatformAuthError:
         target = "agent_fox.platform.github.httpx.AsyncClient"
         with patch(target, return_value=mock_client):
             with pytest.raises(IntegrationError, match="401"):
-                await platform.create_pr(
-                    "feature/test", "Test", "Body"
-                )
+                await platform.create_pr("feature/test", "Test", "Body")
 
     async def test_raises_on_403(self) -> None:
         """create_pr raises IntegrationError on 403."""
@@ -179,9 +175,7 @@ class TestGitHubPlatformAuthError:
         target = "agent_fox.platform.github.httpx.AsyncClient"
         with patch(target, return_value=mock_client):
             with pytest.raises(IntegrationError, match="403"):
-                await platform.create_pr(
-                    "feature/test", "Test", "Body"
-                )
+                await platform.create_pr("feature/test", "Test", "Body")
 
 
 # ---------------------------------------------------------------------------

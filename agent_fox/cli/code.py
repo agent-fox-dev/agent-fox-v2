@@ -170,11 +170,9 @@ def _precompute_plan_fact_cache(
     try:
         plan_data = _json.loads(plan_path.read_text(encoding="utf-8"))
         nodes = plan_data.get("nodes", {})
-        spec_names = sorted({
-            n.get("spec_name", "")
-            for n in nodes.values()
-            if n.get("spec_name")
-        })
+        spec_names = sorted(
+            {n.get("spec_name", "") for n in nodes.values() if n.get("spec_name")}
+        )
         if not spec_names:
             return None
         cache = precompute_fact_rankings(

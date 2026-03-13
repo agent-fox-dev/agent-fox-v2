@@ -27,7 +27,14 @@ class TestOracleRegistryEntry:
         assert entry.default_model_tier == "STANDARD"
         assert "oracle.md" in entry.templates
         assert set(entry.default_allowlist) == {
-            "ls", "cat", "git", "grep", "find", "head", "tail", "wc",
+            "ls",
+            "cat",
+            "git",
+            "grep",
+            "find",
+            "head",
+            "tail",
+            "wc",
         }
 
 
@@ -78,21 +85,26 @@ class TestOracleDisabled:
         config = ArchetypesConfig(oracle=False)
         specs = [
             SpecInfo(
-                name="spec", prefix=0, path=Path(".specs/spec"),
-                has_tasks=True, has_prd=False,
+                name="spec",
+                prefix=0,
+                path=Path(".specs/spec"),
+                has_tasks=True,
+                has_prd=False,
             )
         ]
         task_groups = {
             "spec": [
                 TaskGroupDef(
-                    number=1, title="T1", optional=False,
-                    completed=False, subtasks=(), body="",
+                    number=1,
+                    title="T1",
+                    optional=False,
+                    completed=False,
+                    subtasks=(),
+                    body="",
                 ),
             ]
         }
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
-        oracle_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "oracle"
-        ]
+        oracle_nodes = [n for n in graph.nodes.values() if n.archetype == "oracle"]
         assert len(oracle_nodes) == 0

@@ -239,7 +239,7 @@ class TestStripMarkdownFences:
     def test_extracts_array_when_bracketed_refs_precede_json(self) -> None:
         """Prose with [bracketed] references before the JSON array."""
         text = (
-            'Looking at [uuid1] and [uuid2], I found:\n\n'
+            "Looking at [uuid1] and [uuid2], I found:\n\n"
             '[{"content": "a fact", "category": "gotcha", '
             '"confidence": "high", "keywords": ["k"]}]'
         )

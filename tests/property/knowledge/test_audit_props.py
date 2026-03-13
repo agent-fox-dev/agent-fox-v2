@@ -200,9 +200,7 @@ class TestDualWriteConsistency:
                 dispatcher.emit_audit_event(event)
 
             # Check DuckDB
-            db_count = conn.execute(
-                "SELECT COUNT(*) FROM audit_events"
-            ).fetchone()[0]
+            db_count = conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0]
             assert db_count == n
 
             # Check JSONL
@@ -212,10 +210,7 @@ class TestDualWriteConsistency:
 
             # Check ID consistency
             db_ids = {
-                row[0]
-                for row in conn.execute(
-                    "SELECT id FROM audit_events"
-                ).fetchall()
+                row[0] for row in conn.execute("SELECT id FROM audit_events").fetchall()
             }
             jsonl_ids = set()
             for line in jsonl_lines:
@@ -312,9 +307,7 @@ class TestEventCompleteness:
     def test_n_sessions_have_n_starts(self, n_sessions: int) -> None:
         """N sessions produce N session.start events."""
         run_id = "test_run"
-        events = [
-            AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_START)
-        ]
+        events = [AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_START)]
         for _ in range(n_sessions):
             events.append(
                 AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_START)
@@ -322,9 +315,7 @@ class TestEventCompleteness:
             events.append(
                 AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_COMPLETE)
             )
-        events.append(
-            AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_COMPLETE)
-        )
+        events.append(AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_COMPLETE))
 
         session_starts = [
             e for e in events if e.event_type == AuditEventType.SESSION_START

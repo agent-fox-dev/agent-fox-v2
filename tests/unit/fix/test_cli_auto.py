@@ -95,9 +95,7 @@ class TestAutoFlag:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(
-                    TerminationReason.MAX_PASSES
-                ),
+                return_value=_make_fix_result(TerminationReason.MAX_PASSES),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
@@ -168,9 +166,7 @@ class TestImprovePassesValidation:
             )
 
         call_kw = mock_improve.call_args
-        max_p = call_kw.kwargs.get(
-            "max_passes", call_kw[1].get("max_passes")
-        )
+        max_p = call_kw.kwargs.get("max_passes", call_kw[1].get("max_passes"))
         assert max_p == 1
 
 
@@ -190,9 +186,7 @@ class TestDryRunWithAuto:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(
-                    TerminationReason.ALL_FIXED
-                ),
+                return_value=_make_fix_result(TerminationReason.ALL_FIXED),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",

@@ -326,9 +326,7 @@ class TestJSONLExportFailure:
             export_facts_to_jsonl(knowledge_conn, bad_path)
 
         # Fact should still be in DuckDB
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
         assert rows is not None
         assert rows[0] == 1
 

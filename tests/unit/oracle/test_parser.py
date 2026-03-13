@@ -22,14 +22,14 @@ class TestParseValidJson:
         from agent_fox.session.review_parser import parse_oracle_output
 
         response = (
-            '```json\n'
+            "```json\n"
             '{"drift_findings": ['
             '{"severity": "critical", "description": "File removed", '
             '"artifact_ref": "foo.py"}, '
             '{"severity": "minor", "description": "Function renamed", '
             '"spec_ref": "design.md"}'
-            ']}\n'
-            '```'
+            "]}\n"
+            "```"
         )
         findings = parse_oracle_output(response, "spec_a", "0", "sess_1")
 
@@ -47,10 +47,10 @@ class TestParseValidJson:
         from agent_fox.session.review_parser import parse_oracle_output
 
         response = (
-            'Here are my findings:\n'
+            "Here are my findings:\n"
             '{"drift_findings": ['
             '{"severity": "major", "description": "API changed"}'
-            ']}'
+            "]}"
         )
         findings = parse_oracle_output(response, "spec_b", "1", "sess_2")
         assert len(findings) == 1
@@ -99,9 +99,14 @@ class TestDriftFindingFields:
         from agent_fox.knowledge.review_store import DriftFinding
 
         f = DriftFinding(
-            id="uuid-1", severity="minor", description="test",
-            spec_ref=None, artifact_ref=None,
-            spec_name="s", task_group="0", session_id="x",
+            id="uuid-1",
+            severity="minor",
+            description="test",
+            spec_ref=None,
+            artifact_ref=None,
+            spec_name="s",
+            task_group="0",
+            session_id="x",
         )
         with pytest.raises(AttributeError):
             f.severity = "major"  # type: ignore[misc]
@@ -122,7 +127,9 @@ class TestNoJsonOutput:
 
         result = parse_oracle_output(
             "No drift found, everything looks good.",
-            "spec", "0", "sess",
+            "spec",
+            "0",
+            "sess",
         )
         assert result == []
 
@@ -144,7 +151,7 @@ class TestMissingFields:
             '{"drift_findings": ['
             '{"severity": "major", "description": "ok"}, '
             '{"severity": "minor"}'
-            ']}'
+            "]}"
         )
         result = parse_oracle_output(response, "spec", "0", "sess")
         assert len(result) == 1
@@ -154,10 +161,6 @@ class TestMissingFields:
         """Entry missing 'severity' is skipped."""
         from agent_fox.session.review_parser import parse_oracle_output
 
-        response = (
-            '{"drift_findings": ['
-            '{"description": "no severity field"}'
-            ']}'
-        )
+        response = '{"drift_findings": [{"description": "no severity field"}]}'
         result = parse_oracle_output(response, "spec", "0", "sess")
         assert len(result) == 0

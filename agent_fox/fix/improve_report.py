@@ -76,10 +76,7 @@ def render_combined_report(
             f"  Passes completed: {improve_result.passes_completed}"
             f" of {improve_result.max_passes}"
         )
-        _print(
-            f"  Improvements applied: "
-            f"{improve_result.total_improvements}"
-        )
+        _print(f"  Improvements applied: {improve_result.total_improvements}")
         if improve_result.improvements_by_tier:
             for tier, count in improve_result.improvements_by_tier.items():
                 _print(f"    {tier}: {count}")

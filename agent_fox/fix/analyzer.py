@@ -113,8 +113,7 @@ def build_analyzer_prompt(
         "- NEVER refactor test code for DRYness — test readability trumps DRY",
         "- NEVER change public APIs "
         "(function signatures, class interfaces, CLI options)",
-        "- NEVER remove \"why\" comments — only remove \"what\" comments "
-        "that restate code",
+        '- NEVER remove "why" comments — only remove "what" comments that restate code',
         "- NEVER remove or weaken error handling or logging",
         "- NEVER introduce new dependencies",
         "- Favor deletion over addition — removing dead code is always a win",
@@ -132,9 +131,7 @@ def build_analyzer_prompt(
 
     # Review findings
     if review_context:
-        system_parts.extend(
-            ["", "## Prior Review Findings", "", review_context]
-        )
+        system_parts.extend(["", "## Prior Review Findings", "", review_context])
 
     system_prompt = "\n".join(system_parts)
 
@@ -293,9 +290,7 @@ def query_oracle_context(config: AgentFoxConfig) -> str:
         if commit_sha and "commit:" not in str(provenance_parts):
             provenance_parts.append(f"commit: {commit_sha}")
 
-        provenance = (
-            f" ({', '.join(provenance_parts)})" if provenance_parts else ""
-        )
+        provenance = f" ({', '.join(provenance_parts)})" if provenance_parts else ""
         content = getattr(result, "content", str(result))
         parts.append(f"- {content}{provenance}")
 

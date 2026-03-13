@@ -480,18 +480,14 @@ class TestDebugFlag:
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
             patch("agent_fox.cli.code.Path") as MockPath,
             patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
-            patch(
-                "agent_fox.cli.code.open_knowledge_store"
-            ) as mock_open_ks,
+            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             MockPath.return_value.exists.return_value = True
             mock_kb = MagicMock()
             mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code", "--debug"])
 
-        MockDuckDBSink.assert_called_once_with(
-            mock_kb.connection, debug=True
-        )
+        MockDuckDBSink.assert_called_once_with(mock_kb.connection, debug=True)
 
     def test_no_debug_passes_debug_false_to_duckdb_sink(
         self, cli_runner: CliRunner
@@ -505,18 +501,14 @@ class TestDebugFlag:
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
             patch("agent_fox.cli.code.Path") as MockPath,
             patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
-            patch(
-                "agent_fox.cli.code.open_knowledge_store"
-            ) as mock_open_ks,
+            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             MockPath.return_value.exists.return_value = True
             mock_kb = MagicMock()
             mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code"])
 
-        MockDuckDBSink.assert_called_once_with(
-            mock_kb.connection, debug=False
-        )
+        MockDuckDBSink.assert_called_once_with(mock_kb.connection, debug=False)
 
     def test_debug_attaches_jsonl_sink(self, cli_runner: CliRunner) -> None:
         """With --debug, a JsonlSink is added to the SinkDispatcher."""

@@ -436,7 +436,11 @@ class TestFullHardResetCompactsKB:
             patch("agent_fox.engine.reset.compact", return_value=(42, 38)),
         ):
             result = hard_reset_all(
-                state_path, plan_path, worktrees_dir, tmp_path, memory_path,
+                state_path,
+                plan_path,
+                worktrees_dir,
+                tmp_path,
+                memory_path,
                 db_conn=mock_conn,
             )
 

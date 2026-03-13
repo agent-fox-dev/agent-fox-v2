@@ -175,9 +175,7 @@ def _compute_archetype_effectiveness(
             model.archetype_effectiveness[archetype] = float(success_rate)
 
 
-def _compute_active_drift(
-    conn: duckdb.DuckDBPyConnection, model: ProjectModel
-) -> None:
+def _compute_active_drift(conn: duckdb.DuckDBPyConnection, model: ProjectModel) -> None:
     """Find specs with recent unsuperseded drift findings."""
     try:
         rows = conn.execute(

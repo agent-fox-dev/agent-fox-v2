@@ -21,8 +21,14 @@ class TestVerifierTemplate:
         import os
 
         template_path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..",
-            "agent_fox", "_templates", "prompts", "verifier.md",
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "agent_fox",
+            "_templates",
+            "prompts",
+            "verifier.md",
         )
         template_path = os.path.normpath(template_path)
 

@@ -74,9 +74,7 @@ def _get_known_fields_by_section(
     """Build a map of section_path -> set of field names."""
     result: dict[str, set[str]] = {}
     for section in sections:
-        result[section.path] = {
-            f.name for f in section.fields if not f.is_nested
-        }
+        result[section.path] = {f.name for f in section.fields if not f.is_nested}
         sub = _get_known_fields_by_section(section.subsections)
         result.update(sub)
     return result
@@ -160,17 +158,14 @@ class TestTemplateCompleteness:
         total_commented = _count_commented_field_lines(template)
 
         assert total_commented == total_scalar, (
-            f"Expected {total_scalar} commented field entries, "
-            f"got {total_commented}"
+            f"Expected {total_scalar} commented field entries, got {total_commented}"
         )
 
 
 class TestRoundTripDefaultEquivalence:
     """TS-33-P2: Uncommenting all fields produces default config."""
 
-    def test_uncommented_template_matches_defaults(
-        self, tmp_path: Path
-    ) -> None:
+    def test_uncommented_template_matches_defaults(self, tmp_path: Path) -> None:
         """Property 2: Round-trip default equivalence.
 
         Validates: 33-REQ-1.4, 33-REQ-3.2
@@ -199,9 +194,7 @@ class TestMergeValuePreservation:
 
     @given(overrides=valid_orchestrator_overrides())
     @settings(max_examples=20)
-    def test_active_values_preserved(
-        self, overrides: dict[str, Any]
-    ) -> None:
+    def test_active_values_preserved(self, overrides: dict[str, Any]) -> None:
         """Property 3: Merge value preservation.
 
         Validates: 33-REQ-2.1, 33-REQ-2.5
@@ -228,9 +221,7 @@ class TestMergeValuePreservation:
                 if expected in line and not line.lstrip().startswith("#"):
                     found = True
                     break
-            assert found, (
-                f"Active value '{expected}' not preserved in merged output"
-            )
+            assert found, f"Active value '{expected}' not preserved in merged output"
 
 
 class TestMergeCompleteness:
@@ -274,9 +265,7 @@ class TestMergeCompleteness:
 
         # Every schema field name should appear somewhere in the output
         for name in all_names:
-            assert name in merged, (
-                f"Field '{name}' missing from merged output"
-            )
+            assert name in merged, f"Field '{name}' missing from merged output"
 
 
 class TestDeprecatedFieldDetection:
@@ -284,9 +273,7 @@ class TestDeprecatedFieldDetection:
 
     @given(unknowns=unknown_field_names())
     @settings(max_examples=15)
-    def test_unknown_fields_marked_deprecated(
-        self, unknowns: list[str]
-    ) -> None:
+    def test_unknown_fields_marked_deprecated(self, unknowns: list[str]) -> None:
         """Property 5: Deprecated field detection.
 
         Validates: 33-REQ-2.4
@@ -300,12 +287,10 @@ class TestDeprecatedFieldDetection:
 
         for name in unknowns:
             # Find lines referencing this unknown field
-            field_lines = [
-                line for line in merged.split("\n") if name in line
-            ]
-            assert any(
-                "DEPRECATED" in line for line in field_lines
-            ), f"Unknown field '{name}' not marked as DEPRECATED"
+            field_lines = [line for line in merged.split("\n") if name in line]
+            assert any("DEPRECATED" in line for line in field_lines), (
+                f"Unknown field '{name}' not marked as DEPRECATED"
+            )
 
 
 class TestSchemaExtractionDeterminism:

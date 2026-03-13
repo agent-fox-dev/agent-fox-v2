@@ -157,9 +157,7 @@ class TestCompactionMonotonicity:
         n_duplicates=st.integers(min_value=0, max_value=5),
     )
     @settings(max_examples=20, deadline=None)
-    def test_compaction_reduces_count(
-        self, n_unique: int, n_duplicates: int
-    ) -> None:
+    def test_compaction_reduces_count(self, n_unique: int, n_duplicates: int) -> None:
         from agent_fox.knowledge.compaction import compact
 
         conn = duckdb.connect(":memory:")

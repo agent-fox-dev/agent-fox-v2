@@ -48,9 +48,7 @@ class TestEmbedSingleText:
         assert len(result) == 384
         assert all(isinstance(v, float) for v in result)
 
-    def test_calls_model_encode(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_calls_model_encode(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify the model's encode method is called."""
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
         mock_model.encode.return_value = np.array([MOCK_EMBEDDING_1])
@@ -85,9 +83,7 @@ class TestEmbedBatch:
     ) -> None:
         """Verify batch uses a single encode call, not one per text."""
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
-        mock_model.encode.return_value = np.array(
-            [MOCK_EMBEDDING_1, MOCK_EMBEDDING_2]
-        )
+        mock_model.encode.return_value = np.array([MOCK_EMBEDDING_1, MOCK_EMBEDDING_2])
 
         generator.embed_batch(["text a", "text b"])
 
@@ -134,9 +130,7 @@ class TestEmbedFailure:
 class TestEmbeddingDimensions:
     """Verify embedding_dimensions property."""
 
-    def test_returns_config_dimensions(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_returns_config_dimensions(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify embedding_dimensions matches config."""
         generator = EmbeddingGenerator(knowledge_config)
         assert generator.embedding_dimensions == 384

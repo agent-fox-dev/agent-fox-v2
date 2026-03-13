@@ -80,17 +80,20 @@ class TestRenderDriftContext:
     """Verify drift findings are rendered as grouped markdown."""
 
     def test_render_drift_context(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-32-10: Rendered output has header, severity groups, descriptions."""
         from agent_fox.knowledge.review_store import insert_drift_findings
         from agent_fox.session.prompt import render_drift_context
 
         critical = _make_drift_finding(
-            severity="critical", description="File deleted",
+            severity="critical",
+            description="File deleted",
         )
         minor = _make_drift_finding(
-            severity="minor", description="Param renamed",
+            severity="minor",
+            description="Param renamed",
         )
         insert_drift_findings(drift_conn, [critical, minor])
 
@@ -102,7 +105,8 @@ class TestRenderDriftContext:
         assert "Param renamed" in result
 
     def test_render_includes_all_severities(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """All severity groups appear in the rendered output."""
         from agent_fox.knowledge.review_store import insert_drift_findings
@@ -134,7 +138,8 @@ class TestNoDriftFindings:
     """render_drift_context returns None when no findings exist."""
 
     def test_no_findings(
-        self, drift_conn: duckdb.DuckDBPyConnection,
+        self,
+        drift_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-32-E6: No findings -> None returned."""
         from agent_fox.session.prompt import render_drift_context

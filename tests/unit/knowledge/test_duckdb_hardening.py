@@ -163,9 +163,7 @@ class TestKnowledgeHarvestPropagation:
     Requirements: 38-REQ-3.3, 38-REQ-3.4
     """
 
-    def test_sync_facts_propagates_error(
-        self, tmp_path: Path
-    ) -> None:
+    def test_sync_facts_propagates_error(self, tmp_path: Path) -> None:
         """TS-38-10: sync_facts_to_duckdb propagates errors."""
         from agent_fox.engine.knowledge_harvest import (
             sync_facts_to_duckdb,
@@ -191,9 +189,7 @@ class TestKnowledgeHarvestPropagation:
         db._conn = original_conn
         db.close()
 
-    def test_extract_causal_links_propagates(
-        self, tmp_path: Path
-    ) -> None:
+    def test_extract_causal_links_propagates(self, tmp_path: Path) -> None:
         """TS-38-10: _extract_causal_links propagates errors."""
         from agent_fox.engine.knowledge_harvest import (
             _extract_causal_links,
@@ -215,9 +211,7 @@ class TestKnowledgeHarvestPropagation:
         facts = [_make_fact(), _make_fact()]
 
         with pytest.raises((duckdb.Error, Exception)):
-            _extract_causal_links(
-                facts, "test/1", "test-model", db
-            )
+            _extract_causal_links(facts, "test/1", "test-model", db)
 
         db._conn = original_conn
         db.close()
@@ -244,9 +238,9 @@ class TestFixtureIsolation:
             "'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::UUID, "
             "'test', 'decision', 0.9, CURRENT_TIMESTAMP)"
         )
-        count = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()[0]
+        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[
+            0
+        ]
         assert count == 1
 
     def test_fixture_provides_fresh_db_b(
@@ -254,9 +248,9 @@ class TestFixtureIsolation:
         knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-38-12: Second test should see zero rows."""
-        count = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts"
-        ).fetchone()[0]
+        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[
+            0
+        ]
         assert count == 0
 
     def test_fixture_has_all_tables(
@@ -307,8 +301,7 @@ class TestContextAssemblyRequired:
 
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
-        for f in ("requirements.md", "design.md",
-                   "test_spec.md", "tasks.md"):
+        for f in ("requirements.md", "design.md", "test_spec.md", "tasks.md"):
             (spec_dir / f).write_text(f"# {f}\n")
 
         failing_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
@@ -317,9 +310,7 @@ class TestContextAssemblyRequired:
         )
 
         with pytest.raises(duckdb.Error):
-            assemble_context(
-                spec_dir, task_group=1, conn=failing_conn
-            )
+            assemble_context(spec_dir, task_group=1, conn=failing_conn)
 
     def test_uses_db_backed_rendering(
         self,
@@ -331,8 +322,7 @@ class TestContextAssemblyRequired:
 
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
-        for f in ("requirements.md", "design.md",
-                   "test_spec.md", "tasks.md"):
+        for f in ("requirements.md", "design.md", "test_spec.md", "tasks.md"):
             (spec_dir / f).write_text(f"# {f}\n")
 
         knowledge_conn.execute(
@@ -346,9 +336,7 @@ class TestContextAssemblyRequired:
             "'test_spec', '1', 'test/1')"
         )
 
-        context = assemble_context(
-            spec_dir, task_group=1, conn=knowledge_conn
-        )
+        context = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         assert "Test finding from DB" in context
 
 

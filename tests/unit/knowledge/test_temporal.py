@@ -164,8 +164,7 @@ class TestTemporalQuery:
 
             # Add causal links: AAA -> BBB -> CCC
             conn.execute(
-                "INSERT INTO fact_causes VALUES "
-                "(?::UUID, ?::UUID), (?::UUID, ?::UUID)",
+                "INSERT INTO fact_causes VALUES (?::UUID, ?::UUID), (?::UUID, ?::UUID)",
                 [FACT_AAA, FACT_BBB, FACT_BBB, FACT_CCC],
             )
 

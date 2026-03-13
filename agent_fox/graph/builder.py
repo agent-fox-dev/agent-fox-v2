@@ -125,7 +125,8 @@ def _inject_auto_mid_nodes(
                 if next_group is not None:
                     next_node_id = f"{spec.name}:{next_group.number}"
                     edges[:] = [
-                        e for e in edges
+                        e
+                        for e in edges
                         if not (e.source == test_node_id and e.target == next_node_id)
                     ]
 
@@ -307,10 +308,7 @@ def _inject_archetype_nodes(
         use_suffix = len(enabled_auto_pre) > 1
 
         for arch_name, entry in enabled_auto_pre:
-            node_id = (
-                f"{spec.name}:0:{arch_name}" if use_suffix
-                else f"{spec.name}:0"
-            )
+            node_id = f"{spec.name}:0:{arch_name}" if use_suffix else f"{spec.name}:0"
             instances = getattr(
                 getattr(archetypes_config, "instances", None),
                 arch_name,
@@ -328,9 +326,7 @@ def _inject_archetype_nodes(
             # Edge from auto_pre node to first real group
             first_id = f"{spec.name}:{first_group}"
             if first_id in nodes:
-                edges.append(
-                    Edge(source=node_id, target=first_id, kind="intra_spec")
-                )
+                edges.append(Edge(source=node_id, target=first_id, kind="intra_spec"))
 
         # auto_post injection (e.g., Verifier after last group)
         offset = 1
@@ -359,9 +355,7 @@ def _inject_archetype_nodes(
             # Edge from last Coder group to this post node
             last_id = f"{spec.name}:{last_group}"
             if last_id in nodes:
-                edges.append(
-                    Edge(source=last_id, target=node_id, kind="intra_spec")
-                )
+                edges.append(Edge(source=last_id, target=node_id, kind="intra_spec"))
             offset += 1
 
     # auto_mid injection (e.g., Auditor after test-writing groups)
@@ -472,7 +466,11 @@ def build_graph(
 
     # Phase B: Archetype injection
     _inject_archetype_nodes(
-        nodes, intra_edges, specs, task_groups, archetypes_config,
+        nodes,
+        intra_edges,
+        specs,
+        task_groups,
+        archetypes_config,
     )
 
     # Three-layer assignment priority (26-REQ-5.2):
@@ -485,7 +483,9 @@ def build_graph(
     # 26-REQ-5.5: Log final archetype assignment
     for node_id, node in nodes.items():
         logger.info(
-            "Node '%s' archetype assignment: %s", node_id, node.archetype,
+            "Node '%s' archetype assignment: %s",
+            node_id,
+            node.archetype,
         )
 
     cross_edges = _add_cross_spec_edges(cross_deps, task_groups, nodes)

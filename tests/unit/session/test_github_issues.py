@@ -63,9 +63,7 @@ class TestFileOrUpdateIssueCreate:
             ),
         )
 
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "findings", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "findings", platform=mock)
 
         assert result == "https://github.com/o/r/issues/1"
         mock.search_issues.assert_called_once()
@@ -91,9 +89,7 @@ class TestFileOrUpdateIssueUpdate:
         )
         mock = _mock_platform(search_results=[existing])
 
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "updated", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "updated", platform=mock)
 
         assert result == "https://github.com/o/r/issues/42"
         mock.update_issue.assert_called_once_with(42, "updated")
@@ -159,12 +155,11 @@ class TestPlatformNone:
 
     @pytest.mark.asyncio
     async def test_returns_none_with_warning(
-        self, caplog: pytest.LogCaptureFixture,
+        self,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         with caplog.at_level(logging.WARNING):
-            result = await file_or_update_issue(
-                "[Skeptic] spec", "body", platform=None
-            )
+            result = await file_or_update_issue("[Skeptic] spec", "body", platform=None)
 
         assert result is None
         assert any("warning" in r.levelname.lower() for r in caplog.records)
@@ -185,9 +180,7 @@ class TestApiErrorSwallowed:
             search_side_effect=IntegrationError("API error"),
         )
 
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=mock)
 
         assert result is None
 
@@ -198,9 +191,7 @@ class TestApiErrorSwallowed:
             create_side_effect=IntegrationError("create failed"),
         )
 
-        result = await file_or_update_issue(
-            "[Skeptic] spec", "body", platform=mock
-        )
+        result = await file_or_update_issue("[Skeptic] spec", "body", platform=mock)
 
         assert result is None
 

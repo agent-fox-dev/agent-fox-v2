@@ -226,9 +226,7 @@ def _get_bounds(model_class: type[BaseModel], field_name: str) -> str | None:
     return _BOUNDS_MAP.get(key)
 
 
-def extract_schema(
-    model: type[BaseModel], prefix: str = ""
-) -> list[SectionSpec]:
+def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec]:
     """Walk a Pydantic model tree and return a list of SectionSpecs.
 
     For the root model (no prefix), each field that is a nested BaseModel
@@ -241,12 +239,10 @@ def extract_schema(
         # Check if this is a root model (all fields are nested BaseModels)
         # or a flat model (has scalar fields directly)
         has_nested = any(
-            _is_nested_model(fi.annotation)
-            for fi in model.model_fields.values()
+            _is_nested_model(fi.annotation) for fi in model.model_fields.values()
         )
         has_scalar = any(
-            not _is_nested_model(fi.annotation)
-            for fi in model.model_fields.values()
+            not _is_nested_model(fi.annotation) for fi in model.model_fields.values()
         )
 
         if has_nested and not has_scalar:
@@ -308,9 +304,7 @@ def _extract_section(
 
         if is_nested:
             sub_path = f"{path}.{toml_key}"
-            sub_section = _extract_section(
-                annotation, sub_path, model_class=annotation
-            )
+            sub_section = _extract_section(annotation, sub_path, model_class=annotation)
             section.subsections.append(sub_section)
 
     return section
@@ -336,9 +330,7 @@ def _format_toml_value(value: Any) -> str:
         if not value:
             return "{}"
         # Format inline table — values may be nested dicts (from BaseModel)
-        items = ", ".join(
-            f"{k} = {_format_toml_value(v)}" for k, v in value.items()
-        )
+        items = ", ".join(f"{k} = {_format_toml_value(v)}" for k, v in value.items())
         return f"{{{items}}}"
     # Handle Pydantic BaseModel instances by converting to dict first
     if isinstance(value, BaseModel):
@@ -458,9 +450,7 @@ def merge_config(
     try:
         existing_doc = tomlkit.parse(existing_content)
     except Exception:
-        logger.warning(
-            "Existing config contains invalid TOML, skipping merge"
-        )
+        logger.warning("Existing config contains invalid TOML, skipping merge")
         return existing_content
 
     # Build schema lookup: section_path -> {field_name: FieldSpec}
@@ -525,10 +515,7 @@ def merge_config(
 
             # Handle subsections of active sections
             for sub in section.subsections:
-                if (
-                    sub.path not in active_fields
-                    and sub.path not in commented_sections
-                ):
+                if sub.path not in active_fields and sub.path not in commented_sections:
                     insert_idx = _find_section_end(result_lines, section.path)
                     new_lines = [""] + _render_section_comments(sub)
                     result_lines[insert_idx:insert_idx] = new_lines
@@ -568,18 +555,14 @@ def _build_schema_lookup(
     """Build a lookup dict: section_path -> {field_name: FieldSpec}."""
     lookup: dict[str, dict[str, FieldSpec]] = {}
     for section in schema:
-        lookup[section.path] = {
-            f.name: f for f in section.fields if not f.is_nested
-        }
+        lookup[section.path] = {f.name: f for f in section.fields if not f.is_nested}
         for sub in section.subsections:
             sub_lookup = _build_schema_lookup([sub])
             lookup.update(sub_lookup)
     return lookup
 
 
-def _scan_commented_fields(
-    content: str, result: dict[str, set[str]]
-) -> None:
+def _scan_commented_fields(content: str, result: dict[str, set[str]]) -> None:
     """Scan raw text to find commented-out field entries per section.
 
     Identifies patterns like '# field_name = value' that appear after
@@ -662,13 +645,8 @@ def _apply_deprecation(
             continue
         if in_section and re.match(r"^\[[\w.]+\]$", stripped):
             break
-        if in_section and re.match(
-            rf"^{re.escape(key)}\s*=", stripped
-        ):
-            lines[i] = (
-                f"# DEPRECATED: '{key}' is no longer recognized\n"
-                f"# {stripped}"
-            )
+        if in_section and re.match(rf"^{re.escape(key)}\s*=", stripped):
+            lines[i] = f"# DEPRECATED: '{key}' is no longer recognized\n# {stripped}"
             break
 
 

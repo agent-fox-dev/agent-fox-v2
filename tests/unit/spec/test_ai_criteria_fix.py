@@ -272,9 +272,7 @@ class TestRewritePreventFixLoops:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = [
-                _make_finding("99-REQ-1.1", rule="implementation-leak")
-            ]
+            findings = [_make_finding("99-REQ-1.1", rule="implementation-leak")]
             await rewrite_criteria(
                 "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
             )
@@ -471,9 +469,7 @@ class TestRewriteAppliedToFile:
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
 
-        rewrites = {
-            "99-REQ-1.1": "THE system SHALL respond within 200ms at p95."
-        }
+        rewrites = {"99-REQ-1.1": "THE system SHALL respond within 200ms at p95."}
         findings_map = {"99-REQ-1.1": "vague-criterion"}
         results = fix_ai_criteria("test_spec", req_path, rewrites, findings_map)
 

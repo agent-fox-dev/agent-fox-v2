@@ -50,9 +50,7 @@ class TestPricingConfig:
             }
         )
 
-        cost = calculate_cost(
-            1_000_000, 1_000_000, "claude-haiku-4-5", custom
-        )
+        cost = calculate_cost(1_000_000, 1_000_000, "claude-haiku-4-5", custom)
 
         assert cost == 60.0
 

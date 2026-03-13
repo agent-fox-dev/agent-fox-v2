@@ -217,7 +217,7 @@ def _build_coder_prompt(improvements: list) -> tuple[str, str]:
         "- Implement improvements in the order listed (quick wins first)\n"
         "- Never refactor test code for DRYness\n"
         "- Preserve all public APIs\n"
-        "- Preserve \"why\" comments\n"
+        '- Preserve "why" comments\n'
         "- Maintain error handling and logging\n"
         "- Favor deletion over addition\n"
         "- Run quality checks after changes to verify correctness"
@@ -262,12 +262,12 @@ def _build_verifier_prompt(pass_number: int) -> tuple[str, str]:
         "4. The code is measurably simpler or clearer\n"
         "5. Error handling and logging are preserved\n\n"
         "Produce your verdict as JSON:\n\n"
-        '{\n'
+        "{\n"
         '  "quality_gates": "PASS" or "FAIL",\n'
         '  "improvement_valid": true or false,\n'
         '  "verdict": "PASS" or "FAIL",\n'
         '  "evidence": "Summary of findings"\n'
-        '}'
+        "}"
     )
 
     return system_prompt, task_prompt
@@ -408,9 +408,7 @@ async def run_improve_loop(
                 break
 
             # Create git commit (31-REQ-5.4)
-            _create_commit(
-                project_root, pass_number, analyzer_result.summary
-            )
+            _create_commit(project_root, pass_number, analyzer_result.summary)
 
             # -- Verifier (31-REQ-6.*) --
             # Check budget before verifier session (31-REQ-8.3)

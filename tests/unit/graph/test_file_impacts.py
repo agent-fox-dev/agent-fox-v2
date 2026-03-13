@@ -108,10 +108,12 @@ class TestFileImpacts:
         impacts = extract_file_impacts(tmp_path, task_group=1)
         assert impacts == set()
 
-        conflicts = detect_conflicts([
-            FileImpact("a", impacts),
-            FileImpact("b", {"f1"}),
-        ])
+        conflicts = detect_conflicts(
+            [
+                FileImpact("a", impacts),
+                FileImpact("b", {"f1"}),
+            ]
+        )
         assert len(conflicts) == 0
 
     def test_multiple_conflicts(self) -> None:

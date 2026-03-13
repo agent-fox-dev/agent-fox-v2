@@ -38,11 +38,11 @@ class PriorFinding:
     Requirements: 42-REQ-4.1, 42-REQ-4.2
     """
 
-    type: str          # "review" | "drift" | "verification"
-    group: str         # task_group value
-    severity: str      # severity level or verdict
-    description: str   # description text or evidence
-    created_at: str    # ISO timestamp string for sorting
+    type: str  # "review" | "drift" | "verification"
+    group: str  # task_group value
+    severity: str  # severity level or verdict
+    description: str  # description text or evidence
+    created_at: str  # ISO timestamp string for sorting
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +359,9 @@ def assemble_context(
     if task_group > 1:
         try:
             prior_findings = get_prior_group_findings(
-                conn, spec_name, task_group=task_group,
+                conn,
+                spec_name,
+                task_group=task_group,
             )
             if prior_findings:
                 prior_section = render_prior_group_findings(prior_findings)

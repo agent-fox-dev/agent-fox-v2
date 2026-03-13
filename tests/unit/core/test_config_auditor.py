@@ -105,7 +105,8 @@ class TestPropertyConfigClamping:
     """Config values are always within valid ranges."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         min_ts=st.integers(min_value=-100, max_value=100),
@@ -114,7 +115,10 @@ class TestPropertyConfigClamping:
     )
     @settings(max_examples=50)
     def test_prop_config_clamping(
-        self, min_ts: int, max_r: int, inst: int,
+        self,
+        min_ts: int,
+        max_r: int,
+        inst: int,
     ) -> None:
         from agent_fox.core.config import (
             ArchetypeInstancesConfig,

@@ -42,9 +42,7 @@ def knowledge_db(tmp_path: str) -> KnowledgeDB:
 class TestSyncFactsToDuckDB:
     """Verify sync_facts_to_duckdb writes facts to memory_facts."""
 
-    def test_facts_written_to_duckdb(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_facts_written_to_duckdb(self, knowledge_db: KnowledgeDB) -> None:
         fact = _make_fact()
         sync_facts_to_duckdb(knowledge_db, [fact])
 
@@ -55,9 +53,7 @@ class TestSyncFactsToDuckDB:
         assert len(rows) == 1
         assert rows[0][0] == fact.id
 
-    def test_idempotent(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_idempotent(self, knowledge_db: KnowledgeDB) -> None:
         fact = _make_fact()
         sync_facts_to_duckdb(knowledge_db, [fact])
         # Second call should not raise
@@ -69,9 +65,7 @@ class TestSyncFactsToDuckDB:
         ).fetchone()[0]
         assert count == 1
 
-    def test_causal_links_succeed_after_sync(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_causal_links_succeed_after_sync(self, knowledge_db: KnowledgeDB) -> None:
         """End-to-end: after syncing, store_causal_links should find the facts."""
         from agent_fox.knowledge.causal import store_causal_links
 
@@ -109,9 +103,7 @@ class TestSyncFactsToDuckDB:
             knowledge_db.connection,
             [(prior_fact.id, new_fact.id)],
         )
-        assert inserted == 0, (
-            "Causal link should fail when prior fact is not in DuckDB"
-        )
+        assert inserted == 0, "Causal link should fail when prior fact is not in DuckDB"
 
         # Now sync BOTH facts (as the fix should do)
         sync_facts_to_duckdb(knowledge_db, [prior_fact, new_fact])
@@ -121,6 +113,4 @@ class TestSyncFactsToDuckDB:
             knowledge_db.connection,
             [(prior_fact.id, new_fact.id)],
         )
-        assert inserted == 1, (
-            "Causal link should succeed after syncing prior facts"
-        )
+        assert inserted == 1, "Causal link should succeed after syncing prior facts"

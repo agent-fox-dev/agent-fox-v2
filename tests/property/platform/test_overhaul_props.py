@@ -31,10 +31,7 @@ class TestNoPushInstructionsInTemplates:
     """
 
     _TEMPLATE_DIR = (
-        Path(__file__).resolve().parents[3]
-        / "agent_fox"
-        / "_templates"
-        / "prompts"
+        Path(__file__).resolve().parents[3] / "agent_fox" / "_templates" / "prompts"
     )
 
     def test_no_push_in_any_template(self) -> None:
@@ -68,11 +65,7 @@ _github_repo = st.text(
     ),
     min_size=1,
     max_size=100,
-).filter(
-    lambda s: not s.startswith("-")
-    and not s.endswith(".")
-    and ".." not in s
-)
+).filter(lambda s: not s.startswith("-") and not s.endswith(".") and ".." not in s)
 
 
 class TestRemoteUrlParsingRoundtrip:
@@ -180,9 +173,7 @@ class TestPostHarvestStrategyMatchesConfig:
         auto_merge=st.booleans(),
     )
     @settings(max_examples=10)
-    def test_strategy_determination(
-        self, ptype: str, auto_merge: bool
-    ) -> None:
+    def test_strategy_determination(self, ptype: str, auto_merge: bool) -> None:
         """Strategy matches config invariants."""
         # Ensure config parses without error
         PlatformConfig(type=ptype, auto_merge=auto_merge)

@@ -62,9 +62,7 @@ def _compute_config_hash(config: AgentFoxConfig) -> str:
         "instances": config.archetypes.instances.model_dump(),
         "skeptic_config": config.archetypes.skeptic_config.model_dump(),
     }
-    return hashlib.sha256(
-        json.dumps(data, sort_keys=True).encode()
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
 def _cache_matches_request(
@@ -135,7 +133,10 @@ def _build_plan(
 
     # Step 3: Build graph
     graph = build_graph(
-        specs, task_groups, cross_deps, archetypes_config=config.archetypes,
+        specs,
+        task_groups,
+        cross_deps,
+        archetypes_config=config.archetypes,
     )
 
     # Step 4: Resolve ordering or apply fast mode

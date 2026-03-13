@@ -59,8 +59,11 @@ class TestSpinnerLineWidth:
         display.start()
         display.on_activity(
             ActivityEvent(
-                node_id="x:1", tool_name="Tool", argument=text,
-                turn=turn, tokens=tokens,
+                node_id="x:1",
+                tool_name="Tool",
+                argument=text,
+                turn=turn,
+                tokens=tokens,
             )
         )
         full_text = display._get_spinner_text()
@@ -110,8 +113,13 @@ class TestQuietNoOutput:
         display.start()
         for i, nid in enumerate(node_ids):
             display.on_activity(
-                ActivityEvent(node_id=nid, tool_name="Read", argument="f.py",
-                              turn=i + 1, tokens=i * 100)
+                ActivityEvent(
+                    node_id=nid,
+                    tool_name="Read",
+                    argument="f.py",
+                    turn=i + 1,
+                    tokens=i * 100,
+                )
             )
         for i, status in enumerate(statuses):
             nid = node_ids[i % len(node_ids)]

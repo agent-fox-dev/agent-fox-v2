@@ -102,9 +102,7 @@ class TestAuditCLI:
             _insert_event(audit_conn, run_id=run_id, event_type="run.complete")
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--list-runs"])
 
         assert result.exit_code == 0
@@ -122,51 +120,39 @@ class TestAuditCLI:
         _insert_event(audit_conn, run_id=run2)
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--run", run1])
 
         assert result.exit_code == 0
         assert run1 in result.output
         assert run2 not in result.output
 
-    def test_filter_by_event_type(
-        self, audit_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_filter_by_event_type(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-28: --event-type filters by event type."""
         _insert_event(audit_conn, event_type="session.complete")
         _insert_event(audit_conn, event_type="run.start")
         _insert_event(audit_conn, event_type="session.complete")
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--event-type", "session.complete"])
 
         assert result.exit_code == 0
         assert "session.complete" in result.output
 
-    def test_filter_by_node_id(
-        self, audit_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_filter_by_node_id(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-27 (node-id variant): --node-id filters events."""
         _insert_event(audit_conn, node_id="spec_01/1")
         _insert_event(audit_conn, node_id="spec_02/2")
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--node-id", "spec_01/1"])
 
         assert result.exit_code == 0
         assert "spec_01/1" in result.output
 
-    def test_filter_by_since(
-        self, audit_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_filter_by_since(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-29: --since 24h filters by time."""
         old_time = datetime.now(UTC) - timedelta(hours=48)
         recent_time = datetime.now(UTC) - timedelta(hours=1)
@@ -185,9 +171,7 @@ class TestAuditCLI:
         )
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--since", "24h"])
 
         assert result.exit_code == 0
@@ -199,9 +183,7 @@ class TestAuditCLI:
         _insert_event(audit_conn)
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--json"])
 
         assert result.exit_code == 0
@@ -211,9 +193,7 @@ class TestAuditCLI:
     def test_no_events(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-31: No events returns exit code 0."""
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, [])
 
         assert result.exit_code == 0
@@ -221,17 +201,13 @@ class TestAuditCLI:
     def test_missing_db(self) -> None:
         """TS-40-32: Missing DuckDB shows message and exits 0."""
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=None
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=None):
             result = runner.invoke(audit_cmd, [])
 
         assert result.exit_code == 0
         assert "no audit data" in result.output.lower()
 
-    def test_since_iso_format(
-        self, audit_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_since_iso_format(self, audit_conn: duckdb.DuckDBPyConnection) -> None:
         """--since accepts ISO-8601 datetime."""
         recent = datetime.now(UTC) - timedelta(hours=1)
         _insert_event(audit_conn, timestamp=recent, run_id="recent")
@@ -239,9 +215,7 @@ class TestAuditCLI:
         cutoff = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--since", cutoff])
 
         assert result.exit_code == 0
@@ -253,9 +227,7 @@ class TestAuditCLI:
         _insert_event(audit_conn, timestamp=recent, run_id="last_day")
 
         runner = CliRunner()
-        with patch(
-            "agent_fox.cli.audit._get_audit_conn", return_value=audit_conn
-        ):
+        with patch("agent_fox.cli.audit._get_audit_conn", return_value=audit_conn):
             result = runner.invoke(audit_cmd, ["--since", "7d"])
 
         assert result.exit_code == 0

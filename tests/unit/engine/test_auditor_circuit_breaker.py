@@ -102,8 +102,8 @@ class TestRetryOnFail:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+            plan_nodes, edges_list, node_states
         )
 
         failed_record = SessionRecord(
@@ -119,7 +119,11 @@ class TestRetryOnFail:
         )
 
         orch._process_session_result(
-            failed_record, 1, state, attempt_tracker, error_tracker,
+            failed_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Predecessor should be reset to pending
@@ -158,8 +162,8 @@ class TestAuditorReruns:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+            plan_nodes, edges_list, node_states
         )
 
         failed_record = SessionRecord(
@@ -175,7 +179,11 @@ class TestAuditorReruns:
         )
 
         orch._process_session_result(
-            failed_record, 1, state, attempt_tracker, error_tracker,
+            failed_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Auditor itself should be reset to pending
@@ -192,7 +200,8 @@ class TestCircuitBreakerBlocks:
     """Verify circuit breaker blocks auditor and prevents retries."""
 
     def test_circuit_breaker_blocks(
-        self, caplog: pytest.LogCaptureFixture,
+        self,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         plan_nodes = {
             "spec:1": {
@@ -214,10 +223,11 @@ class TestCircuitBreakerBlocks:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_auditor_orchestrator(
-                plan_nodes, edges_list, node_states, max_retries=2,
-            )
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+            plan_nodes,
+            edges_list,
+            node_states,
+            max_retries=2,
         )
 
         # Attempt 3 = max_retries(2) + 1 — circuit breaker should trip
@@ -235,7 +245,11 @@ class TestCircuitBreakerBlocks:
 
         with caplog.at_level(logging.WARNING):
             orch._process_session_result(
-                failed_record, 3, state, attempt_tracker, error_tracker,
+                failed_record,
+                3,
+                state,
+                attempt_tracker,
+                error_tracker,
             )
 
         # Auditor should be blocked
@@ -294,10 +308,11 @@ class TestMaxRetriesZeroBlocks:
         }
 
         # max_retries=0 means no retries at all
-        orch, state, attempt_tracker, error_tracker = (
-            _make_auditor_orchestrator(
-                plan_nodes, edges_list, node_states, max_retries=0,
-            )
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+            plan_nodes,
+            edges_list,
+            node_states,
+            max_retries=0,
         )
 
         failed_record = SessionRecord(
@@ -313,7 +328,11 @@ class TestMaxRetriesZeroBlocks:
         )
 
         orch._process_session_result(
-            failed_record, 1, state, attempt_tracker, error_tracker,
+            failed_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Should be blocked immediately
@@ -350,8 +369,8 @@ class TestPassNoRetry:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+            plan_nodes, edges_list, node_states
         )
 
         pass_record = SessionRecord(
@@ -367,7 +386,11 @@ class TestPassNoRetry:
         )
 
         orch._process_session_result(
-            pass_record, 1, state, attempt_tracker, error_tracker,
+            pass_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Predecessor should not be reset
@@ -388,7 +411,8 @@ class TestPropertyCircuitBreakerBound:
     """Retry count never exceeds max_retries."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(max_retries=st.integers(min_value=0, max_value=10))
     @settings(max_examples=20)
@@ -417,11 +441,11 @@ class TestPropertyCircuitBreakerBound:
                 "spec:1.5": "in_progress",
             }
 
-            orch, state, attempt_tracker, error_tracker = (
-                _make_auditor_orchestrator(
-                    plan_nodes, edges_list, node_states,
-                    max_retries=max_retries,
-                )
+            orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
+                plan_nodes,
+                edges_list,
+                node_states,
+                max_retries=max_retries,
             )
 
             failed_record = SessionRecord(
@@ -437,7 +461,11 @@ class TestPropertyCircuitBreakerBound:
             )
 
             orch._process_session_result(
-                failed_record, attempt, state, attempt_tracker, error_tracker,
+                failed_record,
+                attempt,
+                state,
+                attempt_tracker,
+                error_tracker,
             )
 
             if state.node_states.get("spec:1") == "pending":

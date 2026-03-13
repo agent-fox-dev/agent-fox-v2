@@ -130,7 +130,8 @@ def export_facts_to_jsonl(
         write_facts(facts, path)
     except OSError:
         logger.warning(
-            "JSONL export failed for %s; DuckDB state preserved", path,
+            "JSONL export failed for %s; DuckDB state preserved",
+            path,
             exc_info=True,
         )
     return len(facts)
@@ -183,8 +184,14 @@ def _dict_to_fact(data: dict) -> Fact:
 def _row_to_fact(row: tuple) -> Fact:
     """Convert a DuckDB row tuple to a Fact object."""
     (
-        fact_id, content, category, spec_name,
-        confidence, created_at, session_id, commit_sha,
+        fact_id,
+        content,
+        category,
+        spec_name,
+        confidence,
+        created_at,
+        session_id,
+        commit_sha,
         _superseded_by,
     ) = row
 

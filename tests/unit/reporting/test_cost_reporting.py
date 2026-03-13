@@ -66,9 +66,7 @@ class TestAuxiliaryIntegration:
         # haiku: $1/M input, $5/M output
         # cost = (1000/1M)*$1 + (500/1M)*$5 = $0.001 + $0.0025 = $0.0035
         pricing = PricingConfig()
-        expected_aux_cost = calculate_cost(
-            1000, 500, "claude-haiku-4-5", pricing
-        )
+        expected_aux_cost = calculate_cost(1000, 500, "claude-haiku-4-5", pricing)
         assert abs(expected_aux_cost - 0.0035) < 0.0001
 
         record = SessionRecord(

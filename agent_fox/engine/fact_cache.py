@@ -61,8 +61,15 @@ def precompute_fact_rankings(
     all_facts: list[Fact] = []
     for row in rows:
         (
-            fact_id, content, category, spec_name,
-            confidence, created_at, _, session_id, commit_sha,
+            fact_id,
+            content,
+            category,
+            spec_name,
+            confidence,
+            created_at,
+            _,
+            session_id,
+            commit_sha,
         ) = row
 
         conf_val = parse_confidence(confidence)
@@ -130,11 +137,37 @@ def _extract_keywords(content: str) -> list[str]:
     # Simple word extraction - split on whitespace and punctuation
     words = content.lower().split()
     # Filter short words and common stop words
-    stop_words = {"the", "a", "an", "is", "are", "was", "were", "be", "been",
-                  "to", "of", "in", "for", "on", "with", "at", "by", "from",
-                  "and", "or", "not", "this", "that", "it"}
-    return [w.strip(".,;:!?()[]{}\"'") for w in words
-            if len(w) > 2 and w.lower().strip(".,;:!?()[]{}\"'") not in stop_words]
+    stop_words = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "and",
+        "or",
+        "not",
+        "this",
+        "that",
+        "it",
+    }
+    return [
+        w.strip(".,;:!?()[]{}\"'")
+        for w in words
+        if len(w) > 2 and w.lower().strip(".,;:!?()[]{}\"'") not in stop_words
+    ]
 
 
 def _ensure_iso(ts: object) -> str:

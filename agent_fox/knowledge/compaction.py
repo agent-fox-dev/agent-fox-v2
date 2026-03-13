@@ -96,9 +96,7 @@ def compact(
             )
             sink_dispatcher.emit_audit_event(event)
         except Exception:
-            logger.debug(
-                "Failed to emit fact.compacted audit event", exc_info=True
-            )
+            logger.debug("Failed to emit fact.compacted audit event", exc_info=True)
 
     return (original_count, surviving_count)
 

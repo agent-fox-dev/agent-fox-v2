@@ -215,9 +215,15 @@ def _query_review_findings_for_spec(
 
     return [
         ReviewFinding(
-            id=r[0], severity=r[1], description=r[2], requirement_ref=r[3],
-            spec_name=r[4], task_group=r[5], session_id=r[6],
-            superseded_by=r[7], created_at=r[8],
+            id=r[0],
+            severity=r[1],
+            description=r[2],
+            requirement_ref=r[3],
+            spec_name=r[4],
+            task_group=r[5],
+            session_id=r[6],
+            superseded_by=r[7],
+            created_at=r[8],
         )
         for r in rows
     ]
@@ -244,9 +250,16 @@ def _query_drift_findings_for_spec(
 
     return [
         DriftFinding(
-            id=r[0], severity=r[1], description=r[2], spec_ref=r[3],
-            artifact_ref=r[4], spec_name=r[5], task_group=r[6],
-            session_id=r[7], superseded_by=r[8], created_at=r[9],
+            id=r[0],
+            severity=r[1],
+            description=r[2],
+            spec_ref=r[3],
+            artifact_ref=r[4],
+            spec_name=r[5],
+            task_group=r[6],
+            session_id=r[7],
+            superseded_by=r[8],
+            created_at=r[9],
         )
         for r in rows
     ]
@@ -269,15 +282,22 @@ def _query_verification_results_for_spec(
         ).fetchall()
     except Exception:
         logger.debug(
-            "Failed to query verification_results for spec %s", spec_name,
+            "Failed to query verification_results for spec %s",
+            spec_name,
         )
         return []
 
     return [
         VerificationResult(
-            id=r[0], requirement_id=r[1], verdict=r[2], evidence=r[3],
-            spec_name=r[4], task_group=r[5], session_id=r[6],
-            superseded_by=r[7], created_at=r[8],
+            id=r[0],
+            requirement_id=r[1],
+            verdict=r[2],
+            evidence=r[3],
+            spec_name=r[4],
+            task_group=r[5],
+            session_id=r[6],
+            superseded_by=r[7],
+            created_at=r[8],
         )
         for r in rows
     ]
@@ -304,7 +324,10 @@ def traverse_with_reviews(
     """
     # 1. Start with the regular causal traversal
     causal_results = traverse_causal_chain(
-        conn, fact_id, max_depth=max_depth, direction=direction,
+        conn,
+        fact_id,
+        max_depth=max_depth,
+        direction=direction,
     )
     result: list = list(causal_results)
 

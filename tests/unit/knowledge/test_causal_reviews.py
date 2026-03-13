@@ -146,8 +146,7 @@ class TestCausalTraversalWithReviews:
 
         # Review finding referencing '39-REQ-1.1' should appear
         has_req_finding = any(
-            hasattr(r, "requirement_ref")
-            and r.requirement_ref == "39-REQ-1.1"
+            hasattr(r, "requirement_ref") and r.requirement_ref == "39-REQ-1.1"
             for r in results
         )
         assert has_req_finding, (

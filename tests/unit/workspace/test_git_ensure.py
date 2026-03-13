@@ -23,6 +23,7 @@ from agent_fox.workspace.workspace import (
 
 # ---- Helpers ----
 
+
 def _make_run_git_mock(side_effects: dict[str, tuple[int, str, str]]):
     """Create a run_git mock that dispatches based on command args.
 
@@ -87,8 +88,7 @@ class TestEnsureDevelopCreatesFromRemote:
 
         # Verify branch creation from origin/develop
         branch_create = [
-            c for c in calls
-            if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
+            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
         ]
         assert len(branch_create) >= 1
         assert "origin/develop" in branch_create[0]
@@ -138,8 +138,7 @@ class TestEnsureDevelopCreatesFromDefault:
             await ensure_develop(tmp_path)
 
         branch_create = [
-            c for c in calls
-            if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
+            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
         ]
         assert len(branch_create) >= 1
         assert "main" in branch_create[0]
@@ -194,10 +193,7 @@ class TestEnsureDevelopFastForwards:
 
         # Verify some form of fast-forward was done
         ff_calls = [c for c in calls if "merge" in c and "--ff-only" in c]
-        update_calls = [
-            c for c in calls
-            if c[:3] == ["branch", "-f", "develop"]
-        ]
+        update_calls = [c for c in calls if c[:3] == ["branch", "-f", "develop"]]
         assert len(ff_calls) >= 1 or len(update_calls) >= 1
 
 
@@ -300,8 +296,7 @@ class TestEnsureDevelopAlreadyExists:
 
         # No branch creation calls
         branch_create = [
-            c for c in calls
-            if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
+            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
         ]
         assert len(branch_create) == 0
 
@@ -359,9 +354,7 @@ class TestEnsureDevelopFetchFails:
     Requirement: 19-REQ-1.E3
     """
 
-    async def test_creates_from_local_main(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_creates_from_local_main(self, tmp_path: Path, caplog) -> None:
         """ensure_develop creates from local main when fetch fails."""
         calls: list[list[str]] = []
 
@@ -399,8 +392,7 @@ class TestEnsureDevelopFetchFails:
 
         # Verify develop created from main
         branch_create = [
-            c for c in calls
-            if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
+            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
         ]
         assert len(branch_create) >= 1
         assert "main" in branch_create[0]
@@ -418,9 +410,7 @@ class TestEnsureDevelopDiverged:
     Requirement: 19-REQ-1.E4
     """
 
-    async def test_rebase_succeeds(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_rebase_succeeds(self, tmp_path: Path, caplog) -> None:
         """ensure_develop rebases local develop onto origin/develop."""
         calls: list[list[str]] = []
 

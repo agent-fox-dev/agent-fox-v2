@@ -32,6 +32,7 @@ from agent_fox.knowledge.review_store import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _new_id() -> str:
     return str(uuid.uuid4())
 
@@ -59,8 +60,7 @@ def _insert_causal_link(
     effect_id: str,
 ) -> None:
     conn.execute(
-        "INSERT INTO fact_causes (cause_id, effect_id) "
-        "VALUES (?::UUID, ?::UUID)",
+        "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
         [cause_id, effect_id],
     )
 
@@ -119,8 +119,15 @@ def _insert_verification_result(
         "(id, requirement_id, verdict, evidence, spec_name, "
         "task_group, session_id, created_at) "
         "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-        [result_id, requirement_id, verdict, evidence, spec_name,
-         task_group, session_id],
+        [
+            result_id,
+            requirement_id,
+            verdict,
+            evidence,
+            spec_name,
+            task_group,
+            session_id,
+        ],
     )
 
 
@@ -136,7 +143,8 @@ class TestTraverseWithReviews:
     """
 
     def test_returns_causal_facts_and_review_findings(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-1: traverse_with_reviews returns CausalFact and review findings."""
         fact_a = _new_id()
@@ -160,14 +168,12 @@ class TestTraverseWithReviews:
         assert review_findings[0].id == review_id
 
         # All items are deduplicated by ID
-        ids = [
-            r.fact_id if isinstance(r, CausalFact) else r.id
-            for r in result
-        ]
+        ids = [r.fact_id if isinstance(r, CausalFact) else r.id for r in result]
         assert len(ids) == len(set(ids))
 
     def test_includes_drift_findings(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-2: traverse_with_reviews includes drift findings."""
         fact_id = _new_id()
@@ -185,7 +191,8 @@ class TestTraverseWithReviews:
         assert drift_findings[0].id == drift_id
 
     def test_includes_verification_results(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-3: traverse_with_reviews includes verification results."""
         fact_id = _new_id()
@@ -203,7 +210,8 @@ class TestTraverseWithReviews:
         assert verification_results[0].id == ver_id
 
     def test_deduplicates_across_seeds(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-4: traverse_with_reviews deduplicates across seeds."""
         fact_a = _new_id()
@@ -217,20 +225,17 @@ class TestTraverseWithReviews:
 
         # Traverse from A — should include the review finding
         result_a = traverse_with_reviews(schema_conn, fact_a)
-        review_ids_a = [
-            r.id for r in result_a if isinstance(r, ReviewFinding)
-        ]
+        review_ids_a = [r.id for r in result_a if isinstance(r, ReviewFinding)]
         assert review_ids_a.count(review_id) == 1
 
         # Traverse from B — should also include the review finding exactly once
         result_b = traverse_with_reviews(schema_conn, fact_b)
-        review_ids_b = [
-            r.id for r in result_b if isinstance(r, ReviewFinding)
-        ]
+        review_ids_b = [r.id for r in result_b if isinstance(r, ReviewFinding)]
         assert review_ids_b.count(review_id) == 1
 
     def test_no_findings_returns_only_causal_facts(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-E1: traverse_with_reviews with no findings returns only CausalFacts."""
         fact_a = _new_id()
@@ -322,7 +327,10 @@ class TestConfidenceFiltering:
         ]
 
         result = select_relevant_facts(
-            facts, "test_spec", ["test"], confidence_threshold=0.5,
+            facts,
+            "test_spec",
+            ["test"],
+            confidence_threshold=0.5,
         )
 
         # Only facts with confidence >= 0.5 should appear
@@ -340,7 +348,10 @@ class TestConfidenceFiltering:
         ]
 
         result = select_relevant_facts(
-            facts, "test_spec", ["test"], confidence_threshold=0.0,
+            facts,
+            "test_spec",
+            ["test"],
+            confidence_threshold=0.0,
         )
 
         # All four facts should be eligible
@@ -355,7 +366,10 @@ class TestConfidenceFiltering:
         ]
 
         result = select_relevant_facts(
-            facts, "test_spec", ["test"], confidence_threshold=1.0,
+            facts,
+            "test_spec",
+            ["test"],
+            confidence_threshold=1.0,
         )
 
         assert len(result) == 1
@@ -384,17 +398,24 @@ class TestFactCache:
     """
 
     def test_precompute_produces_cache_entries(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-10: precompute_fact_rankings produces cache entries."""
         # Insert 5 facts across 2 specs
         for i in range(3):
             _insert_fact(
-                schema_conn, _new_id(), f"Fact {i} for alpha", "alpha",
+                schema_conn,
+                _new_id(),
+                f"Fact {i} for alpha",
+                "alpha",
             )
         for i in range(2):
             _insert_fact(
-                schema_conn, _new_id(), f"Fact {i} for beta", "beta",
+                schema_conn,
+                _new_id(),
+                f"Fact {i} for beta",
+                "beta",
             )
 
         cache = precompute_fact_rankings(schema_conn, ["alpha", "beta"])
@@ -411,8 +432,12 @@ class TestFactCache:
         """TS-42-11: get_cached_facts returns cached facts when valid."""
         facts = [
             Fact(
-                id=_new_id(), content="test", category="pattern",
-                spec_name="alpha", keywords=["test"], confidence=0.9,
+                id=_new_id(),
+                content="test",
+                category="pattern",
+                spec_name="alpha",
+                keywords=["test"],
+                confidence=0.9,
                 created_at="2026-01-01T00:00:00+00:00",
             ),
         ]
@@ -458,7 +483,8 @@ class TestFactCache:
         assert result is None
 
     def test_precompute_with_zero_facts(
-        self, schema_conn: duckdb.DuckDBPyConnection,
+        self,
+        schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-42-E3: precompute with zero facts produces empty cache entries."""
         cache = precompute_fact_rankings(schema_conn, ["alpha", "beta"])

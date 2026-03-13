@@ -47,8 +47,11 @@ def _spec(name: str = "spec"):
     from agent_fox.spec.discovery import SpecInfo
 
     return SpecInfo(
-        name=name, prefix=0, path=Path(f".specs/{name}"),
-        has_tasks=True, has_prd=False,
+        name=name,
+        prefix=0,
+        path=Path(f".specs/{name}"),
+        has_tasks=True,
+        has_prd=False,
     )
 
 
@@ -56,8 +59,12 @@ def _tgd(number: int, title: str = "T"):
     from agent_fox.spec.parser import TaskGroupDef
 
     return TaskGroupDef(
-        number=number, title=title,
-        optional=False, completed=False, subtasks=(), body="",
+        number=number,
+        title=title,
+        optional=False,
+        completed=False,
+        subtasks=(),
+        body="",
     )
 
 
@@ -101,16 +108,11 @@ class TestPropertyMultiAutoPre:
 
         config = ArchetypesConfig(oracle=True, skeptic=True)
         specs = [_spec()]
-        task_groups = {
-            "spec": [_tgd(i, f"T{i}") for i in range(1, num_groups + 1)]
-        }
+        task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, num_groups + 1)]}
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auto_pre_nodes = [
-            n for n in graph.nodes.values()
-            if n.group_number == 0
-        ]
+        auto_pre_nodes = [n for n in graph.nodes.values() if n.group_number == 0]
         assert len(auto_pre_nodes) == 2
         ids = {n.id for n in auto_pre_nodes}
         assert len(ids) == 2  # distinct
@@ -119,8 +121,7 @@ class TestPropertyMultiAutoPre:
         first_coder = "spec:1"
         for n in auto_pre_nodes:
             assert any(
-                e.source == n.id and e.target == first_coder
-                and e.kind == "intra_spec"
+                e.source == n.id and e.target == first_coder and e.kind == "intra_spec"
                 for e in graph.edges
             ), f"Node {n.id} has no edge to {first_coder}"
 
@@ -129,8 +130,7 @@ class TestPropertyMultiAutoPre:
             for b in auto_pre_nodes:
                 if a.id != b.id:
                     assert not any(
-                        e.source == a.id and e.target == b.id
-                        for e in graph.edges
+                        e.source == a.id and e.target == b.id for e in graph.edges
                     )
 
 
@@ -176,12 +176,18 @@ class TestPropertyBackwardCompat:
 # ---------------------------------------------------------------------------
 
 _severity_strategy = st.sampled_from(["critical", "major", "minor", "observation"])
-_drift_finding_strategy = st.fixed_dictionaries({
-    "severity": _severity_strategy,
-    "description": st.text(min_size=1, max_size=100).filter(
-        lambda s: s.strip() and '"' not in s and '\\' not in s
-    ),
-}) if HAS_HYPOTHESIS else None
+_drift_finding_strategy = (
+    st.fixed_dictionaries(
+        {
+            "severity": _severity_strategy,
+            "description": st.text(min_size=1, max_size=100).filter(
+                lambda s: s.strip() and '"' not in s and "\\" not in s
+            ),
+        }
+    )
+    if HAS_HYPOTHESIS
+    else None
+)
 
 
 class TestPropertyRoundtrip:
@@ -393,10 +399,7 @@ class TestPropertyHotLoadInjection:
 
         config = ArchetypesConfig(oracle=True, skeptic=False)
         specs = [_spec(f"spec_{i}") for i in range(num_specs)]
-        task_groups = {
-            f"spec_{i}": [_tgd(1, f"T{i}")]
-            for i in range(num_specs)
-        }
+        task_groups = {f"spec_{i}": [_tgd(1, f"T{i}")] for i in range(num_specs)}
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 

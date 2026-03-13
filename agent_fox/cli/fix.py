@@ -68,16 +68,16 @@ def _build_fix_session_runner(
         model_entry = resolve_model(config.models.coding)
         pricing = getattr(config, "pricing", PricingConfig())
         return calculate_cost(
-            outcome.input_tokens, outcome.output_tokens,
-            model_entry.model_id, pricing,
+            outcome.input_tokens,
+            outcome.output_tokens,
+            model_entry.model_id,
+            pricing,
         )
 
     return _run
 
 
-def _build_improve_session_runner(
-    config: AgentFoxConfig, project_root: Path
-) -> Any:
+def _build_improve_session_runner(config: AgentFoxConfig, project_root: Path) -> Any:
     """Build a session runner callable for the improve loop.
 
     Returns an async callable: (system_prompt, task_prompt, tier) -> (cost, response).
@@ -105,8 +105,10 @@ def _build_improve_session_runner(
         model_entry = resolve_model(config.models.coding)
         pricing = getattr(config, "pricing", PricingConfig())
         cost = calculate_cost(
-            outcome.input_tokens, outcome.output_tokens,
-            model_entry.model_id, pricing,
+            outcome.input_tokens,
+            outcome.output_tokens,
+            model_entry.model_id,
+            pricing,
         )
         response = outcome.output if hasattr(outcome, "output") else ""
         return cost, response
@@ -190,17 +192,12 @@ def fix_cmd(
 
     # 31-REQ-1.E1: Clamp --improve-passes to >= 1
     if auto and improve_passes < 1:
-        logger.warning(
-            "--improve-passes=%d is invalid, clamping to 1", improve_passes
-        )
+        logger.warning("--improve-passes=%d is invalid, clamping to 1", improve_passes)
         improve_passes = 1
 
     # 31-REQ-1.E2: --dry-run with --auto — Phase 2 will be skipped
     if auto and dry_run:
-        logger.info(
-            "Dry-run mode is incompatible with Phase 2; "
-            "Phase 2 will not run."
-        )
+        logger.info("Dry-run mode is incompatible with Phase 2; Phase 2 will not run.")
 
     # 23-REQ-7.1: read stdin JSON when in JSON mode
     if json_mode:
@@ -289,9 +286,7 @@ def fix_cmd(
         # Combined Phase 1 + Phase 2 report
         total_cost = improve_result.total_cost
         if json_mode:
-            json_io.emit_line(
-                build_combined_json(result, improve_result, total_cost)
-            )
+            json_io.emit_line(build_combined_json(result, improve_result, total_cost))
         else:
             render_combined_report(result, improve_result, total_cost, console)
 

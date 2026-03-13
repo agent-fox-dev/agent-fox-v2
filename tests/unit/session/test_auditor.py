@@ -367,7 +367,8 @@ class TestGhUnavailable:
 
     @pytest.mark.asyncio
     async def test_gh_unavailable(
-        self, caplog: pytest.LogCaptureFixture,
+        self,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         from agent_fox.session.auditor_output import handle_auditor_github_issue
         from agent_fox.session.convergence import AuditResult
@@ -395,7 +396,9 @@ class TestAuditWriteFailure:
     """Verify filesystem error during audit.md write does not block."""
 
     def test_audit_write_failure(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture,
+        self,
+        tmp_path: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         from agent_fox.session.auditor_output import persist_auditor_results
         from agent_fox.session.convergence import AuditResult
@@ -434,7 +437,8 @@ class TestPropertyConvergenceUnion:
     """Merged verdict for each TS entry is the worst across instances."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         data=st.data(),
@@ -498,7 +502,8 @@ class TestPropertyConvergenceDeterminism:
     """Convergence produces identical output for identical input."""
 
     @pytest.mark.skipif(
-        not HAS_HYPOTHESIS, reason="hypothesis not installed",
+        not HAS_HYPOTHESIS,
+        reason="hypothesis not installed",
     )
     @given(
         data=st.data(),

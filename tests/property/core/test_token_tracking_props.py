@@ -49,9 +49,7 @@ class TestAccumulatorCompleteness:
         )
     )
     @settings(max_examples=50)
-    def test_completeness(
-        self, calls: list[tuple[int, int, str]]
-    ) -> None:
+    def test_completeness(self, calls: list[tuple[int, int, str]]) -> None:
         acc = TokenAccumulator()
         for inp, out, model in calls:
             acc.record(inp, out, model)
@@ -127,10 +125,12 @@ class TestPricingConfigPrecedence:
         out_tokens: int,
     ) -> None:
         pricing = PricingConfig(
-            models={"test-model": ModelPricing(
-                input_price_per_m=in_price,
-                output_price_per_m=out_price,
-            )}
+            models={
+                "test-model": ModelPricing(
+                    input_price_per_m=in_price,
+                    output_price_per_m=out_price,
+                )
+            }
         )
 
         cost = calculate_cost(in_tokens, out_tokens, "test-model", pricing)
@@ -211,9 +211,7 @@ class TestPerSpecAggregation:
         )
     )
     @settings(max_examples=50)
-    def test_aggregation(
-        self, records: list[tuple[str, float]]
-    ) -> None:
+    def test_aggregation(self, records: list[tuple[str, float]]) -> None:
         # Manual aggregation
         expected: dict[str, float] = {}
         for node_id, cost in records:

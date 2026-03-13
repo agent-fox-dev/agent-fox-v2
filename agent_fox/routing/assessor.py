@@ -591,9 +591,7 @@ class AssessmentPipeline:
             from agent_fox.routing.duration import train_duration_model
 
             outcome_count = self._get_outcome_count()
-            min_outcomes = getattr(
-                self._config, "min_outcomes_for_regression", 30
-            )
+            min_outcomes = getattr(self._config, "min_outcomes_for_regression", 30)
             if outcome_count < min_outcomes:
                 return
 
@@ -601,8 +599,7 @@ class AssessmentPipeline:
             if (
                 self._duration_model is not None
                 and outcome_count
-                < self._last_duration_training_count
-                + self._config.retrain_interval
+                < self._last_duration_training_count + self._config.retrain_interval
             ):
                 return
 
@@ -612,11 +609,10 @@ class AssessmentPipeline:
                 self._last_duration_training_count = outcome_count
                 logger.info(
                     "Duration regression model %s (n=%d)",
-                    "retrained" if self._last_duration_training_count > 0
+                    "retrained"
+                    if self._last_duration_training_count > 0
                     else "trained",
                     outcome_count,
                 )
         except Exception:
-            logger.warning(
-                "Duration model retraining failed", exc_info=True
-            )
+            logger.warning("Duration model retraining failed", exc_info=True)

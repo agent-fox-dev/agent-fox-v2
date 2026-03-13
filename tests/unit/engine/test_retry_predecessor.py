@@ -106,8 +106,8 @@ class TestPredecessorReset:
             "spec:5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_orchestrator_with_graph(plan_nodes, edges_list, node_states)
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(
+            plan_nodes, edges_list, node_states
         )
 
         failed_record = SessionRecord(
@@ -123,7 +123,11 @@ class TestPredecessorReset:
         )
 
         orch._process_session_result(
-            failed_record, 1, state, attempt_tracker, error_tracker,
+            failed_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Predecessor should be reset to pending
@@ -172,10 +176,11 @@ class TestRetryCycleLimit:
             "spec:5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_orchestrator_with_graph(
-                plan_nodes, edges_list, node_states, max_retries=2,
-            )
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(
+            plan_nodes,
+            edges_list,
+            node_states,
+            max_retries=2,
         )
 
         failed_record = SessionRecord(
@@ -191,7 +196,11 @@ class TestRetryCycleLimit:
         )
 
         orch._process_session_result(
-            failed_record, 3, state, attempt_tracker, error_tracker,
+            failed_record,
+            3,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Should be blocked, not reset
@@ -235,8 +244,8 @@ class TestNonCoderPredecessor:
             "spec:4": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = (
-            _make_orchestrator_with_graph(plan_nodes, edges_list, node_states)
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(
+            plan_nodes, edges_list, node_states
         )
 
         failed_record = SessionRecord(
@@ -252,7 +261,11 @@ class TestNonCoderPredecessor:
         )
 
         orch._process_session_result(
-            failed_record, 1, state, attempt_tracker, error_tracker,
+            failed_record,
+            1,
+            state,
+            attempt_tracker,
+            error_tracker,
         )
 
         # Librarian predecessor should be reset

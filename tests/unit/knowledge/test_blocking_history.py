@@ -64,9 +64,7 @@ class TestBlockingHistory:
     Requirements: 39-REQ-10.1, 39-REQ-10.2, 39-REQ-10.3
     """
 
-    def test_record_decision(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_record_decision(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-29: Blocking decisions are tracked.
 
         Requirement: 39-REQ-10.1
@@ -86,16 +84,12 @@ class TestBlockingHistory:
         )
         record_blocking_decision(blocking_db, decision)
 
-        rows = blocking_db.execute(
-            "SELECT * FROM blocking_history"
-        ).fetchall()
+        rows = blocking_db.execute("SELECT * FROM blocking_history").fetchall()
         assert len(rows) == 1
         # archetype is at index 2
         assert rows[0][2] == "skeptic"
 
-    def test_compute_threshold(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_compute_threshold(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-30: Optimal threshold computed from blocking history.
 
         Requirement: 39-REQ-10.2
@@ -131,9 +125,7 @@ class TestBlockingHistory:
             )
             record_blocking_decision(blocking_db, decision)
 
-        threshold = compute_optimal_threshold(
-            blocking_db, "skeptic", min_decisions=20
-        )
+        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is not None
         assert isinstance(threshold, int)
         assert threshold > 0
@@ -144,14 +136,10 @@ class TestBlockingHistory:
         """Returns None when fewer than min_decisions exist."""
         from agent_fox.knowledge.blocking_history import compute_optimal_threshold
 
-        threshold = compute_optimal_threshold(
-            blocking_db, "skeptic", min_decisions=20
-        )
+        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is None
 
-    def test_stored_thresholds(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_stored_thresholds(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-31: Learned thresholds stored in DuckDB.
 
         Requirement: 39-REQ-10.3
@@ -189,16 +177,12 @@ class TestRecordBlockingDecision:
             record_blocking_decision,
         )
 
-        decision = BlockingDecision(
-            "spec_a", "skeptic", 3, 2, True, "correct_block"
-        )
+        decision = BlockingDecision("spec_a", "skeptic", 3, 2, True, "correct_block")
         record_blocking_decision(blocking_db, decision)
 
-        rows = blocking_db.execute(
-            "SELECT * FROM blocking_history"
-        ).fetchall()
+        rows = blocking_db.execute("SELECT * FROM blocking_history").fetchall()
         assert len(rows) == 1
-        assert rows[0][1] == "spec_a"   # spec_name
+        assert rows[0][1] == "spec_a"  # spec_name
         assert rows[0][2] == "skeptic"  # archetype
 
 
@@ -208,9 +192,7 @@ class TestComputeOptimalThreshold:
     Requirements: 43-REQ-4.2, 43-REQ-4.3
     """
 
-    def test_sufficient_data(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_sufficient_data(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-12: Optimal threshold with sufficient data.
 
         Requirement: 43-REQ-4.2
@@ -239,30 +221,22 @@ class TestComputeOptimalThreshold:
             cc = i % 2  # 0, 1, 0, 1, 0
             record_blocking_decision(
                 blocking_db,
-                BlockingDecision(
-                    f"p{i}", "skeptic", cc, 2, False, "correct_pass"
-                ),
+                BlockingDecision(f"p{i}", "skeptic", cc, 2, False, "correct_pass"),
             )
 
         # 5 false_positive with critical_count 2
         for i in range(5):
             record_blocking_decision(
                 blocking_db,
-                BlockingDecision(
-                    f"fp{i}", "skeptic", 2, 2, True, "false_positive"
-                ),
+                BlockingDecision(f"fp{i}", "skeptic", 2, 2, True, "false_positive"),
             )
 
-        threshold = compute_optimal_threshold(
-            blocking_db, "skeptic", min_decisions=20
-        )
+        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is not None
         assert isinstance(threshold, int)
         assert threshold >= 1
 
-    def test_insufficient_data(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_insufficient_data(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-13: None returned when insufficient decisions exist.
 
         Requirement: 43-REQ-4.3
@@ -278,14 +252,10 @@ class TestComputeOptimalThreshold:
         for i in range(5):
             record_blocking_decision(
                 blocking_db,
-                BlockingDecision(
-                    f"s{i}", "skeptic", 3, 2, True, "correct_block"
-                ),
+                BlockingDecision(f"s{i}", "skeptic", 3, 2, True, "correct_block"),
             )
 
-        threshold = compute_optimal_threshold(
-            blocking_db, "skeptic", min_decisions=20
-        )
+        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is None
 
 
@@ -295,9 +265,7 @@ class TestStoreAndRetrieveThreshold:
     Requirements: 43-REQ-4.5, 43-REQ-4.6
     """
 
-    def test_store_and_get(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_store_and_get(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-14: Store threshold 3, then retrieve it.
 
         Requirements: 43-REQ-4.5, 43-REQ-4.6
@@ -318,9 +286,7 @@ class TestFormatThresholds:
     Requirement: 43-REQ-4.7
     """
 
-    def test_format_output(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_format_output(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-15: Format output for learned thresholds.
 
         Requirement: 43-REQ-4.7
@@ -358,9 +324,7 @@ class TestBlockingEdgeCases:
         threshold = compute_optimal_threshold(conn, "skeptic")
         assert threshold is None
 
-    def test_uniform_outcomes(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_uniform_outcomes(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-E8: Threshold with all-same-outcome history.
 
         Requirement: 43-REQ-4.E2
@@ -376,13 +340,9 @@ class TestBlockingEdgeCases:
         for i in range(25):
             record_blocking_decision(
                 blocking_db,
-                BlockingDecision(
-                    f"s{i}", "skeptic", i % 3, 5, False, "correct_pass"
-                ),
+                BlockingDecision(f"s{i}", "skeptic", i % 3, 5, False, "correct_pass"),
             )
 
-        threshold = compute_optimal_threshold(
-            blocking_db, "skeptic", min_decisions=20
-        )
+        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is not None
         assert isinstance(threshold, int)

@@ -55,17 +55,26 @@ class TestConfidenceMonotonicity:
     )
     @settings(max_examples=100)
     def test_monotonicity(
-        self, confidences: list[float], t1: float, t2: float,
+        self,
+        confidences: list[float],
+        t1: float,
+        t2: float,
     ) -> None:
         assume(t1 <= t2)
 
         facts = [_make_fact(c) for c in confidences]
 
         result_t1 = select_relevant_facts(
-            facts, "test_spec", ["test"], confidence_threshold=t1,
+            facts,
+            "test_spec",
+            ["test"],
+            confidence_threshold=t1,
         )
         result_t2 = select_relevant_facts(
-            facts, "test_spec", ["test"], confidence_threshold=t2,
+            facts,
+            "test_spec",
+            ["test"],
+            confidence_threshold=t2,
         )
 
         assert len(result_t2) <= len(result_t1)
@@ -163,7 +172,9 @@ class TestGroupBoundaryInvariant:
         from agent_fox.session.prompt import get_prior_group_findings
 
         result = get_prior_group_findings(
-            conn, "test_spec", task_group=target_group,
+            conn,
+            "test_spec",
+            task_group=target_group,
         )
 
         for r in result:
