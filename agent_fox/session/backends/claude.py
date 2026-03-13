@@ -172,9 +172,7 @@ class ClaudeBackend:
             else:
                 input_tokens = _coerce_int(getattr(usage, "input_tokens", 0))
                 output_tokens = _coerce_int(getattr(usage, "output_tokens", 0))
-                cache_read = _coerce_int(
-                    getattr(usage, "cache_read_input_tokens", 0)
-                )
+                cache_read = _coerce_int(getattr(usage, "cache_read_input_tokens", 0))
                 cache_creation = _coerce_int(
                     getattr(usage, "cache_creation_input_tokens", 0)
                 )

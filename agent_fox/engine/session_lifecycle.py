@@ -351,7 +351,7 @@ class NodeSessionRunner:
                 )
 
         # Live computation (no cache, stale cache, or cache lookup failure)
-        all_facts = load_all_facts()
+        all_facts = load_all_facts(self._knowledge_db.connection)
         if not all_facts:
             return []
         return select_relevant_facts(

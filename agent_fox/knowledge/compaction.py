@@ -30,6 +30,7 @@ logger = logging.getLogger("agent_fox.knowledge.compaction")
 
 
 def compact(
+    conn: duckdb.DuckDBPyConnection,
     path: Path = DEFAULT_MEMORY_PATH,
     *,
     sink_dispatcher: SinkDispatcher | None = None,
@@ -70,9 +71,9 @@ def compact(
     surviving = _deduplicate_by_content(facts)
     surviving = _resolve_supersession(surviving)
 
-    surviving_count = len(facts)
+    surviving_count = len(surviving)
     superseded_count = original_count - surviving_count
-    write_facts(facts, path)
+    export_facts_to_jsonl(surviving, path)
 
     logger.info(
         "Compacted knowledge base: %d -> %d facts.",
