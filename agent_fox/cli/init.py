@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # Template paths
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "_templates"
 _AGENTS_MD_TEMPLATE = _TEMPLATES_DIR / "agents_md.md"
+_SKILLS_DIR = _TEMPLATES_DIR / "skills"
 
 # Lines to add to .gitignore
 _GITIGNORE_ENTRIES = [
@@ -67,6 +68,59 @@ def _create_branch(branch: str) -> None:
     )
 
 
+def _install_skills(project_root: Path) -> int:
+    """Install bundled skill templates into .claude/skills/.
+
+    Discovers all non-hidden files in _SKILLS_DIR, creates
+    {project_root}/.claude/skills/{name}/SKILL.md for each.
+    Overwrites existing files.
+
+    Args:
+        project_root: The project root directory.
+
+    Returns:
+        Number of skills installed.
+
+    Requirements: 47-REQ-2.1, 47-REQ-2.3, 47-REQ-2.4, 47-REQ-1.E1,
+                  47-REQ-2.E1, 47-REQ-2.E2
+    """
+    # 47-REQ-2.E1: empty or missing templates dir
+    if not _SKILLS_DIR.exists() or not _SKILLS_DIR.is_dir():
+        logger.warning("Skills templates directory not found: %s", _SKILLS_DIR)
+        return 0
+
+    templates = [
+        f for f in _SKILLS_DIR.iterdir() if f.is_file() and not f.name.startswith(".")
+    ]
+
+    if not templates:
+        logger.warning("No skill templates found in %s", _SKILLS_DIR)
+        return 0
+
+    # 47-REQ-2.E2: handle permission errors creating skills directory
+    skills_target = project_root / ".claude" / "skills"
+    try:
+        skills_target.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.error("Cannot create skills directory %s: %s", skills_target, exc)
+        return 0
+
+    count = 0
+    for template_path in templates:
+        name = template_path.name
+        skill_dir = skills_target / name
+        try:
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            content = template_path.read_bytes()
+            (skill_dir / "SKILL.md").write_bytes(content)
+            count += 1
+        except OSError as exc:
+            # 47-REQ-1.E1: skip unreadable templates
+            logger.warning("Skipping skill '%s': %s", name, exc)
+
+    return count
+
+
 def _update_gitignore(project_root: Path) -> None:
     """Add agent-fox entries to .gitignore if not already present.
 
@@ -94,8 +148,14 @@ def _update_gitignore(project_root: Path) -> None:
 
 
 @click.command("init")
+@click.option(
+    "--skills",
+    is_flag=True,
+    default=False,
+    help="Install bundled Claude Code skills into .claude/skills/.",
+)
 @click.pass_context
-def init_cmd(ctx: click.Context) -> None:
+def init_cmd(ctx: click.Context, skills: bool) -> None:
     """Initialize the current project for agent-fox.
 
     Creates the .agent-fox/ directory structure with a default
@@ -140,8 +200,7 @@ def init_cmd(ctx: click.Context) -> None:
         else:
             if not json_mode:
                 click.echo(
-                    "Project is already initialized. "
-                    "Existing configuration preserved."
+                    "Project is already initialized. Existing configuration preserved."
                 )
         # Still ensure directory structure and gitignore are complete
         (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
@@ -154,11 +213,21 @@ def init_cmd(ctx: click.Context) -> None:
         agents_md_status = _ensure_agents_md(project_root)
         if not json_mode and agents_md_status == "created":
             click.echo("Created AGENTS.md.")
+        # 47-REQ-4.2: Install skills on re-init if --skills flag set
+        skills_count = None
+        if skills:
+            skills_count = _install_skills(project_root)
+            if not json_mode:
+                click.echo(f"Installed {skills_count} skills.")
+
         # 23-REQ-4.1: JSON output for init command
         if json_mode:
             from agent_fox.cli.json_io import emit
 
-            emit({"status": "ok", "agents_md": agents_md_status})
+            result_data: dict = {"status": "ok", "agents_md": agents_md_status}
+            if skills_count is not None:
+                result_data["skills_installed"] = skills_count
+            emit(result_data)
         return
 
     # 01-REQ-3.1: create directory structure
@@ -185,11 +254,21 @@ def init_cmd(ctx: click.Context) -> None:
     # 44-REQ-2.1: Create AGENTS.md from template on fresh init
     agents_md_status = _ensure_agents_md(project_root)
 
+    # 47-REQ-4.1: Install skills on fresh init if --skills flag set
+    skills_count = None
+    if skills:
+        skills_count = _install_skills(project_root)
+        if not json_mode:
+            click.echo(f"Installed {skills_count} skills.")
+
     # 23-REQ-4.1: JSON output for init command
     if json_mode:
         from agent_fox.cli.json_io import emit
 
-        emit({"status": "ok", "agents_md": agents_md_status})
+        result_data_fresh: dict = {"status": "ok", "agents_md": agents_md_status}
+        if skills_count is not None:
+            result_data_fresh["skills_installed"] = skills_count
+        emit(result_data_fresh)
     else:
         if agents_md_status == "created":
             click.echo("Created AGENTS.md.")
@@ -357,6 +436,4 @@ def _ensure_develop_branch(*, quiet: bool = False) -> None:
                     click.echo("Created branch 'develop'.")
             except Exception:
                 if not quiet:
-                    click.echo(
-                        "Error: Could not create develop branch.", err=True
-                    )
+                    click.echo("Error: Could not create develop branch.", err=True)

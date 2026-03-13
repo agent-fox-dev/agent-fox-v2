@@ -1,9 +1,18 @@
+---
+name: af-adr
+description: >
+  Create Architecture Decision Records (ADRs) — structured documents that capture
+  important architectural decisions along with their context, alternatives considered,
+  and consequences. Use when the user wants to document a design/technology choice,
+  justify an architectural direction, or maintain a decision log for a project.
+---
 
 # Architecture Decision Record (ADR) Skill
 
 This skill guides creation of high-quality Architecture Decision Records that are
 useful now AND in the future — to your team, to new joiners, and to your future self.
 
+---
 
 ## Step 1 — Gather Context Before Writing
 
@@ -35,6 +44,7 @@ actual implementation before including it in the ADR.
 **Important:** Only read files tracked by git. Skip anything matched by
 `.gitignore`. When in doubt, run `git ls-files` to see what's tracked.
 
+---
 
 ## Step 2 — Determine File Location and Name
 
@@ -63,13 +73,16 @@ If none exists, create `docs/adr/` and note this in your response.
 
 **Uniqueness check:** After choosing the next number, verify that no existing file in the ADR directory already uses that prefix. If a collision is found (e.g., a file was manually created with the same number), increment until a unique prefix is available. Flag the collision to the user as a warning.
 
+---
 
 ## Step 3 — Write the ADR Using This Template
 
 ```markdown
+---
 Title: {NNNN}. {Title in sentence case}
 Date: {YYYY-MM-DD}
 Status: {Proposed | Accepted | Deprecated | Superseded by [ADR-NNNN](NNNN-filename.md)}
+---
 ## Context
 
 {Describe the situation, forces, and constraints that make this decision necessary.
@@ -136,6 +149,7 @@ Say WHY it's the best fit for YOUR situation.}
 - {External documentation, benchmark results, or prior art}
 ```
 
+---
 
 ## Step 4 — Quality Checklist Before Saving
 
@@ -150,6 +164,7 @@ Go through each item before writing the file:
 - [ ] **Status is set** — every ADR must have a status
 - [ ] **File name uses imperative verb phrase** in lowercase-with-hyphens
 
+---
 
 ## Best Practices (Apply These Always)
 
@@ -175,6 +190,7 @@ more useful than "X scales better."
 **Avoid abbreviations and internal jargon** in the Context section — this is your
 most likely entry point for new team members.
 
+---
 
 ## Domain-Specific Guidance
 
@@ -201,15 +217,18 @@ estimate, and vendor lock-in risk.
 Include: cost impact (estimated), regional availability, disaster recovery implications,
 and operational team readiness.
 
+---
 
 ## Example Output
 
 For reference, a complete minimal ADR looks like this:
 
 ```markdown
+---
 Title: 04. Use NATS as the message broker for vehicle service events
 Date: 2025-03-12
 Status: Accepted
+---
 ## Context
 
 Our mixed-criticality automotive demo requires reliable, low-latency message passing

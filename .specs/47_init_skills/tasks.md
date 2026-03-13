@@ -54,14 +54,14 @@ docs.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `ruff check tests/unit/cli/test_init_skills.py tests/property/cli/test_init_skills_props.py tests/integration/test_init_skills.py`
 
-- [ ] 2. Implement skill installation
-  - [ ] 2.1 Update bundled templates with YAML frontmatter
+- [x] 2. Implement skill installation
+  - [x] 2.1 Update bundled templates with YAML frontmatter
     - Add `---` delimited frontmatter to each file in `agent_fox/_templates/skills/`
     - Frontmatter fields: `name`, `description`, and `argument-hint` (where applicable)
     - Match metadata from `skills/*/SKILL.md` (the repo-root source of truth)
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ] 2.2 Implement `_install_skills()` function in `agent_fox/cli/init.py`
+  - [x] 2.2 Implement `_install_skills()` function in `agent_fox/cli/init.py`
     - Add `_SKILLS_DIR` constant pointing to `_TEMPLATES_DIR / "skills"`
     - Discover all non-hidden files in `_SKILLS_DIR`
     - Create `.claude/skills/{name}/SKILL.md` for each, overwriting if exists
@@ -69,18 +69,18 @@ docs.
     - Return integer count of skills installed
     - _Requirements: 2.1, 2.3, 2.4, 1.E1, 2.E1, 2.E2_
 
-  - [ ] 2.3 Add `--skills` flag to `init_cmd`
+  - [x] 2.3 Add `--skills` flag to `init_cmd`
     - Add `@click.option("--skills", ...)` boolean flag
     - Call `_install_skills()` when flag is set, in both fresh and re-init paths
     - Report count in human-readable output
     - Include `skills_installed` in JSON output when flag is set
     - _Requirements: 2.2, 2.5, 3.1, 3.2, 4.1, 4.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/cli/test_init_skills.py tests/integration/test_init_skills.py tests/property/cli/test_init_skills_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/cli/init.py && ruff format --check agent_fox/cli/init.py`
-    - [ ] Requirements 1.1–1.3, 1.E1, 2.1–2.5, 2.E1–2.E2, 3.1–3.2, 4.1–4.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/cli/test_init_skills.py tests/integration/test_init_skills.py tests/property/cli/test_init_skills_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `ruff check agent_fox/cli/init.py && ruff format --check agent_fox/cli/init.py`
+    - [x] Requirements 1.1–1.3, 1.E1, 2.1–2.5, 2.E1–2.E2, 3.1–3.2, 4.1–4.2 acceptance criteria met
 
 - [ ] 3. Checkpoint — feature complete
   - [ ] All tests pass: `make check`

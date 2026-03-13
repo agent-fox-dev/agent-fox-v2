@@ -1,3 +1,8 @@
+---
+name: af-spec
+description: Requirements engineering and spec-driven development.
+argument-hint: "[path-to-prd-or-prompt-or-github-issue-url]"
+---
 
 # Spec-Driven Development Skill
 
@@ -13,6 +18,7 @@ specification package consisting of four artifacts:
 Follow the steps below **in order**. Do not skip steps. Do not proceed to the
 next step until the current step is fully complete and the user has confirmed.
 
+---
 
 ## Step 1: Understand the PRD
 
@@ -88,6 +94,7 @@ If posting fails, warn the user but do not block the rest of the workflow.
 
 **Do NOT proceed to Step 2 until all issues are resolved.**
 
+---
 
 ## Step 2: Learn the Context
 
@@ -184,6 +191,7 @@ If the new spec **supersedes** an existing spec, also add a superseding notice.
 - If there are `.gitignore` files in the working directory or any of its sub-directories, ignore files specified there when analyzing the repository.
 - Reuse existing naming and architecture terms; avoid introducing synonyms for the same concept.
 
+---
 
 ## Step 3: Create the Requirements Document
 
@@ -318,6 +326,7 @@ describes **how** it does it. Keep them separate:
 
 If you find yourself listing specific values, file paths, or implementation details in a requirement, move them to the design document and reference the requirement from there.
 
+---
 
 ## Step 4: Create the Design Document
 
@@ -447,6 +456,7 @@ A task group is complete when ALL of the following are true:
 - If `$ARGUMENTS` is a file path, present the draft to the user for review before proceeding.
 - If `$ARGUMENTS` is a description or prompt, proceed directly to Step 5
 
+---
 
 ## Step 5: Create the Test Specification
 
@@ -593,6 +603,7 @@ testability).
 
 Present the draft to the user for review before proceeding.
 
+---
 
 ## Step 6: Create the Implementation Tasks Document
 
@@ -754,6 +765,7 @@ These are guidelines, not hard rules. A group with 7 subtasks is acceptable if t
 
 Present the draft to the user for review.
 
+---
 
 ## Superseding a Spec
 
@@ -809,6 +821,7 @@ If the PRD was provided as a file, leave it in its original location.
 If the PRD was provided as a prompt, save it as `.specs/NN_specification_name/prd.md`, together with all clarifications and additional user input.
 If the PRD was provided as a GitHub issue, save the finalized PRD as `.specs/NN_specification_name/prd.md` and post it back to the issue as a comment (see Step 1).
 
+---
 
 ## Completeness Checklist
 

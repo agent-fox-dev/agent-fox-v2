@@ -1,3 +1,7 @@
+---
+name: af-reverse-engineer
+description: Reverse-engineer a Product Requirements Document (PRD) from an existing codebase.
+---
 
 # Reverse-Engineer PRD from Codebase
 
@@ -6,6 +10,7 @@ documentation. Your job is to figure out what this product *does for users*
 and write a PRD that a new engineer or a business stakeholder could read to
 understand the product — without ever looking at the code.
 
+---
 
 ## The Prime Directive: WHAT, Never HOW
 
@@ -34,6 +39,7 @@ rewrite it.
   sees an empty state with a prompt to adjust their search")
 - Acceptance criteria a QA engineer could test against the UI or API
 
+---
 
 ## Step 1: Orient — Read for Intent, Not Implementation
 
@@ -78,6 +84,7 @@ Read test descriptions and assertions, not the test mechanics.
 
 **REMEMBER: Code is your evidence. It is not your vocabulary.**
 
+---
 
 ## Step 2: Translate — Think Like a PM
 
@@ -104,6 +111,7 @@ For every major thing you observed in the code, answer:
 **If you cannot complete the right column — the behavior isn't clear enough
 to document yet. Mark it as an open question, not a guess.**
 
+---
 
 ## Step 3: Write the PRD
 
@@ -217,6 +225,7 @@ Patterns in the code suggesting planned-but-unfinished capabilities.
 Describe them as product possibilities, not code stubs.
 ```
 
+---
 
 ## Writing Guidelines
 

@@ -1,3 +1,8 @@
+---
+name: af-code-simplifier
+description: Analyze, refactor, and simplify existing code at both the architecture and line level. Reduces complexity, eliminates redundancy, consolidates files, and applies well-known design principles -- all while preserving functionality and improving maintainability for human readers.
+argument-hint: "[file-or-directory-path]"
+---
 
 # Code Simplifier
 
@@ -29,6 +34,7 @@ When simplification goals conflict with each other, resolve them in this order:
 When in doubt, ask: "Would I be comfortable handing this to a new team member on
 their first day?" If yes, the change is good.
 
+---
 
 ## Step 1: Identify the Target Code
 
@@ -46,6 +52,7 @@ configs) to understand existing standards.
 **Important:** Only read files tracked by git. Skip anything matched by
 `.gitignore`. When in doubt, run `git ls-files` to see what's tracked.
 
+---
 
 ## Step 2: Structural Analysis (Architecture Level)
 
@@ -123,6 +130,7 @@ Determine which files should be merged:
 Present structural findings as a summary before diving into line-level analysis.
 This gives the user the big picture first.
 
+---
 
 ## Step 3: Analyze Complexity (Code Level)
 
@@ -168,6 +176,7 @@ Present the identified issues to the user as a numbered list grouped by
 category. For each issue, briefly explain **why** it is a problem and what the
 improvement would look like at a high level.
 
+---
 
 ## Step 4: Propose a Refactoring Plan
 
@@ -200,6 +209,7 @@ For each proposed change, state:
 Wait for user confirmation before proceeding, especially for Tier 2 and 3
 changes. The user may want to apply tiers selectively.
 
+---
 
 ## Step 5: Refactor the Code
 
@@ -278,6 +288,7 @@ behavior and functionality. Do not change what the code does -- only how it does
 it. When uncertain whether a change is safe, err on the side of keeping the
 original.
 
+---
 
 ## Step 6: Present the Changes
 
@@ -304,6 +315,7 @@ After all changes, provide a summary:
 - **What was intentionally left alone and why** -- this builds trust that the
   refactoring was deliberate, not indiscriminate.
 
+---
 
 ## Guardrails
 
@@ -329,6 +341,7 @@ These constraints override all other instructions:
   reformatting entire files. If a file needs both structural changes and
   formatting fixes, suggest doing them in separate commits.
 
+---
 
 ## General Guidelines
 
