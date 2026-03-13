@@ -78,8 +78,8 @@ Implementation is split into four groups plus a checkpoint:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Registry entry, config, detection, and prompt template
-  - [ ] 2.1 Add auditor to archetype registry
+- [x] 2. Registry entry, config, detection, and prompt template
+  - [x] 2.1 Add auditor to archetype registry
     - Add `"auditor"` entry to `ARCHETYPE_REGISTRY` in
       `agent_fox/session/archetypes.py` with injection="auto_mid",
       retry_predecessor=True, templates=["auditor.md"],
@@ -87,7 +87,7 @@ Implementation is split into four groups plus a checkpoint:
     - _Requirements: 46-REQ-1.1, 46-REQ-1.2, 46-REQ-1.3, 46-REQ-1.4,
       46-REQ-1.E1_
 
-  - [ ] 2.2 Add AuditorConfig and config fields
+  - [x] 2.2 Add AuditorConfig and config fields
     - Add `AuditorConfig` pydantic model to `agent_fox/core/config.py`
       with `min_ts_entries` (default 5, clamped >= 1) and `max_retries`
       (default 2, clamped >= 0)
@@ -97,13 +97,13 @@ Implementation is split into four groups plus a checkpoint:
     - _Requirements: 46-REQ-2.1, 46-REQ-2.2, 46-REQ-2.3, 46-REQ-2.4,
       46-REQ-2.E1, 46-REQ-2.E2_
 
-  - [ ] 2.3 Implement is_test_writing_group detection function
+  - [x] 2.3 Implement is_test_writing_group detection function
     - Add `_TEST_GROUP_PATTERNS` and `is_test_writing_group(title: str) -> bool`
       to `agent_fox/graph/builder.py`
     - Case-insensitive substring matching against defined patterns
     - _Requirements: 46-REQ-3.1, 46-REQ-3.2, 46-REQ-3.E1, 46-REQ-3.E2_
 
-  - [ ] 2.4 Create auditor.md prompt template
+  - [x] 2.4 Create auditor.md prompt template
     - Create `agent_fox/_templates/prompts/auditor.md`
     - Include five audit dimensions, JSON output format, FAIL criteria,
       {spec_name} and {task_group} variables
@@ -111,11 +111,11 @@ Implementation is split into four groups plus a checkpoint:
     - _Requirements: 46-REQ-5.1, 46-REQ-5.2, 46-REQ-5.3, 46-REQ-5.4,
       46-REQ-5.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: TS-46-1 through TS-46-10, TS-46-17, TS-46-18
-    - [ ] TS-46-P1, TS-46-P2, TS-46-P7 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: TS-46-1 through TS-46-10, TS-46-17, TS-46-18
+    - [x] TS-46-P1, TS-46-P2, TS-46-P7 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 3. Auto-mid injection in graph builder
   - [ ] 3.1 Implement count_ts_entries function

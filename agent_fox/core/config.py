@@ -283,15 +283,16 @@ class ToolsConfig(BaseModel):
 class ArchetypeInstancesConfig(BaseModel):
     """Per-archetype instance count configuration.
 
-    Requirements: 26-REQ-6.2
+    Requirements: 26-REQ-6.2, 46-REQ-2.2
     """
 
     model_config = ConfigDict(extra="ignore")
 
     skeptic: int = Field(default=1, description="Number of skeptic instances")
     verifier: int = Field(default=1, description="Number of verifier instances")
+    auditor: int = Field(default=1, description="Number of auditor instances")
 
-    @field_validator("skeptic", "verifier")
+    @field_validator("skeptic", "verifier", "auditor")
     @classmethod
     def clamp_instances(cls, v: int, info: Any) -> int:
         field = info.field_name
@@ -335,10 +336,36 @@ class OracleSettings(BaseModel):
         return v
 
 
+class AuditorConfig(BaseModel):
+    """Auditor-specific configuration.
+
+    Requirements: 46-REQ-2.3, 46-REQ-2.4
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    min_ts_entries: int = Field(
+        default=5, description="Minimum TS entries to trigger auditor injection"
+    )
+    max_retries: int = Field(
+        default=2, description="Maximum auditor-coder retry iterations"
+    )
+
+    @field_validator("min_ts_entries")
+    @classmethod
+    def clamp_min_ts(cls, v: int) -> int:
+        return int(_clamp(v, ge=1, field_name="auditor_config.min_ts_entries"))
+
+    @field_validator("max_retries")
+    @classmethod
+    def clamp_max_retries(cls, v: int) -> int:
+        return int(_clamp(v, ge=0, field_name="auditor_config.max_retries"))
+
+
 class ArchetypesConfig(BaseModel):
     """Archetype enable/disable toggles and per-archetype configuration.
 
-    Requirements: 26-REQ-6.1 through 26-REQ-6.5, 26-REQ-6.E1
+    Requirements: 26-REQ-6.1 through 26-REQ-6.5, 26-REQ-6.E1, 46-REQ-2.1
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -351,6 +378,7 @@ class ArchetypesConfig(BaseModel):
         default=False, description="Enable cartographer archetype"
     )
     oracle: bool = Field(default=False, description="Enable oracle archetype")
+    auditor: bool = Field(default=False, description="Enable auditor archetype")
 
     instances: ArchetypeInstancesConfig = Field(
         default_factory=ArchetypeInstancesConfig,
@@ -364,6 +392,10 @@ class ArchetypesConfig(BaseModel):
     oracle_settings: OracleSettings = Field(
         default_factory=OracleSettings,
         description="Oracle-specific configuration",
+    )
+    auditor_config: AuditorConfig = Field(
+        default_factory=AuditorConfig,
+        description="Auditor-specific configuration",
     )
     models: dict[str, str] = Field(
         default_factory=dict, description="Per-archetype model overrides"

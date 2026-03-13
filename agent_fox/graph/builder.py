@@ -7,6 +7,8 @@ Requirements: 02-REQ-3.1, 02-REQ-3.2, 02-REQ-3.E1,
 from __future__ import annotations
 
 import logging
+import re
+from pathlib import Path
 from typing import Any
 
 from agent_fox.core.errors import PlanError
@@ -15,6 +17,43 @@ from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import CrossSpecDep, TaskGroupDef
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Test-writing group detection (46-REQ-3.1, 46-REQ-3.2)
+# ---------------------------------------------------------------------------
+
+_TEST_GROUP_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"write failing spec tests", re.IGNORECASE),
+    re.compile(r"write failing tests", re.IGNORECASE),
+    re.compile(r"create unit test", re.IGNORECASE),
+    re.compile(r"create test file", re.IGNORECASE),
+    re.compile(r"spec tests", re.IGNORECASE),
+]
+
+
+def is_test_writing_group(title: str) -> bool:
+    """Return True if the group title matches a test-writing pattern.
+
+    Requirements: 46-REQ-3.1, 46-REQ-3.2, 46-REQ-3.E1, 46-REQ-3.E2
+    """
+    return any(p.search(title) for p in _TEST_GROUP_PATTERNS)
+
+
+def count_ts_entries(spec_dir: Path) -> int:
+    """Count TS-NN-N entries in a spec's test_spec.md.
+
+    Returns 0 if the file does not exist.
+
+    Requirements: 46-REQ-4.4
+    """
+    test_spec = spec_dir / "test_spec.md"
+    if not test_spec.exists():
+        return 0
+    count = 0
+    for line in test_spec.read_text().splitlines():
+        if line.strip().startswith("### TS-"):
+            count += 1
+    return count
 
 
 def _create_nodes_and_intra_edges(

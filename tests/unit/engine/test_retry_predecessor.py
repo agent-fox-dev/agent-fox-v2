@@ -270,11 +270,12 @@ class TestNonCoderPredecessor:
 class TestPropertyRetryPredecessor:
     """Retry-predecessor resets the correct predecessor."""
 
-    def test_prop_retry_flag_only_on_verifier(self) -> None:
+    def test_prop_retry_flag_only_on_retry_archetypes(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
+        retry_archetypes = {"verifier", "auditor"}
         for name, entry in ARCHETYPE_REGISTRY.items():
-            if name == "verifier":
+            if name in retry_archetypes:
                 assert entry.retry_predecessor is True
             else:
                 assert entry.retry_predecessor is False, (

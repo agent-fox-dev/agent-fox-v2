@@ -84,6 +84,17 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         injection=None,
         task_assignable=False,
     ),
+    "auditor": ArchetypeEntry(
+        name="auditor",
+        templates=["auditor.md"],
+        default_model_tier="STANDARD",
+        injection="auto_mid",
+        task_assignable=True,
+        retry_predecessor=True,
+        default_allowlist=[
+            "ls", "cat", "git", "grep", "find", "head", "tail", "wc", "uv",
+        ],
+    ),
 }
 
 
