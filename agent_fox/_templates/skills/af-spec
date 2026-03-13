@@ -777,8 +777,19 @@ When a new spec replaces an existing one:
 > This spec is retained for historical reference only.
 ```
 
-3. Do **not** delete the old spec folder. It preserves decision history.
-4. If the old spec folder contains session files or other artifacts, leave them in place but do not reference them from the new spec.
+3. **Move** the old spec folder into `.specs/archive/`. The planner only
+   scans direct children of `.specs/` (`specs_dir.iterdir()`), so anything
+   under `.specs/archive/` is invisible to discovery and will not appear in
+   the task graph. This keeps the `.specs/` root clean while preserving
+   decision history.
+
+```bash
+mkdir -p .specs/archive
+git mv .specs/09_bundled_templates .specs/archive/09_bundled_templates
+```
+
+4. If the old spec folder contains session files or other artifacts, leave
+   them in place but do not reference them from the new spec.
 
 --
 

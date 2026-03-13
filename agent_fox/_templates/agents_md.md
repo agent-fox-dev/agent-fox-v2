@@ -34,6 +34,30 @@ Do not implement anything before completing these steps.
 docs/                   # Documentation
 ```
 
+## Spec-Driven Workflow
+
+This project uses spec-driven development. Specifications live in
+`.specs/NN_name/` (numbered by creation order) and contain five artifacts:
+
+- `prd.md` — product requirements document (source of truth)
+- `requirements.md` — EARS-syntax acceptance criteria
+- `design.md` — architecture, interfaces, correctness properties
+- `test_spec.md` — language-agnostic test contracts
+- `tasks.md` — implementation plan with checkboxes
+
+## Quality Commands
+
+| Command | What it does |
+|---------|-------------|
+| `make check` | Run lint + all tests (use before committing) |
+| `make test` | Run all tests (`uv run pytest -q`) |
+
+Run the full quality suite before committing:
+
+```
+make check
+```
+
 ## Git Workflow
 
 - **Branch from `develop`**, not `main`: `feature/<descriptive-name>`.
@@ -43,16 +67,31 @@ docs/                   # Documentation
 - **Commit discipline:** only commit files relevant to the current change.
 - **Never add `Co-Authored-By` lines.** No AI attribution in commits — ever.
 
-## Quality Commands
-
-Run the full quality suite before committing:
-
-```
-make check
-```
-
 ## Scope Discipline
 
 - Focus on one coherent change per session.
 - Do not include unrelated "while here" fixes.
 - Priority: fix broken behavior before adding new behavior.
+
+## Documentation
+
+- **ADRs** live in `docs/adr/NN-imperative-verb-phrase.md`. To choose NN,
+  list existing files, find the max numeric prefix, and use the next number
+  zero-padded to two digits.
+- **Errata** live in `docs/errata/NN_snake_case_topic.md` — for spec
+  divergences. NN is the spec number the erratum relates to (e.g.
+  `28_github_issue_rest_api.md` for spec 28). For project-wide errata not
+  tied to a specific spec, omit the numeric prefix.
+- **Other docs** live in `docs/{topic}.md`.
+- When you add or change user-facing behavior, public APIs, configuration, or
+  architecture, update the relevant documentation in the same session.
+
+## Session Completion
+
+A session is not complete until:
+
+1. `make check` passes (no regressions).
+2. Changes are committed with a clear conventional commit message.
+3. The feature branch is pushed to `origin`.
+4. `git status` shows a clean working tree.
+5. You provide a brief handoff note summarizing what was done and what remains.
