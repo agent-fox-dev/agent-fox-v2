@@ -196,8 +196,8 @@ class NodeSessionRunner:
         self._activity_callback = activity_callback
         self._run_id = run_id
         self._fact_cache = fact_cache
-        # Parse node_id format: "{spec_name}:{group_number}"
-        parts = node_id.rsplit(":", 1)
+        # Parse node_id format: "{spec_name}:{group_number}[:{role}]"
+        parts = node_id.split(":")
         self._spec_name = parts[0]
         self._task_group = int(parts[1])
 
