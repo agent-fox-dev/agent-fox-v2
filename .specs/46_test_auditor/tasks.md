@@ -148,8 +148,8 @@ Implementation is split into four groups plus a checkpoint:
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 4. Convergence, circuit breaker, output, and events
-  - [ ] 4.1 Implement converge_auditor
+- [x] 4. Convergence, circuit breaker, output, and events
+  - [x] 4.1 Implement converge_auditor
     - Add `AuditEntry`, `AuditResult` dataclasses and `converge_auditor()`
       to `agent_fox/session/convergence.py`
     - Union semantics: worst verdict per TS entry wins
@@ -158,7 +158,7 @@ Implementation is split into four groups plus a checkpoint:
     - _Requirements: 46-REQ-6.1, 46-REQ-6.2, 46-REQ-6.3, 46-REQ-6.4,
       46-REQ-6.E1, 46-REQ-6.E2_
 
-  - [ ] 4.2 Implement circuit breaker in engine.py
+  - [x] 4.2 Implement circuit breaker in engine.py
     - Extend retry-predecessor logic to check `auditor_config.max_retries`
       for auditor archetype nodes
     - When circuit breaker trips: set node to "blocked", log WARNING
@@ -167,13 +167,13 @@ Implementation is split into four groups plus a checkpoint:
     - _Requirements: 46-REQ-7.1, 46-REQ-7.2, 46-REQ-7.3, 46-REQ-7.4,
       46-REQ-7.5, 46-REQ-7.6, 46-REQ-7.E1, 46-REQ-7.E2_
 
-  - [ ] 4.3 Implement output persistence
+  - [x] 4.3 Implement output persistence
     - Add `_persist_auditor_results()` function
     - Write audit.md with per-entry verdict table
     - Handle filesystem errors gracefully
     - _Requirements: 46-REQ-8.1, 46-REQ-8.E2_
 
-  - [ ] 4.4 Wire GitHub issue filing and audit events
+  - [x] 4.4 Wire GitHub issue filing and audit events
     - File issue on FAIL: `[Auditor] {spec_name}: FAIL`
     - File issue on circuit breaker: `[Auditor] {spec_name}: circuit breaker tripped`
     - Close issue on PASS
@@ -181,11 +181,11 @@ Implementation is split into four groups plus a checkpoint:
     - Handle gh unavailability gracefully
     - _Requirements: 46-REQ-8.2, 46-REQ-8.3, 46-REQ-8.4, 46-REQ-8.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: TS-46-19 through TS-46-32, TS-46-E2, TS-46-E3
-    - [ ] TS-46-P4, TS-46-P5, TS-46-P6 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: TS-46-19 through TS-46-32, TS-46-E2, TS-46-E3
+    - [x] TS-46-P4, TS-46-P5, TS-46-P6 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 5. Checkpoint — Test Auditor Complete
   - Verify all spec tests pass: full spec test command from top of document

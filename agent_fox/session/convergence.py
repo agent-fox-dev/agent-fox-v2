@@ -294,3 +294,101 @@ def resolve_block_threshold(
         pass
 
     return configured_threshold
+
+
+# ---------------------------------------------------------------------------
+# Auditor convergence (spec 46)
+# Requirements: 46-REQ-6.1, 46-REQ-6.2, 46-REQ-6.3, 46-REQ-6.4,
+#               46-REQ-6.E1, 46-REQ-6.E2
+# ---------------------------------------------------------------------------
+
+# Verdict severity order: MISSING > MISALIGNED > WEAK > PASS
+_VERDICT_SEVERITY: dict[str, int] = {
+    "PASS": 0,
+    "WEAK": 1,
+    "MISALIGNED": 2,
+    "MISSING": 3,
+}
+
+
+@dataclass(frozen=True)
+class AuditEntry:
+    """A single TS entry audit result."""
+
+    ts_entry: str
+    test_functions: list[str]
+    verdict: str  # PASS | WEAK | MISSING | MISALIGNED
+    notes: str | None = None
+
+
+@dataclass(frozen=True)
+class AuditResult:
+    """Aggregated audit result for a spec."""
+
+    entries: list[AuditEntry]
+    overall_verdict: str  # PASS | FAIL
+    summary: str
+
+
+def converge_auditor(
+    instance_results: list[AuditResult],
+) -> AuditResult:
+    """Merge multiple auditor instance results using union semantics.
+
+    A TS entry takes the worst verdict across instances.
+    Overall verdict is FAIL if any instance verdict is FAIL.
+
+    Requirements: 46-REQ-6.1, 46-REQ-6.2, 46-REQ-6.3, 46-REQ-6.4,
+                  46-REQ-6.E1, 46-REQ-6.E2
+    """
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+
+    # 46-REQ-6.E2: Empty list returns PASS with warning
+    if not instance_results:
+        _logger.warning("No auditor instance results; treating as PASS")
+        return AuditResult(entries=[], overall_verdict="PASS", summary="No results")
+
+    # 46-REQ-6.E1: Single instance passthrough
+    if len(instance_results) == 1:
+        return instance_results[0]
+
+    # 46-REQ-6.1: Union semantics — worst verdict per TS entry wins
+    entry_map: dict[str, AuditEntry] = {}
+    for result in instance_results:
+        for entry in result.entries:
+            existing = entry_map.get(entry.ts_entry)
+            if existing is None:
+                entry_map[entry.ts_entry] = entry
+            else:
+                existing_sev = _VERDICT_SEVERITY.get(existing.verdict, 0)
+                new_sev = _VERDICT_SEVERITY.get(entry.verdict, 0)
+                if new_sev > existing_sev:
+                    merged_funcs = list(
+                        dict.fromkeys(existing.test_functions + entry.test_functions)
+                    )
+                    entry_map[entry.ts_entry] = AuditEntry(
+                        ts_entry=entry.ts_entry,
+                        test_functions=merged_funcs,
+                        verdict=entry.verdict,
+                        notes=entry.notes or existing.notes,
+                    )
+
+    merged_entries = sorted(entry_map.values(), key=lambda e: e.ts_entry)
+
+    # 46-REQ-6.3: Overall FAIL if any instance FAILs
+    overall = (
+        "FAIL"
+        if any(r.overall_verdict == "FAIL" for r in instance_results)
+        else "PASS"
+    )
+
+    summaries = [r.summary for r in instance_results if r.summary]
+    merged_summary = "; ".join(summaries) if summaries else ""
+
+    return AuditResult(
+        entries=merged_entries,
+        overall_verdict=overall,
+        summary=merged_summary,
+    )
