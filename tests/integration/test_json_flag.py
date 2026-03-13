@@ -575,7 +575,7 @@ class TestStreamingInterrupted:
             patch("agent_fox.cli.code.ProgressDisplay"),
             patch("agent_fox.cli.code.asyncio.run") as mock_run,
         ):
-            mock_ks.return_value = None
+            mock_ks.return_value = MagicMock()
             mock_run.side_effect = KeyboardInterrupt()
 
             plan_path = tmp_project / ".agent-fox" / "plan.json"

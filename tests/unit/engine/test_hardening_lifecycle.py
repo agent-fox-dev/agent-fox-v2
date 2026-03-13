@@ -28,27 +28,42 @@ class TestRequiredParameters:
 
     def test_extract_and_store_knowledge_requires_knowledge_db(self) -> None:
         """TS-38-4: extract_and_store_knowledge requires knowledge_db."""
-        from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
+        import agent_fox.engine.knowledge_harvest as kh_mod
+        from agent_fox.knowledge.sink import SinkDispatcher  # noqa: F841
 
-        hints = get_type_hints(extract_and_store_knowledge)
+        hints = get_type_hints(
+            kh_mod.extract_and_store_knowledge,
+            globalns=vars(kh_mod),
+            localns={"SinkDispatcher": SinkDispatcher},
+        )
         assert "knowledge_db" in hints
         kb_type = hints["knowledge_db"]
         assert kb_type is KnowledgeDB
 
     def test_sync_facts_requires_knowledge_db(self) -> None:
         """TS-38-4: sync_facts_to_duckdb requires knowledge_db."""
-        from agent_fox.engine.knowledge_harvest import sync_facts_to_duckdb
+        import agent_fox.engine.knowledge_harvest as kh_mod
+        from agent_fox.knowledge.sink import SinkDispatcher  # noqa: F841
 
-        hints = get_type_hints(sync_facts_to_duckdb)
+        hints = get_type_hints(
+            kh_mod.sync_facts_to_duckdb,
+            globalns=vars(kh_mod),
+            localns={"SinkDispatcher": SinkDispatcher},
+        )
         assert "knowledge_db" in hints
         kb_type = hints["knowledge_db"]
         assert kb_type is KnowledgeDB
 
     def test_extract_causal_links_requires_knowledge_db(self) -> None:
         """TS-38-4: _extract_causal_links requires knowledge_db."""
-        from agent_fox.engine.knowledge_harvest import _extract_causal_links
+        import agent_fox.engine.knowledge_harvest as kh_mod
+        from agent_fox.knowledge.sink import SinkDispatcher  # noqa: F841
 
-        hints = get_type_hints(_extract_causal_links)
+        hints = get_type_hints(
+            kh_mod._extract_causal_links,
+            globalns=vars(kh_mod),
+            localns={"SinkDispatcher": SinkDispatcher},
+        )
         assert "knowledge_db" in hints
         kb_type = hints["knowledge_db"]
         assert kb_type is KnowledgeDB

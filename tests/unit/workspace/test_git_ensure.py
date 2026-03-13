@@ -440,7 +440,7 @@ class TestEnsureDevelopDiverged:
         with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
             import logging
 
-            with caplog.at_level(logging.INFO):
+            with caplog.at_level(logging.INFO, logger="agent_fox.workspace.workspace"):
                 await ensure_develop(tmp_path)
 
         # Verify rebase was attempted and succeeded

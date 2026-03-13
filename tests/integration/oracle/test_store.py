@@ -252,10 +252,10 @@ class TestHotLoadOracleInjection:
             archetypes_config=config,
         )
 
-        # Oracle node should exist
-        assert "new_feature:0" in graph.nodes
-        assert graph.nodes["new_feature:0"].archetype == "oracle"
+        # Oracle node should exist (suffixed because multiple auto_pre archetypes)
+        assert "new_feature:0:oracle" in graph.nodes
+        assert graph.nodes["new_feature:0:oracle"].archetype == "oracle"
         # Should start as pending
         from agent_fox.graph.types import NodeStatus
 
-        assert graph.nodes["new_feature:0"].status == NodeStatus.PENDING
+        assert graph.nodes["new_feature:0:oracle"].status == NodeStatus.PENDING
