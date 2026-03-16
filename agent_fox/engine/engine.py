@@ -741,6 +741,7 @@ class Orchestrator:
         sink_dispatcher: SinkDispatcher | None = None,
         audit_dir: Path | None = None,
         audit_db_conn: Any | None = None,
+        knowledge_db_conn: Any | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -763,6 +764,7 @@ class Orchestrator:
         self._run_id: str = ""  # populated in run()
         self._audit_dir = audit_dir
         self._audit_db_conn = audit_db_conn
+        self._knowledge_db_conn = knowledge_db_conn
 
         # 30-REQ-7: Adaptive routing state
         _rc = routing_config or RoutingConfig()
@@ -1177,7 +1179,7 @@ class Orchestrator:
             # Render memory summary so docs/memory.md reflects all
             # extracted facts, not just those captured at sync barriers.
             try:
-                render_summary()
+                render_summary(conn=self._knowledge_db_conn)
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
             # 40-REQ-9.2: Emit run.complete at end of execute()
@@ -1809,7 +1811,7 @@ class Orchestrator:
 
         # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
         try:
-            render_summary()
+            render_summary(conn=self._knowledge_db_conn)
         except Exception:
             logger.warning("Memory summary regeneration failed", exc_info=True)
 

@@ -405,6 +405,7 @@ def code_cmd(
             sink_dispatcher=sink_dispatcher,
             audit_dir=audit_dir,
             audit_db_conn=knowledge_db.connection,
+            knowledge_db_conn=knowledge_db.connection,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()
