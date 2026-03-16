@@ -28,10 +28,11 @@ from agent_fox.reporting.status import generate_status
 logger = logging.getLogger(__name__)
 
 
-def _get_model_conn():
-    """Open a read-only DuckDB connection for project model queries.
+def _get_readonly_conn():
+    """Open a read-only DuckDB connection.
 
-    Returns None if the database does not exist.
+    Returns None if the database does not exist or cannot be opened
+    (e.g. no write-ahead log available for read-only access).
 
     Requirement: 43-REQ-1.4
     """
@@ -42,7 +43,7 @@ def _get_model_conn():
             return None
         return duckdb.connect(str(DEFAULT_DB_PATH), read_only=True)
     except Exception:
-        logger.warning("Failed to open DuckDB for project model", exc_info=True)
+        logger.warning("Failed to open DuckDB read-only", exc_info=True)
         return None
 
 
@@ -76,7 +77,7 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
 
         # Duration hints: use DuckDB if available, otherwise empty
         duration_hints: dict[str, int] = {}
-        conn = _get_model_conn()
+        conn = _get_readonly_conn()
         if conn is not None:
             try:
                 from agent_fox.routing.duration import get_duration_hint
@@ -124,7 +125,12 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
     state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
 
-    report = generate_status(state_path, plan_path)
+    db_conn = _get_readonly_conn()
+    try:
+        report = generate_status(state_path, plan_path, db_conn=db_conn)
+    finally:
+        if db_conn is not None:
+            db_conn.close()
 
     if json_mode:
         from agent_fox.cli.json_io import emit
@@ -138,7 +144,7 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
 
     # Append project model and critical path when --model is requested
     if model:
-        conn = _get_model_conn()
+        conn = _get_readonly_conn()
         if conn is not None:
             try:
                 from agent_fox.knowledge.project_model import (

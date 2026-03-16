@@ -122,9 +122,7 @@ class StatisticalAssessor:
                 warnings.filterwarnings(
                     "ignore", category=UserWarning, module="sklearn"
                 )
-                warnings.filterwarnings(
-                    "ignore", category=FitFailedWarning
-                )
+                warnings.filterwarnings("ignore", category=FitFailedWarning)
                 scores = cross_val_score(
                     self._model, X, y, cv=cv_folds, error_score=0.0
                 )

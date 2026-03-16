@@ -21,8 +21,9 @@ logger = logging.getLogger("agent_fox.knowledge.db")
 class KnowledgeDB:
     """Manages the DuckDB knowledge store lifecycle."""
 
-    def __init__(self, config: KnowledgeConfig) -> None:
+    def __init__(self, config: KnowledgeConfig, *, read_only: bool = False) -> None:
         self._config = config
+        self._read_only = read_only
         self._conn: duckdb.DuckDBPyConnection | None = None
 
     @property
@@ -45,10 +46,13 @@ class KnowledgeDB:
         """
         try:
             self._ensure_parent_dir()
-            self._conn = duckdb.connect(self._config.store_path)
-            self._setup_vss()
-            self._initialize_schema()
-            apply_pending_migrations(self._conn)
+            self._conn = duckdb.connect(
+                self._config.store_path, read_only=self._read_only
+            )
+            if not self._read_only:
+                self._setup_vss()
+                self._initialize_schema()
+                apply_pending_migrations(self._conn)
         except KnowledgeStoreError:
             raise
         except Exception as exc:
@@ -165,8 +169,15 @@ class KnowledgeDB:
         self.close()
 
 
-def open_knowledge_store(config: KnowledgeConfig) -> KnowledgeDB:
+def open_knowledge_store(
+    config: KnowledgeConfig, *, read_only: bool = False
+) -> KnowledgeDB:
     """Open the knowledge store. Raises on failure.
+
+    Args:
+        config: Knowledge configuration with store path.
+        read_only: If True, open in read-only mode (allows concurrent
+            access while another process holds a write lock).
 
     Returns a KnowledgeDB instance on success.
 
@@ -178,7 +189,7 @@ def open_knowledge_store(config: KnowledgeConfig) -> KnowledgeDB:
     Requirements: 38-REQ-1.1, 38-REQ-1.2, 38-REQ-1.E1
     """
     try:
-        db = KnowledgeDB(config)
+        db = KnowledgeDB(config, read_only=read_only)
         db.open()
         return db
     except Exception as exc:
