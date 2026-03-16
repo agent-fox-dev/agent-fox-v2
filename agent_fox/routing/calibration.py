@@ -114,8 +114,17 @@ class StatisticalAssessor:
             if cv_folds < 2:
                 cv_folds = 2
 
-            scores = cross_val_score(self._model, X, y, cv=cv_folds)
-            self._accuracy = float(np.mean(scores))
+            scores = cross_val_score(self._model, X, y, cv=cv_folds, error_score=0.0)
+            valid_scores = scores[~np.isnan(scores)]
+            if len(valid_scores) == 0:
+                logger.warning(
+                    "All CV folds failed (n=%d, classes=%d), treating accuracy as 0.0",
+                    len(y),
+                    n_classes,
+                )
+                self._accuracy = 0.0
+            else:
+                self._accuracy = float(np.mean(valid_scores))
 
             # Fit final model on all data
             self._model.fit(X, y)
