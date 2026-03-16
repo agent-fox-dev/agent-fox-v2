@@ -78,6 +78,61 @@ async def harvest(
         return await _harvest_under_lock(repo_root, workspace, dev_branch)
 
 
+async def _clean_conflicting_untracked(
+    repo_root: Path,
+    feature_branch: str,
+) -> None:
+    """Remove untracked files that exist in the incoming feature branch.
+
+    Git refuses to merge when untracked working-tree files would be
+    overwritten. This finds the intersection of untracked files and
+    files introduced by the feature branch, and removes them so the
+    merge can proceed.
+
+    Only removes files — never directories — and only those that would
+    actually conflict with the merge.
+    """
+    # List untracked files in the repo root
+    rc, stdout, _ = await run_git(
+        ["ls-files", "--others", "--exclude-standard"],
+        cwd=repo_root,
+        check=False,
+    )
+    if rc != 0 or not stdout.strip():
+        return
+
+    untracked = set(stdout.strip().splitlines())
+    if not untracked:
+        return
+
+    # List files that the feature branch would bring in
+    rc, stdout, _ = await run_git(
+        ["diff", "--name-only", "HEAD", feature_branch, "--"],
+        cwd=repo_root,
+        check=False,
+    )
+    if rc != 0 or not stdout.strip():
+        return
+
+    incoming = set(stdout.strip().splitlines())
+    conflicts = untracked & incoming
+
+    if not conflicts:
+        return
+
+    logger.info(
+        "Removing %d untracked file(s) that would block merge: %s",
+        len(conflicts),
+        ", ".join(sorted(conflicts)[:5]),
+    )
+    for path in conflicts:
+        full = repo_root / path
+        try:
+            full.unlink(missing_ok=True)
+        except OSError:
+            logger.debug("Could not remove untracked file %s", full)
+
+
 async def _harvest_under_lock(
     repo_root: Path,
     workspace: WorkspaceInfo,
@@ -93,6 +148,11 @@ async def _harvest_under_lock(
     # failed harvest may have left tracked files dirty, which would cause
     # subsequent checkout/merge commands to fail.
     await run_git(["checkout", "--", "."], cwd=repo_root, check=False)
+
+    # Remove untracked files that would block the merge. A prior session
+    # may have created files (e.g. test files) that now exist both as
+    # untracked in the working tree and in the incoming feature branch.
+    await _clean_conflicting_untracked(repo_root, workspace.branch)
 
     # Capture the list of changed files before switching branches
     changed_files = await get_changed_files(
