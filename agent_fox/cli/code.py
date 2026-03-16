@@ -152,6 +152,22 @@ def _run_ingestion(
         logger.warning("Background ingestion failed", exc_info=True)
 
 
+def _run_barrier_sync(
+    knowledge_db: KnowledgeDB,
+    config: AgentFoxConfig,
+) -> None:
+    """Run ingestion and export facts to JSONL at sync barrier.
+
+    Called between task groups so that memory.jsonl stays reasonably
+    up-to-date during long runs, not just at the very end.
+    """
+    _run_ingestion(knowledge_db, config)
+    try:
+        export_facts_to_jsonl(knowledge_db.connection, DEFAULT_MEMORY_PATH)
+    except Exception:
+        logger.warning("Barrier JSONL export failed", exc_info=True)
+
+
 def _precompute_plan_fact_cache(
     plan_path: Path,
     knowledge_db: KnowledgeDB,
@@ -381,7 +397,7 @@ def code_cmd(
             specs_dir=Path(".specs"),
             no_hooks=no_hooks,
             task_callback=progress.task_callback,
-            barrier_callback=lambda: _run_ingestion(knowledge_db, config),
+            barrier_callback=lambda: _run_barrier_sync(knowledge_db, config),
             routing_config=full_config.routing,
             assessment_pipeline=assessment_pipeline,
             archetypes_config=full_config.archetypes,
@@ -389,6 +405,7 @@ def code_cmd(
             sink_dispatcher=sink_dispatcher,
             audit_dir=audit_dir,
             audit_db_conn=knowledge_db.connection,
+            knowledge_db_conn=knowledge_db.connection,
         )
 
         # 16-REQ-1.4: execute via asyncio.run()

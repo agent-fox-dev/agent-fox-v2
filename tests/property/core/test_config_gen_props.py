@@ -47,12 +47,14 @@ def _count_scalar_fields(sections: list[SectionSpec]) -> int:
     return total
 
 
-def _count_commented_field_lines(template: str) -> int:
-    """Count lines matching '# field_name = ...' pattern."""
+def _count_field_lines(template: str) -> int:
+    """Count lines matching field assignment patterns (active or commented)."""
     count = 0
     for line in template.split("\n"):
-        # Match '# key = value' but not section headers '# [section]'
-        if re.match(r"^#{1,2} \w+\s*=", line):
+        # Match 'key = value' or '# key = value' but not section headers
+        if re.match(r"^#{0,2}\s*\w+\s*=", line) and not re.match(
+            r"^#\s*\[", line
+        ):
             count += 1
     return count
 
@@ -155,10 +157,10 @@ class TestTemplateCompleteness:
         template = generate_default_config()
 
         total_scalar = _count_scalar_fields(schema)
-        total_commented = _count_commented_field_lines(template)
+        total_fields = _count_field_lines(template)
 
-        assert total_commented == total_scalar, (
-            f"Expected {total_scalar} commented field entries, got {total_commented}"
+        assert total_fields == total_scalar, (
+            f"Expected {total_scalar} field entries, got {total_fields}"
         )
 
 

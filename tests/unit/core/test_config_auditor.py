@@ -24,14 +24,14 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 
-class TestAuditorDefaultFalse:
-    """Verify ArchetypesConfig defaults auditor to False."""
+class TestAuditorDefaultTrue:
+    """Verify ArchetypesConfig defaults auditor to True."""
 
-    def test_auditor_default_false(self) -> None:
+    def test_auditor_default_true(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
 
         config = ArchetypesConfig()
-        assert config.auditor is False
+        assert config.auditor is True
 
 
 # ---------------------------------------------------------------------------

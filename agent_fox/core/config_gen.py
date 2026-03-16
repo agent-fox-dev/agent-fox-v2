@@ -47,6 +47,24 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("SkepticConfig", "block_threshold"): ">=0",
     # OracleSettings
     ("OracleSettings", "block_threshold"): ">=1",
+    # AuditorConfig
+    ("AuditorConfig", "min_ts_entries"): ">=1",
+    ("AuditorConfig", "max_retries"): ">=0",
+    # ArchetypeInstancesConfig (auditor)
+    ("ArchetypeInstancesConfig", "auditor"): "1-5",
+}
+
+# Fields rendered as active (uncommented) in the default config template.
+# Keyed by (section_path, field_name). Sections with promoted fields are
+# rendered first with an active [section] header; remaining sections follow
+# as commented # [section] blocks.
+_PROMOTED_DEFAULTS: set[tuple[str, str]] = {
+    ("orchestrator", "parallel"),
+    ("archetypes", "coder"),
+    ("archetypes", "skeptic"),
+    ("archetypes", "verifier"),
+    ("archetypes", "oracle"),
+    ("archetypes", "auditor"),
 }
 
 # Default descriptions for fields that lack description metadata.
@@ -106,11 +124,18 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("ArchetypesConfig", "librarian"): "Enable librarian archetype",
     ("ArchetypesConfig", "cartographer"): "Enable cartographer archetype",
     ("ArchetypesConfig", "oracle"): "Enable oracle archetype",
+    ("ArchetypesConfig", "auditor"): "Enable auditor archetype",
     ("ArchetypesConfig", "models"): "Per-archetype model overrides",
     ("ArchetypesConfig", "allowlists"): "Per-archetype command allowlists",
     # ArchetypeInstancesConfig
     ("ArchetypeInstancesConfig", "skeptic"): "Number of skeptic instances",
     ("ArchetypeInstancesConfig", "verifier"): "Number of verifier instances",
+    ("ArchetypeInstancesConfig", "auditor"): "Number of auditor instances",
+    # AuditorConfig
+    ("AuditorConfig", "min_ts_entries"): (
+        "Minimum TS entries to trigger auditor injection"
+    ),
+    ("AuditorConfig", "max_retries"): "Maximum auditor-coder retry iterations",
     # SkepticConfig
     ("SkepticConfig", "block_threshold"): "Finding count to block merge",
     # OracleSettings
@@ -361,8 +386,21 @@ def _format_field_comment(field_spec: FieldSpec) -> str:
     return f"## {desc} (default: {default_str})"
 
 
+def _section_has_promoted(section: SectionSpec) -> bool:
+    """Check if a section has any promoted (active) fields."""
+    for field_spec in section.fields:
+        if field_spec.is_nested:
+            continue
+        if (section.path, field_spec.name) in _PROMOTED_DEFAULTS:
+            return True
+    return False
+
+
 def generate_config_template(schema: list[SectionSpec]) -> str:
-    """Render a fully-commented config.toml from extracted schema.
+    """Render a config.toml from extracted schema with promoted defaults active.
+
+    Sections with promoted fields are rendered first with active [section]
+    headers. Remaining sections follow as commented # [section] blocks.
 
     Requirements: 33-REQ-1.1, 33-REQ-1.2, 33-REQ-1.3, 33-REQ-1.4, 33-REQ-1.5
     """
@@ -372,7 +410,15 @@ def generate_config_template(schema: list[SectionSpec]) -> str:
         "## Uncomment and edit values to customize.",
     ]
 
-    for i, section in enumerate(schema):
+    # Partition into active (have promoted fields) and inactive sections
+    active_sections = [s for s in schema if _section_has_promoted(s)]
+    inactive_sections = [s for s in schema if not _section_has_promoted(s)]
+
+    for section in active_sections:
+        lines.append("")
+        _render_section(section, lines)
+
+    for section in inactive_sections:
         lines.append("")
         _render_section(section, lines)
 
@@ -384,19 +430,38 @@ def generate_config_template(schema: list[SectionSpec]) -> str:
 
 
 def _render_section(section: SectionSpec, lines: list[str]) -> None:
-    """Render a section and its subsections as commented TOML."""
-    lines.append(f"# [{section.path}]")
+    """Render a section and its subsections.
 
+    If the section has promoted fields, render it with an active [section]
+    header and promoted fields uncommented. Otherwise render fully commented.
+    """
+    has_promoted = _section_has_promoted(section)
+
+    if has_promoted:
+        lines.append(f"[{section.path}]")
+    else:
+        lines.append(f"# [{section.path}]")
+
+    # Render promoted (active) fields first, then inactive fields
+    promoted_fields = []
+    inactive_fields = []
     for field_spec in section.fields:
         if field_spec.is_nested:
             continue
-        # Description comment
+        if (section.path, field_spec.name) in _PROMOTED_DEFAULTS:
+            promoted_fields.append(field_spec)
+        else:
+            inactive_fields.append(field_spec)
+
+    for field_spec in promoted_fields:
         lines.append(_format_field_comment(field_spec))
-        # Commented key-value pair
+        toml_val = _format_toml_value(field_spec.default)
+        lines.append(f"{field_spec.name} = {toml_val}")
+
+    for field_spec in inactive_fields:
+        lines.append(_format_field_comment(field_spec))
         toml_val = _format_toml_value(field_spec.default)
         if field_spec.default is None:
-            # Double-# so stripping '# ' leaves '# key =' (still a comment),
-            # keeping the uncommented TOML valid per 33-REQ-1.4
             lines.append(f"## {field_spec.name} =")
         else:
             lines.append(f"# {field_spec.name} = {toml_val}")

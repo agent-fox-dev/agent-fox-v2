@@ -202,9 +202,10 @@ def init_cmd(ctx: click.Context, skills: bool) -> None:
                 click.echo(
                     "Project is already initialized. Existing configuration preserved."
                 )
-        # Still ensure directory structure and gitignore are complete
+        # Still ensure directory structure, seed files, and gitignore are complete
         (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
+        _ensure_seed_files(project_root)
         _update_gitignore(project_root)
         _ensure_develop_branch(quiet=json_mode)
         # 17-REQ-2.1: Merge canonical permissions on re-init
@@ -241,6 +242,9 @@ def init_cmd(ctx: click.Context, skills: bool) -> None:
 
     config_path.write_text(generate_default_config())
     logger.debug("Created default config.toml")
+
+    # Create seed files so they are tracked in git from the start
+    _ensure_seed_files(project_root)
 
     # 01-REQ-3.2: create or verify develop branch
     _ensure_develop_branch(quiet=json_mode)
@@ -376,6 +380,32 @@ def _ensure_claude_settings(project_root: Path) -> None:
         "Merged %d missing canonical permissions into settings",
         len(missing),
     )
+
+
+_DOCS_MEMORY_CONTENT = "# Agent-Fox Memory\n\n_No facts have been recorded yet._\n"
+
+
+def _ensure_seed_files(project_root: Path) -> None:
+    """Create empty seed files so they are tracked in git from the start.
+
+    Creates .agent-fox/memory.jsonl, .agent-fox/state.jsonl, and
+    docs/memory.md if they do not already exist. Idempotent — existing
+    files are never overwritten.
+    """
+    agent_fox_dir = project_root / ".agent-fox"
+
+    for name in ("memory.jsonl", "state.jsonl"):
+        path = agent_fox_dir / name
+        if not path.exists():
+            path.touch()
+            logger.debug("Created seed file %s", path)
+
+    docs_dir = project_root / "docs"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+    docs_memory = docs_dir / "memory.md"
+    if not docs_memory.exists():
+        docs_memory.write_text(_DOCS_MEMORY_CONTENT, encoding="utf-8")
+        logger.debug("Created docs/memory.md")
 
 
 def _ensure_agents_md(project_root: Path) -> str:

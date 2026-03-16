@@ -153,6 +153,61 @@ class TestInitGitignore:
         assert "!.agent-fox/memory.jsonl" in gitignore
 
 
+class TestInitSeedFiles:
+    """Init creates seed files so they are tracked in git from the start."""
+
+    def test_init_creates_memory_jsonl(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """init creates an empty .agent-fox/memory.jsonl."""
+        cli_runner.invoke(main, ["init"])
+
+        path = tmp_git_repo / ".agent-fox" / "memory.jsonl"
+        assert path.exists()
+        assert path.read_text() == ""
+
+    def test_init_creates_state_jsonl(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """init creates an empty .agent-fox/state.jsonl."""
+        cli_runner.invoke(main, ["init"])
+
+        path = tmp_git_repo / ".agent-fox" / "state.jsonl"
+        assert path.exists()
+        assert path.read_text() == ""
+
+    def test_init_creates_docs_memory_md(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """init creates docs/memory.md with placeholder content."""
+        cli_runner.invoke(main, ["init"])
+
+        path = tmp_git_repo / "docs" / "memory.md"
+        assert path.exists()
+        content = path.read_text()
+        assert "Agent-Fox Memory" in content
+
+    def test_reinit_preserves_existing_seed_files(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """Re-running init does not overwrite existing seed files."""
+        cli_runner.invoke(main, ["init"])
+
+        # Write content to memory.jsonl
+        memory_path = tmp_git_repo / ".agent-fox" / "memory.jsonl"
+        memory_path.write_text('{"fact": "test"}\n')
+
+        # Write content to docs/memory.md
+        docs_memory = tmp_git_repo / "docs" / "memory.md"
+        docs_memory.write_text("# Custom content\n")
+
+        # Re-init
+        cli_runner.invoke(main, ["init"])
+
+        assert memory_path.read_text() == '{"fact": "test"}\n'
+        assert docs_memory.read_text() == "# Custom content\n"
+
+
 class TestInitClaudeSettings:
     """Integration tests for Claude settings creation (Spec 17).
 
@@ -231,7 +286,7 @@ class TestInitConfigGeneration:
         config = load_config(config_path)
         assert isinstance(config, AgentFoxConfig)
         # Verify key defaults
-        assert config.orchestrator.parallel == 1
+        assert config.orchestrator.parallel == 2
         assert config.theme.playful is True
         assert config.models.coding == "ADVANCED"
 
@@ -256,7 +311,10 @@ class TestInitConfigGeneration:
             "archetypes",
             "tools",
         ]:
-            assert f"# [{section}]" in content, f"Missing section header: {section}"
+            # Sections may be active [section] or commented # [section]
+            assert (
+                f"[{section}]" in content
+            ), f"Missing section header: {section}"
 
     def test_reinit_merges_new_fields(
         self, cli_runner: CliRunner, tmp_git_repo: Path

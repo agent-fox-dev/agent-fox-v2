@@ -9,4 +9,4 @@ from __future__ import annotations
 from pathlib import Path
 
 AGENT_FOX_DIR = ".agent-fox"
-DEFAULT_DB_PATH = Path(".agent-fox/knowledge.db")
+DEFAULT_DB_PATH = Path(".agent-fox/knowledge.duckdb")

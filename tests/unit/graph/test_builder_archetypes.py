@@ -236,7 +236,9 @@ class TestSkepticAutoInjection:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(skeptic=True)
+        config = ArchetypesConfig(
+            skeptic=True, oracle=False, auditor=False,
+        )
         specs = [_spec()]
         task_groups = {"spec": [_tgd(1, "T1"), _tgd(2, "T2")]}
 
@@ -465,7 +467,9 @@ class TestPropertyInjectionStructure:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(skeptic=True, verifier=True)
+        config = ArchetypesConfig(
+            skeptic=True, verifier=True, oracle=False, auditor=False,
+        )
         specs = [_spec()]
         task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, n_groups + 1)]}
 

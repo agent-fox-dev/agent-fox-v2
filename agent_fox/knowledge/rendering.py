@@ -14,7 +14,7 @@ from pathlib import Path
 import duckdb
 
 from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.store import load_all_facts
+from agent_fox.knowledge.store import read_all_facts
 
 logger = logging.getLogger("agent_fox.knowledge.rendering")
 
@@ -39,16 +39,17 @@ def render_summary(
     Creates `docs/memory.md` with facts organized by category. Each fact
     entry includes the content, source spec name, and confidence level.
 
+    Uses :func:`read_all_facts` so that facts are always available even
+    when *conn* is ``None`` — falls back to a read-only DuckDB open,
+    then to the JSONL file.
+
     Creates the output directory if it does not exist.
 
     Args:
-        conn: DuckDB connection. If None, renders an empty summary.
+        conn: DuckDB connection. Falls back automatically when ``None``.
         output_path: Path to the output markdown file.
     """
-    if conn is None:
-        facts: list[Fact] = []
-    else:
-        facts = load_all_facts(conn)
+    facts: list[Fact] = read_all_facts(conn)
 
     # Create the output directory if it doesn't exist.
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -28,6 +28,8 @@ class TestArchetypeToggles:
         assert cfg.verifier is True
         assert cfg.librarian is False
         assert cfg.cartographer is False
+        assert cfg.oracle is True
+        assert cfg.auditor is True
 
     def test_disable_skeptic(self) -> None:
         from agent_fox.core.config import ArchetypesConfig

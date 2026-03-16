@@ -173,8 +173,7 @@ class TestPerSpecCost:
         """TS-34-13: Spec name extracted from node_id correctly."""
         assert extract_spec_name("01_core_foundation:3") == "01_core_foundation"
         assert (
-            extract_spec_name("26_agent_archetypes:0:skeptic")
-            == "26_agent_archetypes"
+            extract_spec_name("26_agent_archetypes:0:skeptic") == "26_agent_archetypes"
         )
 
 

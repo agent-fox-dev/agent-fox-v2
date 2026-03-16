@@ -88,7 +88,7 @@ class RoutingConfig(BaseModel):
 class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    parallel: int = Field(default=1, description="Maximum parallel sessions")
+    parallel: int = Field(default=2, description="Maximum parallel sessions")
     sync_interval: int = Field(default=5, description="Sync interval in task groups")
     hot_load: bool = Field(default=True, description="Hot-load specs between sessions")
     max_retries: int = Field(default=2, description="Maximum retries per task group")
@@ -377,8 +377,8 @@ class ArchetypesConfig(BaseModel):
     cartographer: bool = Field(
         default=False, description="Enable cartographer archetype"
     )
-    oracle: bool = Field(default=False, description="Enable oracle archetype")
-    auditor: bool = Field(default=False, description="Enable auditor archetype")
+    oracle: bool = Field(default=True, description="Enable oracle archetype")
+    auditor: bool = Field(default=True, description="Enable auditor archetype")
 
     instances: ArchetypeInstancesConfig = Field(
         default_factory=ArchetypeInstancesConfig,

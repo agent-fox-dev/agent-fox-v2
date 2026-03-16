@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 
 import duckdb
 import numpy as np
+from sklearn.exceptions import FitFailedWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import LabelEncoder
@@ -114,8 +116,26 @@ class StatisticalAssessor:
             if cv_folds < 2:
                 cv_folds = 2
 
-            scores = cross_val_score(self._model, X, y, cv=cv_folds)
-            self._accuracy = float(np.mean(scores))
+            # Suppress expected sklearn warnings when folds have sparse
+            # class distribution (e.g. 3 STANDARD + 1 ADVANCED).
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", category=UserWarning, module="sklearn"
+                )
+                warnings.filterwarnings("ignore", category=FitFailedWarning)
+                scores = cross_val_score(
+                    self._model, X, y, cv=cv_folds, error_score=0.0
+                )
+            valid_scores = scores[~np.isnan(scores)]
+            if len(valid_scores) == 0:
+                logger.warning(
+                    "All CV folds failed (n=%d, classes=%d), treating accuracy as 0.0",
+                    len(y),
+                    n_classes,
+                )
+                self._accuracy = 0.0
+            else:
+                self._accuracy = float(np.mean(valid_scores))
 
             # Fit final model on all data
             self._model.fit(X, y)

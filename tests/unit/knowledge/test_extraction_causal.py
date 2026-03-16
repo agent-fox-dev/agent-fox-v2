@@ -173,11 +173,7 @@ class TestParseCausalLinksTruncatedRecovery:
 
     def test_recovers_from_truncated_fenced_response(self) -> None:
         """Truncated ```json fenced response recovers valid entries."""
-        response = (
-            '```json\n'
-            '[{"cause_id": "x1", "effect_id": "x2"}, '
-            '{"cause_id": "y1"'
-        )
+        response = '```json\n[{"cause_id": "x1", "effect_id": "x2"}, {"cause_id": "y1"'
         links = parse_causal_links(response)
         assert len(links) == 1
         assert links[0] == ("x1", "x2")

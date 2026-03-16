@@ -20,6 +20,7 @@ from agent_fox.core.config import (
     load_config,
 )
 from agent_fox.core.config_gen import (
+    _PROMOTED_DEFAULTS,
     extract_schema,
     generate_default_config,
     merge_existing_config,
@@ -52,26 +53,30 @@ def _strip_comment_prefixes(template: str) -> str:
 
 
 def _extract_field_names_in_order(template: str, section: str) -> list[str]:
-    """Extract commented field names in order from a template section.
+    """Extract field names in order from a template section.
 
-    Finds lines like '# field_name = ...' within the given section.
+    Finds lines like 'field_name = ...' or '# field_name = ...' within
+    the given section (handles both active and commented headers).
     """
     lines = template.split("\n")
     in_section = False
     field_names = []
-    section_header = f"# [{section}]"
 
     for line in lines:
-        # Check for section header
-        if line.strip() == section_header:
+        stripped = line.strip()
+        # Check for section header (active or commented)
+        if stripped == f"[{section}]" or stripped == f"# [{section}]":
             in_section = True
             continue
         # Check for next section header (end of current section)
-        if in_section and re.match(r"^# \[[\w.]+\]$", line.strip()):
+        if in_section and (
+            re.match(r"^# \[[\w.]+\]$", stripped)
+            or re.match(r"^\[[\w.]+\]$", stripped)
+        ):
             break
-        # Extract field names from commented key-value pairs
+        # Extract field names from active or commented key-value pairs
         if in_section:
-            m = re.match(r"^#{1,2} (\w+)\s*=", line)
+            m = re.match(r"^#{0,2}\s*(\w+)\s*=", line)
             if m:
                 field_names.append(m.group(1))
     return field_names
@@ -81,8 +86,9 @@ class TestTemplateGeneration:
     """Tests for config template generation (TS-33-1 through TS-33-5)."""
 
     def test_template_contains_all_fields(self) -> None:
-        """TS-33-1: Template includes a commented entry for every field.
+        """TS-33-1: Template includes an entry for every field.
 
+        Promoted fields appear as active (uncommented); others as commented.
         Requirement: 33-REQ-1.1
         """
         template = generate_default_config()
@@ -91,10 +97,16 @@ class TestTemplateGeneration:
         for section in schema:
             for field in section.fields:
                 if not field.is_nested:
-                    assert f"# {field.name} =" in template, (
-                        f"Missing field entry for '{field.name}' "
-                        f"in section '{section.path}'"
-                    )
+                    if (section.path, field.name) in _PROMOTED_DEFAULTS:
+                        assert f"{field.name} =" in template, (
+                            f"Missing active entry for '{field.name}' "
+                            f"in section '{section.path}'"
+                        )
+                    else:
+                        assert f"# {field.name} =" in template, (
+                            f"Missing commented entry for '{field.name}' "
+                            f"in section '{section.path}'"
+                        )
 
     def test_template_includes_descriptions_and_bounds(self) -> None:
         """TS-33-2: Fields include descriptions and bounds in comments.
@@ -108,7 +120,7 @@ class TestTemplateGeneration:
         # sync_interval has bounds >=0
         assert ">=0" in template, "Missing bounds for sync_interval"
         # parallel default is 1
-        assert "default: 1" in template, "Missing default for parallel"
+        assert "default: 2" in template, "Missing default for parallel"
         # playful default is true
         assert "default: true" in template, "Missing default for playful"
 
@@ -119,9 +131,14 @@ class TestTemplateGeneration:
         """
         template = generate_default_config()
 
-        # Top-level sections
+        # Sections with promoted fields have active headers
+        for section in ["orchestrator", "archetypes"]:
+            assert f"[{section}]" in template, (
+                f"Missing active section header for [{section}]"
+            )
+
+        # Other sections have commented headers
         for section in [
-            "orchestrator",
             "routing",
             "models",
             "hooks",
@@ -129,7 +146,6 @@ class TestTemplateGeneration:
             "theme",
             "platform",
             "knowledge",
-            "archetypes",
             "tools",
         ]:
             assert f"# [{section}]" in template, (

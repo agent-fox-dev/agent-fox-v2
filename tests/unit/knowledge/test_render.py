@@ -138,11 +138,21 @@ class TestRenderEmptyKnowledgeBase:
         content = output_path.read_text()
         assert "No facts have been recorded yet" in content
 
-    def test_renders_no_facts_for_no_conn(self, tmp_path: Path) -> None:
-        """Verify render produces 'no facts' for None connection."""
+    def test_renders_no_facts_when_fallbacks_empty(self, tmp_path: Path) -> None:
+        """Verify render produces 'no facts' when conn is None and fallbacks find nothing.
+
+        Patches the fallback paths so they point to non-existent files,
+        ensuring read_all_facts returns an empty list.
+        """
+        from unittest.mock import patch
+
         output_path = tmp_path / "docs" / "memory.md"
 
-        render_summary(conn=None, output_path=output_path)
+        with patch(
+            "agent_fox.knowledge.rendering.read_all_facts",
+            return_value=[],
+        ):
+            render_summary(conn=None, output_path=output_path)
 
         content = output_path.read_text()
         assert "No facts have been recorded yet" in content

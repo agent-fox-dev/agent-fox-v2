@@ -28,6 +28,50 @@ if TYPE_CHECKING:
 logger = logging.getLogger("agent_fox.knowledge.store")
 
 DEFAULT_MEMORY_PATH = Path(".agent-fox/memory.jsonl")
+DEFAULT_DB_PATH = Path(".agent-fox/knowledge.duckdb")
+
+
+def read_all_facts(
+    conn: duckdb.DuckDBPyConnection | None = None,
+    *,
+    db_path: Path = DEFAULT_DB_PATH,
+    jsonl_path: Path = DEFAULT_MEMORY_PATH,
+) -> list[Fact]:
+    """Read all active facts with automatic fallback.
+
+    Tries three sources in order:
+    1. The provided DuckDB connection (if any).
+    2. A read-only DuckDB connection opened from *db_path*.
+    3. The JSONL file at *jsonl_path*.
+
+    Returns an empty list only when all sources are exhausted.
+    """
+    # 1. Provided connection
+    if conn is not None:
+        try:
+            return load_all_facts(conn)
+        except Exception:
+            logger.debug(
+                "Provided DuckDB connection failed; trying fallbacks",
+                exc_info=True,
+            )
+
+    # 2. Read-only DuckDB
+    if db_path.exists():
+        try:
+            ro_conn = duckdb.connect(str(db_path), read_only=True)
+            try:
+                return load_all_facts(ro_conn)
+            finally:
+                ro_conn.close()
+        except Exception:
+            logger.debug(
+                "Read-only DuckDB open failed; falling back to JSONL",
+                exc_info=True,
+            )
+
+    # 3. JSONL fallback
+    return load_facts_from_jsonl(jsonl_path)
 
 
 def append_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
@@ -135,6 +179,28 @@ def export_facts_to_jsonl(
             exc_info=True,
         )
     return len(facts)
+
+
+def load_facts_from_jsonl(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
+    """Load facts from a JSONL file.
+
+    Used as a fallback when DuckDB is unavailable (e.g. locked by
+    another process). Returns an empty list if the file does not
+    exist or is empty.
+    """
+    if not path.exists():
+        return []
+    facts: list[Fact] = []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                facts.append(_dict_to_fact(json.loads(line)))
+            except (json.JSONDecodeError, KeyError):
+                logger.warning("Skipping malformed JSONL line")
+    return facts
 
 
 def _write_jsonl(facts: list[Fact], path: Path, *, mode: str) -> None:

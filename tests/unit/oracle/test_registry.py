@@ -55,13 +55,13 @@ class TestOracleEnabledConfig:
         config = ArchetypesConfig(oracle=True)
         assert _is_archetype_enabled("oracle", config) is True
 
-    def test_oracle_disabled_by_default(self) -> None:
-        """Oracle is disabled by default."""
+    def test_oracle_enabled_by_default(self) -> None:
+        """Oracle is enabled by default."""
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import _is_archetype_enabled
 
         config = ArchetypesConfig()
-        assert _is_archetype_enabled("oracle", config) is False
+        assert _is_archetype_enabled("oracle", config) is True
 
 
 # ---------------------------------------------------------------------------

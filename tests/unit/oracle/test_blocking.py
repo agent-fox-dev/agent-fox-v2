@@ -76,11 +76,11 @@ class TestConfigDefaults:
     """Verify oracle config defaults."""
 
     def test_config_defaults(self) -> None:
-        """TS-32-12: Oracle disabled by default, no block threshold."""
+        """TS-32-12: Oracle enabled by default, no block threshold."""
         from agent_fox.core.config import ArchetypesConfig
 
         config = ArchetypesConfig()
-        assert config.oracle is False
+        assert config.oracle is True
         assert config.oracle_settings.block_threshold is None
 
     def test_oracle_enabled(self) -> None:
