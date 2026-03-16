@@ -269,7 +269,7 @@ class TestSpecHasExistingCode:
         from agent_fox.graph.builder import spec_has_existing_code
 
         (tmp_path / "design.md").write_text(
-            '1. **`agent_fox/brand_new.py`** (new) -- New module.\n'
+            "1. **`agent_fox/brand_new.py`** (new) -- New module.\n"
         )
         assert spec_has_existing_code(tmp_path) is False
 
@@ -280,7 +280,7 @@ class TestSpecHasExistingCode:
         target = tmp_path / "real_file.py"
         target.write_text("# existing")
         (tmp_path / "design.md").write_text(
-            f'1. **`{target}`** (modified) -- Change.\n'
+            f"1. **`{target}`** (modified) -- Change.\n"
         )
         assert spec_has_existing_code(tmp_path) is True
 
@@ -289,7 +289,7 @@ class TestSpecHasExistingCode:
         from agent_fox.graph.builder import spec_has_existing_code
 
         (tmp_path / "design.md").write_text(
-            '1. **`nonexistent/foo.py`** (modified) -- Change.\n'
+            "1. **`nonexistent/foo.py`** (modified) -- Change.\n"
         )
         assert spec_has_existing_code(tmp_path) is False
 
@@ -300,8 +300,8 @@ class TestSpecHasExistingCode:
         target = tmp_path / "exists.py"
         target.write_text("# code")
         (tmp_path / "design.md").write_text(
-            '1. **`brand_new.py`** (new) -- New.\n'
-            f'2. **`{target}`** (modified) -- Change.\n'
+            "1. **`brand_new.py`** (new) -- New.\n"
+            f"2. **`{target}`** (modified) -- Change.\n"
         )
         assert spec_has_existing_code(tmp_path) is True
 
@@ -322,7 +322,7 @@ class TestOracleGatingBuildGraph:
         spec_dir = tmp_path / ".specs" / "myspec"
         spec_dir.mkdir(parents=True)
         (spec_dir / "design.md").write_text(
-            '1. **`agent_fox/new_module.py`** (new) -- Brand new.\n'
+            "1. **`agent_fox/new_module.py`** (new) -- Brand new.\n"
         )
         (spec_dir / "tasks.md").write_text(
             "# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n"
@@ -352,7 +352,7 @@ class TestOracleGatingBuildGraph:
         existing = tmp_path / "real.py"
         existing.write_text("# code")
         (spec_dir / "design.md").write_text(
-            f'1. **`{existing}`** (modified) -- Change.\n'
+            f"1. **`{existing}`** (modified) -- Change.\n"
         )
         (spec_dir / "tasks.md").write_text(
             "# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n"
@@ -386,7 +386,7 @@ class TestOracleGatingRuntime:
         spec_dir = tmp_path / "myspec"
         spec_dir.mkdir()
         (spec_dir / "design.md").write_text(
-            '1. **`agent_fox/new.py`** (new) -- Brand new.\n'
+            "1. **`agent_fox/new.py`** (new) -- Brand new.\n"
         )
 
         plan_data = {
@@ -411,7 +411,8 @@ class TestOracleGatingRuntime:
         _ensure_archetype_nodes(plan_data, config, specs_dir=tmp_path)
 
         oracle_nodes = [
-            nid for nid, n in plan_data["nodes"].items()
+            nid
+            for nid, n in plan_data["nodes"].items()
             if n.get("archetype") == "oracle"
         ]
         assert oracle_nodes == []
@@ -426,7 +427,7 @@ class TestOracleGatingRuntime:
         existing = tmp_path / "real.py"
         existing.write_text("# code")
         (spec_dir / "design.md").write_text(
-            f'1. **`{existing}`** (modified) -- Change.\n'
+            f"1. **`{existing}`** (modified) -- Change.\n"
         )
 
         plan_data = {
@@ -451,7 +452,8 @@ class TestOracleGatingRuntime:
         _ensure_archetype_nodes(plan_data, config, specs_dir=tmp_path)
 
         oracle_nodes = [
-            nid for nid, n in plan_data["nodes"].items()
+            nid
+            for nid, n in plan_data["nodes"].items()
             if n.get("archetype") == "oracle"
         ]
         assert len(oracle_nodes) == 1
