@@ -21,6 +21,7 @@ from typing import Any
 from anthropic.types import TextBlock
 
 from agent_fox.core.client import create_async_anthropic_client
+from agent_fox.core.retry import retry_api_call_async
 from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import _DEP_TABLE_HEADER_ALT, _parse_table_rows
@@ -225,12 +226,17 @@ async def validate_dependency_interfaces(
         identifiers_json=identifiers_json,
     )
 
-    async with create_async_anthropic_client() as client:
-        response = await client.messages.create(
-            model=model,
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    async def _call() -> object:
+        async with create_async_anthropic_client() as client:
+            return await client.messages.create(
+                model=model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+    response = await retry_api_call_async(
+        _call, context=f"stale-dep check on '{upstream_spec}'"
+    )
 
     # Track auxiliary token usage (34-REQ-1.5)
     usage = getattr(response, "usage", None)
@@ -443,17 +449,20 @@ async def analyze_acceptance_criteria(
     req_text = req_path.read_text(encoding="utf-8")
 
     # Create the Anthropic client and send the request
-    async with create_async_anthropic_client() as client:
-        response = await client.messages.create(
-            model=model,
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": _AI_PROMPT + req_text,
-                }
-            ],
-        )
+    async def _call() -> object:
+        async with create_async_anthropic_client() as client:
+            return await client.messages.create(
+                model=model,
+                max_tokens=4096,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _AI_PROMPT + req_text,
+                    }
+                ],
+            )
+
+    response = await retry_api_call_async(_call, context="acceptance criteria analysis")
 
     # Track auxiliary token usage (34-REQ-1.5)
     usage = getattr(response, "usage", None)
@@ -668,12 +677,18 @@ async def generate_test_spec_entries(
     )
 
     try:
-        async with create_async_anthropic_client() as client:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=8192,
-                messages=[{"role": "user", "content": prompt}],
-            )
+
+        async def _call() -> object:
+            async with create_async_anthropic_client() as client:
+                return await client.messages.create(
+                    model=model,
+                    max_tokens=8192,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+
+        response = await retry_api_call_async(
+            _call, context=f"test spec generation for '{spec_name}'"
+        )
     except Exception as exc:
         _ai_logger.warning(
             "AI test spec generation failed for spec '%s': %s",
@@ -765,12 +780,18 @@ async def rewrite_criteria(
     )
 
     try:
-        async with create_async_anthropic_client() as client:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
-            )
+
+        async def _call() -> object:
+            async with create_async_anthropic_client() as client:
+                return await client.messages.create(
+                    model=model,
+                    max_tokens=4096,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+
+        response = await retry_api_call_async(
+            _call, context=f"criteria rewrite for '{spec_name}'"
+        )
     except Exception as exc:
         _ai_logger.warning(
             "AI rewrite call failed for spec '%s': %s. Skipping rewrite.",

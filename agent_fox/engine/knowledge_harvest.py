@@ -143,13 +143,17 @@ def _extract_causal_links(
     # Call the LLM for causal analysis
     from agent_fox.core.client import create_anthropic_client
     from agent_fox.core.models import resolve_model
+    from agent_fox.core.retry import retry_api_call
 
     model_entry = resolve_model(memory_extraction_model)
     client = create_anthropic_client()
-    response = client.messages.create(
-        model=model_entry.model_id,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+    response = retry_api_call(
+        lambda: client.messages.create(
+            model=model_entry.model_id,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        context="causal link extraction",
     )
 
     # Track auxiliary token usage (34-REQ-1.5)

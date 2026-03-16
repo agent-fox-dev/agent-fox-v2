@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
+from agent_fox.core.retry import retry_api_call
 from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.fix.checks import FailureRecord
 
@@ -73,10 +74,13 @@ def _ai_cluster(
 
     # Call the Anthropic API
     client = create_anthropic_client()
-    response = client.messages.create(
-        model=model_entry.model_id,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
+    response = retry_api_call(
+        lambda: client.messages.create(
+            model=model_entry.model_id,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        context="failure clustering",
     )
 
     # Track auxiliary token usage (34-REQ-1.5)

@@ -147,16 +147,21 @@ async def llm_assess(
     )
 
     try:
-        async with create_async_anthropic_client() as client:
-            api_response = await client.messages.create(
-                model=model,
-                system=(
-                    "You are a task complexity assessor."
-                    " Respond only with the tier and confidence."
-                ),
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
-            )
+        from agent_fox.core.retry import retry_api_call_async
+
+        async def _call() -> object:
+            async with create_async_anthropic_client() as client:
+                return await client.messages.create(
+                    model=model,
+                    system=(
+                        "You are a task complexity assessor."
+                        " Respond only with the tier and confidence."
+                    ),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=50,
+                )
+
+        api_response = await retry_api_call_async(_call, context="LLM assessment")
 
         # Track auxiliary token usage (34-REQ-1.5)
         usage = getattr(api_response, "usage", None)

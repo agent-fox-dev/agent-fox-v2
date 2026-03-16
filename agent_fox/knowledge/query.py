@@ -21,6 +21,7 @@ from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.core.models import resolve_model
+from agent_fox.core.retry import retry_api_call
 from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
@@ -109,10 +110,13 @@ class Oracle:
         prompt = self._build_synthesis_prompt(question, context)
         model = resolve_model(self._config.ask_synthesis_model)
 
-        response = self.client.messages.create(
-            model=model.model_id,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}],
+        response = retry_api_call(
+            lambda: self.client.messages.create(
+                model=model.model_id,
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            context="oracle synthesis",
         )
 
         # Track auxiliary token usage (34-REQ-1.5)

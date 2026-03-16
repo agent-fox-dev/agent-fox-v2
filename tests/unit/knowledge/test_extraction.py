@@ -12,6 +12,7 @@ import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from anthropic import RateLimitError  # used in TestExtractionRetry
 
 from agent_fox.knowledge.extraction import (
     _parse_extraction_response,
@@ -326,3 +327,67 @@ class TestExtractionMarkdownFenced:
 
         assert len(facts) == 1
         assert "mock external" in facts[0].content.lower()
+
+
+class TestExtractionRetry:
+    """Test retry with backoff on transient API errors."""
+
+    @pytest.mark.asyncio
+    async def test_retries_on_rate_limit_then_succeeds(self) -> None:
+        """Verify extract_facts retries on RateLimitError and succeeds."""
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.content = [AsyncMock(text=VALID_LLM_RESPONSE)]
+
+        # Fail twice with rate limit, then succeed
+        rate_limit_exc = RateLimitError.__new__(RateLimitError)
+        rate_limit_exc.status_code = 429
+        rate_limit_exc.message = "rate limited"
+        rate_limit_exc.body = None
+        rate_limit_exc.response = AsyncMock(status_code=429, headers={})
+
+        mock_client.messages.create = AsyncMock(
+            side_effect=[rate_limit_exc, rate_limit_exc, mock_response]
+        )
+        mock_client.__aenter__.return_value = mock_client
+
+        with (
+            patch(
+                "agent_fox.knowledge.extraction.create_async_anthropic_client",
+                return_value=mock_client,
+            ),
+            patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            facts = await extract_facts(
+                transcript="session transcript",
+                spec_name="spec_01",
+            )
+
+        assert len(facts) == 2
+
+    @pytest.mark.asyncio
+    async def test_raises_after_max_retries_exhausted(self) -> None:
+        """Verify extract_facts raises after all retries are exhausted."""
+        mock_client = AsyncMock()
+
+        rate_limit_exc = RateLimitError.__new__(RateLimitError)
+        rate_limit_exc.status_code = 429
+        rate_limit_exc.message = "rate limited"
+        rate_limit_exc.body = None
+        rate_limit_exc.response = AsyncMock(status_code=429, headers={})
+
+        mock_client.messages.create = AsyncMock(side_effect=rate_limit_exc)
+        mock_client.__aenter__.return_value = mock_client
+
+        with (
+            patch(
+                "agent_fox.knowledge.extraction.create_async_anthropic_client",
+                return_value=mock_client,
+            ),
+            patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            with pytest.raises(RateLimitError):
+                await extract_facts(
+                    transcript="session transcript",
+                    spec_name="spec_01",
+                )
