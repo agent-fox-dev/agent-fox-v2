@@ -104,6 +104,13 @@ class OrchestratorConfig(BaseModel):
         default=20,
         description="Maximum number of runs to retain in the audit log",
     )
+    max_blocked_fraction: float | None = Field(
+        default=None,
+        description=(
+            "Stop the run when this fraction of nodes are blocked "
+            "(0.0-1.0). None = disabled."
+        ),
+    )
 
     @field_validator("parallel")
     @classmethod
@@ -134,6 +141,13 @@ class OrchestratorConfig(BaseModel):
     @classmethod
     def clamp_audit_retention_runs(cls, v: int) -> int:
         return int(_clamp(v, ge=1, field_name="audit_retention_runs"))
+
+    @field_validator("max_blocked_fraction")
+    @classmethod
+    def clamp_max_blocked_fraction(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        return _clamp(v, ge=0.0, le=1.0, field_name="max_blocked_fraction")
 
 
 class ModelConfig(BaseModel):

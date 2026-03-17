@@ -623,6 +623,10 @@ class Orchestrator:
                     await self._shutdown(state)
                     return state
 
+                # Check block budget: stop if too many tasks are blocked
+                if state.run_status == RunStatus.BLOCK_LIMIT:
+                    return state
+
                 # Check circuit breaker: cost/session limits (04-REQ-5.*)
                 stop_decision = self._circuit.should_stop(state)
                 if not stop_decision.allowed:
@@ -892,6 +896,7 @@ class Orchestrator:
                 state,
                 f"Retry limit exceeded for {node_id}",
             )
+            self._check_block_budget(state)
             self._state_manager.save(state)
             return "blocked"
         return "limited"
@@ -1132,6 +1137,10 @@ class Orchestrator:
                         duration_s=duration_s,
                     )
                 )
+
+            # Skeptic/oracle blocking: check findings after successful review
+            if self._check_skeptic_blocking(record, state):
+                self._check_block_budget(state)
         else:
             error_tracker[node_id] = record.error_message
 
@@ -1189,6 +1198,7 @@ class Orchestrator:
                     state,
                     f"Retries exhausted for {node_id}: {record.error_message}",
                 )
+                self._check_block_budget(state)
             else:
                 # 30-REQ-2.1/2.2: Retry at same tier or escalate
                 if ladder is not None and ladder.escalation_count > 0:
@@ -1388,6 +1398,168 @@ class Orchestrator:
                         )
                     )
                 logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)
+
+    def _check_block_budget(self, state: ExecutionState) -> bool:
+        """Check if the blocked fraction exceeds the configured budget.
+
+        Returns True if the run should stop due to excessive blocking.
+        """
+        max_fraction = self._config.max_blocked_fraction
+        if max_fraction is None:
+            return False
+
+        total = len(state.node_states)
+        if total == 0:
+            return False
+
+        blocked_count = sum(1 for s in state.node_states.values() if s == "blocked")
+        fraction = blocked_count / total
+
+        if fraction >= max_fraction:
+            state.run_status = RunStatus.BLOCK_LIMIT
+            logger.warning(
+                "Block budget exceeded: %.0f%% of tasks blocked "
+                "(limit: %.0f%%). Stopping run.",
+                fraction * 100,
+                max_fraction * 100,
+            )
+            self._emit_audit(
+                AuditEventType.RUN_LIMIT_REACHED,
+                severity=AuditSeverity.WARNING,
+                payload={
+                    "limit_type": "block_budget",
+                    "blocked_count": blocked_count,
+                    "total_nodes": total,
+                    "blocked_fraction": round(fraction, 3),
+                    "max_blocked_fraction": max_fraction,
+                },
+            )
+            self._state_manager.save(state)
+            return True
+
+        return False
+
+    def _check_skeptic_blocking(
+        self,
+        record: SessionRecord,
+        state: ExecutionState,
+    ) -> bool:
+        """Check if a skeptic/oracle session's findings should block downstream tasks.
+
+        Queries persisted review findings from DuckDB, counts critical findings,
+        applies the configured (or learned) block threshold, and calls _block_task()
+        if the threshold is exceeded.
+
+        Returns True if the task was blocked.
+        """
+        archetype = record.archetype
+        if archetype not in ("skeptic", "oracle"):
+            return False
+
+        if self._knowledge_db_conn is None:
+            return False
+
+        # Determine which spec's coder task to block.
+        # Skeptic/oracle node IDs have format: {spec_name}:{group}:{role}
+        # The coder task they gate is {spec_name}:{group}
+        parts = record.node_id.split(":")
+        spec_name = parts[0]
+        task_group = parts[1] if len(parts) > 1 else "1"
+
+        try:
+            from agent_fox.knowledge.review_store import (
+                query_findings_by_session,
+            )
+
+            session_id = f"{record.node_id}:{record.attempt}"
+            findings = query_findings_by_session(
+                self._knowledge_db_conn,
+                session_id,
+            )
+
+            critical_count = sum(
+                1 for f in findings if f.severity.lower() == "critical"
+            )
+
+            if critical_count == 0:
+                return False
+
+            # Resolve threshold
+            if archetype == "skeptic" and self._archetypes_config is not None:
+                configured_threshold = (
+                    self._archetypes_config.skeptic_config.block_threshold
+                )
+            elif archetype == "oracle" and self._archetypes_config is not None:
+                configured_threshold = (
+                    self._archetypes_config.oracle_settings.block_threshold
+                )
+                if configured_threshold is None:
+                    # Oracle is advisory-only when block_threshold is None
+                    return False
+            else:
+                # No config available, use conservative default
+                configured_threshold = 3
+
+            from agent_fox.session.convergence import resolve_block_threshold
+
+            effective_threshold = resolve_block_threshold(
+                configured_threshold,
+                archetype,
+                self._knowledge_db_conn,
+                learn_thresholds=False,
+            )
+
+            blocked = critical_count > effective_threshold
+
+            # Record the blocking decision for threshold learning
+            try:
+                from agent_fox.knowledge.blocking_history import (
+                    BlockingDecision,
+                    record_blocking_decision,
+                )
+
+                decision = BlockingDecision(
+                    spec_name=spec_name,
+                    archetype=archetype,
+                    critical_count=critical_count,
+                    threshold=effective_threshold,
+                    blocked=blocked,
+                    outcome="",  # outcome assessed later
+                )
+                record_blocking_decision(self._knowledge_db_conn, decision)
+            except Exception:
+                logger.debug(
+                    "Failed to record blocking decision for %s",
+                    record.node_id,
+                    exc_info=True,
+                )
+
+            if blocked:
+                # Find the coder node to block
+                coder_node_id = f"{spec_name}:{task_group}"
+                reason = (
+                    f"{archetype.capitalize()} found {critical_count} critical "
+                    f"finding(s) (threshold: {effective_threshold}) for "
+                    f"{spec_name}:{task_group}"
+                )
+                logger.warning(
+                    "%s blocking %s: %s",
+                    archetype.capitalize(),
+                    coder_node_id,
+                    reason,
+                )
+                self._block_task(coder_node_id, state, reason)
+                return True
+
+        except Exception:
+            logger.warning(
+                "Failed to evaluate %s blocking for %s",
+                archetype,
+                record.node_id,
+                exc_info=True,
+            )
+
+        return False
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:
         """Write current node statuses back into plan.json.

@@ -79,6 +79,9 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("OrchestratorConfig", "inter_session_delay"): "Delay between sessions in seconds",
     ("OrchestratorConfig", "max_cost"): "Maximum cost limit",
     ("OrchestratorConfig", "max_sessions"): "Maximum number of sessions",
+    ("OrchestratorConfig", "max_blocked_fraction"): (
+        "Stop run when this fraction of nodes are blocked"
+    ),
     # RoutingConfig
     ("RoutingConfig", "retries_before_escalation"): "Retries before model escalation",
     ("RoutingConfig", "training_threshold"): "Training data threshold",

@@ -26,6 +26,7 @@ class RunStatus(StrEnum):
     COST_LIMIT = "cost_limit"
     SESSION_LIMIT = "session_limit"
     STALLED = "stalled"
+    BLOCK_LIMIT = "block_limit"
 
 
 @dataclass
