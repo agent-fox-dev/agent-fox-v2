@@ -13,9 +13,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox standup` | Generate daily activity report |
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
-| `agent-fox audit` | Query the structured audit log |
 | `agent-fox lint-spec` | Validate specification files |
-| `agent-fox serve-tools` | Launch fox tools MCP server |
 
 ## Global Options
 
@@ -299,58 +297,6 @@ Hard reset requires confirmation unless `--yes` or `--json` is provided.
 
 ---
 
-### audit
-
-Query the structured audit log.
-
-```
-agent-fox audit [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--list-runs` | flag | off | List available run IDs with timestamps and event counts |
-| `--run ID` | string | none | Filter events by run ID |
-| `--event-type TYPE` | string | none | Filter events by event type (e.g. `session.complete`) |
-| `--node-id ID` | string | none | Filter events by node ID |
-| `--since WHEN` | string | none | Filter events after datetime (ISO-8601 or relative: `24h`, `7d`) |
-
-Queries the DuckDB-backed audit log for events emitted during orchestrator
-runs. Each orchestrator invocation generates a unique run ID and emits
-structured events covering session lifecycle, tool usage, model routing,
-git operations, and knowledge harvesting.
-
-Use `agent-fox --json audit` for structured JSON output.
-
-**Event types:** `run.start`, `run.complete`, `run.limit_reached`,
-`session.start`, `session.complete`, `session.fail`, `session.retry`,
-`task.status_change`, `model.escalation`, `model.assessment`,
-`tool.invocation`, `tool.error`, `git.merge`, `git.conflict`,
-`harvest.complete`, `fact.extracted`, `fact.compacted`,
-`knowledge.ingested`, `sync.barrier`.
-
-**Examples:**
-
-```bash
-# List all runs
-agent-fox audit --list-runs
-
-# Show events from a specific run
-agent-fox audit --run 20260312_143000_abc123
-
-# Show only session completions from the last 24 hours
-agent-fox audit --event-type session.complete --since 24h
-
-# JSON output for scripting
-agent-fox --json audit --list-runs
-```
-
-**Exit codes:** `0` always (empty results are not errors). If the DuckDB
-database does not exist or the `audit_events` table is missing, a message
-indicates no audit data is available.
-
----
-
 ### lint-spec
 
 Validate specification files.
@@ -386,25 +332,6 @@ re-validated to produce the final findings list. If the AI rewrite call fails,
 the original criteria are left unchanged.
 
 **Exit codes:** `0` no errors (warnings OK), `1` error-severity findings.
-
----
-
-### serve-tools
-
-Launch the fox tools MCP server on stdio.
-
-```
-agent-fox serve-tools [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--allowed-dirs PATH` | path (multiple) | none | Restrict file operations to these directories |
-
-Exposes the four fox tools (`fox_outline`, `fox_read`, `fox_edit`,
-`fox_search`) over the standard MCP stdio transport. Path sandboxing via
-`--allowed-dirs` restricts file operations to the specified directories and
-their descendants.
 
 ---
 

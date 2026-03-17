@@ -12,6 +12,7 @@ from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.graph.types import Edge, Node, TaskGraph
 
 
 def _make_orchestrator_with_graph(
@@ -33,9 +34,28 @@ def _make_orchestrator_with_graph(
         session_runner_factory=MagicMock(),
     )
 
-    # Inject plan nodes and edges
-    orch._plan_nodes = plan_nodes
-    orch._edges_list = edges_list
+    # Build typed TaskGraph from dict-based plan data
+    typed_nodes = {
+        nid: Node(
+            id=nid,
+            spec_name=n.get("spec_name", ""),
+            group_number=n.get("group_number", 0),
+            title=n.get("title", nid),
+            optional=n.get("optional", False),
+            archetype=n.get("archetype", "coder"),
+            instances=n.get("instances", 1),
+        )
+        for nid, n in plan_nodes.items()
+    }
+    typed_edges = [
+        Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec"))
+        for e in edges_list
+    ]
+    orch._graph = TaskGraph(
+        nodes=typed_nodes,
+        edges=typed_edges,
+        order=list(plan_nodes.keys()),
+    )
 
     # Build edges dict for GraphSync
     edges_dict: dict[str, list[str]] = {nid: [] for nid in node_states}

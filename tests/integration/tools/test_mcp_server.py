@@ -1,7 +1,7 @@
 """MCP server integration tests.
 
 Test Spec: TS-29-22 (four tools), TS-29-23 (delegates to core),
-           TS-29-24 (CLI command), TS-29-25 (allowed-dirs),
+           TS-29-25 (allowed-dirs),
            TS-29-E16 (path blocked), TS-29-E17 (clean shutdown)
 Requirements: 29-REQ-7.1, 29-REQ-7.2, 29-REQ-7.3, 29-REQ-7.4,
               29-REQ-7.E1, 29-REQ-7.E2
@@ -12,7 +12,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from click.testing import CliRunner
 
 
 class TestMCPFourToolsRegistered:
@@ -43,18 +42,6 @@ class TestMCPDelegatesToCore:
         # MCP result is a text string; verify each direct line's hash appears
         for hl in direct.lines:
             assert hl.hash in mcp_result
-
-
-class TestMCPCLICommand:
-    """TS-29-24: serve-tools is a registered CLI command."""
-
-    def test_cli_command(self) -> None:
-        from agent_fox.cli.app import main
-
-        runner = CliRunner()
-        result = runner.invoke(main, ["serve-tools", "--help"])
-        assert result.exit_code == 0
-        assert "mcp" in result.output.lower() or "MCP" in result.output
 
 
 class TestMCPAllowedDirs:

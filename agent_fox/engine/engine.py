@@ -16,7 +16,6 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import signal
 from collections.abc import Callable
@@ -34,17 +33,20 @@ from agent_fox.core.config import (
 )
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
+from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
+from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
     StateManager,
-    invoke_runner,
 )
-from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
+from agent_fox.graph.injection import ensure_graph_archetypes
+from agent_fox.graph.persistence import load_plan, save_plan
+from agent_fox.graph.types import NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
 from agent_fox.knowledge.audit import (
     AuditEvent,
@@ -74,497 +76,30 @@ class _RoutingState:
     retries_before_escalation: int
 
 
-# ---------------------------------------------------------------------------
-# SerialRunner (merged from serial.py)
-# ---------------------------------------------------------------------------
-
-
-class SerialRunner:
-    """Runs tasks one at a time with inter-session delay."""
-
-    def __init__(
-        self,
-        session_runner_factory: Callable[..., Any],
-        inter_session_delay: float,
-    ) -> None:
-        self._session_runner_factory = session_runner_factory
-        self._inter_session_delay = inter_session_delay
-
-    async def execute(
-        self,
-        node_id: str,
-        attempt: int,
-        previous_error: str | None,
-        *,
-        archetype: str = "coder",
-        instances: int = 1,
-        assessed_tier: Any | None = None,
-        run_id: str = "",
-    ) -> SessionRecord:
-        """Execute a single session and return the outcome record."""
-        runner = self._session_runner_factory(
-            node_id,
-            archetype=archetype,
-            instances=instances,
-            assessed_tier=assessed_tier,
-            run_id=run_id,
-        )
-        return await invoke_runner(runner, node_id, attempt, previous_error)
-
-    async def delay(self) -> None:
-        """Wait for the configured inter-session delay."""
-        if self._inter_session_delay > 0:
-            await asyncio.sleep(self._inter_session_delay)
-
-
-# ---------------------------------------------------------------------------
-# CircuitBreaker (merged from circuit.py)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class LaunchDecision:
-    """Result of a circuit breaker check."""
-
-    allowed: bool
-    reason: str | None = None  # None if allowed, explanation if denied
-
-
-class CircuitBreaker:
-    """Pre-launch checks: cost ceiling, session limit, retry counter.
-
-    The circuit breaker is consulted before every session launch. It
-    checks three conditions (in order):
-
-    1. **Cost ceiling:** cumulative cost >= config.max_cost
-    2. **Session limit:** total sessions >= config.max_sessions
-    3. **Retry limit:** attempt number > config.max_retries + 1
-
-    If any check fails, the launch is denied with an explanatory reason.
-    """
-
-    def __init__(self, config: OrchestratorConfig) -> None:
-        self._config = config
-
-    def _check_global_limits(
-        self,
-        state: ExecutionState,
-    ) -> LaunchDecision | None:
-        """Check cost ceiling and session limit.
-
-        Returns a denied LaunchDecision if a limit is hit, or None if
-        both checks pass.
-        """
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Cost limit reached: cumulative cost "
-                    f"${state.total_cost:.2f} >= "
-                    f"max_cost ${self._config.max_cost:.2f}"
-                ),
-            )
-
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Session limit reached: {state.total_sessions} "
-                    f"sessions >= max_sessions {self._config.max_sessions}"
-                ),
-            )
-
-        return None
-
-    def check_launch(
-        self,
-        node_id: str,
-        attempt: int,
-        state: ExecutionState,
-    ) -> LaunchDecision:
-        """Determine whether a session launch is permitted.
-
-        Checks (in order):
-        1. Cost ceiling: state.total_cost >= config.max_cost
-        2. Session limit: state.total_sessions >= config.max_sessions
-        3. Retry limit: attempt > config.max_retries + 1
-
-        Args:
-            node_id: The task to check.
-            attempt: The proposed attempt number (1-indexed).
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        denied = self._check_global_limits(state)
-        if denied is not None:
-            return denied
-
-        # Retry limit check
-        max_attempts = self._config.max_retries + 1
-        if attempt > max_attempts:
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Retry limit exceeded for {node_id}: "
-                    f"attempt {attempt} > max_retries + 1 "
-                    f"({max_attempts})"
-                ),
-            )
-
-        return LaunchDecision(allowed=True)
-
-    def should_stop(self, state: ExecutionState) -> LaunchDecision:
-        """Check whether the orchestrator should stop launching entirely.
-
-        This is called before picking the next batch of ready tasks.
-        Checks cost ceiling and session limit only (not per-task retry).
-
-        Args:
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        return self._check_global_limits(state) or LaunchDecision(allowed=True)
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator (from orchestrator.py)
-# ---------------------------------------------------------------------------
-
-
-def _load_plan_data(plan_path: Path) -> dict:
-    """Load plan.json and return the raw plan dict.
-
-    Raises:
-        PlanError: if plan.json is missing or corrupted
-    """
-    if not plan_path.exists():
-        raise PlanError(
-            f"Plan file not found: {plan_path}. "
-            f"Run `agent-fox plan` first to generate a plan.",
-            path=str(plan_path),
-        )
-
-    try:
-        raw = plan_path.read_text(encoding="utf-8")
-        return json.loads(raw)
-    except (json.JSONDecodeError, OSError) as exc:
-        raise PlanError(
-            f"Corrupted plan file {plan_path}: {exc}. "
-            f"Run `agent-fox plan` to regenerate.",
-            path=str(plan_path),
-        ) from exc
-
-
-def _ensure_archetype_nodes(
-    plan_data: dict,
-    archetypes_config: ArchetypesConfig | None,
-    specs_dir: Path | None = None,
-) -> bool:
-    """Inject missing archetype nodes into plan_data based on config.
-
-    Examines each spec in the plan and adds auto_pre/auto_post nodes
-    if they're enabled in config but absent from the plan. This ensures
-    archetypes activate at runtime even with a stale cached plan.
-
-    Returns True if any nodes were injected (plan needs re-persisting).
-    """
-    if archetypes_config is None:
-        return False
-
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
-    nodes = plan_data.get("nodes", {})
-    edges = plan_data.get("edges", [])
-    order = plan_data.get("order", [])
-    injected = False
-
-    # Group existing coder nodes by spec
-    spec_groups: dict[str, list[int]] = {}
-    for nid, node in nodes.items():
-        spec = node.get("spec_name", "")
-        group = node.get("group_number", 0)
-        arch = node.get("archetype", "coder")
-        if arch == "coder":
-            spec_groups.setdefault(spec, []).append(group)
-
-    for spec, groups in spec_groups.items():
-        sorted_groups = sorted(groups)
-        first_group = sorted_groups[0]
-        last_group = sorted_groups[-1]
-
-        # auto_pre injection (e.g., Skeptic/Oracle at group 0)
-        # 32-REQ-3.E1: When a legacy plan has {spec}:0 and we need to add
-        # another auto_pre, add the new one with a suffixed ID to avoid
-        # conflicting with the existing node.
-        enabled_auto_pre: list[tuple[str, Any]] = [
-            (arch_name, entry)
-            for arch_name, entry in ARCHETYPE_REGISTRY.items()
-            if entry.injection == "auto_pre"
-            and getattr(archetypes_config, arch_name, False)
-        ]
-
-        # Gate oracle: skip when spec has no existing code to validate
-        if any(n == "oracle" for n, _ in enabled_auto_pre) and specs_dir is not None:
-            from agent_fox.graph.builder import spec_has_existing_code
-
-            spec_path = specs_dir / spec
-            if not spec_has_existing_code(spec_path):
-                enabled_auto_pre = [
-                    (n, e) for n, e in enabled_auto_pre if n != "oracle"
-                ]
-                logger.info(
-                    "Skipping oracle for %s: no existing code to validate",
-                    spec,
-                )
-
-        # Find existing auto_pre archetypes for this spec (group_number == 0)
-        existing_archetypes: set[str] = set()
-        for nid, n in nodes.items():
-            if n.get("spec_name") == spec and n.get("group_number") == 0:
-                existing_archetypes.add(n.get("archetype", ""))
-
-        needed = [
-            (arch_name, entry)
-            for arch_name, entry in enabled_auto_pre
-            if arch_name not in existing_archetypes
-        ]
-
-        for arch_name, entry in needed:
-            # Use suffixed ID to avoid conflict with existing :0 node
-            node_id = f"{spec}:0:{arch_name}"
-            if node_id in nodes:
-                continue  # already present
-
-            instances_cfg = getattr(archetypes_config, "instances", None)
-            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
-
-            nodes[node_id] = {
-                "id": node_id,
-                "spec_name": spec,
-                "group_number": 0,
-                "title": f"{arch_name.capitalize()} Review",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": arch_name,
-                "instances": instances if isinstance(instances, int) else 1,
-            }
-            first_id = f"{spec}:{first_group}"
-            if first_id in nodes:
-                edges.append(
-                    {
-                        "source": node_id,
-                        "target": first_id,
-                        "kind": "intra_spec",
-                    }
-                )
-            order.insert(0, node_id)
-            injected = True
-            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
-
-        # auto_post injection (e.g., Verifier after last group)
-        offset = 1
-        for arch_name, entry in ARCHETYPE_REGISTRY.items():
-            if entry.injection != "auto_post":
-                continue
-            if not getattr(archetypes_config, arch_name, False):
-                continue
-
-            post_group = last_group + offset
-            node_id = f"{spec}:{post_group}"
-            if node_id in nodes:
-                offset += 1
-                continue  # already present
-
-            instances_cfg = getattr(archetypes_config, "instances", None)
-            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
-
-            nodes[node_id] = {
-                "id": node_id,
-                "spec_name": spec,
-                "group_number": post_group,
-                "title": f"{arch_name.capitalize()} Check",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": arch_name,
-                "instances": instances if isinstance(instances, int) else 1,
-            }
-            last_id = f"{spec}:{last_group}"
-            if last_id in nodes:
-                edges.append(
-                    {
-                        "source": last_id,
-                        "target": node_id,
-                        "kind": "intra_spec",
-                    }
-                )
-            order.append(node_id)
-            offset += 1
-            injected = True
-            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
-
-    # auto_mid injection (e.g., Auditor after test-writing groups)
-    if getattr(archetypes_config, "auditor", False):
-        from agent_fox.graph.builder import count_ts_entries, is_test_writing_group
-
-        auditor_config = getattr(archetypes_config, "auditor_config", None)
-        min_ts = getattr(auditor_config, "min_ts_entries", 5) if auditor_config else 5
-
-        instances_cfg = getattr(archetypes_config, "instances", None)
-        aud_instances = getattr(instances_cfg, "auditor", 1) if instances_cfg else 1
-
-        for spec, groups in spec_groups.items():
-            sorted_grps = sorted(groups)
-
-            # Check if any auditor nodes already exist for this spec
-            existing_auditors = {
-                nid
-                for nid, n in nodes.items()
-                if n.get("spec_name") == spec and n.get("archetype") == "auditor"
-            }
-            if existing_auditors:
-                continue
-
-            # For runtime injection we need a spec path. Try .specs/{spec}
-            from pathlib import Path
-
-            candidate_path = Path(f".specs/{spec}")
-            if candidate_path.exists():
-                ts_count = count_ts_entries(candidate_path)
-                if ts_count < min_ts:
-                    logger.info(
-                        "Skipping auditor injection for spec '%s': "
-                        "%d TS entries < min_ts_entries=%d",
-                        spec,
-                        ts_count,
-                        min_ts,
-                    )
-                    continue
-            else:
-                # Cannot verify TS count, skip injection
-                continue
-
-            # Find test-writing groups
-            for grp_num in sorted_grps:
-                grp_nid = f"{spec}:{grp_num}"
-                grp_node = nodes.get(grp_nid, {})
-                grp_title = grp_node.get("title", "")
-
-                if not is_test_writing_group(grp_title):
-                    continue
-
-                aud_nid = f"{spec}:{grp_num}:auditor"
-                if aud_nid in nodes:
-                    continue
-
-                nodes[aud_nid] = {
-                    "id": aud_nid,
-                    "spec_name": spec,
-                    "group_number": grp_num,
-                    "title": "Auditor Review",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "archetype": "auditor",
-                    "instances": aud_instances if isinstance(aud_instances, int) else 1,
-                }
-
-                # Find the next group in sorted order
-                grp_idx = sorted_grps.index(grp_num)
-                next_grp = (
-                    sorted_grps[grp_idx + 1] if grp_idx + 1 < len(sorted_grps) else None
-                )
-
-                # Remove existing edge from test group to next group
-                if next_grp is not None:
-                    next_nid = f"{spec}:{next_grp}"
-                    edges[:] = [
-                        e
-                        for e in edges
-                        if not (
-                            e.get("source") == grp_nid and e.get("target") == next_nid
-                        )
-                    ]
-
-                # Edge: test_group -> auditor
-                edges.append(
-                    {
-                        "source": grp_nid,
-                        "target": aud_nid,
-                        "kind": "intra_spec",
-                    }
-                )
-
-                # Edge: auditor -> next_group (if exists)
-                if next_grp is not None:
-                    next_nid = f"{spec}:{next_grp}"
-                    if next_nid in nodes:
-                        edges.append(
-                            {
-                                "source": aud_nid,
-                                "target": next_nid,
-                                "kind": "intra_spec",
-                            }
-                        )
-
-                # Insert into order after the test group
-                if grp_nid in order:
-                    idx = order.index(grp_nid)
-                    order.insert(idx + 1, aud_nid)
-                else:
-                    order.append(aud_nid)
-
-                injected = True
-                logger.info("Injected auditor node '%s' at runtime", aud_nid)
-
-    return injected
-
-
-def _build_edges_dict(
-    nodes: dict,
-    edges_list: list[dict],
-) -> dict[str, list[str]]:
-    """Build adjacency list from plan edges.
+def _build_edges_dict_from_graph(graph: TaskGraph) -> dict[str, list[str]]:
+    """Build adjacency list from a TaskGraph.
 
     Returns dict mapping each node to its dependencies (predecessors).
     """
-    edges_dict: dict[str, list[str]] = {nid: [] for nid in nodes}
-    for edge in edges_list:
-        source = edge["source"]
-        target = edge["target"]
-        if target in edges_dict:
-            edges_dict[target].append(source)
+    edges_dict: dict[str, list[str]] = {nid: [] for nid in graph.nodes}
+    for edge in graph.edges:
+        if edge.target in edges_dict:
+            edges_dict[edge.target].append(edge.source)
     return edges_dict
 
 
-def _seed_node_states(nodes: dict) -> dict[str, str]:
-    """Seed node states from plan.json node data.
+def _seed_node_states_from_graph(graph: TaskGraph) -> dict[str, str]:
+    """Seed node states from a TaskGraph.
 
     Honours statuses already set by the graph builder (e.g. "completed"
     from tasks.md ``[x]`` markers) instead of resetting everything to
     "pending".
     """
     node_states: dict[str, str] = {}
-    for nid, node_data in nodes.items():
-        status = "pending"
-        if isinstance(node_data, dict):
-            plan_status = node_data.get("status", "pending")
-            if plan_status in ("completed", "skipped"):
-                status = plan_status
+    for nid, node in graph.nodes.items():
+        status = node.status.value
+        if status not in ("completed", "skipped"):
+            status = "pending"
         node_states[nid] = status
     return node_states
 
@@ -572,7 +107,7 @@ def _seed_node_states(nodes: dict) -> dict[str, str]:
 def _load_or_init_state(
     state_manager: StateManager,
     plan_hash: str,
-    nodes: dict,
+    graph: TaskGraph,
 ) -> ExecutionState:
     """Load existing state or initialize fresh state.
 
@@ -581,7 +116,7 @@ def _load_or_init_state(
     ``completed``/``skipped`` statuses from the old state for nodes that
     still exist in the new plan, so that already-finished work is not
     re-executed. New nodes and previously failed/blocked nodes start fresh.
-    If no prior state exists, seed entirely from plan.json.
+    If no prior state exists, seed entirely from the TaskGraph.
     """
     existing = state_manager.load()
 
@@ -590,7 +125,7 @@ def _load_or_init_state(
             # Plan structure changed (e.g. new spec added).  Merge old
             # completed/skipped statuses into the new plan rather than
             # discarding them — tasks.md checkboxes may be stale.
-            node_states = _seed_node_states(nodes)
+            node_states = _seed_node_states_from_graph(graph)
             carried = 0
             for nid in node_states:
                 old_status = existing.node_states.get(nid)
@@ -609,18 +144,18 @@ def _load_or_init_state(
             existing.node_states = node_states
             existing.updated_at = datetime.now(UTC).isoformat()
             existing.blocked_reasons = {
-                k: v for k, v in existing.blocked_reasons.items() if k in nodes
+                k: v for k, v in existing.blocked_reasons.items() if k in graph.nodes
             }
             return existing
 
         # Hash matches — reuse existing state, add any new nodes.
-        for nid in nodes:
+        for nid in graph.nodes:
             if nid not in existing.node_states:
                 existing.node_states[nid] = "pending"
         return existing
 
-    # No prior state — seed from plan.json.
-    node_states = _seed_node_states(nodes)
+    # No prior state — seed from the TaskGraph.
+    node_states = _seed_node_states_from_graph(graph)
     now = datetime.now(UTC).isoformat()
     return ExecutionState(
         plan_hash=plan_hash,
@@ -755,9 +290,7 @@ class Orchestrator:
         self._no_hooks = no_hooks
         self._task_callback = task_callback
         self._barrier_callback = barrier_callback
-        self._plan_nodes: dict = {}
-        self._edges_list: list[dict] = []
-        self._plan_data: dict = {}  # Full plan data for plan.json updates
+        self._graph: TaskGraph | None = None
         self._archetypes_config = archetypes_config
         self._planning_config = planning_config or PlanningConfig()
         self._sink = sink_dispatcher
@@ -1034,17 +567,14 @@ class Orchestrator:
             except Exception:
                 logger.warning("Failed to enforce audit retention", exc_info=True)
 
-        plan_data = _load_plan_data(self._plan_path)
+        graph = self._load_graph()
 
         # Runtime archetype injection: ensure config-enabled archetypes
         # have nodes in the plan even if the plan was built before they
         # were enabled.
-        if _ensure_archetype_nodes(plan_data, self._archetypes_config, self._specs_dir):
+        if ensure_graph_archetypes(graph, self._archetypes_config, self._specs_dir):
             try:
-                self._plan_path.write_text(
-                    json.dumps(plan_data, indent=2) + "\n",
-                    encoding="utf-8",
-                )
+                save_plan(graph, self._plan_path)
                 logger.info("Persisted plan with injected archetype nodes")
             except OSError:
                 logger.warning(
@@ -1052,11 +582,8 @@ class Orchestrator:
                     exc_info=True,
                 )
 
-        nodes = plan_data.get("nodes", {})
-        edges_list = plan_data.get("edges", [])
-
         # 04-REQ-1.E2: Empty plan
-        if not nodes:
+        if not graph.nodes:
             return ExecutionState(
                 plan_hash=self._compute_plan_hash(),
                 node_states={},
@@ -1065,14 +592,11 @@ class Orchestrator:
                 updated_at=datetime.now(UTC).isoformat(),
             )
 
-        # Store plan data for sync barrier hot-loading
-        self._plan_nodes = nodes
-        self._edges_list = edges_list
-        self._plan_data = plan_data
+        self._graph = graph
 
-        edges_dict = _build_edges_dict(nodes, edges_list)
+        edges_dict = _build_edges_dict_from_graph(graph)
         plan_hash = self._compute_plan_hash()
-        state = _load_or_init_state(self._state_manager, plan_hash, nodes)
+        state = _load_or_init_state(self._state_manager, plan_hash, graph)
         _reset_in_progress_tasks(state, self._state_manager)
 
         self._graph_sync = GraphSync(state.node_states, edges_dict)
@@ -1087,7 +611,7 @@ class Orchestrator:
             AuditEventType.RUN_START,
             payload={
                 "plan_hash": plan_hash,
-                "total_nodes": len(nodes),
+                "total_nodes": len(graph.nodes),
                 "parallel": self._is_parallel,
             },
         )
@@ -1097,6 +621,10 @@ class Orchestrator:
             while True:
                 if self._signal.interrupted:
                     await self._shutdown(state)
+                    return state
+
+                # Check block budget: stop if too many tasks are blocked
+                if state.run_status == RunStatus.BLOCK_LIMIT:
                     return state
 
                 # Check circuit breaker: cost/session limits (04-REQ-5.*)
@@ -1230,10 +758,10 @@ class Orchestrator:
 
             for node_id in self.node_states:
                 # Extract spec_name and archetype from plan node data
-                node_data = self._plan_nodes.get(node_id, {})
-                spec_name = node_data.get("spec_name", "")
-                archetype = node_data.get("archetype", "coder")
-                tier = node_data.get("tier", "STANDARD")
+                node = self._graph.nodes.get(node_id) if self._graph else None
+                spec_name = node.spec_name if node else ""
+                archetype = node.archetype if node else "coder"
+                tier = "STANDARD"
 
                 hint = get_duration_hint(
                     db,
@@ -1276,9 +804,9 @@ class Orchestrator:
 
             impacts: list[FileImpact] = []
             for node_id in ready:
-                node_data = self._plan_nodes.get(node_id, {})
-                spec_name = node_data.get("spec_name", "")
-                task_group = node_data.get("task_group", 1)
+                node = self._graph.nodes.get(node_id) if self._graph else None
+                spec_name = node.spec_name if node else ""
+                task_group = node.group_number if node else 1
 
                 # Try to extract file impacts from spec dir
                 if self._specs_dir is not None:
@@ -1316,6 +844,27 @@ class Orchestrator:
             return self._graph_sync.node_states
         return {}
 
+    def _load_graph(self) -> TaskGraph:
+        """Load plan.json as a typed TaskGraph.
+
+        Raises:
+            PlanError: if plan.json is missing or corrupted
+        """
+        graph = load_plan(self._plan_path)
+        if graph is None:
+            if not self._plan_path.exists():
+                raise PlanError(
+                    f"Plan file not found: {self._plan_path}. "
+                    f"Run `agent-fox plan` first to generate a plan.",
+                    path=str(self._plan_path),
+                )
+            raise PlanError(
+                f"Corrupted plan file {self._plan_path}. "
+                f"Run `agent-fox plan` to regenerate.",
+                path=str(self._plan_path),
+            )
+        return graph
+
     def _compute_plan_hash(self) -> str:
         """Compute plan hash, returning empty string if file doesn't exist."""
         if self._plan_path.exists():
@@ -1347,6 +896,7 @@ class Orchestrator:
                 state,
                 f"Retry limit exceeded for {node_id}",
             )
+            self._check_block_budget(state)
             self._state_manager.save(state)
             return "blocked"
         return "limited"
@@ -1587,6 +1137,10 @@ class Orchestrator:
                         duration_s=duration_s,
                     )
                 )
+
+            # Skeptic/oracle blocking: check findings after successful review
+            if self._check_skeptic_blocking(record, state):
+                self._check_block_budget(state)
         else:
             error_tracker[node_id] = record.error_message
 
@@ -1644,6 +1198,7 @@ class Orchestrator:
                     state,
                     f"Retries exhausted for {node_id}: {record.error_message}",
                 )
+                self._check_block_budget(state)
             else:
                 # 30-REQ-2.1/2.2: Retry at same tier or escalate
                 if ladder is not None and ladder.escalation_count > 0:
@@ -1678,17 +1233,15 @@ class Orchestrator:
         self._state_manager.save(state)
 
     def _get_node_archetype(self, node_id: str) -> str:
-        """Get the archetype name for a node from plan data."""
-        node_data = self._plan_nodes.get(node_id, {})
-        if isinstance(node_data, dict):
-            return node_data.get("archetype", "coder")
+        """Get the archetype name for a node from the task graph."""
+        if self._graph is not None and node_id in self._graph.nodes:
+            return self._graph.nodes[node_id].archetype
         return "coder"
 
     def _get_node_instances(self, node_id: str) -> int:
-        """Get the instance count for a node from plan data."""
-        node_data = self._plan_nodes.get(node_id, {})
-        if isinstance(node_data, dict):
-            return node_data.get("instances", 1)
+        """Get the instance count for a node from the task graph."""
+        if self._graph is not None and node_id in self._graph.nodes:
+            return self._graph.nodes[node_id].instances
         return 1
 
     def _get_predecessors(self, node_id: str) -> list[str]:
@@ -1772,9 +1325,13 @@ class Orchestrator:
         """Discover and incorporate new specs into the running graph."""
         assert self._specs_dir is not None  # noqa: S101
         assert self._graph_sync is not None  # noqa: S101
+        assert self._graph is not None  # noqa: S101
 
-        graph = self._build_task_graph(state)
-        updated_graph, new_spec_names = hot_load_specs(graph, self._specs_dir)
+        # Sync current execution state into graph node statuses
+        for nid, node in self._graph.nodes.items():
+            node.status = NodeStatus(state.node_states.get(nid, "pending"))
+
+        updated_graph, new_spec_names = hot_load_specs(self._graph, self._specs_dir)
 
         if not new_spec_names:
             return
@@ -1785,72 +1342,28 @@ class Orchestrator:
             ", ".join(new_spec_names),
         )
 
-        # Add new nodes to plan data and state
+        # Merge new nodes into our graph and state
         for nid, node in updated_graph.nodes.items():
-            if nid not in self._plan_nodes:
-                self._plan_nodes[nid] = {
-                    "id": nid,
-                    "spec_name": node.spec_name,
-                    "group_number": node.group_number,
-                    "title": node.title,
-                    "optional": node.optional,
-                    "status": "pending",
-                    "subtask_count": node.subtask_count,
-                    "body": node.body,
-                    "archetype": node.archetype,
-                    "instances": node.instances,
-                }
+            if nid not in self._graph.nodes:
+                self._graph.nodes[nid] = node
                 state.node_states[nid] = "pending"
 
+        # Merge new edges
+        existing_edge_set = {(e.source, e.target) for e in self._graph.edges}
+        for edge in updated_graph.edges:
+            if (edge.source, edge.target) not in existing_edge_set:
+                self._graph.edges.append(edge)
+
         # 32-REQ-4.1: Inject archetype nodes for hot-loaded specs
-        plan_data = {
-            "nodes": self._plan_nodes,
-            "edges": self._edges_list,
-            "order": [],
-        }
-        _ensure_archetype_nodes(plan_data, self._archetypes_config, self._specs_dir)
+        ensure_graph_archetypes(self._graph, self._archetypes_config, self._specs_dir)
         # Sync any newly injected archetype nodes into state
-        for nid in self._plan_nodes:
+        for nid in self._graph.nodes:
             if nid not in state.node_states:
                 state.node_states[nid] = "pending"
 
-        # Rebuild edges and GraphSync with new nodes/edges
-        self._edges_list = [
-            {"source": e.source, "target": e.target, "kind": e.kind}
-            for e in updated_graph.edges
-        ]
-        # Include any edges added by archetype injection
-        existing_edge_set = {(e["source"], e["target"]) for e in self._edges_list}
-        for e in plan_data.get("edges", []):
-            key = (e["source"], e["target"])
-            if key not in existing_edge_set:
-                self._edges_list.append(e)
-        edges_dict = _build_edges_dict(self._plan_nodes, self._edges_list)
+        # Rebuild GraphSync with updated graph
+        edges_dict = _build_edges_dict_from_graph(self._graph)
         self._graph_sync = GraphSync(state.node_states, edges_dict)
-
-    def _build_task_graph(self, state: ExecutionState) -> TaskGraph:
-        """Build a TaskGraph from current plan data and execution state."""
-        graph_nodes = {}
-        for nid, data in self._plan_nodes.items():
-            graph_nodes[nid] = Node(
-                id=nid,
-                spec_name=data["spec_name"],
-                group_number=data["group_number"],
-                title=data.get("title", ""),
-                optional=data.get("optional", False),
-                status=NodeStatus(state.node_states.get(nid, "pending")),
-                subtask_count=data.get("subtask_count", 0),
-                body=data.get("body", ""),
-            )
-        graph_edges = [
-            Edge(
-                source=e["source"],
-                target=e["target"],
-                kind=e.get("kind", "intra_spec"),
-            )
-            for e in self._edges_list
-        ]
-        return TaskGraph(nodes=graph_nodes, edges=graph_edges, order=[])
 
     def _block_task(
         self,
@@ -1886,32 +1399,191 @@ class Orchestrator:
                     )
                 logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)
 
+    def _check_block_budget(self, state: ExecutionState) -> bool:
+        """Check if the blocked fraction exceeds the configured budget.
+
+        Returns True if the run should stop due to excessive blocking.
+        """
+        max_fraction = self._config.max_blocked_fraction
+        if max_fraction is None:
+            return False
+
+        total = len(state.node_states)
+        if total == 0:
+            return False
+
+        blocked_count = sum(1 for s in state.node_states.values() if s == "blocked")
+        fraction = blocked_count / total
+
+        if fraction >= max_fraction:
+            state.run_status = RunStatus.BLOCK_LIMIT
+            logger.warning(
+                "Block budget exceeded: %.0f%% of tasks blocked "
+                "(limit: %.0f%%). Stopping run.",
+                fraction * 100,
+                max_fraction * 100,
+            )
+            self._emit_audit(
+                AuditEventType.RUN_LIMIT_REACHED,
+                severity=AuditSeverity.WARNING,
+                payload={
+                    "limit_type": "block_budget",
+                    "blocked_count": blocked_count,
+                    "total_nodes": total,
+                    "blocked_fraction": round(fraction, 3),
+                    "max_blocked_fraction": max_fraction,
+                },
+            )
+            self._state_manager.save(state)
+            return True
+
+        return False
+
+    def _check_skeptic_blocking(
+        self,
+        record: SessionRecord,
+        state: ExecutionState,
+    ) -> bool:
+        """Check if a skeptic/oracle session's findings should block downstream tasks.
+
+        Queries persisted review findings from DuckDB, counts critical findings,
+        applies the configured (or learned) block threshold, and calls _block_task()
+        if the threshold is exceeded.
+
+        Returns True if the task was blocked.
+        """
+        archetype = record.archetype
+        if archetype not in ("skeptic", "oracle"):
+            return False
+
+        if self._knowledge_db_conn is None:
+            return False
+
+        # Determine which spec's coder task to block.
+        # Skeptic/oracle node IDs have format: {spec_name}:{group}:{role}
+        # The coder task they gate is {spec_name}:{group}
+        parts = record.node_id.split(":")
+        spec_name = parts[0]
+        task_group = parts[1] if len(parts) > 1 else "1"
+
+        try:
+            from agent_fox.knowledge.review_store import (
+                query_findings_by_session,
+            )
+
+            session_id = f"{record.node_id}:{record.attempt}"
+            findings = query_findings_by_session(
+                self._knowledge_db_conn,
+                session_id,
+            )
+
+            critical_count = sum(
+                1 for f in findings if f.severity.lower() == "critical"
+            )
+
+            if critical_count == 0:
+                return False
+
+            # Resolve threshold
+            if archetype == "skeptic" and self._archetypes_config is not None:
+                configured_threshold = (
+                    self._archetypes_config.skeptic_config.block_threshold
+                )
+            elif archetype == "oracle" and self._archetypes_config is not None:
+                configured_threshold = (
+                    self._archetypes_config.oracle_settings.block_threshold
+                )
+                if configured_threshold is None:
+                    # Oracle is advisory-only when block_threshold is None
+                    return False
+            else:
+                # No config available, use conservative default
+                configured_threshold = 3
+
+            from agent_fox.session.convergence import resolve_block_threshold
+
+            effective_threshold = resolve_block_threshold(
+                configured_threshold,
+                archetype,
+                self._knowledge_db_conn,
+                learn_thresholds=False,
+            )
+
+            blocked = critical_count > effective_threshold
+
+            # Record the blocking decision for threshold learning
+            try:
+                from agent_fox.knowledge.blocking_history import (
+                    BlockingDecision,
+                    record_blocking_decision,
+                )
+
+                decision = BlockingDecision(
+                    spec_name=spec_name,
+                    archetype=archetype,
+                    critical_count=critical_count,
+                    threshold=effective_threshold,
+                    blocked=blocked,
+                    outcome="",  # outcome assessed later
+                )
+                record_blocking_decision(self._knowledge_db_conn, decision)
+            except Exception:
+                logger.debug(
+                    "Failed to record blocking decision for %s",
+                    record.node_id,
+                    exc_info=True,
+                )
+
+            if blocked:
+                # Find the coder node to block
+                coder_node_id = f"{spec_name}:{task_group}"
+                reason = (
+                    f"{archetype.capitalize()} found {critical_count} critical "
+                    f"finding(s) (threshold: {effective_threshold}) for "
+                    f"{spec_name}:{task_group}"
+                )
+                logger.warning(
+                    "%s blocking %s: %s",
+                    archetype.capitalize(),
+                    coder_node_id,
+                    reason,
+                )
+                self._block_task(coder_node_id, state, reason)
+                return True
+
+        except Exception:
+            logger.warning(
+                "Failed to evaluate %s blocking for %s",
+                archetype,
+                record.node_id,
+                exc_info=True,
+            )
+
+        return False
+
     def _sync_plan_statuses(self, state: ExecutionState) -> None:
         """Write current node statuses back into plan.json.
 
-        Updates each node's ``status`` field in the plan data to match
-        the execution state, then overwrites plan.json. This keeps the
-        plan file in sync with reality so ``agent-fox status`` and
+        Updates each node's ``status`` field in the graph to match
+        the execution state, then persists via save_plan. This keeps
+        the plan file in sync with reality so ``agent-fox status`` and
         direct inspection of plan.json show accurate progress.
         """
-        if not self._plan_data or not state.node_states:
+        if self._graph is None or not state.node_states:
             return
 
-        nodes = self._plan_data.get("nodes", {})
         changed = False
         for nid, current_status in state.node_states.items():
-            if nid in nodes and nodes[nid].get("status") != current_status:
-                nodes[nid]["status"] = current_status
+            node = self._graph.nodes.get(nid)
+            if node is not None and node.status.value != current_status:
+                node.status = NodeStatus(current_status)
                 changed = True
 
         if not changed:
             return
 
         try:
-            self._plan_path.write_text(
-                json.dumps(self._plan_data, indent=2) + "\n",
-                encoding="utf-8",
-            )
+            save_plan(self._graph, self._plan_path)
             logger.info("Updated plan.json with current node statuses")
         except OSError:
             logger.warning("Failed to update plan.json", exc_info=True)

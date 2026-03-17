@@ -31,6 +31,7 @@ class MockSessionOutcome:
     error_message: str | None = None
     spec_name: str = "test_spec"
     task_group: int = 1
+    archetype: str = "coder"
 
 
 # -- Mock session runner that records dispatch calls -------------------
@@ -112,6 +113,7 @@ def make_plan_json(
             "status": props.get("status", "pending"),
             "subtask_count": props.get("subtask_count", 0),
             "body": props.get("body", ""),
+            "archetype": props.get("archetype", "coder"),
         }
 
     plan = {

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.engine.engine import _load_or_init_state, _seed_node_states
+from agent_fox.engine.engine import _load_or_init_state, _seed_node_states_from_graph
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.graph.types import Node, NodeStatus, TaskGraph
 
 
 def _make_state(
@@ -35,36 +36,44 @@ def _make_state(
     )
 
 
-def _make_nodes(**statuses: str) -> dict:
-    """Build a plan nodes dict. Keys are node IDs, values are statuses."""
-    return {
-        nid: {"id": nid, "status": status, "spec_name": "s", "group_number": 1}
+def _make_graph(**statuses: str) -> TaskGraph:
+    """Build a TaskGraph. Keys are node IDs, values are status strings."""
+    nodes = {
+        nid: Node(
+            id=nid,
+            spec_name="s",
+            group_number=1,
+            title=nid,
+            optional=False,
+            status=NodeStatus(status),
+        )
         for nid, status in statuses.items()
     }
+    return TaskGraph(nodes=nodes, edges=[], order=list(statuses.keys()))
 
 
 class TestSeedNodeStates:
-    """Unit tests for _seed_node_states helper."""
+    """Unit tests for _seed_node_states_from_graph helper."""
 
     def test_pending_by_default(self) -> None:
-        nodes = _make_nodes(a="pending", b="pending")
-        result = _seed_node_states(nodes)
+        graph = _make_graph(a="pending", b="pending")
+        result = _seed_node_states_from_graph(graph)
         assert result == {"a": "pending", "b": "pending"}
 
     def test_honours_completed(self) -> None:
-        nodes = _make_nodes(a="completed", b="pending")
-        result = _seed_node_states(nodes)
+        graph = _make_graph(a="completed", b="pending")
+        result = _seed_node_states_from_graph(graph)
         assert result["a"] == "completed"
         assert result["b"] == "pending"
 
     def test_honours_skipped(self) -> None:
-        nodes = _make_nodes(a="skipped")
-        result = _seed_node_states(nodes)
+        graph = _make_graph(a="skipped")
+        result = _seed_node_states_from_graph(graph)
         assert result["a"] == "skipped"
 
     def test_ignores_other_statuses(self) -> None:
-        nodes = _make_nodes(a="failed", b="blocked", c="in_progress")
-        result = _seed_node_states(nodes)
+        graph = _make_graph(a="failed", b="blocked", c="in_progress")
+        result = _seed_node_states_from_graph(graph)
         assert all(v == "pending" for v in result.values())
 
 
@@ -80,8 +89,8 @@ class TestHashMatch:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending", b="pending")
-        result = _load_or_init_state(manager, "same", nodes)
+        graph = _make_graph(a="pending", b="pending")
+        result = _load_or_init_state(manager, "same", graph)
 
         assert result.node_states["a"] == "completed"
         assert result.total_sessions == 5
@@ -91,8 +100,8 @@ class TestHashMatch:
         old = _make_state(plan_hash="same", node_states={"a": "completed"})
         manager.save(old)
 
-        nodes = _make_nodes(a="pending", b="pending")
-        result = _load_or_init_state(manager, "same", nodes)
+        graph = _make_graph(a="pending", b="pending")
+        result = _load_or_init_state(manager, "same", graph)
 
         assert result.node_states["a"] == "completed"
         assert result.node_states["b"] == "pending"
@@ -111,8 +120,8 @@ class TestHashMismatchMerge:
         manager.save(old)
 
         # Plan rebuilt with stale tasks.md — both show pending
-        nodes = _make_nodes(a="pending", b="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending", b="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "completed"
         assert result.node_states["b"] == "completed"
@@ -125,8 +134,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "skipped"
 
@@ -139,8 +148,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending", new_node="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending", new_node="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "completed"
         assert result.node_states["new_node"] == "pending"
@@ -151,8 +160,8 @@ class TestHashMismatchMerge:
         old = _make_state(plan_hash="old", node_states={})
         manager.save(old)
 
-        nodes = _make_nodes(new_node="completed")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(new_node="completed")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["new_node"] == "completed"
 
@@ -165,8 +174,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert "removed" not in result.node_states
         assert result.node_states["a"] == "completed"
@@ -180,8 +189,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "pending"
 
@@ -194,8 +203,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "pending"
 
@@ -207,8 +216,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "pending"
 
@@ -217,8 +226,8 @@ class TestHashMismatchMerge:
         old = _make_state(plan_hash="old", node_states={"a": "completed"})
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new_hash", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new_hash", graph)
 
         assert result.plan_hash == "new_hash"
 
@@ -244,8 +253,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending", b="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending", b="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert len(result.session_history) == 1
         assert result.total_sessions == 1
@@ -261,8 +270,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert "gone" not in result.blocked_reasons
 
@@ -279,8 +288,8 @@ class TestHashMismatchMerge:
         )
         manager.save(old)
 
-        nodes = _make_nodes(a="pending")
-        result = _load_or_init_state(manager, "new", nodes)
+        graph = _make_graph(a="pending")
+        result = _load_or_init_state(manager, "new", graph)
 
         assert result.node_states["a"] == "pending"
         assert "a" in result.blocked_reasons
@@ -291,9 +300,9 @@ class TestNoExistingState:
 
     def test_fresh_state_from_plan(self, tmp_state_path: Path) -> None:
         manager = StateManager(tmp_state_path)
-        nodes = _make_nodes(a="completed", b="pending")
+        graph = _make_graph(a="completed", b="pending")
 
-        result = _load_or_init_state(manager, "hash", nodes)
+        result = _load_or_init_state(manager, "hash", graph)
 
         assert result.node_states["a"] == "completed"
         assert result.node_states["b"] == "pending"
