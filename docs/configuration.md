@@ -25,6 +25,7 @@ Controls the execution engine.
 | `max_cost` | float | none | | Cost ceiling in USD |
 | `max_sessions` | int | none | | Session count limit |
 | `audit_retention_runs` | int | `20` | 1+ | Maximum runs to retain in the audit log |
+| `max_blocked_fraction` | float | none | 0.0–1.0 | Stop the run when this fraction of nodes are blocked |
 
 ---
 
@@ -169,11 +170,20 @@ produce independent findings that are then converged.
 |-----|------|---------|-------|-------------|
 | `block_threshold` | int | `3` | 0+ | Block if majority-agreed critical findings exceed this count |
 
+When a skeptic session completes, the engine counts its critical findings. If
+the count exceeds `block_threshold`, the downstream coder task and all its
+dependents are cascade-blocked. Blocking decisions are recorded to DuckDB for
+threshold learning (see `[blocking]`).
+
 ### `[archetypes.oracle_settings]`
 
 | Key | Type | Default | Range | Description |
 |-----|------|---------|-------|-------------|
 | `block_threshold` | int | none | 1+ | Block if critical drift findings exceed this count (omit for advisory only) |
+
+When `block_threshold` is set, oracle findings above the threshold block the
+downstream coder task. When omitted (`none`), the oracle is advisory-only —
+findings are recorded but do not prevent execution.
 
 ### `[archetypes.auditor_config]`
 
