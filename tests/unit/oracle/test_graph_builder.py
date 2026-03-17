@@ -165,52 +165,43 @@ class TestLegacyPlanCompat:
     def test_legacy_plan_compat(self) -> None:
         """TS-32-E3: Oracle added with distinct ID, skeptic preserved."""
         from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.engine.engine import _ensure_archetype_nodes
+        from agent_fox.graph.injection import ensure_graph_archetypes
+        from agent_fox.graph.types import Edge, Node, TaskGraph
 
-        plan_data = {
-            "nodes": {
-                "spec:0": {
-                    "id": "spec:0",
-                    "spec_name": "spec",
-                    "group_number": 0,
-                    "title": "Skeptic Review",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "archetype": "skeptic",
-                    "instances": 1,
-                },
-                "spec:1": {
-                    "id": "spec:1",
-                    "spec_name": "spec",
-                    "group_number": 1,
-                    "title": "Task 1",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "archetype": "coder",
-                    "instances": 1,
-                },
+        graph = TaskGraph(
+            nodes={
+                "spec:0": Node(
+                    id="spec:0",
+                    spec_name="spec",
+                    group_number=0,
+                    title="Skeptic Review",
+                    optional=False,
+                    archetype="skeptic",
+                    instances=1,
+                ),
+                "spec:1": Node(
+                    id="spec:1",
+                    spec_name="spec",
+                    group_number=1,
+                    title="Task 1",
+                    optional=False,
+                    archetype="coder",
+                    instances=1,
+                ),
             },
-            "edges": [
-                {"source": "spec:0", "target": "spec:1", "kind": "intra_spec"},
-            ],
-            "order": ["spec:0", "spec:1"],
-        }
+            edges=[Edge(source="spec:0", target="spec:1", kind="intra_spec")],
+            order=["spec:0", "spec:1"],
+        )
         config = ArchetypesConfig(oracle=True, skeptic=True)
-        _ensure_archetype_nodes(plan_data, config)
+        ensure_graph_archetypes(graph, config)
 
         # Skeptic node preserved
-        assert "spec:0" in plan_data["nodes"]
-        assert plan_data["nodes"]["spec:0"]["archetype"] == "skeptic"
+        assert "spec:0" in graph.nodes
+        assert graph.nodes["spec:0"].archetype == "skeptic"
 
         # Oracle node added with distinct ID
         oracle_nodes = [
-            nid
-            for nid, n in plan_data["nodes"].items()
-            if n.get("archetype") == "oracle"
+            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
         ]
         assert len(oracle_nodes) == 1
 
@@ -371,7 +362,7 @@ class TestOracleGatingBuildGraph:
 
 
 # ---------------------------------------------------------------------------
-# Oracle gating in _ensure_archetype_nodes (runtime injection)
+# Oracle gating in ensure_graph_archetypes (runtime injection)
 # ---------------------------------------------------------------------------
 
 
@@ -381,7 +372,8 @@ class TestOracleGatingRuntime:
     def test_runtime_oracle_skipped(self, tmp_path: Path) -> None:
         """Runtime injection skips oracle when design.md has only (new) files."""
         from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.engine.engine import _ensure_archetype_nodes
+        from agent_fox.graph.injection import ensure_graph_archetypes
+        from agent_fox.graph.types import Node, TaskGraph
 
         spec_dir = tmp_path / "myspec"
         spec_dir.mkdir()
@@ -389,38 +381,34 @@ class TestOracleGatingRuntime:
             "1. **`agent_fox/new.py`** (new) -- Brand new.\n"
         )
 
-        plan_data = {
-            "nodes": {
-                "myspec:1": {
-                    "id": "myspec:1",
-                    "spec_name": "myspec",
-                    "group_number": 1,
-                    "archetype": "coder",
-                    "title": "Task 1",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "instances": 1,
-                },
+        graph = TaskGraph(
+            nodes={
+                "myspec:1": Node(
+                    id="myspec:1",
+                    spec_name="myspec",
+                    group_number=1,
+                    archetype="coder",
+                    title="Task 1",
+                    optional=False,
+                    instances=1,
+                ),
             },
-            "edges": [],
-            "order": ["myspec:1"],
-        }
+            edges=[],
+            order=["myspec:1"],
+        )
         config = ArchetypesConfig(oracle=True, skeptic=False)
-        _ensure_archetype_nodes(plan_data, config, specs_dir=tmp_path)
+        ensure_graph_archetypes(graph, config, specs_dir=tmp_path)
 
         oracle_nodes = [
-            nid
-            for nid, n in plan_data["nodes"].items()
-            if n.get("archetype") == "oracle"
+            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
         ]
         assert oracle_nodes == []
 
     def test_runtime_oracle_injected_with_existing_code(self, tmp_path: Path) -> None:
         """Runtime injection adds oracle when design.md references existing files."""
         from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.engine.engine import _ensure_archetype_nodes
+        from agent_fox.graph.injection import ensure_graph_archetypes
+        from agent_fox.graph.types import Node, TaskGraph
 
         spec_dir = tmp_path / "myspec"
         spec_dir.mkdir()
@@ -430,30 +418,25 @@ class TestOracleGatingRuntime:
             f"1. **`{existing}`** (modified) -- Change.\n"
         )
 
-        plan_data = {
-            "nodes": {
-                "myspec:1": {
-                    "id": "myspec:1",
-                    "spec_name": "myspec",
-                    "group_number": 1,
-                    "archetype": "coder",
-                    "title": "Task 1",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                    "instances": 1,
-                },
+        graph = TaskGraph(
+            nodes={
+                "myspec:1": Node(
+                    id="myspec:1",
+                    spec_name="myspec",
+                    group_number=1,
+                    archetype="coder",
+                    title="Task 1",
+                    optional=False,
+                    instances=1,
+                ),
             },
-            "edges": [],
-            "order": ["myspec:1"],
-        }
+            edges=[],
+            order=["myspec:1"],
+        )
         config = ArchetypesConfig(oracle=True, skeptic=False)
-        _ensure_archetype_nodes(plan_data, config, specs_dir=tmp_path)
+        ensure_graph_archetypes(graph, config, specs_dir=tmp_path)
 
         oracle_nodes = [
-            nid
-            for nid, n in plan_data["nodes"].items()
-            if n.get("archetype") == "oracle"
+            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
         ]
         assert len(oracle_nodes) == 1
