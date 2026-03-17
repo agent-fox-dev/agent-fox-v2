@@ -740,16 +740,21 @@ def _find_section_end(lines: list[str], section_path: str) -> int:
     return last_content_idx
 
 
+def _render_commented_field(lines: list[str], field_spec: FieldSpec) -> None:
+    """Append a single field as commented TOML lines."""
+    lines.append(_format_field_comment(field_spec))
+    toml_val = _format_toml_value(field_spec.default)
+    if field_spec.default is None:
+        lines.append(f"## {field_spec.name} =")
+    else:
+        lines.append(f"# {field_spec.name} = {toml_val}")
+
+
 def _render_field_comments(fields: list[FieldSpec]) -> list[str]:
     """Render a list of fields as commented TOML lines."""
     lines: list[str] = []
     for field_spec in fields:
-        lines.append(_format_field_comment(field_spec))
-        toml_val = _format_toml_value(field_spec.default)
-        if field_spec.default is None:
-            lines.append(f"## {field_spec.name} =")
-        else:
-            lines.append(f"# {field_spec.name} = {toml_val}")
+        _render_commented_field(lines, field_spec)
     return lines
 
 
@@ -759,12 +764,7 @@ def _render_section_comments(section: SectionSpec) -> list[str]:
     for field_spec in section.fields:
         if field_spec.is_nested:
             continue
-        lines.append(_format_field_comment(field_spec))
-        toml_val = _format_toml_value(field_spec.default)
-        if field_spec.default is None:
-            lines.append(f"## {field_spec.name} =")
-        else:
-            lines.append(f"# {field_spec.name} = {toml_val}")
+        _render_commented_field(lines, field_spec)
 
     for sub in section.subsections:
         lines.append("")

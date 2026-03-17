@@ -18,7 +18,7 @@ import duckdb
 
 from agent_fox.core.config import RoutingConfig
 from agent_fox.core.models import ModelTier
-from agent_fox.core.token_tracker import record_auxiliary_usage
+from agent_fox.core.token_tracker import record_auxiliary_usage, track_response_usage
 from agent_fox.routing.features import extract_features
 from agent_fox.routing.storage import (
     count_outcomes,
@@ -147,28 +147,23 @@ async def llm_assess(
     )
 
     try:
-        async with create_async_anthropic_client() as client:
-            api_response = await client.messages.create(
-                model=model,
-                system=(
-                    "You are a task complexity assessor."
-                    " Respond only with the tier and confidence."
-                ),
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
-            )
+        from agent_fox.core.retry import retry_api_call_async
 
-        # Track auxiliary token usage (34-REQ-1.5)
-        usage = getattr(api_response, "usage", None)
-        if usage is not None:
-            record_auxiliary_usage(
-                input_tokens=getattr(usage, "input_tokens", 0),
-                output_tokens=getattr(usage, "output_tokens", 0),
-                model=model,
-            )
-        else:
-            logger.warning("API response for LLM assessment lacks usage data")
-            record_auxiliary_usage(0, 0, model)
+        async def _call() -> object:
+            async with create_async_anthropic_client() as client:
+                return await client.messages.create(
+                    model=model,
+                    system=(
+                        "You are a task complexity assessor."
+                        " Respond only with the tier and confidence."
+                    ),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=50,
+                )
+
+        api_response = await retry_api_call_async(_call, context="LLM assessment")
+
+        track_response_usage(api_response, model, "LLM assessment")
 
         response = api_response.content[0].text if api_response.content else ""
     except Exception:

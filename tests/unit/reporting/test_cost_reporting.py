@@ -181,7 +181,7 @@ class TestCallSiteInstrumentation:
     """TS-34-5: All auxiliary call sites are instrumented."""
 
     def test_all_sites(self) -> None:
-        """TS-34-5: All six auxiliary call sites call record_auxiliary_usage."""
+        """TS-34-5: All six auxiliary call sites track token usage."""
         files = [
             "agent_fox/knowledge/extraction.py",
             "agent_fox/engine/knowledge_harvest.py",
@@ -192,9 +192,10 @@ class TestCallSiteInstrumentation:
         ]
         for filepath in files:
             content = Path(filepath).read_text()
-            assert "record_auxiliary_usage" in content, (
-                f"{filepath} does not contain record_auxiliary_usage"
-            )
+            assert (
+                "record_auxiliary_usage" in content
+                or "track_response_usage" in content
+            ), f"{filepath} does not track auxiliary token usage"
 
 
 class TestBackwardCompat:

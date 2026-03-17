@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import resolve_model
-from agent_fox.core.token_tracker import record_auxiliary_usage
+from agent_fox.core.retry import retry_api_call
+from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.fix.checks import FailureRecord
 
 logger = logging.getLogger(__name__)
@@ -73,23 +74,16 @@ def _ai_cluster(
 
     # Call the Anthropic API
     client = create_anthropic_client()
-    response = client.messages.create(
-        model=model_entry.model_id,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": prompt}],
+    response = retry_api_call(
+        lambda: client.messages.create(
+            model=model_entry.model_id,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        context="failure clustering",
     )
 
-    # Track auxiliary token usage (34-REQ-1.5)
-    usage = getattr(response, "usage", None)
-    if usage is not None:
-        record_auxiliary_usage(
-            input_tokens=getattr(usage, "input_tokens", 0),
-            output_tokens=getattr(usage, "output_tokens", 0),
-            model=model_entry.model_id,
-        )
-    else:
-        logger.warning("API response for failure clustering lacks usage data")
-        record_auxiliary_usage(0, 0, model_entry.model_id)
+    track_response_usage(response, model_entry.model_id, "failure clustering")
 
     # Extract the text response
     content_block = response.content[0]

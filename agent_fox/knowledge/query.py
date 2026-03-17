@@ -21,7 +21,8 @@ from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.core.models import resolve_model
-from agent_fox.core.token_tracker import record_auxiliary_usage
+from agent_fox.core.retry import retry_api_call
+from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
 from agent_fox.knowledge.search import SearchResult, VectorSearch
@@ -109,23 +110,16 @@ class Oracle:
         prompt = self._build_synthesis_prompt(question, context)
         model = resolve_model(self._config.ask_synthesis_model)
 
-        response = self.client.messages.create(
-            model=model.model_id,
-            max_tokens=2048,
-            messages=[{"role": "user", "content": prompt}],
+        response = retry_api_call(
+            lambda: self.client.messages.create(
+                model=model.model_id,
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            context="oracle synthesis",
         )
 
-        # Track auxiliary token usage (34-REQ-1.5)
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            record_auxiliary_usage(
-                input_tokens=getattr(usage, "input_tokens", 0),
-                output_tokens=getattr(usage, "output_tokens", 0),
-                model=model.model_id,
-            )
-        else:
-            logger.warning("API response for oracle synthesis lacks usage data")
-            record_auxiliary_usage(0, 0, model.model_id)
+        track_response_usage(response, model.model_id, "oracle synthesis")
 
         response_text = response.content[0].text  # type: ignore[union-attr]
 

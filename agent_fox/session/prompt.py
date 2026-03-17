@@ -66,6 +66,53 @@ _ARCHETYPE_SPEC_FILES: list[tuple[str, str]] = [
 ]
 
 
+def _render_severity_findings(
+    findings: list,
+    title: str,
+    format_finding: callable,
+    *,
+    show_empty_groups: bool = False,
+) -> str:
+    """Render findings grouped by severity as a markdown section.
+
+    Args:
+        findings: List of finding objects with a ``severity`` attribute.
+        title: Markdown heading for the section (e.g. "## Skeptic Review").
+        format_finding: Callable that formats a single finding as a string.
+        show_empty_groups: If True, render "(none)" for severity levels
+            with no findings.
+    """
+    severity_groups = {
+        "critical": "### Critical Findings",
+        "major": "### Major Findings",
+        "minor": "### Minor Findings",
+        "observation": "### Observations",
+    }
+
+    lines = [title, ""]
+    counts: dict[str, int] = {"critical": 0, "major": 0, "minor": 0, "observation": 0}
+
+    for sev, header in severity_groups.items():
+        sev_findings = [f for f in findings if f.severity == sev]
+        counts[sev] = len(sev_findings)
+        if sev_findings:
+            lines.append(header)
+            for f in sev_findings:
+                lines.append(format_finding(f))
+            lines.append("")
+        elif show_empty_groups:
+            lines.append(header)
+            lines.append("(none)")
+            lines.append("")
+
+    lines.append(
+        f"Summary: {counts['critical']} critical, {counts['major']} major, "
+        f"{counts['minor']} minor, {counts['observation']} observations."
+    )
+
+    return "\n".join(lines)
+
+
 def render_drift_context(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
@@ -84,39 +131,18 @@ def render_drift_context(
     if not findings:
         return None
 
-    severity_groups = {
-        "critical": "### Critical Findings",
-        "major": "### Major Findings",
-        "minor": "### Minor Findings",
-        "observation": "### Observations",
-    }
+    def _format(f):
+        desc = f.description
+        refs = []
+        if f.spec_ref:
+            refs.append(f"spec: {f.spec_ref}")
+        if f.artifact_ref:
+            refs.append(f"artifact: {f.artifact_ref}")
+        if refs:
+            desc += f" ({', '.join(refs)})"
+        return f"- {desc}"
 
-    lines = ["## Oracle Drift Report", ""]
-    counts: dict[str, int] = {"critical": 0, "major": 0, "minor": 0, "observation": 0}
-
-    for sev, header in severity_groups.items():
-        sev_findings = [f for f in findings if f.severity == sev]
-        counts[sev] = len(sev_findings)
-        if sev_findings:
-            lines.append(header)
-            for f in sev_findings:
-                desc = f.description
-                refs = []
-                if f.spec_ref:
-                    refs.append(f"spec: {f.spec_ref}")
-                if f.artifact_ref:
-                    refs.append(f"artifact: {f.artifact_ref}")
-                if refs:
-                    desc += f" ({', '.join(refs)})"
-                lines.append(f"- {desc}")
-            lines.append("")
-
-    lines.append(
-        f"Summary: {counts['critical']} critical, {counts['major']} major, "
-        f"{counts['minor']} minor, {counts['observation']} observations."
-    )
-
-    return "\n".join(lines)
+    return _render_severity_findings(findings, "## Oracle Drift Report", _format)
 
 
 def render_review_context(
@@ -137,33 +163,12 @@ def render_review_context(
     if not findings:
         return None
 
-    severity_groups = {
-        "critical": "### Critical Findings",
-        "major": "### Major Findings",
-        "minor": "### Minor Findings",
-        "observation": "### Observations",
-    }
-
-    lines = ["## Skeptic Review", ""]
-    counts: dict[str, int] = {"critical": 0, "major": 0, "minor": 0, "observation": 0}
-
-    for sev, header in severity_groups.items():
-        sev_findings = [f for f in findings if f.severity == sev]
-        counts[sev] = len(sev_findings)
-        lines.append(header)
-        if sev_findings:
-            for f in sev_findings:
-                lines.append(f"- [severity: {f.severity}] {f.description}")
-        else:
-            lines.append("(none)")
-        lines.append("")
-
-    lines.append(
-        f"Summary: {counts['critical']} critical, {counts['major']} major, "
-        f"{counts['minor']} minor, {counts['observation']} observations."
+    return _render_severity_findings(
+        findings,
+        "## Skeptic Review",
+        lambda f: f"- [severity: {f.severity}] {f.description}",
+        show_empty_groups=True,
     )
-
-    return "\n".join(lines)
 
 
 def render_verification_context(
@@ -403,87 +408,65 @@ def get_prior_group_findings(
 
     findings: list[PriorFinding] = []
 
-    # Query review_findings
-    try:
-        rows = conn.execute(
-            f"SELECT CAST(id AS VARCHAR), severity, description, "
-            f"task_group, CAST(created_at AS VARCHAR) "
-            f"FROM review_findings "
-            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
-            f"AND superseded_by IS NULL",
-            [spec_name, *prior_groups],
-        ).fetchall()
-        for row in rows:
-            findings.append(
-                PriorFinding(
-                    type="review",
-                    group=str(row[3]),
-                    severity=str(row[1]),
-                    description=str(row[2]),
-                    created_at=str(row[4]) if row[4] is not None else "",
-                )
+    def _query_findings_table(
+        table: str,
+        finding_type: str,
+        columns: str = "CAST(id AS VARCHAR), severity, description, "
+        "task_group, CAST(created_at AS VARCHAR)",
+        *,
+        row_mapper: None | (callable) = None,
+    ) -> None:
+        """Query a findings table and append results to the findings list."""
+        try:
+            rows = conn.execute(
+                f"SELECT {columns} FROM {table} "
+                f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
+                f"AND superseded_by IS NULL",
+                [spec_name, *prior_groups],
+            ).fetchall()
+            for row in rows:
+                if row_mapper is not None:
+                    findings.append(row_mapper(row))
+                else:
+                    findings.append(
+                        PriorFinding(
+                            type=finding_type,
+                            group=str(row[3]),
+                            severity=str(row[1]),
+                            description=str(row[2]),
+                            created_at=str(row[4]) if row[4] is not None else "",
+                        )
+                    )
+        except Exception:
+            logger.debug(
+                "Failed to query %s for prior groups (table may not exist)",
+                table,
             )
-    except Exception:
-        logger.debug(
-            "Failed to query review_findings for prior groups (table may not exist)"
+
+    def _map_verification_row(row: tuple) -> PriorFinding:
+        verdict = str(row[1])
+        req_id = str(row[2])
+        evidence = str(row[3]) if row[3] is not None else ""
+        description = f"{req_id}: {verdict}"
+        if evidence:
+            description = f"{req_id}: {verdict} — {evidence}"
+        return PriorFinding(
+            type="verification",
+            group=str(row[4]),
+            severity=verdict,
+            description=description,
+            created_at=str(row[5]) if row[5] is not None else "",
         )
 
-    # Query drift_findings
-    try:
-        rows = conn.execute(
-            f"SELECT CAST(id AS VARCHAR), severity, description, "
-            f"task_group, CAST(created_at AS VARCHAR) "
-            f"FROM drift_findings "
-            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
-            f"AND superseded_by IS NULL",
-            [spec_name, *prior_groups],
-        ).fetchall()
-        for row in rows:
-            findings.append(
-                PriorFinding(
-                    type="drift",
-                    group=str(row[3]),
-                    severity=str(row[1]),
-                    description=str(row[2]),
-                    created_at=str(row[4]) if row[4] is not None else "",
-                )
-            )
-    except Exception:
-        logger.debug(
-            "Failed to query drift_findings for prior groups (table may not exist)"
-        )
-
-    # Query verification_results
-    try:
-        rows = conn.execute(
-            f"SELECT CAST(id AS VARCHAR), verdict, requirement_id, evidence, "
-            f"task_group, CAST(created_at AS VARCHAR) "
-            f"FROM verification_results "
-            f"WHERE spec_name = ? AND task_group IN ({placeholders}) "
-            f"AND superseded_by IS NULL",
-            [spec_name, *prior_groups],
-        ).fetchall()
-        for row in rows:
-            verdict = str(row[1])
-            req_id = str(row[2])
-            evidence = str(row[3]) if row[3] is not None else ""
-            description = f"{req_id}: {verdict}"
-            if evidence:
-                description = f"{req_id}: {verdict} — {evidence}"
-            findings.append(
-                PriorFinding(
-                    type="verification",
-                    group=str(row[4]),
-                    severity=verdict,
-                    description=description,
-                    created_at=str(row[5]) if row[5] is not None else "",
-                )
-            )
-    except Exception:
-        logger.debug(
-            "Failed to query verification_results for prior groups"
-            " (table may not exist)"
-        )
+    _query_findings_table("review_findings", "review")
+    _query_findings_table("drift_findings", "drift")
+    _query_findings_table(
+        "verification_results",
+        "verification",
+        columns="CAST(id AS VARCHAR), verdict, requirement_id, evidence, "
+        "task_group, CAST(created_at AS VARCHAR)",
+        row_mapper=_map_verification_row,
+    )
 
     # Sort all findings by created_at ascending (42-REQ-4.3)
     findings.sort(key=lambda f: f.created_at)

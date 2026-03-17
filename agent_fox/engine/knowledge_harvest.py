@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from agent_fox.core.token_tracker import record_auxiliary_usage
+from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.knowledge.causal import store_causal_links
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.extraction import (
@@ -143,26 +143,20 @@ def _extract_causal_links(
     # Call the LLM for causal analysis
     from agent_fox.core.client import create_anthropic_client
     from agent_fox.core.models import resolve_model
+    from agent_fox.core.retry import retry_api_call
 
     model_entry = resolve_model(memory_extraction_model)
     client = create_anthropic_client()
-    response = client.messages.create(
-        model=model_entry.model_id,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
+    response = retry_api_call(
+        lambda: client.messages.create(
+            model=model_entry.model_id,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+        context="causal link extraction",
     )
 
-    # Track auxiliary token usage (34-REQ-1.5)
-    usage = getattr(response, "usage", None)
-    if usage is not None:
-        record_auxiliary_usage(
-            input_tokens=getattr(usage, "input_tokens", 0),
-            output_tokens=getattr(usage, "output_tokens", 0),
-            model=model_entry.model_id,
-        )
-    else:
-        logger.warning("API response for causal link extraction lacks usage data")
-        record_auxiliary_usage(0, 0, model_entry.model_id)
+    track_response_usage(response, model_entry.model_id, "causal link extraction")
 
     raw_text = getattr(response.content[0], "text", "[]")
     links = parse_causal_links(raw_text)

@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import threading
 from dataclasses import dataclass
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,24 @@ _global_accumulator = TokenAccumulator()
 def record_auxiliary_usage(input_tokens: int, output_tokens: int, model: str) -> None:
     """Record auxiliary token usage to the global accumulator."""
     _global_accumulator.record(input_tokens, output_tokens, model)
+
+
+def track_response_usage(response: Any, model: str, context: str) -> None:
+    """Extract and record token usage from an Anthropic API response.
+
+    Handles the common pattern of reading ``response.usage`` and falling
+    back to zeros when the attribute is missing.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is not None:
+        record_auxiliary_usage(
+            input_tokens=getattr(usage, "input_tokens", 0),
+            output_tokens=getattr(usage, "output_tokens", 0),
+            model=model,
+        )
+    else:
+        logger.warning("API response for %s lacks usage data", context)
+        record_auxiliary_usage(0, 0, model)
 
 
 def flush_auxiliary_usage() -> list[TokenUsage]:
