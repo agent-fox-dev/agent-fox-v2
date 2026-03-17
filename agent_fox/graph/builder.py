@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.core.errors import PlanError
+from agent_fox.graph.injection import (
+    collect_enabled_auto_post,
+    collect_enabled_auto_pre,
+    is_archetype_enabled,
+    resolve_auditor_config,
+    resolve_instances,
+)
 from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGraph
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import CrossSpecDep, TaskGroupDef
@@ -68,14 +75,12 @@ def _inject_auto_mid_nodes(
     Requirements: 46-REQ-4.1, 46-REQ-4.2, 46-REQ-4.3, 46-REQ-4.E1,
                   46-REQ-4.E2, 46-REQ-4.E3
     """
-    if not getattr(archetypes_config, "auditor", False):
+    aud_cfg = resolve_auditor_config(archetypes_config)
+    if not aud_cfg.enabled:
         return
 
-    auditor_config = getattr(archetypes_config, "auditor_config", None)
-    min_ts = getattr(auditor_config, "min_ts_entries", 5) if auditor_config else 5
-
-    instances_cfg = getattr(archetypes_config, "instances", None)
-    instances = getattr(instances_cfg, "auditor", 1) if instances_cfg else 1
+    min_ts = aud_cfg.min_ts_entries
+    instances = aud_cfg.instances
 
     for spec in specs:
         groups = task_groups.get(spec.name, [])
@@ -261,16 +266,6 @@ def _add_cross_spec_edges(
     return edges
 
 
-def _is_archetype_enabled(
-    name: str,
-    archetypes_config: Any | None,
-) -> bool:
-    """Check if an archetype is enabled in config."""
-    if archetypes_config is None:
-        return name == "coder"
-    return getattr(archetypes_config, name, False)
-
-
 # ---------------------------------------------------------------------------
 # Oracle gating: skip when spec targets only new code
 # ---------------------------------------------------------------------------
@@ -322,8 +317,6 @@ def _inject_archetype_nodes(
     if archetypes_config is None:
         return
 
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
     for spec in specs:
         groups = task_groups.get(spec.name, [])
         if not groups:
@@ -336,40 +329,22 @@ def _inject_archetype_nodes(
         # auto_pre injection (e.g., Skeptic/Oracle at group 0)
         # 32-REQ-3.1/3.2: Collect enabled auto_pre archetypes first to
         # determine whether to use suffixed IDs (multi) or plain :0 (single).
-        enabled_auto_pre: list[tuple[str, Any]] = [
-            (arch_name, entry)
-            for arch_name, entry in ARCHETYPE_REGISTRY.items()
-            if entry.injection == "auto_pre"
-            and _is_archetype_enabled(arch_name, archetypes_config)
-        ]
-
-        # Gate oracle: skip when spec has no existing code to validate against
-        if any(n == "oracle" for n, _ in enabled_auto_pre):
-            if not spec_has_existing_code(spec.path):
-                enabled_auto_pre = [
-                    (n, e) for n, e in enabled_auto_pre if n != "oracle"
-                ]
-                logger.info(
-                    "Skipping oracle for %s: no existing code to validate",
-                    spec.name,
-                )
+        enabled_auto_pre = collect_enabled_auto_pre(
+            archetypes_config, spec_path=spec.path
+        )
         use_suffix = len(enabled_auto_pre) > 1
 
-        for arch_name, entry in enabled_auto_pre:
-            node_id = f"{spec.name}:0:{arch_name}" if use_suffix else f"{spec.name}:0"
-            instances = getattr(
-                getattr(archetypes_config, "instances", None),
-                arch_name,
-                1,
-            )
+        for arch in enabled_auto_pre:
+            node_id = f"{spec.name}:0:{arch.name}" if use_suffix else f"{spec.name}:0"
+            instances = resolve_instances(archetypes_config, arch.name)
             nodes[node_id] = Node(
                 id=node_id,
                 spec_name=spec.name,
                 group_number=0,
-                title=f"{arch_name.capitalize()} Review",
+                title=f"{arch.name.capitalize()} Review",
                 optional=False,
-                archetype=arch_name,
-                instances=instances if isinstance(instances, int) else 1,
+                archetype=arch.name,
+                instances=instances,
             )
             # Edge from auto_pre node to first real group
             first_id = f"{spec.name}:{first_group}"
@@ -377,28 +352,20 @@ def _inject_archetype_nodes(
                 edges.append(Edge(source=node_id, target=first_id, kind="intra_spec"))
 
         # auto_post injection (e.g., Verifier after last group)
+        enabled_auto_post = collect_enabled_auto_post(archetypes_config)
         offset = 1
-        for arch_name, entry in ARCHETYPE_REGISTRY.items():
-            if entry.injection != "auto_post":
-                continue
-            if not _is_archetype_enabled(arch_name, archetypes_config):
-                continue
-
+        for arch in enabled_auto_post:
             post_group = last_group + offset
             node_id = f"{spec.name}:{post_group}"
-            instances = getattr(
-                getattr(archetypes_config, "instances", None),
-                arch_name,
-                1,
-            )
+            instances = resolve_instances(archetypes_config, arch.name)
             nodes[node_id] = Node(
                 id=node_id,
                 spec_name=spec.name,
                 group_number=post_group,
-                title=f"{arch_name.capitalize()} Check",
+                title=f"{arch.name.capitalize()} Check",
                 optional=False,
-                archetype=arch_name,
-                instances=instances if isinstance(instances, int) else 1,
+                archetype=arch.name,
+                instances=instances,
             )
             # Edge from last Coder group to this post node
             last_id = f"{spec.name}:{last_group}"
@@ -443,7 +410,7 @@ def _apply_coordinator_overrides(
             )
             continue
 
-        if not _is_archetype_enabled(arch_name, archetypes_config):
+        if not is_archetype_enabled(arch_name, archetypes_config):
             logger.warning(
                 "Coordinator override references disabled archetype '%s'; ignoring",
                 arch_name,

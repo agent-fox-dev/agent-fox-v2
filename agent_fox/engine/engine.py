@@ -34,15 +34,22 @@ from agent_fox.core.config import (
 )
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
+from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
+from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
     StateManager,
-    invoke_runner,
+)
+from agent_fox.graph.injection import (
+    collect_enabled_auto_post,
+    collect_enabled_auto_pre,
+    resolve_auditor_config,
+    resolve_instances,
 )
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
@@ -72,173 +79,6 @@ class _RoutingState:
     ladders: dict[str, Any]
     assessments: dict[str, Any]
     retries_before_escalation: int
-
-
-# ---------------------------------------------------------------------------
-# SerialRunner (merged from serial.py)
-# ---------------------------------------------------------------------------
-
-
-class SerialRunner:
-    """Runs tasks one at a time with inter-session delay."""
-
-    def __init__(
-        self,
-        session_runner_factory: Callable[..., Any],
-        inter_session_delay: float,
-    ) -> None:
-        self._session_runner_factory = session_runner_factory
-        self._inter_session_delay = inter_session_delay
-
-    async def execute(
-        self,
-        node_id: str,
-        attempt: int,
-        previous_error: str | None,
-        *,
-        archetype: str = "coder",
-        instances: int = 1,
-        assessed_tier: Any | None = None,
-        run_id: str = "",
-    ) -> SessionRecord:
-        """Execute a single session and return the outcome record."""
-        runner = self._session_runner_factory(
-            node_id,
-            archetype=archetype,
-            instances=instances,
-            assessed_tier=assessed_tier,
-            run_id=run_id,
-        )
-        return await invoke_runner(runner, node_id, attempt, previous_error)
-
-    async def delay(self) -> None:
-        """Wait for the configured inter-session delay."""
-        if self._inter_session_delay > 0:
-            await asyncio.sleep(self._inter_session_delay)
-
-
-# ---------------------------------------------------------------------------
-# CircuitBreaker (merged from circuit.py)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class LaunchDecision:
-    """Result of a circuit breaker check."""
-
-    allowed: bool
-    reason: str | None = None  # None if allowed, explanation if denied
-
-
-class CircuitBreaker:
-    """Pre-launch checks: cost ceiling, session limit, retry counter.
-
-    The circuit breaker is consulted before every session launch. It
-    checks three conditions (in order):
-
-    1. **Cost ceiling:** cumulative cost >= config.max_cost
-    2. **Session limit:** total sessions >= config.max_sessions
-    3. **Retry limit:** attempt number > config.max_retries + 1
-
-    If any check fails, the launch is denied with an explanatory reason.
-    """
-
-    def __init__(self, config: OrchestratorConfig) -> None:
-        self._config = config
-
-    def _check_global_limits(
-        self,
-        state: ExecutionState,
-    ) -> LaunchDecision | None:
-        """Check cost ceiling and session limit.
-
-        Returns a denied LaunchDecision if a limit is hit, or None if
-        both checks pass.
-        """
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Cost limit reached: cumulative cost "
-                    f"${state.total_cost:.2f} >= "
-                    f"max_cost ${self._config.max_cost:.2f}"
-                ),
-            )
-
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Session limit reached: {state.total_sessions} "
-                    f"sessions >= max_sessions {self._config.max_sessions}"
-                ),
-            )
-
-        return None
-
-    def check_launch(
-        self,
-        node_id: str,
-        attempt: int,
-        state: ExecutionState,
-    ) -> LaunchDecision:
-        """Determine whether a session launch is permitted.
-
-        Checks (in order):
-        1. Cost ceiling: state.total_cost >= config.max_cost
-        2. Session limit: state.total_sessions >= config.max_sessions
-        3. Retry limit: attempt > config.max_retries + 1
-
-        Args:
-            node_id: The task to check.
-            attempt: The proposed attempt number (1-indexed).
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        denied = self._check_global_limits(state)
-        if denied is not None:
-            return denied
-
-        # Retry limit check
-        max_attempts = self._config.max_retries + 1
-        if attempt > max_attempts:
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Retry limit exceeded for {node_id}: "
-                    f"attempt {attempt} > max_retries + 1 "
-                    f"({max_attempts})"
-                ),
-            )
-
-        return LaunchDecision(allowed=True)
-
-    def should_stop(self, state: ExecutionState) -> LaunchDecision:
-        """Check whether the orchestrator should stop launching entirely.
-
-        This is called before picking the next batch of ready tasks.
-        Checks cost ceiling and session limit only (not per-task retry).
-
-        Args:
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        return self._check_global_limits(state) or LaunchDecision(allowed=True)
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator (from orchestrator.py)
-# ---------------------------------------------------------------------------
 
 
 def _load_plan_data(plan_path: Path) -> dict:
@@ -281,8 +121,6 @@ def _ensure_archetype_nodes(
     if archetypes_config is None:
         return False
 
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
     nodes = plan_data.get("nodes", {})
     edges = plan_data.get("edges", [])
     order = plan_data.get("order", [])
@@ -306,26 +144,10 @@ def _ensure_archetype_nodes(
         # 32-REQ-3.E1: When a legacy plan has {spec}:0 and we need to add
         # another auto_pre, add the new one with a suffixed ID to avoid
         # conflicting with the existing node.
-        enabled_auto_pre: list[tuple[str, Any]] = [
-            (arch_name, entry)
-            for arch_name, entry in ARCHETYPE_REGISTRY.items()
-            if entry.injection == "auto_pre"
-            and getattr(archetypes_config, arch_name, False)
-        ]
-
-        # Gate oracle: skip when spec has no existing code to validate
-        if any(n == "oracle" for n, _ in enabled_auto_pre) and specs_dir is not None:
-            from agent_fox.graph.builder import spec_has_existing_code
-
-            spec_path = specs_dir / spec
-            if not spec_has_existing_code(spec_path):
-                enabled_auto_pre = [
-                    (n, e) for n, e in enabled_auto_pre if n != "oracle"
-                ]
-                logger.info(
-                    "Skipping oracle for %s: no existing code to validate",
-                    spec,
-                )
+        spec_path = (specs_dir / spec) if specs_dir is not None else None
+        enabled_auto_pre = collect_enabled_auto_pre(
+            archetypes_config, spec_path=spec_path
+        )
 
         # Find existing auto_pre archetypes for this spec (group_number == 0)
         existing_archetypes: set[str] = set()
@@ -333,32 +155,27 @@ def _ensure_archetype_nodes(
             if n.get("spec_name") == spec and n.get("group_number") == 0:
                 existing_archetypes.add(n.get("archetype", ""))
 
-        needed = [
-            (arch_name, entry)
-            for arch_name, entry in enabled_auto_pre
-            if arch_name not in existing_archetypes
-        ]
+        needed = [a for a in enabled_auto_pre if a.name not in existing_archetypes]
 
-        for arch_name, entry in needed:
+        for arch in needed:
             # Use suffixed ID to avoid conflict with existing :0 node
-            node_id = f"{spec}:0:{arch_name}"
+            node_id = f"{spec}:0:{arch.name}"
             if node_id in nodes:
                 continue  # already present
 
-            instances_cfg = getattr(archetypes_config, "instances", None)
-            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
+            instances = resolve_instances(archetypes_config, arch.name)
 
             nodes[node_id] = {
                 "id": node_id,
                 "spec_name": spec,
                 "group_number": 0,
-                "title": f"{arch_name.capitalize()} Review",
+                "title": f"{arch.name.capitalize()} Review",
                 "optional": False,
                 "status": "pending",
                 "subtask_count": 0,
                 "body": "",
-                "archetype": arch_name,
-                "instances": instances if isinstance(instances, int) else 1,
+                "archetype": arch.name,
+                "instances": instances,
             }
             first_id = f"{spec}:{first_group}"
             if first_id in nodes:
@@ -371,36 +188,31 @@ def _ensure_archetype_nodes(
                 )
             order.insert(0, node_id)
             injected = True
-            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
+            logger.info("Injected %s node '%s' at runtime", arch.name, node_id)
 
         # auto_post injection (e.g., Verifier after last group)
+        enabled_auto_post = collect_enabled_auto_post(archetypes_config)
         offset = 1
-        for arch_name, entry in ARCHETYPE_REGISTRY.items():
-            if entry.injection != "auto_post":
-                continue
-            if not getattr(archetypes_config, arch_name, False):
-                continue
-
+        for arch in enabled_auto_post:
             post_group = last_group + offset
             node_id = f"{spec}:{post_group}"
             if node_id in nodes:
                 offset += 1
                 continue  # already present
 
-            instances_cfg = getattr(archetypes_config, "instances", None)
-            instances = getattr(instances_cfg, arch_name, 1) if instances_cfg else 1
+            instances = resolve_instances(archetypes_config, arch.name)
 
             nodes[node_id] = {
                 "id": node_id,
                 "spec_name": spec,
                 "group_number": post_group,
-                "title": f"{arch_name.capitalize()} Check",
+                "title": f"{arch.name.capitalize()} Check",
                 "optional": False,
                 "status": "pending",
                 "subtask_count": 0,
                 "body": "",
-                "archetype": arch_name,
-                "instances": instances if isinstance(instances, int) else 1,
+                "archetype": arch.name,
+                "instances": instances,
             }
             last_id = f"{spec}:{last_group}"
             if last_id in nodes:
@@ -414,17 +226,12 @@ def _ensure_archetype_nodes(
             order.append(node_id)
             offset += 1
             injected = True
-            logger.info("Injected %s node '%s' at runtime", arch_name, node_id)
+            logger.info("Injected %s node '%s' at runtime", arch.name, node_id)
 
     # auto_mid injection (e.g., Auditor after test-writing groups)
-    if getattr(archetypes_config, "auditor", False):
+    aud_cfg = resolve_auditor_config(archetypes_config)
+    if aud_cfg.enabled:
         from agent_fox.graph.builder import count_ts_entries, is_test_writing_group
-
-        auditor_config = getattr(archetypes_config, "auditor_config", None)
-        min_ts = getattr(auditor_config, "min_ts_entries", 5) if auditor_config else 5
-
-        instances_cfg = getattr(archetypes_config, "instances", None)
-        aud_instances = getattr(instances_cfg, "auditor", 1) if instances_cfg else 1
 
         for spec, groups in spec_groups.items():
             sorted_grps = sorted(groups)
@@ -439,18 +246,16 @@ def _ensure_archetype_nodes(
                 continue
 
             # For runtime injection we need a spec path. Try .specs/{spec}
-            from pathlib import Path
-
             candidate_path = Path(f".specs/{spec}")
             if candidate_path.exists():
                 ts_count = count_ts_entries(candidate_path)
-                if ts_count < min_ts:
+                if ts_count < aud_cfg.min_ts_entries:
                     logger.info(
                         "Skipping auditor injection for spec '%s': "
                         "%d TS entries < min_ts_entries=%d",
                         spec,
                         ts_count,
-                        min_ts,
+                        aud_cfg.min_ts_entries,
                     )
                     continue
             else:
@@ -480,7 +285,7 @@ def _ensure_archetype_nodes(
                     "subtask_count": 0,
                     "body": "",
                     "archetype": "auditor",
-                    "instances": aud_instances if isinstance(aud_instances, int) else 1,
+                    "instances": aud_cfg.instances,
                 }
 
                 # Find the next group in sorted order

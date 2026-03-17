@@ -226,7 +226,7 @@ class TestDevelopSyncUsesLock:
             return (0, "0\n", "")
 
         with patch(
-            "agent_fox.workspace.workspace.run_git",
+            "agent_fox.workspace.develop.run_git",
             side_effect=tracking_run_git,
         ):
             from agent_fox.workspace.workspace import _sync_develop_with_remote
@@ -336,11 +336,11 @@ class TestDevelopSyncAgentFailureWarns:
 
         with (
             patch(
-                "agent_fox.workspace.workspace.run_git",
+                "agent_fox.workspace.develop.run_git",
                 side_effect=mock_run_git,
             ),
             patch(
-                "agent_fox.workspace.workspace.run_merge_agent",
+                "agent_fox.workspace.develop.run_merge_agent",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -384,10 +384,10 @@ class TestNoXTheirsInHarvest:
 class TestNoXOursInDevelopSync:
     """TS-45-E9: No -X ours strategy in develop-sync flow."""
 
-    def test_workspace_source_no_x_ours(self) -> None:
-        """workspace.py source code does not contain -X ours merge calls."""
-        import agent_fox.workspace.workspace as workspace_mod
+    def test_develop_source_no_x_ours(self) -> None:
+        """develop.py source code does not contain -X ours merge calls."""
+        import agent_fox.workspace.develop as develop_mod
 
-        source = inspect.getsource(workspace_mod)
+        source = inspect.getsource(develop_mod)
         assert '"-X", "ours"' not in source
         assert "'-X', 'ours'" not in source
