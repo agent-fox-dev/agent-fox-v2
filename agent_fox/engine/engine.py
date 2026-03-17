@@ -34,15 +34,16 @@ from agent_fox.core.config import (
 )
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
+from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
 from agent_fox.engine.parallel import ParallelRunner
+from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
     StateManager,
-    invoke_runner,
 )
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.hooks.hooks import run_sync_barrier_hooks
@@ -72,173 +73,6 @@ class _RoutingState:
     ladders: dict[str, Any]
     assessments: dict[str, Any]
     retries_before_escalation: int
-
-
-# ---------------------------------------------------------------------------
-# SerialRunner (merged from serial.py)
-# ---------------------------------------------------------------------------
-
-
-class SerialRunner:
-    """Runs tasks one at a time with inter-session delay."""
-
-    def __init__(
-        self,
-        session_runner_factory: Callable[..., Any],
-        inter_session_delay: float,
-    ) -> None:
-        self._session_runner_factory = session_runner_factory
-        self._inter_session_delay = inter_session_delay
-
-    async def execute(
-        self,
-        node_id: str,
-        attempt: int,
-        previous_error: str | None,
-        *,
-        archetype: str = "coder",
-        instances: int = 1,
-        assessed_tier: Any | None = None,
-        run_id: str = "",
-    ) -> SessionRecord:
-        """Execute a single session and return the outcome record."""
-        runner = self._session_runner_factory(
-            node_id,
-            archetype=archetype,
-            instances=instances,
-            assessed_tier=assessed_tier,
-            run_id=run_id,
-        )
-        return await invoke_runner(runner, node_id, attempt, previous_error)
-
-    async def delay(self) -> None:
-        """Wait for the configured inter-session delay."""
-        if self._inter_session_delay > 0:
-            await asyncio.sleep(self._inter_session_delay)
-
-
-# ---------------------------------------------------------------------------
-# CircuitBreaker (merged from circuit.py)
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class LaunchDecision:
-    """Result of a circuit breaker check."""
-
-    allowed: bool
-    reason: str | None = None  # None if allowed, explanation if denied
-
-
-class CircuitBreaker:
-    """Pre-launch checks: cost ceiling, session limit, retry counter.
-
-    The circuit breaker is consulted before every session launch. It
-    checks three conditions (in order):
-
-    1. **Cost ceiling:** cumulative cost >= config.max_cost
-    2. **Session limit:** total sessions >= config.max_sessions
-    3. **Retry limit:** attempt number > config.max_retries + 1
-
-    If any check fails, the launch is denied with an explanatory reason.
-    """
-
-    def __init__(self, config: OrchestratorConfig) -> None:
-        self._config = config
-
-    def _check_global_limits(
-        self,
-        state: ExecutionState,
-    ) -> LaunchDecision | None:
-        """Check cost ceiling and session limit.
-
-        Returns a denied LaunchDecision if a limit is hit, or None if
-        both checks pass.
-        """
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Cost limit reached: cumulative cost "
-                    f"${state.total_cost:.2f} >= "
-                    f"max_cost ${self._config.max_cost:.2f}"
-                ),
-            )
-
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Session limit reached: {state.total_sessions} "
-                    f"sessions >= max_sessions {self._config.max_sessions}"
-                ),
-            )
-
-        return None
-
-    def check_launch(
-        self,
-        node_id: str,
-        attempt: int,
-        state: ExecutionState,
-    ) -> LaunchDecision:
-        """Determine whether a session launch is permitted.
-
-        Checks (in order):
-        1. Cost ceiling: state.total_cost >= config.max_cost
-        2. Session limit: state.total_sessions >= config.max_sessions
-        3. Retry limit: attempt > config.max_retries + 1
-
-        Args:
-            node_id: The task to check.
-            attempt: The proposed attempt number (1-indexed).
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        denied = self._check_global_limits(state)
-        if denied is not None:
-            return denied
-
-        # Retry limit check
-        max_attempts = self._config.max_retries + 1
-        if attempt > max_attempts:
-            return LaunchDecision(
-                allowed=False,
-                reason=(
-                    f"Retry limit exceeded for {node_id}: "
-                    f"attempt {attempt} > max_retries + 1 "
-                    f"({max_attempts})"
-                ),
-            )
-
-        return LaunchDecision(allowed=True)
-
-    def should_stop(self, state: ExecutionState) -> LaunchDecision:
-        """Check whether the orchestrator should stop launching entirely.
-
-        This is called before picking the next batch of ready tasks.
-        Checks cost ceiling and session limit only (not per-task retry).
-
-        Args:
-            state: Current execution state.
-
-        Returns:
-            LaunchDecision with allowed=True or allowed=False with reason.
-        """
-        return self._check_global_limits(state) or LaunchDecision(allowed=True)
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator (from orchestrator.py)
-# ---------------------------------------------------------------------------
 
 
 def _load_plan_data(plan_path: Path) -> dict:

@@ -132,9 +132,9 @@ class TestAllStrategiesFailWarning:
         )
 
         with (
-            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
             patch(
-                "agent_fox.workspace.workspace.run_merge_agent",
+                "agent_fox.workspace.develop.run_merge_agent",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -159,9 +159,9 @@ class TestAllStrategiesFailWarning:
         )
 
         with (
-            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
             patch(
-                "agent_fox.workspace.workspace.run_merge_agent",
+                "agent_fox.workspace.develop.run_merge_agent",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -187,7 +187,7 @@ class TestInSyncNoOp:
         """No merge/rebase called when branches are in sync."""
         mock_run_git, calls = _make_synced_mock(local_ahead=0, remote_ahead=0)
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
@@ -216,7 +216,7 @@ class TestLocalAheadUnchanged:
         """Local ahead -> no merge/rebase/branch-force calls."""
         mock_run_git, calls = _make_synced_mock(local_ahead=2, remote_ahead=0)
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
@@ -243,7 +243,7 @@ class TestCheckoutDevelopFails:
         """Checkout failure -> warning logged, no merge/rebase attempted."""
         mock_run_git, calls = _make_diverged_mock(checkout_fails=True)
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             with caplog.at_level(logging.WARNING):
                 await _sync_develop_with_remote(tmp_path)
 
@@ -303,14 +303,14 @@ class TestFetchFailsPostHarvest:
 
             return 0, "", ""
 
-        with patch("agent_fox.workspace.harvest.run_git", side_effect=mock_run_git):
-            with patch(
-                "agent_fox.workspace.workspace.run_git",
-                side_effect=mock_run_git,
-            ):
-                from agent_fox.workspace.harvest import _push_develop_if_pushable
+        with (
+            patch("agent_fox.workspace.harvest.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git),
+        ):
+            from agent_fox.workspace.harvest import _push_develop_if_pushable
 
-                await _push_develop_if_pushable(tmp_path)
+            await _push_develop_if_pushable(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
         assert any("push" in cmd for cmd in all_cmds), (
@@ -369,16 +369,16 @@ class TestPushFailsAfterReconciliation:
 
             return 0, "", ""
 
-        with patch("agent_fox.workspace.harvest.run_git", side_effect=mock_run_git):
-            with patch(
-                "agent_fox.workspace.workspace.run_git",
-                side_effect=mock_run_git,
-            ):
-                from agent_fox.workspace.harvest import _push_develop_if_pushable
+        with (
+            patch("agent_fox.workspace.harvest.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git),
+        ):
+            from agent_fox.workspace.harvest import _push_develop_if_pushable
 
-                with caplog.at_level(logging.WARNING):
-                    # Should not raise
-                    await _push_develop_if_pushable(tmp_path)
+            with caplog.at_level(logging.WARNING):
+                # Should not raise
+                await _push_develop_if_pushable(tmp_path)
 
         # Should warn about push failure
         assert any(
@@ -407,7 +407,7 @@ class TestFallbackChainOrdering:
             rebase_fails=False, merge_fails=False, ours_fails=False
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
@@ -421,7 +421,7 @@ class TestFallbackChainOrdering:
             rebase_fails=True, merge_fails=False, ours_fails=False
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
@@ -446,9 +446,9 @@ class TestFallbackChainOrdering:
         )
 
         with (
-            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
             patch(
-                "agent_fox.workspace.workspace.run_merge_agent",
+                "agent_fox.workspace.develop.run_merge_agent",
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_agent,
@@ -479,9 +479,9 @@ class TestFallbackChainOrdering:
         )
 
         with (
-            patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
             patch(
-                "agent_fox.workspace.workspace.run_merge_agent",
+                "agent_fox.workspace.develop.run_merge_agent",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -533,7 +533,7 @@ class TestNoOpIdempotency:
             local_ahead=local_ahead, remote_ahead=remote_ahead
         )
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]

@@ -179,7 +179,7 @@ class TestWorktreeCreationGitError:
     ) -> None:
         """A git failure during worktree creation raises WorkspaceError."""
         with patch(
-            "agent_fox.workspace.workspace.run_git",
+            "agent_fox.workspace.worktree.run_git",
             new_callable=AsyncMock,
             side_effect=WorkspaceError("git worktree add failed: fatal error"),
         ):

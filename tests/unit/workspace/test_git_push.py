@@ -31,7 +31,7 @@ class TestPushToRemoteSuccess:
             calls.append(args)
             return 0, "", ""
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
             result = await push_to_remote(tmp_path, "develop")
 
         assert result is True
@@ -47,7 +47,7 @@ class TestPushToRemoteSuccess:
             calls.append(args)
             return 0, "", ""
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
             result = await push_to_remote(tmp_path, "develop", remote="upstream")
 
         assert result is True
@@ -72,7 +72,7 @@ class TestPushToRemoteFailure:
         async def mock_run_git(args, cwd, check=True):
             return 1, "", "permission denied"
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
             result = await push_to_remote(tmp_path, "develop")
 
         assert result is False
@@ -83,7 +83,7 @@ class TestPushToRemoteFailure:
         async def mock_run_git(args, cwd, check=True):
             return 1, "", "permission denied"
 
-        with patch("agent_fox.workspace.workspace.run_git", side_effect=mock_run_git):
+        with patch("agent_fox.workspace.git.run_git", side_effect=mock_run_git):
             with caplog.at_level(logging.WARNING):
                 await push_to_remote(tmp_path, "develop")
 
