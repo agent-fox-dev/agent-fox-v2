@@ -120,23 +120,6 @@ four tools with the agent backend:
 | `fox_edit` | Hash-verified atomic batch editing (prevents stale-read corruption) |
 | `fox_search` | Regex search with context lines and content hashes |
 
-### MCP Server
-
-The fox tools are also available as an MCP server for external consumers
-(other agents, IDEs, MCP-compatible clients):
-
-```bash
-# Launch the MCP server on stdio
-agent-fox serve-tools
-
-# Restrict file operations to specific directories
-agent-fox serve-tools --allowed-dirs /path/to/project --allowed-dirs /path/to/other
-```
-
-The MCP server exposes the same four tools over the standard MCP stdio
-transport. Path sandboxing via `--allowed-dirs` restricts file operations to
-the specified directories and their descendants.
-
 ## Dependencies
 
 ### DuckDB (Required)
