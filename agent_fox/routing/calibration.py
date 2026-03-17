@@ -62,6 +62,7 @@ class StatisticalAssessor:
         self._label_encoder: LabelEncoder | None = None
         self._accuracy: float = 0.0
         self._last_training_count: int = 0
+        self._single_class_label: str | None = None
 
     @property
     def last_training_count(self) -> int:
@@ -100,10 +101,11 @@ class StatisticalAssessor:
                     "Only %d class(es) in training data, cannot train classifier",
                     n_classes,
                 )
-                # Train anyway for prediction but accuracy is limited
-                self._model = LogisticRegression(max_iter=1000)
-                self._model.fit(X, y)
-                self._accuracy = 1.0  # trivially correct with one class
+                # LogisticRegression requires ≥2 classes; store the single
+                # class directly so predict() can return it without sklearn.
+                self._single_class_label = y_raw[0]
+                self._model = None
+                self._accuracy = 0.0
                 self._last_training_count = count_outcomes(self._db)
                 return self._accuracy
 
@@ -159,6 +161,10 @@ class StatisticalAssessor:
 
         Raises RuntimeError if the model has not been trained.
         """
+        # Single-class shortcut: return the only class seen during training.
+        if self._single_class_label is not None:
+            return ModelTier(self._single_class_label), 0.5
+
         if self._model is None or self._label_encoder is None:
             raise RuntimeError("Statistical model not trained")
 

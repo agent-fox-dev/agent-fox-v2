@@ -46,11 +46,16 @@ class EmbeddingGenerator:
             tf_logging.disable_progress_bar()
             prev_level = tf_logging.get_verbosity()
             tf_logging.set_verbosity_error()
+            # Suppress "unauthenticated requests" warning from huggingface_hub.
+            hf_logger = logging.getLogger("huggingface_hub.utils._headers")
+            prev_hf_level = hf_logger.level
+            hf_logger.setLevel(logging.ERROR)
             try:
                 self._model = SentenceTransformer(self._config.embedding_model)
             finally:
                 tf_logging.set_verbosity(prev_level)
                 tf_logging.enable_progress_bar()
+                hf_logger.setLevel(prev_hf_level)
         return self._model
 
     def embed_text(self, text: str) -> list[float] | None:
