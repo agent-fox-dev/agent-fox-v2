@@ -39,7 +39,6 @@ docs/                   # Documentation
   memory.md             # Accumulated knowledge from automated sessions
   cli-reference.md      # CLI documentation
   skills.md             # Skill documentation
-skills/                 # Claude Code skill definitions (source)
 ```
 
 ## Spec-Driven Workflow
