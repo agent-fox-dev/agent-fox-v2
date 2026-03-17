@@ -706,7 +706,7 @@ class NodeSessionRunner:
 
         Requirements: 27-REQ-3.1, 27-REQ-4.1, 27-REQ-4.2
         """
-        if self._archetype not in ("skeptic", "verifier", "oracle"):
+        if self._archetype not in ("skeptic", "verifier", "oracle", "auditor"):
             return
 
         session_id = f"{node_id}:{attempt}"
@@ -770,6 +770,17 @@ class NodeSessionRunner:
                         count,
                         node_id,
                     )
+
+            elif self._archetype == "auditor":
+                from agent_fox.session.auditor_output import (
+                    persist_auditor_results,
+                )
+                from agent_fox.session.review_parser import parse_auditor_output
+
+                audit_result = parse_auditor_output(transcript)
+                if audit_result is not None:
+                    spec_dir = Path.cwd() / ".specs" / self._spec_name
+                    persist_auditor_results(spec_dir, audit_result, attempt=attempt)
 
         except Exception:
             logger.warning(

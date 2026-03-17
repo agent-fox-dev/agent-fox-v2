@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from agent_fox.tools._file_io import read_text_lossy, validate_file
 from agent_fox.tools.hashing import hash_line
 from agent_fox.tools.types import HashedLine, ReadResult
 
@@ -27,27 +28,18 @@ def fox_read(file_path: str, ranges: list[tuple[int, int]]) -> ReadResult | str:
     """
     path = Path(file_path)
 
-    # Check existence and readability
-    if not path.exists():
-        return f"Error: file not found: {file_path}"
-    if not path.is_file():
-        return f"Error: not a file: {file_path}"
+    err = validate_file(path)
+    if err:
+        return err
 
     # Validate ranges
     for start, end in ranges:
         if start > end:
             return f"Error: invalid range [{start}, {end}] — start > end"
 
-    # Read file
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        try:
-            text = path.read_text(encoding="latin-1")
-        except Exception as e:
-            return f"Error: cannot read {file_path}: {e}"
-    except OSError as e:
-        return f"Error: cannot read {file_path}: {e}"
+    text, read_err = read_text_lossy(path)
+    if read_err:
+        return read_err
 
     file_lines = text.splitlines(keepends=True)
     total_lines = len(file_lines)

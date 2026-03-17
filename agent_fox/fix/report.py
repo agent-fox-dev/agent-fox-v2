@@ -9,15 +9,11 @@ from __future__ import annotations
 
 from rich.console import Console
 
-from agent_fox.fix.fix import FixResult, TerminationReason  # noqa: F401
-
-# Human-readable labels for termination reasons.
-_REASON_LABELS: dict[TerminationReason, tuple[str, str]] = {
-    TerminationReason.ALL_FIXED: ("All checks pass", "green"),
-    TerminationReason.MAX_PASSES: ("Max passes reached", "yellow"),
-    TerminationReason.COST_LIMIT: ("Cost limit reached", "red"),
-    TerminationReason.INTERRUPTED: ("Interrupted", "red"),
-}
+from agent_fox.fix.fix import (  # noqa: F401
+    TERMINATION_LABELS,
+    FixResult,
+    TerminationReason,
+)
 
 
 def render_fix_report(result: FixResult, console: Console) -> None:
@@ -30,7 +26,7 @@ def render_fix_report(result: FixResult, console: Console) -> None:
     - Termination reason (human-readable)
     - If failures remain: list of remaining failure summaries
     """
-    reason_label, reason_style = _REASON_LABELS.get(
+    reason_label, reason_style = TERMINATION_LABELS.get(
         result.termination_reason,
         (str(result.termination_reason), "white"),
     )

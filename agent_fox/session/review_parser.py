@@ -12,6 +12,10 @@ import json
 import logging
 import re
 import uuid
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_fox.session.convergence import AuditResult
 
 from agent_fox.knowledge.review_store import (
     VALID_SEVERITIES,
@@ -269,6 +273,59 @@ def parse_oracle_output(
         logger.warning("No valid drift findings extracted from Oracle output")
 
     return findings
+
+
+def parse_auditor_output(
+    response: str,
+) -> AuditResult | None:
+    """Extract an AuditResult from auditor agent response JSON.
+
+    Looks for a JSON object with an "audit" array, "overall_verdict",
+    and "summary". Returns None if no valid JSON found.
+
+    Requirements: 46-REQ-8.1
+    """
+    from agent_fox.session.convergence import AuditEntry, AuditResult
+
+    blocks = _extract_json_blocks(response)
+
+    if not blocks:
+        logger.warning("No valid JSON blocks found in Auditor output")
+        return None
+
+    for block in blocks:
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+
+        if not isinstance(data, dict) or "audit" not in data:
+            continue
+
+        entries: list[AuditEntry] = []
+        for item in data["audit"]:
+            if not isinstance(item, dict) or "ts_entry" not in item:
+                continue
+            entries.append(
+                AuditEntry(
+                    ts_entry=item["ts_entry"],
+                    test_functions=item.get("test_functions", []),
+                    verdict=item.get("verdict", "MISSING"),
+                    notes=item.get("notes"),
+                )
+            )
+
+        overall = data.get("overall_verdict", "FAIL")
+        summary = data.get("summary", "")
+
+        return AuditResult(
+            entries=entries,
+            overall_verdict=overall,
+            summary=summary,
+        )
+
+    logger.warning("No valid audit result extracted from Auditor output")
+    return None
 
 
 def parse_legacy_review_md(

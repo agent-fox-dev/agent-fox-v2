@@ -9,16 +9,8 @@ from typing import Any
 
 from rich.console import Console
 
-from agent_fox.fix.fix import FixResult, TerminationReason
+from agent_fox.fix.fix import TERMINATION_LABELS, FixResult
 from agent_fox.fix.improve import ImproveResult, ImproveTermination
-
-# Human-readable labels for Phase 1 termination reasons.
-_P1_REASON_LABELS: dict[TerminationReason, str] = {
-    TerminationReason.ALL_FIXED: "All checks pass",
-    TerminationReason.MAX_PASSES: "Max passes reached",
-    TerminationReason.COST_LIMIT: "Cost limit reached",
-    TerminationReason.INTERRUPTED: "Interrupted",
-}
 
 # Human-readable labels for Phase 2 termination reasons.
 _P2_REASON_LABELS: dict[ImproveTermination, str] = {
@@ -52,9 +44,9 @@ def render_combined_report(
     Requirements: 31-REQ-9.1, 31-REQ-9.2, 31-REQ-9.E1
     """
     # -- Phase 1 --
-    p1_label = _P1_REASON_LABELS.get(
-        fix_result.termination_reason, str(fix_result.termination_reason)
-    )
+    p1_label = TERMINATION_LABELS.get(
+        fix_result.termination_reason, ("Unknown", "white")
+    )[0]
     _print = lambda msg: console.print(msg, highlight=False)  # noqa: E731
 
     _print("[bold]Phase 1: Repair[/bold]")

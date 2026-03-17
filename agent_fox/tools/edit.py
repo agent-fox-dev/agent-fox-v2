@@ -13,6 +13,7 @@ import os
 import tempfile
 from pathlib import Path
 
+from agent_fox.tools._file_io import read_text_lossy, validate_file
 from agent_fox.tools.hashing import hash_line
 from agent_fox.tools.types import EditOperation, EditResult
 
@@ -30,25 +31,9 @@ def fox_edit(file_path: str, edits: list[EditOperation]) -> EditResult:
     """
     path = Path(file_path)
 
-    # --- Pre-validation: file access ---
-    if not path.exists():
-        return EditResult(
-            success=False,
-            lines_changed=0,
-            errors=[f"Error: file not found: {file_path}"],
-        )
-    if not path.is_file():
-        return EditResult(
-            success=False,
-            lines_changed=0,
-            errors=[f"Error: not a file: {file_path}"],
-        )
-    if not os.access(path, os.W_OK):
-        return EditResult(
-            success=False,
-            lines_changed=0,
-            errors=[f"Error: file not writable: {file_path}"],
-        )
+    err = validate_file(path, writable=True)
+    if err:
+        return EditResult(success=False, lines_changed=0, errors=[err])
 
     if not edits:
         return EditResult(success=True, lines_changed=0)
@@ -59,23 +44,9 @@ def fox_edit(file_path: str, edits: list[EditOperation]) -> EditResult:
         return EditResult(success=False, lines_changed=0, errors=overlap_errors)
 
     # --- Read file ---
-    try:
-        text = path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        try:
-            text = path.read_text(encoding="latin-1")
-        except Exception as e:
-            return EditResult(
-                success=False,
-                lines_changed=0,
-                errors=[f"Error: cannot read {file_path}: {e}"],
-            )
-    except OSError as e:
-        return EditResult(
-            success=False,
-            lines_changed=0,
-            errors=[f"Error: cannot read {file_path}: {e}"],
-        )
+    text, read_err = read_text_lossy(path)
+    if read_err:
+        return EditResult(success=False, lines_changed=0, errors=[read_err])
 
     file_lines = text.splitlines(keepends=True)
 

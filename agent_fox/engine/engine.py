@@ -1598,129 +1598,82 @@ class Orchestrator:
             ladder = self._routing.ladders.get(node_id)
 
             if ladder is not None:
-                # Record failure on the escalation ladder
                 ladder.record_failure()
-
-                if archetype_entry.retry_predecessor and ladder.should_retry():
-                    # Find predecessor and reset it instead of the failed node
-                    predecessors = self._get_predecessors(node_id)
-                    if predecessors:
-                        pred_id = predecessors[0]
-                        logger.info(
-                            "Retry-predecessor: resetting %s to pending due to "
-                            "%s failure (attempt %d)",
-                            pred_id,
-                            node_id,
-                            attempt,
-                        )
-                        self._graph_sync.node_states[pred_id] = "pending"
-                        error_tracker[pred_id] = record.error_message
-                        self._graph_sync.node_states[node_id] = "pending"
-                        self._state_manager.save(state)
-                        return
-
-                if ladder.is_exhausted:
-                    # 30-REQ-2.3: All retries and escalation exhausted
-                    # 30-REQ-7.4: Record outcome on final failure
-                    self._record_node_outcome(node_id, state, "failed")
-
-                    if self._task_callback is not None:
-                        duration_s = (record.duration_ms or 0) / 1000
-                        self._task_callback(
-                            TaskEvent(
-                                node_id=node_id,
-                                status="failed",
-                                duration_s=duration_s,
-                                error_message=record.error_message,
-                            )
-                        )
-                    self._block_task(
-                        node_id,
-                        state,
-                        f"Retries exhausted for {node_id}: {record.error_message}",
-                    )
-                else:
-                    # 30-REQ-2.1/2.2: Retry at same tier or escalate
-                    if ladder.escalation_count > 0:
-                        prev_tier = record.model or "unknown"
-                        logger.warning(
-                            "Escalating %s from %s to %s",
-                            node_id,
-                            prev_tier,
-                            ladder.current_tier,
-                        )
-                        # 40-REQ-10.1: Emit model.escalation audit event
-                        self._emit_audit(
-                            AuditEventType.MODEL_ESCALATION,
-                            node_id=node_id,
-                            payload={
-                                "from_tier": prev_tier,
-                                "to_tier": ladder.current_tier.value,
-                                "reason": (
-                                    f"retry limit at tier exhausted for {node_id}"
-                                ),
-                            },
-                        )
-                    # 40-REQ-9.4: Emit session.retry on pending reset
-                    self._emit_audit(
-                        AuditEventType.SESSION_RETRY,
-                        node_id=node_id,
-                        payload={
-                            "attempt": attempt,
-                            "reason": record.error_message or "retrying after failure",
-                        },
-                    )
-                    self._graph_sync.node_states[node_id] = "pending"
+                can_retry = ladder.should_retry()
+                exhausted = ladder.is_exhausted
             else:
-                # Fallback: no ladder (backward compat) — use original retry logic
-                if (
-                    archetype_entry.retry_predecessor
-                    and attempt < self._config.max_retries + 1
-                ):
-                    predecessors = self._get_predecessors(node_id)
-                    if predecessors:
-                        pred_id = predecessors[0]
-                        logger.info(
-                            "Retry-predecessor: resetting %s to pending due to "
-                            "%s failure (attempt %d)",
-                            pred_id,
-                            node_id,
-                            attempt,
-                        )
-                        self._graph_sync.node_states[pred_id] = "pending"
-                        error_tracker[pred_id] = record.error_message
-                        self._graph_sync.node_states[node_id] = "pending"
-                        self._state_manager.save(state)
-                        return
+                # Fallback: no ladder (backward compat)
+                max_attempts = self._config.max_retries + 1
+                can_retry = attempt < max_attempts
+                exhausted = attempt >= max_attempts
 
-                if attempt >= self._config.max_retries + 1:
-                    # 18-REQ-5.4: Emit task failure event
-                    if self._task_callback is not None:
-                        duration_s = (record.duration_ms or 0) / 1000
-                        self._task_callback(
-                            TaskEvent(
-                                node_id=node_id,
-                                status="failed",
-                                duration_s=duration_s,
-                                error_message=record.error_message,
-                            )
-                        )
-                    self._block_task(
+            # Retry-predecessor: reset predecessor instead of failed node
+            if archetype_entry.retry_predecessor and can_retry:
+                predecessors = self._get_predecessors(node_id)
+                if predecessors:
+                    pred_id = predecessors[0]
+                    logger.info(
+                        "Retry-predecessor: resetting %s to pending due to "
+                        "%s failure (attempt %d)",
+                        pred_id,
                         node_id,
-                        state,
-                        f"Retries exhausted for {node_id}: {record.error_message}",
+                        attempt,
                     )
-                else:
-                    # 40-REQ-9.4: Emit session.retry on pending reset (fallback path)
+                    self._graph_sync.node_states[pred_id] = "pending"
+                    error_tracker[pred_id] = record.error_message
+                    self._graph_sync.node_states[node_id] = "pending"
+                    self._state_manager.save(state)
+                    return
+
+            if exhausted:
+                # 30-REQ-2.3, 30-REQ-7.4: All retries exhausted
+                self._record_node_outcome(node_id, state, "failed")
+                # 18-REQ-5.4: Emit task failure event
+                if self._task_callback is not None:
+                    duration_s = (record.duration_ms or 0) / 1000
+                    self._task_callback(
+                        TaskEvent(
+                            node_id=node_id,
+                            status="failed",
+                            duration_s=duration_s,
+                            error_message=record.error_message,
+                        )
+                    )
+                self._block_task(
+                    node_id,
+                    state,
+                    f"Retries exhausted for {node_id}: {record.error_message}",
+                )
+            else:
+                # 30-REQ-2.1/2.2: Retry at same tier or escalate
+                if ladder is not None and ladder.escalation_count > 0:
+                    prev_tier = record.model or "unknown"
+                    logger.warning(
+                        "Escalating %s from %s to %s",
+                        node_id,
+                        prev_tier,
+                        ladder.current_tier,
+                    )
+                    # 40-REQ-10.1: Emit model.escalation audit event
                     self._emit_audit(
-                        AuditEventType.SESSION_RETRY,
+                        AuditEventType.MODEL_ESCALATION,
                         node_id=node_id,
                         payload={
-                            "attempt": attempt,
-                            "reason": record.error_message or "retrying after failure",
+                            "from_tier": prev_tier,
+                            "to_tier": ladder.current_tier.value,
+                            "reason": (f"retry limit at tier exhausted for {node_id}"),
                         },
                     )
-                    self._graph_sync.node_states[node_id] = "pending"
+                # 40-REQ-9.4: Emit session.retry on pending reset
+                self._emit_audit(
+                    AuditEventType.SESSION_RETRY,
+                    node_id=node_id,
+                    payload={
+                        "attempt": attempt,
+                        "reason": record.error_message or "retrying after failure",
+                    },
+                )
+                self._graph_sync.node_states[node_id] = "pending"
 
         self._state_manager.save(state)
 

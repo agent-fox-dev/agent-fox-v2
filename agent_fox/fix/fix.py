@@ -37,6 +37,15 @@ class TerminationReason(StrEnum):
     INTERRUPTED = "interrupted"
 
 
+# Canonical human-readable labels with Rich color styles.
+TERMINATION_LABELS: dict[TerminationReason, tuple[str, str]] = {
+    TerminationReason.ALL_FIXED: ("All checks pass", "green"),
+    TerminationReason.MAX_PASSES: ("Max passes reached", "yellow"),
+    TerminationReason.COST_LIMIT: ("Cost limit reached", "red"),
+    TerminationReason.INTERRUPTED: ("Interrupted", "red"),
+}
+
+
 @dataclass
 class FixResult:
     """Result of the fix loop."""
