@@ -2,8 +2,8 @@
 
 <p align="center">
     <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.png">
-        <img src="https://raw.githubusercontent.com/agent-fox-dev/agent-fox-v2/refs/heads/main/docs/assets/agent-fox-mascot.png" width="200">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/agent-fox-dev/agent-fox/refs/heads/main/docs/assets/agent-fox-mascot.png">
+        <img src="https://raw.githubusercontent.com/agent-fox-dev/agent-fox/refs/heads/main/docs/assets/agent-fox-mascot.png" width="200">
     </picture>
 </p>
 
@@ -32,6 +32,18 @@ extracts learnings into structured memory, and merges clean commits to
 `develop`. 
 
 You come back to a finished feature branch and a standup report.
+
+## Installation
+
+```bash
+uv tool install agent-fox
+```
+
+Or install directly from the repository:
+
+```bash
+uv tool install git+https://github.com/agent-fox-dev/agent-fox.git
+```
 
 ## Quick start
 
@@ -148,4 +160,12 @@ uv sync --group dev
 make test              # all tests
 make lint              # check lint + formatting
 make check             # lint + all tests
+```
+
+`uv sync` installs the project in editable mode, so changes you make to the
+source are immediately reflected when you run `agent-fox`. To run the local
+version explicitly (rather than a globally installed release):
+
+```bash
+uv run agent-fox <command>
 ```
