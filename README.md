@@ -82,26 +82,13 @@ with spec authoring, architecture decisions, code simplification, and more.
 By default every task runs as a **Coder** agent. Specialized archetypes add
 automated review and verification at different stages of the pipeline:
 
-| Archetype | Purpose | Default |
-|-----------|---------|---------|
-| **Coder** | Implements code | always enabled |
-| **Skeptic** | Reviews specs before coding | enabled |
-| **Oracle** | Validates spec assumptions against codebase | disabled |
-| **Auditor** | Validates test code against test_spec contracts | disabled |
-| **Verifier** | Checks code quality after coding | enabled |
-| **Librarian** | Documentation tasks | disabled |
-| **Cartographer** | Architecture mapping | disabled |
+- **Coder**: Implements code 
+- **Skeptic**: Reviews specs before coding
+- **Oracle**: Validates spec assumptions against codebase 
+- **Auditor**: Validates test code against test_spec contracts
+- **Verifier**: Checks code quality after coding
 
-Skeptic and Verifier are enabled by default. Configure archetypes in your
-`config.toml`:
-
-```toml
-[archetypes]
-oracle = true         # enable oracle (disabled by default)
-```
-
-See the [archetypes reference](docs/archetypes.md) for details on each
-archetype, and the [ADR](docs/adr/agent-archetypes.md) for design rationale.
+See the [archetypes reference](docs/archetypes.md) for details on each archetype.
 
 ### Adaptive Model Routing
 
@@ -114,23 +101,7 @@ The routing system learns from past executions: after enough history
 accumulates, a statistical model replaces the default heuristic rules and
 predictions improve over time.
 
-See the [configuration reference](docs/configuration.md#routing) for routing
-options and the [ADR](docs/adr/adaptive-model-routing.md) for design rationale.
-
-## Fox Tools (Token-Efficient File Tools)
-
-agent-fox includes four token-efficient file tools that reduce token usage
-and prevent silent corruption during file operations.
-
-Fox tools are enabled by default. When enabled, the session runner registers
-four tools with the agent backend:
-
-| Tool | Description |
-|------|-------------|
-| `fox_outline` | Structural file outline (functions, classes, imports) with line ranges |
-| `fox_read` | Read specific line ranges with per-line content hashes |
-| `fox_edit` | Hash-verified atomic batch editing (prevents stale-read corruption) |
-| `fox_search` | Regex search with context lines and content hashes |
+See the [configuration reference](docs/configuration.md#routing) for routing options.
 
 ## Dependencies
 
