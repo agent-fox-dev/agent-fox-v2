@@ -63,6 +63,22 @@ agent-fox code --parallel 4
 agent-fox status
 ```
 
+See the [CLI reference](docs/cli-reference.md) for all command options.
+
+### Spec-driven Development
+
+Your project needs specs under `.specs/` before running `plan` or `code`.
+
+Use the `/af-spec` skill in Claude Code to generate them from a PRD,
+a GitHub issue or a plain-English description:
+
+```
+/af-spec [path-to-prd-or-prompt-or-github-issue-url]
+```
+
+agent-fox ships with a set of [Claude Code skills](docs/skills.md) that assist
+with spec authoring, architecture decisions, code simplification, and more.
+
 ## Documentation
 
 Full documentation lives in [`docs/`](docs/README.md):
