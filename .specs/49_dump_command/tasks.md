@@ -57,25 +57,25 @@ function, and task group 3 wires the CLI command and registers it.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_dump.py tests/unit/test_dump_db.py tests/property/test_dump_props.py`
 
-- [ ] 2. Implement knowledge dump module and memory JSON export
-  - [ ] 2.1 Create `agent_fox/knowledge/dump.py`
+- [x] 2. Implement knowledge dump module and memory JSON export
+  - [x] 2.1 Create `agent_fox/knowledge/dump.py`
     - `discover_tables(conn)` — list all table names
     - `dump_table_md(conn, table)` — render one table as Markdown
     - `dump_all_tables_md(conn, output)` — write all tables to Markdown file
     - `dump_all_tables_json(conn, output)` — write all tables to JSON file
     - _Requirements: 3.1, 3.2, 3.4_
 
-  - [ ] 2.2 Add `render_summary_json()` to `agent_fox/knowledge/rendering.py`
+  - [x] 2.2 Add `render_summary_json()` to `agent_fox/knowledge/rendering.py`
     - Read all facts via `read_all_facts(conn)`
     - Serialize to JSON with `facts` array and `generated` timestamp
     - Handle empty-facts case (empty array)
     - _Requirements: 2.2, 2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_dump_db.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/dump.py agent_fox/knowledge/rendering.py`
-    - [ ] Requirements 2.2, 3.1, 3.2, 3.4 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_dump_db.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/dump.py agent_fox/knowledge/rendering.py`
+    - [x] Requirements 2.2, 3.1, 3.2, 3.4 acceptance criteria met
 
 - [ ] 3. Implement CLI command and register it
   - [ ] 3.1 Create `agent_fox/cli/dump.py`

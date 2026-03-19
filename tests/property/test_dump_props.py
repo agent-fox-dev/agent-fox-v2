@@ -9,18 +9,19 @@ from __future__ import annotations
 
 import json
 import re
+import tempfile
 import uuid
 from pathlib import Path
 
 import duckdb
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
 from agent_fox.knowledge.dump import (
     discover_tables,
     dump_all_tables_json,
     dump_all_tables_md,
 )
-from hypothesis import given, settings
-from hypothesis import strategies as st
-
 from agent_fox.knowledge.facts import Category
 from agent_fox.knowledge.rendering import render_summary, render_summary_json
 from tests.unit.knowledge.conftest import SCHEMA_DDL
@@ -90,18 +91,21 @@ class TestFactCountPreservation:
 
     @given(facts=st.lists(fact_row(), min_size=1, max_size=50))
     @settings(max_examples=50)
-    def test_fact_count_preservation(self, facts: list[dict], tmp_path: Path) -> None:
+    def test_fact_count_preservation(self, facts: list[dict]) -> None:
         """Number of bullet lines equals number of input facts."""
         conn = duckdb.connect(":memory:")
         conn.execute(SCHEMA_DDL)
         _insert_facts(conn, facts)
 
-        output_path = tmp_path / "memory.md"
-        render_summary(conn, output_path)
+        with tempfile.TemporaryDirectory() as td:
+            output_path = Path(td) / "memory.md"
+            render_summary(conn, output_path)
 
-        content = output_path.read_text()
-        bullet_count = sum(1 for line in content.splitlines() if line.startswith("- "))
-        assert bullet_count == len(facts)
+            content = output_path.read_text()
+            bullet_count = sum(
+                1 for line in content.splitlines() if line.startswith("- ")
+            )
+            assert bullet_count == len(facts)
         conn.close()
 
 
@@ -117,20 +121,21 @@ class TestJsonKeyCompleteness:
 
     @given(facts=st.lists(fact_row(), min_size=1, max_size=20))
     @settings(max_examples=50)
-    def test_json_key_completeness(self, facts: list[dict], tmp_path: Path) -> None:
+    def test_json_key_completeness(self, facts: list[dict]) -> None:
         """Every fact object has id, content, category, spec_name, confidence."""
         conn = duckdb.connect(":memory:")
         conn.execute(SCHEMA_DDL)
         _insert_facts(conn, facts)
 
-        output_path = tmp_path / "memory.json"
-        render_summary_json(conn, output_path)
+        with tempfile.TemporaryDirectory() as td:
+            output_path = Path(td) / "memory.json"
+            render_summary_json(conn, output_path)
 
-        data = json.loads(output_path.read_text())
-        assert len(data["facts"]) == len(facts)
-        required_keys = {"id", "content", "category", "spec_name", "confidence"}
-        for fact_obj in data["facts"]:
-            assert required_keys <= set(fact_obj.keys())
+            data = json.loads(output_path.read_text())
+            assert len(data["facts"]) == len(facts)
+            required_keys = {"id", "content", "category", "spec_name", "confidence"}
+            for fact_obj in data["facts"]:
+                assert required_keys <= set(fact_obj.keys())
         conn.close()
 
 
@@ -177,9 +182,7 @@ class TestTableCoverage:
         )
     )
     @settings(max_examples=30)
-    def test_table_coverage_markdown(
-        self, extra_tables: list[str], tmp_path: Path
-    ) -> None:
+    def test_table_coverage_markdown(self, extra_tables: list[str]) -> None:
         """Markdown output has N '## table_name' headings."""
         conn = duckdb.connect(":memory:")
         conn.execute(SCHEMA_DDL)
@@ -190,12 +193,14 @@ class TestTableCoverage:
             conn.execute(f"INSERT INTO \"{tname}\" VALUES (1, 'test')")
 
         tables = discover_tables(conn)
-        output = tmp_path / "dump.md"
-        dump_all_tables_md(conn, output)
 
-        content = output.read_text()
-        heading_count = len(re.findall(r"^## .+$", content, re.MULTILINE))
-        assert heading_count == len(tables)
+        with tempfile.TemporaryDirectory() as td:
+            output = Path(td) / "dump.md"
+            dump_all_tables_md(conn, output)
+
+            content = output.read_text()
+            heading_count = len(re.findall(r"^## .+$", content, re.MULTILINE))
+            assert heading_count == len(tables)
         conn.close()
 
     @given(
@@ -207,7 +212,7 @@ class TestTableCoverage:
         )
     )
     @settings(max_examples=30)
-    def test_table_coverage_json(self, extra_tables: list[str], tmp_path: Path) -> None:
+    def test_table_coverage_json(self, extra_tables: list[str]) -> None:
         """JSON output has N keys in tables dict."""
         conn = duckdb.connect(":memory:")
         conn.execute(SCHEMA_DDL)
@@ -217,9 +222,11 @@ class TestTableCoverage:
             conn.execute(f"INSERT INTO \"{tname}\" VALUES (1, 'test')")
 
         tables = discover_tables(conn)
-        output = tmp_path / "dump.json"
-        dump_all_tables_json(conn, output)
 
-        data = json.loads(output.read_text())
-        assert len(data["tables"]) == len(tables)
+        with tempfile.TemporaryDirectory() as td:
+            output = Path(td) / "dump.json"
+            dump_all_tables_json(conn, output)
+
+            data = json.loads(output.read_text())
+            assert len(data["tables"]) == len(tables)
         conn.close()
