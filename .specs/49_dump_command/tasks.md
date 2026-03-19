@@ -25,8 +25,8 @@ function, and task group 3 wires the CLI command and registers it.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/test_dump.py` — CLI-level tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/test_dump.py` — CLI-level tests
     - TS-49-1: command registration
     - TS-49-2: error when no flags
     - TS-49-3: error when both flags
@@ -38,7 +38,7 @@ function, and task group 3 wires the CLI command and registers it.
     - TS-49-E2: empty facts JSON
     - _Test Spec: TS-49-1 through TS-49-6, TS-49-11, TS-49-E1, TS-49-E2_
 
-  - [ ] 1.2 Create `tests/unit/test_dump_db.py` — DB-dump module tests
+  - [x] 1.2 Create `tests/unit/test_dump_db.py` — DB-dump module tests
     - TS-49-7: DB dump Markdown
     - TS-49-8: DB dump JSON
     - TS-49-9: confirmation message
@@ -46,16 +46,16 @@ function, and task group 3 wires the CLI command and registers it.
     - TS-49-E3: no tables
     - _Test Spec: TS-49-7 through TS-49-10, TS-49-E3_
 
-  - [ ] 1.3 Create `tests/property/test_dump_props.py` — property tests
+  - [x] 1.3 Create `tests/property/test_dump_props.py` — property tests
     - TS-49-P1: fact count preservation
     - TS-49-P2: JSON key completeness
     - TS-49-P3: table coverage
     - _Test Spec: TS-49-P1, TS-49-P2, TS-49-P3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/test_dump.py tests/unit/test_dump_db.py tests/property/test_dump_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_dump.py tests/unit/test_dump_db.py tests/property/test_dump_props.py`
 
 - [ ] 2. Implement knowledge dump module and memory JSON export
   - [ ] 2.1 Create `agent_fox/knowledge/dump.py`
