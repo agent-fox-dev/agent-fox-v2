@@ -77,8 +77,8 @@ function, and task group 3 wires the CLI command and registers it.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/dump.py agent_fox/knowledge/rendering.py`
     - [x] Requirements 2.2, 3.1, 3.2, 3.4 acceptance criteria met
 
-- [ ] 3. Implement CLI command and register it
-  - [ ] 3.1 Create `agent_fox/cli/dump.py`
+- [x] 3. Implement CLI command and register it
+  - [x] 3.1 Create `agent_fox/cli/dump.py`
     - Click command with `--memory` and `--db` flags
     - Flag validation (mutual exclusivity, at-least-one)
     - DB existence check using `DEFAULT_DB_PATH`
@@ -87,19 +87,19 @@ function, and task group 3 wires the CLI command and registers it.
     - Confirmation messages to stderr
     - _Requirements: 1.1, 1.2, 1.E1, 2.1, 2.3, 3.3, 3.E1, 4.1, 5.1_
 
-  - [ ] 3.2 Register command in `agent_fox/cli/app.py`
+  - [x] 3.2 Register command in `agent_fox/cli/app.py`
     - Import `dump_cmd` and add via `main.add_command(dump_cmd, name="dump")`
     - _Requirements: 1.1_
 
-  - [ ] 3.3 Update CLI reference documentation in `docs/cli-reference.md`
+  - [x] 3.3 Update CLI reference documentation in `docs/cli-reference.md`
     - Document the `dump` command, its flags, and output files
     - _Requirements: 1.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_dump.py tests/unit/test_dump_db.py tests/property/test_dump_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/cli/dump.py agent_fox/cli/app.py`
-    - [ ] Requirements 1.1, 1.2, 1.E1, 2.1, 2.3, 3.3, 3.E1, 4.1, 5.1 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_dump.py tests/unit/test_dump_db.py tests/property/test_dump_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/cli/dump.py agent_fox/cli/app.py`
+    - [x] Requirements 1.1, 1.2, 1.E1, 2.1, 2.3, 3.3, 3.E1, 4.1, 5.1 acceptance criteria met
 
 ## Traceability
 

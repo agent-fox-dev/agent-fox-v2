@@ -11,15 +11,15 @@ import uuid
 from pathlib import Path
 
 import duckdb
+from click.testing import CliRunner
+
+from agent_fox.cli.app import main
 from agent_fox.knowledge.dump import (
     discover_tables,
     dump_all_tables_json,
     dump_all_tables_md,
     dump_table_md,
 )
-from click.testing import CliRunner
-
-from agent_fox.cli.app import main
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
 # -- Helpers -----------------------------------------------------------------
@@ -149,7 +149,7 @@ class TestDbDumpConfirmation:
 
     def test_db_dump_confirmation(self, tmp_path: Path) -> None:
         """dump --db prints confirmation message."""
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             _create_db_file(td_path / ".agent-fox" / "knowledge.duckdb")
@@ -157,7 +157,7 @@ class TestDbDumpConfirmation:
             result = runner.invoke(main, ["dump", "--db"], catch_exceptions=False)
 
             assert result.exit_code == 0
-            output = (result.output + (result.stderr or "")).lower()
+            output = result.output.lower()
             assert "knowledge_dump" in output
 
 

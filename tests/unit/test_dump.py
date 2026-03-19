@@ -25,6 +25,7 @@ def _create_db_with_facts(
     facts: list[dict] | None = None,
 ) -> None:
     """Create a real DuckDB file with schema and optional facts."""
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = duckdb.connect(str(db_path))
     conn.execute(SCHEMA_DDL)
     if facts:
@@ -206,7 +207,7 @@ class TestMemoryConfirmation:
 
     def test_memory_confirmation(self, tmp_path: Path) -> None:
         """dump --memory prints confirmation to stderr."""
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             af_dir = td_path / ".agent-fox"
@@ -217,7 +218,7 @@ class TestMemoryConfirmation:
 
             assert result.exit_code == 0
             # Confirmation should mention the output path and fact count
-            output = (result.output + (result.stderr or "")).lower()
+            output = result.output.lower()
             assert "memory" in output
             assert str(len(SAMPLE_FACTS)) in output
 
@@ -264,7 +265,7 @@ class TestMemoryEmptyMarkdown:
 
     def test_memory_empty_markdown(self, tmp_path: Path) -> None:
         """dump --memory with no facts writes empty-state markdown."""
-        runner = CliRunner(mix_stderr=False)
+        runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             af_dir = td_path / ".agent-fox"
@@ -280,7 +281,7 @@ class TestMemoryEmptyMarkdown:
             assert "no facts" in content or content.strip() == ""
 
             # Warning should be printed
-            output = (result.output + (result.stderr or "")).lower()
+            output = result.output.lower()
             assert "no facts" in output or "warning" in output or "0" in output
 
 

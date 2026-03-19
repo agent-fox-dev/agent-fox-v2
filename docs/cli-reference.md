@@ -13,6 +13,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox standup` | Generate daily activity report |
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
+| `agent-fox dump` | Export knowledge store data (memory summary or full DB dump) |
 | `agent-fox lint-spec` | Validate specification files |
 
 ## Global Options
@@ -71,6 +72,40 @@ echo 'not json' | agent-fox --json status
 ---
 
 ## Commands
+
+### dump
+
+Export knowledge store data as Markdown or JSON.
+
+```
+agent-fox dump [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--memory` | flag | off | Export memory summary to `docs/memory.md` (or `.json` with `--json`) |
+| `--db` | flag | off | Export full database dump to `.agent-fox/knowledge_dump.md` (or `.json` with `--json`) |
+
+Exactly one of `--memory` or `--db` must be provided. The two flags are
+mutually exclusive.
+
+**`--memory` mode:** Reads all active facts from the knowledge store and
+writes them to `docs/memory.md` grouped by category. With the global `--json`
+flag, writes `docs/memory.json` instead, containing a `facts` array and a
+`generated` ISO-8601 timestamp.
+
+**`--db` mode:** Discovers all tables in the knowledge store and writes each
+table's contents to `.agent-fox/knowledge_dump.md` as Markdown tables. Cell
+values longer than 120 characters are truncated. With `--json`, writes
+`.agent-fox/knowledge_dump.json` with a `tables` dict keyed by table name.
+
+The command opens the knowledge store in read-only mode, so it is safe to run
+while an orchestrator session is active.
+
+**Exit codes:** `0` success, `1` error (missing DB, no flags, both flags, no
+tables).
+
+---
 
 ### init
 
