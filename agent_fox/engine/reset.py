@@ -562,9 +562,10 @@ def reset_tasks_md_checkboxes(
     spec_groups: dict[str, list[int]] = {}
     for task_id in affected_task_ids:
         parts = task_id.split(":")
-        if len(parts) != 2:
+        if len(parts) < 2:
             continue
         spec_name = parts[0]
+        # Group number is always in parts[1] (for both "spec:N" and "spec:N:archetype")
         try:
             group_num = int(parts[1])
         except ValueError:
@@ -614,6 +615,90 @@ def reset_plan_statuses(
     plan_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
+    )
+
+
+def reset_spec(
+    spec_name: str,
+    state_path: Path,
+    plan_path: Path,
+    worktrees_dir: Path,
+    repo_path: Path,
+) -> ResetResult:
+    """Reset all tasks belonging to a single spec to pending.
+
+    Identifies all nodes (coder + archetype) whose spec_name matches,
+    resets their state to pending, cleans worktrees/branches, and
+    synchronizes tasks.md and plan.json.
+
+    Does NOT perform git rollback or knowledge compaction.
+
+    Args:
+        spec_name: The spec folder name to reset.
+        state_path: Path to .agent-fox/state.jsonl.
+        plan_path: Path to .agent-fox/plan.json.
+        worktrees_dir: Path to worktrees directory.
+        repo_path: Path to the git repository root.
+
+    Returns:
+        ResetResult with reset_tasks, cleaned_worktrees, cleaned_branches.
+
+    Raises:
+        AgentFoxError: If spec_name not found in plan, or state/plan missing.
+
+    Requirements: 50-REQ-1.1 .. 50-REQ-1.8, 50-REQ-4.1, 50-REQ-4.2
+    """
+    state = _load_state_or_raise(state_path)
+    plan = _load_plan_or_raise(plan_path)
+
+    # Collect all node IDs belonging to the target spec
+    spec_node_ids = [
+        nid for nid, node in plan.nodes.items() if node.spec_name == spec_name
+    ]
+
+    # Validate spec exists in plan (50-REQ-1.E1)
+    if not spec_node_ids:
+        valid_specs = sorted({node.spec_name for node in plan.nodes.values()})
+        raise AgentFoxError(
+            f"Unknown spec: {spec_name}. Valid specs: {', '.join(valid_specs)}",
+            spec_name=spec_name,
+        )
+
+    # Identify nodes that are not already pending (50-REQ-1.E4)
+    non_pending = [
+        nid
+        for nid in spec_node_ids
+        if state.node_states.get(nid, "pending") != "pending"
+    ]
+
+    # Reset matching node_states to pending (50-REQ-1.1, 50-REQ-1.2)
+    for nid in spec_node_ids:
+        state.node_states[nid] = "pending"
+
+    # Clean worktrees and branches (50-REQ-1.4)
+    cleaned_worktrees: list[str] = []
+    cleaned_branches: list[str] = []
+    for nid in spec_node_ids:
+        _collect_cleanup(
+            nid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches
+        )
+
+    # Synchronize tasks.md checkboxes (50-REQ-1.5)
+    specs_dir = repo_path / ".specs"
+    reset_tasks_md_checkboxes(spec_node_ids, specs_dir)
+
+    # Synchronize plan.json statuses (50-REQ-1.6)
+    reset_plan_statuses(plan_path, spec_node_ids)
+
+    # Save state — preserves session_history and counters (50-REQ-4.1, 50-REQ-4.2)
+    if non_pending:
+        StateManager(state_path).save(state)
+
+    return ResetResult(
+        reset_tasks=non_pending,
+        unblocked_tasks=[],
+        cleaned_worktrees=cleaned_worktrees,
+        cleaned_branches=cleaned_branches,
     )
 
 

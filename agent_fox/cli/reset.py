@@ -23,6 +23,7 @@ from agent_fox.engine.reset import (
     hard_reset_all,
     hard_reset_task,
     reset_all,
+    reset_spec,
     reset_task,
 )
 
@@ -119,15 +120,61 @@ def _display_hard_result(result: HardResetResult) -> None:
         click.echo("Code rollback skipped (no tracked commits).")
 
 
+def _spec_result_to_dict(result: ResetResult) -> dict:
+    """Convert a spec-reset ResetResult to a JSON-serializable dict.
+
+    Uses the keys required by 50-REQ-3.4: reset_tasks,
+    cleaned_worktrees, cleaned_branches.
+    """
+    return {
+        "reset_tasks": list(result.reset_tasks),
+        "cleaned_worktrees": list(result.cleaned_worktrees),
+        "cleaned_branches": list(result.cleaned_branches),
+    }
+
+
+def _display_spec_result(result: ResetResult, spec_name: str) -> None:
+    """Display a human-readable summary of a spec-scoped reset.
+
+    Requirement: 50-REQ-3.5
+    """
+    if not result.reset_tasks:
+        click.echo(
+            f"Nothing to reset. All tasks for spec '{spec_name}' are already pending.",
+        )
+        return
+
+    click.echo(f"Reset {len(result.reset_tasks)} task(s) for spec '{spec_name}':")
+    for task_id in result.reset_tasks:
+        click.echo(f"  - {task_id}")
+
+    if result.cleaned_worktrees:
+        click.echo(
+            f"\nCleaned up {len(result.cleaned_worktrees)} worktree(s).",
+        )
+
+    if result.cleaned_branches:
+        click.echo(
+            f"Deleted {len(result.cleaned_branches)} branch(es).",
+        )
+
+
 @click.command("reset")
 @click.argument("task_id", required=False, default=None)
 @click.option("--hard", is_flag=True, help="Full state wipe including completed tasks")
+@click.option(
+    "--spec",
+    "filter_spec",
+    default=None,
+    help="Reset all tasks for a single spec",
+)
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
 def reset_cmd(
     ctx: click.Context,
     task_id: str | None,
     hard: bool,
+    filter_spec: str | None,
     yes: bool,
 ) -> None:
     """Reset failed/blocked tasks for retry.
@@ -138,6 +185,8 @@ def reset_cmd(
     With --hard, perform a comprehensive wipe: reset ALL tasks (including
     completed), clean worktrees/branches, compact knowledge, and optionally
     roll back code on develop.
+
+    With --spec, reset all tasks belonging to a single spec.
     """
     json_mode = (ctx.obj or {}).get("json", False)
     project_root = Path.cwd()
@@ -147,7 +196,35 @@ def reset_cmd(
     worktrees_dir = agent_dir / "worktrees"
     memory_path = agent_dir / "memory.jsonl"
 
-    if hard:
+    # Mutual exclusivity checks (50-REQ-2.1, 50-REQ-2.2)
+    if filter_spec is not None:
+        if hard:
+            click.echo(
+                "Error: --spec and --hard are mutually exclusive.",
+                err=True,
+            )
+            ctx.exit(1)
+            return
+        if task_id is not None:
+            click.echo(
+                "Error: --spec and TASK_ID are mutually exclusive.",
+                err=True,
+            )
+            ctx.exit(1)
+            return
+
+    if filter_spec is not None:
+        _handle_spec_reset(
+            ctx,
+            filter_spec,
+            yes,
+            json_mode,
+            state_path,
+            plan_path,
+            worktrees_dir,
+            project_root,
+        )
+    elif hard:
         _handle_hard_reset(
             ctx,
             task_id,
@@ -179,6 +256,55 @@ def reset_cmd(
             worktrees_dir,
             project_root,
         )
+
+
+def _handle_spec_reset(
+    ctx: click.Context,
+    spec_name: str,
+    yes: bool,
+    json_mode: bool,
+    state_path: Path,
+    plan_path: Path,
+    worktrees_dir: Path,
+    project_root: Path,
+) -> None:
+    """Handle --spec reset (spec-scoped).
+
+    Requirements: 50-REQ-1.1 .. 50-REQ-1.8, 50-REQ-3.1 .. 50-REQ-3.5,
+                  50-REQ-4.1, 50-REQ-4.2
+    """
+    # Confirmation: skip if --yes or --json (50-REQ-3.1, 50-REQ-3.3, 50-REQ-3.4)
+    if not json_mode and not yes:
+        msg = f"Reset all tasks for spec '{spec_name}'?"
+        if not click.confirm(msg):
+            click.echo("Reset cancelled.")
+            return
+
+    try:
+        result = reset_spec(
+            spec_name=spec_name,
+            state_path=state_path,
+            plan_path=plan_path,
+            worktrees_dir=worktrees_dir,
+            repo_path=project_root,
+        )
+    except AgentFoxError as exc:
+        if json_mode:
+            from agent_fox.cli.json_io import emit_error
+
+            emit_error(str(exc))
+            ctx.exit(1)
+            return
+        click.echo(f"Error: {exc}", err=True)
+        ctx.exit(1)
+        return
+
+    if json_mode:
+        from agent_fox.cli.json_io import emit
+
+        emit(_spec_result_to_dict(result))
+    else:
+        _display_spec_result(result, spec_name)
 
 
 def _handle_hard_reset(
