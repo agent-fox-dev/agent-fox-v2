@@ -19,6 +19,7 @@ from pathlib import Path
 from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
+from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.state import SessionRecord
@@ -193,10 +194,9 @@ class NodeSessionRunner:
         self._activity_callback = activity_callback
         self._run_id = run_id
         self._fact_cache = fact_cache
-        # Parse node_id format: "{spec_name}:{group_number}[:{role}]"
-        parts = node_id.split(":")
-        self._spec_name = parts[0]
-        self._task_group = int(parts[1])
+        parsed = parse_node_id(node_id)
+        self._spec_name = parsed.spec_name
+        self._task_group = parsed.group_number
 
         # 30-REQ-7.2: Use assessed tier from adaptive routing if provided,
         # otherwise fall back to static resolution (26-REQ-4.4).

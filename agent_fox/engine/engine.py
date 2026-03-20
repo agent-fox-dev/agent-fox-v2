@@ -33,6 +33,8 @@ from agent_fox.core.config import (
 )
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
+from agent_fox.core.node_id import parse_node_id
+from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
@@ -423,11 +425,9 @@ class Orchestrator:
         # 30-REQ-7.1: Run assessment before session creation
         predicted_tier = tier_ceiling  # fallback
         try:
-            # Parse node_id to get spec_name and task_group
-            # Format: {spec_name}:{group_number}[:{role}]
-            parts = node_id.split(":")
-            spec_name = parts[0]
-            task_group = int(parts[1]) if len(parts) > 1 else 1
+            parsed = parse_node_id(node_id)
+            spec_name = parsed.spec_name
+            task_group = parsed.group_number or 1
             spec_dir = Path(".specs") / spec_name
 
             assessment = await self._routing.pipeline.assess(
@@ -1458,119 +1458,19 @@ class Orchestrator:
     ) -> bool:
         """Check if a skeptic/oracle session's findings should block downstream tasks.
 
-        Queries persisted review findings from DuckDB, counts critical findings,
-        applies the configured (or learned) block threshold, and calls _block_task()
-        if the threshold is exceeded.
+        Delegates to ``engine.blocking.evaluate_review_blocking`` for the
+        decision logic. Acts on the result by calling ``_block_task``.
 
         Returns True if the task was blocked.
         """
-        archetype = record.archetype
-        if archetype not in ("skeptic", "oracle"):
-            return False
-
-        if self._knowledge_db_conn is None:
-            return False
-
-        # Determine which spec's coder task to block.
-        # Skeptic/oracle node IDs have format: {spec_name}:{group}:{role}
-        # The coder task they gate is {spec_name}:{group}
-        parts = record.node_id.split(":")
-        spec_name = parts[0]
-        task_group = parts[1] if len(parts) > 1 else "1"
-
-        try:
-            from agent_fox.knowledge.review_store import (
-                query_findings_by_session,
-            )
-
-            session_id = f"{record.node_id}:{record.attempt}"
-            findings = query_findings_by_session(
-                self._knowledge_db_conn,
-                session_id,
-            )
-
-            critical_count = sum(
-                1 for f in findings if f.severity.lower() == "critical"
-            )
-
-            if critical_count == 0:
-                return False
-
-            # Resolve threshold
-            if archetype == "skeptic" and self._archetypes_config is not None:
-                configured_threshold = (
-                    self._archetypes_config.skeptic_config.block_threshold
-                )
-            elif archetype == "oracle" and self._archetypes_config is not None:
-                configured_threshold = (
-                    self._archetypes_config.oracle_settings.block_threshold
-                )
-                if configured_threshold is None:
-                    # Oracle is advisory-only when block_threshold is None
-                    return False
-            else:
-                # No config available, use conservative default
-                configured_threshold = 3
-
-            from agent_fox.session.convergence import resolve_block_threshold
-
-            effective_threshold = resolve_block_threshold(
-                configured_threshold,
-                archetype,
-                self._knowledge_db_conn,
-                learn_thresholds=False,
-            )
-
-            blocked = critical_count > effective_threshold
-
-            # Record the blocking decision for threshold learning
-            try:
-                from agent_fox.knowledge.blocking_history import (
-                    BlockingDecision,
-                    record_blocking_decision,
-                )
-
-                decision = BlockingDecision(
-                    spec_name=spec_name,
-                    archetype=archetype,
-                    critical_count=critical_count,
-                    threshold=effective_threshold,
-                    blocked=blocked,
-                    outcome="",  # outcome assessed later
-                )
-                record_blocking_decision(self._knowledge_db_conn, decision)
-            except Exception:
-                logger.debug(
-                    "Failed to record blocking decision for %s",
-                    record.node_id,
-                    exc_info=True,
-                )
-
-            if blocked:
-                # Find the coder node to block
-                coder_node_id = f"{spec_name}:{task_group}"
-                reason = (
-                    f"{archetype.capitalize()} found {critical_count} critical "
-                    f"finding(s) (threshold: {effective_threshold}) for "
-                    f"{spec_name}:{task_group}"
-                )
-                logger.warning(
-                    "%s blocking %s: %s",
-                    archetype.capitalize(),
-                    coder_node_id,
-                    reason,
-                )
-                self._block_task(coder_node_id, state, reason)
-                return True
-
-        except Exception:
-            logger.warning(
-                "Failed to evaluate %s blocking for %s",
-                archetype,
-                record.node_id,
-                exc_info=True,
-            )
-
+        decision = evaluate_review_blocking(
+            record,
+            self._archetypes_config,
+            self._knowledge_db_conn,
+        )
+        if decision.should_block:
+            self._block_task(decision.coder_node_id, state, decision.reason)
+            return True
         return False
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:

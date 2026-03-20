@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
+from agent_fox.cli.paths import DEFAULT_DB_PATH, MEMORY_PATH
 from agent_fox.knowledge.facts import Fact, parse_confidence
 
 if TYPE_CHECKING:
@@ -27,8 +28,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("agent_fox.knowledge.store")
 
-DEFAULT_MEMORY_PATH = Path(".agent-fox/memory.jsonl")
-DEFAULT_DB_PATH = Path(".agent-fox/knowledge.duckdb")
+DEFAULT_MEMORY_PATH = MEMORY_PATH
 
 
 def read_all_facts(

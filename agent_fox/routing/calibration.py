@@ -21,8 +21,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import LabelEncoder
 
 from agent_fox.core.models import ModelTier
-from agent_fox.routing.storage import count_outcomes, query_outcomes
-from agent_fox.routing.types import FeatureVector
+from agent_fox.routing.core import FeatureVector, count_outcomes, query_outcomes
 
 logger = logging.getLogger(__name__)
 

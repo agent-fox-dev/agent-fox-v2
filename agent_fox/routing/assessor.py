@@ -19,17 +19,15 @@ import duckdb
 from agent_fox.core.config import RoutingConfig
 from agent_fox.core.models import ModelTier
 from agent_fox.core.token_tracker import record_auxiliary_usage, track_response_usage
-from agent_fox.routing.features import extract_features
-from agent_fox.routing.storage import (
+from agent_fox.routing.core import (
+    ComplexityAssessment,
+    ExecutionOutcome,
+    FeatureVector,
     count_outcomes,
     persist_assessment,
     persist_outcome,
 )
-from agent_fox.routing.types import (
-    ComplexityAssessment,
-    ExecutionOutcome,
-    FeatureVector,
-)
+from agent_fox.routing.features import extract_features
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.tools._file_io import read_text_lossy, validate_file
-from agent_fox.tools.hashing import hash_line
+from agent_fox.tools._utils import hash_line, read_text_lossy, validate_file
 from agent_fox.tools.types import HashedLine, ReadResult
 
 

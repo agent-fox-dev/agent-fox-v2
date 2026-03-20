@@ -18,6 +18,7 @@ from pathlib import Path
 import duckdb
 
 from agent_fox.core.errors import AgentFoxError
+from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
@@ -98,9 +99,9 @@ def _task_id_to_worktree_path(worktrees_dir: Path, task_id: str) -> Path:
     Task ID format: "spec_name:group_number"
     Worktree path: worktrees_dir / spec_name / group_number
     """
-    parts = task_id.split(":")
-    if len(parts) == 2:
-        return worktrees_dir / parts[0] / parts[1]
+    parsed = parse_node_id(task_id)
+    if parsed.group_number:
+        return worktrees_dir / parsed.spec_name / str(parsed.group_number)
     return worktrees_dir / task_id
 
 
@@ -112,9 +113,9 @@ def _task_id_to_branch_name(task_id: str) -> str:
 
     Must match the format used by ``workspace.py:create_worktree``.
     """
-    parts = task_id.split(":")
-    if len(parts) == 2:
-        return f"feature/{parts[0]}/{parts[1]}"
+    parsed = parse_node_id(task_id)
+    if parsed.group_number:
+        return f"feature/{parsed.spec_name}/{parsed.group_number}"
     return f"feature/{task_id}"
 
 
@@ -561,16 +562,10 @@ def reset_tasks_md_checkboxes(
     # Group task IDs by spec name
     spec_groups: dict[str, list[int]] = {}
     for task_id in affected_task_ids:
-        parts = task_id.split(":")
-        if len(parts) < 2:
+        parsed = parse_node_id(task_id)
+        if not parsed.group_number:
             continue
-        spec_name = parts[0]
-        # Group number is always in parts[1] (for both "spec:N" and "spec:N:archetype")
-        try:
-            group_num = int(parts[1])
-        except ValueError:
-            continue
-        spec_groups.setdefault(spec_name, []).append(group_num)
+        spec_groups.setdefault(parsed.spec_name, []).append(parsed.group_number)
 
     for spec_name, group_nums in spec_groups.items():
         tasks_md = specs_dir / spec_name / "tasks.md"

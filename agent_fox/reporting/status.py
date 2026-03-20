@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from agent_fox.core.errors import AgentFoxError
+from agent_fox.core.node_id import spec_name_of
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
@@ -140,15 +141,9 @@ def extract_spec_name(node_id: str) -> str:
 
     Requirements: 34-REQ-4.2, 34-REQ-4.E1
 
-    Args:
-        node_id: The node identifier string (e.g. "01_core_foundation:3").
-
-    Returns:
-        The spec name prefix. If no colon is present, returns the full node_id.
+    .. deprecated:: Use ``agent_fox.core.node_id.spec_name_of`` instead.
     """
-    if ":" not in node_id:
-        return node_id
-    return node_id.split(":")[0]
+    return spec_name_of(node_id)
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
@@ -291,7 +286,7 @@ def _compute_per_spec(
     per_spec: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     for node_id, status in node_states.items():
         node = graph.nodes.get(node_id)
-        spec_name = node.spec_name if node else node_id.split(":")[0]
+        spec_name = node.spec_name if node else spec_name_of(node_id)
         per_spec[spec_name][status] += 1
     # Convert defaultdicts to regular dicts for serialization
     return {k: dict(v) for k, v in per_spec.items()}
@@ -411,7 +406,7 @@ def generate_status(
     cost_by_spec_agg: dict[str, float] = defaultdict(float)
     if state is not None:
         for record in state.session_history:
-            spec_name = extract_spec_name(record.node_id)
+            spec_name = spec_name_of(record.node_id)
             cost_by_spec_agg[spec_name] += record.cost
 
     return StatusReport(

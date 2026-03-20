@@ -12,7 +12,7 @@ import logging
 import re
 from pathlib import Path
 
-from agent_fox.routing.types import FeatureVector
+from agent_fox.routing.core import FeatureVector
 
 logger = logging.getLogger(__name__)
 

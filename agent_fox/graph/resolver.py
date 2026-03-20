@@ -12,6 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from agent_fox.core.errors import PlanError
+from agent_fox.core.node_id import parse_node_id
 from agent_fox.graph.types import Edge, NodeStatus, PlanMetadata, TaskGraph
 
 logger = logging.getLogger(__name__)
@@ -23,10 +24,8 @@ def _sort_key(node_id: str) -> tuple[str, int]:
     Breaks ties by spec prefix (ascending), then group number (ascending).
     Node IDs have the format ``{spec_name}:{group_number}[:{role}]``.
     """
-    parts = node_id.split(":")
-    spec_name = parts[0]
-    group_number = int(parts[1]) if len(parts) > 1 else 0
-    return (spec_name, group_number)
+    parsed = parse_node_id(node_id)
+    return (parsed.spec_name, parsed.group_number)
 
 
 def resolve_order(graph: TaskGraph) -> list[str]:

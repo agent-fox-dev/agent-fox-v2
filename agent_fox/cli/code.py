@@ -19,6 +19,7 @@ from pathlib import Path
 import click
 
 from agent_fox.cli import json_io
+from agent_fox.cli.paths import AUDIT_DIR, PLAN_PATH, STATE_PATH
 from agent_fox.core.config import AgentFoxConfig, HookConfig, OrchestratorConfig
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.core.models import ModelTier
@@ -268,7 +269,7 @@ def code_cmd(
             max_sessions = int(stdin_data["max_sessions"])
 
     # 16-REQ-1.E1: check plan file exists
-    plan_path = Path(".agent-fox/plan.json")
+    plan_path = PLAN_PATH
     if not plan_path.exists():
         if json_mode:
             json_io.emit_error(
@@ -282,7 +283,7 @@ def code_cmd(
         )
         sys.exit(1)
 
-    state_path = Path(".agent-fox/state.jsonl")
+    state_path = STATE_PATH
 
     # 16-REQ-2.5: apply CLI overrides to OrchestratorConfig
     orch_config = _apply_overrides(
@@ -303,7 +304,7 @@ def code_cmd(
     sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
 
     # 40-REQ-6.1: Audit JSONL directory — run-specific file added in engine.execute()
-    audit_dir = Path(".agent-fox/audit")
+    audit_dir = AUDIT_DIR
 
     # v2: attach JSONL audit sink when --debug is active
     if debug:
