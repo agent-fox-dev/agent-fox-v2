@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -449,6 +450,25 @@ def _apply_tasks_md_overrides(
                 nodes[node_id].archetype = group.archetype
 
 
+def _propagate_completion_to_archetype_nodes(
+    nodes: dict[str, Node],
+) -> None:
+    """Mark archetype nodes as completed when all coder nodes in their spec are."""
+    # Group nodes by spec
+    coder_by_spec: dict[str, list[Node]] = defaultdict(list)
+    archetype_by_spec: dict[str, list[Node]] = defaultdict(list)
+    for node in nodes.values():
+        if node.archetype == "coder":
+            coder_by_spec[node.spec_name].append(node)
+        else:
+            archetype_by_spec[node.spec_name].append(node)
+
+    for spec_name, coder_nodes in coder_by_spec.items():
+        if all(n.status == NodeStatus.COMPLETED for n in coder_nodes):
+            for node in archetype_by_spec.get(spec_name, []):
+                node.status = NodeStatus.COMPLETED
+
+
 def build_graph(
     specs: list[SpecInfo],
     task_groups: dict[str, list[TaskGroupDef]],
@@ -487,6 +507,10 @@ def build_graph(
         task_groups,
         archetypes_config,
     )
+
+    # Propagate completion: mark archetype nodes as completed when all
+    # coder nodes in their spec are completed.
+    _propagate_completion_to_archetype_nodes(nodes)
 
     # Three-layer assignment priority (26-REQ-5.2):
     # Layer 1 (lowest): graph builder default — already set to "coder"
