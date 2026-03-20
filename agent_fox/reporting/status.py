@@ -236,6 +236,7 @@ def _build_problem_tasks(
     graph: TaskGraph,
     node_states: dict[str, str],
     failure_reasons: dict[str, str],
+    blocked_reasons: dict[str, str] | None = None,
 ) -> list[TaskSummary]:
     """Build a list of problem tasks (failed and blocked).
 
@@ -243,6 +244,8 @@ def _build_problem_tasks(
         graph: The task graph with node metadata.
         node_states: Current status of all nodes.
         failure_reasons: Mapping of node_id to error message.
+        blocked_reasons: Mapping of node_id to stored blocking reason
+            from ExecutionState. Preferred over predecessor heuristic.
 
     Returns:
         List of TaskSummary for failed and blocked tasks.
@@ -256,6 +259,8 @@ def _build_problem_tasks(
 
         if status == "failed":
             reason = failure_reasons.get(node_id, "Unknown failure")
+        elif blocked_reasons and node_id in blocked_reasons:
+            reason = blocked_reasons[node_id]
         else:
             reason = _get_block_reason(node_id, graph, node_states)
 
@@ -386,10 +391,12 @@ def generate_status(
     task_node_states = {
         nid: s for nid, s in node_states.items() if nid in task_node_ids
     }
+    blocked_reasons = state.blocked_reasons if state is not None else {}
     problem_tasks = _build_problem_tasks(
         graph,
         task_node_states,
         failure_reasons,
+        blocked_reasons,
     )
 
     # Compute per-spec breakdown (real tasks only)

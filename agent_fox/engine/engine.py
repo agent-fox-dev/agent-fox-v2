@@ -877,6 +877,7 @@ class Orchestrator:
         attempt: int,
         state: ExecutionState,
         attempt_tracker: dict[str, int],
+        error_tracker: dict[str, str | None] | None = None,
     ) -> str:
         """Check whether *node_id* may be launched.
 
@@ -891,10 +892,14 @@ class Orchestrator:
             and attempt > self._config.max_retries + 1
         ):
             attempt_tracker[node_id] = attempt
+            last_error = error_tracker.get(node_id) if error_tracker else None
+            reason = f"Retry limit exceeded for {node_id}"
+            if last_error:
+                reason = f"{reason}: {last_error}"
             self._block_task(
                 node_id,
                 state,
-                f"Retry limit exceeded for {node_id}",
+                reason,
             )
             self._check_block_budget(state)
             self._state_manager.save(state)
@@ -920,7 +925,13 @@ class Orchestrator:
             await self._assess_node(node_id)
 
             attempt = attempt_tracker.get(node_id, 0) + 1
-            verdict = self._check_launch(node_id, attempt, state, attempt_tracker)
+            verdict = self._check_launch(
+                node_id,
+                attempt,
+                state,
+                attempt_tracker,
+                error_tracker,
+            )
             if verdict == "blocked":
                 continue
             if verdict == "limited":
@@ -1021,6 +1032,7 @@ class Orchestrator:
                     attempt,
                     state,
                     attempt_tracker,
+                    error_tracker,
                 )
                 if verdict != "allowed":
                     continue
