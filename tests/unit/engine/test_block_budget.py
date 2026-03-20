@@ -160,9 +160,7 @@ class TestBlockBudget:
 
         assert state.run_status == RunStatus.BLOCK_LIMIT
         # At least 2 of 4 tasks should be blocked (50% >= 40%)
-        blocked = sum(
-            1 for s in state.node_states.values() if s == "blocked"
-        )
+        blocked = sum(1 for s in state.node_states.values() if s == "blocked")
         assert blocked >= 2
 
     @pytest.mark.asyncio
@@ -280,9 +278,13 @@ class TestSkepticBlocking:
         runner = MockSessionRunner()
         runner.configure(
             "spec_a:1:skeptic",
-            [MockSessionOutcome(
-                "spec_a:1:skeptic", "completed", archetype="skeptic",
-            )],
+            [
+                MockSessionOutcome(
+                    "spec_a:1:skeptic",
+                    "completed",
+                    archetype="skeptic",
+                )
+            ],
         )
         # Coder and verifier succeed
         runner.configure(
@@ -364,9 +366,13 @@ class TestSkepticBlocking:
         runner = MockSessionRunner()
         runner.configure(
             "spec_a:1:oracle",
-            [MockSessionOutcome(
-                "spec_a:1:oracle", "completed", archetype="oracle",
-            )],
+            [
+                MockSessionOutcome(
+                    "spec_a:1:oracle",
+                    "completed",
+                    archetype="oracle",
+                )
+            ],
         )
         runner.configure(
             "spec_a:1",
@@ -414,9 +420,13 @@ class TestSkepticBlocking:
         runner = MockSessionRunner()
         runner.configure(
             "spec_a:1:skeptic",
-            [MockSessionOutcome(
-                "spec_a:1:skeptic", "completed", archetype="skeptic",
-            )],
+            [
+                MockSessionOutcome(
+                    "spec_a:1:skeptic",
+                    "completed",
+                    archetype="skeptic",
+                )
+            ],
         )
         runner.configure(
             "spec_a:1",

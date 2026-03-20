@@ -12,6 +12,9 @@
 - Test helpers that work with frozen/immutable data structures (like SpecInfo) require careful handling to avoid mutation errors during test setup. _(spec: 46_test_auditor, confidence: 0.60)_
 - Hypothesis health checks may need to be disabled or configured when running tests with custom injection mechanisms to prevent false warnings about test behavior. _(spec: 46_test_auditor, confidence: 0.60)_
 - caplog fixture in pytest may not capture logs if the logger scope is not properly configured; ensure loggers are set to the correct level and scope when using caplog for assertions. _(spec: 46_test_auditor, confidence: 0.90)_
+- Use tempfile.TemporaryDirectory instead of pytest's tmp_path fixture in property-based tests to avoid Hypothesis health check failures. _(spec: 49_dump_command, confidence: 0.90)_
+- When creating temporary directories in tests, ensure parent directories exist first; missing parent creation causes test failures. _(spec: 49_dump_command, confidence: 0.90)_
+- The mix_stderr parameter is not supported in subprocess calls; use stderr=subprocess.STDOUT instead for combining stderr with stdout. _(spec: 49_dump_command, confidence: 0.90)_
 
 ## Patterns
 
@@ -106,6 +109,11 @@
 - When implementing auto-injection of nodes in a graph builder, ensure proper edge wiring is maintained between injected nodes and existing graph structure to preserve data flow integrity. _(spec: 46_test_auditor, confidence: 0.90)_
 - Threshold checking (e.g., count_ts_entries) should be performed during node injection to determine whether injection should occur, filtering candidates before graph modification. _(spec: 46_test_auditor, confidence: 0.90)_
 - Node injection logic should be separated into builder-time detection (_inject_auto_mid_nodes in builder) and runtime application (auto_mid injection in engine) for cleaner separation of concerns. _(spec: 46_test_auditor, confidence: 0.90)_
+- Organize dump command tests across three specialized test files: test_dump.py for CLI-level tests, test_dump_db.py for DB-dump module tests, and test_dump_props.py for property tests. _(spec: 49_dump_command, confidence: 0.90)_
+- Property-based tests (test_dump_props.py) are a valuable complement to CLI and module-level tests for command implementations. _(spec: 49_dump_command, confidence: 0.60)_
+- For dump/export functionality, separate concerns into discovery (discover_tables), formatting (dump_table_md, dump_all_tables_md), serialization (dump_all_tables_json), and rendering (render_summary_json) functions. _(spec: 49_dump_command, confidence: 0.60)_
+- Database access in export/dump operations should use read-only mode to prevent accidental modifications during inspection. _(spec: 49_dump_command, confidence: 0.90)_
+- Command-line tools should validate flag combinations early (e.g., --memory and --db are mutually exclusive) before attempting operations. _(spec: 49_dump_command, confidence: 0.90)_
 
 ## Decisions
 
@@ -146,6 +154,8 @@
 - Checkpoint task groups should include verification that all spec tests pass and linting is clean on changed files before considering the group complete. _(spec: 47_init_skills, confidence: 0.90)_
 - Detection functions with multiple pattern checks should document all patterns being matched; a 5-pattern detection function suggests the logic is complex and warrants clear documentation. _(spec: 46_test_auditor, confidence: 0.60)_
 - Import sorting lint issues should be checked as part of the standard test validation pipeline alongside unit and property tests. _(spec: 46_test_auditor, confidence: 0.60)_
+- Writing failing tests before implementation (TDD approach) should result in clean linter passes, indicating well-formed test code structure. _(spec: 49_dump_command, confidence: 0.90)_
+- New CLI commands should be registered in the main app module and documented in reference guides to maintain discoverability. _(spec: 49_dump_command, confidence: 0.90)_
 
 ## Anti-Patterns
 

@@ -193,8 +193,7 @@ class TestCallSiteInstrumentation:
         for filepath in files:
             content = Path(filepath).read_text()
             assert (
-                "record_auxiliary_usage" in content
-                or "track_response_usage" in content
+                "record_auxiliary_usage" in content or "track_response_usage" in content
             ), f"{filepath} does not track auxiliary token usage"
 
 

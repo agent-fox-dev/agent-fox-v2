@@ -50,7 +50,9 @@ class TestOracleEnabledConfig:
     def test_oracle_enabled_config(self) -> None:
         """TS-32-2: _is_archetype_enabled returns True when oracle=True."""
         from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.graph.injection import is_archetype_enabled as _is_archetype_enabled
+        from agent_fox.graph.injection import (
+            is_archetype_enabled as _is_archetype_enabled,
+        )
 
         config = ArchetypesConfig(oracle=True)
         assert _is_archetype_enabled("oracle", config) is True
@@ -58,7 +60,9 @@ class TestOracleEnabledConfig:
     def test_oracle_enabled_by_default(self) -> None:
         """Oracle is enabled by default."""
         from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.graph.injection import is_archetype_enabled as _is_archetype_enabled
+        from agent_fox.graph.injection import (
+            is_archetype_enabled as _is_archetype_enabled,
+        )
 
         config = ArchetypesConfig()
         assert _is_archetype_enabled("oracle", config) is True

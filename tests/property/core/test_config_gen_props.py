@@ -52,9 +52,7 @@ def _count_field_lines(template: str) -> int:
     count = 0
     for line in template.split("\n"):
         # Match 'key = value' or '# key = value' but not section headers
-        if re.match(r"^#{0,2}\s*\w+\s*=", line) and not re.match(
-            r"^#\s*\[", line
-        ):
+        if re.match(r"^#{0,2}\s*\w+\s*=", line) and not re.match(r"^#\s*\[", line):
             count += 1
     return count
 

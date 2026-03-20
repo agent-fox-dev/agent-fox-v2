@@ -43,7 +43,6 @@ class TestRetryDelays:
 
 
 class TestRetryApiCallAsync:
-
     @pytest.mark.asyncio
     async def test_succeeds_without_retry(self) -> None:
         fn = AsyncMock(return_value="ok")
@@ -56,7 +55,9 @@ class TestRetryApiCallAsync:
         exc = _make_rate_limit_error()
         fn = AsyncMock(side_effect=[exc, exc, "ok"])
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch(
+            "agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep:
             result = await retry_api_call_async(fn, context="test")
 
         assert result == "ok"
@@ -81,7 +82,9 @@ class TestRetryApiCallAsync:
         exc = _make_rate_limit_error()
         fn = AsyncMock(side_effect=exc)
 
-        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch(
+            "agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock
+        ) as mock_sleep:
             with pytest.raises(RateLimitError):
                 await retry_api_call_async(fn, context="test")
 
@@ -102,7 +105,6 @@ class TestRetryApiCallAsync:
 
 
 class TestRetryApiCallSync:
-
     def test_succeeds_without_retry(self) -> None:
         fn = MagicMock(return_value="ok")
         result = retry_api_call(fn, context="test")

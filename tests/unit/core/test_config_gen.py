@@ -70,8 +70,7 @@ def _extract_field_names_in_order(template: str, section: str) -> list[str]:
             continue
         # Check for next section header (end of current section)
         if in_section and (
-            re.match(r"^# \[[\w.]+\]$", stripped)
-            or re.match(r"^\[[\w.]+\]$", stripped)
+            re.match(r"^# \[[\w.]+\]$", stripped) or re.match(r"^\[[\w.]+\]$", stripped)
         ):
             break
         # Extract field names from active or commented key-value pairs
