@@ -65,10 +65,14 @@ class ProgressDisplay:
                 transient=True,
             )
             self._live.start()
+            # Route log messages through the Live console so they
+            # appear above the spinner instead of corrupting it.
+            self._register_live_console(self._live.console)
         self._started = True
 
     def stop(self) -> None:
         """Stop the spinner and clear the line."""
+        self._register_live_console(None)
         if self._live is not None:
             try:
                 self._live.stop()
@@ -149,6 +153,15 @@ class ProgressDisplay:
             return self._console.width
         except Exception:
             return 80
+
+    @staticmethod
+    def _register_live_console(console: object | None) -> None:
+        """Register or unregister a Rich console with the live-aware log handler."""
+        from agent_fox.core.logging import get_live_handler
+
+        handler = get_live_handler()
+        if handler is not None:
+            handler.set_live_console(console)  # type: ignore[arg-type]
 
     def _format_task_line(self, event: TaskEvent) -> Text:
         """Format a permanent line for a task event."""
