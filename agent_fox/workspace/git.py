@@ -10,30 +10,75 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 
 from agent_fox.core.errors import IntegrationError, WorkspaceError
 
 logger = logging.getLogger(__name__)
 
+# Default timeout for git commands (seconds).  Remote operations
+# (fetch, push, pull, clone, ls-remote) get a longer window.
+_GIT_TIMEOUT = 60
+_GIT_REMOTE_TIMEOUT = 120
+
+_REMOTE_SUBCOMMANDS = frozenset(
+    {
+        "fetch",
+        "push",
+        "pull",
+        "clone",
+        "ls-remote",
+    }
+)
+
 
 async def run_git(
     args: list[str],
     cwd: Path,
     check: bool = True,
+    timeout: int | None = None,
 ) -> tuple[int, str, str]:
     """Run a git command and return (returncode, stdout, stderr).
 
     When check=True and the command fails, raises WorkspaceError.
+
+    Sets GIT_TERMINAL_PROMPT=0 to prevent credential prompts from
+    hanging non-interactive sessions (e.g. expired PAT).
     """
+    # Prevent interactive credential prompts from hanging the process.
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+
+    if timeout is None:
+        subcommand = args[0] if args else ""
+        timeout = (
+            _GIT_REMOTE_TIMEOUT if subcommand in _REMOTE_SUBCOMMANDS else _GIT_TIMEOUT
+        )
+
     proc = await asyncio.create_subprocess_exec(
         "git",
         *args,
         cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=env,
     )
-    stdout_bytes, stderr_bytes = await proc.communicate()
+    try:
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            proc.communicate(),
+            timeout=timeout,
+        )
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        cmd_str = " ".join(["git", *args])
+        msg = f"git command timed out after {timeout}s: {cmd_str}"
+        logger.error(msg)
+        if check:
+            raise WorkspaceError(msg, command=cmd_str, returncode=-1)
+        return -1, "", msg
+
     stdout = stdout_bytes.decode()
     stderr = stderr_bytes.decode()
     returncode = proc.returncode or 0

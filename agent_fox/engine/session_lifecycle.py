@@ -10,7 +10,6 @@ Requirements: 16-REQ-5.1, 16-REQ-5.E1, 06-REQ-1.1, 06-REQ-2.1,
 
 from __future__ import annotations
 
-import asyncio
 import dataclasses
 import json
 import logging
@@ -65,24 +64,22 @@ async def _capture_develop_head(repo_root: Path) -> str:
 
     Requirements: 35-REQ-1.1, 35-REQ-1.E1
     """
+    from agent_fox.workspace.git import run_git
+
     try:
-        proc = await asyncio.create_subprocess_exec(
-            "git",
-            "rev-parse",
-            "develop",
-            cwd=str(repo_root),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        rc, stdout, _stderr = await run_git(
+            ["rev-parse", "develop"],
+            cwd=repo_root,
+            check=False,
         )
-        stdout_bytes, _ = await proc.communicate()
-        if proc.returncode != 0:
+        if rc != 0:
             logger.warning(
                 "git rev-parse develop failed (returncode %d) in %s",
-                proc.returncode,
+                rc,
                 repo_root,
             )
             return ""
-        return stdout_bytes.decode().strip()
+        return stdout.strip()
     except Exception as exc:
         logger.warning(
             "Failed to capture develop HEAD in %s: %s",
