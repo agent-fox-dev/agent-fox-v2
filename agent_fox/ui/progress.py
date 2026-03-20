@@ -15,6 +15,7 @@ import logging
 import threading
 from collections.abc import Callable
 
+from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
@@ -155,13 +156,13 @@ class ProgressDisplay:
             return 80
 
     @staticmethod
-    def _register_live_console(console: object | None) -> None:
+    def _register_live_console(console: Console | None) -> None:
         """Register or unregister a Rich console with the live-aware log handler."""
         from agent_fox.core.logging import get_live_handler
 
         handler = get_live_handler()
         if handler is not None:
-            handler.set_live_console(console)  # type: ignore[arg-type]
+            handler.set_live_console(console)
 
     def _format_task_line(self, event: TaskEvent) -> Text:
         """Format a permanent line for a task event."""

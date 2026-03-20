@@ -42,10 +42,15 @@ class LiveAwareHandler(logging.Handler):
         """Register or unregister the Rich Live console."""
         self._live_console = console
 
+    def setFormatter(self, fmt: logging.Formatter | None) -> None:  # noqa: N802
+        """Set formatter on both this handler and the fallback."""
+        super().setFormatter(fmt)
+        self._fallback.setFormatter(fmt)
+
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            msg = self.format(record)
             if self._live_console is not None:
+                msg = self.format(record)
                 style = _level_style(record.levelno)
                 self._live_console.print(msg, style=style, highlight=False)
             else:
@@ -105,7 +110,6 @@ def setup_logging(*, verbose: bool = False, quiet: bool = False) -> None:
         handler.setLevel(level)
         formatter = logging.Formatter(_LOG_FORMAT)
         handler.setFormatter(formatter)
-        handler._fallback.setFormatter(formatter)
         agent_logger.addHandler(handler)
         _live_handler = handler
     else:
