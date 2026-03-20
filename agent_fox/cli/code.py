@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+import warnings
 from pathlib import Path
 
 import click
@@ -381,6 +382,11 @@ def code_cmd(
             "Failed to initialize assessment pipeline, adaptive routing disabled",
             exc_info=True,
         )
+
+    # Suppress noisy third-party warnings (e.g. HF Hub auth) that would
+    # corrupt the Rich Live spinner display when written to stderr.
+    warnings.filterwarnings("ignore", module=r"huggingface_hub\..*")
+    warnings.filterwarnings("ignore", module=r"sentence_transformers\..*")
 
     # 18-REQ-5.1, 18-REQ-5.E1: Wrap execution with progress start/stop
     progress.start()
