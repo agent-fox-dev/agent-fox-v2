@@ -324,17 +324,14 @@ def generate_status(
     # Load execution state (optional - may not exist yet)
     state = _load_state(state_path)
 
-    # Determine node statuses
+    # Determine node statuses: seed from graph (honours tasks.md [x]
+    # checkboxes), then overlay any state.jsonl overrides for nodes the
+    # orchestrator has actually touched.
+    node_states = {nid: node.status.value for nid, node in graph.nodes.items()}
     if state is not None:
-        node_states = dict(state.node_states)
-    else:
-        # No state file: seed from plan.json node statuses
-        node_states = {nid: node.status.value for nid, node in graph.nodes.items()}
-
-    # Ensure all plan nodes have a status (even if state is partial)
-    for nid in graph.nodes:
-        if nid not in node_states:
-            node_states[nid] = "pending"
+        for nid, status in state.node_states.items():
+            if nid in node_states:
+                node_states[nid] = status
 
     # Filter to real task nodes (exclude injected archetype nodes)
     task_node_ids = {
