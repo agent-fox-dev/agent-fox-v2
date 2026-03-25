@@ -103,16 +103,18 @@ class TestSyncDevelopBidirectionalSuccess:
 
         mock_lock_instance = AsyncMock()
 
-        async def mock_acquire() -> None:
-            call_order.append("lock.acquire")
+        async def mock_aenter(self_: object) -> object:
+            call_order.append("lock.__aenter__")
+            return mock_lock_instance
 
-        async def mock_release() -> None:
-            call_order.append("lock.release")
+        async def mock_aexit(
+            self_: object, *args: object, **kwargs: object
+        ) -> bool:
+            call_order.append("lock.__aexit__")
+            return False
 
-        mock_lock_instance.acquire = mock_acquire
-        mock_lock_instance.release = mock_release
-        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
-        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_lock_instance.__aenter__ = mock_aenter
+        mock_lock_instance.__aexit__ = mock_aexit
 
         async def mock_sync(repo_root: Path) -> None:
             call_order.append("sync")
@@ -140,10 +142,10 @@ class TestSyncDevelopBidirectionalSuccess:
         ):
             await sync_develop_bidirectional(tmp_path)
 
-        # Verify lock acquired before operations and released after
-        assert "lock.acquire" in call_order or call_order[0] == "lock.acquire"
-        assert "sync" in call_order
-        assert "push" in call_order
+        # Verify lock context manager wraps operations
+        assert call_order.index("lock.__aenter__") < call_order.index("sync")
+        assert call_order.index("sync") < call_order.index("push")
+        assert call_order.index("push") < call_order.index("lock.__aexit__")
 
 
 class TestSyncDevelopPullFailSkipsPush:

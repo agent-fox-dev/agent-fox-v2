@@ -64,8 +64,7 @@ async def sync_develop_bidirectional(repo_root: Path) -> None:
 
     # 51-REQ-3.3: acquire MergeLock for entire operation
     lock = MergeLock(repo_root)
-    await lock.acquire()
-    try:
+    async with lock:
         # 51-REQ-3.1: pull sync
         try:
             await _sync_develop_with_remote(repo_root)
@@ -90,5 +89,3 @@ async def sync_develop_bidirectional(repo_root: Path) -> None:
                 "Failed to push develop to origin; proceeding",
                 exc_info=True,
             )
-    finally:
-        await lock.release()

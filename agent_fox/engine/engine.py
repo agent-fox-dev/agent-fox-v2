@@ -39,8 +39,9 @@ from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import (
+    _build_nodes_and_edges,
+    _validate_and_parse_specs,
     discover_new_specs_gated,
-    hot_load_specs,
     should_trigger_barrier,
 )
 from agent_fox.engine.parallel import ParallelRunner
@@ -1418,8 +1419,8 @@ class Orchestrator:
         """Discover and incorporate new specs into the running graph.
 
         Uses gated discovery (51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1) to
-        filter specs through git-tracked, completeness, and lint gates
-        before incorporating them.
+        filter specs through git-tracked, completeness, and lint gates,
+        then builds nodes/edges directly from the accepted specs.
         """
         assert self._specs_dir is not None  # noqa: S101
         assert self._graph_sync is not None  # noqa: S101
@@ -1429,39 +1430,51 @@ class Orchestrator:
         for nid, node in self._graph.nodes.items():
             node.status = NodeStatus(state.node_states.get(nid, "pending"))
 
-        # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Pre-filter with gated discovery
+        # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
         repo_root = self._plan_path.parent
         known_specs = {n.spec_name for n in self._graph.nodes.values()}
         gated_specs = await discover_new_specs_gated(
             self._specs_dir, known_specs, repo_root
         )
-        gated_names = {s.name for s in gated_specs}
 
-        # Run standard hot-load pipeline (discovers + builds)
-        updated_graph, new_spec_names = hot_load_specs(self._graph, self._specs_dir)
+        if not gated_specs:
+            return
 
-        # Filter to only specs that passed all gates
-        new_spec_names = [n for n in new_spec_names if n in gated_names]
+        # Validate, parse tasks/deps, and build nodes/edges directly
+        all_spec_names = known_specs | {s.name for s in gated_specs}
+        valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(
+            gated_specs, all_spec_names
+        )
 
-        if not new_spec_names:
+        if not valid_specs:
+            return
+
+        new_nodes, new_edges, added_spec_names = _build_nodes_and_edges(
+            valid_specs,
+            spec_task_groups,
+            spec_deps,
+            self._graph.nodes,
+            self._graph.edges,
+        )
+
+        if not added_spec_names:
             return
 
         logger.info(
             "Hot-loaded %d new spec(s): %s",
-            len(new_spec_names),
-            ", ".join(new_spec_names),
+            len(added_spec_names),
+            ", ".join(added_spec_names),
         )
 
-        # Merge new nodes into our graph and state (only gated specs)
-        gated_name_set = set(new_spec_names)
-        for nid, node in updated_graph.nodes.items():
-            if nid not in self._graph.nodes and node.spec_name in gated_name_set:
+        # Merge new nodes into our graph and state
+        for nid, node in new_nodes.items():
+            if nid not in self._graph.nodes:
                 self._graph.nodes[nid] = node
                 state.node_states[nid] = "pending"
 
-        # Merge new edges (only for gated spec nodes)
+        # Merge new edges
         existing_edge_set = {(e.source, e.target) for e in self._graph.edges}
-        for edge in updated_graph.edges:
+        for edge in new_edges:
             if (edge.source, edge.target) not in existing_edge_set:
                 self._graph.edges.append(edge)
 
