@@ -697,6 +697,53 @@ def reset_spec(
     )
 
 
+def _perform_hard_reset(
+    state: ExecutionState,
+    affected_ids: list[str],
+    rollback_sha: str | None,
+    state_path: Path,
+    plan_path: Path,
+    worktrees_dir: Path,
+    repo_path: Path,
+    memory_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
+) -> HardResetResult:
+    """Shared hard-reset logic: reset states, clean artifacts, compact, save.
+
+    Used by both hard_reset_all and hard_reset_task.
+    """
+    # Reset affected tasks to pending
+    for tid in affected_ids:
+        state.node_states[tid] = "pending"
+
+    # Clean worktrees and branches
+    cleaned_worktrees: list[str] = []
+    cleaned_branches: list[str] = []
+    for tid in affected_ids:
+        _collect_cleanup(
+            tid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches
+        )
+
+    # Compact knowledge base
+    compaction_result = compact(db_conn, memory_path) if db_conn is not None else (0, 0)
+
+    # Reset artifact synchronization
+    specs_dir = repo_path / ".specs"
+    reset_tasks_md_checkboxes(affected_ids, specs_dir)
+    reset_plan_statuses(plan_path, affected_ids)
+
+    # Save state (preserving counters and session history)
+    StateManager(state_path).save(state)
+
+    return HardResetResult(
+        reset_tasks=affected_ids,
+        cleaned_worktrees=cleaned_worktrees,
+        cleaned_branches=cleaned_branches,
+        compaction=compaction_result,
+        rollback_sha=rollback_sha,
+    )
+
+
 def hard_reset_all(
     state_path: Path,
     plan_path: Path,
@@ -722,43 +769,16 @@ def hard_reset_all(
         except AgentFoxError:
             logger.warning("Rollback failed, skipping code rollback.")
 
-    # Reset ALL node states to pending
-    all_task_ids = list(state.node_states.keys())
-    for task_id in all_task_ids:
-        state.node_states[task_id] = "pending"
-
-    # Clean up ALL worktrees and branches
-    cleaned_worktrees: list[str] = []
-    cleaned_branches: list[str] = []
-    for task_id in all_task_ids:
-        _collect_cleanup(
-            task_id,
-            worktrees_dir,
-            repo_path,
-            cleaned_worktrees,
-            cleaned_branches,
-        )
-
-    # Compact knowledge base (requires DuckDB connection)
-    if db_conn is not None:
-        compaction_result = compact(db_conn, memory_path)
-    else:
-        compaction_result = (0, 0)
-
-    # Reset artifact synchronization
-    specs_dir = repo_path / ".specs"
-    reset_tasks_md_checkboxes(all_task_ids, specs_dir)
-    reset_plan_statuses(plan_path, all_task_ids)
-
-    # Save state (preserving counters and session history)
-    StateManager(state_path).save(state)
-
-    return HardResetResult(
-        reset_tasks=all_task_ids,
-        cleaned_worktrees=cleaned_worktrees,
-        cleaned_branches=cleaned_branches,
-        compaction=compaction_result,
-        rollback_sha=rollback_sha,
+    return _perform_hard_reset(
+        state,
+        list(state.node_states.keys()),
+        rollback_sha,
+        state_path,
+        plan_path,
+        worktrees_dir,
+        repo_path,
+        memory_path,
+        db_conn,
     )
 
 
@@ -818,40 +838,14 @@ def hard_reset_task(
             except AgentFoxError:
                 logger.warning("Rollback failed, skipping code rollback.")
 
-    # Reset affected tasks to pending
-    for tid in affected_ids:
-        state.node_states[tid] = "pending"
-
-    # Clean worktrees and branches for affected tasks
-    cleaned_worktrees: list[str] = []
-    cleaned_branches: list[str] = []
-    for tid in affected_ids:
-        _collect_cleanup(
-            tid,
-            worktrees_dir,
-            repo_path,
-            cleaned_worktrees,
-            cleaned_branches,
-        )
-
-    # Compact knowledge base (requires DuckDB connection)
-    if db_conn is not None:
-        compaction_result = compact(db_conn, memory_path)
-    else:
-        compaction_result = (0, 0)
-
-    # Reset artifact synchronization for affected tasks
-    specs_dir = repo_path / ".specs"
-    reset_tasks_md_checkboxes(affected_ids, specs_dir)
-    reset_plan_statuses(plan_path, affected_ids)
-
-    # Save state
-    StateManager(state_path).save(state)
-
-    return HardResetResult(
-        reset_tasks=affected_ids,
-        cleaned_worktrees=cleaned_worktrees,
-        cleaned_branches=cleaned_branches,
-        compaction=compaction_result,
-        rollback_sha=rollback_sha,
+    return _perform_hard_reset(
+        state,
+        affected_ids,
+        rollback_sha,
+        state_path,
+        plan_path,
+        worktrees_dir,
+        repo_path,
+        memory_path,
+        db_conn,
     )

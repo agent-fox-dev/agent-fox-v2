@@ -34,10 +34,16 @@ from agent_fox.core.config import (
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
 from agent_fox.core.node_id import parse_node_id
+from agent_fox.engine.barrier import sync_develop_bidirectional, verify_worktrees
 from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
-from agent_fox.engine.hot_load import hot_load_specs, should_trigger_barrier
+from agent_fox.engine.hot_load import (
+    _build_nodes_and_edges,
+    _validate_and_parse_specs,
+    discover_new_specs_gated,
+    should_trigger_barrier,
+)
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.serial import SerialRunner
 from agent_fox.engine.state import (
@@ -88,6 +94,11 @@ def _build_edges_dict_from_graph(graph: TaskGraph) -> dict[str, list[str]]:
         if edge.target in edges_dict:
             edges_dict[edge.target].append(edge.source)
     return edges_dict
+
+
+def _count_node_status(node_states: dict[str, str], status: str) -> int:
+    """Count nodes with a given status."""
+    return sum(1 for s in node_states.values() if s == status)
 
 
 def _seed_node_states_from_graph(graph: TaskGraph) -> dict[str, str]:
@@ -978,7 +989,7 @@ class Orchestrator:
             if record.status == "completed":
                 # 30-REQ-7.4: Record outcome on success
                 self._record_node_outcome(node_id, state, "completed")
-                self._run_sync_barrier_if_needed(state)
+                await self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks after each completion
             break
@@ -1080,6 +1091,7 @@ class Orchestrator:
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
+            barrier_needed = False
             for completed_task in done:
                 try:
                     record = completed_task.result()
@@ -1099,7 +1111,44 @@ class Orchestrator:
                 if record.status == "completed":
                     # 30-REQ-7.4: Record outcome on success
                     self._record_node_outcome(record.node_id, state, "completed")
-                    self._run_sync_barrier_if_needed(state)
+                    if self._should_trigger_barrier(state):
+                        barrier_needed = True
+
+            # 51-REQ-1.1, 51-REQ-1.2, 51-REQ-1.3: Drain remaining pool
+            # before entering the barrier sequence.
+            if barrier_needed and pool:
+                if self._signal.interrupted:
+                    break
+                logger.info(
+                    "Barrier triggered — draining %d in-flight tasks",
+                    len(pool),
+                )
+                try:
+                    drain_done, pool = await asyncio.wait(pool)
+                except asyncio.CancelledError:
+                    # 51-REQ-1.E2: SIGINT during drain
+                    break
+                for drain_task in drain_done:
+                    try:
+                        drain_record = drain_task.result()
+                    except Exception as exc:
+                        logger.error("Drained task raised: %s", exc)
+                        continue
+                    self._process_session_result(
+                        drain_record,
+                        attempt_tracker.get(drain_record.node_id, 1),
+                        state,
+                        attempt_tracker,
+                        error_tracker,
+                    )
+                    if drain_record.status == "completed":
+                        self._record_node_outcome(
+                            drain_record.node_id, state, "completed"
+                        )
+
+            # Run the barrier after draining
+            if barrier_needed:
+                await self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
@@ -1262,19 +1311,36 @@ class Orchestrator:
             return []
         return self._graph_sync.predecessors(node_id)
 
-    def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
+    def _should_trigger_barrier(self, state: ExecutionState) -> bool:
+        """Check whether a sync barrier should fire (no side effects).
+
+        Used by _dispatch_parallel to decide whether to drain the pool
+        before calling _run_sync_barrier_if_needed.
+        """
+        if self._config.sync_interval == 0:
+            return False
+        completed_count = _count_node_status(state.node_states, "completed")
+        return should_trigger_barrier(completed_count, self._config.sync_interval)
+
+    async def _run_sync_barrier_if_needed(self, state: ExecutionState) -> None:
         """Check and run sync barrier actions if triggered.
 
         After each task completion, checks whether the completed count
-        crosses a sync_interval boundary. On trigger: runs sync barrier
-        hooks, hot-loads new specs, and regenerates the memory summary.
+        crosses a sync_interval boundary. On trigger:
+        1. Verify worktrees (51-REQ-2.*)
+        2. Bidirectional develop sync (51-REQ-3.*)
+        3. Run sync barrier hooks
+        4. Hot-load new specs (with gated discovery)
+        5. Barrier callback (knowledge ingestion)
+        6. Regenerate memory summary
 
-        Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
+        Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3,
+                      51-REQ-2.*, 51-REQ-3.*
         """
         if self._config.sync_interval == 0:
             return
 
-        completed_count = sum(1 for s in state.node_states.values() if s == "completed")
+        completed_count = _count_node_status(state.node_states, "completed")
 
         if not should_trigger_barrier(completed_count, self._config.sync_interval):
             return
@@ -1286,7 +1352,24 @@ class Orchestrator:
             completed_count,
         )
 
-        # 40-REQ-9.5: Emit sync.barrier audit event
+        # 51-REQ-2.1: Verify worktrees for orphans
+        repo_root = self._plan_path.parent
+        orphaned_worktrees: list[str] = []
+        try:
+            orphans = verify_worktrees(repo_root)
+            orphaned_worktrees = [str(p) for p in orphans]
+        except Exception:
+            logger.warning("Worktree verification failed", exc_info=True)
+
+        # 51-REQ-3.1, 51-REQ-3.2: Bidirectional develop sync
+        develop_sync_status = "success"
+        try:
+            await sync_develop_bidirectional(repo_root)
+        except Exception:
+            develop_sync_status = "failed"
+            logger.warning("Bidirectional develop sync failed", exc_info=True)
+
+        # 40-REQ-9.5: Emit sync.barrier audit event (extended payload)
         completed_nodes = [
             nid for nid, s in state.node_states.items() if s == "completed"
         ]
@@ -1295,11 +1378,15 @@ class Orchestrator:
             for nid, s in state.node_states.items()
             if s in ("pending", "in_progress")
         ]
+        specs_skipped: dict[str, str] = {}
         self._emit_audit(
             AuditEventType.SYNC_BARRIER,
             payload={
                 "completed_nodes": completed_nodes,
                 "pending_nodes": pending_nodes,
+                "orphaned_worktrees": orphaned_worktrees,
+                "develop_sync_status": develop_sync_status,
+                "specs_skipped": specs_skipped,
             },
         )
 
@@ -1311,10 +1398,10 @@ class Orchestrator:
                 no_hooks=self._no_hooks,
             )
 
-        # 06-REQ-6.3: Hot-load new specs
+        # 06-REQ-6.3: Hot-load new specs (with gated discovery)
         if self._specs_dir is not None and self._config.hot_load:
             try:
-                self._hot_load_new_specs(state)
+                await self._hot_load_new_specs(state)
                 # Persist immediately so a crash doesn't lose new specs
                 self._sync_plan_statuses(state)
             except Exception:
@@ -1333,8 +1420,13 @@ class Orchestrator:
         except Exception:
             logger.warning("Memory summary regeneration failed", exc_info=True)
 
-    def _hot_load_new_specs(self, state: ExecutionState) -> None:
-        """Discover and incorporate new specs into the running graph."""
+    async def _hot_load_new_specs(self, state: ExecutionState) -> None:
+        """Discover and incorporate new specs into the running graph.
+
+        Uses gated discovery (51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1) to
+        filter specs through git-tracked, completeness, and lint gates,
+        then builds nodes/edges directly from the accepted specs.
+        """
         assert self._specs_dir is not None  # noqa: S101
         assert self._graph_sync is not None  # noqa: S101
         assert self._graph is not None  # noqa: S101
@@ -1343,26 +1435,51 @@ class Orchestrator:
         for nid, node in self._graph.nodes.items():
             node.status = NodeStatus(state.node_states.get(nid, "pending"))
 
-        updated_graph, new_spec_names = hot_load_specs(self._graph, self._specs_dir)
+        # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
+        repo_root = self._plan_path.parent
+        known_specs = {n.spec_name for n in self._graph.nodes.values()}
+        gated_specs = await discover_new_specs_gated(
+            self._specs_dir, known_specs, repo_root
+        )
 
-        if not new_spec_names:
+        if not gated_specs:
+            return
+
+        # Validate, parse tasks/deps, and build nodes/edges directly
+        all_spec_names = known_specs | {s.name for s in gated_specs}
+        valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(
+            gated_specs, all_spec_names
+        )
+
+        if not valid_specs:
+            return
+
+        new_nodes, new_edges, added_spec_names = _build_nodes_and_edges(
+            valid_specs,
+            spec_task_groups,
+            spec_deps,
+            self._graph.nodes,
+            self._graph.edges,
+        )
+
+        if not added_spec_names:
             return
 
         logger.info(
             "Hot-loaded %d new spec(s): %s",
-            len(new_spec_names),
-            ", ".join(new_spec_names),
+            len(added_spec_names),
+            ", ".join(added_spec_names),
         )
 
         # Merge new nodes into our graph and state
-        for nid, node in updated_graph.nodes.items():
+        for nid, node in new_nodes.items():
             if nid not in self._graph.nodes:
                 self._graph.nodes[nid] = node
                 state.node_states[nid] = "pending"
 
         # Merge new edges
         existing_edge_set = {(e.source, e.target) for e in self._graph.edges}
-        for edge in updated_graph.edges:
+        for edge in new_edges:
             if (edge.source, edge.target) not in existing_edge_set:
                 self._graph.edges.append(edge)
 
@@ -1424,7 +1541,7 @@ class Orchestrator:
         if total == 0:
             return False
 
-        blocked_count = sum(1 for s in state.node_states.values() if s == "blocked")
+        blocked_count = _count_node_status(state.node_states, "blocked")
         fraction = blocked_count / total
 
         if fraction >= max_fraction:

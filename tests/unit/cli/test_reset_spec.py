@@ -23,7 +23,9 @@ def _make_plan_json(nodes: dict[str, dict[str, str]]) -> str:
         parts = nid.split(":")
         full_nodes[nid] = {
             "id": nid,
-            "spec_name": props.get("spec_name", parts[0] if len(parts) > 1 else "test_spec"),
+            "spec_name": props.get(
+                "spec_name", parts[0] if len(parts) > 1 else "test_spec"
+            ),
             "group_number": int(parts[-1]) if parts[-1].isdigit() else 0,
             "title": props.get("title", f"Task {nid}"),
             "optional": False,

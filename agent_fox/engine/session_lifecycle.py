@@ -90,41 +90,6 @@ async def _capture_develop_head(repo_root: Path) -> str:
         return ""
 
 
-def resolve_tier_ceiling(config: AgentFoxConfig, archetype: str) -> ModelTier:
-    """Resolve the tier ceiling for an archetype.
-
-    Priority: config override > archetype registry default > ADVANCED.
-
-    The tier ceiling is the maximum model tier the adaptive routing system
-    may use for this archetype. The assessment may start at a lower tier,
-    but escalation never exceeds this ceiling.
-
-    Requirements: 30-REQ-5.3, 30-REQ-2.4
-    """
-    # Check config override first
-    config_override = config.archetypes.models.get(archetype)
-    if config_override:
-        try:
-            return ModelTier(config_override)
-        except ValueError:
-            # Config override is a specific model ID, not a tier name.
-            # Try to resolve to a tier.
-            try:
-                from agent_fox.core.models import resolve_model
-
-                entry = resolve_model(config_override)
-                return entry.tier
-            except Exception:
-                pass
-
-    # Fall back to archetype registry default
-    entry = get_archetype(archetype)
-    try:
-        return ModelTier(entry.default_model_tier)
-    except ValueError:
-        return ModelTier.ADVANCED
-
-
 def _clamp_instances(archetype: str, instances: int) -> int:
     """Clamp instance counts to valid ranges.
 
@@ -723,50 +688,27 @@ class NodeSessionRunner:
 
             conn = self._knowledge_db.connection
 
-            if self._archetype == "skeptic":
-                findings = parse_review_output(
-                    transcript,
-                    self._spec_name,
-                    task_group,
-                    session_id,
-                )
-                if findings:
-                    count = insert_findings(conn, findings)
-                    logger.info(
-                        "Persisted %d skeptic findings for %s",
-                        count,
-                        node_id,
-                    )
+            # Dispatch table for review archetypes: parser → inserter → label
+            _review_dispatch = {
+                "skeptic": (parse_review_output, insert_findings, "skeptic findings"),
+                "verifier": (
+                    parse_verification_output,
+                    insert_verdicts,
+                    "verifier verdicts",
+                ),
+                "oracle": (
+                    parse_oracle_output,
+                    insert_drift_findings,
+                    "oracle drift findings",
+                ),
+            }
 
-            elif self._archetype == "verifier":
-                verdicts = parse_verification_output(
-                    transcript,
-                    self._spec_name,
-                    task_group,
-                    session_id,
-                )
-                if verdicts:
-                    count = insert_verdicts(conn, verdicts)
-                    logger.info(
-                        "Persisted %d verifier verdicts for %s",
-                        count,
-                        node_id,
-                    )
-
-            elif self._archetype == "oracle":
-                drift = parse_oracle_output(
-                    transcript,
-                    self._spec_name,
-                    task_group,
-                    session_id,
-                )
-                if drift:
-                    count = insert_drift_findings(conn, drift)
-                    logger.info(
-                        "Persisted %d oracle drift findings for %s",
-                        count,
-                        node_id,
-                    )
+            if self._archetype in _review_dispatch:
+                parser, inserter, label = _review_dispatch[self._archetype]
+                records = parser(transcript, self._spec_name, task_group, session_id)
+                if records:
+                    count = inserter(conn, records)
+                    logger.info("Persisted %d %s for %s", count, label, node_id)
 
             elif self._archetype == "auditor":
                 from agent_fox.session.auditor_output import (

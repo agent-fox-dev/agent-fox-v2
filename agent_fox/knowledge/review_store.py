@@ -78,6 +78,102 @@ def _new_id() -> str:
     return str(uuid.uuid4())
 
 
+# ---------------------------------------------------------------------------
+# Shared insert-with-supersession helpers
+# ---------------------------------------------------------------------------
+
+
+def _supersede_active_records(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    spec_name: str,
+    task_group: str,
+    marker: str,
+) -> list[str]:
+    """Mark active records as superseded. Returns list of superseded IDs."""
+    existing = conn.execute(
+        f"SELECT id::VARCHAR FROM {table} "  # noqa: S608
+        "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
+        [spec_name, task_group],
+    ).fetchall()
+
+    superseded_ids = [row[0] for row in existing]
+
+    if superseded_ids:
+        conn.execute(
+            f"UPDATE {table} SET superseded_by = ? "  # noqa: S608
+            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
+            [marker, spec_name, task_group],
+        )
+
+    return superseded_ids
+
+
+def _insert_causal_links(
+    conn: duckdb.DuckDBPyConnection,
+    superseded_ids: list[str],
+    new_ids: list[str],
+) -> None:
+    """Insert causal links from superseded to new records (27-REQ-4.3)."""
+    for old_id in superseded_ids:
+        for new_id in new_ids:
+            conn.execute(
+                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
+                "VALUES (?::UUID, ?::UUID)",
+                [old_id, new_id],
+            )
+
+
+def _insert_with_supersession(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    columns: str,
+    records: list,
+    value_extractor: callable,
+    record_type_label: str,
+) -> int:
+    """Insert records with supersession and causal links.
+
+    Shared logic for insert_findings and insert_verdicts.
+    """
+    if not records:
+        return 0
+
+    spec_name = records[0].spec_name
+    task_group = records[0].task_group
+    session_id = records[0].session_id
+
+    superseded_ids = _supersede_active_records(
+        conn, table, spec_name, task_group, session_id
+    )
+
+    placeholders = ", ".join("?" for _ in columns.split(", "))
+    for r in records:
+        conn.execute(
+            f"INSERT INTO {table} ({columns}, created_at) "  # noqa: S608
+            f"VALUES ({placeholders}, CURRENT_TIMESTAMP)",
+            value_extractor(r),
+        )
+
+    if superseded_ids:
+        _insert_causal_links(conn, superseded_ids, [r.id for r in records])
+
+    logger.info(
+        "Inserted %d %s for %s/%s (superseded %d)",
+        len(records),
+        record_type_label,
+        spec_name,
+        task_group,
+        len(superseded_ids),
+    )
+    return len(records)
+
+
+# ---------------------------------------------------------------------------
+# Insert functions
+# ---------------------------------------------------------------------------
+
+
 def insert_findings(
     conn: duckdb.DuckDBPyConnection,
     findings: list[ReviewFinding],
@@ -87,66 +183,25 @@ def insert_findings(
 
     Requirements: 27-REQ-4.1, 27-REQ-4.3, 27-REQ-4.E1
     """
-    if not findings:
-        return 0
-
-    spec_name = findings[0].spec_name
-    task_group = findings[0].task_group
-    session_id = findings[0].session_id
-
-    # Supersede existing active records (27-REQ-4.1)
-    existing = conn.execute(
-        "SELECT id::VARCHAR FROM review_findings "
-        "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
-        [spec_name, task_group],
-    ).fetchall()
-
-    superseded_ids = [row[0] for row in existing]
-
-    if superseded_ids:
-        conn.execute(
-            "UPDATE review_findings SET superseded_by = ? "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
-            [session_id, spec_name, task_group],
-        )
-
-    # Insert new records
-    for f in findings:
-        conn.execute(
-            "INSERT INTO review_findings "
-            "(id, severity, description, requirement_ref, spec_name, "
-            "task_group, session_id, created_at) "
-            "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [
-                f.id,
-                f.severity,
-                f.description,
-                f.requirement_ref,
-                f.spec_name,
-                f.task_group,
-                f.session_id,
-            ],
-        )
-
-    # Insert causal links from superseded to new records (27-REQ-4.3)
-    if superseded_ids:
-        new_ids = [f.id for f in findings]
-        for old_id in superseded_ids:
-            for new_id in new_ids:
-                conn.execute(
-                    "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
-                    "VALUES (?::UUID, ?::UUID)",
-                    [old_id, new_id],
-                )
-
-    logger.info(
-        "Inserted %d review findings for %s/%s (superseded %d)",
-        len(findings),
-        spec_name,
-        task_group,
-        len(superseded_ids),
+    return _insert_with_supersession(
+        conn,
+        table="review_findings",
+        columns=(
+            "id, severity, description, requirement_ref,"
+            " spec_name, task_group, session_id"
+        ),
+        records=findings,
+        value_extractor=lambda f: [
+            f.id,
+            f.severity,
+            f.description,
+            f.requirement_ref,
+            f.spec_name,
+            f.task_group,
+            f.session_id,
+        ],
+        record_type_label="review findings",
     )
-    return len(findings)
 
 
 def insert_verdicts(
@@ -158,171 +213,24 @@ def insert_verdicts(
 
     Requirements: 27-REQ-4.2, 27-REQ-4.3, 27-REQ-4.E1
     """
-    if not verdicts:
-        return 0
-
-    spec_name = verdicts[0].spec_name
-    task_group = verdicts[0].task_group
-    session_id = verdicts[0].session_id
-
-    # Supersede existing active records (27-REQ-4.2)
-    existing = conn.execute(
-        "SELECT id::VARCHAR FROM verification_results "
-        "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
-        [spec_name, task_group],
-    ).fetchall()
-
-    superseded_ids = [row[0] for row in existing]
-
-    if superseded_ids:
-        conn.execute(
-            "UPDATE verification_results SET superseded_by = ? "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
-            [session_id, spec_name, task_group],
-        )
-
-    # Insert new records
-    for v in verdicts:
-        conn.execute(
-            "INSERT INTO verification_results "
-            "(id, requirement_id, verdict, evidence, spec_name, "
-            "task_group, session_id, created_at) "
-            "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [
-                v.id,
-                v.requirement_id,
-                v.verdict,
-                v.evidence,
-                v.spec_name,
-                v.task_group,
-                v.session_id,
-            ],
-        )
-
-    # Insert causal links from superseded to new records (27-REQ-4.3)
-    if superseded_ids:
-        new_ids = [v.id for v in verdicts]
-        for old_id in superseded_ids:
-            for new_id in new_ids:
-                conn.execute(
-                    "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
-                    "VALUES (?::UUID, ?::UUID)",
-                    [old_id, new_id],
-                )
-
-    logger.info(
-        "Inserted %d verification results for %s/%s (superseded %d)",
-        len(verdicts),
-        spec_name,
-        task_group,
-        len(superseded_ids),
+    return _insert_with_supersession(
+        conn,
+        table="verification_results",
+        columns=(
+            "id, requirement_id, verdict, evidence, spec_name, task_group, session_id"
+        ),
+        records=verdicts,
+        value_extractor=lambda v: [
+            v.id,
+            v.requirement_id,
+            v.verdict,
+            v.evidence,
+            v.spec_name,
+            v.task_group,
+            v.session_id,
+        ],
+        record_type_label="verification results",
     )
-    return len(verdicts)
-
-
-def query_active_findings(
-    conn: duckdb.DuckDBPyConnection,
-    spec_name: str,
-    task_group: str | None = None,
-) -> list[ReviewFinding]:
-    """Query non-superseded findings for a spec.
-
-    Requirements: 27-REQ-5.1
-    """
-    if task_group is not None:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, severity, description, requirement_ref, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM review_findings "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL "
-            "ORDER BY severity, description",
-            [spec_name, task_group],
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, severity, description, requirement_ref, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM review_findings "
-            "WHERE spec_name = ? AND superseded_by IS NULL "
-            "ORDER BY severity, description",
-            [spec_name],
-        ).fetchall()
-
-    findings = [_row_to_finding(r) for r in rows]
-    # Sort by severity priority then description
-    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
-    return findings
-
-
-def query_active_verdicts(
-    conn: duckdb.DuckDBPyConnection,
-    spec_name: str,
-    task_group: str | None = None,
-) -> list[VerificationResult]:
-    """Query non-superseded verdicts for a spec.
-
-    Requirements: 27-REQ-5.2
-    """
-    if task_group is not None:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, requirement_id, verdict, evidence, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM verification_results "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL "
-            "ORDER BY requirement_id",
-            [spec_name, task_group],
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, requirement_id, verdict, evidence, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM verification_results "
-            "WHERE spec_name = ? AND superseded_by IS NULL "
-            "ORDER BY requirement_id",
-            [spec_name],
-        ).fetchall()
-
-    return [_row_to_verdict(r) for r in rows]
-
-
-def query_findings_by_session(
-    conn: duckdb.DuckDBPyConnection,
-    session_id: str,
-) -> list[ReviewFinding]:
-    """Query all findings for a specific session (for convergence).
-
-    Requirements: 27-REQ-6.1
-    """
-    rows = conn.execute(
-        "SELECT id::VARCHAR, severity, description, requirement_ref, "
-        "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-        "FROM review_findings WHERE session_id = ? "
-        "ORDER BY severity, description",
-        [session_id],
-    ).fetchall()
-
-    findings = [_row_to_finding(r) for r in rows]
-    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
-    return findings
-
-
-def query_verdicts_by_session(
-    conn: duckdb.DuckDBPyConnection,
-    session_id: str,
-) -> list[VerificationResult]:
-    """Query all verdicts for a specific session (for convergence).
-
-    Requirements: 27-REQ-6.2
-    """
-    rows = conn.execute(
-        "SELECT id::VARCHAR, requirement_id, verdict, evidence, "
-        "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-        "FROM verification_results WHERE session_id = ? "
-        "ORDER BY requirement_id",
-        [session_id],
-    ).fetchall()
-
-    return [_row_to_verdict(r) for r in rows]
 
 
 def insert_drift_findings(
@@ -381,6 +289,131 @@ def insert_drift_findings(
     return len(findings)
 
 
+# ---------------------------------------------------------------------------
+# Query functions
+# ---------------------------------------------------------------------------
+
+
+def _query_active(
+    conn: duckdb.DuckDBPyConnection,
+    table: str,
+    columns: str,
+    spec_name: str,
+    task_group: str | None,
+    order_by: str,
+) -> list[tuple]:
+    """Query non-superseded records with optional task_group filter."""
+    if task_group is not None:
+        return conn.execute(
+            f"SELECT {columns} FROM {table} "  # noqa: S608
+            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL "
+            f"ORDER BY {order_by}",
+            [spec_name, task_group],
+        ).fetchall()
+    return conn.execute(
+        f"SELECT {columns} FROM {table} "  # noqa: S608
+        "WHERE spec_name = ? AND superseded_by IS NULL "
+        f"ORDER BY {order_by}",
+        [spec_name],
+    ).fetchall()
+
+
+_FINDING_COLS = (
+    "id::VARCHAR, severity, description, requirement_ref, "
+    "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at"
+)
+
+_VERDICT_COLS = (
+    "id::VARCHAR, requirement_id, verdict, evidence, "
+    "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at"
+)
+
+_DRIFT_COLS = (
+    "id::VARCHAR, severity, description, spec_ref, artifact_ref, "
+    "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at"
+)
+
+
+def query_active_findings(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str | None = None,
+) -> list[ReviewFinding]:
+    """Query non-superseded findings for a spec.
+
+    Requirements: 27-REQ-5.1
+    """
+    rows = _query_active(
+        conn,
+        "review_findings",
+        _FINDING_COLS,
+        spec_name,
+        task_group,
+        "severity, description",
+    )
+    findings = [_row_to_finding(r) for r in rows]
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
+    return findings
+
+
+def query_active_verdicts(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+    task_group: str | None = None,
+) -> list[VerificationResult]:
+    """Query non-superseded verdicts for a spec.
+
+    Requirements: 27-REQ-5.2
+    """
+    rows = _query_active(
+        conn,
+        "verification_results",
+        _VERDICT_COLS,
+        spec_name,
+        task_group,
+        "requirement_id",
+    )
+    return [_row_to_verdict(r) for r in rows]
+
+
+def query_findings_by_session(
+    conn: duckdb.DuckDBPyConnection,
+    session_id: str,
+) -> list[ReviewFinding]:
+    """Query all findings for a specific session (for convergence).
+
+    Requirements: 27-REQ-6.1
+    """
+    rows = conn.execute(
+        f"SELECT {_FINDING_COLS} "
+        "FROM review_findings WHERE session_id = ? "
+        "ORDER BY severity, description",
+        [session_id],
+    ).fetchall()
+
+    findings = [_row_to_finding(r) for r in rows]
+    findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
+    return findings
+
+
+def query_verdicts_by_session(
+    conn: duckdb.DuckDBPyConnection,
+    session_id: str,
+) -> list[VerificationResult]:
+    """Query all verdicts for a specific session (for convergence).
+
+    Requirements: 27-REQ-6.2
+    """
+    rows = conn.execute(
+        f"SELECT {_VERDICT_COLS} "
+        "FROM verification_results WHERE session_id = ? "
+        "ORDER BY requirement_id",
+        [session_id],
+    ).fetchall()
+
+    return [_row_to_verdict(r) for r in rows]
+
+
 def query_active_drift_findings(
     conn: duckdb.DuckDBPyConnection,
     spec_name: str,
@@ -390,28 +423,22 @@ def query_active_drift_findings(
 
     Requirements: 32-REQ-7.4
     """
-    if task_group is not None:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, severity, description, spec_ref, artifact_ref, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM drift_findings "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL "
-            "ORDER BY severity, description",
-            [spec_name, task_group],
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id::VARCHAR, severity, description, spec_ref, artifact_ref, "
-            "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at "
-            "FROM drift_findings "
-            "WHERE spec_name = ? AND superseded_by IS NULL "
-            "ORDER BY severity, description",
-            [spec_name],
-        ).fetchall()
-
+    rows = _query_active(
+        conn,
+        "drift_findings",
+        _DRIFT_COLS,
+        spec_name,
+        task_group,
+        "severity, description",
+    )
     findings = [_row_to_drift_finding(r) for r in rows]
     findings.sort(key=lambda f: (_SEVERITY_ORDER.get(f.severity, 99), f.description))
     return findings
+
+
+# ---------------------------------------------------------------------------
+# Row converters
+# ---------------------------------------------------------------------------
 
 
 def _row_to_drift_finding(row: tuple) -> DriftFinding:

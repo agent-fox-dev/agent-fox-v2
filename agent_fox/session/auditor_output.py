@@ -204,22 +204,3 @@ def create_auditor_retry_event(
         "group_number": group_number,
         "attempt": attempt,
     }
-
-
-def create_circuit_breaker_event(
-    spec_name: str,
-    group_number: int | float,
-    max_retries: int,
-    last_findings_summary: str,
-) -> dict[str, Any]:
-    """Create an auditor.circuit_breaker audit event payload.
-
-    Requirement: 46-REQ-7.6
-    """
-    return {
-        "event_type": "auditor.circuit_breaker",
-        "spec_name": spec_name,
-        "group_number": group_number,
-        "max_retries": max_retries,
-        "last_findings_summary": last_findings_summary,
-    }

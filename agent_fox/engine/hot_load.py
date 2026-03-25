@@ -19,6 +19,8 @@ from agent_fox.graph.resolver import resolve_order
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.spec.discovery import SpecInfo, discover_specs  # noqa: F401
 from agent_fox.spec.parser import parse_cross_deps, parse_tasks
+from agent_fox.spec.validator import EXPECTED_FILES, Finding, validate_specs
+from agent_fox.workspace.git import run_git
 
 logger = logging.getLogger("agent_fox.engine.hot_load")
 
@@ -79,6 +81,143 @@ def _parse_dep_specs_from_prd(prd_path: Path) -> list[str]:
                     dep_names.append(dep_spec)
 
     return dep_names
+
+
+async def is_spec_tracked_on_develop(
+    repo_root: Path,
+    spec_name: str,
+    specs_dir_rel: str = ".specs",
+) -> bool:
+    """Check if a spec folder is tracked by git on the develop branch.
+
+    Uses ``git ls-tree develop -- .specs/{spec_name}`` and returns True
+    if any entries are found.
+
+    On failure, returns True (permissive fallback) and logs a warning.
+
+    Requirements: 51-REQ-4.1, 51-REQ-4.2, 51-REQ-4.E1
+    """
+    try:
+        _rc, stdout, _stderr = await run_git(
+            ["ls-tree", "develop", "--", f"{specs_dir_rel}/{spec_name}"],
+            cwd=repo_root,
+            check=False,
+        )
+        return bool(stdout.strip())
+    except Exception:
+        logger.warning(
+            "git ls-tree failed for spec '%s', falling back to permissive",
+            spec_name,
+        )
+        return True
+
+
+def is_spec_complete(spec_path: Path) -> tuple[bool, list[str]]:
+    """Check if all 5 required files exist and are non-empty.
+
+    Returns:
+        Tuple of (passed, list_of_missing_or_empty_filenames).
+
+    Requirements: 51-REQ-5.1, 51-REQ-5.2, 51-REQ-5.E1
+    """
+    missing_or_empty: list[str] = []
+    for filename in EXPECTED_FILES:
+        fp = spec_path / filename
+        if not fp.is_file() or fp.stat().st_size == 0:
+            missing_or_empty.append(filename)
+    return (len(missing_or_empty) == 0, missing_or_empty)
+
+
+def lint_spec_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+    """Run the spec validator and check for error-severity findings.
+
+    Returns:
+        Tuple of (passed, error_messages).
+        Passes if no findings have severity ``"error"``.
+        On validator exception, returns ``(False, [error description])``.
+
+    Requirements: 51-REQ-6.1, 51-REQ-6.2, 51-REQ-6.3, 51-REQ-6.E1
+    """
+    try:
+        # Extract numeric prefix; default to 0 if not parseable
+        prefix = 0
+        parts = spec_name.split("_", 1)
+        if parts[0].isdigit():
+            prefix = int(parts[0])
+        spec_info = SpecInfo(
+            name=spec_name,
+            prefix=prefix,
+            path=spec_path,
+            has_tasks=(spec_path / "tasks.md").is_file(),
+            has_prd=(spec_path / "prd.md").is_file(),
+        )
+        findings: list[Finding] = validate_specs(
+            specs_dir=spec_path.parent,
+            discovered_specs=[spec_info],
+        )
+        error_findings = [f for f in findings if f.severity == "error"]
+        if error_findings:
+            error_messages = [f"{f.rule}: {f.message}" for f in error_findings]
+            return (False, error_messages)
+        return (True, [])
+    except Exception as exc:
+        return (False, [f"Validator error: {exc}"])
+
+
+async def discover_new_specs_gated(
+    specs_dir: Path,
+    known_specs: set[str],
+    repo_root: Path,
+) -> list[SpecInfo]:
+    """Discover new specs that pass all three gates.
+
+    Pipeline:
+    1. Filesystem discovery (existing ``discover_new_specs``).
+    2. Gate 1: git-tracked on develop.
+    3. Gate 2: all 5 required files present and non-empty.
+    4. Gate 3: no lint errors from validator.
+
+    Returns only specs that pass all gates.  Skipped specs are
+    re-evaluated at the next barrier with a clean slate (51-REQ-7.2).
+
+    Requirements: 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1, 51-REQ-7.1,
+                  51-REQ-7.2, 51-REQ-7.3
+    """
+    candidates = discover_new_specs(specs_dir, known_specs)
+    if not candidates:
+        return []
+
+    accepted: list[SpecInfo] = []
+    for spec in candidates:
+        # Gate 1: git-tracked on develop
+        tracked = await is_spec_tracked_on_develop(repo_root, spec.name)
+        if not tracked:
+            logger.debug("Spec '%s' not tracked on develop, skipping", spec.name)
+            continue
+
+        # Gate 2: completeness
+        complete, missing = is_spec_complete(spec.path)
+        if not complete:
+            logger.info(
+                "Spec '%s' incomplete (missing/empty: %s), skipping",
+                spec.name,
+                ", ".join(missing),
+            )
+            continue
+
+        # Gate 3: lint
+        lint_ok, errors = lint_spec_gate(spec.name, spec.path)
+        if not lint_ok:
+            logger.warning(
+                "Spec '%s' has lint errors: %s, skipping",
+                spec.name,
+                "; ".join(errors),
+            )
+            continue
+
+        accepted.append(spec)
+
+    return accepted
 
 
 def discover_new_specs(

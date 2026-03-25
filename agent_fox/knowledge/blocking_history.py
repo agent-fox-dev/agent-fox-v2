@@ -43,33 +43,6 @@ class BlockingDecision:
     outcome: str
 
 
-def ensure_blocking_tables(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create blocking history and learned thresholds tables if needed.
-
-    Requirements: 39-REQ-10.1, 39-REQ-10.3
-    """
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS blocking_history (
-            id VARCHAR PRIMARY KEY,
-            spec_name VARCHAR NOT NULL,
-            archetype VARCHAR NOT NULL,
-            critical_count INTEGER NOT NULL,
-            threshold INTEGER NOT NULL,
-            blocked BOOLEAN NOT NULL,
-            outcome VARCHAR,
-            created_at TIMESTAMP DEFAULT current_timestamp
-        );
-
-        CREATE TABLE IF NOT EXISTS learned_thresholds (
-            archetype VARCHAR PRIMARY KEY,
-            threshold INTEGER NOT NULL,
-            confidence FLOAT NOT NULL,
-            sample_count INTEGER NOT NULL,
-            updated_at TIMESTAMP DEFAULT current_timestamp
-        );
-    """)
-
-
 def record_blocking_decision(
     conn: duckdb.DuckDBPyConnection,
     decision: BlockingDecision,

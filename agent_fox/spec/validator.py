@@ -927,21 +927,21 @@ def check_design_completeness(
     return findings
 
 
-def check_missing_coverage_matrix(
+def _check_section_with_table(
     spec_name: str,
-    spec_path: Path,
+    file_path: Path,
+    heading_keywords: list[str],
+    rule: str,
+    message: str,
 ) -> list[Finding]:
-    """Check test_spec.md for a Coverage Matrix section with a table.
+    """Check that a file contains a section heading with a table beneath it.
 
-    Rule: missing-coverage-matrix
-    Severity: warning
+    Returns a Finding if the heading or table is missing.
     """
-    ts_path = spec_path / "test_spec.md"
-    if not ts_path.is_file():
+    if not file_path.is_file():
         return []
 
-    text = ts_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
+    lines = file_path.read_text(encoding="utf-8").splitlines()
 
     has_heading = False
     has_table = False
@@ -950,9 +950,8 @@ def check_missing_coverage_matrix(
     for line in lines:
         heading = _H2_HEADING.match(line)
         if heading:
-            section = heading.group(1).strip()
-            normalized = _normalize_heading(section)
-            in_section = "coverage" in normalized and "matrix" in normalized
+            normalized = _normalize_heading(heading.group(1).strip())
+            in_section = all(kw in normalized for kw in heading_keywords)
             if in_section:
                 has_heading = True
             continue
@@ -965,17 +964,32 @@ def check_missing_coverage_matrix(
         return [
             Finding(
                 spec_name=spec_name,
-                file="test_spec.md",
-                rule="missing-coverage-matrix",
+                file=file_path.name,
+                rule=rule,
                 severity=SEVERITY_WARNING,
-                message=(
-                    "test_spec.md is missing a '## Coverage Matrix' section "
-                    "with a markdown table"
-                ),
+                message=message,
                 line=None,
             )
         ]
     return []
+
+
+def check_missing_coverage_matrix(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check test_spec.md for a Coverage Matrix section with a table.
+
+    Rule: missing-coverage-matrix
+    Severity: warning
+    """
+    return _check_section_with_table(
+        spec_name,
+        spec_path / "test_spec.md",
+        ["coverage", "matrix"],
+        "missing-coverage-matrix",
+        "test_spec.md is missing a '## Coverage Matrix' section with a markdown table",
+    )
 
 
 def check_missing_traceability_table(
@@ -987,45 +1001,13 @@ def check_missing_traceability_table(
     Rule: missing-traceability-table
     Severity: warning
     """
-    tasks_path = spec_path / "tasks.md"
-    if not tasks_path.is_file():
-        return []
-
-    text = tasks_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-
-    has_heading = False
-    has_table = False
-    in_section = False
-
-    for line in lines:
-        heading = _H2_HEADING.match(line)
-        if heading:
-            section = heading.group(1).strip()
-            in_section = "traceability" in _normalize_heading(section)
-            if in_section:
-                has_heading = True
-            continue
-
-        if in_section and _TABLE_PIPE_ROW.match(line):
-            if not _TABLE_SEP_ROW.match(line):
-                has_table = True
-
-    if not has_heading or not has_table:
-        return [
-            Finding(
-                spec_name=spec_name,
-                file="tasks.md",
-                rule="missing-traceability-table",
-                severity=SEVERITY_WARNING,
-                message=(
-                    "tasks.md is missing a '## Traceability' section "
-                    "with a markdown table"
-                ),
-                line=None,
-            )
-        ]
-    return []
+    return _check_section_with_table(
+        spec_name,
+        spec_path / "tasks.md",
+        ["traceability"],
+        "missing-traceability-table",
+        "tasks.md is missing a '## Traceability' section with a markdown table",
+    )
 
 
 def check_inconsistent_req_id_format(

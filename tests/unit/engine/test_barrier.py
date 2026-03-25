@@ -1,0 +1,285 @@
+"""Barrier entry operation tests: worktree verification and bidirectional develop sync.
+
+Test Spec: TS-51-5 through TS-51-11
+Requirements: 51-REQ-2.1, 51-REQ-2.2, 51-REQ-2.3, 51-REQ-2.E1,
+              51-REQ-3.1, 51-REQ-3.2, 51-REQ-3.3, 51-REQ-3.E1,
+              51-REQ-3.E2, 51-REQ-3.E3
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from agent_fox.engine.barrier import sync_develop_bidirectional, verify_worktrees
+
+
+class TestVerifyWorktreesOrphansFound:
+    """TS-51-5: Worktree verification finds orphans.
+
+    Verify that orphaned worktree directories are detected and logged.
+
+    Requirements: 51-REQ-2.1, 51-REQ-2.2
+    """
+
+    def test_finds_orphaned_worktree_dirs(self, tmp_path: Path) -> None:
+        """Orphaned worktree subdirectories are detected."""
+        wt_dir = tmp_path / ".agent-fox" / "worktrees"
+        (wt_dir / "spec_a" / "1").mkdir(parents=True)
+        (wt_dir / "spec_b" / "2").mkdir(parents=True)
+
+        result = verify_worktrees(tmp_path)
+        assert len(result) == 2
+        names = {p.name for p in result}
+        assert "spec_a" in names
+        assert "spec_b" in names
+
+    def test_logs_warning_for_orphans(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """WARNING log emitted listing orphaned paths."""
+        wt_dir = tmp_path / ".agent-fox" / "worktrees"
+        (wt_dir / "spec_a" / "1").mkdir(parents=True)
+        (wt_dir / "spec_b" / "2").mkdir(parents=True)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"):
+            verify_worktrees(tmp_path)
+
+        assert "spec_a" in caplog.text
+        assert "spec_b" in caplog.text
+
+
+class TestVerifyWorktreesNoOrphans:
+    """TS-51-6: Worktree verification with no orphans.
+
+    Requirements: 51-REQ-2.3
+    """
+
+    def test_returns_empty_list_when_no_orphans(self, tmp_path: Path) -> None:
+        """Empty worktrees directory returns empty list."""
+        wt_dir = tmp_path / ".agent-fox" / "worktrees"
+        wt_dir.mkdir(parents=True)
+
+        result = verify_worktrees(tmp_path)
+        assert result == []
+
+    def test_no_warning_when_no_orphans(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """No warnings logged when no orphans exist."""
+        wt_dir = tmp_path / ".agent-fox" / "worktrees"
+        wt_dir.mkdir(parents=True)
+
+        with caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"):
+            verify_worktrees(tmp_path)
+
+        assert caplog.text == ""
+
+
+class TestVerifyWorktreesDirMissing:
+    """TS-51-7: Worktree dir missing.
+
+    Requirements: 51-REQ-2.E1
+    """
+
+    def test_returns_empty_when_dir_missing(self, tmp_path: Path) -> None:
+        """Missing .agent-fox/worktrees/ returns empty list, no exception."""
+        result = verify_worktrees(tmp_path)
+        assert result == []
+
+
+class TestSyncDevelopBidirectionalSuccess:
+    """TS-51-8: Bidirectional develop sync success.
+
+    Requirements: 51-REQ-3.1, 51-REQ-3.2, 51-REQ-3.3
+    """
+
+    @pytest.mark.asyncio
+    async def test_pull_then_push_with_lock(self, tmp_path: Path) -> None:
+        """Pull sync runs first, then push, with MergeLock around both."""
+        call_order: list[str] = []
+
+        mock_lock_instance = AsyncMock()
+
+        async def mock_aenter(self_: object) -> object:
+            call_order.append("lock.__aenter__")
+            return mock_lock_instance
+
+        async def mock_aexit(self_: object, *args: object, **kwargs: object) -> bool:
+            call_order.append("lock.__aexit__")
+            return False
+
+        mock_lock_instance.__aenter__ = mock_aenter
+        mock_lock_instance.__aexit__ = mock_aexit
+
+        async def mock_sync(repo_root: Path) -> None:
+            call_order.append("sync")
+
+        async def mock_run_git(
+            args: list[str], cwd: Path, check: bool = True, **kwargs: object
+        ) -> tuple[int, str, str]:
+            if args[:2] == ["remote", "get-url"]:
+                call_order.append("remote_check")
+                return (0, "https://github.com/test/repo.git", "")
+            if args[:2] == ["push", "origin"]:
+                call_order.append("push")
+                return (0, "", "")
+            return (0, "", "")
+
+        with (
+            patch(
+                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
+            ),
+            patch(
+                "agent_fox.engine.barrier._sync_develop_with_remote",
+                side_effect=mock_sync,
+            ),
+            patch("agent_fox.engine.barrier.run_git", side_effect=mock_run_git),
+        ):
+            await sync_develop_bidirectional(tmp_path)
+
+        # Verify lock context manager wraps operations
+        assert call_order.index("lock.__aenter__") < call_order.index("sync")
+        assert call_order.index("sync") < call_order.index("push")
+        assert call_order.index("push") < call_order.index("lock.__aexit__")
+
+
+class TestSyncDevelopPullFailSkipsPush:
+    """TS-51-9: Pull sync failure skips push.
+
+    Requirements: 51-REQ-3.E1
+    """
+
+    @pytest.mark.asyncio
+    async def test_push_skipped_on_pull_failure(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When pull sync fails, push is NOT attempted."""
+        push_called = False
+
+        mock_lock_instance = AsyncMock()
+        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
+        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+
+        async def mock_sync(repo_root: Path) -> None:
+            raise Exception("fetch failed")
+
+        async def mock_run_git(
+            args: list[str], cwd: Path, check: bool = True, **kwargs: object
+        ) -> tuple[int, str, str]:
+            nonlocal push_called
+            if args[:2] == ["remote", "get-url"]:
+                return (0, "https://github.com/test/repo.git", "")
+            if args[:2] == ["push", "origin"]:
+                push_called = True
+                return (0, "", "")
+            return (0, "", "")
+
+        with (
+            patch(
+                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
+            ),
+            patch(
+                "agent_fox.engine.barrier._sync_develop_with_remote",
+                side_effect=mock_sync,
+            ),
+            patch("agent_fox.engine.barrier.run_git", side_effect=mock_run_git),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"),
+        ):
+            await sync_develop_bidirectional(tmp_path)
+
+        assert not push_called
+        assert "WARNING" in caplog.text or len(caplog.records) > 0
+
+
+class TestSyncDevelopPushFailNonBlocking:
+    """TS-51-10: Push failure is non-blocking.
+
+    Requirements: 51-REQ-3.E2
+    """
+
+    @pytest.mark.asyncio
+    async def test_push_failure_does_not_raise(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Push failure logs warning but does not raise."""
+        mock_lock_instance = AsyncMock()
+        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
+        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+
+        async def mock_sync(repo_root: Path) -> None:
+            pass  # success
+
+        async def mock_run_git(
+            args: list[str], cwd: Path, check: bool = True, **kwargs: object
+        ) -> tuple[int, str, str]:
+            if args[:2] == ["remote", "get-url"]:
+                return (0, "https://github.com/test/repo.git", "")
+            if args[:2] == ["push", "origin"]:
+                raise Exception("push failed")
+            return (0, "", "")
+
+        with (
+            patch(
+                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
+            ),
+            patch(
+                "agent_fox.engine.barrier._sync_develop_with_remote",
+                side_effect=mock_sync,
+            ),
+            patch("agent_fox.engine.barrier.run_git", side_effect=mock_run_git),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"),
+        ):
+            # Should not raise
+            await sync_develop_bidirectional(tmp_path)
+
+        assert len(caplog.records) > 0
+
+
+class TestSyncDevelopNoOrigin:
+    """TS-51-11: No origin remote skips sync.
+
+    Requirements: 51-REQ-3.E3
+    """
+
+    @pytest.mark.asyncio
+    async def test_skips_sync_when_no_origin(self, tmp_path: Path) -> None:
+        """No fetch or push when origin remote doesn't exist."""
+        sync_called = False
+        push_called = False
+
+        mock_lock_instance = AsyncMock()
+        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
+        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+
+        async def mock_sync(repo_root: Path) -> None:
+            nonlocal sync_called
+            sync_called = True
+
+        async def mock_run_git(
+            args: list[str], cwd: Path, check: bool = True, **kwargs: object
+        ) -> tuple[int, str, str]:
+            nonlocal push_called
+            if args[:2] == ["remote", "get-url"]:
+                raise Exception("No such remote 'origin'")
+            if args[:2] == ["push", "origin"]:
+                push_called = True
+                return (0, "", "")
+            return (0, "", "")
+
+        with (
+            patch(
+                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
+            ),
+            patch(
+                "agent_fox.engine.barrier._sync_develop_with_remote",
+                side_effect=mock_sync,
+            ),
+            patch("agent_fox.engine.barrier.run_git", side_effect=mock_run_git),
+        ):
+            await sync_develop_bidirectional(tmp_path)
+
+        assert not sync_called
+        assert not push_called

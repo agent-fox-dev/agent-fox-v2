@@ -548,35 +548,35 @@ A task group is complete when ALL of the following are true:
 """
 
 
-def fix_missing_definition_of_done(
+def _append_missing_section(
     spec_name: str,
-    design_path: Path,
+    file_path: Path,
+    heading_keywords: list[str],
+    template: str,
+    rule: str,
+    description: str,
 ) -> list[FixResult]:
-    """Append a Definition of Done section to design.md."""
-    if not design_path.is_file():
+    """Append a section to a file if it doesn't already contain one.
+
+    Checks for an H2 heading whose normalized text contains all keywords.
+    If absent, appends the template text and returns a FixResult.
+    """
+    if not file_path.is_file():
         return []
 
-    text = design_path.read_text(encoding="utf-8")
+    text = file_path.read_text(encoding="utf-8")
 
-    # Check it's not already there
     for line in text.splitlines():
         m = _H2_HEADING.match(line)
-        if (
-            m
-            and "definition" in _normalize_heading(m.group(1))
-            and "done" in _normalize_heading(m.group(1))
-        ):
-            return []
+        if m:
+            normalized = _normalize_heading(m.group(1))
+            if all(kw in normalized for kw in heading_keywords):
+                return []
 
-    text = text.rstrip() + "\n" + _DOD_TEMPLATE
-    design_path.write_text(text, encoding="utf-8")
-
+    file_path.write_text(text.rstrip() + "\n" + template, encoding="utf-8")
     return [
         FixResult(
-            rule="missing-definition-of-done",
-            spec_name=spec_name,
-            file=str(design_path),
-            description="Appended Definition of Done section",
+            rule=rule, spec_name=spec_name, file=str(file_path), description=description
         )
     ]
 
@@ -590,37 +590,6 @@ _ERROR_TABLE_TEMPLATE = """\
 | TODO | TODO | TODO |
 """
 
-
-def fix_missing_error_table(
-    spec_name: str,
-    design_path: Path,
-) -> list[FixResult]:
-    """Append an Error Handling section with empty table to design.md."""
-    if not design_path.is_file():
-        return []
-
-    text = design_path.read_text(encoding="utf-8")
-
-    for line in text.splitlines():
-        m = _H2_HEADING.match(line)
-        if m:
-            normalized = _normalize_heading(m.group(1))
-            if "error" in normalized and "handling" in normalized:
-                return []
-
-    text = text.rstrip() + "\n" + _ERROR_TABLE_TEMPLATE
-    design_path.write_text(text, encoding="utf-8")
-
-    return [
-        FixResult(
-            rule="missing-error-table",
-            spec_name=spec_name,
-            file=str(design_path),
-            description="Appended Error Handling section with table template",
-        )
-    ]
-
-
 _CORRECTNESS_PROPS_TEMPLATE = """\
 
 ## Correctness Properties
@@ -633,37 +602,49 @@ _CORRECTNESS_PROPS_TEMPLATE = """\
 """
 
 
+def fix_missing_definition_of_done(
+    spec_name: str,
+    design_path: Path,
+) -> list[FixResult]:
+    """Append a Definition of Done section to design.md."""
+    return _append_missing_section(
+        spec_name,
+        design_path,
+        ["definition", "done"],
+        _DOD_TEMPLATE,
+        "missing-definition-of-done",
+        "Appended Definition of Done section",
+    )
+
+
+def fix_missing_error_table(
+    spec_name: str,
+    design_path: Path,
+) -> list[FixResult]:
+    """Append an Error Handling section with empty table to design.md."""
+    return _append_missing_section(
+        spec_name,
+        design_path,
+        ["error", "handling"],
+        _ERROR_TABLE_TEMPLATE,
+        "missing-error-table",
+        "Appended Error Handling section with table template",
+    )
+
+
 def fix_missing_correctness_properties(
     spec_name: str,
     design_path: Path,
 ) -> list[FixResult]:
     """Append a Correctness Properties section stub to design.md."""
-    if not design_path.is_file():
-        return []
-
-    text = design_path.read_text(encoding="utf-8")
-
-    for line in text.splitlines():
-        m = _H2_HEADING.match(line)
-        if m:
-            normalized = _normalize_heading(m.group(1))
-            if "correctness" in normalized and "properties" in normalized:
-                return []
-
-    text = text.rstrip() + "\n" + _CORRECTNESS_PROPS_TEMPLATE
-    design_path.write_text(text, encoding="utf-8")
-
-    return [
-        FixResult(
-            rule="missing-correctness-properties",
-            spec_name=spec_name,
-            file=str(design_path),
-            description=(
-                "Appended Correctness Properties section stub "
-                "(fill in property details)"
-            ),
-        )
-    ]
+    return _append_missing_section(
+        spec_name,
+        design_path,
+        ["correctness", "properties"],
+        _CORRECTNESS_PROPS_TEMPLATE,
+        "missing-correctness-properties",
+        "Appended Correctness Properties section stub (fill in property details)",
+    )
 
 
 def fix_invalid_archetype_tag(

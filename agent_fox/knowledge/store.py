@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
-from agent_fox.cli.paths import DEFAULT_DB_PATH, MEMORY_PATH
+from agent_fox.core.paths import DEFAULT_DB_PATH, MEMORY_PATH
 from agent_fox.knowledge.facts import Fact, parse_confidence
 
 if TYPE_CHECKING:
