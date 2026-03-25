@@ -15,6 +15,7 @@
 - Use tempfile.TemporaryDirectory instead of pytest's tmp_path fixture in property-based tests to avoid Hypothesis health check failures. _(spec: 49_dump_command, confidence: 0.90)_
 - When creating temporary directories in tests, ensure parent directories exist first; missing parent creation causes test failures. _(spec: 49_dump_command, confidence: 0.90)_
 - The mix_stderr parameter is not supported in subprocess calls; use stderr=subprocess.STDOUT instead for combining stderr with stdout. _(spec: 49_dump_command, confidence: 0.90)_
+- The reset_spec() engine function must handle multi-part archetype node IDs (3-part format) when resetting task checkboxes in tasks.md to avoid missing or incorrectly parsing task identifiers. _(spec: 50_reset_spec, confidence: 0.90)_
 
 ## Patterns
 
@@ -114,6 +115,12 @@
 - For dump/export functionality, separate concerns into discovery (discover_tables), formatting (dump_table_md, dump_all_tables_md), serialization (dump_all_tables_json), and rendering (render_summary_json) functions. _(spec: 49_dump_command, confidence: 0.60)_
 - Database access in export/dump operations should use read-only mode to prevent accidental modifications during inspection. _(spec: 49_dump_command, confidence: 0.90)_
 - Command-line tools should validate flag combinations early (e.g., --memory and --db are mutually exclusive) before attempting operations. _(spec: 49_dump_command, confidence: 0.90)_
+- A reset operation for a spec should atomically perform multiple cleanup steps: reset task states, clean worktrees/branches, sync tasks.md, update plan.json, and preserve session history to maintain system consistency. _(spec: 50_reset_spec, confidence: 0.90)_
+- Engine functions that modify multiple files (tasks.md, plan.json) should be tested with both unit tests and property-based tests to ensure correctness across various input combinations and edge cases. _(spec: 50_reset_spec, confidence: 0.60)_
+- Click options can be configured with mutual exclusivity constraints to prevent conflicting arguments from being used together (e.g., --spec cannot be used with --hard or task_id). _(spec: 50_reset_spec, confidence: 0.90)_
+- CLI commands should support confirmation prompts that can be skipped with flags like --yes or --json for scripting and automation scenarios. _(spec: 50_reset_spec, confidence: 0.90)_
+- CLI output should support multiple formats (human-readable and JSON) to accommodate both interactive users and programmatic consumers. _(spec: 50_reset_spec, confidence: 0.90)_
+- Engine functions (like reset_spec()) should be dispatched from CLI command handlers to maintain separation between interface logic and business logic. _(spec: 50_reset_spec, confidence: 0.90)_
 
 ## Decisions
 
