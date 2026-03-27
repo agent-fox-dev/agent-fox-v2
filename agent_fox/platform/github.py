@@ -21,6 +21,14 @@ from agent_fox.core.errors import IntegrationError
 logger = logging.getLogger(__name__)
 
 _GITHUB_API = "https://api.github.com"
+_MAX_ERROR_TEXT = 500
+
+
+def _truncate_response(text: str) -> str:
+    """Truncate API response text to avoid leaking verbose error details."""
+    if len(text) <= _MAX_ERROR_TEXT:
+        return text
+    return text[:_MAX_ERROR_TEXT] + "..."
 
 
 @dataclass(frozen=True)
@@ -85,8 +93,9 @@ class GitHubPlatform:
             pr_url = resp.json().get("html_url", "")
             logger.info("Created PR: %s", pr_url)
             return pr_url
+        detail = _truncate_response(resp.text)
         raise IntegrationError(
-            f"GitHub PR creation failed ({resp.status_code}): {resp.text}",
+            f"GitHub PR creation failed ({resp.status_code}): {detail}",
             branch=branch,
         )
 
@@ -136,8 +145,9 @@ class GitHubPlatform:
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params={"q": q}, headers=headers)
         if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
             raise IntegrationError(
-                f"GitHub issue search failed ({resp.status_code}): {resp.text}",
+                f"GitHub issue search failed ({resp.status_code}): {detail}",
             )
         items = resp.json().get("items", [])
         results = [
@@ -174,8 +184,9 @@ class GitHubPlatform:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 201:
+            detail = _truncate_response(resp.text)
             raise IntegrationError(
-                f"GitHub issue creation failed ({resp.status_code}): {resp.text}",
+                f"GitHub issue creation failed ({resp.status_code}): {detail}",
             )
         data = resp.json()
         result = IssueResult(
@@ -204,8 +215,9 @@ class GitHubPlatform:
         async with httpx.AsyncClient() as client:
             resp = await client.patch(url, json=payload, headers=headers)
         if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
             raise IntegrationError(
-                f"GitHub issue update failed ({resp.status_code}): {resp.text}",
+                f"GitHub issue update failed ({resp.status_code}): {detail}",
             )
         logger.info("Updated issue #%d", issue_number)
 
@@ -230,8 +242,9 @@ class GitHubPlatform:
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 201:
+            detail = _truncate_response(resp.text)
             raise IntegrationError(
-                f"GitHub issue comment failed ({resp.status_code}): {resp.text}",
+                f"GitHub issue comment failed ({resp.status_code}): {detail}",
             )
         logger.info("Added comment to issue #%d", issue_number)
 
@@ -258,8 +271,9 @@ class GitHubPlatform:
         async with httpx.AsyncClient() as client:
             resp = await client.patch(url, json=payload, headers=headers)
         if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
             raise IntegrationError(
-                f"GitHub issue close failed ({resp.status_code}): {resp.text}",
+                f"GitHub issue close failed ({resp.status_code}): {detail}",
             )
         logger.info("Closed issue #%d", issue_number)
 

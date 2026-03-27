@@ -200,3 +200,63 @@ class TestParseGithubRemoteNonGithub:
     def test_random_url_returns_none(self) -> None:
         result = parse_github_remote("https://example.com/foo/bar.git")
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# H3: Error Response Truncation
+# ---------------------------------------------------------------------------
+
+
+class TestErrorResponseTruncation:
+    """H3: GitHub API error responses are truncated in exception messages."""
+
+    async def test_long_error_text_is_truncated(self) -> None:
+        """Error text longer than 500 chars is truncated in the exception."""
+        platform = GitHubPlatform(owner="o", repo="r", token="tok")
+
+        mock_response_repo = MagicMock()
+        mock_response_repo.status_code = 200
+        mock_response_repo.json.return_value = {"default_branch": "main"}
+
+        mock_response_pr = MagicMock()
+        mock_response_pr.status_code = 422
+        mock_response_pr.text = "x" * 1000  # 1000-char response
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response_repo)
+        mock_client.post = AsyncMock(return_value=mock_response_pr)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        target = "agent_fox.platform.github.httpx.AsyncClient"
+        with patch(target, return_value=mock_client):
+            with pytest.raises(IntegrationError) as exc_info:
+                await platform.create_pr("feature/test", "Test", "Body")
+
+        # The error message should NOT contain the full 1000 chars
+        error_msg = str(exc_info.value)
+        assert len(error_msg) < 700  # reasonable bound with prefix text
+        assert "..." in error_msg  # truncation marker
+
+    async def test_short_error_text_not_truncated(self) -> None:
+        """Error text shorter than 500 chars is preserved as-is."""
+        platform = GitHubPlatform(owner="o", repo="r", token="tok")
+
+        mock_response_repo = MagicMock()
+        mock_response_repo.status_code = 200
+        mock_response_repo.json.return_value = {"default_branch": "main"}
+
+        mock_response_pr = MagicMock()
+        mock_response_pr.status_code = 422
+        mock_response_pr.text = "Short error"
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response_repo)
+        mock_client.post = AsyncMock(return_value=mock_response_pr)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        target = "agent_fox.platform.github.httpx.AsyncClient"
+        with patch(target, return_value=mock_client):
+            with pytest.raises(IntegrationError, match="Short error"):
+                await platform.create_pr("feature/test", "Test", "Body")

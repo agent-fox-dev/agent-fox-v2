@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+from agent_fox.core.errors import WorkspaceError
 from agent_fox.workspace.git import create_branch, delete_branch, run_git
 
 logger = logging.getLogger(__name__)
@@ -38,6 +40,9 @@ async def create_worktree(
     Raises:
         WorkspaceError: If worktree creation fails.
     """
+    if not re.fullmatch(r"[a-zA-Z0-9_]+", spec_name):
+        raise WorkspaceError(f"Invalid spec name: {spec_name!r}")
+
     worktree_path = repo_root / ".agent-fox" / "worktrees" / spec_name / str(task_group)
     branch_name = f"feature/{spec_name}/{task_group}"
 

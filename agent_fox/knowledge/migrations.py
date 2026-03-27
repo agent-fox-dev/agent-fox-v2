@@ -16,6 +16,15 @@ from agent_fox.core.errors import KnowledgeStoreError  # noqa: F401
 
 logger = logging.getLogger("agent_fox.knowledge.migrations")
 
+_ALLOWED_EMBEDDING_DIMS = frozenset({384, 768, 1536})
+_DEFAULT_EMBEDDING_DIM = 384
+
+
+def _sanitize_embedding_dim(dim: int) -> int:
+    """Return *dim* if it is an allowed embedding dimension, else the default."""
+    return dim if dim in _ALLOWED_EMBEDDING_DIMS else _DEFAULT_EMBEDDING_DIM
+
+
 MigrationFn = Callable[[duckdb.DuckDBPyConnection], None]
 
 
@@ -206,7 +215,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
 
     # Recreate memory_embeddings with FK to new memory_facts
     # Detect embedding dimensions from backup if available
-    dim = 384  # default
+    dim = _DEFAULT_EMBEDDING_DIM
     try:
         col_info = conn.execute(
             "SELECT data_type FROM information_schema.columns "
@@ -219,7 +228,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
 
             m = re.search(r"\[(\d+)\]", dim_str)
             if m:
-                dim = int(m.group(1))
+                dim = _sanitize_embedding_dim(int(m.group(1)))
     except Exception:
         pass
 

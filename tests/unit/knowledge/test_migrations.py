@@ -123,3 +123,40 @@ class TestMigrationFailureRaisesKnowledgeStoreError:
         error_msg = str(exc_info.value)
         assert "2" in error_msg or "version" in error_msg.lower()
         conn.close()
+
+
+# -- H4: Dimension Allowlist Tests -------------------------------------------
+
+
+class TestEmbeddingDimensionAllowlist:
+    """H4: Embedding dimension is restricted to an allowlist."""
+
+    def test_valid_dimension_384(self) -> None:
+        """Dimension 384 (MiniLM) is accepted."""
+        from agent_fox.knowledge.migrations import _sanitize_embedding_dim
+
+        assert _sanitize_embedding_dim(384) == 384
+
+    def test_valid_dimension_768(self) -> None:
+        """Dimension 768 (base BERT) is accepted."""
+        from agent_fox.knowledge.migrations import _sanitize_embedding_dim
+
+        assert _sanitize_embedding_dim(768) == 768
+
+    def test_valid_dimension_1536(self) -> None:
+        """Dimension 1536 (OpenAI ada-002) is accepted."""
+        from agent_fox.knowledge.migrations import _sanitize_embedding_dim
+
+        assert _sanitize_embedding_dim(1536) == 1536
+
+    def test_invalid_dimension_defaults_to_384(self) -> None:
+        """An unexpected dimension falls back to 384."""
+        from agent_fox.knowledge.migrations import _sanitize_embedding_dim
+
+        assert _sanitize_embedding_dim(999) == 384
+
+    def test_zero_dimension_defaults_to_384(self) -> None:
+        """Zero dimension falls back to 384."""
+        from agent_fox.knowledge.migrations import _sanitize_embedding_dim
+
+        assert _sanitize_embedding_dim(0) == 384

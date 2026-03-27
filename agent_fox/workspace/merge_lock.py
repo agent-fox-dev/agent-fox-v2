@@ -119,29 +119,50 @@ class MergeLock:
         return True
 
     def _try_break_stale_lock(self) -> bool:
-        """Check if lock is stale and remove it. Returns True if broken."""
+        """Check if lock is stale and remove it atomically.
+
+        Uses rename-to-temp to avoid TOCTOU: the rename is atomic, so
+        only one process can claim the stale file. After claiming, we
+        check the age and delete the temp file if stale, or rename it
+        back if it turns out to be fresh.
+
+        Returns True if the stale lock was broken (or already gone).
+        """
+        # Atomically claim the lock file by renaming it
+        tmp_path = self._lock_dir / f"merge.lock.breaking.{os.getpid()}"
         try:
-            stat = self._lock_file.stat()
+            os.rename(str(self._lock_file), str(tmp_path))
         except FileNotFoundError:
-            # Lock was removed by someone else
+            # Lock was already removed by someone else
+            return True
+        except OSError:
+            # Rename failed (another process won the race)
+            return False
+
+        # We now own the renamed file — check its age
+        try:
+            stat = tmp_path.stat()
+        except FileNotFoundError:
             return True
 
         age = time.time() - stat.st_mtime
         if age < self._stale_timeout:
+            # Not actually stale — put it back
+            try:
+                os.rename(str(tmp_path), str(self._lock_file))
+            except OSError:
+                # Another process created a new lock; discard the old one
+                tmp_path.unlink(missing_ok=True)
             return False
 
-        # Lock is stale — attempt to break it (45-REQ-1.E1)
+        # Lock is stale — remove the claimed temp file (45-REQ-1.E1)
         logger.info(
             "Breaking stale merge lock (age=%.1fs, stale_timeout=%.1fs): %s",
             age,
             self._stale_timeout,
             self._lock_file,
         )
-        try:
-            self._lock_file.unlink()
-        except FileNotFoundError:
-            # Another process already broke it (45-REQ-1.E3)
-            pass
+        tmp_path.unlink(missing_ok=True)
         return True
 
     async def release(self) -> None:
