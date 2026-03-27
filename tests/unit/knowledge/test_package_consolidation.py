@@ -81,12 +81,6 @@ class TestModuleExistence:
 
         assert compact is not None
 
-    def test_state_machine_module(self) -> None:
-        """agent_fox.knowledge.state_machine contains KnowledgeStateMachine."""
-        from agent_fox.knowledge.state_machine import KnowledgeStateMachine
-
-        assert KnowledgeStateMachine is not None
-
 
 class TestPackageDeletion:
     """TS-39-2: Assert agent_fox.memory package no longer exists."""

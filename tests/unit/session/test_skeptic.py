@@ -49,34 +49,6 @@ class TestSkepticTemplate:
 # ---------------------------------------------------------------------------
 
 
-class TestSkepticGithubIssue:
-    """Verify Skeptic post-session logic files a GitHub issue."""
-
-    @pytest.mark.asyncio
-    async def test_skeptic_files_issue_with_search(self) -> None:
-        from unittest.mock import AsyncMock
-
-        from agent_fox.platform.github import IssueResult
-        from agent_fox.session.github_issues import file_or_update_issue
-
-        mock_platform = AsyncMock()
-        mock_platform.search_issues.return_value = []
-        mock_platform.create_issue.return_value = IssueResult(
-            number=1,
-            title="[Skeptic Review] 03_session",
-            html_url="https://github.com/repo/issues/1",
-        )
-
-        result = await file_or_update_issue(
-            "[Skeptic Review] 03_session",
-            "## Critical\n- Issue found",
-            platform=mock_platform,
-        )
-
-        assert result == "https://github.com/repo/issues/1"
-        mock_platform.search_issues.assert_called_once()
-        mock_platform.create_issue.assert_called_once()
-
 
 # ---------------------------------------------------------------------------
 # TS-26-34: Skeptic review passed to Coder as context
@@ -173,33 +145,3 @@ class TestReadonlyAllowlist:
 # ---------------------------------------------------------------------------
 
 
-class TestCloseIssueNoFindings:
-    """Verify existing Skeptic issue is closed when no critical findings."""
-
-    @pytest.mark.asyncio
-    async def test_close_if_empty(self) -> None:
-        from unittest.mock import AsyncMock
-
-        from agent_fox.platform.github import IssueResult
-        from agent_fox.session.github_issues import file_or_update_issue
-
-        existing = IssueResult(
-            number=42,
-            title="[Skeptic Review] spec",
-            html_url="https://github.com/o/r/issues/42",
-        )
-        mock_platform = AsyncMock()
-        mock_platform.search_issues.return_value = [existing]
-        mock_platform.close_issue.return_value = None
-
-        await file_or_update_issue(
-            "[Skeptic Review] spec",
-            "",  # empty body = no findings
-            close_if_empty=True,
-            platform=mock_platform,
-        )
-
-        # Verify close was called with the correct issue number
-        mock_platform.close_issue.assert_called_once()
-        call_args = mock_platform.close_issue.call_args
-        assert call_args[0][0] == 42

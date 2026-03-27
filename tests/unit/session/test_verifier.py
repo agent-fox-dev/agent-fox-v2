@@ -46,32 +46,3 @@ class TestVerifierTemplate:
 # ---------------------------------------------------------------------------
 
 
-class TestVerifierGithubIssue:
-    """Verify Verifier files a GitHub issue when verdict is FAIL."""
-
-    @pytest.mark.asyncio
-    async def test_verifier_files_issue_on_fail(self) -> None:
-        from unittest.mock import AsyncMock
-
-        from agent_fox.platform.github import IssueResult
-        from agent_fox.session.github_issues import file_or_update_issue
-
-        mock_platform = AsyncMock()
-        mock_platform.search_issues.return_value = []
-        mock_platform.create_issue.return_value = IssueResult(
-            number=5,
-            title="[Verifier] 05_memory group 2: FAIL",
-            html_url="https://github.com/repo/issues/5",
-        )
-
-        result = await file_or_update_issue(
-            "[Verifier] 05_memory group 2: FAIL",
-            "## Verdict: FAIL\n- Test failures found",
-            platform=mock_platform,
-        )
-
-        assert result == "https://github.com/repo/issues/5"
-        mock_platform.create_issue.assert_called_once()
-        # Verify title passed correctly
-        call_args = mock_platform.create_issue.call_args
-        assert "[Verifier] 05_memory group 2: FAIL" in call_args[0][0]

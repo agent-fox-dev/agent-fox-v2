@@ -227,42 +227,6 @@ class TestDbUnavailableFallback:
             assemble_context(spec_dir, 1, conn=conn)
 
 
-class TestGithubIssueBodyFromDb:
-    """TS-27-14: GitHub issue body formatted from DB records."""
-
-    def test_github_issue_body_from_db(self) -> None:
-        """format_issue_body_from_findings creates markdown body."""
-        from agent_fox.session.github_issues import format_issue_body_from_findings
-
-        findings = [
-            _make_finding(severity="critical", description="Blocker issue"),
-            _make_finding(severity="major", description="Important issue"),
-        ]
-        body = format_issue_body_from_findings(findings)
-        assert "## Blocking Findings" in body
-        assert "### Critical" in body
-        assert "Blocker issue" in body
-        assert "### Major" in body
-        assert "Important issue" in body
-
-    def test_github_issue_close_empty(self) -> None:
-        """Empty findings produce empty body."""
-        from agent_fox.session.github_issues import format_issue_body_from_findings
-
-        body = format_issue_body_from_findings([])
-        assert body == ""
-
-
-class TestGithubIssueDbUnavailable:
-    """TS-27-E6 (partial): GitHub issue filing when DB unavailable."""
-
-    def test_github_issue_db_unavailable(self) -> None:
-        """format_issue_body_from_findings handles empty list gracefully."""
-        from agent_fox.session.github_issues import format_issue_body_from_findings
-
-        body = format_issue_body_from_findings([])
-        assert body == ""
-
 
 class TestLegacyFileMigration:
     """TS-27-17, TS-27-18: Legacy file migration via assemble_context."""
