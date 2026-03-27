@@ -4,12 +4,18 @@ Restricts which commands the coding agent can execute via the Bash tool.
 Provides a default allowlist of standard development commands and supports
 customization through configuration.
 
+In addition to checking the leading command name against an allowlist, the
+module rejects commands that contain shell operators (pipes, semicolons,
+subshells, redirects, etc.) which would allow invoking arbitrary commands
+behind an allowed leading token.
+
 Requirements: 06-REQ-8.1, 06-REQ-8.2, 06-REQ-8.3, 06-REQ-9.1, 06-REQ-9.2
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from pathlib import PurePosixPath
 from typing import Any
@@ -69,7 +75,6 @@ DEFAULT_ALLOWLIST: frozenset[str] = frozenset(
         "gzip",
         # System utilities
         "which",
-        "env",
         "printenv",
         "date",
         # Shell builtins / control
@@ -149,11 +154,68 @@ def extract_command_name(command_string: str) -> str:
     return basename
 
 
+# Shell operators that allow chaining or embedding arbitrary commands.
+# Matched against the raw command string before allowlist checking.
+_SHELL_OPERATOR_PATTERN = re.compile(
+    r"""
+      \|          # pipe (including ||)
+    | ;           # command separator
+    | &&          # logical AND chaining
+    | `           # backtick subshell
+    | \$\(        # $() subshell
+    | [<>]        # redirects (>, <, >>, etc.)
+    """,
+    re.VERBOSE,
+)
+
+# Argument patterns that allow a command to execute arbitrary sub-commands.
+# Checked as whitespace-delimited tokens in the command string.
+_DANGEROUS_ARG_TOKENS = frozenset({"-exec", "-execdir"})
+
+
+def check_shell_operators(command_string: str) -> str | None:
+    """Check for shell operators that could bypass the allowlist.
+
+    Returns an error message if dangerous operators are found, or None
+    if the command is safe.
+    """
+    match = _SHELL_OPERATOR_PATTERN.search(command_string)
+    if match:
+        operator = match.group()
+        return (
+            f"Command contains shell operator '{operator}' which can execute "
+            f"arbitrary commands. Use simple, single commands instead."
+        )
+
+    # Check for newlines which act as command separators in shell
+    if "\n" in command_string:
+        return (
+            "Command contains newline characters which can execute "
+            "arbitrary commands. Use simple, single commands instead."
+        )
+
+    # Check for dangerous argument tokens (e.g., find -exec)
+    tokens = command_string.split()
+    for token in tokens:
+        if token in _DANGEROUS_ARG_TOKENS:
+            return (
+                f"Command contains '{token}' which can execute arbitrary "
+                f"sub-commands. Use alternative approaches instead."
+            )
+
+    return None
+
+
 def check_command_allowed(
     command_string: str,
     allowlist: frozenset[str],
 ) -> tuple[bool, str]:
     """Check whether a command is permitted by the allowlist.
+
+    Performs two checks:
+    1. Rejects commands containing shell operators (pipes, semicolons,
+       subshells, redirects) that could bypass the allowlist.
+    2. Checks the leading command name against the allowlist.
 
     Args:
         command_string: The full command string.
@@ -163,6 +225,11 @@ def check_command_allowed(
         Tuple of (allowed: bool, message: str). If blocked, message
         identifies the command and lists up to 10 similar allowed commands.
     """
+    # Check for shell operators before allowlist name check
+    operator_error = check_shell_operators(command_string)
+    if operator_error is not None:
+        return False, operator_error
+
     name = extract_command_name(command_string)
 
     if name in allowlist:

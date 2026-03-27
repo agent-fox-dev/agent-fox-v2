@@ -54,7 +54,13 @@ class TestAllowlistBlocksNonAllowlisted:
 
     @given(
         cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
-        args=st.text(max_size=30),
+        args=st.text(
+            alphabet=st.characters(
+                whitelist_categories=("L", "N"),
+                whitelist_characters=" _-./=%",
+            ),
+            max_size=30,
+        ),
     )
     @settings(max_examples=50)
     def test_allowlisted_command_not_blocked(
@@ -62,7 +68,11 @@ class TestAllowlistBlocksNonAllowlisted:
         cmd: str,
         args: str,
     ) -> None:
-        """Commands with a first token in the allowlist are not blocked."""
+        """Commands with a first token in the allowlist are not blocked.
+
+        Args are restricted to safe characters (no shell operators like
+        pipes, semicolons, subshells, or redirects).
+        """
         config = AgentFoxConfig()
         hook = make_pre_tool_use_hook(config.security)
 

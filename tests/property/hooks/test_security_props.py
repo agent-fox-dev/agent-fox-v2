@@ -77,7 +77,13 @@ class TestAllowlistEnforcementCompleteness:
 
     @given(
         cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
-        args=st.text(max_size=30),
+        args=st.text(
+            alphabet=st.characters(
+                whitelist_categories=("L", "N"),
+                whitelist_characters=" _-./=%",
+            ),
+            max_size=30,
+        ),
     )
     @settings(max_examples=50)
     def test_default_allowlisted_commands_always_allowed(
@@ -85,7 +91,11 @@ class TestAllowlistEnforcementCompleteness:
         cmd: str,
         args: str,
     ) -> None:
-        """Commands from DEFAULT_ALLOWLIST are always allowed with any args."""
+        """Commands from DEFAULT_ALLOWLIST are allowed with safe args.
+
+        Args are restricted to characters that don't contain shell operators
+        (pipes, semicolons, subshells, redirects, etc.).
+        """
         command = f"{cmd} {args}".strip()
         allowed, _ = check_command_allowed(command, DEFAULT_ALLOWLIST)
         assert allowed is True, f"Command '{command}' should be allowed but was blocked"
