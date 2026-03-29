@@ -112,7 +112,7 @@ async def run_session(
     if backend is None:
         from agent_fox.session.backends import get_backend
 
-        backend = get_backend("claude")
+        backend = get_backend()
 
     # Track metrics via mutable state (supports partial reads on timeout/failure)
     state = _QueryExecutionState()

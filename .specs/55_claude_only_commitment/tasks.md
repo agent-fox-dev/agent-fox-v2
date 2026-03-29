@@ -53,38 +53,38 @@ task group 2 implements all changes, task group 3 checkpoints.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_claude_only.py tests/property/test_claude_only_props.py tests/integration/test_claude_only_integration.py`
 
-- [ ] 2. Implement Claude-only commitment
-  - [ ] 2.1 Simplify `get_backend()` in `agent_fox/session/backends/__init__.py`
+- [x] 2. Implement Claude-only commitment
+  - [x] 2.1 Simplify `get_backend()` in `agent_fox/session/backends/__init__.py`
     - Remove `name` parameter
     - Return `ClaudeBackend()` directly
     - Update docstring to explain Claude-only commitment
     - _Requirements: 55-REQ-2.1, 55-REQ-2.2_
 
-  - [ ] 2.2 Update all call sites that pass name to `get_backend()`
+  - [x] 2.2 Update all call sites that pass name to `get_backend()`
     - Search `agent_fox/` for `get_backend("claude")` or `get_backend(name=`
     - Update to `get_backend()` (no args)
     - _Requirements: 55-REQ-2.3, 55-REQ-2.E1_
 
-  - [ ] 2.3 Update `AgentBackend` protocol docstring
+  - [x] 2.3 Update `AgentBackend` protocol docstring
     - Add note that `ClaudeBackend` is the only production implementation
     - State the protocol exists for test mock injection
     - _Requirements: 55-REQ-3.1, 55-REQ-3.2_
 
-  - [ ] 2.4 Create ADR
+  - [x] 2.4 Create ADR
     - Determine next ADR number from existing `docs/adr/` files
     - Create `docs/adr/NN-use-claude-exclusively.md`
     - Include: Status, Context, Decision, Alternatives (OpenAI, Gemini, multi-provider), Consequences, Future (non-coding use)
     - _Requirements: 55-REQ-1.1, 55-REQ-1.2, 55-REQ-1.3, 55-REQ-1.E1_
 
-  - [ ] 2.5 Update README.md
+  - [x] 2.5 Update README.md
     - Add a statement in the overview that agent-fox is built exclusively for Claude
     - _Requirements: 55-REQ-5.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/test_claude_only.py tests/property/test_claude_only_props.py tests/integration/test_claude_only_integration.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 55-REQ-1.1 through 55-REQ-5.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/test_claude_only.py tests/property/test_claude_only_props.py tests/integration/test_claude_only_integration.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 55-REQ-1.1 through 55-REQ-5.2 acceptance criteria met
 
 - [ ] 3. Checkpoint — Claude-Only Commitment Complete
   - Ensure all tests pass, verify documentation is coherent.

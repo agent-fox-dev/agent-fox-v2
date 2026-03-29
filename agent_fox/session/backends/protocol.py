@@ -104,6 +104,11 @@ class ToolDefinition:
 class AgentBackend(Protocol):
     """Protocol defining the contract for agent SDK adapters.
 
+    ``ClaudeBackend`` is the only production implementation of this protocol.
+    The protocol exists to allow test mock injection — tests can create
+    lightweight mock backends that satisfy ``isinstance(obj, AgentBackend)``
+    checks without depending on ``claude_code_sdk``.
+
     Any class implementing this protocol can be used as a backend for
     session execution. The protocol is runtime-checkable, so
     ``isinstance(obj, AgentBackend)`` works.
