@@ -66,6 +66,7 @@ class AuditEventType(StrEnum):
     KNOWLEDGE_INGESTED = "knowledge.ingested"
     SYNC_BARRIER = "sync.barrier"
     QUALITY_GATE_RESULT = "quality_gate.result"
+    REVIEW_PARSE_FAILURE = "review.parse_failure"
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +115,7 @@ _SEVERITY_MAP: dict[AuditEventType, AuditSeverity] = {
     AuditEventType.RUN_LIMIT_REACHED: AuditSeverity.WARNING,
     AuditEventType.GIT_CONFLICT: AuditSeverity.WARNING,
     AuditEventType.HARVEST_EMPTY: AuditSeverity.WARNING,
+    AuditEventType.REVIEW_PARSE_FAILURE: AuditSeverity.WARNING,
 }
 
 

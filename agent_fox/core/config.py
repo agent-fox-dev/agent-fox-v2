@@ -449,9 +449,7 @@ class ArchetypesConfig(BaseModel):
 
     @field_validator("max_turns")
     @classmethod
-    def validate_max_turns_non_negative(
-        cls, v: dict[str, int]
-    ) -> dict[str, int]:
+    def validate_max_turns_non_negative(cls, v: dict[str, int]) -> dict[str, int]:
         """Reject negative max_turns values.
 
         Requirements: 56-REQ-1.E1

@@ -64,31 +64,31 @@ Implementation order:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. JSON extraction and parsing layer
-  - [ ] 2.1 Create `engine/review_parser.py`
+- [x] 2. JSON extraction and parsing layer
+  - [x] 2.1 Create `engine/review_parser.py`
     - `extract_json_array(output_text) -> list[dict] | None`
     - Try bracket-matching first, then markdown fences
     - Return first valid JSON array found
     - _Requirements: 53-REQ-4.1, 53-REQ-4.E1_
 
-  - [ ] 2.2 Add typed parse functions
+  - [x] 2.2 Add typed parse functions
     - `parse_review_findings(json_objects, spec_name, task_group, session_id) -> list[ReviewFinding]`
     - `parse_verification_results(json_objects, spec_name, task_group, session_id) -> list[VerificationResult]`
     - `parse_drift_findings(json_objects, spec_name, task_group, session_id) -> list[DriftFinding]`
     - Skip objects missing required fields, log warning
     - _Requirements: 53-REQ-4.2_
 
-  - [ ] 2.3 Add `REVIEW_PARSE_FAILURE` to `AuditEventType`
+  - [x] 2.3 Add `REVIEW_PARSE_FAILURE` to `AuditEventType`
     - New enum member: `REVIEW_PARSE_FAILURE = "review.parse_failure"`
     - Set default severity to WARNING
     - _Requirements: 53-REQ-1.E1, 53-REQ-2.E1, 53-REQ-3.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_review_parser.py -v`
-    - [ ] TS-53-6, TS-53-7, TS-53-E2 pass
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 53-REQ-4.x met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_review_parser.py -v`
+    - [x] TS-53-6, TS-53-7, TS-53-E2 pass
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 53-REQ-4.x met
 
 - [ ] 3. Wire persistence into session lifecycle
   - [ ] 3.1 Refactor `_persist_review_findings()` in session_lifecycle.py
