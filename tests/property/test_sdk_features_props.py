@@ -203,18 +203,17 @@ class TestValidationRejectsInvalid:
     @settings(max_examples=20)
     def test_negative_budget_rejected(self, neg: int) -> None:
         """Negative max_budget_usd always raises."""
-        with Exception:
-            try:
-                from agent_fox.core.config import AgentFoxConfig
+        try:
+            from agent_fox.core.config import AgentFoxConfig
 
-                AgentFoxConfig(
-                    orchestrator={"max_budget_usd": float(neg)},  # type: ignore[arg-type]
-                )
-                raise AssertionError(  # noqa: TRY301
-                    f"Expected ValidationError for max_budget_usd={neg}"
-                )
-            except (ValidationError, ValueError):
-                pass  # Expected
+            AgentFoxConfig(
+                orchestrator={"max_budget_usd": float(neg)},  # type: ignore[arg-type]
+            )
+            raise AssertionError(  # noqa: TRY301
+                f"Expected ValidationError for max_budget_usd={neg}"
+            )
+        except (ValidationError, ValueError):
+            pass  # Expected
 
     @given(neg=st.integers(min_value=-1000, max_value=-1))
     @settings(max_examples=20)
@@ -234,22 +233,21 @@ class TestValidationRejectsInvalid:
 
     def test_invalid_thinking_mode_rejected(self) -> None:
         """Invalid thinking mode raises."""
-        with Exception:
-            try:
-                from agent_fox.core.config import AgentFoxConfig
+        try:
+            from agent_fox.core.config import AgentFoxConfig
 
-                AgentFoxConfig(
-                    archetypes={  # type: ignore[arg-type]
-                        "thinking": {
-                            "coder": {"mode": "turbo", "budget_tokens": 10000},
-                        },
+            AgentFoxConfig(
+                archetypes={  # type: ignore[arg-type]
+                    "thinking": {
+                        "coder": {"mode": "turbo", "budget_tokens": 10000},
                     },
-                )
-                raise AssertionError(  # noqa: TRY301
-                    "Expected ValidationError for mode='turbo'"
-                )
-            except (ValidationError, ValueError):
-                pass  # Expected
+                },
+            )
+            raise AssertionError(  # noqa: TRY301
+                "Expected ValidationError for mode='turbo'"
+            )
+        except (ValidationError, ValueError):
+            pass  # Expected
 
     def test_zero_budget_tokens_enabled_rejected(self) -> None:
         """budget_tokens=0 with mode=enabled raises."""

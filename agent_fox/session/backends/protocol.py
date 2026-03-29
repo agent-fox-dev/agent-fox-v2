@@ -107,7 +107,7 @@ class AgentBackend(Protocol):
     ``ClaudeBackend`` is the only production implementation of this protocol.
     The protocol exists to allow test mock injection — tests can create
     lightweight mock backends that satisfy ``isinstance(obj, AgentBackend)``
-    checks without depending on ``claude_code_sdk``.
+    checks without importing the Claude SDK directly.
 
     Any class implementing this protocol can be used as a backend for
     session execution. The protocol is runtime-checkable, so
@@ -130,6 +130,10 @@ class AgentBackend(Protocol):
         cwd: str,
         permission_callback: PermissionCallback | None = None,
         tools: list[ToolDefinition] | None = None,
+        max_turns: int | None = None,
+        max_budget_usd: float | None = None,
+        fallback_model: str | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a session and yield canonical messages.
 
@@ -143,6 +147,14 @@ class AgentBackend(Protocol):
             tools: Optional list of custom tool definitions to register
                 with the backend alongside built-in tools.
                 Requirements: 29-REQ-6.1, 29-REQ-6.E1
+            max_turns: Optional maximum number of turns for the session.
+                Requirements: 56-REQ-1.2
+            max_budget_usd: Optional maximum USD budget for the session.
+                Requirements: 56-REQ-2.2
+            fallback_model: Optional fallback model ID when primary is
+                unavailable. Requirements: 56-REQ-3.2
+            thinking: Optional extended thinking configuration dict with
+                ``type`` and ``budget_tokens`` fields. Requirements: 56-REQ-4.2
 
         Yields:
             Canonical message objects. The stream MUST terminate with

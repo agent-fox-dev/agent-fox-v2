@@ -95,41 +95,41 @@ the config → lifecycle → backend pipeline.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/session/archetypes.py`
     - [x] Requirements 56-REQ-1.1, 56-REQ-1.3, 56-REQ-2.1, 56-REQ-2.3, 56-REQ-3.1, 56-REQ-3.3, 56-REQ-4.1, 56-REQ-4.3 acceptance criteria met
 
-- [ ] 3. Wire parameters through session lifecycle and backend
-  - [ ] 3.1 Extend `AgentBackend` protocol in `protocol.py`
+- [x] 3. Wire parameters through session lifecycle and backend
+  - [x] 3.1 Extend `AgentBackend` protocol in `protocol.py`
     - Add optional kwargs: `max_turns`, `max_budget_usd`, `fallback_model`, `thinking`
     - _Requirements: 56-REQ-5.3_
 
-  - [ ] 3.2 Update `ClaudeBackend.execute()` in `claude.py`
+  - [x] 3.2 Update `ClaudeBackend.execute()` in `claude.py`
     - Accept new kwargs and forward to `ClaudeCodeOptions`
     - Only include params when not None/zero/empty
     - Wrap in try/except TypeError for SDK compatibility (56-REQ-5.E1)
     - Map ThinkingBlock to AssistantMessage when present
     - _Requirements: 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2, 56-REQ-4.4, 56-REQ-5.2, 56-REQ-5.E1_
 
-  - [ ] 3.3 Add resolution functions in `session_lifecycle.py`
+  - [x] 3.3 Add resolution functions in `session_lifecycle.py`
     - `_resolve_max_turns(config, archetype)` — config override > archetype default
     - `_resolve_thinking(config, archetype)` — config override > archetype default
     - `_resolve_fallback_model(config)` — empty string → None
     - `_resolve_max_budget(config)` — zero → None
     - _Requirements: 56-REQ-1.4, 56-REQ-2.E1, 56-REQ-3.4, 56-REQ-5.1_
 
-  - [ ] 3.4 Update `run_session()` in `session.py`
+  - [x] 3.4 Update `run_session()` in `session.py`
     - Accept and forward new parameters to `backend.execute()`
     - _Requirements: 56-REQ-5.2_
 
-  - [ ] 3.5 Update `session_lifecycle.py` callers
+  - [x] 3.5 Update `session_lifecycle.py` callers
     - Resolve max_turns, thinking per archetype before calling `run_session()`
     - Resolve max_budget_usd, fallback_model from config
     - Log resolved values at session start
     - Warn if fallback_model not in MODEL_REGISTRY (56-REQ-3.E1)
     - _Requirements: 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-3.E1, 56-REQ-4.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/test_sdk_features.py tests/unit/test_sdk_config.py tests/property/test_sdk_features_props.py tests/integration/test_sdk_features_integration.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
-    - [ ] Requirements 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2, 56-REQ-5.1, 56-REQ-5.2, 56-REQ-5.3, 56-REQ-5.E1 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/test_sdk_features.py tests/unit/test_sdk_config.py tests/property/test_sdk_features_props.py tests/integration/test_sdk_features_integration.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
+    - [x] Requirements 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2, 56-REQ-5.1, 56-REQ-5.2, 56-REQ-5.3, 56-REQ-5.E1 acceptance criteria met
 
 - [ ] 4. Checkpoint — SDK Feature Adoption Complete
   - Ensure all tests pass and no regressions.

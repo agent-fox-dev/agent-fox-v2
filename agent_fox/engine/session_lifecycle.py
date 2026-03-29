@@ -58,6 +58,83 @@ from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# SDK parameter resolution helpers (Spec 56)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_max_turns(config: AgentFoxConfig, archetype: str) -> int | None:
+    """Resolve max_turns for the given archetype.
+
+    Resolution order: config.toml override > archetype registry default.
+    Returns None when configured as 0 (unlimited).
+
+    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1
+    """
+    configured = config.archetypes.max_turns.get(archetype)
+    if configured is not None:
+        return configured if configured > 0 else None  # 0 = unlimited
+    entry = get_archetype(archetype)
+    return entry.default_max_turns
+
+
+def _resolve_thinking(config: AgentFoxConfig, archetype: str) -> dict | None:
+    """Resolve thinking configuration for the given archetype.
+
+    Resolution order: config.toml override > archetype registry default.
+    Returns None when mode is ``disabled``.
+
+    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1
+    """
+    configured = config.archetypes.thinking.get(archetype)
+    if configured is not None:
+        if configured.mode == "disabled":
+            return None
+        return {"type": configured.mode, "budget_tokens": configured.budget_tokens}
+    entry = get_archetype(archetype)
+    if entry.default_thinking_mode == "disabled":
+        return None
+    return {
+        "type": entry.default_thinking_mode,
+        "budget_tokens": entry.default_thinking_budget,
+    }
+
+
+def _resolve_fallback_model(config: AgentFoxConfig) -> str | None:
+    """Resolve the fallback model ID from config.
+
+    Returns None when the configured value is empty.
+    Logs a warning when the model is not in the local model registry.
+
+    Requirements: 56-REQ-3.1, 56-REQ-3.2, 56-REQ-3.4, 56-REQ-3.E1
+    """
+    from agent_fox.core.models import MODEL_REGISTRY
+
+    model = config.models.fallback_model
+    if not model:
+        return None
+    if model not in MODEL_REGISTRY:
+        logger.warning(
+            "Fallback model '%s' is not in the model registry; "
+            "passing to SDK anyway (56-REQ-3.E1)",
+            model,
+        )
+    return model
+
+
+def _resolve_max_budget(config: AgentFoxConfig) -> float | None:
+    """Resolve max_budget_usd from config.
+
+    Returns None when configured as 0.0 (unlimited).
+
+    Requirements: 56-REQ-2.1, 56-REQ-2.2, 56-REQ-2.E1
+    """
+    budget = config.orchestrator.max_budget_usd
+    if budget == 0.0:
+        return None
+    return budget
+
+
 async def _capture_develop_head(repo_root: Path) -> str:
     """Return the current SHA of the develop branch HEAD.
 
@@ -443,6 +520,22 @@ class NodeSessionRunner:
 
         Requirements: 05-REQ-1.1, 11-REQ-4.2
         """
+        # 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2: Resolve SDK params
+        resolved_max_turns = _resolve_max_turns(self._config, self._archetype)
+        resolved_thinking = _resolve_thinking(self._config, self._archetype)
+        resolved_fallback = _resolve_fallback_model(self._config)
+        resolved_budget = _resolve_max_budget(self._config)
+
+        logger.info(
+            "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, "
+            "thinking=%s",
+            node_id,
+            resolved_max_turns,
+            resolved_budget,
+            resolved_fallback,
+            resolved_thinking,
+        )
+
         outcome = await run_session(
             workspace=workspace,
             node_id=node_id,
@@ -454,6 +547,10 @@ class NodeSessionRunner:
             security_config=self._resolved_security,
             sink_dispatcher=self._sink,
             run_id=self._run_id,
+            max_turns=resolved_max_turns,
+            max_budget_usd=resolved_budget,
+            fallback_model=resolved_fallback,
+            thinking=resolved_thinking,
         )
 
         from agent_fox.core.config import PricingConfig
