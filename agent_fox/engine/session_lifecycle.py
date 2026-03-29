@@ -22,6 +22,7 @@ from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
+from agent_fox.engine.review_parser import extract_json_array
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
     HookContext,
@@ -229,6 +230,13 @@ class NodeSessionRunner:
                 f"```\n{previous_error}\n```\n"
                 f"Please address this error.\n"
             )
+
+        # 53-REQ-5.1: Inject active critical/major review findings for coder
+        # retries so the coder can address identified issues.
+        if self._archetype == "coder" and attempt > 1:
+            retry_context = self._build_retry_context(self._spec_name)
+            if retry_context:
+                task_prompt = f"{retry_context}\n\n{task_prompt}"
 
         return system_prompt, task_prompt
 
@@ -704,16 +712,20 @@ class NodeSessionRunner:
     ) -> None:
         """Parse and persist structured findings from review archetypes.
 
-        Dispatches to the appropriate parser based on archetype:
-        - skeptic  → parse_review_output   → insert_findings
-        - verifier → parse_verification_output → insert_verdicts
-        - oracle   → parse_oracle_output   → insert_drift_findings
+        Uses extract_json_array to extract JSON from archetype output, then
+        routes to the correct typed parser and insert function based on
+        archetype:
+        - skeptic  → parse_review_findings   → insert_findings
+        - verifier → parse_verification_results → insert_verdicts
+        - oracle   → parse_drift_findings    → insert_drift_findings
 
         Non-review archetypes (coder, librarian, etc.) are silently skipped.
-        Parse or DB failures are logged and swallowed to avoid blocking the
-        orchestrator.
+        When JSON extraction fails, a review.parse_failure audit event is
+        emitted at WARNING severity. All other failures are logged and
+        swallowed to avoid blocking the orchestrator.
 
-        Requirements: 27-REQ-3.1, 27-REQ-4.1, 27-REQ-4.2
+        Requirements: 53-REQ-1.1, 53-REQ-2.1, 53-REQ-3.1,
+                      53-REQ-1.E1, 53-REQ-2.E1, 53-REQ-3.E1
         """
         if self._archetype not in ("skeptic", "verifier", "oracle", "auditor"):
             return
@@ -722,40 +734,59 @@ class NodeSessionRunner:
         task_group = str(self._task_group)
 
         try:
-            from agent_fox.knowledge.review_store import (
-                insert_drift_findings,
-                insert_findings,
-                insert_verdicts,
-            )
-            from agent_fox.session.review_parser import (
-                parse_oracle_output,
-                parse_review_output,
-                parse_verification_output,
-            )
+            if self._archetype in ("skeptic", "verifier", "oracle"):
+                json_objects = extract_json_array(transcript)
+                if json_objects is None:
+                    self._emit_audit(
+                        AuditEventType.REVIEW_PARSE_FAILURE,
+                        node_id=node_id,
+                        severity=AuditSeverity.WARNING,
+                        payload={"raw_output": transcript[:2000]},
+                    )
+                    return
 
-            conn = self._knowledge_db.connection
-
-            # Dispatch table for review archetypes: parser → inserter → label
-            _review_dispatch = {
-                "skeptic": (parse_review_output, insert_findings, "skeptic findings"),
-                "verifier": (
-                    parse_verification_output,
-                    insert_verdicts,
-                    "verifier verdicts",
-                ),
-                "oracle": (
-                    parse_oracle_output,
+                from agent_fox.engine.review_parser import (
+                    parse_drift_findings,
+                    parse_review_findings,
+                    parse_verification_results,
+                )
+                from agent_fox.knowledge.review_store import (
                     insert_drift_findings,
-                    "oracle drift findings",
-                ),
-            }
+                    insert_findings,
+                    insert_verdicts,
+                )
 
-            if self._archetype in _review_dispatch:
-                parser, inserter, label = _review_dispatch[self._archetype]
-                records = parser(transcript, self._spec_name, task_group, session_id)
-                if records:
-                    count = inserter(conn, records)
-                    logger.info("Persisted %d %s for %s", count, label, node_id)
+                conn = self._knowledge_db.connection
+
+                if self._archetype == "skeptic":
+                    records = parse_review_findings(
+                        json_objects, self._spec_name, task_group, session_id
+                    )
+                    if records:
+                        count = insert_findings(conn, records)
+                        logger.info(
+                            "Persisted %d skeptic findings for %s", count, node_id
+                        )
+
+                elif self._archetype == "verifier":
+                    records = parse_verification_results(
+                        json_objects, self._spec_name, task_group, session_id
+                    )
+                    if records:
+                        count = insert_verdicts(conn, records)
+                        logger.info(
+                            "Persisted %d verifier verdicts for %s", count, node_id
+                        )
+
+                elif self._archetype == "oracle":
+                    records = parse_drift_findings(
+                        json_objects, self._spec_name, task_group, session_id
+                    )
+                    if records:
+                        count = insert_drift_findings(conn, records)
+                        logger.info(
+                            "Persisted %d oracle drift findings for %s", count, node_id
+                        )
 
             elif self._archetype == "auditor":
                 from agent_fox.session.auditor_output import (
@@ -775,6 +806,50 @@ class NodeSessionRunner:
                 node_id,
                 exc_info=True,
             )
+
+    def _build_retry_context(self, spec_name: str) -> str:
+        """Query active critical/major findings for the spec and format them.
+
+        Returns a structured block for inclusion in coder retry prompts,
+        listing all active critical and major review findings. Returns an
+        empty string if no such findings exist or if the DB is unavailable.
+
+        Requirements: 53-REQ-5.1, 53-REQ-5.2, 53-REQ-5.E1
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_active_findings
+
+            conn = self._knowledge_db.connection
+            findings = query_active_findings(conn, spec_name)
+            critical_major = [
+                f for f in findings if f.severity in ("critical", "major")
+            ]
+            if not critical_major:
+                return ""
+
+            lines = [
+                f"## Prior Review Findings for {spec_name}",
+                "",
+                "The following critical/major issues were identified in prior "
+                "review sessions. Please address these in your implementation:",
+                "",
+            ]
+            for finding in critical_major:
+                ref_str = (
+                    f" [{finding.requirement_ref}]" if finding.requirement_ref else ""
+                )
+                lines.append(
+                    f"- **{finding.severity.upper()}**{ref_str}: {finding.description}"
+                )
+            return "\n".join(lines)
+
+        except Exception:
+            logger.warning(
+                "Failed to build retry context for %s, continuing without",
+                spec_name,
+                exc_info=True,
+            )
+            return ""
 
     async def _setup_workspace(
         self,

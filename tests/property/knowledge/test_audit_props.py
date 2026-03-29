@@ -139,6 +139,7 @@ class TestSeverityClassification:
             AuditEventType.RUN_LIMIT_REACHED,
             AuditEventType.GIT_CONFLICT,
             AuditEventType.HARVEST_EMPTY,
+            AuditEventType.REVIEW_PARSE_FAILURE,
         }
 
         for event_type in AuditEventType:
