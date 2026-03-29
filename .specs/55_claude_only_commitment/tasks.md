@@ -86,7 +86,7 @@ task group 2 implements all changes, task group 3 checkpoints.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 55-REQ-1.1 through 55-REQ-5.2 acceptance criteria met
 
-- [ ] 3. Checkpoint — Claude-Only Commitment Complete
+- [x] 3. Checkpoint — Claude-Only Commitment Complete
   - Ensure all tests pass, verify documentation is coherent.
   - Verify ADR is properly numbered and formatted.
   - Verify README statement reads naturally.
