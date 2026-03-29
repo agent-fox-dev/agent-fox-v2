@@ -25,8 +25,8 @@ group 3 is the checkpoint.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_archetype_tiers.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_archetype_tiers.py`
     - Tests for TS-57-1 through TS-57-5: registry default tier assertions
     - Tests for TS-57-6: escalation ladder ceiling is ADVANCED
     - Tests for TS-57-7: STANDARD agent escalates to ADVANCED
@@ -40,7 +40,7 @@ group 3 is the checkpoint.
     - Tests for TS-57-12 through TS-57-14: documentation content assertions
     - _Test Spec: TS-57-1 through TS-57-14, TS-57-E1 through TS-57-E3_
 
-  - [ ] 1.2 Create property test file `tests/property/test_archetype_tiers_props.py`
+  - [x] 1.2 Create property test file `tests/property/test_archetype_tiers_props.py`
     - Tests for TS-57-P1: all registry defaults match spec
     - Tests for TS-57-P2: ceiling is always ADVANCED
     - Tests for TS-57-P3: STANDARD agents reach ADVANCED before exhaustion
@@ -48,10 +48,10 @@ group 3 is the checkpoint.
     - Tests for TS-57-P5: config override precedence
     - _Test Spec: TS-57-P1 through TS-57-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/test_archetype_tiers.py tests/property/test_archetype_tiers_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_archetype_tiers.py tests/property/test_archetype_tiers_props.py`
 
 - [ ] 2. Implement registry and ceiling changes
   - [ ] 2.1 Update `ARCHETYPE_REGISTRY` in `agent_fox/session/archetypes.py`
