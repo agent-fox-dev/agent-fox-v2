@@ -255,9 +255,7 @@ class ClaudeBackend:
                     # 56-REQ-4.4: Map ThinkingBlock to AssistantMessage
                     thinking_text = getattr(block, "thinking", "")
                     results.append(
-                        AssistantMessage(
-                            content=f"[thinking] {thinking_text}"
-                        )
+                        AssistantMessage(content=f"[thinking] {thinking_text}")
                     )
             # If no content blocks produced output, emit a generic AssistantMessage
             if not results:

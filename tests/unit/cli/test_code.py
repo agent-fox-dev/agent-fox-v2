@@ -94,10 +94,10 @@ class TestSuccessfulExecution:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
             # Plan file exists
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0
@@ -110,9 +110,9 @@ class TestSuccessfulExecution:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "3/3 done" in result.output
@@ -125,9 +125,9 @@ class TestSuccessfulExecution:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "$2.50" in result.output
@@ -140,9 +140,9 @@ class TestSuccessfulExecution:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "completed" in result.output
@@ -167,9 +167,9 @@ class TestParallelOverride:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--parallel", "4"])
 
         assert len(captured_config) == 1
@@ -204,9 +204,9 @@ class TestMaxCostOverride:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
 
         assert len(captured_config) == 1
@@ -232,9 +232,9 @@ class TestMaxSessionsOverride:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-sessions", "20"])
 
         assert len(captured_config) == 1
@@ -258,9 +258,9 @@ class TestStalledExitCode:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 2
@@ -276,9 +276,9 @@ class TestStalledExitCode:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "stalled" in result.output
@@ -298,9 +298,9 @@ class TestCostLimitExitCode:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 3
@@ -320,9 +320,9 @@ class TestInterruptedExitCode:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 130
@@ -336,16 +336,16 @@ class TestMissingPlanFile:
 
     def test_missing_plan_exits_code_1(self, cli_runner: CliRunner) -> None:
         """The command exits with code 1 when no plan exists."""
-        with patch("agent_fox.cli.code.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+        with patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path:
+            mock_plan_path.exists.return_value = False
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
 
     def test_missing_plan_mentions_plan(self, cli_runner: CliRunner) -> None:
         """Error message mentions the plan."""
-        with patch("agent_fox.cli.code.Path") as MockPath:
-            MockPath.return_value.exists.return_value = False
+        with patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path:
+            mock_plan_path.exists.return_value = False
             result = cli_runner.invoke(main, ["code"])
 
         assert "plan" in result.output.lower()
@@ -364,9 +364,9 @@ class TestUnexpectedException:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
@@ -378,9 +378,9 @@ class TestUnexpectedException:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "error" in result.output.lower()
@@ -404,9 +404,9 @@ class TestEmptyPlan:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0
@@ -423,9 +423,9 @@ class TestEmptyPlan:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "No tasks to execute" in result.output
@@ -448,9 +448,9 @@ class TestUnknownRunStatus:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
@@ -478,11 +478,11 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
             patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
             patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             mock_kb = MagicMock()
             mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code", "--debug"])
@@ -499,11 +499,11 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
             patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
             patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             mock_kb = MagicMock()
             mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code"])
@@ -521,12 +521,12 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
             patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
             patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
             patch("agent_fox.knowledge.jsonl_sink.JsonlSink"),
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             mock_open_ks.return_value = mock_kb
             mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code", "--debug"])
@@ -545,11 +545,11 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
-            patch("agent_fox.cli.code.Path") as MockPath,
+            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
             patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
             patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
-            MockPath.return_value.exists.return_value = True
+            mock_plan_path.exists.return_value = True
             mock_open_ks.return_value = mock_kb
             mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code"])

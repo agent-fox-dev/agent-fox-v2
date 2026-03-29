@@ -88,9 +88,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 def _find_adr() -> Path:
     matches = list(_PROJECT_ROOT.glob("docs/adr/*use-claude-exclusively*"))
     if not matches:
-        pytest.fail(
-            "ADR file not found: docs/adr/*use-claude-exclusively*"
-        )
+        pytest.fail("ADR file not found: docs/adr/*use-claude-exclusively*")
     return matches[0]
 
 

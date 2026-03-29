@@ -117,8 +117,8 @@ Implementation order:
     - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_review_persistence.py tests/integration/test_review_pipeline.py -v`
     - [x] TS-53-1, TS-53-2, TS-53-3, TS-53-5, TS-53-8, TS-53-9 pass (TS-53-4 blocked by TG4 import)
     - [x] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 53-REQ-1.x, 53-REQ-2.x, 53-REQ-3.x, 53-REQ-5.x met
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 53-REQ-1.x, 53-REQ-2.x, 53-REQ-3.x, 53-REQ-5.x met
 
 - [x] 4. Review-only CLI mode
   - [x] 4.1 Add `--review-only` flag to `cli/code.py`
@@ -153,11 +153,11 @@ Implementation order:
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 53-REQ-6.x met
 
-- [ ] 5. Checkpoint — Review Persistence Complete
-  - [ ] All spec tests pass
-  - [ ] All property tests pass
-  - [ ] Full test suite green: `make check`
-  - [ ] Review coverage matrix — all requirements have passing tests
+- [x] 5. Checkpoint — Review Persistence Complete
+  - [x] All spec tests pass
+  - [x] All property tests pass
+  - [x] Full test suite green: `make check`
+  - [x] Review coverage matrix — all requirements have passing tests
 
 ## Traceability
 

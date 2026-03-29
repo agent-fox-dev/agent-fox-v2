@@ -35,12 +35,20 @@ def valid_facts(draw: st.DrawFn) -> Fact:
     """Generate a valid Fact with all provenance fields populated."""
     return Fact(
         id=str(uuid.uuid4()),
-        content=draw(st.text(min_size=1, max_size=200, alphabet=st.characters(
-            whitelist_categories=("L", "N", "P", "Z"),
-        ))),
+        content=draw(
+            st.text(
+                min_size=1,
+                max_size=200,
+                alphabet=st.characters(
+                    whitelist_categories=("L", "N", "P", "Z"),
+                ),
+            )
+        ),
         category=draw(st.sampled_from(VALID_CATEGORIES)),
         spec_name=draw(st.from_regex(r"[a-z0-9_]{2,20}", fullmatch=True)),
-        keywords=draw(st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)),
+        keywords=draw(
+            st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)
+        ),
         confidence=draw(st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
         created_at="2025-01-01T00:00:00Z",
         session_id=draw(st.from_regex(r"[a-z0-9_/]{2,20}", fullmatch=True)),
@@ -289,16 +297,12 @@ class TestCausalLinkReferentialIntegrity:
             missing_id = str(uuid.uuid4())
 
             # Try link with one missing
-            stored = store_causal_links(
-                db.connection, [(existing_id, missing_id)]
-            )
+            stored = store_causal_links(db.connection, [(existing_id, missing_id)])
             assert stored == 0
 
             # Try link with both missing
             missing_id_2 = str(uuid.uuid4())
-            stored = store_causal_links(
-                db.connection, [(missing_id, missing_id_2)]
-            )
+            stored = store_causal_links(db.connection, [(missing_id, missing_id_2)])
             assert stored == 0
         finally:
             db.close()
@@ -366,9 +370,7 @@ class TestAuditEventOnSuccess:
                 )
 
             harvest_events = [
-                e
-                for e in emitted
-                if e.event_type == AuditEventType.HARVEST_COMPLETE
+                e for e in emitted if e.event_type == AuditEventType.HARVEST_COMPLETE
             ]
             assert len(harvest_events) == 1
             assert harvest_events[0].payload["fact_count"] == n
@@ -433,9 +435,7 @@ class TestAuditEventOnEmptyHarvest:
                 )
 
             empty_events = [
-                e
-                for e in emitted
-                if e.event_type == AuditEventType.HARVEST_EMPTY
+                e for e in emitted if e.event_type == AuditEventType.HARVEST_EMPTY
             ]
             assert len(empty_events) == 1
             assert empty_events[0].severity == AuditSeverity.WARNING

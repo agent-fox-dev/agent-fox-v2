@@ -64,9 +64,7 @@ class TestFactProvenance:
     Requirement: 52-REQ-2.1
     """
 
-    def test_all_provenance_fields_non_null(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_all_provenance_fields_non_null(self, knowledge_db: KnowledgeDB) -> None:
         """Row in memory_facts should have all fields non-NULL except
         supersedes."""
         fact = _make_fact(
@@ -87,7 +85,16 @@ class TestFactProvenance:
         ).fetchone()
 
         assert row is not None, "Fact should be inserted"
-        fact_id, content, category, spec_name, session_id, commit_sha, confidence, created_at = row
+        (
+            fact_id,
+            content,
+            category,
+            spec_name,
+            session_id,
+            commit_sha,
+            confidence,
+            created_at,
+        ) = row
         assert fact_id is not None
         assert content is not None
         assert category is not None
@@ -97,9 +104,7 @@ class TestFactProvenance:
         assert confidence is not None
         assert created_at is not None
 
-    def test_provenance_values_match(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_provenance_values_match(self, knowledge_db: KnowledgeDB) -> None:
         """Provenance values should match what was passed in."""
         fact = _make_fact(
             content="Test provenance",
@@ -140,9 +145,7 @@ class TestEmbeddingGenerated:
     path which does generate embeddings.
     """
 
-    def test_embedding_stored_via_memory_store(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_embedding_stored_via_memory_store(self, knowledge_db: KnowledgeDB) -> None:
         """MemoryStore.write_fact should store both fact and embedding."""
         from unittest.mock import MagicMock
 
@@ -187,9 +190,7 @@ class TestCausalLinkIdempotent:
     Requirement: 52-REQ-7.1
     """
 
-    def test_duplicate_link_produces_one_row(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_duplicate_link_produces_one_row(self, knowledge_db: KnowledgeDB) -> None:
         """INSERT OR IGNORE should silently skip duplicate links."""
         fact_a = _make_fact(content="Cause fact")
         fact_b = _make_fact(content="Effect fact")
@@ -231,9 +232,7 @@ class TestMissingFactLinkSkipped:
         stored = store_causal_links(conn, [(existing_fact.id, nonexistent_id)])
         assert stored == 0
 
-        count = conn.execute(
-            "SELECT COUNT(*) FROM fact_causes"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]
         assert count == 0
 
     def test_link_with_both_nonexistent_skipped(

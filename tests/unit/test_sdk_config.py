@@ -28,11 +28,7 @@ class TestMaxTurnsParsing:
     def test_max_turns_parsed_from_toml(self, tmp_path: Path) -> None:
         """TS-56-1: max_turns per archetype is parsed from config TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.max_turns]\n"
-            "coder = 150\n"
-            "oracle = 30\n"
-        )
+        config_file.write_text("[archetypes.max_turns]\ncoder = 150\noracle = 30\n")
         config = load_config(path=config_file)
         assert config.archetypes.max_turns["coder"] == 150
         assert config.archetypes.max_turns["oracle"] == 30
@@ -86,10 +82,7 @@ class TestBudgetParsing:
     def test_budget_parsed_from_toml(self, tmp_path: Path) -> None:
         """TS-56-5: max_budget_usd is parsed from config TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[orchestrator]\n"
-            "max_budget_usd = 5.0\n"
-        )
+        config_file.write_text("[orchestrator]\nmax_budget_usd = 5.0\n")
         config = load_config(path=config_file)
         assert config.orchestrator.max_budget_usd == 5.0
 
@@ -121,10 +114,7 @@ class TestFallbackModelParsing:
     def test_fallback_model_parsed_from_toml(self, tmp_path: Path) -> None:
         """TS-56-8: fallback_model is parsed from config TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[models]\n"
-            'fallback_model = "claude-haiku-4-5"\n'
-        )
+        config_file.write_text('[models]\nfallback_model = "claude-haiku-4-5"\n')
         config = load_config(path=config_file)
         assert config.models.fallback_model == "claude-haiku-4-5"
 
@@ -157,9 +147,7 @@ class TestThinkingParsing:
         """TS-56-12: Thinking config per archetype is parsed from TOML."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[archetypes.thinking.coder]\n"
-            'mode = "enabled"\n'
-            "budget_tokens = 20000\n"
+            '[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 20000\n'
         )
         config = load_config(path=config_file)
         assert config.archetypes.thinking["coder"].mode == "enabled"
@@ -192,8 +180,15 @@ class TestThinkingDefaults:
         """TS-56-14: Non-coder archetypes default to disabled thinking."""
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        for name in ("oracle", "skeptic", "verifier", "auditor",
-                     "librarian", "cartographer", "coordinator"):
+        for name in (
+            "oracle",
+            "skeptic",
+            "verifier",
+            "auditor",
+            "librarian",
+            "cartographer",
+            "coordinator",
+        ):
             entry = ARCHETYPE_REGISTRY[name]
             assert entry.default_thinking_mode == "disabled", (
                 f"{name}: expected default_thinking_mode='disabled', "
@@ -213,10 +208,7 @@ class TestNegativeMaxTurnsRejected:
     def test_negative_max_turns_raises(self, tmp_path: Path) -> None:
         """TS-56-E1: Negative max_turns raises ValidationError."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.max_turns]\n"
-            "coder = -1\n"
-        )
+        config_file.write_text("[archetypes.max_turns]\ncoder = -1\n")
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)
 
@@ -240,10 +232,7 @@ class TestNegativeBudgetRejected:
     def test_negative_budget_raises(self, tmp_path: Path) -> None:
         """TS-56-E3: Negative max_budget_usd raises ValidationError."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[orchestrator]\n"
-            "max_budget_usd = -1.0\n"
-        )
+        config_file.write_text("[orchestrator]\nmax_budget_usd = -1.0\n")
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)
 
@@ -261,9 +250,7 @@ class TestInvalidThinkingModeRejected:
         """TS-56-E5: Invalid thinking mode raises ValidationError."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[archetypes.thinking.coder]\n"
-            'mode = "turbo"\n'
-            "budget_tokens = 10000\n"
+            '[archetypes.thinking.coder]\nmode = "turbo"\nbudget_tokens = 10000\n'
         )
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)
@@ -282,9 +269,7 @@ class TestZeroBudgetTokensEnabledRejected:
         """TS-56-E6: budget_tokens=0 with mode=enabled raises error."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[archetypes.thinking.coder]\n"
-            'mode = "enabled"\n'
-            "budget_tokens = 0\n"
+            '[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 0\n'
         )
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)

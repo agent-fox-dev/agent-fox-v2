@@ -86,9 +86,7 @@ class TestFactIdempotent:
     Requirement: 52-REQ-2.2
     """
 
-    def test_duplicate_insert_produces_one_row(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_duplicate_insert_produces_one_row(self, knowledge_db: KnowledgeDB) -> None:
         fact = _make_fact()
         sync_facts_to_duckdb(knowledge_db, [fact])
         sync_facts_to_duckdb(knowledge_db, [fact])
@@ -197,9 +195,7 @@ class TestHarvestCompleteEvent:
             )
 
         harvest_events = [
-            e
-            for e in emitted_events
-            if e.event_type == AuditEventType.HARVEST_COMPLETE
+            e for e in emitted_events if e.event_type == AuditEventType.HARVEST_COMPLETE
         ]
         assert len(harvest_events) == 1, (
             f"Expected exactly 1 harvest.complete event, got {len(harvest_events)}. "
@@ -255,9 +251,7 @@ class TestHarvestEmptyEvent:
         )
 
         empty_events = [
-            e
-            for e in emitted_events
-            if e.event_type == AuditEventType.HARVEST_EMPTY
+            e for e in emitted_events if e.event_type == AuditEventType.HARVEST_EMPTY
         ]
         assert len(empty_events) == 1, (
             f"Expected 1 harvest.empty event, got {len(empty_events)}. "
@@ -281,9 +275,7 @@ class TestNullSinkNoError:
     """
 
     @pytest.mark.asyncio
-    async def test_null_sink_no_exception(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_null_sink_no_exception(self, knowledge_db: KnowledgeDB) -> None:
         """No exception when sink_dispatcher=None."""
         fact = _make_fact()
 
@@ -590,9 +582,7 @@ class TestUnembeddedFactsInCausalContext:
             f"Expected exactly 5 facts (first N fallback), got {len(selected)}"
         )
 
-    def test_within_limit_includes_all(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_within_limit_includes_all(self, knowledge_db: KnowledgeDB) -> None:
         """When prior facts are within the limit, all are included."""
         from agent_fox.engine.knowledge_harvest import _select_causal_context
 

@@ -50,8 +50,16 @@ class TestZeroTurnsUnlimited:
 
     @given(
         archetype=st.sampled_from(
-            ["coder", "oracle", "skeptic", "verifier", "auditor",
-             "librarian", "cartographer", "coordinator"]
+            [
+                "coder",
+                "oracle",
+                "skeptic",
+                "verifier",
+                "auditor",
+                "librarian",
+                "cartographer",
+                "coordinator",
+            ]
         )
     )
     @settings(max_examples=20)
@@ -137,9 +145,7 @@ class TestThinkingPassthrough:
         budget=st.integers(min_value=1, max_value=50000),
     )
     @settings(max_examples=50)
-    def test_nondisabled_thinking_passthrough(
-        self, mode: str, budget: int
-    ) -> None:
+    def test_nondisabled_thinking_passthrough(self, mode: str, budget: int) -> None:
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.session_lifecycle import _resolve_thinking
 
@@ -168,15 +174,21 @@ class TestConfigOverridePrecedence:
 
     @given(
         archetype=st.sampled_from(
-            ["coder", "oracle", "skeptic", "verifier", "auditor",
-             "librarian", "cartographer", "coordinator"]
+            [
+                "coder",
+                "oracle",
+                "skeptic",
+                "verifier",
+                "auditor",
+                "librarian",
+                "cartographer",
+                "coordinator",
+            ]
         ),
         override_turns=st.integers(min_value=1, max_value=500),
     )
     @settings(max_examples=50)
-    def test_config_override_wins(
-        self, archetype: str, override_turns: int
-    ) -> None:
+    def test_config_override_wins(self, archetype: str, override_turns: int) -> None:
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.session_lifecycle import _resolve_max_turns
 

@@ -20,8 +20,7 @@ def test_adr_exists() -> None:
     """Exactly one ADR file matches *use-claude-exclusively*."""
     matches = list(_PROJECT_ROOT.glob("docs/adr/*use-claude-exclusively*"))
     assert len(matches) == 1, (
-        f"Expected 1 ADR *use-claude-exclusively*, "
-        f"found {len(matches)}: {matches}"
+        f"Expected 1 ADR *use-claude-exclusively*, found {len(matches)}: {matches}"
     )
 
 
@@ -41,9 +40,7 @@ def test_no_name_arg_calls() -> None:
         for match in pattern.finditer(content):
             matches.append((f.relative_to(_PROJECT_ROOT), match.group()))
 
-    assert len(matches) == 0, (
-        f"Found get_backend() calls with arguments: {matches}"
-    )
+    assert len(matches) == 0, f"Found get_backend() calls with arguments: {matches}"
 
 
 # ---------------------------------------------------------------------------
