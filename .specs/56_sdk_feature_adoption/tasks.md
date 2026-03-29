@@ -27,15 +27,15 @@ the config → lifecycle → backend pipeline.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/test_sdk_config.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/test_sdk_config.py`
     - Config parsing tests for max_turns (TS-56-1), max_budget_usd (TS-56-5),
       fallback_model (TS-56-8), thinking (TS-56-12)
     - Default value tests (TS-56-3, TS-56-7, TS-56-10, TS-56-14)
     - Validation error tests (TS-56-E1, TS-56-E3, TS-56-E5, TS-56-E6)
     - _Test Spec: TS-56-1, TS-56-3, TS-56-5, TS-56-7, TS-56-8, TS-56-10, TS-56-12, TS-56-14, TS-56-E1, TS-56-E3, TS-56-E5, TS-56-E6_
 
-  - [ ] 1.2 Create `tests/unit/test_sdk_features.py`
+  - [x] 1.2 Create `tests/unit/test_sdk_features.py`
     - Passthrough tests for max_turns (TS-56-2), max_budget_usd (TS-56-6),
       fallback_model (TS-56-9), thinking (TS-56-13)
     - Zero/empty/unlimited tests (TS-56-4, TS-56-11, TS-56-E2)
@@ -43,7 +43,7 @@ the config → lifecycle → backend pipeline.
     - Unknown fallback model warning test (TS-56-E4)
     - _Test Spec: TS-56-2, TS-56-4, TS-56-6, TS-56-9, TS-56-11, TS-56-13, TS-56-15, TS-56-E2, TS-56-E4_
 
-  - [ ] 1.3 Create `tests/property/test_sdk_features_props.py`
+  - [x] 1.3 Create `tests/property/test_sdk_features_props.py`
     - Turn limit passthrough invariant (TS-56-P1)
     - Zero turns unlimited invariant (TS-56-P2)
     - Budget cap passthrough invariant (TS-56-P3)
@@ -54,14 +54,14 @@ the config → lifecycle → backend pipeline.
     - SDK compatibility fallback (TS-56-P8)
     - _Test Spec: TS-56-P1 through TS-56-P8_
 
-  - [ ] 1.4 Create `tests/integration/test_sdk_features_integration.py`
+  - [x] 1.4 Create `tests/integration/test_sdk_features_integration.py`
     - SDK TypeError fallback test (TS-56-E7)
     - _Test Spec: TS-56-E7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/test_sdk_config.py tests/unit/test_sdk_features.py tests/property/test_sdk_features_props.py tests/integration/test_sdk_features_integration.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_sdk_config.py tests/unit/test_sdk_features.py tests/property/test_sdk_features_props.py tests/integration/test_sdk_features_integration.py`
 
 - [ ] 2. Config model extensions and archetype defaults
   - [ ] 2.1 Add `ThinkingConfig` model to `agent_fox/core/config.py`
