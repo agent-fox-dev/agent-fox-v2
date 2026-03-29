@@ -120,38 +120,38 @@ Implementation order:
     - [ ] No linter warnings introduced: `make lint`
     - [ ] Requirements 53-REQ-1.x, 53-REQ-2.x, 53-REQ-3.x, 53-REQ-5.x met
 
-- [ ] 4. Review-only CLI mode
-  - [ ] 4.1 Add `--review-only` flag to `cli/code.py`
+- [x] 4. Review-only CLI mode
+  - [x] 4.1 Add `--review-only` flag to `cli/code.py`
     - Click option on the `code` command
     - Pass through ctx.obj to the engine
     - _Requirements: 53-REQ-6.1_
 
-  - [ ] 4.2 Add `build_review_only_graph()` to `graph/injection.py`
+  - [x] 4.2 Add `build_review_only_graph()` to `graph/injection.py`
     - Scan specs for source files and requirements.md
     - Create Skeptic + Oracle nodes for specs with source files
     - Create Verifier nodes for specs with requirements.md
     - Handle empty specs (print message, exit 0)
     - _Requirements: 53-REQ-6.2, 53-REQ-6.E1_
 
-  - [ ] 4.3 Add review-only audit events
+  - [x] 4.3 Add review-only audit events
     - Emit `run.start` and `run.complete` with `mode: "review_only"` payload
     - _Requirements: 53-REQ-6.3_
 
-  - [ ] 4.4 Add review-only summary output
+  - [x] 4.4 Add review-only summary output
     - Print findings by severity, verdicts by status, drift by severity
     - _Requirements: 53-REQ-6.5_
 
-  - [ ] 4.5 Support `--spec` filter in review-only mode
+  - [x] 4.5 Support `--spec` filter in review-only mode
     - Apply spec filter to restrict reviewed specs
     - _Requirements: 53-REQ-6.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/cli/test_review_only.py -v`
-    - [ ] TS-53-10, TS-53-11, TS-53-12, TS-53-13, TS-53-E1, TS-53-E3 pass
-    - [ ] Property tests pass: `uv run pytest -q tests/property/engine/test_review_persistence_props.py -v`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 53-REQ-6.x met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/cli/test_review_only.py -v`
+    - [x] TS-53-10, TS-53-11, TS-53-12, TS-53-13, TS-53-E1, TS-53-E3 pass
+    - [x] Property tests pass: `uv run pytest -q tests/property/engine/test_review_persistence_props.py -v`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 53-REQ-6.x met
 
 - [ ] 5. Checkpoint — Review Persistence Complete
   - [ ] All spec tests pass

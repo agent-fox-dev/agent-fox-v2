@@ -65,10 +65,11 @@ def extract_json_array(output_text: str) -> list[dict] | None:
 def _scan_bracket_arrays(text: str) -> list[dict] | None:
     """Scan text left-to-right for bracket-delimited JSON arrays.
 
-    Uses depth-tracking on `[` and `]` characters to find balanced array
-    candidates, then tries to parse each as JSON. Returns the first valid
-    JSON list found, or None.
+    Uses ``json.JSONDecoder.raw_decode()`` to properly handle brackets
+    inside JSON strings, nested objects, and other edge cases. Returns the
+    first valid JSON list found starting at a ``[`` character, or None.
     """
+    decoder = json.JSONDecoder()
     pos = 0
     text_len = len(text)
 
@@ -77,26 +78,8 @@ def _scan_bracket_arrays(text: str) -> list[dict] | None:
         if start == -1:
             break
 
-        # Walk forward to find the matching `]`
-        depth = 0
-        end = -1
-        for i in range(start, text_len):
-            ch = text[i]
-            if ch == "[":
-                depth += 1
-            elif ch == "]":
-                depth -= 1
-                if depth == 0:
-                    end = i
-                    break
-
-        if end == -1:
-            # No matching bracket found; stop scanning
-            break
-
-        candidate = text[start : end + 1]
         try:
-            parsed = json.loads(candidate)
+            parsed, _ = decoder.raw_decode(text, start)
             if isinstance(parsed, list):
                 return parsed  # type: ignore[return-value]
         except (json.JSONDecodeError, ValueError):

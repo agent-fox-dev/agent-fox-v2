@@ -864,6 +864,13 @@ class NodeSessionRunner:
                         logger.info(
                             "Persisted %d skeptic findings for %s", count, node_id
                         )
+                    else:
+                        self._emit_audit(
+                            AuditEventType.REVIEW_PARSE_FAILURE,
+                            node_id=node_id,
+                            severity=AuditSeverity.WARNING,
+                            payload={"raw_output": transcript[:2000]},
+                        )
 
                 elif self._archetype == "verifier":
                     records = parse_verification_results(
@@ -874,6 +881,13 @@ class NodeSessionRunner:
                         logger.info(
                             "Persisted %d verifier verdicts for %s", count, node_id
                         )
+                    else:
+                        self._emit_audit(
+                            AuditEventType.REVIEW_PARSE_FAILURE,
+                            node_id=node_id,
+                            severity=AuditSeverity.WARNING,
+                            payload={"raw_output": transcript[:2000]},
+                        )
 
                 elif self._archetype == "oracle":
                     records = parse_drift_findings(
@@ -883,6 +897,13 @@ class NodeSessionRunner:
                         count = insert_drift_findings(conn, records)
                         logger.info(
                             "Persisted %d oracle drift findings for %s", count, node_id
+                        )
+                    else:
+                        self._emit_audit(
+                            AuditEventType.REVIEW_PARSE_FAILURE,
+                            node_id=node_id,
+                            severity=AuditSeverity.WARNING,
+                            payload={"raw_output": transcript[:2000]},
                         )
 
             elif self._archetype == "auditor":

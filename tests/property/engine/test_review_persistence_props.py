@@ -447,7 +447,12 @@ class TestReviewOnlyGraphCompleteness:
                 seen.add(cfg["name"])
                 unique_configs.append(cfg)
 
+        import shutil  # noqa: PLC0415
+
         specs_dir = tmp_path / ".specs"
+        # Clean up from previous Hypothesis example since tmp_path is reused
+        if specs_dir.exists():
+            shutil.rmtree(specs_dir)
         specs_dir.mkdir()
 
         for cfg in unique_configs:

@@ -212,6 +212,49 @@ def _precompute_plan_fact_cache(
         return None
 
 
+def _run_review_only_mode(
+    config: AgentFoxConfig,
+    specs_dir_override: str | None,
+) -> None:
+    """Execute review-only mode: run review archetypes without coder sessions.
+
+    Builds a review-only task graph, emits run.start/run.complete audit
+    events, and prints a summary of findings, verdicts, and drift findings.
+    When no specs are eligible (no source files or requirements.md found),
+    prints a diagnostic message and exits cleanly.
+
+    Requirements: 53-REQ-6.1, 53-REQ-6.3, 53-REQ-6.5, 53-REQ-6.E1
+    """
+    from agent_fox.graph.injection import (  # noqa: PLC0415
+        build_review_only_graph,
+        run_review_only,
+    )
+
+    specs_path = Path(specs_dir_override) if specs_dir_override else Path(".specs")
+    full_config: AgentFoxConfig = config
+
+    graph = build_review_only_graph(specs_path, full_config.archetypes)
+
+    if not graph.nodes:
+        click.echo("No specs eligible for review")
+        return
+
+    # Emit review-only audit events via a lightweight sink
+    sink_dispatcher = SinkDispatcher()
+    knowledge_db = open_knowledge_store(full_config.knowledge)
+    sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
+
+    try:
+        run_review_only(specs_path, full_config.archetypes, sink=sink_dispatcher)
+
+        from agent_fox.graph.injection import print_review_only_summary  # noqa: PLC0415
+
+        print_review_only_summary(knowledge_db.connection)
+    finally:
+        sink_dispatcher.close()
+        knowledge_db.close()
+
+
 @click.command("code")
 @click.option(
     "--parallel",
@@ -243,6 +286,18 @@ def _precompute_plan_fact_cache(
     default=False,
     help="Enable debug audit trail (JSONL + DuckDB tool signals)",
 )
+@click.option(
+    "--review-only",
+    is_flag=True,
+    default=False,
+    help="Run only review archetypes (Skeptic, Verifier, Oracle), skip coder sessions",
+)
+@click.option(
+    "--specs-dir",
+    type=click.Path(),
+    default=None,
+    help="Path to specs directory (default: .specs)",
+)
 @click.pass_context
 def code_cmd(
     ctx: click.Context,
@@ -251,12 +306,19 @@ def code_cmd(
     max_cost: float | None,
     max_sessions: int | None,
     debug: bool,
+    review_only: bool,
+    specs_dir: str | None,
 ) -> None:
     """Execute the task plan."""
     # 16-REQ-1.2: load config from Click context
     config = ctx.obj["config"]
     quiet: bool = ctx.obj.get("quiet", False)
     json_mode: bool = ctx.obj.get("json", False)
+
+    # 53-REQ-6.1: review-only mode — skip coder sessions, run review archetypes only
+    if review_only:
+        _run_review_only_mode(config, specs_dir)
+        return
 
     # 23-REQ-7.1: read stdin JSON when in JSON mode
     if json_mode:
