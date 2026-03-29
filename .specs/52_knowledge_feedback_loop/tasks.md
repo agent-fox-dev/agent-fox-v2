@@ -135,11 +135,11 @@ Implementation order:
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 52-REQ-5.x, 52-REQ-6.x, 52-REQ-7.x met
 
-- [ ] 4. Checkpoint — Knowledge Harvest Complete
-  - [ ] All spec tests pass
-  - [ ] All property tests pass
-  - [ ] Full test suite green: `make check`
-  - [ ] Review coverage matrix — all requirements have passing tests
+- [x] 4. Checkpoint — Knowledge Harvest Complete
+  - [x] All spec tests pass
+  - [x] All property tests pass
+  - [x] Full test suite green: `make check`
+  - [x] Review coverage matrix — all requirements have passing tests
 
 ## Traceability
 
