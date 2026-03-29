@@ -52,6 +52,11 @@ class FeatureVector:
     edge_case_count: int
     dependency_count: int
     archetype: str
+    # New fields (54-REQ-3.1, 54-REQ-4.1, 54-REQ-5.1, 54-REQ-6.1)
+    file_count_estimate: int = 0
+    cross_spec_integration: bool = False
+    language_count: int = 1
+    historical_median_duration_ms: int | None = None
 
 
 @dataclass(frozen=True)

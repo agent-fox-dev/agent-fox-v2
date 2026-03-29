@@ -231,7 +231,10 @@ class TestPropertyFileCountAccuracy:
             max_size=10,
         ),
     )
-    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=50,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+    )
     def test_p5_file_count_matches_distinct_paths(
         self, paths: list[str], tmp_path: Path
     ) -> None:
@@ -269,7 +272,10 @@ class TestPropertyCrossSpecDetection:
         own_spec=_spec_name_st,
         other_specs=st.lists(_spec_name_st, min_size=0, max_size=5),
     )
-    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=50,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+    )
     def test_p6_cross_spec_detection(
         self, own_spec: str, other_specs: list[str], tmp_path: Path
     ) -> None:

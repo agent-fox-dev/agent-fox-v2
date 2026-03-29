@@ -68,15 +68,20 @@ def heuristic_assess(features: FeatureVector) -> tuple[ModelTier, float]:
     """Rule-based tier prediction.
 
     Rules:
-      - SIMPLE: subtask_count <= 3 AND spec_word_count < 500 AND no property tests
-      - ADVANCED: subtask_count >= 6 OR dependency_count >= 3 OR has_property_tests
+      - ADVANCED (0.7): cross_spec_integration=True OR file_count_estimate >= 8
+      - ADVANCED (0.6): subtask_count>=6 OR dependency_count>=3 OR has_property_tests
+      - SIMPLE: subtask_count<=3 AND spec_word_count<500 AND no property tests
       - STANDARD: everything else
 
     Returns (predicted_tier, confidence).
-    Confidence is fixed at 0.6 (reflects low certainty of heuristic).
 
-    Requirement: 30-REQ-1.3
+    Requirements: 30-REQ-1.3, 54-REQ-7.1, 54-REQ-7.E1
     """
+    # New enrichment signals trigger ADVANCED at confidence 0.7 (54-REQ-7.1)
+    # No double-upgrade: both conditions together still yield 0.7 (54-REQ-7.E1)
+    if features.cross_spec_integration or features.file_count_estimate >= 8:
+        return ModelTier.ADVANCED, 0.7
+
     confidence = 0.6
 
     # Check ADVANCED conditions first (any one triggers ADVANCED)

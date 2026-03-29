@@ -96,44 +96,44 @@ Implementation order:
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 54-REQ-1.x, 54-REQ-2.x met
 
-- [ ] 3. Feature vector enrichment
-  - [ ] 3.1 Extend `FeatureVector` in `routing/core.py`
+- [x] 3. Feature vector enrichment
+  - [x] 3.1 Extend `FeatureVector` in `routing/core.py`
     - Add `file_count_estimate: int = 0`
     - Add `cross_spec_integration: bool = False`
     - Add `language_count: int = 1`
     - Add `historical_median_duration_ms: int | None = None`
     - _Requirements: 54-REQ-3.1, 54-REQ-4.1, 54-REQ-5.1, 54-REQ-6.1_
 
-  - [ ] 3.2 Add extraction helpers in `routing/features.py`
+  - [x] 3.2 Add extraction helpers in `routing/features.py`
     - `_count_file_paths(spec_dir, task_group) -> int`
     - `_detect_cross_spec(spec_dir, task_group, own_spec) -> bool`
     - `_count_languages(spec_dir, task_group) -> int`
     - `_get_historical_median_duration(conn, spec_name) -> int | None`
     - _Requirements: 54-REQ-3.1, 54-REQ-4.1, 54-REQ-5.1, 54-REQ-6.1_
 
-  - [ ] 3.3 Update `extract_features()` signature and body
+  - [x] 3.3 Update `extract_features()` signature and body
     - Add `conn` and `spec_name` keyword arguments
     - Call new helpers and populate new FeatureVector fields
     - _Requirements: 54-REQ-3.1, 54-REQ-4.1, 54-REQ-5.1, 54-REQ-6.1_
 
-  - [ ] 3.4 Update heuristic assessor thresholds
+  - [x] 3.4 Update heuristic assessor thresholds
     - ADVANCED when `cross_spec_integration=True` OR `file_count_estimate >= 8`
     - Confidence 0.7 for these cases
     - No double-upgrade
     - _Requirements: 54-REQ-7.1, 54-REQ-7.E1_
 
-  - [ ] 3.5 Ensure feature vector JSON serialization includes all fields
+  - [x] 3.5 Ensure feature vector JSON serialization includes all fields
     - Update `persist_assessment()` to serialize all 10 fields
     - Verify round-trip: serialize → deserialize → same values
     - _Requirements: 54-REQ-7.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/routing/test_feature_enrichment.py tests/integration/test_quality_gate.py -v`
-    - [ ] TS-54-7 through TS-54-13, TS-54-E2 through TS-54-E6 pass
-    - [ ] Property tests pass: `uv run pytest -q tests/property/routing/test_feature_enrichment_props.py -v`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 54-REQ-3.x through 54-REQ-7.x met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/routing/test_feature_enrichment.py tests/integration/test_quality_gate.py -v`
+    - [x] TS-54-7 through TS-54-13, TS-54-E2 through TS-54-E6 pass
+    - [x] Property tests pass: `uv run pytest -q tests/property/routing/test_feature_enrichment_props.py -v`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 54-REQ-3.x through 54-REQ-7.x met
 
 - [ ] 4. Checkpoint — Quality Gate & Complexity Complete
   - [ ] All spec tests pass
