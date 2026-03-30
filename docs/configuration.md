@@ -26,6 +26,7 @@ Controls the execution engine.
 | `max_sessions` | int | none | | Session count limit |
 | `audit_retention_runs` | int | `20` | 1+ | Maximum runs to retain in the audit log |
 | `max_blocked_fraction` | float | none | 0.0–1.0 | Stop the run when this fraction of nodes are blocked |
+| `max_budget_usd` | float | `2.0` | 0.0+ | Per-session SDK budget cap in USD (0 = unlimited) |
 
 ---
 
@@ -54,9 +55,14 @@ Model tier assignment for different roles.
 | `coding` | string | `"ADVANCED"` | Model tier for coding sessions |
 | `coordinator` | string | `"STANDARD"` | Model tier for coordination |
 | `memory_extraction` | string | `"SIMPLE"` | Model tier for fact extraction |
+| `fallback_model` | string | `"claude-sonnet-4-6"` | Fallback model ID when primary is unavailable (empty string = no fallback) |
 
 Model tiers: `SIMPLE`, `STANDARD`, `ADVANCED`. You can also specify a model ID
 directly (e.g., `claude-sonnet-4-6`).
+
+The `fallback_model` is passed directly to the Claude SDK — it may reference
+any model known to the API, including models not in the local model registry.
+Set to an empty string to disable fallback entirely.
 
 ---
 
@@ -212,15 +218,74 @@ Per-archetype bash command allowlists.
 oracle = ["ls", "cat", "git", "grep", "find", "head", "tail", "wc"]
 ```
 
----
+### `[archetypes.max_turns]`
 
-## `[tools]`
+Per-archetype SDK turn limits. Each key is an archetype name; the value is the
+maximum number of request-response turns the SDK will execute per session.
+Set to `0` to allow unlimited turns.
 
-Fox tools configuration.
+Default values when not configured:
+
+| Archetype | Default |
+|-----------|---------|
+| `coder` | `200` |
+| `oracle` | `50` |
+| `skeptic` | `50` |
+| `verifier` | `75` |
+| `auditor` | `50` |
+| `librarian` | `100` |
+| `cartographer` | `100` |
+| `coordinator` | `30` |
+
+Example:
+
+```toml
+[archetypes.max_turns]
+coder = 150       # override coder to 150 turns
+oracle = 0        # unlimited turns for oracle
+```
+
+Negative values are rejected at startup.
+
+### `[archetypes.thinking]`
+
+Per-archetype extended thinking configuration. Extended thinking allocates a
+token budget for the model to reason before producing its response.
+
+Each entry is a sub-table named after the archetype:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `fox_tools` | bool | `true` | Enable fox tools (token-efficient file operations) |
+| `mode` | string | `"disabled"` | Thinking mode: `"enabled"`, `"adaptive"`, or `"disabled"` |
+| `budget_tokens` | int | `10000` | Token budget for thinking (required > 0 when mode is `"enabled"`) |
+
+Default thinking configuration:
+
+| Archetype | Default mode | Default budget |
+|-----------|-------------|----------------|
+| `coder` | `"adaptive"` | `10000` |
+| all others | `"disabled"` | `10000` |
+
+- `"enabled"` — model always performs extended thinking.
+- `"adaptive"` — model decides when to use extended thinking.
+- `"disabled"` — no extended thinking (default for most archetypes).
+
+Example:
+
+```toml
+[archetypes.thinking.coder]
+mode = "enabled"
+budget_tokens = 20000
+
+[archetypes.thinking.verifier]
+mode = "adaptive"
+budget_tokens = 8000
+```
+
+Unrecognised `mode` values and `budget_tokens <= 0` with `mode = "enabled"`
+are rejected at startup.
+
+---
 
 ---
 

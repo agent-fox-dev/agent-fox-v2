@@ -113,7 +113,9 @@ into the knowledge store.
       "verdict": "FAIL",
       "evidence": "Function returns None instead of raising ValueError as specified in the edge case requirement"
     }
-  ]
+  ],
+  "overall_verdict": "FAIL",
+  "summary": "1 of 2 requirements failed. REQ-2.1 edge case not handled."
 }
 ```
 
@@ -129,14 +131,22 @@ Each verdict object SHOULD have:
   verdicts, be specific about what is wrong and what needs to change —
   the Coder will receive this as retry context.
 
+The top-level object MUST also have:
+- `overall_verdict`: one of `"PASS"` or `"FAIL"`. FAIL if any individual
+  verdict is FAIL. PASS if all verdicts are PASS or PARTIAL.
+- `summary`: a 1-2 sentence summary of the verification result.
+
 You may write a human-readable summary after the JSON block, but the
 JSON block is the primary output that will be processed.
 
 ## CONSTRAINTS
 
+- You may run tests using `uv run pytest` and the linter using
+  `uv run ruff check`. You may use `ls`, `cat`, `git`, `grep`, `find`,
+  `head`, `tail`, `wc`, `make` for read-only exploration.
+- Do NOT create, modify, or delete any files. You verify, you do not fix.
+- Do NOT modify source code, spec files, or documentation.
 - Be thorough but fair. Minor style issues alone should not cause a FAIL.
 - Reference specific requirement IDs in your assessment.
 - Run tests to verify they pass — do not assume they pass based on code
   reading alone.
-- Do not modify source code or spec files. You have read-only intent —
-  you verify, you do not fix.

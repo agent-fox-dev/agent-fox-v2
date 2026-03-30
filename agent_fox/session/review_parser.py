@@ -18,11 +18,11 @@ if TYPE_CHECKING:
     from agent_fox.session.convergence import AuditResult
 
 from agent_fox.knowledge.review_store import (
-    VALID_SEVERITIES,
-    VALID_VERDICTS,
     DriftFinding,
     ReviewFinding,
     VerificationResult,
+    normalize_severity,
+    validate_verdict,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,18 +50,6 @@ def _extract_json_blocks(text: str) -> list[str]:
         if content:
             blocks.append(content.strip())
     return blocks
-
-
-def _normalize_severity(severity: str) -> str:
-    """Normalize severity to a valid value.
-
-    Requirements: 27-REQ-3.E2
-    """
-    normalized = severity.lower().strip()
-    if normalized in VALID_SEVERITIES:
-        return normalized
-    logger.warning("Unknown severity '%s', normalizing to 'observation'", severity)
-    return "observation"
 
 
 def parse_review_output(
@@ -117,7 +105,7 @@ def parse_review_output(
             findings.append(
                 ReviewFinding(
                     id=str(uuid.uuid4()),
-                    severity=_normalize_severity(item["severity"]),
+                    severity=normalize_severity(item["severity"]),
                     description=item["description"],
                     requirement_ref=item.get("requirement_ref"),
                     spec_name=spec_name,
@@ -183,9 +171,8 @@ def parse_verification_output(
                 )
                 continue
 
-            verdict_val = item["verdict"].upper().strip()
-            if verdict_val not in VALID_VERDICTS:
-                logger.warning("Invalid verdict '%s', skipping", item["verdict"])
+            verdict_val = validate_verdict(item["verdict"])
+            if verdict_val is None:
                 continue
 
             verdicts.append(
@@ -259,7 +246,7 @@ def parse_oracle_output(
             findings.append(
                 DriftFinding(
                     id=str(uuid.uuid4()),
-                    severity=_normalize_severity(item["severity"]),
+                    severity=normalize_severity(item["severity"]),
                     description=item["description"],
                     spec_ref=item.get("spec_ref"),
                     artifact_ref=item.get("artifact_ref"),
@@ -347,7 +334,7 @@ def parse_legacy_review_md(
     for line in content.splitlines():
         match = pattern.match(line.strip())
         if match:
-            severity = _normalize_severity(match.group(1))
+            severity = normalize_severity(match.group(1))
             description = match.group(2).strip()
             findings.append(
                 ReviewFinding(

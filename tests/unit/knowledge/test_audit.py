@@ -86,7 +86,7 @@ class TestAuditEventTypeEnum:
     """
 
     def test_completeness(self) -> None:
-        """AuditEventType has exactly 19 variants matching the spec."""
+        """AuditEventType has exactly 21 variants matching the spec."""
         expected = {
             "run.start",
             "run.complete",
@@ -103,10 +103,14 @@ class TestAuditEventTypeEnum:
             "git.merge",
             "git.conflict",
             "harvest.complete",
+            "harvest.empty",
             "fact.extracted",
             "fact.compacted",
+            "fact.causal_links",
             "knowledge.ingested",
             "sync.barrier",
+            "quality_gate.result",
+            "review.parse_failure",
         }
         actual = {e.value for e in AuditEventType}
         assert actual == expected

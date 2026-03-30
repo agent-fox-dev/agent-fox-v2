@@ -33,6 +33,18 @@ from agent_fox.spec.validator import (
 
 _ai_logger = logging.getLogger(__name__)
 
+# Template directory for AI validation prompts
+_AI_TEMPLATE_DIR: Path = (
+    Path(__file__).resolve().parent.parent / "_templates" / "ai_validation"
+)
+
+
+def _load_ai_template(name: str) -> str:
+    """Load an AI validation prompt template by name."""
+    path = _AI_TEMPLATE_DIR / name
+    return path.read_text(encoding="utf-8")
+
+
 # -- JSON extraction from AI responses ----------------------------------------
 
 _JSON_FENCE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
@@ -68,6 +80,59 @@ def _extract_json(text: str) -> dict:
     if match:
         return json.loads(match.group(1))
     raise json.JSONDecodeError("No JSON found in AI response", text, 0)
+
+
+async def _ai_call_and_parse(
+    prompt: str,
+    model: str,
+    context: str,
+    result_key: str,
+    *,
+    max_tokens: int = 4096,
+) -> list[dict] | None:
+    """Shared helper: call the AI, extract text, parse JSON, return list.
+
+    Returns a list of dicts from ``response[result_key]``, or None on any
+    failure (network, auth, parse). Logs warnings on failure.
+    """
+    try:
+
+        async def _call() -> object:
+            async with create_async_anthropic_client() as client:
+                return await client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+
+        response = await retry_api_call_async(_call, context=context)
+    except Exception as exc:
+        _ai_logger.warning("AI call failed for %s: %s", context, exc)
+        record_auxiliary_usage(0, 0, model)
+        return None
+
+    track_response_usage(response, model, context)
+
+    response_text = _extract_response_text(response, context)
+    if response_text is None:
+        return None
+
+    try:
+        data = _extract_json(response_text)
+    except (json.JSONDecodeError, TypeError):
+        _ai_logger.warning("AI response for %s was not valid JSON, skipping", context)
+        return None
+
+    items = data.get(result_key, [])
+    if not isinstance(items, list):
+        _ai_logger.warning(
+            "AI response for %s has invalid '%s' field, skipping",
+            context,
+            result_key,
+        )
+        return None
+
+    return items
 
 
 # -- Backtick extraction regex ------------------------------------------------
@@ -161,42 +226,7 @@ def extract_relationship_identifiers(
 
 # -- Stale-dependency AI prompt ------------------------------------------------
 
-_STALE_DEP_PROMPT = """\
-You are an expert software architect reviewing specification documents. \
-You will be given a design document from an upstream specification and a \
-list of code identifiers that downstream specifications claim to depend on.
-
-For each identifier, determine whether the upstream design document defines, \
-describes, or reasonably implies that identifier. Consider:
-- Exact name matches (type, function, method, struct, interface)
-- Qualified names (e.g., `store.Store` matching a `Store` type in a \
-  `store` package section)
-- Method references (e.g., `Store.Delete` matching a `Delete` method on \
-  `Store`)
-- Standard library or language built-ins (e.g., `error`, `context.Context`, \
-  `slog`) should be marked as "found" since they are not defined in specs
-
-Return your analysis as a JSON object with this exact structure:
-{{
-  "results": [
-    {{
-      "identifier": "the identifier being checked",
-      "found": true or false,
-      "explanation": "brief reason why it was or was not found",
-      "suggestion": "if not found, a suggested correction or null"
-    }}
-  ]
-}}
-
-Upstream design document ({upstream_spec}):
-
-{design_content}
-
----
-
-Identifiers to validate:
-{identifiers_json}
-"""
+_STALE_DEP_PROMPT = _load_ai_template("stale_dep.md")
 
 _RULE_STALE_DEP = "stale-dependency"
 
@@ -384,36 +414,7 @@ _ISSUE_TYPE_TO_RULE = {
     "implementation-leak": _RULE_IMPLEMENTATION_LEAK,
 }
 
-_AI_PROMPT = """\
-You are an expert specification reviewer. Analyze the following acceptance \
-criteria from a software specification and identify quality issues.
-
-For each criterion, check for two types of problems:
-1. **Vague or unmeasurable** criteria: Criteria that use subjective language \
-like "should be fast", "look good", "easy to use", "performant", etc. These \
-cannot be objectively verified.
-2. **Implementation-leaking** criteria: Criteria that describe HOW the system \
-should be built (implementation details) rather than WHAT it should do \
-(behavior). For example, "use Redis for caching" or "implement with a \
-singleton pattern".
-
-Return your analysis as a JSON object with this exact structure:
-{
-  "issues": [
-    {
-      "criterion_id": "the requirement ID, e.g. 09-REQ-1.1",
-      "issue_type": "vague" or "implementation-leak",
-      "explanation": "why this criterion is problematic",
-      "suggestion": "how to improve it"
-    }
-  ]
-}
-
-If there are no issues, return: {"issues": []}
-
-Here are the acceptance criteria to analyze:
-
-"""
+_AI_PROMPT = _load_ai_template("acceptance_criteria.md")
 
 
 async def analyze_acceptance_criteria(
@@ -438,44 +439,13 @@ async def analyze_acceptance_criteria(
 
     req_text = req_path.read_text(encoding="utf-8")
 
-    # Create the Anthropic client and send the request
-    async def _call() -> object:
-        async with create_async_anthropic_client() as client:
-            return await client.messages.create(
-                model=model,
-                max_tokens=4096,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": _AI_PROMPT + req_text,
-                    }
-                ],
-            )
-
-    response = await retry_api_call_async(_call, context="acceptance criteria analysis")
-
-    track_response_usage(response, model, "acceptance criteria analysis")
-
-    # Parse the response
-    response_text = _extract_response_text(response, f"spec '{spec_name}'")
-    if response_text is None:
-        return []
-
-    try:
-        data = _extract_json(response_text)
-    except (json.JSONDecodeError, TypeError):
-        _ai_logger.warning(
-            "AI response for spec '%s' was not valid JSON, skipping",
-            spec_name,
-        )
-        return []
-
-    issues = data.get("issues", [])
-    if not isinstance(issues, list):
-        _ai_logger.warning(
-            "AI response for spec '%s' has invalid 'issues' field, skipping",
-            spec_name,
-        )
+    issues = await _ai_call_and_parse(
+        _AI_PROMPT + req_text,
+        model,
+        f"acceptance criteria analysis for '{spec_name}'",
+        "issues",
+    )
+    if issues is None:
         return []
 
     findings: list[Finding] = []
@@ -512,115 +482,11 @@ async def analyze_acceptance_criteria(
 
 # -- AI rewrite prompt and function (Spec 22) ---------------------------------
 
-_REWRITE_PROMPT = """\
-You are an expert requirements engineer using the EARS (Easy Approach to \
-Requirements Syntax) methodology. You will rewrite acceptance criteria that \
-have been flagged for quality issues.
-
-EARS syntax uses these keywords:
-- SHALL — for unconditional requirements
-- WHEN <trigger>, THE system SHALL — for event-driven requirements
-- WHILE <state>, THE system SHALL — for state-driven requirements
-- IF <condition>, THEN THE system SHALL — for conditional requirements
-- WHERE <feature>, THE system SHALL — for feature-driven requirements
-
-Rules for rewriting:
-1. Use EARS syntax keywords (SHALL, WHEN, WHILE, IF/THEN, WHERE) in every \
-rewritten criterion.
-2. Preserve the original intent and behavioral scope — only fix the \
-identified quality issue (vagueness or implementation leak).
-3. Produce text that would pass the vague-criterion and implementation-leak \
-analysis rules and would not be flagged again.
-4. Make criteria measurable and objectively verifiable.
-5. Do NOT include the requirement ID prefix in the replacement text — \
-only provide the criterion body.
-
-Return your rewrites as a JSON object with this exact structure:
-{{
-  "rewrites": [
-    {{
-      "criterion_id": "the requirement ID, e.g. 09-REQ-1.1",
-      "original": "the original criterion text",
-      "replacement": "the rewritten criterion text"
-    }}
-  ]
-}}
-
-Here is the full requirements document for context:
-
-{requirements_text}
-
----
-
-The following criteria have been flagged for rewriting:
-
-{flagged_criteria}
-"""
+_REWRITE_PROMPT = _load_ai_template("rewrite_criteria.md")
 
 _MAX_CRITERIA_PER_BATCH = 20
 
-_GENERATE_TEST_SPEC_PROMPT = """\
-You are an expert test engineer. You will generate test specification entries \
-for requirements that are missing from the test specification document.
-
-Each test spec entry follows this format:
-
-### TS-{{NN}}-{{N}}: {{Short Name}}
-
-**Requirement:** {{NN}}-REQ-{{X}}.{{Y}}
-**Type:** unit | integration | property
-**Description:** One-sentence description of what this test verifies.
-
-**Preconditions:**
-- System state or setup required before the test runs.
-
-**Input:**
-- Concrete input values or descriptions of input shape.
-
-**Expected:**
-- Concrete expected output, return value, side effect, or state change.
-
-**Assertion pseudocode:**
-```
-result = module.function(input)
-ASSERT result == expected
-```
-
-Rules:
-1. Generate one entry per untraced requirement.
-2. Use the spec number prefix from the requirement ID for the TS ID \
-(e.g., 01-REQ-3.1 -> TS-01-N where N is the next available number).
-3. Make test descriptions concrete and testable.
-4. Include specific inputs and expected outputs where possible.
-5. Use the requirement text to understand what the test should verify.
-6. For edge cases (requirement IDs ending in .E{{N}}), describe the error \
-condition being tested.
-
-Return your entries as a JSON object with this exact structure:
-{{{{
-  "entries": [
-    {{{{
-      "requirement_id": "the requirement ID, e.g. 01-REQ-3.1",
-      "test_spec_entry": "the full markdown text of the test spec entry"
-    }}}}
-  ]
-}}}}
-
-Here is the full requirements document for context:
-
-{requirements_text}
-
-Here is the existing test specification for context (to avoid duplicates \
-and determine next available TS number):
-
-{test_spec_text}
-
----
-
-The following requirements need test spec entries:
-
-{untraced_requirements}
-"""
+_GENERATE_TEST_SPEC_PROMPT = _load_ai_template("generate_test_spec.md")
 
 
 async def generate_test_spec_entries(
@@ -654,47 +520,14 @@ async def generate_test_spec_entries(
         untraced_requirements=untraced_list,
     )
 
-    try:
-
-        async def _call() -> object:
-            async with create_async_anthropic_client() as client:
-                return await client.messages.create(
-                    model=model,
-                    max_tokens=8192,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-
-        response = await retry_api_call_async(
-            _call, context=f"test spec generation for '{spec_name}'"
-        )
-    except Exception as exc:
-        _ai_logger.warning(
-            "AI test spec generation failed for spec '%s': %s",
-            spec_name,
-            exc,
-        )
-        record_auxiliary_usage(0, 0, model)
-        return {}
-
-    track_response_usage(response, model, "test spec generation")
-
-    response_text = _extract_response_text(
-        response, f"test spec generation for '{spec_name}'"
+    entries_list = await _ai_call_and_parse(
+        prompt,
+        model,
+        f"test spec generation for '{spec_name}'",
+        "entries",
+        max_tokens=8192,
     )
-    if response_text is None:
-        return {}
-
-    try:
-        data = _extract_json(response_text)
-    except (json.JSONDecodeError, TypeError):
-        _ai_logger.warning(
-            "AI test spec response for '%s' was not valid JSON",
-            spec_name,
-        )
-        return {}
-
-    entries_list = data.get("entries", [])
-    if not isinstance(entries_list, list):
+    if entries_list is None:
         return {}
 
     result: dict[str, str] = {}
@@ -747,50 +580,13 @@ async def rewrite_criteria(
         flagged_criteria=flagged_criteria,
     )
 
-    try:
-
-        async def _call() -> object:
-            async with create_async_anthropic_client() as client:
-                return await client.messages.create(
-                    model=model,
-                    max_tokens=4096,
-                    messages=[{"role": "user", "content": prompt}],
-                )
-
-        response = await retry_api_call_async(
-            _call, context=f"criteria rewrite for '{spec_name}'"
-        )
-    except Exception as exc:
-        _ai_logger.warning(
-            "AI rewrite call failed for spec '%s': %s. Skipping rewrite.",
-            spec_name,
-            exc,
-        )
-        record_auxiliary_usage(0, 0, model)
-        return {}
-
-    track_response_usage(response, model, "criteria rewrite")
-
-    # Extract text from response
-    response_text = _extract_response_text(response, f"rewrite for spec '{spec_name}'")
-    if response_text is None:
-        return {}
-
-    try:
-        data = _extract_json(response_text)
-    except (json.JSONDecodeError, TypeError):
-        _ai_logger.warning(
-            "AI rewrite response for spec '%s' was not valid JSON, skipping",
-            spec_name,
-        )
-        return {}
-
-    rewrites_list = data.get("rewrites", [])
-    if not isinstance(rewrites_list, list):
-        _ai_logger.warning(
-            "AI rewrite response for spec '%s' has invalid 'rewrites', skipping",
-            spec_name,
-        )
+    rewrites_list = await _ai_call_and_parse(
+        prompt,
+        model,
+        f"criteria rewrite for '{spec_name}'",
+        "rewrites",
+    )
+    if rewrites_list is None:
         return {}
 
     # Build the result mapping

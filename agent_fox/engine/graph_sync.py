@@ -92,10 +92,6 @@ class GraphSync:
         """Mark a task as completed."""
         self.node_states[node_id] = "completed"
 
-    def mark_failed(self, node_id: str) -> None:
-        """Mark a task as failed (before retry decision)."""
-        self.node_states[node_id] = "failed"
-
     def mark_blocked(self, node_id: str, reason: str) -> list[str]:
         """Mark a task as blocked and cascade-block all dependents.
 

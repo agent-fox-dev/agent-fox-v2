@@ -17,7 +17,6 @@ from agent_fox.session.backends.protocol import (
     AssistantMessage,
     PermissionCallback,
     ResultMessage,
-    ToolDefinition,
     ToolUseMessage,
 )
 
@@ -32,27 +31,21 @@ __all__ = [
     "AssistantMessage",
     "PermissionCallback",
     "ResultMessage",
-    "ToolDefinition",
     "ToolUseMessage",
     "get_backend",
 ]
 
 
-def get_backend(name: str = "claude") -> AgentBackend:
-    """Create an AgentBackend instance by name.
+def get_backend() -> AgentBackend:
+    """Return the ClaudeBackend.
 
-    Args:
-        name: Backend identifier. Currently only ``"claude"`` is supported.
+    Agent-fox uses Claude exclusively for all coding agent workloads.
+    This function exists to centralise backend instantiation and support
+    future configuration (e.g., connection pooling), not to dispatch
+    between providers.
 
-    Returns:
-        An AgentBackend implementation.
-
-    Raises:
-        ValueError: If the backend name is not recognized.
+    The AgentBackend protocol is preserved for test mock injection.
     """
-    if name == "claude":
-        from agent_fox.session.backends.claude import ClaudeBackend
+    from agent_fox.session.backends.claude import ClaudeBackend
 
-        return ClaudeBackend()
-
-    raise ValueError(f"Unknown backend: {name!r}. Available: 'claude'")
+    return ClaudeBackend()

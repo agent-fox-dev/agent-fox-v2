@@ -60,6 +60,10 @@ class MockBackend:
         cwd: str,
         permission_callback: PermissionCallback | None = None,
         tools: list | None = None,
+        max_turns: int | None = None,
+        max_budget_usd: float | None = None,
+        fallback_model: str | None = None,
+        thinking: dict | None = None,
     ) -> AsyncIterator[AgentMessage]:
         self.last_prompt = prompt
         self.last_system_prompt = system_prompt
@@ -473,7 +477,7 @@ class TestSessionRunnerActivityCallback:
         default_config: AgentFoxConfig,
     ) -> None:
         """run_session invokes the activity callback for tool-use messages."""
-        from agent_fox.ui.events import ActivityEvent
+        from agent_fox.ui.progress import ActivityEvent
 
         events: list[ActivityEvent] = []
 
@@ -511,7 +515,7 @@ class TestSessionRunnerActivityTurnAndTokens:
         default_config: AgentFoxConfig,
     ) -> None:
         """Activity events carry incrementing turn and cumulative token counts."""
-        from agent_fox.ui.events import ActivityEvent
+        from agent_fox.ui.progress import ActivityEvent
 
         events: list[ActivityEvent] = []
 

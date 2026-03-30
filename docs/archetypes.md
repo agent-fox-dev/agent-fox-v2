@@ -28,7 +28,7 @@ not started.
 **Purpose:** Implement code for one task group per session — features, bug
 fixes, tests, refactoring.
 
-- **Model tier:** ADVANCED (default)
+- **Model tier:** STANDARD (default)
 - **Injection:** Default — every task runs as a coder unless assigned another
   archetype
 - **Always enabled:** The `coder` toggle cannot be disabled
@@ -47,7 +47,7 @@ code.
 **Purpose:** Critically review specifications for completeness, consistency,
 and feasibility **before** implementation begins.
 
-- **Model tier:** STANDARD (default)
+- **Model tier:** ADVANCED (default)
 - **Injection:** `auto_pre` — runs automatically before the first coder group
 - **Default:** Enabled
 - **Instances:** Configurable (1–5, default 1)
@@ -93,7 +93,7 @@ block_threshold = 3   # block if > 3 majority-agreed critical findings
 **Purpose:** Validate specification assumptions against the current codebase
 state — detect drift between what specs expect and what actually exists.
 
-- **Model tier:** STANDARD (default)
+- **Model tier:** ADVANCED (default)
 - **Injection:** `auto_pre` — runs before the first coder group
 - **Default:** Disabled
 - **Allowlist:** `ls`, `cat`, `git`, `grep`, `find`, `head`, `tail`, `wc`
@@ -121,7 +121,7 @@ oracle = true
 block_threshold = 5   # block if > 5 critical drift findings (omit for advisory)
 
 [archetypes.models]
-oracle = "STANDARD"
+oracle = "STANDARD"   # override to Sonnet (default: ADVANCED)
 
 [archetypes.allowlists]
 oracle = ["ls", "cat", "git", "grep", "find", "head", "tail", "wc"]
@@ -189,7 +189,7 @@ auditor = 1
 **Purpose:** Verify that the coder's implementation matches specification
 requirements and quality standards — a post-coding quality gate.
 
-- **Model tier:** STANDARD (default)
+- **Model tier:** ADVANCED (default)
 - **Injection:** `auto_post` — runs after the last coder group
 - **Default:** Enabled
 - **Instances:** Configurable (1–5, default 1)
@@ -252,6 +252,63 @@ component interaction maps. Assign it to specific task groups in `tasks.md`:
 
 ---
 
+## Model Selection and Escalation
+
+### Default Model Tiers
+
+Each archetype has a default model tier that determines which Claude model
+runs the session:
+
+| Archetype | Default Tier | Model |
+|-----------|-------------|-------|
+| **Skeptic** | ADVANCED | Claude Opus |
+| **Oracle** | ADVANCED | Claude Opus |
+| **Verifier** | ADVANCED | Claude Opus |
+| **Coder** | STANDARD | Claude Sonnet |
+| **Auditor** | STANDARD | Claude Sonnet |
+| **Librarian** | STANDARD | Claude Sonnet |
+| **Cartographer** | STANDARD | Claude Sonnet |
+| **Coordinator** | STANDARD | Claude Sonnet |
+
+Review-oriented archetypes (Skeptic, Oracle, Verifier) default to ADVANCED
+(Opus) for thorough analysis. Execution-oriented archetypes (Coder and others)
+default to STANDARD (Sonnet) for cost-effective implementation.
+
+### Overriding Model Tiers via config.toml
+
+Override the default tier for any archetype in `config.toml` under
+`archetypes.models`:
+
+```toml
+[archetypes.models]
+coder = "ADVANCED"      # promote coder to Opus for complex specs
+skeptic = "STANDARD"    # downgrade skeptic to Sonnet to reduce cost
+verifier = "SIMPLE"     # downgrade verifier to Haiku
+```
+
+Valid tier values are `"SIMPLE"` (Haiku), `"STANDARD"` (Sonnet), and
+`"ADVANCED"` (Opus). An invalid value raises a `ConfigError` at startup.
+
+Config overrides take precedence over registry defaults. If an adaptive
+routing assessment is available, the assessed tier takes precedence over both
+the config override and the registry default.
+
+### Escalation Behavior
+
+When a session fails, the orchestrator retries it using an escalation ladder:
+
+1. **Retry at current tier**: The session is retried up to
+   `retries_before_escalation` times at the current model tier.
+2. **Escalate to ADVANCED**: After retries are exhausted at the current tier,
+   the session is promoted to ADVANCED (Opus) for one final attempt.
+3. **Block**: If the session fails at ADVANCED, the task is blocked.
+
+The escalation ceiling is always ADVANCED regardless of the archetype's
+default tier. This means any archetype — even those that start at STANDARD or
+SIMPLE — can escalate to Opus when retries are exhausted.
+
+---
+
 ## Configuration Summary
 
 All archetype configuration lives under `[archetypes]` in `config.toml`.
@@ -274,10 +331,10 @@ skeptic = 1
 verifier = 1
 auditor = 1
 
-# Per-archetype model tier overrides (act as ceilings)
+# Per-archetype model tier overrides
 [archetypes.models]
-coder = "ADVANCED"
-oracle = "STANDARD"
+coder = "ADVANCED"    # promote coder to Opus (default: STANDARD)
+skeptic = "STANDARD"  # downgrade skeptic to Sonnet (default: ADVANCED)
 
 # Per-archetype command allowlists
 [archetypes.allowlists]

@@ -29,12 +29,16 @@ class TestRequiredParameters:
     def test_extract_and_store_knowledge_requires_knowledge_db(self) -> None:
         """TS-38-4: extract_and_store_knowledge requires knowledge_db."""
         import agent_fox.engine.knowledge_harvest as kh_mod
+        from agent_fox.knowledge.embeddings import EmbeddingGenerator  # noqa: F841
         from agent_fox.knowledge.sink import SinkDispatcher  # noqa: F841
 
         hints = get_type_hints(
             kh_mod.extract_and_store_knowledge,
             globalns=vars(kh_mod),
-            localns={"SinkDispatcher": SinkDispatcher},
+            localns={
+                "SinkDispatcher": SinkDispatcher,
+                "EmbeddingGenerator": EmbeddingGenerator,
+            },
         )
         assert "knowledge_db" in hints
         kb_type = hints["knowledge_db"]

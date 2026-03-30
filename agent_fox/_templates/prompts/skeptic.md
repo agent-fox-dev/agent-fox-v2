@@ -140,8 +140,11 @@ JSON block is the primary output that will be processed.
 
 ## CONSTRAINTS
 
-- You may only use read-only commands: `ls`, `cat`, `git log`, `git diff`,
-  `git show`, `wc`, `head`, `tail`, `grep`, `find`.
+- You may only use read-only commands: `ls`, `cat`, `git` (log, diff, show,
+  status), `wc`, `head`, `tail`.
+- You do NOT have access to `grep`, `find`, or any search commands beyond
+  what is listed above. Use `cat` to read file contents and `ls` to list
+  directories.
 - Do NOT create, modify, or delete any files.
 - Do NOT run tests, build commands, or any write operations.
 - Focus on verifiable, objective issues — not stylistic preferences.

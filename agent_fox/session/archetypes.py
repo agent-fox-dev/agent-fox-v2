@@ -25,20 +25,26 @@ class ArchetypeEntry:
     task_assignable: bool = True
     retry_predecessor: bool = False
     default_allowlist: list[str] | None = None  # None = use global
+    default_max_turns: int = 200
+    default_thinking_mode: str = "disabled"
+    default_thinking_budget: int = 10000
 
 
 ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "coder": ArchetypeEntry(
         name="coder",
         templates=["coding.md"],
-        default_model_tier="ADVANCED",
+        default_model_tier="STANDARD",
         injection=None,
         task_assignable=True,
+        default_max_turns=200,
+        default_thinking_mode="adaptive",
+        default_thinking_budget=10000,
     ),
     "oracle": ArchetypeEntry(
         name="oracle",
         templates=["oracle.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
@@ -51,11 +57,12 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
             "tail",
             "wc",
         ],
+        default_max_turns=50,
     ),
     "skeptic": ArchetypeEntry(
         name="skeptic",
         templates=["skeptic.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
@@ -66,14 +73,16 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
             "head",
             "tail",
         ],
+        default_max_turns=50,
     ),
     "verifier": ArchetypeEntry(
         name="verifier",
         templates=["verifier.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_post",
         task_assignable=True,
         retry_predecessor=True,
+        default_max_turns=75,
     ),
     "librarian": ArchetypeEntry(
         name="librarian",
@@ -81,6 +90,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         default_model_tier="STANDARD",
         injection="manual",
         task_assignable=True,
+        default_max_turns=100,
     ),
     "cartographer": ArchetypeEntry(
         name="cartographer",
@@ -88,6 +98,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         default_model_tier="STANDARD",
         injection="manual",
         task_assignable=True,
+        default_max_turns=100,
     ),
     "coordinator": ArchetypeEntry(
         name="coordinator",
@@ -95,6 +106,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         default_model_tier="STANDARD",
         injection=None,
         task_assignable=False,
+        default_max_turns=30,
     ),
     "auditor": ArchetypeEntry(
         name="auditor",
@@ -114,6 +126,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
             "wc",
             "uv",
         ],
+        default_max_turns=50,
     ),
 }
 

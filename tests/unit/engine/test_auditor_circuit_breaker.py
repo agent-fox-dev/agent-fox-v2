@@ -22,6 +22,7 @@ except ImportError:
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.graph_sync import GraphSync
+from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.types import Edge, Node, TaskGraph
 
@@ -79,6 +80,25 @@ def _make_auditor_orchestrator(
 
     orch._graph_sync = GraphSync(node_states, edges_dict)
     orch._state_manager = MagicMock(spec=StateManager)
+
+    # Initialize result handler (normally done in run())
+    orch._result_handler = SessionResultHandler(
+        graph_sync=orch._graph_sync,
+        state_manager=orch._state_manager,
+        routing_ladders=orch._routing.ladders,
+        routing_assessments=orch._routing.assessments,
+        routing_pipeline=orch._routing.pipeline,
+        retries_before_escalation=orch._routing.retries_before_escalation,
+        max_retries=config.max_retries,
+        task_callback=None,
+        sink=None,
+        run_id="test-run",
+        graph=orch._graph,
+        archetypes_config=None,
+        knowledge_db_conn=None,
+        block_task_fn=orch._block_task,
+        check_block_budget_fn=orch._check_block_budget,
+    )
 
     state = ExecutionState(
         plan_hash="test",
@@ -139,7 +159,7 @@ class TestRetryOnFail:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             1,
             state,
@@ -199,7 +219,7 @@ class TestAuditorReruns:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             1,
             state,
@@ -265,7 +285,7 @@ class TestCircuitBreakerBlocks:
         )
 
         with caplog.at_level(logging.WARNING):
-            orch._process_session_result(
+            orch._result_handler.process(
                 failed_record,
                 3,
                 state,
@@ -348,7 +368,7 @@ class TestMaxRetriesZeroBlocks:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             1,
             state,
@@ -406,7 +426,7 @@ class TestPassNoRetry:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             pass_record,
             1,
             state,
@@ -481,7 +501,7 @@ class TestPropertyCircuitBreakerBound:
                 timestamp="2024-01-01T00:00:00Z",
             )
 
-            orch._process_session_result(
+            orch._result_handler.process(
                 failed_record,
                 attempt,
                 state,

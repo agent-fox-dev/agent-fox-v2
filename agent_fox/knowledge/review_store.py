@@ -24,6 +24,34 @@ VALID_VERDICTS = {"PASS", "FAIL"}
 _SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
 
 
+def normalize_severity(severity: str) -> str:
+    """Normalize severity to a valid value.
+
+    Lowercases and strips the input. Returns ``"observation"`` with a
+    warning log if the value is not recognised.
+
+    Requirements: 27-REQ-3.E2
+    """
+    normalized = severity.lower().strip()
+    if normalized in VALID_SEVERITIES:
+        return normalized
+    logger.warning("Unknown severity '%s', normalizing to 'observation'", severity)
+    return "observation"
+
+
+def validate_verdict(verdict: str) -> str | None:
+    """Normalize and validate a verdict value.
+
+    Upper-cases and strips the input. Returns the normalised value if
+    valid, or ``None`` (with a warning log) if not.
+    """
+    normalized = verdict.upper().strip()
+    if normalized in VALID_VERDICTS:
+        return normalized
+    logger.warning("Invalid verdict '%s' (must be PASS or FAIL)", verdict)
+    return None
+
+
 @dataclass(frozen=True)
 class ReviewFinding:
     """A single Skeptic finding stored in DuckDB."""

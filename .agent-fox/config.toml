@@ -4,7 +4,7 @@
 
 [orchestrator]
 ## Maximum parallel sessions (1-8, default: 2)
-parallel = 2
+parallel = 8
 ## Sync interval in task groups (>=0, default: 5)
 # sync_interval = 5
 ## Hot-load specs between sessions (default: true)
@@ -37,18 +37,20 @@ auditor = true
 # librarian = false
 ## Enable cartographer archetype (default: false)
 # cartographer = false
-## Per-archetype model overrides (default: {})
-# models = {}
+## Per-archetype model overrides — review archetypes (skeptic, oracle, verifier)
+## default to ADVANCED (Opus); execution archetypes (coder, auditor, librarian,
+## cartographer, coordinator) default to STANDARD (Sonnet). (default: {})
+# models = {coder = "ADVANCED", skeptic = "STANDARD"}
 ## Per-archetype command allowlists (default: {})
 # allowlists = {}
 
-# [archetypes.instances]
+[archetypes.instances]
 ## Number of skeptic instances (1-5, default: 1)
-# skeptic = 1
+skeptic = 2
 ## Number of verifier instances (1-5, default: 1)
-# verifier = 1
+verifier = 2
 ## Number of auditor instances (1-5, default: 1)
-# auditor = 1
+auditor = 2
 
 # [archetypes.skeptic_settings]
 ## Finding count to block merge (>=0, default: 3)
@@ -140,9 +142,6 @@ auditor = true
 ## Pre-compute fact rankings at plan time (default: true)
 # fact_cache_enabled = true
 
-# [tools]
-## Enable fox tools (default: true)
-# fox_tools = true
 
 # [pricing]
 ## Per-model pricing configuration (default: {claude-haiku-4-5 = {input_price_per_m = 1.0, output_price_per_m = 5.0, cache_read_price_per_m = 0.1, cache_creation_price_per_m = 1.25}, claude-sonnet-4-6 = {input_price_per_m = 3.0, output_price_per_m = 15.0, cache_read_price_per_m = 0.3, cache_creation_price_per_m = 3.75}, claude-opus-4-6 = {input_price_per_m = 5.0, output_price_per_m = 25.0, cache_read_price_per_m = 0.5, cache_creation_price_per_m = 6.25}})

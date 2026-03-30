@@ -13,9 +13,16 @@ from __future__ import annotations
 import logging
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from agent_fox.core.errors import ConfigError
 
@@ -117,6 +124,30 @@ class OrchestratorConfig(BaseModel):
             "(0.0-1.0). None = disabled."
         ),
     )
+    quality_gate: str = Field(
+        default="",
+        description="Shell command to run after each coder session",
+    )
+    quality_gate_timeout: int = Field(
+        default=300,
+        description="Quality gate timeout in seconds",
+    )
+
+    max_budget_usd: float = Field(
+        default=2.0,
+        ge=0.0,
+        description="Maximum USD spend per session, 0 = unlimited",
+    )
+
+    causal_context_limit: int = Field(
+        default=200,
+        description=(
+            "Maximum number of prior facts included in the causal extraction "
+            "prompt. When total non-superseded facts exceed this limit, prior "
+            "facts are ranked by embedding similarity to the new facts and "
+            "only the top N are included."
+        ),
+    )
 
     clamp_parallel = _clamped_validator("parallel", ge=1, le=8)
     clamp_sync_interval = _clamped_validator("sync_interval", ge=0)
@@ -124,6 +155,9 @@ class OrchestratorConfig(BaseModel):
     clamp_session_timeout = _clamped_validator("session_timeout", ge=1)
     clamp_inter_session_delay = _clamped_validator("inter_session_delay", ge=0)
     clamp_audit_retention = _clamped_validator("audit_retention_runs", ge=1, cast=int)
+    clamp_causal_context_limit = _clamped_validator(
+        "causal_context_limit", ge=10, le=10000, cast=int
+    )
 
     @field_validator("max_blocked_fraction")
     @classmethod
@@ -142,6 +176,10 @@ class ModelConfig(BaseModel):
     )
     memory_extraction: str = Field(
         default="SIMPLE", description="Model tier for memory extraction"
+    )
+    fallback_model: str = Field(
+        default="claude-sonnet-4-6",
+        description="Fallback model ID when primary is unavailable",
     )
 
 
@@ -242,27 +280,23 @@ class KnowledgeConfig(BaseModel):
     clamp_confidence = _clamped_validator("confidence_threshold", ge=0.0, le=1.0)
 
 
-class ToolsConfig(BaseModel):
-    """Configuration for fox tools.
+class ThinkingConfig(BaseModel):
+    """Extended thinking configuration for an archetype.
 
-    Requirements: 29-REQ-8.1, 29-REQ-8.E1
+    Requirements: 56-REQ-4.1, 56-REQ-4.E1, 56-REQ-4.E2
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    fox_tools: bool = Field(default=True, description="Enable fox tools")
+    mode: Literal["enabled", "adaptive", "disabled"] = "disabled"
+    budget_tokens: int = Field(default=10000, ge=0)
 
-    @field_validator("fox_tools", mode="before")
-    @classmethod
-    def validate_fox_tools_is_bool(cls, v: Any) -> bool:
-        """Reject non-boolean values for fox_tools.
-
-        Requirements: 29-REQ-8.E1
-        """
-        if not isinstance(v, bool):
-            msg = f"tools.fox_tools must be a boolean, got {type(v).__name__}: {v!r}"
-            raise ValueError(msg)
-        return v
+    @model_validator(mode="after")
+    def validate_budget(self) -> Self:
+        """budget_tokens must be > 0 when mode is 'enabled'."""
+        if self.mode == "enabled" and self.budget_tokens <= 0:
+            raise ValueError("budget_tokens must be > 0 when mode is 'enabled'")
+        return self
 
 
 class ArchetypeInstancesConfig(BaseModel):
@@ -374,6 +408,14 @@ class ArchetypesConfig(BaseModel):
     allowlists: dict[str, list[str]] = Field(
         default_factory=dict, description="Per-archetype command allowlists"
     )
+    max_turns: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per-archetype maximum turn limits",
+    )
+    thinking: dict[str, ThinkingConfig] = Field(
+        default_factory=dict,
+        description="Per-archetype extended thinking configuration",
+    )
 
     @field_validator("coder")
     @classmethod
@@ -381,6 +423,20 @@ class ArchetypesConfig(BaseModel):
         if not v:
             logger.warning("archetypes.coder cannot be disabled; ignoring")
         return True
+
+    @field_validator("max_turns")
+    @classmethod
+    def validate_max_turns_non_negative(cls, v: dict[str, int]) -> dict[str, int]:
+        """Reject negative max_turns values.
+
+        Requirements: 56-REQ-1.E1
+        """
+        for archetype, turns in v.items():
+            if turns < 0:
+                raise ValueError(
+                    f"max_turns for '{archetype}' must be >= 0, got {turns}"
+                )
+        return v
 
 
 class ModelPricing(BaseModel):
@@ -526,7 +582,6 @@ class AgentFoxConfig(BaseModel):
     platform: PlatformConfig = Field(default_factory=PlatformConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
-    tools: ToolsConfig = Field(default_factory=ToolsConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
     blocking: BlockingConfig = Field(default_factory=BlockingConfig)

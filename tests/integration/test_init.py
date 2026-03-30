@@ -309,7 +309,6 @@ class TestInitConfigGeneration:
             "platform",
             "knowledge",
             "archetypes",
-            "tools",
         ]:
             # Sections may be active [section] or commented # [section]
             assert f"[{section}]" in content, f"Missing section header: {section}"

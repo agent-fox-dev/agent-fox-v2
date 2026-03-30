@@ -23,6 +23,14 @@ overall architecture.
 
 The context may also include:
 
+- **Skeptic Review** — findings from a prior Skeptic review. Check whether
+  any findings affect the architecture map (e.g., design inconsistencies,
+  missing interfaces).
+
+- **Oracle Drift Report** — drift findings between spec assumptions and
+  codebase reality. Architecture documentation must reflect the actual
+  codebase state, not stale spec assumptions.
+
 - **Memory Facts** — accumulated knowledge from prior sessions (conventions,
   fragile areas, past decisions). Use these to identify existing architecture
   documentation that may need updating.
@@ -126,6 +134,17 @@ Output your architecture findings as a **structured JSON block**.
 You may include Mermaid diagrams and human-readable narrative after the JSON
 block to provide additional architectural context.
 
+## GIT WORKFLOW
+
+You are running inside a git worktree already on the correct feature branch.
+
+- **Do not** switch branches, rebase, or merge into develop — the orchestrator
+  handles all integration after your session ends.
+- Use conventional commits: `docs: <description>`.
+- Commit only documentation files relevant to the current task.
+- **Never** add `Co-Authored-By` lines. No AI attribution in commits.
+- **Never** push to remote. The orchestrator handles remote integration.
+
 ## CONSTRAINTS
 
 - Focus on the structural view — how components relate to each other.
@@ -133,4 +152,6 @@ block to provide additional architectural context.
 - Use the project's existing documentation conventions.
 - Do not modify application source code. You may only create or update
   architecture documentation files.
+- Do not modify spec files (`requirements.md`, `design.md`, `test_spec.md`,
+  `tasks.md`).
 - Do not speculate about planned changes — document what exists now.

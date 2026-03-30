@@ -22,6 +22,7 @@ from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
+from agent_fox.engine.review_parser import extract_json_array
 from agent_fox.engine.state import SessionRecord
 from agent_fox.hooks.hooks import (
     HookContext,
@@ -46,7 +47,7 @@ from agent_fox.session.prompt import (
     select_context_with_causal,
 )
 from agent_fox.session.session import run_session
-from agent_fox.ui.events import ActivityCallback
+from agent_fox.ui.progress import ActivityCallback
 from agent_fox.workspace import (
     WorkspaceInfo,
     create_worktree,
@@ -56,6 +57,83 @@ from agent_fox.workspace import (
 from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# SDK parameter resolution helpers (Spec 56)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_max_turns(config: AgentFoxConfig, archetype: str) -> int | None:
+    """Resolve max_turns for the given archetype.
+
+    Resolution order: config.toml override > archetype registry default.
+    Returns None when configured as 0 (unlimited).
+
+    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1
+    """
+    configured = config.archetypes.max_turns.get(archetype)
+    if configured is not None:
+        return configured if configured > 0 else None  # 0 = unlimited
+    entry = get_archetype(archetype)
+    return entry.default_max_turns
+
+
+def _resolve_thinking(config: AgentFoxConfig, archetype: str) -> dict | None:
+    """Resolve thinking configuration for the given archetype.
+
+    Resolution order: config.toml override > archetype registry default.
+    Returns None when mode is ``disabled``.
+
+    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1
+    """
+    configured = config.archetypes.thinking.get(archetype)
+    if configured is not None:
+        if configured.mode == "disabled":
+            return None
+        return {"type": configured.mode, "budget_tokens": configured.budget_tokens}
+    entry = get_archetype(archetype)
+    if entry.default_thinking_mode == "disabled":
+        return None
+    return {
+        "type": entry.default_thinking_mode,
+        "budget_tokens": entry.default_thinking_budget,
+    }
+
+
+def _resolve_fallback_model(config: AgentFoxConfig) -> str | None:
+    """Resolve the fallback model ID from config.
+
+    Returns None when the configured value is empty.
+    Logs a warning when the model is not in the local model registry.
+
+    Requirements: 56-REQ-3.1, 56-REQ-3.2, 56-REQ-3.4, 56-REQ-3.E1
+    """
+    from agent_fox.core.models import MODEL_REGISTRY
+
+    model = config.models.fallback_model
+    if not model:
+        return None
+    if model not in MODEL_REGISTRY:
+        logger.warning(
+            "Fallback model '%s' is not in the model registry; "
+            "passing to SDK anyway (56-REQ-3.E1)",
+            model,
+        )
+    return model
+
+
+def _resolve_max_budget(config: AgentFoxConfig) -> float | None:
+    """Resolve max_budget_usd from config.
+
+    Returns None when configured as 0.0 (unlimited).
+
+    Requirements: 56-REQ-2.1, 56-REQ-2.2, 56-REQ-2.E1
+    """
+    budget = config.orchestrator.max_budget_usd
+    if budget == 0.0:
+        return None
+    return budget
 
 
 async def _capture_develop_head(repo_root: Path) -> str:
@@ -230,6 +308,13 @@ class NodeSessionRunner:
                 f"Please address this error.\n"
             )
 
+        # 53-REQ-5.1: Inject active critical/major review findings for coder
+        # retries so the coder can address identified issues.
+        if self._archetype == "coder" and attempt > 1:
+            retry_context = self._build_retry_context(self._spec_name)
+            if retry_context:
+                task_prompt = f"{retry_context}\n\n{task_prompt}"
+
         return system_prompt, task_prompt
 
     def _resolve_model_tier(self) -> str:
@@ -380,27 +465,76 @@ class NodeSessionRunner:
             )
             return None
 
-    async def _run_and_harvest(
+    def _build_fallback_input(
+        self,
+        workspace: WorkspaceInfo,
+        node_id: str,
+    ) -> str:
+        """Construct fallback extraction input from session metadata.
+
+        Returns a structured text block with spec name, task group,
+        node ID, and commit diff. Returns empty string if no meaningful
+        metadata is available.
+
+        The ``## Changes`` section is omitted when no commits exist.
+
+        Requirements: 52-REQ-1.2, 52-REQ-1.E1
+        """
+        import subprocess
+
+        parts = [
+            "# Session Knowledge Extraction",
+            "",
+            f"Spec: {self._spec_name}",
+            f"Task Group: {self._task_group}",
+            f"Node ID: {node_id}",
+        ]
+
+        # Try to get commit diff from the worktree
+        try:
+            result = subprocess.run(
+                ["git", "diff", "HEAD~1"],
+                cwd=workspace.path,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            diff = result.stdout.strip() if result.returncode == 0 else ""
+        except Exception:
+            diff = ""
+
+        if diff:
+            parts.extend(["", "## Changes", "", diff])
+
+        return "\n".join(parts)
+
+    async def _execute_session(
         self,
         node_id: str,
-        attempt: int,
         workspace: WorkspaceInfo,
         system_prompt: str,
         task_prompt: str,
-        repo_root: Path,
-    ) -> SessionRecord:
-        """Execute the session, harvest on success, return a record.
+    ) -> SessionOutcome:
+        """Resolve SDK params and run the coding session.
 
-        Handles IntegrationError separately from session failures so
-        the orchestrator gets an accurate error message about merge
-        problems vs coding problems.
-
-        On success, also extracts knowledge facts from the session
-        summary and records the session outcome to sinks.
-
-        Requirements: 05-REQ-1.1, 11-REQ-4.2
+        Requirements: 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2
         """
-        outcome = await run_session(
+        resolved_max_turns = _resolve_max_turns(self._config, self._archetype)
+        resolved_thinking = _resolve_thinking(self._config, self._archetype)
+        resolved_fallback = _resolve_fallback_model(self._config)
+        resolved_budget = _resolve_max_budget(self._config)
+
+        logger.info(
+            "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, "
+            "thinking=%s",
+            node_id,
+            resolved_max_turns,
+            resolved_budget,
+            resolved_fallback,
+            resolved_thinking,
+        )
+
+        return await run_session(
             workspace=workspace,
             node_id=node_id,
             system_prompt=system_prompt,
@@ -411,73 +545,75 @@ class NodeSessionRunner:
             security_config=self._resolved_security,
             sink_dispatcher=self._sink,
             run_id=self._run_id,
+            max_turns=resolved_max_turns,
+            max_budget_usd=resolved_budget,
+            fallback_model=resolved_fallback,
+            thinking=resolved_thinking,
         )
 
-        from agent_fox.core.config import PricingConfig
+    async def _harvest_and_integrate(
+        self,
+        node_id: str,
+        outcome: SessionOutcome,
+        workspace: WorkspaceInfo,
+        repo_root: Path,
+    ) -> tuple[str, str, list[str]]:
+        """Harvest changes on success and run post-harvest integration.
 
-        pricing = getattr(self._config, "pricing", PricingConfig())
-        cost = calculate_cost(
-            outcome.input_tokens,
-            outcome.output_tokens,
-            self._resolved_model_id,
-            pricing,
-            cache_read_input_tokens=outcome.cache_read_input_tokens,
-            cache_creation_input_tokens=outcome.cache_creation_input_tokens,
-        )
+        Returns (status, error_message, touched_files).
 
+        Requirements: 03-REQ-7.1, 19-REQ-3.4, 35-REQ-1.1,
+                      40-REQ-11.1, 40-REQ-11.2
+        """
         error_message = outcome.error_message
         status = outcome.status
+        touched_files: list[str] = []
+
+        if outcome.status != "completed":
+            return status, error_message, touched_files
 
         # 03-REQ-7.1: Harvest changes into develop on success
-        touched_files: list[str] = []
-        if outcome.status == "completed":
-            try:
-                touched_files = await harvest(repo_root, workspace)
-                # 40-REQ-11.1: Emit git.merge after successful harvest
-                if touched_files:
-                    self._emit_audit(
-                        AuditEventType.GIT_MERGE,
-                        node_id=node_id,
-                        payload={
-                            "branch": workspace.branch,
-                            "commit_sha": "",  # filled in after rev-parse below
-                            "files_touched": touched_files,
-                        },
-                    )
-            except IntegrationError as exc:
-                # Coding session succeeded but merge to develop failed.
-                # Mark as failed with a clear integration error so the
-                # retry can focus on the merge issue, not the coding.
-                status = "failed"
-                error_message = (
-                    f"Session completed but harvest failed: {exc}. "
-                    f"The coding work was done — the merge into develop "
-                    f"encountered a conflict."
-                )
-                # 40-REQ-11.2: Emit git.conflict on merge failure
+        try:
+            touched_files = await harvest(repo_root, workspace)
+            # 40-REQ-11.1: Emit git.merge after successful harvest
+            if touched_files:
                 self._emit_audit(
-                    AuditEventType.GIT_CONFLICT,
+                    AuditEventType.GIT_MERGE,
                     node_id=node_id,
-                    severity=AuditSeverity.WARNING,
                     payload={
                         "branch": workspace.branch,
-                        "strategy": "default",
-                        "error": str(exc),
+                        "commit_sha": "",
+                        "files_touched": touched_files,
                     },
                 )
-                logger.error(
-                    "Harvest failed for %s after successful session: %s",
-                    node_id,
-                    exc,
-                )
+        except IntegrationError as exc:
+            status = "failed"
+            error_message = (
+                f"Session completed but harvest failed: {exc}. "
+                f"The coding work was done — the merge into develop "
+                f"encountered a conflict."
+            )
+            # 40-REQ-11.2: Emit git.conflict on merge failure
+            self._emit_audit(
+                AuditEventType.GIT_CONFLICT,
+                node_id=node_id,
+                severity=AuditSeverity.WARNING,
+                payload={
+                    "branch": workspace.branch,
+                    "strategy": "default",
+                    "error": str(exc),
+                },
+            )
+            logger.error(
+                "Harvest failed for %s after successful session: %s",
+                node_id,
+                exc,
+            )
+            return status, error_message, touched_files
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
-        commit_sha = ""
-        if touched_files and status == "completed":
-            commit_sha = await _capture_develop_head(repo_root)
-
-        # 19-REQ-3.4: Post-harvest remote integration (after successful harvest)
-        if touched_files and status == "completed":
+        # 19-REQ-3.4: Post-harvest remote integration
+        if touched_files:
             try:
                 await post_harvest_integrate(
                     repo_root=repo_root,
@@ -492,6 +628,92 @@ class NodeSessionRunner:
                     exc_info=True,
                 )
 
+        return status, error_message, touched_files
+
+    async def _extract_knowledge_and_findings(
+        self,
+        node_id: str,
+        attempt: int,
+        workspace: WorkspaceInfo,
+    ) -> None:
+        """Extract knowledge facts and review findings from session output.
+
+        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2
+        """
+        summary = self._read_session_artifacts(workspace)
+        transcript = (summary or {}).get("summary", "")
+        if not transcript:
+            transcript = self._build_fallback_input(workspace, node_id)
+        if not transcript:
+            return
+
+        try:
+            await extract_and_store_knowledge(
+                transcript=transcript,
+                spec_name=self._spec_name,
+                node_id=node_id,
+                memory_extraction_model=self._config.models.memory_extraction,
+                knowledge_db=self._knowledge_db,
+                sink_dispatcher=self._sink,
+                run_id=self._run_id,
+                causal_context_limit=self._config.orchestrator.causal_context_limit,
+            )
+        except Exception:
+            logger.warning(
+                "Knowledge extraction failed for %s, continuing",
+                node_id,
+                exc_info=True,
+            )
+
+        # 27-REQ-3.1: Parse and persist structured findings from
+        # review archetypes (skeptic, verifier, oracle).
+        self._persist_review_findings(transcript, node_id, attempt)
+
+    async def _run_and_harvest(
+        self,
+        node_id: str,
+        attempt: int,
+        workspace: WorkspaceInfo,
+        system_prompt: str,
+        task_prompt: str,
+        repo_root: Path,
+    ) -> SessionRecord:
+        """Execute the session, harvest on success, return a record.
+
+        Requirements: 05-REQ-1.1, 11-REQ-4.2
+        """
+        outcome = await self._execute_session(
+            node_id,
+            workspace,
+            system_prompt,
+            task_prompt,
+        )
+
+        from agent_fox.core.config import PricingConfig
+
+        pricing = getattr(self._config, "pricing", PricingConfig())
+        cost = calculate_cost(
+            outcome.input_tokens,
+            outcome.output_tokens,
+            self._resolved_model_id,
+            pricing,
+            cache_read_input_tokens=outcome.cache_read_input_tokens,
+            cache_creation_input_tokens=outcome.cache_creation_input_tokens,
+        )
+
+        status, error_message, touched_files = await self._harvest_and_integrate(
+            node_id,
+            outcome,
+            workspace,
+            repo_root,
+        )
+
+        # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
+        commit_sha = ""
+        if touched_files and status == "completed":
+            commit_sha = await _capture_develop_head(repo_root)
+
+        # Record and emit audit events
         sink_outcome = outcome
         if status != outcome.status or error_message != outcome.error_message:
             sink_outcome = dataclasses.replace(
@@ -547,40 +769,14 @@ class NodeSessionRunner:
                 node_id=node_id,
                 payload={
                     "commit_sha": commit_sha,
-                    "facts_extracted": 0,  # updated after extraction
+                    "facts_extracted": 0,
                     "findings_persisted": 0,
                 },
             )
 
-        # 05-REQ-1.1: Extract facts from session summary (on success only)
+        # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
         if status == "completed":
-            summary = self._read_session_artifacts(workspace)
-            transcript = (summary or {}).get("summary", "")
-            if transcript:
-                try:
-                    await extract_and_store_knowledge(
-                        transcript=transcript,
-                        spec_name=self._spec_name,
-                        node_id=node_id,
-                        memory_extraction_model=self._config.models.memory_extraction,
-                        knowledge_db=self._knowledge_db,
-                        sink_dispatcher=self._sink,
-                        run_id=self._run_id,
-                    )
-                except Exception:
-                    logger.warning(
-                        "Knowledge extraction failed for %s, continuing",
-                        node_id,
-                        exc_info=True,
-                    )
-
-                # 27-REQ-3.1: Parse and persist structured findings from
-                # review archetypes (skeptic, verifier, oracle).
-                self._persist_review_findings(
-                    transcript,
-                    node_id,
-                    attempt,
-                )
+            await self._extract_knowledge_and_findings(node_id, attempt, workspace)
 
         return SessionRecord(
             node_id=node_id,
@@ -657,16 +853,20 @@ class NodeSessionRunner:
     ) -> None:
         """Parse and persist structured findings from review archetypes.
 
-        Dispatches to the appropriate parser based on archetype:
-        - skeptic  → parse_review_output   → insert_findings
-        - verifier → parse_verification_output → insert_verdicts
-        - oracle   → parse_oracle_output   → insert_drift_findings
+        Uses extract_json_array to extract JSON from archetype output, then
+        routes to the correct typed parser and insert function based on
+        archetype:
+        - skeptic  → parse_review_findings   → insert_findings
+        - verifier → parse_verification_results → insert_verdicts
+        - oracle   → parse_drift_findings    → insert_drift_findings
 
         Non-review archetypes (coder, librarian, etc.) are silently skipped.
-        Parse or DB failures are logged and swallowed to avoid blocking the
-        orchestrator.
+        When JSON extraction fails, a review.parse_failure audit event is
+        emitted at WARNING severity. All other failures are logged and
+        swallowed to avoid blocking the orchestrator.
 
-        Requirements: 27-REQ-3.1, 27-REQ-4.1, 27-REQ-4.2
+        Requirements: 53-REQ-1.1, 53-REQ-2.1, 53-REQ-3.1,
+                      53-REQ-1.E1, 53-REQ-2.E1, 53-REQ-3.E1
         """
         if self._archetype not in ("skeptic", "verifier", "oracle", "auditor"):
             return
@@ -675,40 +875,60 @@ class NodeSessionRunner:
         task_group = str(self._task_group)
 
         try:
-            from agent_fox.knowledge.review_store import (
-                insert_drift_findings,
-                insert_findings,
-                insert_verdicts,
-            )
-            from agent_fox.session.review_parser import (
-                parse_oracle_output,
-                parse_review_output,
-                parse_verification_output,
-            )
+            if self._archetype in ("skeptic", "verifier", "oracle"):
+                json_objects = extract_json_array(transcript)
+                if json_objects is None:
+                    self._emit_audit(
+                        AuditEventType.REVIEW_PARSE_FAILURE,
+                        node_id=node_id,
+                        severity=AuditSeverity.WARNING,
+                        payload={"raw_output": transcript[:2000]},
+                    )
+                    return
 
-            conn = self._knowledge_db.connection
-
-            # Dispatch table for review archetypes: parser → inserter → label
-            _review_dispatch = {
-                "skeptic": (parse_review_output, insert_findings, "skeptic findings"),
-                "verifier": (
-                    parse_verification_output,
-                    insert_verdicts,
-                    "verifier verdicts",
-                ),
-                "oracle": (
-                    parse_oracle_output,
+                from agent_fox.engine.review_parser import (
+                    parse_drift_findings,
+                    parse_review_findings,
+                    parse_verification_results,
+                )
+                from agent_fox.knowledge.review_store import (
                     insert_drift_findings,
-                    "oracle drift findings",
-                ),
-            }
+                    insert_findings,
+                    insert_verdicts,
+                )
 
-            if self._archetype in _review_dispatch:
+                conn = self._knowledge_db.connection
+
+                # Dispatch table: archetype -> (parser, inserter, label)
+                _review_dispatch = {
+                    "skeptic": (
+                        parse_review_findings,
+                        insert_findings,
+                        "skeptic findings",
+                    ),
+                    "verifier": (
+                        parse_verification_results,
+                        insert_verdicts,
+                        "verifier verdicts",
+                    ),
+                    "oracle": (
+                        parse_drift_findings,
+                        insert_drift_findings,
+                        "oracle drift findings",
+                    ),
+                }
                 parser, inserter, label = _review_dispatch[self._archetype]
-                records = parser(transcript, self._spec_name, task_group, session_id)
+                records = parser(json_objects, self._spec_name, task_group, session_id)
                 if records:
                     count = inserter(conn, records)
                     logger.info("Persisted %d %s for %s", count, label, node_id)
+                else:
+                    self._emit_audit(
+                        AuditEventType.REVIEW_PARSE_FAILURE,
+                        node_id=node_id,
+                        severity=AuditSeverity.WARNING,
+                        payload={"raw_output": transcript[:2000]},
+                    )
 
             elif self._archetype == "auditor":
                 from agent_fox.session.auditor_output import (
@@ -728,6 +948,50 @@ class NodeSessionRunner:
                 node_id,
                 exc_info=True,
             )
+
+    def _build_retry_context(self, spec_name: str) -> str:
+        """Query active critical/major findings for the spec and format them.
+
+        Returns a structured block for inclusion in coder retry prompts,
+        listing all active critical and major review findings. Returns an
+        empty string if no such findings exist or if the DB is unavailable.
+
+        Requirements: 53-REQ-5.1, 53-REQ-5.2, 53-REQ-5.E1
+        """
+        try:
+            from agent_fox.knowledge.review_store import query_active_findings
+
+            conn = self._knowledge_db.connection
+            findings = query_active_findings(conn, spec_name)
+            critical_major = [
+                f for f in findings if f.severity in ("critical", "major")
+            ]
+            if not critical_major:
+                return ""
+
+            lines = [
+                f"## Prior Review Findings for {spec_name}",
+                "",
+                "The following critical/major issues were identified in prior "
+                "review sessions. Please address these in your implementation:",
+                "",
+            ]
+            for finding in critical_major:
+                ref_str = (
+                    f" [{finding.requirement_ref}]" if finding.requirement_ref else ""
+                )
+                lines.append(
+                    f"- **{finding.severity.upper()}**{ref_str}: {finding.description}"
+                )
+            return "\n".join(lines)
+
+        except Exception:
+            logger.warning(
+                "Failed to build retry context for %s, continuing without",
+                spec_name,
+                exc_info=True,
+            )
+            return ""
 
     async def _setup_workspace(
         self,

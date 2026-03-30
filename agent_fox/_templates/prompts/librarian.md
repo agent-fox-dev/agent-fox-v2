@@ -22,6 +22,14 @@ to change.
 
 The context may also include:
 
+- **Skeptic Review** — findings from a prior Skeptic review. Check whether
+  any findings are documentation-relevant (e.g., missing docs for edge cases,
+  unclear API contracts).
+
+- **Oracle Drift Report** — drift findings between spec assumptions and
+  codebase reality. If drift was found, documentation may reference stale
+  APIs or structures — verify and correct.
+
 - **Memory Facts** — accumulated knowledge from prior sessions (conventions,
   fragile areas, past decisions). Use these to maintain consistency with
   existing documentation style and conventions.
@@ -112,11 +120,23 @@ If no documentation changes are needed, output an empty array:
 }
 ```
 
+## GIT WORKFLOW
+
+You are running inside a git worktree already on the correct feature branch.
+
+- **Do not** switch branches, rebase, or merge into develop — the orchestrator
+  handles all integration after your session ends.
+- Use conventional commits: `docs: <description>`.
+- Commit only documentation files relevant to the current task.
+- **Never** add `Co-Authored-By` lines. No AI attribution in commits.
+- **Never** push to remote. The orchestrator handles remote integration.
+
 ## CONSTRAINTS
 
 - Focus on accuracy over completeness — wrong docs are worse than missing docs.
 - Use the project's existing documentation style and conventions.
 - Do not modify application source code. You may only modify documentation
   files, docstrings, and comments.
+- Do not modify spec files (`requirements.md`, `design.md`, `test_spec.md`,
+  `tasks.md`).
 - Do not create speculative documentation for features not yet implemented.
-- Commit documentation changes following the project's git workflow.

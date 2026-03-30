@@ -1,6 +1,6 @@
 [project]
 name = "agent-fox"
-version = "2.4.6"
+version = "2.5.0"
 description = "Autonomous coding-agent orchestrator"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
     "pyyaml>=6.0",
     "duckdb>=1.0",
     "sentence-transformers>=3.0",
-    "xxhash>=3.0",
+
     "scikit-learn>=1.4",
     "tomlkit>=0.12",
 ]

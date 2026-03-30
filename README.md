@@ -10,11 +10,11 @@
 **Point agent-fox at a spec. Walk away. Come back to working code across 50+
 commits.**
 
-agent-fox is an autonomous coding-agent orchestrator. It reads your
-specifications, builds a dependency graph of tasks, and drives
-Claude coding agents through each one — in parallel, in isolated worktrees,
-with structured memory, adaptive model routing, and multi-archetype review
-pipelines.
+agent-fox is an autonomous coding-agent orchestrator built exclusively for
+Claude. It reads your specifications, builds a dependency graph of tasks, and
+drives Claude coding agents through each one — in parallel, in isolated
+worktrees, with structured memory, adaptive model routing, and multi-archetype
+review pipelines.
 
 ## Before agent-fox
 

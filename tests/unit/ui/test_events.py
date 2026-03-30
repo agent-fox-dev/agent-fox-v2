@@ -6,7 +6,7 @@ Requirements: 18-REQ-2.E2, 18-REQ-2.E3
 
 from __future__ import annotations
 
-from agent_fox.ui.events import (
+from agent_fox.ui.progress import (
     ActivityEvent,
     TaskEvent,
     abbreviate_arg,

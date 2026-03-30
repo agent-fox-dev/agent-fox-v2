@@ -647,56 +647,17 @@ def fix_missing_correctness_properties(
     )
 
 
-def fix_invalid_archetype_tag(
+def _fix_archetype_tags_in_file(
     spec_name: str,
     tasks_path: Path,
+    *,
+    mode: str,
 ) -> list[FixResult]:
-    """Remove archetype tags that reference unknown archetype names.
+    """Shared fixer for archetype tag issues.
 
-    Scans task group lines for [archetype: X] where X is not in
-    _KNOWN_ARCHETYPES, and removes the tag entirely (defaulting to coder).
-    """
-    if not tasks_path.is_file():
-        return []
-
-    text = tasks_path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-    results: list[FixResult] = []
-
-    for i, line in enumerate(lines):
-        if not re.match(r"^- \[.\]", line):
-            continue
-        match = _ARCHETYPE_TAG.search(line)
-        if match and match.group(1) not in _KNOWN_ARCHETYPES:
-            old_tag = match.group()
-            lines[i] = line.replace(old_tag, "").rstrip()
-            # Clean up double spaces left behind
-            lines[i] = re.sub(r"  +", " ", lines[i]).rstrip()
-            results.append(
-                FixResult(
-                    rule="invalid-archetype-tag",
-                    spec_name=spec_name,
-                    file=str(tasks_path),
-                    description=(
-                        f"Removed unknown archetype tag '{old_tag}' "
-                        f"from line {i + 1} (defaults to coder)"
-                    ),
-                )
-            )
-
-    if results:
-        tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return results
-
-
-def fix_malformed_archetype_tag(
-    spec_name: str,
-    tasks_path: Path,
-) -> list[FixResult]:
-    """Normalize malformed archetype tags to [archetype: name] format.
-
-    Handles cases like [archtype: X], [Archetype: X], [archetype:X] (no space),
-    and duplicate tags (keeps first).
+    Args:
+        mode: ``"invalid"`` to remove unknown tags, ``"malformed"`` to
+            normalize syntax and remove duplicates.
     """
     if not tasks_path.is_file():
         return []
@@ -709,55 +670,89 @@ def fix_malformed_archetype_tag(
         if not re.match(r"^- \[.\]", line):
             continue
 
-        # Handle duplicate well-formed tags: keep first, remove rest
-        all_good = list(_ARCHETYPE_TAG.finditer(line))
-        if len(all_good) > 1:
-            # Remove all but the first tag
-            new_line = line
-            for m in reversed(all_good[1:]):
-                new_line = new_line[: m.start()] + new_line[m.end() :]
-            new_line = re.sub(r"  +", " ", new_line).rstrip()
-            lines[i] = new_line
-            results.append(
-                FixResult(
-                    rule="malformed-archetype-tag",
-                    spec_name=spec_name,
-                    file=str(tasks_path),
-                    description=(
-                        f"Removed duplicate archetype tags on line {i + 1}, kept first"
-                    ),
+        if mode == "invalid":
+            match = _ARCHETYPE_TAG.search(line)
+            if match and match.group(1) not in _KNOWN_ARCHETYPES:
+                old_tag = match.group()
+                lines[i] = line.replace(old_tag, "").rstrip()
+                lines[i] = re.sub(r"  +", " ", lines[i]).rstrip()
+                results.append(
+                    FixResult(
+                        rule="invalid-archetype-tag",
+                        spec_name=spec_name,
+                        file=str(tasks_path),
+                        description=(
+                            f"Removed unknown archetype tag '{old_tag}' "
+                            f"from line {i + 1} (defaults to coder)"
+                        ),
+                    )
                 )
-            )
-            continue
 
-        # Skip lines that already have a well-formed tag
-        if _ARCHETYPE_TAG.search(line):
-            continue
-
-        # Try to normalize malformed tags
-        bad_match = _MALFORMED_ARCHETYPE_TAG.search(line)
-        if bad_match:
-            bad_tag = bad_match.group()
-            # Extract the archetype name from the malformed tag
-            name_match = re.search(r"(\w+)\]$", bad_tag)
-            if name_match:
-                name = name_match.group(1).lower()
-                normalized = f"[archetype: {name}]"
-                lines[i] = line.replace(bad_tag, normalized)
+        elif mode == "malformed":
+            # Handle duplicate well-formed tags: keep first, remove rest
+            all_good = list(_ARCHETYPE_TAG.finditer(line))
+            if len(all_good) > 1:
+                new_line = line
+                for m in reversed(all_good[1:]):
+                    new_line = new_line[: m.start()] + new_line[m.end() :]
+                lines[i] = re.sub(r"  +", " ", new_line).rstrip()
                 results.append(
                     FixResult(
                         rule="malformed-archetype-tag",
                         spec_name=spec_name,
                         file=str(tasks_path),
                         description=(
-                            f"Normalized '{bad_tag}' to '{normalized}' on line {i + 1}"
+                            f"Removed duplicate archetype tags "
+                            f"on line {i + 1}, kept first"
                         ),
                     )
                 )
+                continue
+
+            # Skip lines that already have a well-formed tag
+            if _ARCHETYPE_TAG.search(line):
+                continue
+
+            # Try to normalize malformed tags
+            bad_match = _MALFORMED_ARCHETYPE_TAG.search(line)
+            if bad_match:
+                bad_tag = bad_match.group()
+                name_match = re.search(r"(\w+)\]$", bad_tag)
+                if name_match:
+                    name = name_match.group(1).lower()
+                    normalized = f"[archetype: {name}]"
+                    lines[i] = line.replace(bad_tag, normalized)
+                    results.append(
+                        FixResult(
+                            rule="malformed-archetype-tag",
+                            spec_name=spec_name,
+                            file=str(tasks_path),
+                            description=(
+                                f"Normalized '{bad_tag}' to "
+                                f"'{normalized}' on line {i + 1}"
+                            ),
+                        )
+                    )
 
     if results:
         tasks_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return results
+
+
+def fix_invalid_archetype_tag(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Remove archetype tags that reference unknown archetype names."""
+    return _fix_archetype_tags_in_file(spec_name, tasks_path, mode="invalid")
+
+
+def fix_malformed_archetype_tag(
+    spec_name: str,
+    tasks_path: Path,
+) -> list[FixResult]:
+    """Normalize malformed archetype tags to [archetype: name] format."""
+    return _fix_archetype_tags_in_file(spec_name, tasks_path, mode="malformed")
 
 
 def fix_invalid_checkbox_state(

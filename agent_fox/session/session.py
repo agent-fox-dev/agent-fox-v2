@@ -33,7 +33,7 @@ from agent_fox.session.backends.protocol import (
     ResultMessage,
     ToolUseMessage,
 )
-from agent_fox.ui.events import ActivityCallback, ActivityEvent, abbreviate_arg
+from agent_fox.ui.progress import ActivityCallback, ActivityEvent, abbreviate_arg
 from agent_fox.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,10 @@ async def run_session(
     security_config: Any | None = None,
     sink_dispatcher: SinkDispatcher | None = None,
     run_id: str = "",
+    max_turns: int | None = None,
+    max_budget_usd: float | None = None,
+    fallback_model: str | None = None,
+    thinking: dict[str, Any] | None = None,
 ) -> SessionOutcome:
     """Execute a coding session in the given workspace.
 
@@ -97,6 +101,12 @@ async def run_session(
             overrides ``config.models.coding`` for this session.
         security_config: Optional SecurityConfig override for the allowlist.
             When set, overrides ``config.security`` for this session.
+        max_turns: Optional maximum turn count to pass to the backend.
+            Requirements: 56-REQ-1.2
+        max_budget_usd: Optional USD budget cap to pass to the backend.
+            Requirements: 56-REQ-2.2
+        fallback_model: Optional fallback model ID. Requirements: 56-REQ-3.2
+        thinking: Optional extended thinking config dict. Requirements: 56-REQ-4.2
 
     Requirements: 26-REQ-1.E1, 26-REQ-2.4, 26-REQ-3.4, 26-REQ-4.4
     """
@@ -112,7 +122,7 @@ async def run_session(
     if backend is None:
         from agent_fox.session.backends import get_backend
 
-        backend = get_backend("claude")
+        backend = get_backend()
 
     # Track metrics via mutable state (supports partial reads on timeout/failure)
     state = _QueryExecutionState()
@@ -133,6 +143,10 @@ async def run_session(
                 security_config_override=effective_security,
                 sink_dispatcher=sink_dispatcher,
                 run_id=run_id,
+                max_turns=max_turns,
+                max_budget_usd=max_budget_usd,
+                fallback_model=fallback_model,
+                thinking=thinking,
             ),
             timeout_minutes=config.orchestrator.session_timeout,
         )
@@ -175,6 +189,10 @@ async def _execute_query(
     security_config_override: Any | None = None,
     sink_dispatcher: SinkDispatcher | None = None,
     run_id: str = "",
+    max_turns: int | None = None,
+    max_budget_usd: float | None = None,
+    fallback_model: str | None = None,
+    thinking: dict[str, Any] | None = None,
 ) -> None:
     """Execute the query via an AgentBackend and collect results.
 
@@ -198,13 +216,6 @@ async def _execute_query(
         result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
         return result.get("decision") != "block"
 
-    # 29-REQ-8.2, 29-REQ-8.3: Build fox tool definitions when enabled
-    fox_tools = None
-    if config.tools.fox_tools:
-        from agent_fox.tools.registry import build_fox_tool_definitions
-
-        fox_tools = build_fox_tool_definitions()
-
     turn_count = 0
     cumulative_tokens = 0
 
@@ -214,7 +225,10 @@ async def _execute_query(
         model=model_id,
         cwd=cwd,
         permission_callback=_permission_callback,
-        tools=fox_tools,
+        max_turns=max_turns,
+        max_budget_usd=max_budget_usd,
+        fallback_model=fallback_model,
+        thinking=thinking,
     ):
         is_result = isinstance(message, ResultMessage)
 

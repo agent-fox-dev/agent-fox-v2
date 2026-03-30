@@ -74,14 +74,3 @@ class TaskGraph:
     def successors(self, node_id: str) -> list[str]:
         """Return IDs of all direct successors of a node."""
         return [e.target for e in self.edges if e.source == node_id]
-
-    def ready_nodes(self) -> list[str]:
-        """Return IDs of nodes whose predecessors are all completed."""
-        ready = []
-        for node_id, node in self.nodes.items():
-            if node.status != NodeStatus.PENDING:
-                continue
-            preds = self.predecessors(node_id)
-            if all(self.nodes[p].status == NodeStatus.COMPLETED for p in preds):
-                ready.append(node_id)
-        return ready

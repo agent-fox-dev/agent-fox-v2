@@ -17,7 +17,7 @@ from rich.theme import Theme
 
 from agent_fox.core.config import ThemeConfig
 from agent_fox.ui.display import AppTheme, create_theme
-from agent_fox.ui.events import ActivityEvent, TaskEvent
+from agent_fox.ui.progress import ActivityEvent, TaskEvent
 from agent_fox.ui.progress import ProgressDisplay
 
 _STYLE_ROLES = ("header", "success", "error", "warning", "info", "tool", "muted")

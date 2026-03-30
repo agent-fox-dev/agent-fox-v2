@@ -233,43 +233,38 @@ def _migrate_legacy_files(
         parse_legacy_verification_md,
     )
 
-    # Migrate review.md if no DB records exist
-    review_path = spec_dir / "review.md"
-    if review_path.exists() and not query_active_findings(conn, spec_name):
+    # Table-driven legacy migration: (filename, query_fn, parse_fn, insert_fn, label)
+    _migrations = [
+        (
+            "review.md",
+            query_active_findings,
+            parse_legacy_review_md,
+            insert_findings,
+            "findings",
+        ),
+        (
+            "verification.md",
+            query_active_verdicts,
+            parse_legacy_verification_md,
+            insert_verdicts,
+            "verdicts",
+        ),
+    ]
+    for filename, query_fn, parse_fn, insert_fn, label in _migrations:
+        path = spec_dir / filename
+        if not path.exists() or query_fn(conn, spec_name):
+            continue
         try:
-            content = review_path.read_text(encoding="utf-8")
-            findings = parse_legacy_review_md(
-                content, spec_name, "legacy", "legacy-migration"
-            )
-            if findings:
-                insert_findings(conn, findings)
-                logger.info("Migrated %d findings from %s", len(findings), review_path)
+            content = path.read_text(encoding="utf-8")
+            records = parse_fn(content, spec_name, "legacy", "legacy-migration")
+            if records:
+                insert_fn(conn, records)
+                logger.info("Migrated %d %s from %s", len(records), label, path)
         except Exception:
             logger.warning(
-                "Failed to migrate legacy review file %s, skipping",
-                review_path,
-                exc_info=True,
-            )
-
-    # Migrate verification.md if no DB records exist
-    verification_path = spec_dir / "verification.md"
-    if verification_path.exists() and not query_active_verdicts(conn, spec_name):
-        try:
-            content = verification_path.read_text(encoding="utf-8")
-            verdicts = parse_legacy_verification_md(
-                content, spec_name, "legacy", "legacy-migration"
-            )
-            if verdicts:
-                insert_verdicts(conn, verdicts)
-                logger.info(
-                    "Migrated %d verdicts from %s",
-                    len(verdicts),
-                    verification_path,
-                )
-        except Exception:
-            logger.warning(
-                "Failed to migrate legacy verification file %s, skipping",
-                verification_path,
+                "Failed to migrate legacy %s file %s, skipping",
+                label,
+                path,
                 exc_info=True,
             )
 

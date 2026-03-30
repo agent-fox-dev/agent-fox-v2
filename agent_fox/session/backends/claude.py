@@ -20,6 +20,7 @@ from claude_code_sdk.types import (
 from claude_code_sdk.types import (
     PermissionResultAllow,
     PermissionResultDeny,
+    ThinkingBlock,
     ToolPermissionContext,
     ToolUseBlock,
 )
@@ -32,10 +33,8 @@ from agent_fox.session.backends.protocol import (
     AssistantMessage,
     PermissionCallback,
     ResultMessage,
-    ToolDefinition,
     ToolUseMessage,
 )
-from agent_fox.tools.server import FoxMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,10 @@ class ClaudeBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
-        tools: list[ToolDefinition] | None = None,
+        max_turns: int | None = None,
+        max_budget_usd: float | None = None,
+        fallback_model: str | None = None,
+        thinking: dict[str, Any] | None = None,
     ) -> AsyncIterator[AgentMessage]:
         """Execute a session via the Claude SDK and yield canonical messages.
 
@@ -80,7 +82,8 @@ class ClaudeBackend:
         On SDK streaming errors, yields a ``ResultMessage`` with
         ``is_error=True`` instead of propagating the exception.
 
-        Requirements: 26-REQ-2.3, 26-REQ-2.E1
+        Requirements: 26-REQ-2.3, 26-REQ-2.E1, 56-REQ-1.2, 56-REQ-2.2,
+                      56-REQ-3.2, 56-REQ-4.2, 56-REQ-5.E1
         """
         # Build the can_use_tool callback if a permission_callback is provided
         can_use_tool = None
@@ -99,24 +102,35 @@ class ClaudeBackend:
 
             can_use_tool = _can_use_tool_wrapper
 
-        # Build MCP server config for custom tools (29-REQ-6.2)
-        mcp_servers: dict[str, Any] = {}
-        if tools:
-            fox_server = FoxMCPServer()
-            mcp_servers["agent-fox-tools"] = {
-                "type": "sdk",
-                "name": "agent-fox-tools",
-                "instance": fox_server.mcp_server,
-            }
+        # Build extra_args for parameters not directly supported by ClaudeCodeOptions
+        # (56-REQ-2.2, 56-REQ-3.2)
+        extra_args: dict[str, str | None] = {}
+        if max_budget_usd:
+            extra_args["max_budget_usd"] = str(max_budget_usd)
+        if fallback_model:
+            extra_args["fallback_model"] = fallback_model
 
+        # Build core options — max_turns is a native ClaudeCodeOptions field
         options = ClaudeCodeOptions(
             cwd=cwd,
             model=model,
             system_prompt=system_prompt,
             permission_mode="bypassPermissions",
             can_use_tool=can_use_tool,
-            mcp_servers=mcp_servers,
+            extra_args=extra_args,
+            **({"max_turns": max_turns} if max_turns is not None else {}),
         )
+
+        # Store thinking config as attribute on options (56-REQ-4.2, 56-REQ-5.E1)
+        # ClaudeCodeOptions is a non-frozen dataclass; attribute assignment is safe.
+        # If a future SDK version raises TypeError here, we catch it and omit.
+        if thinking is not None:
+            try:
+                options.thinking = thinking  # type: ignore[attr-defined]
+            except TypeError as exc:
+                logger.warning(
+                    "SDK does not support 'thinking' parameter, omitting: %s", exc
+                )
 
         saw_result = False
         try:
@@ -218,15 +232,19 @@ class ClaudeBackend:
         # SDK AssistantMessage: iterate content blocks to extract tool uses
         if isinstance(message, SDKAssistantMessage):
             results: list[AgentMessage] = []
-            has_tool_use = False
             for block in message.content:
                 if isinstance(block, ToolUseBlock):
-                    has_tool_use = True
                     results.append(
                         ToolUseMessage(tool_name=block.name, tool_input=block.input)
                     )
-            # If no tool-use blocks, emit a single AssistantMessage (thinking/text)
-            if not has_tool_use:
+                elif isinstance(block, ThinkingBlock):
+                    # 56-REQ-4.4: Map ThinkingBlock to AssistantMessage
+                    thinking_text = getattr(block, "thinking", "")
+                    results.append(
+                        AssistantMessage(content=f"[thinking] {thinking_text}")
+                    )
+            # If no content blocks produced output, emit a generic AssistantMessage
+            if not results:
                 results.append(AssistantMessage(content=""))
             return results
 
