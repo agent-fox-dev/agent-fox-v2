@@ -21,6 +21,7 @@ from pathlib import Path
 import duckdb
 
 from agent_fox.core.errors import ConfigError
+from agent_fox.core.prompt_safety import strip_control_chars
 from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews
 from agent_fox.knowledge.review_store import (
     DriftFinding,
@@ -350,9 +351,11 @@ def assemble_context(
     # Insert file sections before DB-rendered sections
     sections = file_sections + sections
 
-    # 03-REQ-4.2: Include memory facts
+    # 03-REQ-4.2: Include memory facts (strip control chars from stored facts)
     if memory_facts:
-        facts_text = "\n".join(f"- {fact}" for fact in memory_facts)
+        facts_text = "\n".join(
+            f"- {strip_control_chars(fact)}" for fact in memory_facts
+        )
         sections.append(f"## Memory Facts\n\n{facts_text}")
 
     # 39-REQ-6.1, 39-REQ-6.2: Include prior group findings

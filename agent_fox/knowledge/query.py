@@ -21,6 +21,7 @@ from agent_fox.core.client import create_anthropic_client
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.core.models import resolve_model
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.core.retry import retry_api_call
 from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
@@ -178,8 +179,10 @@ class Oracle:
             "on its own line starting with 'CONTRADICTION:' followed by a "
             "description of the conflicting facts.\n"
             "4. Do not invent information that is not in the facts.\n\n"
-            f"## Facts\n\n{context}\n\n"
-            f"## Question\n\n{question}"
+            "## Facts\n\n"
+            f"{sanitize_prompt_content(context, label='facts')}\n\n"
+            "## Question\n\n"
+            f"{sanitize_prompt_content(question, label='question')}"
         )
 
     def _determine_confidence(self, results: list[SearchResult]) -> float:

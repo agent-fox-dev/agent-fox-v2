@@ -16,6 +16,7 @@ from anthropic.types import TextBlock
 
 from agent_fox.core.client import create_async_anthropic_client
 from agent_fox.core.models import resolve_model
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.core.retry import retry_api_call_async
 from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.knowledge.facts import Category, Fact, parse_confidence
@@ -68,7 +69,10 @@ async def extract_facts(
         Returns an empty list if extraction fails or yields no facts.
     """
     model_entry = resolve_model(model_name)
-    prompt = EXTRACTION_PROMPT.format(transcript=transcript)
+    safe_transcript = sanitize_prompt_content(
+        transcript, label="transcript", max_chars=100_000
+    )
+    prompt = EXTRACTION_PROMPT.format(transcript=safe_transcript)
 
     async def _call() -> object:
         async with create_async_anthropic_client() as client:
@@ -148,7 +152,10 @@ def enrich_extraction_with_causal(
     else:
         facts_text = "(no prior facts available)"
 
-    addendum = CAUSAL_EXTRACTION_ADDENDUM.format(prior_facts=facts_text)
+    safe_facts = sanitize_prompt_content(
+        facts_text, label="prior-facts", max_chars=50_000
+    )
+    addendum = CAUSAL_EXTRACTION_ADDENDUM.format(prior_facts=safe_facts)
     return base_prompt + addendum
 
 

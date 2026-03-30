@@ -20,6 +20,7 @@ from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.review_parser import extract_json_array
@@ -504,7 +505,8 @@ class NodeSessionRunner:
             diff = ""
 
         if diff:
-            parts.extend(["", "## Changes", "", diff])
+            safe_diff = sanitize_prompt_content(diff, label="diff", max_chars=50_000)
+            parts.extend(["", "## Changes", "", safe_diff])
 
         return "\n".join(parts)
 
