@@ -59,19 +59,6 @@ predictions improve over time.
 See the [configuration reference](configuration.md#routing) for routing
 options.
 
-### Fox Tools (Token-Efficient File Tools)
-
-agent-fox includes four token-efficient file tools that reduce token usage
-and prevent silent corruption during file operations. Fox tools are enabled
-by default.
-
-| Tool | Description |
-|------|-------------|
-| `fox_outline` | Structural file outline (functions, classes, imports) with line ranges |
-| `fox_read` | Read specific line ranges with per-line content hashes |
-| `fox_edit` | Hash-verified atomic batch editing (prevents stale-read corruption) |
-| `fox_search` | Regex search with context lines and content hashes |
-
 ## Dependencies
 
 ### DuckDB (Required)

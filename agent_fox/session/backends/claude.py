@@ -33,10 +33,8 @@ from agent_fox.session.backends.protocol import (
     AssistantMessage,
     PermissionCallback,
     ResultMessage,
-    ToolDefinition,
     ToolUseMessage,
 )
-from agent_fox.tools.server import FoxMCPServer
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +69,6 @@ class ClaudeBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
-        tools: list[ToolDefinition] | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
         fallback_model: str | None = None,
@@ -105,16 +102,6 @@ class ClaudeBackend:
 
             can_use_tool = _can_use_tool_wrapper
 
-        # Build MCP server config for custom tools (29-REQ-6.2)
-        mcp_servers: dict[str, Any] = {}
-        if tools:
-            fox_server = FoxMCPServer()
-            mcp_servers["agent-fox-tools"] = {
-                "type": "sdk",
-                "name": "agent-fox-tools",
-                "instance": fox_server.mcp_server,
-            }
-
         # Build extra_args for parameters not directly supported by ClaudeCodeOptions
         # (56-REQ-2.2, 56-REQ-3.2)
         extra_args: dict[str, str | None] = {}
@@ -130,7 +117,6 @@ class ClaudeBackend:
             system_prompt=system_prompt,
             permission_mode="bypassPermissions",
             can_use_tool=can_use_tool,
-            mcp_servers=mcp_servers,
             extra_args=extra_args,
             **({"max_turns": max_turns} if max_turns is not None else {}),
         )

@@ -280,29 +280,6 @@ class KnowledgeConfig(BaseModel):
     clamp_confidence = _clamped_validator("confidence_threshold", ge=0.0, le=1.0)
 
 
-class ToolsConfig(BaseModel):
-    """Configuration for fox tools.
-
-    Requirements: 29-REQ-8.1, 29-REQ-8.E1
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    fox_tools: bool = Field(default=True, description="Enable fox tools")
-
-    @field_validator("fox_tools", mode="before")
-    @classmethod
-    def validate_fox_tools_is_bool(cls, v: Any) -> bool:
-        """Reject non-boolean values for fox_tools.
-
-        Requirements: 29-REQ-8.E1
-        """
-        if not isinstance(v, bool):
-            msg = f"tools.fox_tools must be a boolean, got {type(v).__name__}: {v!r}"
-            raise ValueError(msg)
-        return v
-
-
 class ThinkingConfig(BaseModel):
     """Extended thinking configuration for an archetype.
 
@@ -605,7 +582,6 @@ class AgentFoxConfig(BaseModel):
     platform: PlatformConfig = Field(default_factory=PlatformConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     archetypes: ArchetypesConfig = Field(default_factory=ArchetypesConfig)
-    tools: ToolsConfig = Field(default_factory=ToolsConfig)
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
     blocking: BlockingConfig = Field(default_factory=BlockingConfig)

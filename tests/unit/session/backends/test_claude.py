@@ -16,7 +16,6 @@ from agent_fox.session.backends.protocol import (
     AgentBackend,
     AssistantMessage,
     ResultMessage,
-    ToolDefinition,
     ToolUseMessage,
 )
 
@@ -174,65 +173,7 @@ class TestMapMessageAssistant:
 class TestExecuteConstructsOptions:
     """Verify execute() constructs ClaudeCodeOptions and yields messages."""
 
-    @pytest.mark.asyncio
-    async def test_fox_tools_passed_as_mcp_server(self) -> None:
-        """When tools are provided, ClaudeCodeOptions includes an MCP server."""
-        backend = ClaudeBackend()
-        tools = [
-            ToolDefinition(
-                name="fox_read",
-                description="Read file",
-                input_schema={"type": "object", "properties": {}},
-                handler=lambda **kw: "ok",
-            ),
-        ]
-
-        captured_options = {}
-
-        async def _fake_stream(*, prompt, options):
-            captured_options["opts"] = options
-            return
-            yield  # make it an async generator  # noqa: RET503
-
-        with patch.object(backend, "_stream_messages", _fake_stream):
-            async for _ in backend.execute(
-                "test",
-                system_prompt="sys",
-                model="claude-sonnet-4-6",
-                cwd="/tmp",
-                tools=tools,
-            ):
-                pass
-
-        opts = captured_options["opts"]
-        assert "agent-fox-tools" in opts.mcp_servers
-        srv_cfg = opts.mcp_servers["agent-fox-tools"]
-        assert srv_cfg["type"] == "sdk"
-        assert srv_cfg["instance"] is not None
-
-    @pytest.mark.asyncio
-    async def test_no_tools_means_no_mcp_servers(self) -> None:
-        """When no tools provided, mcp_servers is empty."""
-        backend = ClaudeBackend()
-
-        captured_options = {}
-
-        async def _fake_stream(*, prompt, options):
-            captured_options["opts"] = options
-            return
-            yield  # noqa: RET503
-
-        with patch.object(backend, "_stream_messages", _fake_stream):
-            async for _ in backend.execute(
-                "test",
-                system_prompt="sys",
-                model="claude-sonnet-4-6",
-                cwd="/tmp",
-            ):
-                pass
-
-        opts = captured_options["opts"]
-        assert opts.mcp_servers == {}
+    pass
 
 
 # ---------------------------------------------------------------------------

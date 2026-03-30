@@ -145,7 +145,6 @@ class TestTemplateGeneration:
             "theme",
             "platform",
             "knowledge",
-            "tools",
         ]:
             assert f"# [{section}]" in template, (
                 f"Missing section header for [{section}]"
@@ -288,7 +287,6 @@ class TestSchemaExtraction:
             "platform",
             "knowledge",
             "archetypes",
-            "tools",
             "pricing",
             "planning",
             "blocking",
