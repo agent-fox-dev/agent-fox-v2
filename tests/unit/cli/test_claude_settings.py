@@ -162,3 +162,40 @@ def caplog(caplog):
 
     caplog.set_level(logging.DEBUG, logger="agent_fox.cli.init")
     return caplog
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for issue #191: file/directory permissions
+# ---------------------------------------------------------------------------
+
+
+class TestSecurePermissions:
+    """Config files and directories must not be world-readable."""
+
+    def test_claude_dir_permissions(self, tmp_path):
+        """`.claude/` directory should be owner-only (0o700)."""
+        _ensure_claude_settings(tmp_path)
+        mode = (tmp_path / ".claude").stat().st_mode & 0o777
+        assert mode == 0o700
+
+    def test_settings_file_permissions(self, tmp_path):
+        """settings.local.json should be owner-only (0o600)."""
+        _ensure_claude_settings(tmp_path)
+        mode = (tmp_path / ".claude" / "settings.local.json").stat().st_mode & 0o777
+        assert mode == 0o600
+
+    def test_settings_permissions_after_merge(self, tmp_path):
+        """Permissions are set even when merging into existing settings."""
+        import stat
+
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        settings_path = claude_dir / "settings.local.json"
+        settings_path.write_text('{"permissions": {"allow": ["Read"]}}')
+        # Make it world-readable initially
+        settings_path.chmod(stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        _ensure_claude_settings(tmp_path)
+
+        mode = settings_path.stat().st_mode & 0o777
+        assert mode == 0o600

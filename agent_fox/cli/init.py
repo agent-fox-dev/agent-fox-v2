@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -33,6 +35,18 @@ _GITIGNORE_ENTRIES = [
     "!.agent-fox/memory.jsonl",
     "!.agent-fox/state.jsonl",
 ]
+
+
+def _secure_write_text(path: Path, content: str) -> None:
+    """Write *content* to *path* and restrict permissions to owner-only (0o600)."""
+    path.write_text(content)
+    os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def _secure_mkdir(path: Path) -> None:
+    """Create directory (if needed) and restrict permissions to owner-only (0o700)."""
+    path.mkdir(parents=True, exist_ok=True)
+    os.chmod(path, stat.S_IRWXU)
 
 
 def _is_git_repo() -> bool:
@@ -232,7 +246,7 @@ def init_cmd(ctx: click.Context, skills: bool) -> None:
         return
 
     # 01-REQ-3.1: create directory structure
-    agent_fox_dir.mkdir(parents=True, exist_ok=True)
+    _secure_mkdir(agent_fox_dir)
     (agent_fox_dir / "hooks").mkdir(exist_ok=True)
     (agent_fox_dir / "worktrees").mkdir(exist_ok=True)
     logger.debug("Created .agent-fox/ directory structure")
@@ -240,7 +254,7 @@ def init_cmd(ctx: click.Context, skills: bool) -> None:
     # 01-REQ-3.E1, 33-REQ-1.1: create default config.toml from schema
     from agent_fox.core.config_gen import generate_default_config
 
-    config_path.write_text(generate_default_config())
+    _secure_write_text(config_path, generate_default_config())
     logger.debug("Created default config.toml")
 
     # Create seed files so they are tracked in git from the start
@@ -321,12 +335,12 @@ def _ensure_claude_settings(project_root: Path) -> None:
     settings_path = claude_dir / "settings.local.json"
 
     # 17-REQ-1.2: Create .claude/ directory if absent
-    claude_dir.mkdir(parents=True, exist_ok=True)
+    _secure_mkdir(claude_dir)
 
     if not settings_path.exists():
         # 17-REQ-1.1: Create with canonical permissions
         data = {"permissions": {"allow": list(CANONICAL_PERMISSIONS)}}
-        settings_path.write_text(json.dumps(data, indent=2) + "\n")
+        _secure_write_text(settings_path, json.dumps(data, indent=2) + "\n")
         logger.debug("Created .claude/settings.local.json")
         return
 
@@ -375,7 +389,7 @@ def _ensure_claude_settings(project_root: Path) -> None:
 
     # Preserve order: existing first, new appended
     allow.extend(missing)
-    settings_path.write_text(json.dumps(data, indent=2) + "\n")
+    _secure_write_text(settings_path, json.dumps(data, indent=2) + "\n")
     logger.debug(
         "Merged %d missing canonical permissions into settings",
         len(missing),
