@@ -57,6 +57,9 @@ class GitHubPlatform:
         self._repo = repo
         self._token = token
 
+    def __repr__(self) -> str:
+        return f"GitHubPlatform(owner={self._owner!r}, repo={self._repo!r})"
+
     async def create_pr(
         self,
         branch: str,

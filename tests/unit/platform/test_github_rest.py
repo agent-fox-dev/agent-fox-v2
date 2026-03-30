@@ -260,3 +260,30 @@ class TestErrorResponseTruncation:
         with patch(target, return_value=mock_client):
             with pytest.raises(IntegrationError, match="Short error"):
                 await platform.create_pr("feature/test", "Test", "Body")
+
+
+# ---------------------------------------------------------------------------
+# Regression test for issue #187: token must not leak in repr/str
+# ---------------------------------------------------------------------------
+
+
+class TestGitHubPlatformRepr:
+    """Token must not appear in repr or str output.
+
+    Regression test for issue #187: GitHub PAT stored as plain instance
+    attribute may leak in tracebacks.
+    """
+
+    def test_repr_excludes_token(self) -> None:
+        """repr() must not contain the token value."""
+        platform = GitHubPlatform(owner="acme", repo="widgets", token="ghp_s3cret")
+        result = repr(platform)
+        assert "ghp_s3cret" not in result
+        assert "acme" in result
+        assert "widgets" in result
+
+    def test_str_excludes_token(self) -> None:
+        """str() must not contain the token value."""
+        platform = GitHubPlatform(owner="acme", repo="widgets", token="ghp_s3cret")
+        result = str(platform)
+        assert "ghp_s3cret" not in result
