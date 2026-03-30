@@ -47,7 +47,7 @@ from agent_fox.session.prompt import (
     select_context_with_causal,
 )
 from agent_fox.session.session import run_session
-from agent_fox.ui.events import ActivityCallback
+from agent_fox.ui.progress import ActivityCallback
 from agent_fox.workspace import (
     WorkspaceInfo,
     create_worktree,
@@ -508,27 +508,17 @@ class NodeSessionRunner:
 
         return "\n".join(parts)
 
-    async def _run_and_harvest(
+    async def _execute_session(
         self,
         node_id: str,
-        attempt: int,
         workspace: WorkspaceInfo,
         system_prompt: str,
         task_prompt: str,
-        repo_root: Path,
-    ) -> SessionRecord:
-        """Execute the session, harvest on success, return a record.
+    ) -> SessionOutcome:
+        """Resolve SDK params and run the coding session.
 
-        Handles IntegrationError separately from session failures so
-        the orchestrator gets an accurate error message about merge
-        problems vs coding problems.
-
-        On success, also extracts knowledge facts from the session
-        summary and records the session outcome to sinks.
-
-        Requirements: 05-REQ-1.1, 11-REQ-4.2
+        Requirements: 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2
         """
-        # 56-REQ-1.2, 56-REQ-2.2, 56-REQ-3.2, 56-REQ-4.2: Resolve SDK params
         resolved_max_turns = _resolve_max_turns(self._config, self._archetype)
         resolved_thinking = _resolve_thinking(self._config, self._archetype)
         resolved_fallback = _resolve_fallback_model(self._config)
@@ -544,7 +534,7 @@ class NodeSessionRunner:
             resolved_thinking,
         )
 
-        outcome = await run_session(
+        return await run_session(
             workspace=workspace,
             node_id=node_id,
             system_prompt=system_prompt,
@@ -561,71 +551,69 @@ class NodeSessionRunner:
             thinking=resolved_thinking,
         )
 
-        from agent_fox.core.config import PricingConfig
+    async def _harvest_and_integrate(
+        self,
+        node_id: str,
+        outcome: SessionOutcome,
+        workspace: WorkspaceInfo,
+        repo_root: Path,
+    ) -> tuple[str, str, list[str]]:
+        """Harvest changes on success and run post-harvest integration.
 
-        pricing = getattr(self._config, "pricing", PricingConfig())
-        cost = calculate_cost(
-            outcome.input_tokens,
-            outcome.output_tokens,
-            self._resolved_model_id,
-            pricing,
-            cache_read_input_tokens=outcome.cache_read_input_tokens,
-            cache_creation_input_tokens=outcome.cache_creation_input_tokens,
-        )
+        Returns (status, error_message, touched_files).
 
+        Requirements: 03-REQ-7.1, 19-REQ-3.4, 35-REQ-1.1,
+                      40-REQ-11.1, 40-REQ-11.2
+        """
         error_message = outcome.error_message
         status = outcome.status
+        touched_files: list[str] = []
+
+        if outcome.status != "completed":
+            return status, error_message, touched_files
 
         # 03-REQ-7.1: Harvest changes into develop on success
-        touched_files: list[str] = []
-        if outcome.status == "completed":
-            try:
-                touched_files = await harvest(repo_root, workspace)
-                # 40-REQ-11.1: Emit git.merge after successful harvest
-                if touched_files:
-                    self._emit_audit(
-                        AuditEventType.GIT_MERGE,
-                        node_id=node_id,
-                        payload={
-                            "branch": workspace.branch,
-                            "commit_sha": "",  # filled in after rev-parse below
-                            "files_touched": touched_files,
-                        },
-                    )
-            except IntegrationError as exc:
-                # Coding session succeeded but merge to develop failed.
-                # Mark as failed with a clear integration error so the
-                # retry can focus on the merge issue, not the coding.
-                status = "failed"
-                error_message = (
-                    f"Session completed but harvest failed: {exc}. "
-                    f"The coding work was done — the merge into develop "
-                    f"encountered a conflict."
-                )
-                # 40-REQ-11.2: Emit git.conflict on merge failure
+        try:
+            touched_files = await harvest(repo_root, workspace)
+            # 40-REQ-11.1: Emit git.merge after successful harvest
+            if touched_files:
                 self._emit_audit(
-                    AuditEventType.GIT_CONFLICT,
+                    AuditEventType.GIT_MERGE,
                     node_id=node_id,
-                    severity=AuditSeverity.WARNING,
                     payload={
                         "branch": workspace.branch,
-                        "strategy": "default",
-                        "error": str(exc),
+                        "commit_sha": "",
+                        "files_touched": touched_files,
                     },
                 )
-                logger.error(
-                    "Harvest failed for %s after successful session: %s",
-                    node_id,
-                    exc,
-                )
+        except IntegrationError as exc:
+            status = "failed"
+            error_message = (
+                f"Session completed but harvest failed: {exc}. "
+                f"The coding work was done — the merge into develop "
+                f"encountered a conflict."
+            )
+            # 40-REQ-11.2: Emit git.conflict on merge failure
+            self._emit_audit(
+                AuditEventType.GIT_CONFLICT,
+                node_id=node_id,
+                severity=AuditSeverity.WARNING,
+                payload={
+                    "branch": workspace.branch,
+                    "strategy": "default",
+                    "error": str(exc),
+                },
+            )
+            logger.error(
+                "Harvest failed for %s after successful session: %s",
+                node_id,
+                exc,
+            )
+            return status, error_message, touched_files
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
-        commit_sha = ""
-        if touched_files and status == "completed":
-            commit_sha = await _capture_develop_head(repo_root)
-
-        # 19-REQ-3.4: Post-harvest remote integration (after successful harvest)
-        if touched_files and status == "completed":
+        # 19-REQ-3.4: Post-harvest remote integration
+        if touched_files:
             try:
                 await post_harvest_integrate(
                     repo_root=repo_root,
@@ -640,6 +628,92 @@ class NodeSessionRunner:
                     exc_info=True,
                 )
 
+        return status, error_message, touched_files
+
+    async def _extract_knowledge_and_findings(
+        self,
+        node_id: str,
+        attempt: int,
+        workspace: WorkspaceInfo,
+    ) -> None:
+        """Extract knowledge facts and review findings from session output.
+
+        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2
+        """
+        summary = self._read_session_artifacts(workspace)
+        transcript = (summary or {}).get("summary", "")
+        if not transcript:
+            transcript = self._build_fallback_input(workspace, node_id)
+        if not transcript:
+            return
+
+        try:
+            await extract_and_store_knowledge(
+                transcript=transcript,
+                spec_name=self._spec_name,
+                node_id=node_id,
+                memory_extraction_model=self._config.models.memory_extraction,
+                knowledge_db=self._knowledge_db,
+                sink_dispatcher=self._sink,
+                run_id=self._run_id,
+                causal_context_limit=self._config.orchestrator.causal_context_limit,
+            )
+        except Exception:
+            logger.warning(
+                "Knowledge extraction failed for %s, continuing",
+                node_id,
+                exc_info=True,
+            )
+
+        # 27-REQ-3.1: Parse and persist structured findings from
+        # review archetypes (skeptic, verifier, oracle).
+        self._persist_review_findings(transcript, node_id, attempt)
+
+    async def _run_and_harvest(
+        self,
+        node_id: str,
+        attempt: int,
+        workspace: WorkspaceInfo,
+        system_prompt: str,
+        task_prompt: str,
+        repo_root: Path,
+    ) -> SessionRecord:
+        """Execute the session, harvest on success, return a record.
+
+        Requirements: 05-REQ-1.1, 11-REQ-4.2
+        """
+        outcome = await self._execute_session(
+            node_id,
+            workspace,
+            system_prompt,
+            task_prompt,
+        )
+
+        from agent_fox.core.config import PricingConfig
+
+        pricing = getattr(self._config, "pricing", PricingConfig())
+        cost = calculate_cost(
+            outcome.input_tokens,
+            outcome.output_tokens,
+            self._resolved_model_id,
+            pricing,
+            cache_read_input_tokens=outcome.cache_read_input_tokens,
+            cache_creation_input_tokens=outcome.cache_creation_input_tokens,
+        )
+
+        status, error_message, touched_files = await self._harvest_and_integrate(
+            node_id,
+            outcome,
+            workspace,
+            repo_root,
+        )
+
+        # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
+        commit_sha = ""
+        if touched_files and status == "completed":
+            commit_sha = await _capture_develop_head(repo_root)
+
+        # Record and emit audit events
         sink_outcome = outcome
         if status != outcome.status or error_message != outcome.error_message:
             sink_outcome = dataclasses.replace(
@@ -695,44 +769,14 @@ class NodeSessionRunner:
                 node_id=node_id,
                 payload={
                     "commit_sha": commit_sha,
-                    "facts_extracted": 0,  # updated after extraction
+                    "facts_extracted": 0,
                     "findings_persisted": 0,
                 },
             )
 
-        # 05-REQ-1.1, 52-REQ-1.1, 52-REQ-1.2: Extract facts from session
-        # summary (on success only). Use fallback input when summary absent.
+        # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
         if status == "completed":
-            summary = self._read_session_artifacts(workspace)
-            transcript = (summary or {}).get("summary", "")
-            if not transcript:
-                transcript = self._build_fallback_input(workspace, node_id)
-            if transcript:
-                try:
-                    await extract_and_store_knowledge(
-                        transcript=transcript,
-                        spec_name=self._spec_name,
-                        node_id=node_id,
-                        memory_extraction_model=self._config.models.memory_extraction,
-                        knowledge_db=self._knowledge_db,
-                        sink_dispatcher=self._sink,
-                        run_id=self._run_id,
-                        causal_context_limit=self._config.orchestrator.causal_context_limit,
-                    )
-                except Exception:
-                    logger.warning(
-                        "Knowledge extraction failed for %s, continuing",
-                        node_id,
-                        exc_info=True,
-                    )
-
-                # 27-REQ-3.1: Parse and persist structured findings from
-                # review archetypes (skeptic, verifier, oracle).
-                self._persist_review_findings(
-                    transcript,
-                    node_id,
-                    attempt,
-                )
+            await self._extract_knowledge_and_findings(node_id, attempt, workspace)
 
         return SessionRecord(
             node_id=node_id,

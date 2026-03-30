@@ -27,7 +27,7 @@ from agent_fox.knowledge.audit import (
 )
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.session.archetypes import get_archetype
-from agent_fox.ui.events import TaskCallback, TaskEvent
+from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
 

@@ -366,9 +366,7 @@ class TestOutcomeRecordedOnBlock:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        with patch.object(
-            orch._result_handler, "record_node_outcome"
-        ) as mock_record:
+        with patch.object(orch._result_handler, "record_node_outcome") as mock_record:
             orch._result_handler.process(
                 _make_failed_reviewer_record(attempt=1),
                 1,

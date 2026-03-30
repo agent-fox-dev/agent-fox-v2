@@ -4,8 +4,7 @@ Defines the contract that any agent SDK adapter must implement, plus
 three frozen dataclass message types that constitute the canonical
 message model.
 
-Requirements: 26-REQ-1.1, 26-REQ-1.2, 26-REQ-1.3, 26-REQ-1.4,
-              29-REQ-6.1, 29-REQ-6.E1
+Requirements: 26-REQ-1.1, 26-REQ-1.2, 26-REQ-1.3, 26-REQ-1.4
 """
 
 from __future__ import annotations
@@ -72,30 +71,6 @@ PermissionCallback = Callable[
 
 
 # ---------------------------------------------------------------------------
-# Custom tool definition
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ToolDefinition:
-    """A custom tool to be registered with the backend.
-
-    Requirements: 29-REQ-6.1
-
-    Attributes:
-        name: Tool name (e.g. ``"fox_read"``).
-        description: Human-readable description.
-        input_schema: JSON Schema for tool input.
-        handler: Sync callable ``(tool_input: dict) -> result``.
-    """
-
-    name: str
-    description: str
-    input_schema: dict[str, Any]
-    handler: Callable[..., Any]
-
-
-# ---------------------------------------------------------------------------
 # AgentBackend protocol
 # ---------------------------------------------------------------------------
 
@@ -129,7 +104,6 @@ class AgentBackend(Protocol):
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
-        tools: list[ToolDefinition] | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
         fallback_model: str | None = None,
@@ -144,9 +118,6 @@ class AgentBackend(Protocol):
             cwd: Working directory for the session.
             permission_callback: Optional callback invoked before each tool
                 use. Returns ``True`` to allow, ``False`` to deny.
-            tools: Optional list of custom tool definitions to register
-                with the backend alongside built-in tools.
-                Requirements: 29-REQ-6.1, 29-REQ-6.E1
             max_turns: Optional maximum number of turns for the session.
                 Requirements: 56-REQ-1.2
             max_budget_usd: Optional maximum USD budget for the session.

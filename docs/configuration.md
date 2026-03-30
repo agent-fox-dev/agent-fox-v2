@@ -287,14 +287,6 @@ are rejected at startup.
 
 ---
 
-## `[tools]`
-
-Fox tools configuration.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `fox_tools` | bool | `true` | Enable fox tools (token-efficient file operations) |
-
 ---
 
 ## `[pricing]`

@@ -16,10 +16,11 @@ import re
 import uuid
 
 from agent_fox.knowledge.review_store import (
-    VALID_VERDICTS,
     DriftFinding,
     ReviewFinding,
     VerificationResult,
+    normalize_severity,
+    validate_verdict,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,7 +128,7 @@ def parse_review_findings(
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
-                severity=obj["severity"],
+                severity=normalize_severity(obj["severity"]),
                 description=obj["description"],
                 requirement_ref=obj.get("requirement_ref"),
                 spec_name=spec_name,
@@ -174,13 +175,8 @@ def parse_verification_results(
                 list(obj.keys()),
             )
             continue
-        verdict_val = str(obj["verdict"]).upper().strip()
-        if verdict_val not in VALID_VERDICTS:
-            logger.warning(
-                "Skipping verification result: invalid verdict '%s' "
-                "(must be PASS or FAIL)",
-                obj["verdict"],
-            )
+        verdict_val = validate_verdict(str(obj["verdict"]))
+        if verdict_val is None:
             continue
         results.append(
             VerificationResult(
@@ -227,7 +223,7 @@ def parse_drift_findings(
         results.append(
             DriftFinding(
                 id=str(uuid.uuid4()),
-                severity=obj["severity"],
+                severity=normalize_severity(obj["severity"]),
                 description=obj["description"],
                 spec_ref=obj.get("spec_ref"),
                 artifact_ref=obj.get("artifact_ref"),

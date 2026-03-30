@@ -17,7 +17,6 @@ from agent_fox.session.backends.protocol import (
     AssistantMessage,
     PermissionCallback,
     ResultMessage,
-    ToolDefinition,
     ToolUseMessage,
 )
 
@@ -32,7 +31,6 @@ __all__ = [
     "AssistantMessage",
     "PermissionCallback",
     "ResultMessage",
-    "ToolDefinition",
     "ToolUseMessage",
     "get_backend",
 ]

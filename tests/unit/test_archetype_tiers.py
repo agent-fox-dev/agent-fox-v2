@@ -12,7 +12,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig, OrchestratorConfig
+from agent_fox.core.config import (
+    AgentFoxConfig,
+    ArchetypesConfig,
+    OrchestratorConfig,
+    RoutingConfig,
+)
 from agent_fox.core.errors import ConfigError
 from agent_fox.core.models import ModelTier
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
@@ -197,24 +202,19 @@ class TestCeilingAlwaysAdvanced:
     """TS-57-6: Ceiling is always ADVANCED regardless of archetype default tier."""
 
     @pytest.mark.asyncio
-    async def test_ceiling_always_advanced_skeptic(self, tmp_path: Path) -> None:
+    async def test_ceiling_always_advanced_skeptic(self) -> None:
         """Skeptic node: ceiling must be ADVANCED even though default is STANDARD."""
-        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.engine.engine import AssessmentManager
 
-        plan_path = _write_plan(tmp_path, archetype="skeptic")
-        orch = Orchestrator(
-            config=OrchestratorConfig(parallel=1, inter_session_delay=0),
-            plan_path=plan_path,
-            state_path=tmp_path / "state.jsonl",
-            session_runner_factory=lambda nid, **kw: MagicMock(),
-            assessment_pipeline=_SuccessPipeline(),
+        mgr = AssessmentManager(
+            routing_config=RoutingConfig(),
+            pipeline=_SuccessPipeline(),
+            retries_before_escalation=1,
         )
-        # Override archetype resolution to return "skeptic" without loading graph
-        orch._get_node_archetype = lambda nid: "skeptic"  # type: ignore[assignment]
 
-        await orch._assess_node("spec:1")
+        await mgr.assess_node("spec:1", "skeptic")
 
-        ladder = orch._routing.ladders["spec:1"]
+        ladder = mgr.ladders["spec:1"]
         assert ladder._tier_ceiling == ModelTier.ADVANCED
 
 
@@ -357,25 +357,19 @@ class TestPipelineFailureFallback:
     """TS-57-E2: Failing pipeline uses archetype default as starting tier."""
 
     @pytest.mark.asyncio
-    async def test_pipeline_failure_uses_default_with_advanced_ceiling(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_pipeline_failure_uses_default_with_advanced_ceiling(self) -> None:
         """Coder node with failing pipeline: starting=STANDARD, ceiling=ADVANCED."""
-        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.engine.engine import AssessmentManager
 
-        plan_path = _write_plan(tmp_path, archetype="coder")
-        orch = Orchestrator(
-            config=OrchestratorConfig(parallel=1, inter_session_delay=0),
-            plan_path=plan_path,
-            state_path=tmp_path / "state.jsonl",
-            session_runner_factory=lambda nid, **kw: MagicMock(),
-            assessment_pipeline=_FailingPipeline(),
+        mgr = AssessmentManager(
+            routing_config=RoutingConfig(),
+            pipeline=_FailingPipeline(),
+            retries_before_escalation=1,
         )
-        orch._get_node_archetype = lambda nid: "coder"  # type: ignore[assignment]
 
-        await orch._assess_node("spec:1")
+        await mgr.assess_node("spec:1", "coder")
 
-        ladder = orch._routing.ladders["spec:1"]
+        ladder = mgr.ladders["spec:1"]
         # After implementation: starting_tier = coder.default (STANDARD)
         # ceiling = ADVANCED (hardcoded)
         assert ladder.current_tier == ModelTier.STANDARD

@@ -477,7 +477,7 @@ class TestSessionRunnerActivityCallback:
         default_config: AgentFoxConfig,
     ) -> None:
         """run_session invokes the activity callback for tool-use messages."""
-        from agent_fox.ui.events import ActivityEvent
+        from agent_fox.ui.progress import ActivityEvent
 
         events: list[ActivityEvent] = []
 
@@ -515,7 +515,7 @@ class TestSessionRunnerActivityTurnAndTokens:
         default_config: AgentFoxConfig,
     ) -> None:
         """Activity events carry incrementing turn and cumulative token counts."""
-        from agent_fox.ui.events import ActivityEvent
+        from agent_fox.ui.progress import ActivityEvent
 
         events: list[ActivityEvent] = []
 

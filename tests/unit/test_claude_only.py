@@ -150,7 +150,6 @@ def test_mock_satisfies_protocol() -> None:
         AgentBackend,
         AgentMessage,
         PermissionCallback,
-        ToolDefinition,
     )
 
     class MockBackend:
@@ -166,7 +165,6 @@ def test_mock_satisfies_protocol() -> None:
             model: str,
             cwd: str,
             permission_callback: PermissionCallback | None = None,
-            tools: list[ToolDefinition] | None = None,
         ) -> AsyncIterator[AgentMessage]:
             yield  # type: ignore[misc]
 

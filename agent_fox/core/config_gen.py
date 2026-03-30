@@ -118,8 +118,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("KnowledgeConfig", "embedding_dimensions"): "Embedding vector dimensions",
     ("KnowledgeConfig", "ask_top_k"): "Number of results for knowledge queries",
     ("KnowledgeConfig", "ask_synthesis_model"): "Model tier for answer synthesis",
-    # ToolsConfig
-    ("ToolsConfig", "fox_tools"): "Enable fox tools",
     # ArchetypesConfig
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
     ("ArchetypesConfig", "skeptic"): "Enable skeptic archetype",
