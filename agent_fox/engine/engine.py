@@ -528,6 +528,49 @@ class Orchestrator:
         )
         self._routing.ladders[node_id] = ladder
 
+    async def _prepare_launch(
+        self,
+        node_id: str,
+        state: ExecutionState,
+        attempt_tracker: dict[str, int],
+        error_tracker: dict[str, str | None],
+    ) -> tuple[str, int, str | None, str, int, Any | None] | None:
+        """Assess a node and check whether it may launch.
+
+        Returns a tuple of (verdict, attempt, previous_error, archetype,
+        instances, assessed_tier) if the node is allowed to launch, or
+        None if it was blocked/limited.  The caller must still check
+        ``verdict`` — ``"blocked"`` and ``"limited"`` are returned via
+        the tuple so the caller can distinguish them.
+
+        On ``"allowed"``, ``attempt_tracker`` is updated and the launch
+        parameters are ready to use.
+        """
+        # 30-REQ-7.1: Run assessment before first dispatch
+        await self._assess_node(node_id)
+
+        attempt = attempt_tracker.get(node_id, 0) + 1
+        verdict = self._check_launch(
+            node_id,
+            attempt,
+            state,
+            attempt_tracker,
+            error_tracker,
+        )
+        if verdict != "allowed":
+            return None
+
+        attempt_tracker[node_id] = attempt
+        previous_error = error_tracker.get(node_id)
+        archetype = self._get_node_archetype(node_id)
+        instances = self._get_node_instances(node_id)
+
+        # 30-REQ-7.2: Pass assessed tier from escalation ladder
+        ladder = self._routing.ladders.get(node_id)
+        assessed_tier = ladder.current_tier if ladder else None
+
+        return (verdict, attempt, previous_error, archetype, instances, assessed_tier)
+
     def _record_node_outcome(
         self,
         node_id: str,
@@ -970,23 +1013,25 @@ class Orchestrator:
             if self._signal.interrupted:
                 break
 
-            # 30-REQ-7.1: Run assessment before first dispatch
-            await self._assess_node(node_id)
-
-            attempt = attempt_tracker.get(node_id, 0) + 1
-            verdict = self._check_launch(
+            launch = await self._prepare_launch(
                 node_id,
-                attempt,
                 state,
                 attempt_tracker,
                 error_tracker,
             )
-            if verdict == "blocked":
+            if launch is None:
+                # _check_launch returned blocked or limited; the serial
+                # path can't distinguish, so just skip to re-evaluate.
                 continue
-            if verdict == "limited":
-                break
 
-            attempt_tracker[node_id] = attempt
+            (
+                _,
+                attempt,
+                previous_error,
+                node_archetype,
+                node_instances,
+                assessed_tier,
+            ) = launch
 
             if not first_dispatch:
                 await self._serial_runner.delay()
@@ -995,15 +1040,6 @@ class Orchestrator:
             self._graph_sync.mark_in_progress(node_id)
             # Persist in_progress state so agent-fox status can show it
             self._state_manager.save(state)
-
-            previous_error = error_tracker.get(node_id)
-
-            node_archetype = self._get_node_archetype(node_id)
-            node_instances = self._get_node_instances(node_id)
-
-            # 30-REQ-7.2: Pass assessed tier from escalation ladder
-            ladder = self._routing.ladders.get(node_id)
-            assessed_tier = ladder.current_tier if ladder else None
 
             record = await self._serial_runner.execute(
                 node_id,
@@ -1072,29 +1108,24 @@ class Orchestrator:
                 if self._signal.interrupted:
                     break
 
-                # 30-REQ-7.1: Assess before first dispatch
-                await self._assess_node(node_id)
-
-                attempt = attempt_tracker.get(node_id, 0) + 1
-                verdict = self._check_launch(
+                launch = await self._prepare_launch(
                     node_id,
-                    attempt,
                     state,
                     attempt_tracker,
                     error_tracker,
                 )
-                if verdict != "allowed":
+                if launch is None:
                     continue
 
-                attempt_tracker[node_id] = attempt
+                (
+                    _,
+                    attempt,
+                    previous_error,
+                    node_archetype,
+                    node_instances,
+                    assessed_tier,
+                ) = launch
                 graph_sync.mark_in_progress(node_id)
-                previous_error = error_tracker.get(node_id)
-                node_archetype = self._get_node_archetype(node_id)
-                node_instances = self._get_node_instances(node_id)
-
-                # 30-REQ-7.2: Pass assessed tier from escalation ladder
-                ladder = self._routing.ladders.get(node_id)
-                assessed_tier = ladder.current_tier if ladder else None
 
                 task = asyncio.create_task(
                     parallel_runner.execute_one(
