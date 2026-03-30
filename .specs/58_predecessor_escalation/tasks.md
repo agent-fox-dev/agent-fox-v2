@@ -51,8 +51,8 @@ either reset the predecessor or block it depending on exhaustion state.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_predecessor_escalation.py tests/property/test_predecessor_escalation_props.py`
 
-- [ ] 2. Implement predecessor escalation
-  - [ ] 2.1 Modify `retry_predecessor` branch in `engine/engine.py:_process_session_result`
+- [x] 2. Implement predecessor escalation
+  - [x] 2.1 Modify `retry_predecessor` branch in `engine/engine.py:_process_session_result`
     - Look up predecessor's ladder from `self._routing.ladders`
     - If missing, create one with archetype default tier and ADVANCED ceiling
     - Call `pred_ladder.record_failure()`
@@ -60,21 +60,21 @@ either reset the predecessor or block it depending on exhaustion state.
     - If not exhausted: proceed with existing reset logic
     - _Requirements: 58-REQ-1.1, 58-REQ-1.2, 58-REQ-1.3, 58-REQ-1.E1, 58-REQ-2.1, 58-REQ-2.2, 58-REQ-2.3_
 
-  - [ ] 2.2 Add necessary imports
+  - [x] 2.2 Add necessary imports
     - Import `EscalationLadder` from `routing.escalation` in `engine.py` (if not already imported)
     - Import `ModelTier` (if not already imported)
     - _Requirements: 58-REQ-1.E1_
 
-  - [ ] 2.3 Verify no existing tests break
+  - [x] 2.3 Verify no existing tests break
     - Run full test suite to check for regressions
     - Update any tests that mock the `retry_predecessor` path if needed
     - _Requirements: 58-REQ-3.1, 58-REQ-3.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_predecessor_escalation.py tests/property/test_predecessor_escalation_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/engine/engine.py`
-    - [ ] Requirements 58-REQ-1.1 through 58-REQ-3.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_predecessor_escalation.py tests/property/test_predecessor_escalation_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/engine.py`
+    - [x] Requirements 58-REQ-1.1 through 58-REQ-3.2 acceptance criteria met
 
 - [ ] 3. Checkpoint - Final verification
   - [ ] 3.1 Verify end-to-end escalation behavior

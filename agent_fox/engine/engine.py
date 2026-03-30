@@ -1265,6 +1265,38 @@ class Orchestrator:
                 predecessors = self._get_predecessors(node_id)
                 if predecessors:
                     pred_id = predecessors[0]
+
+                    # 58-REQ-1.1: Record failure on predecessor's escalation ladder
+                    from agent_fox.routing.escalation import EscalationLadder
+
+                    pred_ladder = self._routing.ladders.get(pred_id)
+                    if pred_ladder is None:
+                        # 58-REQ-1.E1: Create ladder defensively with archetype defaults
+                        pred_archetype = self._get_node_archetype(pred_id)
+                        pred_entry = get_archetype(pred_archetype)
+                        pred_starting = ModelTier(pred_entry.default_model_tier)
+                        pred_ladder = EscalationLadder(
+                            starting_tier=pred_starting,
+                            tier_ceiling=ModelTier.ADVANCED,
+                            retries_before_escalation=self._routing.retries_before_escalation,
+                        )
+                        self._routing.ladders[pred_id] = pred_ladder
+
+                    pred_ladder.record_failure()
+
+                    # 58-REQ-2.1: Block predecessor if ladder exhausted
+                    if pred_ladder.is_exhausted:
+                        self._record_node_outcome(pred_id, state, "failed")
+                        self._block_task(
+                            pred_id,
+                            state,
+                            f"Predecessor {pred_id} exhausted all tiers after "
+                            f"reviewer {node_id} failures",
+                        )
+                        self._check_block_budget(state)
+                        self._state_manager.save(state)
+                        return
+
                     logger.info(
                         "Retry-predecessor: resetting %s to pending due to "
                         "%s failure (attempt %d)",
@@ -1272,6 +1304,7 @@ class Orchestrator:
                         node_id,
                         attempt,
                     )
+                    # 58-REQ-1.2: Reset predecessor to pending (possibly escalated tier)
                     self._graph_sync.node_states[pred_id] = "pending"
                     error_tracker[pred_id] = record.error_message
                     self._graph_sync.node_states[node_id] = "pending"
