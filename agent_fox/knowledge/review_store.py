@@ -21,6 +21,20 @@ logger = logging.getLogger(__name__)
 VALID_SEVERITIES = {"critical", "major", "minor", "observation"}
 VALID_VERDICTS = {"PASS", "FAIL"}
 
+# Defense-in-depth: only these table names may be interpolated into SQL.
+_ALLOWED_TABLES: frozenset[str] = frozenset(
+    {"review_findings", "drift_findings", "verification_results"}
+)
+
+
+def _validate_table_name(table: str) -> None:
+    """Raise ValueError if *table* is not in the allowlist."""
+    if table not in _ALLOWED_TABLES:
+        raise ValueError(
+            f"Table {table!r} is not in the allowed set: {sorted(_ALLOWED_TABLES)}"
+        )
+
+
 _SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
 
 
@@ -119,6 +133,7 @@ def _supersede_active_records(
     marker: str,
 ) -> list[str]:
     """Mark active records as superseded. Returns list of superseded IDs."""
+    _validate_table_name(table)
     existing = conn.execute(
         f"SELECT id::VARCHAR FROM {table} "  # noqa: S608
         "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
@@ -164,6 +179,7 @@ def _insert_with_supersession(
 
     Shared logic for insert_findings and insert_verdicts.
     """
+    _validate_table_name(table)
     if not records:
         return 0
 

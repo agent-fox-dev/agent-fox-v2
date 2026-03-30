@@ -207,6 +207,9 @@ def _query_findings_for_spec(
     Generic helper that replaces the three per-table query functions.
     Each row is unpacked positionally into *cls*.
     """
+    from agent_fox.knowledge.review_store import _validate_table_name
+
+    _validate_table_name(table)
     try:
         rows = conn.execute(
             f"SELECT {columns} FROM {table} "  # noqa: S608

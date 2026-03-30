@@ -322,3 +322,47 @@ class TestQueryBySession:
         results = query_verdicts_by_session(schema_conn, "s1")
         assert len(results) == 1
         assert results[0].requirement_id == "27-REQ-1.1"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for issue #188: table name allowlist validation
+# ---------------------------------------------------------------------------
+
+
+class TestTableNameValidation:
+    """Validate that SQL helper functions reject disallowed table names."""
+
+    def test_validate_table_name_accepts_allowed(self) -> None:
+        from agent_fox.knowledge.review_store import _validate_table_name
+
+        for name in ("review_findings", "drift_findings", "verification_results"):
+            _validate_table_name(name)  # should not raise
+
+    def test_validate_table_name_rejects_unknown(self) -> None:
+        from agent_fox.knowledge.review_store import _validate_table_name
+
+        with pytest.raises(ValueError, match="not in the allowed set"):
+            _validate_table_name("users; DROP TABLE --")
+
+    def test_supersede_rejects_bad_table(
+        self, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        from agent_fox.knowledge.review_store import _supersede_active_records
+
+        with pytest.raises(ValueError, match="not in the allowed set"):
+            _supersede_active_records(schema_conn, "evil_table", "spec", "1", "marker")
+
+    def test_insert_with_supersession_rejects_bad_table(
+        self, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        from agent_fox.knowledge.review_store import _insert_with_supersession
+
+        with pytest.raises(ValueError, match="not in the allowed set"):
+            _insert_with_supersession(
+                schema_conn,
+                table="evil_table",
+                columns="id",
+                records=[],
+                value_extractor=lambda r: [],
+                record_type_label="test",
+            )
