@@ -24,7 +24,7 @@ class TestOracleRegistryEntry:
         assert entry.name == "oracle"
         assert entry.injection == "auto_pre"
         assert entry.task_assignable is True
-        assert entry.default_model_tier == "STANDARD"
+        assert entry.default_model_tier == "ADVANCED"
         assert "oracle.md" in entry.templates
         assert set(entry.default_allowlist) == {
             "ls",

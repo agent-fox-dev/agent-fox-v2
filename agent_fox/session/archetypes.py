@@ -34,7 +34,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "coder": ArchetypeEntry(
         name="coder",
         templates=["coding.md"],
-        default_model_tier="ADVANCED",
+        default_model_tier="STANDARD",
         injection=None,
         task_assignable=True,
         default_max_turns=200,
@@ -44,7 +44,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "oracle": ArchetypeEntry(
         name="oracle",
         templates=["oracle.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
@@ -62,7 +62,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "skeptic": ArchetypeEntry(
         name="skeptic",
         templates=["skeptic.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_pre",
         task_assignable=True,
         default_allowlist=[
@@ -78,7 +78,7 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "verifier": ArchetypeEntry(
         name="verifier",
         templates=["verifier.md"],
-        default_model_tier="STANDARD",
+        default_model_tier="ADVANCED",
         injection="auto_post",
         task_assignable=True,
         retry_predecessor=True,

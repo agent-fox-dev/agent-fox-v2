@@ -192,8 +192,8 @@ class TestRunnerUsesArchetype:
             archetype="skeptic",
             knowledge_db=_MOCK_KB,
         )
-        # Skeptic default model tier is STANDARD
-        assert runner._resolved_model_id == "claude-sonnet-4-6"
+        # Skeptic default model tier is ADVANCED
+        assert runner._resolved_model_id == "claude-opus-4-6"
 
     def test_runner_model_tier_config_override(self) -> None:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig

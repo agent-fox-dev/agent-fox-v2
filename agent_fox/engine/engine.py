@@ -461,18 +461,18 @@ class Orchestrator:
 
         archetype = self._get_node_archetype(node_id)
 
-        # Determine tier ceiling for this archetype
+        # 57-REQ-2.1: Tier ceiling is always ADVANCED regardless of archetype default
+        tier_ceiling = ModelTier.ADVANCED
+
+        # Determine archetype default tier for use as fallback when assessment fails
         try:
             entry = get_archetype(archetype)
-            try:
-                tier_ceiling = ModelTier(entry.default_model_tier)
-            except ValueError:
-                tier_ceiling = ModelTier.ADVANCED
+            archetype_default_tier = ModelTier(entry.default_model_tier)
         except Exception:
-            tier_ceiling = ModelTier.ADVANCED
+            archetype_default_tier = ModelTier.STANDARD
 
         # 30-REQ-7.1: Run assessment before session creation
-        predicted_tier = tier_ceiling  # fallback
+        predicted_tier = archetype_default_tier  # fallback (57-REQ-2.E1)
         try:
             parsed = parse_node_id(node_id)
             spec_name = parsed.spec_name
@@ -510,15 +510,15 @@ class Orchestrator:
                 },
             )
         except Exception:
-            # 30-REQ-7.E1: Fall back to archetype default tier
+            # 30-REQ-7.E1 / 57-REQ-2.E1: Fall back to archetype default tier
             logger.error(
                 "Assessment pipeline failed for %s, falling back to "
                 "archetype default tier %s",
                 node_id,
-                tier_ceiling,
+                archetype_default_tier,
                 exc_info=True,
             )
-            predicted_tier = tier_ceiling
+            predicted_tier = archetype_default_tier
 
         # Create escalation ladder
         ladder = EscalationLadder(

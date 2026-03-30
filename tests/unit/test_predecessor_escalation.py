@@ -614,7 +614,7 @@ class TestNoLadderCreatedDefensively:
             error_tracker,
         )
 
-        # Coder archetype default_model_tier is ADVANCED
+        # Coder archetype default_model_tier is STANDARD
         from agent_fox.session.archetypes import get_archetype
 
         coder_entry = get_archetype("coder")
