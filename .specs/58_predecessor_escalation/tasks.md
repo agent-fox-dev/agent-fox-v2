@@ -76,15 +76,15 @@ either reset the predecessor or block it depending on exhaustion state.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/engine.py`
     - [x] Requirements 58-REQ-1.1 through 58-REQ-3.2 acceptance criteria met
 
-- [ ] 3. Checkpoint - Final verification
-  - [ ] 3.1 Verify end-to-end escalation behavior
+- [x] 3. Checkpoint - Final verification
+  - [x] 3.1 Verify end-to-end escalation behavior
     - Confirm a STANDARD coder escalates to ADVANCED after reviewer-triggered resets
     - Confirm an ADVANCED coder blocks after reviewer-triggered resets exhaust the ladder
     - Confirm multiple reviewers accumulate on the same ladder
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Full test suite passes: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 3.V Verify task group 3
+    - [x] Full test suite passes: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 ## Traceability
 
