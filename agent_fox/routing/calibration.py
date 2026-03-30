@@ -63,11 +63,6 @@ class StatisticalAssessor:
         self._last_training_count: int = 0
         self._single_class_label: str | None = None
 
-    @property
-    def last_training_count(self) -> int:
-        """Number of outcomes at last training."""
-        return self._last_training_count
-
     def is_ready(self, training_threshold: int) -> bool:
         """True if enough data points exist for training."""
         return count_outcomes(self._db) >= training_threshold

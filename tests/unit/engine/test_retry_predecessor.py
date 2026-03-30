@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.graph_sync import GraphSync
+from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.types import Edge, Node, TaskGraph
 
@@ -69,6 +70,25 @@ def _make_orchestrator_with_graph(
 
     # Mock state manager
     orch._state_manager = MagicMock(spec=StateManager)
+
+    # Initialize result handler (normally done in run())
+    orch._result_handler = SessionResultHandler(
+        graph_sync=orch._graph_sync,
+        state_manager=orch._state_manager,
+        routing_ladders=orch._routing.ladders,
+        routing_assessments=orch._routing.assessments,
+        routing_pipeline=orch._routing.pipeline,
+        retries_before_escalation=orch._routing.retries_before_escalation,
+        max_retries=config.max_retries,
+        task_callback=None,
+        sink=None,
+        run_id="test-run",
+        graph=orch._graph,
+        archetypes_config=None,
+        knowledge_db_conn=None,
+        block_task_fn=orch._block_task,
+        check_block_budget_fn=orch._check_block_budget,
+    )
 
     state = ExecutionState(
         plan_hash="test",
@@ -142,7 +162,7 @@ class TestPredecessorReset:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             1,
             state,
@@ -215,7 +235,7 @@ class TestRetryCycleLimit:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             3,
             state,
@@ -280,7 +300,7 @@ class TestNonCoderPredecessor:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             failed_record,
             1,
             state,

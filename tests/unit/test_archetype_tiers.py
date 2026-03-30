@@ -469,9 +469,7 @@ class TestDocsDescribeConfigOverride:
     def test_docs_mention_config(self) -> None:
         docs_path = Path("docs/archetypes.md")
         content = docs_path.read_text()
-        assert "config" in content.lower(), (
-            "docs/archetypes.md must mention config"
-        )
+        assert "config" in content.lower(), "docs/archetypes.md must mention config"
 
 
 # ---------------------------------------------------------------------------

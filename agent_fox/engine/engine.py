@@ -35,7 +35,6 @@ from agent_fox.core.errors import PlanError
 from agent_fox.core.models import ModelTier
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.barrier import sync_develop_bidirectional, verify_worktrees
-from agent_fox.engine.blocking import evaluate_review_blocking
 from agent_fox.engine.circuit import CircuitBreaker
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import (
@@ -45,6 +44,7 @@ from agent_fox.engine.hot_load import (
     should_trigger_barrier,
 )
 from agent_fox.engine.parallel import ParallelRunner
+from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
@@ -360,6 +360,8 @@ class Orchestrator:
             retries_before_escalation=self._resolve_retries_before_escalation(_rc),
         )
 
+        self._result_handler: SessionResultHandler | None = None
+
         self._serial_runner = SerialRunner(
             session_runner_factory=session_runner_factory,
             inter_session_delay=float(config.inter_session_delay),
@@ -453,7 +455,7 @@ class Orchestrator:
             return  # Already assessed
 
         # Without an assessment pipeline, skip adaptive routing entirely
-        # and rely on the legacy retry path in _process_session_result.
+        # and rely on the fallback retry path in SessionResultHandler.
         if self._routing.pipeline is None:
             return
 
@@ -571,57 +573,6 @@ class Orchestrator:
 
         return (verdict, attempt, previous_error, archetype, instances, assessed_tier)
 
-    def _record_node_outcome(
-        self,
-        node_id: str,
-        state: ExecutionState,
-        final_status: str,
-    ) -> None:
-        """Record execution outcome for a completed/failed node.
-
-        Aggregates costs and tokens from all session records for this node
-        and persists the outcome via the assessment pipeline.
-
-        Requirements: 30-REQ-7.4, 30-REQ-3.1
-        """
-        if self._routing.pipeline is None:
-            return
-        assessment = self._routing.assessments.get(node_id)
-        if assessment is None:
-            return
-
-        ladder = self._routing.ladders.get(node_id)
-
-        # Aggregate metrics from all session records for this node
-        node_records = [r for r in state.session_history if r.node_id == node_id]
-        total_tokens = sum(r.input_tokens + r.output_tokens for r in node_records)
-        total_cost = sum(r.cost for r in node_records)
-        total_duration = sum(r.duration_ms for r in node_records)
-        files_touched = set()
-        for r in node_records:
-            files_touched.update(r.files_touched)
-
-        try:
-            self._routing.pipeline.record_outcome(
-                assessment=assessment,
-                actual_tier=(
-                    ladder.current_tier if ladder else assessment.predicted_tier
-                ),
-                total_tokens=total_tokens,
-                total_cost=total_cost,
-                duration_ms=total_duration,
-                attempt_count=ladder.attempt_count if ladder else len(node_records),
-                escalation_count=ladder.escalation_count if ladder else 0,
-                outcome=final_status,
-                files_touched_count=len(files_touched),
-            )
-        except Exception:
-            logger.warning(
-                "Failed to record outcome for %s",
-                node_id,
-                exc_info=True,
-            )
-
     async def run(self) -> ExecutionState:
         """Execute the full orchestration loop.
 
@@ -692,6 +643,23 @@ class Orchestrator:
         _reset_in_progress_tasks(state, self._state_manager)
 
         self._graph_sync = GraphSync(state.node_states, edges_dict)
+        self._result_handler = SessionResultHandler(
+            graph_sync=self._graph_sync,
+            state_manager=self._state_manager,
+            routing_ladders=self._routing.ladders,
+            routing_assessments=self._routing.assessments,
+            routing_pipeline=self._routing.pipeline,
+            retries_before_escalation=self._routing.retries_before_escalation,
+            max_retries=self._config.max_retries,
+            task_callback=self._task_callback,
+            sink=self._sink,
+            run_id=self._run_id,
+            graph=self._graph,
+            archetypes_config=self._archetypes_config,
+            knowledge_db_conn=self._knowledge_db_conn,
+            block_task_fn=self._block_task,
+            check_block_budget_fn=self._check_block_budget,
+        )
 
         attempt_tracker = _init_attempt_tracker(state)
         error_tracker = _init_error_tracker(state)
@@ -1051,7 +1019,7 @@ class Orchestrator:
                 run_id=self._run_id,
             )
 
-            self._process_session_result(
+            self._result_handler.process(
                 record,
                 attempt,
                 state,
@@ -1062,7 +1030,7 @@ class Orchestrator:
             # 06-REQ-6.1: Check sync barrier after task completion
             if record.status == "completed":
                 # 30-REQ-7.4: Record outcome on success
-                self._record_node_outcome(node_id, state, "completed")
+                self._result_handler.record_node_outcome(node_id, state, "completed")
                 await self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks after each completion
@@ -1168,7 +1136,7 @@ class Orchestrator:
                     logger.error("Parallel task raised: %s", exc)
                     continue
 
-                self._process_session_result(
+                self._result_handler.process(
                     record,
                     attempt_tracker.get(record.node_id, 1),
                     state,
@@ -1179,7 +1147,9 @@ class Orchestrator:
                 # 06-REQ-6.1: Check sync barrier after task completion
                 if record.status == "completed":
                     # 30-REQ-7.4: Record outcome on success
-                    self._record_node_outcome(record.node_id, state, "completed")
+                    self._result_handler.record_node_outcome(
+                        record.node_id, state, "completed"
+                    )
                     if self._should_trigger_barrier(state):
                         barrier_needed = True
 
@@ -1203,7 +1173,7 @@ class Orchestrator:
                     except Exception as exc:
                         logger.error("Drained task raised: %s", exc)
                         continue
-                    self._process_session_result(
+                    self._result_handler.process(
                         drain_record,
                         attempt_tracker.get(drain_record.node_id, 1),
                         state,
@@ -1211,7 +1181,7 @@ class Orchestrator:
                         error_tracker,
                     )
                     if drain_record.status == "completed":
-                        self._record_node_outcome(
+                        self._result_handler.record_node_outcome(
                             drain_record.node_id, state, "completed"
                         )
 
@@ -1228,172 +1198,6 @@ class Orchestrator:
 
             parallel_runner.track_tasks(list(pool))
             self._state_manager.save(state)
-
-    def _process_session_result(
-        self,
-        record: SessionRecord,
-        attempt: int,
-        state: ExecutionState,
-        attempt_tracker: dict[str, int],
-        error_tracker: dict[str, str | None],
-    ) -> None:
-        """Process a completed session record and persist state."""
-        assert self._graph_sync is not None  # noqa: S101
-
-        node_id = record.node_id
-        self._state_manager.record_session(state, record)
-
-        if record.status == "completed":
-            prev_status = self._graph_sync.node_states.get(node_id, "in_progress")
-            self._graph_sync.mark_completed(node_id)
-            # 40-REQ-9.4: Emit task.status_change on completion
-            self._emit_audit(
-                AuditEventType.TASK_STATUS_CHANGE,
-                node_id=node_id,
-                payload={
-                    "from_status": prev_status,
-                    "to_status": "completed",
-                    "reason": "session completed successfully",
-                },
-            )
-            error_tracker.pop(node_id, None)
-            # 18-REQ-5.4: Emit task completion event
-            if self._task_callback is not None:
-                duration_s = (record.duration_ms or 0) / 1000
-                self._task_callback(
-                    TaskEvent(
-                        node_id=node_id,
-                        status="completed",
-                        duration_s=duration_s,
-                    )
-                )
-
-            # Skeptic/oracle blocking: check findings after successful review
-            if self._check_skeptic_blocking(record, state):
-                self._check_block_budget(state)
-        else:
-            error_tracker[node_id] = record.error_message
-
-            # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
-            node_archetype = self._get_node_archetype(node_id)
-            archetype_entry = get_archetype(node_archetype)
-
-            # 30-REQ-7.3: Use escalation ladder for retry/escalation decisions
-            ladder = self._routing.ladders.get(node_id)
-
-            if ladder is not None:
-                ladder.record_failure()
-                can_retry = ladder.should_retry()
-                exhausted = ladder.is_exhausted
-            else:
-                # Fallback: no ladder (backward compat)
-                max_attempts = self._config.max_retries + 1
-                can_retry = attempt < max_attempts
-                exhausted = attempt >= max_attempts
-
-            # Retry-predecessor: reset predecessor instead of failed node
-            if archetype_entry.retry_predecessor and can_retry:
-                predecessors = self._get_predecessors(node_id)
-                if predecessors:
-                    pred_id = predecessors[0]
-
-                    # 58-REQ-1.1: Record failure on predecessor's escalation ladder
-                    from agent_fox.routing.escalation import EscalationLadder
-
-                    pred_ladder = self._routing.ladders.get(pred_id)
-                    if pred_ladder is None:
-                        # 58-REQ-1.E1: Create ladder defensively with archetype defaults
-                        pred_archetype = self._get_node_archetype(pred_id)
-                        pred_entry = get_archetype(pred_archetype)
-                        pred_starting = ModelTier(pred_entry.default_model_tier)
-                        pred_ladder = EscalationLadder(
-                            starting_tier=pred_starting,
-                            tier_ceiling=ModelTier.ADVANCED,
-                            retries_before_escalation=self._routing.retries_before_escalation,
-                        )
-                        self._routing.ladders[pred_id] = pred_ladder
-
-                    pred_ladder.record_failure()
-
-                    # 58-REQ-2.1: Block predecessor if ladder exhausted
-                    if pred_ladder.is_exhausted:
-                        self._record_node_outcome(pred_id, state, "failed")
-                        self._block_task(
-                            pred_id,
-                            state,
-                            f"Predecessor {pred_id} exhausted all tiers after "
-                            f"reviewer {node_id} failures",
-                        )
-                        self._check_block_budget(state)
-                        self._state_manager.save(state)
-                        return
-
-                    logger.info(
-                        "Retry-predecessor: resetting %s to pending due to "
-                        "%s failure (attempt %d)",
-                        pred_id,
-                        node_id,
-                        attempt,
-                    )
-                    # 58-REQ-1.2: Reset predecessor to pending (possibly escalated tier)
-                    self._graph_sync.node_states[pred_id] = "pending"
-                    error_tracker[pred_id] = record.error_message
-                    self._graph_sync.node_states[node_id] = "pending"
-                    self._state_manager.save(state)
-                    return
-
-            if exhausted:
-                # 30-REQ-2.3, 30-REQ-7.4: All retries exhausted
-                self._record_node_outcome(node_id, state, "failed")
-                # 18-REQ-5.4: Emit task failure event
-                if self._task_callback is not None:
-                    duration_s = (record.duration_ms or 0) / 1000
-                    self._task_callback(
-                        TaskEvent(
-                            node_id=node_id,
-                            status="failed",
-                            duration_s=duration_s,
-                            error_message=record.error_message,
-                        )
-                    )
-                self._block_task(
-                    node_id,
-                    state,
-                    f"Retries exhausted for {node_id}: {record.error_message}",
-                )
-                self._check_block_budget(state)
-            else:
-                # 30-REQ-2.1/2.2: Retry at same tier or escalate
-                if ladder is not None and ladder.escalation_count > 0:
-                    prev_tier = record.model or "unknown"
-                    logger.warning(
-                        "Escalating %s from %s to %s",
-                        node_id,
-                        prev_tier,
-                        ladder.current_tier,
-                    )
-                    # 40-REQ-10.1: Emit model.escalation audit event
-                    self._emit_audit(
-                        AuditEventType.MODEL_ESCALATION,
-                        node_id=node_id,
-                        payload={
-                            "from_tier": prev_tier,
-                            "to_tier": ladder.current_tier.value,
-                            "reason": (f"retry limit at tier exhausted for {node_id}"),
-                        },
-                    )
-                # 40-REQ-9.4: Emit session.retry on pending reset
-                self._emit_audit(
-                    AuditEventType.SESSION_RETRY,
-                    node_id=node_id,
-                    payload={
-                        "attempt": attempt,
-                        "reason": record.error_message or "retrying after failure",
-                    },
-                )
-                self._graph_sync.node_states[node_id] = "pending"
-
-        self._state_manager.save(state)
 
     def _get_node_archetype(self, node_id: str) -> str:
         """Get the archetype name for a node from the task graph."""
@@ -1668,28 +1472,6 @@ class Orchestrator:
             self._state_manager.save(state)
             return True
 
-        return False
-
-    def _check_skeptic_blocking(
-        self,
-        record: SessionRecord,
-        state: ExecutionState,
-    ) -> bool:
-        """Check if a skeptic/oracle session's findings should block downstream tasks.
-
-        Delegates to ``engine.blocking.evaluate_review_blocking`` for the
-        decision logic. Acts on the result by calling ``_block_task``.
-
-        Returns True if the task was blocked.
-        """
-        decision = evaluate_review_blocking(
-            record,
-            self._archetypes_config,
-            self._knowledge_db_conn,
-        )
-        if decision.should_block:
-            self._block_task(decision.coder_node_id, state, decision.reason)
-            return True
         return False
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:

@@ -10,7 +10,6 @@ Requirements: 29-REQ-7.1, 29-REQ-7.2, 29-REQ-7.4,
 
 from __future__ import annotations
 
-import asyncio
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -333,12 +332,3 @@ def create_mcp_server(
                   29-REQ-7.E1
     """
     return FoxMCPServer(allowed_dirs=allowed_dirs)
-
-
-def run_server(allowed_dirs: list[str] | None = None) -> None:
-    """Run the MCP server on stdio (blocking).
-
-    Requirements: 29-REQ-7.E2
-    """
-    srv = create_mcp_server(allowed_dirs=allowed_dirs)
-    asyncio.run(srv.run_stdio())

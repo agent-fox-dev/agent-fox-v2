@@ -855,56 +855,36 @@ class NodeSessionRunner:
 
                 conn = self._knowledge_db.connection
 
-                if self._archetype == "skeptic":
-                    records = parse_review_findings(
-                        json_objects, self._spec_name, task_group, session_id
+                # Dispatch table: archetype -> (parser, inserter, label)
+                _review_dispatch = {
+                    "skeptic": (
+                        parse_review_findings,
+                        insert_findings,
+                        "skeptic findings",
+                    ),
+                    "verifier": (
+                        parse_verification_results,
+                        insert_verdicts,
+                        "verifier verdicts",
+                    ),
+                    "oracle": (
+                        parse_drift_findings,
+                        insert_drift_findings,
+                        "oracle drift findings",
+                    ),
+                }
+                parser, inserter, label = _review_dispatch[self._archetype]
+                records = parser(json_objects, self._spec_name, task_group, session_id)
+                if records:
+                    count = inserter(conn, records)
+                    logger.info("Persisted %d %s for %s", count, label, node_id)
+                else:
+                    self._emit_audit(
+                        AuditEventType.REVIEW_PARSE_FAILURE,
+                        node_id=node_id,
+                        severity=AuditSeverity.WARNING,
+                        payload={"raw_output": transcript[:2000]},
                     )
-                    if records:
-                        count = insert_findings(conn, records)
-                        logger.info(
-                            "Persisted %d skeptic findings for %s", count, node_id
-                        )
-                    else:
-                        self._emit_audit(
-                            AuditEventType.REVIEW_PARSE_FAILURE,
-                            node_id=node_id,
-                            severity=AuditSeverity.WARNING,
-                            payload={"raw_output": transcript[:2000]},
-                        )
-
-                elif self._archetype == "verifier":
-                    records = parse_verification_results(
-                        json_objects, self._spec_name, task_group, session_id
-                    )
-                    if records:
-                        count = insert_verdicts(conn, records)
-                        logger.info(
-                            "Persisted %d verifier verdicts for %s", count, node_id
-                        )
-                    else:
-                        self._emit_audit(
-                            AuditEventType.REVIEW_PARSE_FAILURE,
-                            node_id=node_id,
-                            severity=AuditSeverity.WARNING,
-                            payload={"raw_output": transcript[:2000]},
-                        )
-
-                elif self._archetype == "oracle":
-                    records = parse_drift_findings(
-                        json_objects, self._spec_name, task_group, session_id
-                    )
-                    if records:
-                        count = insert_drift_findings(conn, records)
-                        logger.info(
-                            "Persisted %d oracle drift findings for %s", count, node_id
-                        )
-                    else:
-                        self._emit_audit(
-                            AuditEventType.REVIEW_PARSE_FAILURE,
-                            node_id=node_id,
-                            severity=AuditSeverity.WARNING,
-                            payload={"raw_output": transcript[:2000]},
-                        )
 
             elif self._archetype == "auditor":
                 from agent_fox.session.auditor_output import (

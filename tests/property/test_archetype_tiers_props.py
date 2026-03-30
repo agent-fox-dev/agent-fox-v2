@@ -62,11 +62,7 @@ class TestRegistryDefaultsMatchSpec:
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @pytest.mark.property
-    @given(
-        name=st.sampled_from(
-            sorted(_ADVANCED_ARCHETYPES | _STANDARD_ARCHETYPES)
-        )
-    )
+    @given(name=st.sampled_from(sorted(_ADVANCED_ARCHETYPES | _STANDARD_ARCHETYPES)))
     @settings(max_examples=50)
     def test_prop_every_archetype_matches_spec(self, name: str) -> None:
         """For any archetype in the registry, tier matches the spec assignment."""
@@ -101,17 +97,12 @@ class TestCeilingAlwaysAdvanced:
                 retries_before_escalation=1,
             )
             assert ladder._tier_ceiling == ModelTier.ADVANCED, (
-                f"Expected ADVANCED ceiling for {name}, "
-                f"got {ladder._tier_ceiling!r}"
+                f"Expected ADVANCED ceiling for {name}, got {ladder._tier_ceiling!r}"
             )
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @pytest.mark.property
-    @given(
-        name=st.sampled_from(
-            sorted(_ADVANCED_ARCHETYPES | _STANDARD_ARCHETYPES)
-        )
-    )
+    @given(name=st.sampled_from(sorted(_ADVANCED_ARCHETYPES | _STANDARD_ARCHETYPES)))
     @settings(max_examples=50)
     def test_prop_ceiling_always_advanced(self, name: str) -> None:
         """For any archetype, a ladder with ADVANCED ceiling preserves the ceiling."""
@@ -231,9 +222,7 @@ class TestConfigOverridePrecedence:
         from agent_fox.knowledge.db import KnowledgeDB
 
         mock_kb = MagicMock(spec=KnowledgeDB)
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={name: override})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={name: override}))
         runner = NodeSessionRunner(
             "spec:1", config, archetype=name, knowledge_db=mock_kb
         )

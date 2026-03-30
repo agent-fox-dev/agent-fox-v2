@@ -16,6 +16,7 @@ from agent_fox.core.config import OrchestratorConfig
 from agent_fox.core.models import ModelTier
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.graph_sync import GraphSync
+from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 from agent_fox.graph.types import Edge, Node, TaskGraph
 from agent_fox.routing.escalation import EscalationLadder
@@ -87,6 +88,25 @@ def _make_orchestrator(
     orch._graph_sync = GraphSync(node_states, edges_dict)
     orch._state_manager = MagicMock(spec=StateManager)
 
+    # Initialize result handler (normally done in run())
+    orch._result_handler = SessionResultHandler(
+        graph_sync=orch._graph_sync,
+        state_manager=orch._state_manager,
+        routing_ladders=orch._routing.ladders,
+        routing_assessments=orch._routing.assessments,
+        routing_pipeline=orch._routing.pipeline,
+        retries_before_escalation=orch._routing.retries_before_escalation,
+        max_retries=config.max_retries,
+        task_callback=None,
+        sink=None,
+        run_id="test-run",
+        graph=orch._graph,
+        archetypes_config=None,
+        knowledge_db_conn=None,
+        block_task_fn=orch._block_task,
+        check_block_budget_fn=orch._check_block_budget,
+    )
+
     state = ExecutionState(
         plan_hash="test",
         node_states=node_states,
@@ -149,7 +169,7 @@ class TestReviewerFailureRecordsOnPredLadder:
         orch._routing.ladders["spec:1"] = pred_ladder
         initial_count = pred_ladder.attempt_count  # = 1 before any failures
 
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(),
             1,
             state,
@@ -189,7 +209,7 @@ class TestPredecessorResetToPending:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(),
             1,
             state,
@@ -236,7 +256,7 @@ class TestPredecessorEscalatesAfterRetries:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still STANDARD
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -250,7 +270,7 @@ class TestPredecessorEscalatesAfterRetries:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — escalates to ADVANCED
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=2),
             2,
             state,
@@ -291,7 +311,7 @@ class TestPredecessorBlocksOnExhaustion:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still retrying
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -305,7 +325,7 @@ class TestPredecessorBlocksOnExhaustion:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — exhausts the ladder
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=2),
             2,
             state,
@@ -346,15 +366,17 @@ class TestOutcomeRecordedOnBlock:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        with patch.object(orch, "_record_node_outcome") as mock_record:
-            orch._process_session_result(
+        with patch.object(
+            orch._result_handler, "record_node_outcome"
+        ) as mock_record:
+            orch._result_handler.process(
                 _make_failed_reviewer_record(attempt=1),
                 1,
                 state,
                 attempt_tracker,
                 error_tracker,
             )
-            # 58-REQ-2.2: must call _record_node_outcome with pred_id and "failed"
+            # 58-REQ-2.2: must call record_node_outcome with pred_id and "failed"
             mock_record.assert_called_once_with("spec:1", state, "failed")
 
 
@@ -386,7 +408,7 @@ class TestNeitherNodeResetWhenBlocked:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -446,7 +468,7 @@ class TestMultipleReviewersShareLadder:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # 1st failure (verifier)
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record("spec:2", 1),
             1,
             state,
@@ -460,7 +482,7 @@ class TestMultipleReviewersShareLadder:
         state.node_states["spec:1:auditor"] = "in_progress"
 
         # 2nd failure (auditor)
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
             1,
             state,
@@ -474,7 +496,7 @@ class TestMultipleReviewersShareLadder:
         state.node_states["spec:2"] = "in_progress"
 
         # 3rd failure (verifier again) — triggers escalation
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record("spec:2", 2),
             2,
             state,
@@ -535,7 +557,7 @@ class TestCumulativeEscalationDecision:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # 1st failure (verifier): still at STANDARD
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record("spec:2", 1),
             1,
             state,
@@ -549,7 +571,7 @@ class TestCumulativeEscalationDecision:
         state.node_states["spec:1:auditor"] = "in_progress"
 
         # 2nd failure (auditor): cumulative count triggers escalation to ADVANCED
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
             1,
             state,
@@ -582,7 +604,7 @@ class TestNoLadderCreatedDefensively:
         # Confirm no predecessor ladder exists before the call
         assert "spec:1" not in orch._routing.ladders
 
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(),
             1,
             state,
@@ -606,7 +628,7 @@ class TestNoLadderCreatedDefensively:
             CODER_VERIFIER_NODES, CODER_VERIFIER_EDGES, node_states
         )
 
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(),
             1,
             state,
@@ -653,7 +675,7 @@ class TestAdvancedCeilingBlocks:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still retrying
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -667,7 +689,7 @@ class TestAdvancedCeilingBlocks:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — no tier to escalate to, ladder exhausted
-        orch._process_session_result(
+        orch._result_handler.process(
             _make_failed_reviewer_record(attempt=2),
             2,
             state,
