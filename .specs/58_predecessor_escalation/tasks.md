@@ -25,8 +25,8 @@ either reset the predecessor or block it depending on exhaustion state.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_predecessor_escalation.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_predecessor_escalation.py`
     - Tests for TS-58-1: reviewer failure records on predecessor ladder
     - Tests for TS-58-2: predecessor reset to pending
     - Tests for TS-58-3: predecessor escalates after retries exhausted at tier
@@ -39,17 +39,17 @@ either reset the predecessor or block it depending on exhaustion state.
     - Tests for TS-58-E2: predecessor at ADVANCED ceiling blocks
     - _Test Spec: TS-58-1 through TS-58-8, TS-58-E1, TS-58-E2_
 
-  - [ ] 1.2 Create property test file `tests/property/test_predecessor_escalation_props.py`
+  - [x] 1.2 Create property test file `tests/property/test_predecessor_escalation_props.py`
     - Tests for TS-58-P1: reviewer resets accumulate on predecessor ladder
     - Tests for TS-58-P2: predecessor escalates after N+1 failures
     - Tests for TS-58-P3: exhausted predecessor is blocked
     - Tests for TS-58-P4: missing ladder created defensively
     - _Test Spec: TS-58-P1 through TS-58-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/test_predecessor_escalation.py tests/property/test_predecessor_escalation_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_predecessor_escalation.py tests/property/test_predecessor_escalation_props.py`
 
 - [ ] 2. Implement predecessor escalation
   - [ ] 2.1 Modify `retry_predecessor` branch in `engine/engine.py:_process_session_result`
