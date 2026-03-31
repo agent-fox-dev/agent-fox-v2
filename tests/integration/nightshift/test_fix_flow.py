@@ -1,8 +1,14 @@
 """Integration tests for fix pipeline flow.
 
-Test Spec: TS-61-18, TS-61-19, TS-61-20, TS-61-22, TS-61-E8, TS-61-E10
-Requirements: 61-REQ-6.3, 61-REQ-6.4, 61-REQ-7.1, 61-REQ-7.3,
-              61-REQ-6.E1, 61-REQ-7.E1
+Test Spec: TS-61-18, TS-61-19, TS-61-E8
+Requirements: 61-REQ-6.3, 61-REQ-6.4, 61-REQ-6.E1
+
+Note: TS-61-20 (PR creation) and TS-61-22 (PR link comment) were removed
+in spec 65 when create_pr was removed from the platform layer (65-REQ-4.2).
+The fix pipeline now posts a completion comment with the branch name
+instead of creating a PR.
+TS-61-E10 (PR creation failure fallback) is superseded: the pipeline always
+posts a branch-name completion comment, so no fallback path exists.
 """
 
 from __future__ import annotations
@@ -39,9 +45,6 @@ class TestArchetypePipeline:
 
         config = MagicMock()
         mock_platform = AsyncMock()
-        mock_platform.create_pr = AsyncMock(
-            return_value="https://github.com/test/repo/pull/99"
-        )
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -85,9 +88,6 @@ class TestFixProgressComments:
 
         config = MagicMock()
         mock_platform = AsyncMock()
-        mock_platform.create_pr = AsyncMock(
-            return_value="https://github.com/test/repo/pull/99"
-        )
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -106,26 +106,23 @@ class TestFixProgressComments:
 
 
 # ---------------------------------------------------------------------------
-# TS-61-20: PR created on fix success
-# Requirement: 61-REQ-7.1
+# Fix completion comment includes branch name
+# Validates post-65 behavior: branch name posted instead of PR link
 # ---------------------------------------------------------------------------
 
 
-class TestPRCreation:
-    """Verify that one PR is created per successful fix."""
+class TestFixCompletionComment:
+    """Verify that on success the branch name appears in a completion comment."""
 
     @pytest.mark.asyncio
-    async def test_pr_created_on_success(self) -> None:
-        """platform.create_pr() called exactly once on success."""
+    async def test_branch_name_in_completion_comment(self) -> None:
+        """Completion comment contains the fix branch name."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()
         mock_platform = AsyncMock()
-        mock_platform.create_pr = AsyncMock(
-            return_value="https://github.com/test/repo/pull/99"
-        )
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
@@ -135,45 +132,7 @@ class TestPRCreation:
             "_run_session",
             AsyncMock(return_value=MagicMock(success=True)),
         ):
-            issue = _make_issue()
-            await pipeline.process_issue(
-                issue, issue_body="Fix something"
-            )
-
-        assert mock_platform.create_pr.call_count == 1
-
-
-# ---------------------------------------------------------------------------
-# TS-61-22: Issue comment links to PR
-# Requirement: 61-REQ-7.3
-# ---------------------------------------------------------------------------
-
-
-class TestIssueCommentLinksToPR:
-    """Verify that a comment with PR link is posted on the issue."""
-
-    @pytest.mark.asyncio
-    async def test_pr_link_in_comment(self) -> None:
-        """Comment posted containing the PR URL."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        from agent_fox.nightshift.fix_pipeline import FixPipeline
-
-        config = MagicMock()
-        mock_platform = AsyncMock()
-        mock_platform.create_pr = AsyncMock(
-            return_value="https://github.com/test/repo/pull/99"
-        )
-        mock_platform.add_issue_comment = AsyncMock()
-
-        pipeline = FixPipeline(config=config, platform=mock_platform)
-
-        with patch.object(
-            pipeline,
-            "_run_session",
-            AsyncMock(return_value=MagicMock(success=True)),
-        ):
-            issue = _make_issue()
+            issue = _make_issue(number=42, title="Fix unused imports")
             await pipeline.process_issue(
                 issue, issue_body="Fix something"
             )
@@ -181,7 +140,7 @@ class TestIssueCommentLinksToPR:
         comments = [
             str(call) for call in mock_platform.add_issue_comment.call_args_list
         ]
-        assert any("pull/99" in c for c in comments)
+        assert any("fix/" in c for c in comments)
 
 
 # ---------------------------------------------------------------------------
@@ -220,46 +179,3 @@ class TestFixSessionFailure:
             str(call) for call in mock_platform.add_issue_comment.call_args_list
         ]
         assert any("fail" in c.lower() for c in comments)
-
-
-# ---------------------------------------------------------------------------
-# TS-61-E10: PR creation failure
-# Requirement: 61-REQ-7.E1
-# ---------------------------------------------------------------------------
-
-
-class TestPRCreationFailure:
-    """Verify fallback when PR creation fails."""
-
-    @pytest.mark.asyncio
-    async def test_branch_name_in_comment(self) -> None:
-        """Comment posted on issue with branch name for manual PR creation."""
-        from unittest.mock import AsyncMock, MagicMock, patch
-
-        import httpx
-
-        from agent_fox.nightshift.fix_pipeline import FixPipeline
-
-        config = MagicMock()
-        mock_platform = AsyncMock()
-        mock_platform.create_pr = AsyncMock(
-            side_effect=httpx.HTTPError("API error")
-        )
-        mock_platform.add_issue_comment = AsyncMock()
-
-        pipeline = FixPipeline(config=config, platform=mock_platform)
-
-        with patch.object(
-            pipeline,
-            "_run_session",
-            AsyncMock(return_value=MagicMock(success=True)),
-        ):
-            issue = _make_issue()
-            await pipeline.process_issue(
-                issue, issue_body="Fix something"
-            )
-
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
-        assert any("fix/" in c for c in comments)

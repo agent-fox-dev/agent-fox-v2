@@ -149,7 +149,7 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 65-REQ-7.* met
 
-- [ ] 5. Checkpoint — Platform Config Overhaul Complete
+- [x] 5. Checkpoint — Platform Config Overhaul Complete
   - Ensure `make check` passes (lint + all tests).
   - Update `docs/memory.md` with key decisions if applicable.
   - Verify no stale references to `auto_merge` or `create_pr` remain

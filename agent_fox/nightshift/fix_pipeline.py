@@ -1,7 +1,11 @@
-"""Fix pipeline: issue-to-PR workflow.
+"""Fix pipeline: issue-to-branch workflow.
+
+Post-harvest integration now handles pushing branches to origin via local git.
+PR creation was removed from the platform layer (spec 65, 65-REQ-4.2); the
+pipeline instead posts a completion comment with the branch name so that users
+can create a PR manually.
 
 Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
-              61-REQ-7.1, 61-REQ-7.2, 61-REQ-7.3, 61-REQ-7.E1,
               61-REQ-6.E1, 61-REQ-6.E2
 """
 
@@ -25,12 +29,13 @@ def build_pr_body(issue_number: int, summary: str) -> str:
 
 
 class FixPipeline:
-    """Issue-to-PR fix workflow.
+    """Issue-to-branch fix workflow.
 
     Drives an issue through investigation, coding, and review using
-    the full archetype pipeline, then creates a PR.
+    the full archetype pipeline, then posts a completion comment with
+    the branch name so the user can open a PR manually.
 
-    Requirements: 61-REQ-6.1 through 61-REQ-6.4, 61-REQ-7.1, 61-REQ-7.3
+    Requirements: 61-REQ-6.1 through 61-REQ-6.4
     """
 
     def __init__(
@@ -153,28 +158,15 @@ class FixPipeline:
             )
             return
 
-        # 61-REQ-7.1: create PR
-        try:
-            pr_body = build_pr_body(issue.number, f"Fix for: {issue.title}")
-            pr_url = await self._platform.create_pr(  # type: ignore[union-attr]
-                spec.branch_name,
-                f"fix: {issue.title}",
-                pr_body,
-            )
-            # 61-REQ-7.3: link PR in issue comment
-            await self._platform.add_issue_comment(  # type: ignore[union-attr]
-                issue.number,
-                f"Pull request created: {pr_url}",
-            )
-        except Exception:
-            # 61-REQ-7.E1: fallback comment with branch name
-            await self._platform.add_issue_comment(  # type: ignore[union-attr]
-                issue.number,
-                "PR creation failed. You can create a PR manually "
-                f"from branch `{spec.branch_name}`.",
-            )
-            logger.warning(
-                "PR creation failed for issue #%d",
-                issue.number,
-                exc_info=True,
-            )
+        # Post completion comment — PR creation is no longer done via the
+        # platform layer (65-REQ-4.2).  Post-harvest pushes the branch to
+        # origin; the user creates the PR manually.
+        await self._platform.add_issue_comment(  # type: ignore[union-attr]
+            issue.number,
+            f"Fix sessions complete. Create a PR from branch `{spec.branch_name}`.",
+        )
+        logger.info(
+            "Fix pipeline complete for issue #%d on branch %s",
+            issue.number,
+            spec.branch_name,
+        )
