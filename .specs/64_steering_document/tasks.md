@@ -25,15 +25,15 @@ runtime behavior and can be done independently.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test files
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test files
     - `tests/unit/cli/test_steering.py` — init-related tests
     - `tests/unit/session/test_steering.py` — load_steering and placeholder detection tests
     - `tests/integration/test_steering.py` — context assembly ordering test
     - `tests/property/session/test_steering_props.py` — property tests
     - _Test Spec: TS-64-1 through TS-64-11_
 
-  - [ ] 1.2 Translate acceptance-criterion tests
+  - [x] 1.2 Translate acceptance-criterion tests
     - TS-64-1: init creates file when absent
     - TS-64-2: init skips existing file
     - TS-64-3: placeholder contains sentinel and comments
@@ -47,21 +47,21 @@ runtime behavior and can be done independently.
     - TS-64-11: sentinel marker in placeholder constant
     - _Test Spec: TS-64-1 through TS-64-11_
 
-  - [ ] 1.3 Translate edge-case tests
+  - [x] 1.3 Translate edge-case tests
     - TS-64-E1: permission error creating .specs
     - TS-64-E2: unreadable steering file at runtime
     - _Test Spec: TS-64-E1, TS-64-E2_
 
-  - [ ] 1.4 Translate property tests
+  - [x] 1.4 Translate property tests
     - TS-64-P1: idempotent initialization
     - TS-64-P2: placeholder detection accuracy
     - TS-64-P3: context ordering invariant
     - _Test Spec: TS-64-P1, TS-64-P2, TS-64-P3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Implement init and runtime loading
   - [ ] 2.1 Add `_STEERING_PLACEHOLDER` constant and `_ensure_steering_md()` to `agent_fox/cli/init.py`
