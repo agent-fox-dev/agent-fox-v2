@@ -78,6 +78,18 @@ verifier = 2
 ## Maximum auditor-coder retry iterations (>=0, default: 2)
 # max_retries = 2
 
+[archetypes.thinking.coder]
+mode = "adaptive"
+budget_tokens = 100000
+
+[archetypes.thinking.skeptic]
+mode = "adaptive"
+budget_tokens = 64000
+
+[archetypes.thinking.verifier]
+mode = "enabled"
+budget_tokens = 64000
+
 # [routing]
 ## Retries before model escalation (0-3, default: 1)
 # retries_before_escalation = 1

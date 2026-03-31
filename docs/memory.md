@@ -16,6 +16,24 @@
 - The Claude CLI rejects --fallback-model when it equals the session's primary model; set resolved_fallback to None when they match to avoid 'Fallback model cannot be the same as the main model' errors. _(spec: 61_night_shift, confidence: 0.90)_
 - Checkbox reset logic using column-0 anchored regex skips indented sub-task checkboxes; use section-based matching instead to reset checkboxes at any nesting depth within each task group. _(spec: 61_night_shift, confidence: 0.90)_
 - Use JSON.JSONDecoder.raw_decode() instead of naive bracket-depth tracking for extracting JSON arrays from LLM output, as the latter fails for JSON strings containing [ or ] characters. _(spec: 61_night_shift, confidence: 0.90)_
+- A 10% cost-limit threshold in engine.py was too strict and caused integration test failures; increasing it to 50% correctly prevents over-budget dispatching when more than half the budget is consumed. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- asyncio.get_event_loop().run_until_complete() is deprecated in Python 3.12; use asyncio.run() instead for running async code in tests to avoid RuntimeError when the event loop was closed by a prior pytest-asyncio test. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Claude CLI expects hyphenated flag names (--max-budget-usd, --fallback-model) rather than underscored names when passed via extra_args to the SDK. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When a fallback model configuration matches the primary session model ID, it must be set to None before passing to the Claude CLI, as the CLI rejects fallback models that are identical to the main model. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Task checkbox reset logic using regex anchored to column 0 will skip indented sub-task checkboxes; use section-based matching instead to reset checkboxes at any nesting depth. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When extracting JSON from LLM output text, bracket-depth scanning alone fails for JSON strings containing bracket characters; use JSONDecoder.raw_decode() as a fallback extraction method. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Hypothesis tests using function-scoped tmp_path fixtures cannot be reused across multiple Hypothesis examples without triggering FileExistsError; use request.getfixturevalue() or module-scoped paths instead. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- The Claude CLI expects hyphenated flag names (--max-budget-usd, --fallback-model) rather than underscored names (--max_budget_usd, --fallback_model) when passed via extra_args. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- The Claude CLI rejects --fallback-model when it equals the session's primary model; set resolved_fallback to None when they match to avoid validation errors. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Checkbox reset logic using column-0 anchored regex skips indented sub-task checkboxes; use section-based matching instead to reset checkboxes at any nesting depth. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use JSON.JSONDecoder.raw_decode() instead of naive bracket-depth tracking for extracting JSON arrays from LLM output, as the latter fails when JSON strings contain [ or ] characters. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- asyncio.get_event_loop().run_until_complete() is deprecated in Python 3.12; use asyncio.run() instead to avoid RuntimeError when the event loop was closed by prior tests. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- A 10% cost-limit threshold was too strict and caused integration test failures; increasing it to 50% correctly prevents over-budget dispatching when more than half the budget is consumed. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Hypothesis tests using function-scoped tmp_path fixtures cannot be reused across multiple Hypothesis examples without triggering FileExistsError. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- ADR 02 documents removal of fox tools (fox_read, fox_edit, fox_outline, fox_search) because audit logs showed fox_edit was never used despite being the centrepiece of the design; the model preferred Claude's built-in Edit tool. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- The Claude SDK expects hyphenated CLI flag names (--max-budget-usd, --fallback-model) not underscored versions (--max_budget_usd, --fallback_model), causing "unknown option" errors when passing extra_args. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- The Claude CLI rejects --fallback-model when it equals the session's primary model; resolved_fallback must be set to None when it matches the session model ID to avoid validation errors. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Checkbox reset logic using regex anchored to column 0 (^) skipped indented sub-task checkboxes; section-based matching that identifies task groups and resets all checkboxes at any nesting depth is required. _(spec: 62_remove_coordinator, confidence: 0.90)_
 
 ## Patterns
 
@@ -106,6 +124,67 @@
 - Restrict config file and directory permissions to owner-only (0o600 for files, 0o700 for dirs) using custom _secure_write_text() and _secure_mkdir() helpers instead of relying on system umask. _(spec: 61_night_shift, confidence: 0.90)_
 - Escape markdown special characters in all database-sourced fields before rendering to prevent unexpected formatting when CLI output is piped to a markdown renderer. _(spec: 61_night_shift, confidence: 0.90)_
 - Log full diagnostic details at debug level only; surface only operation name and status/exit code in user-facing exception messages to prevent path and API detail leakage. _(spec: 61_night_shift, confidence: 0.90)_
+- LLM JSON responses should be validated with field-level constraints (content: 5000 chars, keywords: 100 chars/20 max, refs: 500 chars, evidence: 10000 chars) and overall size gating (500KB) to prevent memory exhaustion and prompt injection. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Sanitize untrusted content in LLM prompts using boundary markers (nonce-tagged XML tags), control character stripping, and content truncation to prevent prompt injection attacks. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Validate table names against an allowlist before SQL interpolation in DuckDB queries to prevent SQL injection even if callers are modified to pass dynamic values. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Guard each cleanup step independently in finally blocks with separate try/except so that a failure in one step (e.g., DuckDB lock contention) does not prevent subsequent cleanup steps from executing. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Add __repr__ overrides to classes storing sensitive data (e.g., GitHubPlatform with PAT) to prevent token exposure in tracebacks, debug logs, or crash dumps. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Prevent git argument injection by validating ref names (reject leading '-' and unsafe characters) and add '--' end-of-options separator to branch/merge commands. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Restrict config file and directory permissions to owner-only (0o600 for files, 0o700 for dirs) using custom _secure_write_text() and _secure_mkdir() helpers instead of relying on system umask. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Escape markdown special characters in all database-sourced fields before rendering to prevent unexpected formatting when CLI output is piped to a markdown renderer. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Log full diagnostic details at debug level only; surface only operation name and status/exit code in user-facing exception messages to prevent path and API detail leakage. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Running the full test suite early can reveal that task group objectives are already complete, saving time and preventing duplicate implementation effort. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When changing default parameter values (e.g., abbreviate_arg max_len from 30 to 60), explicitly update dependent tests to use the old default value rather than relying on implicit defaults. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Status rendering logic needs to be updated whenever new task states are added to ensure complete branch coverage in the formatting function. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Test files should be organized across unit, integration, and property test directories to provide comprehensive coverage of different testing concerns. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Tests should be created and validated to fail before implementation exists, ensuring they properly specify expected behavior. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use @pytest.mark.asyncio decorator to mark async test methods, and create tasks with asyncio.create_task() for concurrent test operations. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Mock async methods using AsyncMock from unittest.mock, and verify call counts with .call_count attribute on mocked async functions. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use hypothesis @given decorator with strategies (st.integers, st.text, st.sampled_from) for property-based testing, and apply @settings(max_examples=N) to control iteration count. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Dataclasses should be marked as frozen to ensure immutability and prevent accidental mutations in tests. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use caplog fixture with caplog.at_level(logging.LEVEL) context manager to capture and verify log messages in tests. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- When testing graceful shutdown, use asyncio.Event() to coordinate timing between the main task and shutdown signal, ensuring operations complete before exit. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Finding objects require 8 fields: category, title, description, severity, affected_files, suggested_fix, evidence, and group_key. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Group findings by group_key (root cause) into FindingGroup objects before creating platform issues, with one issue per group. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Engine state should track is_shutting_down flag, total_cost, and issues_fixed; use request_shutdown() method to initiate graceful shutdown. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Test isolation requires mocking platform API calls (list_issues_by_label, create_issue, add_issue_comment, create_pr) with AsyncMock to avoid real network calls. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Fix pipeline should invoke three archetypes in sequence (skeptic, coder, verifier) via _run_session() method to process a single issue. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Audit event types should be added to the AuditEventType enum before wiring them into engine implementations that emit those events. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- LLM JSON responses should be validated with field-level constraints and overall size gating to prevent memory exhaustion and prompt injection. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Sanitize untrusted content in LLM prompts using boundary markers (nonce-tagged XML tags), control character stripping, and content truncation to prevent prompt injection attacks. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Validate table names against an allowlist before SQL interpolation in DuckDB queries to prevent SQL injection. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Guard each cleanup step independently in finally blocks with separate try/except so that a failure in one step does not prevent subsequent cleanup steps. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Add __repr__ overrides to classes storing sensitive data (e.g., GitHubPlatform with PAT) to prevent token exposure in tracebacks and debug logs. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Prevent git argument injection by validating ref names (reject leading '-' and unsafe characters) and add '--' end-of-options separator to branch/merge commands. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Restrict config file and directory permissions to owner-only (0o600 for files, 0o700 for dirs) using custom _secure_write_text() and _secure_mkdir() helpers. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Escape markdown special characters in all database-sourced fields before rendering to prevent unexpected formatting when output is piped to markdown. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Log full diagnostic details at debug level only; surface only operation name and status in user-facing exception messages to prevent path and API detail leakage. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- When changing default parameter values, explicitly update dependent tests to use the old default value rather than relying on implicit defaults. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Status rendering logic needs to be updated whenever new task states are added to ensure complete branch coverage. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- When implementing a feature removal (like deprecating --reanalyze), write failing tests first that verify the old behavior is rejected, then write tests for the new behavior (--always-rebuild), before removing the dead code. _(spec: 63_plan_always_rebuild, confidence: 0.60)_
+- When removing deprecated fields from a dataclass, ensure backward compatibility by allowing old serialized data to load without errors, even if the fields are no longer exposed as attributes. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Use custom deserialization logic (e.g., `__post_init__` hooks or custom loaders) to filter out legacy fields from JSON when loading old plan.json files that contain deprecated hash fields. _(spec: 63_plan_always_rebuild, confidence: 0.60)_
+- To verify that cache-based optimization logic has been fully removed, write explicit negative tests asserting that functions like `_compute_specs_hash`, `_compute_config_hash`, and `_cache_matches_request` do not exist in the module. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When changing behavior to always rebuild from source (removing caching), test both the positive case (spec changes are detected) and the rejection of the old interface (e.g., `--reanalyze` flag no longer accepted). _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When removing an archetype like coordinator, create comprehensive failing spec tests across all architectural layers (registry, prompt mapping, parser, graph builder, template, model config) before implementation to ensure complete removal. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Property-based tests should be included when removing archetypes to catch edge cases and ensure the absence is enforced across generated scenarios, not just explicit cases. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Organize test files by module layer (unit/session, unit/graph, unit/core, property) and group related test classes by requirement within each file. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- When removing a feature (like coordinator), create comprehensive tests verifying absence from all collections and registries, plus fallback behavior and backward compatibility. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use property tests with parametrization to verify that a removed feature is absent from every archetype collection simultaneously, catching inconsistencies. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Create edge-case tests (TS-E{N}) for backward compatibility scenarios, such as loading config files with deprecated fields that should be silently ignored. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Use helper functions with short defaults (_tgd, _spec) in test modules to reduce boilerplate when constructing complex test objects. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- When removing caching layers from a system, maintain backward compatibility by updating deserialization logic to ignore legacy fields rather than failing on them. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Removing a feature requires updates across multiple locations: implementation code, CLI options, type definitions, persistence/serialization logic, and documentation. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When removing an archetype from a codebase, ensure removal from: ARCHETYPE_REGISTRY, role mappings, known archetypes sets, graph builders (including related override functions), ModelConfig, config generation descriptions, and template files. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Removing a feature requires updating all dependent test files to remove references; verify no regressions by running the full test suite. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Memory state should be reset between spec task groups to ensure clean slate for new work and prevent stale context from previous iterations. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- ADRs (Architecture Decision Records) should be stored in memory with category='adr', spec_name field, and keywords array to enable future cross-referencing and decision tracking. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When removing a deprecated component (like coordinator), verify all tests pass and systematically search for remaining references in docstrings and comments, not just active code. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- The memory.jsonl file was cleared during spec 62 (remove_coordinator), suggesting that accumulated ADRs, git commits, and session knowledge should be periodically reset or archived rather than grown indefinitely. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Consolidating duplicated utility functions (ensure_iso, load_plan_or_raise, validation loops) across modules reduces maintenance surface and prevents inconsistencies when validation logic changes. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Review archetype output (Skeptic, Oracle, Verifier) must be parsed from LLM JSON arrays and routed to typed parsers; a fallback extraction method (bracket-scan + markdown fence) is needed when strict JSON parsing fails. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Causal links in knowledge graphs require context windowing; when prior facts exceed a limit, rank by cosine similarity to new facts' embeddings; facts without embeddings fall back to first-N ordering. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Quality gates (shell command checks post-session) must handle timeout gracefully with exit_code=-1 and truncate large output (last 50 lines) to prevent log flooding. _(spec: 62_remove_coordinator, confidence: 0.60)_
 
 ## Decisions
 
@@ -115,6 +194,10 @@
 - Config objects should have sensible defaults (e.g., issue_check_interval=900, hunt_scan_interval=14400) and clamp interval values to a minimum of 60 seconds. _(spec: 61_night_shift, confidence: 0.90)_
 - Support initial-run-on-startup configuration in schedulers to control whether callbacks execute immediately upon initialization. _(spec: 61_night_shift, confidence: 0.60)_
 - Multi-provider LLM abstraction carries real maintenance costs (protocol differences, adapter complexity, doubled testing surface) but speculative benefits; commit to Claude exclusively unless concrete multi-provider requirements emerge. _(spec: 61_night_shift, confidence: 0.90)_
+- Multi-provider LLM abstraction carries real maintenance costs (protocol differences, adapter complexity, doubled testing surface) but speculative benefits; commit to Claude exclusively unless concrete multi-provider requirements emerge. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Config objects should have sensible defaults and clamp interval values to a minimum of 60 seconds. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Multi-provider LLM abstraction carries real maintenance costs but speculative benefits; commit to Claude exclusively unless concrete multi-provider requirements emerge. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- ADR 01 establishes Claude as the exclusive LLM provider for coding agents, rejecting multi-provider abstraction as speculative cost without concrete demand. _(spec: 62_remove_coordinator, confidence: 0.90)_
 
 ## Conventions
 
@@ -136,10 +219,23 @@
 - Documentation for CLI commands should include coverage of all major flags (like --auto), scheduling behavior, cost control mechanisms, graceful shutdown procedures, and exit codes. _(spec: 61_night_shift, confidence: 0.90)_
 - Configuration documentation should explicitly document all toggles/options (e.g., seven category toggles) and any constraints on their values (e.g., interval clamping). _(spec: 61_night_shift, confidence: 0.90)_
 - README should include a quick-start section with practical usage examples for new features to aid discoverability. _(spec: 61_night_shift, confidence: 0.60)_
+- CLI command renames require updates across multiple locations: command registrations in app.py, all related test files, and documentation to maintain consistency. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- New CLI commands must be registered in the main app.py file to be accessible to the CLI framework. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Documentation for CLI commands should include coverage of all major flags, scheduling behavior, cost control mechanisms, graceful shutdown procedures, and exit codes. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Configuration documentation should explicitly document all toggles/options and any constraints on their values (e.g., interval clamping). _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Integration tests should be updated alongside unit tests when replacing one feature with another; use integration tests to verify the new feature end-to-end while unit tests cover specific cases. _(spec: 63_plan_always_rebuild, confidence: 0.60)_
+- Integration tests should verify that CLI options deprecated or removed are explicitly rejected with a clear error message (e.g., 'no such option') rather than silently ignored. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- A clean linter pass combined with failing spec tests indicates a good separation between code style validation and functional correctness, allowing you to focus on implementation without style noise. _(spec: 62_remove_coordinator, confidence: 0.60)_
+- Use test spec naming convention (TS-{N}) to map test functions to requirements and track coverage across multiple test files. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Document Requirements (62-REQ-{N}.{M}) alongside test specs to establish traceability between test cases and design requirements. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- The memory.jsonl file serves as a persistent knowledge store for ADRs, git commits, and architectural decisions that should be cleared at task group boundaries. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
 
 ## Anti-Patterns
 
 - Custom file tools with per-line hash verification add schema overhead (800-1000 tokens per session) but are not adopted by the model; prefer built-in provider tools (Read, Edit, Grep) over custom MCP tools. _(spec: 61_night_shift, confidence: 0.90)_
+- Custom file tools with per-line hash verification add schema overhead (800-1000 tokens per session) but are not adopted by the model; prefer built-in provider tools (Read, Edit, Grep) over custom MCP tools. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Custom file tools with per-line hash verification add schema overhead but are not adopted by the model; prefer built-in provider tools over custom MCP tools. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Fox tools added ~800-1000 tokens of schema overhead per session in input context, plus hash overhead in output, making them net-negative even though individual tools had some usage (fox_read 78%, fox_search 19%). _(spec: 62_remove_coordinator, confidence: 0.90)_
 
 ## Fragile Areas
 
@@ -150,3 +246,16 @@
 - The audit event completeness checks (hardcoded sets) must be updated whenever new AuditEventType variants are added, otherwise tests will fail despite the new events being properly implemented. _(spec: 59_cli_separation_and_logging, confidence: 0.90)_
 - Asyncio event loop state can cause cross-suite test failures; ensure proper event loop cleanup and isolation between test suites. _(spec: 61_night_shift, confidence: 0.90)_
 - Caplog logger scoping issues can lead to test failures across suites; verify logger fixture scope and handler cleanup between tests. _(spec: 61_night_shift, confidence: 0.90)_
+- When setting cost-limit thresholds for budget control, account for the margin needed before stopping dispatch operations to avoid exceeding allocated resources. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- When using caplog in pytest, ensure the logger name matches the actual logger being used in the code being tested, and specify logger parameter in caplog.at_level() for reliable capture across test orderings. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Asyncio event loop state can cause cross-suite test failures; ensure proper event loop cleanup and isolation between test suites to avoid RuntimeError in subsequent tests. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Caplog logger scoping issues can lead to test failures across suites; verify logger fixture scope and handler cleanup between tests. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- The audit event completeness checks using hardcoded sets must be updated whenever new AuditEventType variants are added, otherwise tests will fail despite the new events being properly implemented. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- TaskEvent schema extensions should be coordinated across multiple modules (result_handler.py, engine.py) to ensure all event producers wire the new fields consistently. _(spec: 63_plan_always_rebuild, confidence: 0.90)_
+- Asyncio event loop state can cause cross-suite test failures; ensure proper event loop cleanup and isolation between test suites. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Caplog logger scoping issues can lead to test failures across suites; verify logger fixture scope and handler cleanup between tests. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- When using caplog in pytest, ensure the logger name matches the actual logger being used in the code being tested. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- TaskEvent schema extensions should be coordinated across multiple modules to ensure all event producers wire the new fields consistently. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Archetype-related code is spread across multiple files (archetypes.py, prompt.py, parser.py, builder.py, config.py, config_gen.py, templates) making it a fragile area prone to incomplete removals. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Stale references in docstrings and comments can persist after removing a component from active code and should be explicitly cleaned up during deprecation tasks. _(spec: 62_remove_coordinator, confidence: 0.90)_
+- Pre-existing test failures can hide real regressions; when auditing test suites, verify that patches target the correct import path (e.g., PLAN_PATH constants vs. Path class) and mock all external dependencies. _(spec: 62_remove_coordinator, confidence: 0.60)_
