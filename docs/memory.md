@@ -16,6 +16,15 @@
 - When creating temporary directories in tests, ensure parent directories exist first; missing parent creation causes test failures. _(spec: 49_dump_command, confidence: 0.90)_
 - The mix_stderr parameter is not supported in subprocess calls; use stderr=subprocess.STDOUT instead for combining stderr with stdout. _(spec: 49_dump_command, confidence: 0.90)_
 - The reset_spec() engine function must handle multi-part archetype node IDs (3-part format) when resetting task checkboxes in tasks.md to avoid missing or incorrectly parsing task identifiers. _(spec: 50_reset_spec, confidence: 0.90)_
+- Hypothesis health checks can conflict with pytest tmp_path fixtures; suppress health checks in property tests that use temporary file fixtures to avoid flaky test failures. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Test files must be updated to reflect all newly added enum values from prior sessions to prevent stale test coverage and silent failures. _(spec: 53_review_persistence, confidence: 0.90)_
+- When adding new enum values to AuditEventType, the hardcoded expected set in test_completeness must be updated accordingly to avoid test regressions. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- When refactoring persistence logic to use shared extraction utilities, ensure audit event types are properly registered in test fixtures (e.g., REVIEW_PARSE_FAILURE in warning_types set) to prevent pre-existing test failures. _(spec: 53_review_persistence, confidence: 0.90)_
+- Property tests using 'with Exception:' as a context manager will fail because Exception is not a context manager; use 'with pytest.raises(Exception):' or similar instead. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- Use json.JSONDecoder.raw_decode() instead of naive bracket-scanning to extract JSON arrays, as the latter fails when brackets appear inside JSON strings. _(spec: 53_review_persistence, confidence: 0.90)_
+- When patching imported constants in tests, patch the location where they are used (post-import), not where they are defined. For example, patch agent_fox.cli.code.PLAN_PATH rather than the original Path import. _(spec: 53_review_persistence, confidence: 0.90)_
+- When tests patch a module's imported class (e.g., `agent_fox.cli.code.Path`), the patch only affects new instances created after the patch; pre-computed constants initialized at module load time are not affected by the patch. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- When updating archetype tier defaults in ARCHETYPE_REGISTRY, existing tests that hardcode old default values will fail and require fixes. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
 
 ## Patterns
 
@@ -133,6 +142,57 @@
 - Sync barrier operations require worktree verification and bidirectional develop sync to maintain consistency across distributed state. _(spec: 51_sync_barrier_hardening, confidence: 0.90)_
 - Hot-load pipeline operations need gated discovery to control when new specs are loaded and prevent race conditions during dynamic discovery. _(spec: 51_sync_barrier_hardening, confidence: 0.90)_
 - Making dispatch operations async with gating mechanisms prevents resource contention and allows fine-grained control over pipeline execution order. _(spec: 51_sync_barrier_hardening, confidence: 0.60)_
+- When implementing spec-driven development, write failing tests across multiple test layers (unit, property, integration) before implementation to establish comprehensive coverage of all spec entries. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Maintain clean lint status alongside failing spec tests to ensure code quality is not compromised during test-first development. _(spec: 55_claude_only_commitment, confidence: 0.60)_
+- Organize spec tests into multiple focused files by concern: unit tests (triggers, fallbacks, audit events), integration tests (provenance, causal links), and property tests (idempotency, thresholds, referential integrity). _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Use a failing test suite as a specification artifact to drive implementation across multiple task groups, maintaining clear separation between passing (existing behavior) and failing (features to implement) tests. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Property-based tests are effective for validating pipeline invariants like idempotency, threshold consistency, and referential integrity in knowledge harvest systems. _(spec: 52_knowledge_feedback_loop, confidence: 0.60)_
+- When simplifying an API by removing parameters, ensure all call sites are updated to match the new signature. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Update protocol/interface documentation when changing implementation constraints to reflect that a specific implementation (e.g., ClaudeBackend) is the sole production option. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Writing comprehensive failing tests first across multiple test files (unit, integration, property-based) establishes clear RED phase acceptance criteria before implementation, covering both happy paths and correctness properties. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Property-based tests should be used to verify all correctness properties (8 properties in this case) systematically, beyond typical unit and integration test coverage. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Verifying no regressions when introducing 38 new failing tests confirms the test infrastructure and existing code remain stable during the RED phase. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Creating comprehensive failing tests upfront across multiple test files helps establish clear specifications for SDK features before implementation, covering edge cases like config parsing, defaults, validation, and fallback behavior. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- SDK feature adoption requires testing multiple dimensions: config parsing, defaults, validation, passthrough, resolution, protocol signature, property invariants, and compatibility fallbacks to ensure robust integration. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- Features like max_turns, max_budget_usd, fallback_model, and thinking require explicit fallback/compatibility handling to support graceful degradation across different SDK versions or configurations. _(spec: 56_sdk_feature_adoption, confidence: 0.60)_
+- When a summary is absent, use a fallback input mechanism (_build_fallback_input()) to trigger extraction logic instead of failing completely. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Implement audit event types (e.g., HARVEST_EMPTY, FACT_CAUSAL_LINKS) to track different states and outcomes in knowledge extraction workflows. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Generate embeddings after fact insertion with failure isolation to prevent embedding generation errors from blocking the main extraction workflow. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Quality gate implementation requires a dataclass (QualityGateResult) to structure results, along with dedicated functions for running gates, building audit payloads, emitting results, and determining session status. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Quality gate results should be tracked as a distinct AuditEventType (QUALITY_GATE_RESULT) in the audit system for compliance and debugging purposes. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- When implementing context window bounding for causal links, use similarity-ranked selection to prioritize the most relevant context within a size limit rather than naive truncation. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Emit audit events (e.g., FACT_CAUSAL_LINKS) immediately after storing knowledge artifacts to maintain observability and enable debugging of knowledge pipeline operations. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- When adding a new configuration limit field (e.g., causal_context_limit), thread it through the entire call chain from config objects through lifecycle classes to the functions that consume it, rather than storing it in intermediate state. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Extract helper functions like _select_causal_context() when implementing specialized filtering logic within larger extraction methods to improve testability and code clarity. _(spec: 52_knowledge_feedback_loop, confidence: 0.60)_
+- When implementing fallback behavior (e.g., unembedded-facts fallback), ensure test coverage explicitly validates the fallback path to prevent silent degradation in production. _(spec: 52_knowledge_feedback_loop, confidence: 0.60)_
+- When implementing test-first development for a spec, create all failing tests upfront that reference non-existent modules and methods to establish the contract before implementation begins. _(spec: 53_review_persistence, confidence: 0.90)_
+- Organize test files by test case categories (standard, edge cases, performance) to maintain clarity when a single spec has many test cases (23+ cases across multiple files). _(spec: 53_review_persistence, confidence: 0.60)_
+- Use non-existent module and method references in failing tests as placeholders to define the implementation contract upfront (e.g., engine.review_parser, AuditEventType.REVIEW_PARSE_FAILURE). _(spec: 53_review_persistence, confidence: 0.90)_
+- Pydantic models should be used to structure configuration objects like ThinkingConfig, providing type safety and validation for SDK features. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- Configuration objects should support hierarchical defaults: global defaults (OrchestratorConfig) can be overridden by archetype-specific defaults (ArchetypeEntry), allowing flexible per-archetype customization. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- Configuration extensions should include fallback mechanisms (e.g., fallback_model in ModelConfig) to handle missing or unavailable primary options gracefully. _(spec: 56_sdk_feature_adoption, confidence: 0.60)_
+- When adding budget constraints to configs (max_budget_usd in OrchestratorConfig), ensure validation logic is implemented to prevent invalid configurations and enforce business rules. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- A comprehensive test suite for spec 52 includes 31 tests across multiple categories: 5 unit/engine tests, 13 unit/knowledge tests, 6 integration tests, and 7 property tests, covering all 7 requirement groups (52-REQ-1.x through 52-REQ-7.x). _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- When extending FeatureVector with new fields, update both the data class definition and the corresponding extraction helpers in routing/features.py, then update all call sites that invoke extract_features(). _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Implement a bracket-scan with markdown fence fallback strategy for extracting JSON arrays from unstructured text, providing robustness against various formatting styles. _(spec: 53_review_persistence, confidence: 0.90)_
+- Add typed parse functions (e.g., parse_review_findings, parse_verification_results) as thin wrappers around a core extraction utility to maintain type safety and semantic clarity. _(spec: 53_review_persistence, confidence: 0.90)_
+- For retry logic in multi-attempt workflows, build contextual information from previous attempt results (e.g., active critical/major findings) and inject it into prompt builders on subsequent attempts to improve coder responses. _(spec: 53_review_persistence, confidence: 0.90)_
+- Separate extraction concerns from routing concerns: use a shared extraction utility to parse data, emit audit events on failure, then route to type-specific parsers/inserters based on archetype. _(spec: 53_review_persistence, confidence: 0.90)_
+- Parameter resolution helpers (_resolve_*) should be centralized in session_lifecycle.py to coordinate parameter threading across AgentBackend protocol, ClaudeBackend.execute(), run_session(), and _execute_query(). _(spec: 56_sdk_feature_adoption, confidence: 0.60)_
+- Agent execution parameters (max_turns, max_budget_usd, fallback_model, thinking) should be wired through the full pipeline via protocol extension and resolution helpers rather than handled piecemeal. _(spec: 56_sdk_feature_adoption, confidence: 0.60)_
+- When refactoring code to use constants from a separate module, ensure all test mocks are updated to patch the location where the constant is used, not just where it's defined. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- When implementing spec-driven development with failing tests, organize test files by type (unit vs. property-based) and use a clear naming convention (test_<module>_<aspect>.py) to distinguish test purposes and maintain clarity across multiple test classes. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Property-based tests (P1-P5) are valuable for validating invariants and edge cases in complex systems like configuration override precedence, complementing unit tests that verify specific behavioral requirements. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Writing failing tests before implementation provides early validation that test infrastructure is correct; achieving 58 passing tests on pre-existing behavior (like EscalationLadder mechanics) while 14 fail on new requirements indicates healthy test-driven development. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Property tests can pass while unit tests fail when property tests validate invariants of data structures rather than specific behavior implementations. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- Writing failing unit tests before implementation (TDD) combined with property-based tests provides both specific behavior coverage and structural correctness validation. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- When implementing a feature with both unit and property tests, property tests may pass before implementation if they test existing internal components, while unit tests for the new feature should fail until implementation is complete. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- Comprehensive test coverage should include both positive test cases (TS-58-1 through TS-58-8) and error/edge case tests (TS-58-E1, TS-58-E2) to ensure robustness. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- The escalation ladder ceiling in _assess_node() should be hardcoded to ModelTier.ADVANCED, not derived from archetype defaults. Archetype tiers serve only as fallback starting points when the assessment pipeline fails. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Documentation work can overlap across task groups; verify completion status before duplicating effort when tasks reference the same artifacts. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Running the full spec test suite (72 tests) after documentation updates is an effective way to verify no regressions were introduced. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- When implementing predecessor escalation logic, defensive ladder creation is necessary to handle cases where the escalation ladder may not exist, preventing null reference errors during failure recording. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- Modifications to core retry logic in Orchestrator._process_session_result() require comprehensive test coverage across both specific feature specs and full regression suites to ensure no unintended side effects. _(spec: 58_predecessor_escalation, confidence: 0.90)_
 
 ## Decisions
 
@@ -141,6 +201,9 @@
 - When improving context quality, ensure that new signal types (reviews, drift, verification findings) are surfaced at the appropriate level of the context selection abstraction to avoid losing fidelity. _(spec: 42_knowledge_context, confidence: 0.60)_
 - DuckDB audit_events should be the preferred source for session metrics in reporting functions like generate_status() and generate_standup(), with explicit fallback handling. _(spec: 40_structured_audit_log, confidence: 0.90)_
 - AI-based conflict resolution via run_merge_agent() is a more sophisticated alternative to blind merge strategies and requires careful test updates to validate correct behavior. _(spec: 45_robust_merge, confidence: 0.60)_
+- Enforce a minimum fact threshold (e.g., >=5 facts) before attempting causal link extraction to avoid processing on insufficient data. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Escalation ceiling and registry default tier changes are core behavioral requirements that need dedicated test classes to ensure they integrate correctly with existing EscalationLadder mechanics. _(spec: 57_archetype_model_tiers, confidence: 0.60)_
+- Predecessor blocking should only occur after exhausting all levels of an escalation ladder; if the ladder still has levels remaining, the session should reset to pending rather than blocking immediately. _(spec: 58_predecessor_escalation, confidence: 0.90)_
 
 ## Conventions
 
@@ -178,11 +241,29 @@
 - ImportError in spec tests when implementation modules do not yet exist is an expected and acceptable state during test-first development; it indicates proper test structure rather than a problem. _(spec: 51_sync_barrier_hardening, confidence: 0.90)_
 - Spec completeness validation requires checking exactly 5 files; this is a critical checkpoint in the gate pipeline orchestration. _(spec: 51_sync_barrier_hardening, confidence: 0.90)_
 - Barrier audit event payloads should be extended to capture detailed synchronization metrics for debugging and monitoring distributed coordination. _(spec: 51_sync_barrier_hardening, confidence: 0.60)_
+- A mix of failing (red), passing (existing behavior), and skipped tests in initial spec test setup is normal and acceptable; focus on ensuring all spec entries are covered across test files. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Document architectural decisions and implementation constraints (like single backend exclusivity) in both code docstrings and ADR documents for clarity. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Verify all specification tests pass after refactoring to confirm the changes maintain expected behavior across the system. _(spec: 55_claude_only_commitment, confidence: 0.90)_
+- Organizing failing tests across 4 separate files by concern (unit execution, unit enrichment, integration, properties) makes the test suite more maintainable and intent clearer than mixing all tests. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Emit completion audit events (harvest.complete/harvest.empty) at the end of extract_and_store_knowledge() to signal workflow state transitions. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- Quality gate configuration needs both a quality_gate field and a quality_gate_timeout field in OrchestratorConfig to control gate behavior and prevent hanging. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Verify that introducing new test files and test cases does not regress existing test suite functionality by running full test suite after adding new test files. _(spec: 53_review_persistence, confidence: 0.90)_
+- A checkpoint completion milestone should verify not only that all tests pass, but also that lint is clean and a coverage matrix explicitly maps all requirements to passing tests. _(spec: 52_knowledge_feedback_loop, confidence: 0.90)_
+- When adding new complexity assessment heuristics, use confidence scores (e.g., 0.7) paired with specific conditions (cross_spec_integration=True or file_count_estimate>=8) to indicate assessment certainty. _(spec: 54_quality_gate_complexity, confidence: 0.60)_
+- Enum members added to audit event types (e.g., REVIEW_PARSE_FAILURE) should specify a default severity level to ensure consistent event classification. _(spec: 53_review_persistence, confidence: 0.90)_
+- Ruff formatting issues should be checked and fixed as part of code completion to maintain code quality standards. _(spec: 54_quality_gate_complexity, confidence: 0.60)_
+- Audit event emissions should occur at the point of failure (extraction layer) rather than being deferred to higher layers, ensuring all failure paths are captured. _(spec: 53_review_persistence, confidence: 0.60)_
+- A test specification can include multiple test categories (unit tests TS-58-1 through TS-58-8, error cases TS-58-E1/E2, property tests TS-58-P1 through TS-58-P4) that serve different validation purposes. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- Test specifications should be organized into separate files by test type (unit vs property) and feature area to maintain clarity and separation of concerns. _(spec: 58_predecessor_escalation, confidence: 0.90)_
+- Archetype tier assignments should follow a pattern: ADVANCED for Skeptic, Oracle, and Verifier; STANDARD for Coder. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
+- Documentation for archetype model selection and escalation behavior, including config overrides, should be maintained in sync with implementation changes. _(spec: 57_archetype_model_tiers, confidence: 0.60)_
+- Configuration file comments should explicitly clarify default tier assignments and include realistic override examples for user reference. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
 
 ## Anti-Patterns
 
 - Removing optional database guards and error-swallowing try/except blocks improves code reliability; the AssessmentPipeline methods (_get_outcome_count, record_outcome, _maybe_retrain_duration_model) benefited from explicit error handling instead of silent failures. _(spec: 38_duckdb_hardening, confidence: 0.90)_
 - Blind merge strategies (-X theirs/-X ours) should be actively avoided and checked for in critical files like harvest.py and workspace.py during code review. _(spec: 45_robust_merge, confidence: 0.90)_
+- Code formatting issues (e.g., ruff violations in config.py) can accumulate across sessions and should be addressed proactively during related work. _(spec: 53_review_persistence, confidence: 0.60)_
 
 ## Fragile Areas
 
@@ -193,3 +274,10 @@
 - DuckDB upsert operations are a fragile area where SQL function syntax errors (missing parentheses) silently fail or produce unexpected behavior. _(spec: 43_project_model, confidence: 0.90)_
 - Auto-injected dependencies (auto_mid injection) in registry entries reduce boilerplate but require care to ensure the dependency is available in all execution contexts. _(spec: 46_test_auditor, confidence: 0.60)_
 - Test pollution can occur silently when fixtures like caplog fail to capture expected state, making test interdependencies harder to detect during development. _(spec: 46_test_auditor, confidence: 0.60)_
+- New FeatureVector fields should have corresponding extraction helpers and be integrated into the heuristic assessment logic to be actionable; isolated fields without assessment logic may indicate incomplete implementation. _(spec: 54_quality_gate_complexity, confidence: 0.60)_
+- Enum changes in one task group can cause test failures in unrelated test files if those tests have hardcoded expectations about enum completeness. _(spec: 54_quality_gate_complexity, confidence: 0.90)_
+- Protocol isolation tests can fail if implementation-specific module names (e.g., 'claude_code_sdk') appear in docstring comments within protocol definitions, causing them to be detected as protocol contamination. _(spec: 56_sdk_feature_adoption, confidence: 0.90)_
+- Maintain parse-or-warn invariants by ensuring that valid JSON structures that match no fields still emit an event, rather than silently producing no output. _(spec: 53_review_persistence, confidence: 0.90)_
+- Hypothesis-based property tests can have test isolation issues that may not surface immediately; verify test independence when adding new property-based tests. _(spec: 53_review_persistence, confidence: 0.60)_
+- Pre-imported module constants can cause test failures if patching targets are incorrect; always verify that patches target the namespace where the constant is actually used in the code. _(spec: 53_review_persistence, confidence: 0.90)_
+- Configuration override precedence is a fragile area requiring explicit test coverage across multiple scenarios, as it involves complex precedence rules that are easy to break during refactoring. _(spec: 57_archetype_model_tiers, confidence: 0.90)_
