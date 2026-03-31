@@ -709,8 +709,8 @@ class TestResetTasksMdCheckboxes:
         # Group 3 should be unchanged (already [ ])
         assert "- [ ] 3." in text
 
-    def test_subtask_checkboxes_not_affected(self, tmp_path: Path) -> None:
-        """Only top-level group checkboxes are reset, not subtasks."""
+    def test_subtask_checkboxes_are_reset(self, tmp_path: Path) -> None:
+        """Sub-task checkboxes within a task group are reset (fixes #163)."""
         from agent_fox.engine.reset import reset_tasks_md_checkboxes
 
         specs_dir = tmp_path / ".specs"
@@ -722,12 +722,93 @@ class TestResetTasksMdCheckboxes:
             "- [x] 1. First task group\n"
             "  - [x] 1.1 Subtask one\n"
             "  - [x] 1.2 Subtask two\n"
+            "  - [x] 1.V Verify task group 1\n"
         )
 
         reset_tasks_md_checkboxes(["myspec:1"], specs_dir)
 
         text = tasks_md.read_text()
-        assert "- [ ] 1." in text
+        assert "- [ ] 1. First task group" in text
+        assert "  - [ ] 1.1 Subtask one" in text
+        assert "  - [ ] 1.2 Subtask two" in text
+        assert "  - [ ] 1.V Verify task group 1" in text
+
+    def test_subtask_in_progress_checkboxes_are_reset(self, tmp_path: Path) -> None:
+        """In-progress [-] sub-task checkboxes are also reset (fixes #163)."""
+        from agent_fox.engine.reset import reset_tasks_md_checkboxes
+
+        specs_dir = tmp_path / ".specs"
+        spec_dir = specs_dir / "myspec"
+        spec_dir.mkdir(parents=True)
+        tasks_md = spec_dir / "tasks.md"
+        tasks_md.write_text(
+            "# Tasks\n\n"
+            "- [-] 1. First task group\n"
+            "  - [x] 1.1 Done subtask\n"
+            "  - [-] 1.2 In-progress subtask\n"
+            "  - [ ] 1.3 Pending subtask\n"
+        )
+
+        reset_tasks_md_checkboxes(["myspec:1"], specs_dir)
+
+        text = tasks_md.read_text()
+        assert "- [ ] 1. First task group" in text
+        assert "  - [ ] 1.1 Done subtask" in text
+        assert "  - [ ] 1.2 In-progress subtask" in text
+        # Already-pending subtask unchanged
+        assert "  - [ ] 1.3 Pending subtask" in text
+
+    def test_subtask_reset_does_not_affect_other_groups(
+        self, tmp_path: Path
+    ) -> None:
+        """Resetting group 1 sub-tasks does not touch group 2 sub-tasks."""
+        from agent_fox.engine.reset import reset_tasks_md_checkboxes
+
+        specs_dir = tmp_path / ".specs"
+        spec_dir = specs_dir / "myspec"
+        spec_dir.mkdir(parents=True)
+        tasks_md = spec_dir / "tasks.md"
+        tasks_md.write_text(
+            "# Tasks\n\n"
+            "- [x] 1. First task group\n"
+            "  - [x] 1.1 Subtask one\n"
+            "- [x] 2. Second task group\n"
+            "  - [x] 2.1 Subtask one\n"
+        )
+
+        reset_tasks_md_checkboxes(["myspec:1"], specs_dir)
+
+        text = tasks_md.read_text()
+        assert "- [ ] 1. First task group" in text
+        assert "  - [ ] 1.1 Subtask one" in text
+        # Group 2 untouched
+        assert "- [x] 2. Second task group" in text
+        assert "  - [x] 2.1 Subtask one" in text
+
+    def test_deep_nested_checkboxes_are_reset(self, tmp_path: Path) -> None:
+        """Checkboxes at any nesting depth within a group are reset."""
+        from agent_fox.engine.reset import reset_tasks_md_checkboxes
+
+        specs_dir = tmp_path / ".specs"
+        spec_dir = specs_dir / "myspec"
+        spec_dir.mkdir(parents=True)
+        tasks_md = spec_dir / "tasks.md"
+        tasks_md.write_text(
+            "# Tasks\n\n"
+            "- [x] 1. First task group\n"
+            "  - [x] 1.1 Subtask\n"
+            "    - [x] 1.1.1 Deep subtask\n"
+            "- [x] 2. Second task group\n"
+        )
+
+        reset_tasks_md_checkboxes(["myspec:1"], specs_dir)
+
+        text = tasks_md.read_text()
+        assert "- [ ] 1. First task group" in text
+        assert "  - [ ] 1.1 Subtask" in text
+        assert "    - [ ] 1.1.1 Deep subtask" in text
+        # Group 2 untouched
+        assert "- [x] 2. Second task group" in text
 
 
 # ===========================================================================
