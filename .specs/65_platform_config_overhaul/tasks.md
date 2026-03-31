@@ -102,24 +102,24 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 65-REQ-1.*, 65-REQ-2.*, 65-REQ-4.*, 65-REQ-5.*, 65-REQ-6.* met
 
-- [ ] 3. Simplify post-harvest integration
-  - [ ] 3.1 Rewrite `post_harvest_integrate` in `agent_fox/workspace/harvest.py`
+- [x] 3. Simplify post-harvest integration
+  - [x] 3.1 Rewrite `post_harvest_integrate` in `agent_fox/workspace/harvest.py`
     - Remove `platform_config` parameter
     - Remove all GitHub API code (GitHubPlatform import, PR creation, token check, remote URL parsing)
     - Always push feature branch (if exists) + develop
     - Keep best-effort semantics and existing reconciliation logic
     - _Requirements: 65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5, 65-REQ-3.E1, 65-REQ-3.E2_
 
-  - [ ] 3.2 Update call site in `agent_fox/engine/session_lifecycle.py`
+  - [x] 3.2 Update call site in `agent_fox/engine/session_lifecycle.py`
     - Remove `platform_config=self._config.platform` argument from
       `post_harvest_integrate()` call
     - _Requirements: 65-REQ-3.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Post-harvest tests pass: `uv run pytest -q tests/unit/engine/test_post_harvest_v2.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 65-REQ-3.* met
+  - [x] 3.V Verify task group 3
+    - [x] Post-harvest tests pass: `uv run pytest -q tests/unit/engine/test_post_harvest_v2.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 65-REQ-3.* met
 
 - [ ] 4. Update config generation and clean up old tests
   - [ ] 4.1 Update config generation in `agent_fox/core/config_gen.py`

@@ -526,7 +526,6 @@ class NodeSessionRunner:
                 await post_harvest_integrate(
                     repo_root=repo_root,
                     workspace=workspace,
-                    platform_config=self._config.platform,
                 )
             except Exception as exc:
                 logger.warning(

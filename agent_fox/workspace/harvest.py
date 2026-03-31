@@ -1,22 +1,19 @@
 """Harvest and integrate worktree changes into the development branch.
 
 Combines harvesting (rebase/merge into develop) with post-harvest remote
-integration (push, PR creation).
+integration (push via local git).
 
 Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
-              19-REQ-3.1, 19-REQ-3.2, 19-REQ-3.3, 19-REQ-3.4,
-              19-REQ-3.E1, 19-REQ-3.E2, 19-REQ-3.E3,
-              19-REQ-4.E1, 19-REQ-4.E4,
-              45-REQ-3.1, 45-REQ-4.1, 45-REQ-6.1
+              45-REQ-3.1, 45-REQ-4.1, 45-REQ-6.1,
+              65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5,
+              65-REQ-3.E1, 65-REQ-3.E2
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
-from agent_fox.core.config import PlatformConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace import (
     WorkspaceInfo,
@@ -24,7 +21,6 @@ from agent_fox.workspace import (
     abort_rebase,
     checkout_branch,
     get_changed_files,
-    get_remote_url,
     has_new_commits,
     local_branch_exists,
     merge_fast_forward,
@@ -313,93 +309,34 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
 async def post_harvest_integrate(
     repo_root: Path,
     workspace: WorkspaceInfo,
-    platform_config: PlatformConfig,
 ) -> None:
-    """Push changes to remote after harvest.
+    """Push feature branch and develop to origin after harvest.
 
-    Behavior depends on platform configuration:
-    - type="none": push develop to origin
-    - type="github", auto_merge=true: push feature + push develop
-    - type="github", auto_merge=false: push feature + create PR vs default branch
+    Always pushes both branches via the local git tool. No GitHub API
+    calls are made. All remote operations are best-effort: failures are
+    logged as warnings and never raised.
 
-    All remote operations are best-effort: failures are logged as
-    warnings and never raised.
+    If the feature branch no longer exists locally, its push is skipped
+    and a warning is logged; develop is still pushed.
 
-    Requirements: 19-REQ-3.1, 19-REQ-3.2, 19-REQ-3.3, 19-REQ-3.4,
-                  19-REQ-3.E1, 19-REQ-3.E2, 19-REQ-3.E3,
-                  19-REQ-4.E1, 19-REQ-4.E4
+    Requirements: 65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4,
+                  65-REQ-3.5, 65-REQ-3.E1, 65-REQ-3.E2
     """
-    from agent_fox.platform.github import GitHubPlatform, parse_github_remote
-
     feature_branch = workspace.branch
 
-    if platform_config.type == "github":
-        # Check for GITHUB_PAT — fall back to no-platform if missing
-        token = os.environ.get("GITHUB_PAT")
-        if not token:
+    # Push feature branch if it still exists locally (65-REQ-3.E1)
+    if await local_branch_exists(repo_root, feature_branch):
+        result = await push_to_remote(repo_root, feature_branch)
+        if not result:
             logger.warning(
-                "GITHUB_PAT not set — falling back to pushing develop only",
-            )
-            # Fall back to no-platform behavior
-            await _push_develop_if_pushable(repo_root)
-            return
-
-        # Parse remote URL for owner/repo
-        remote_url = await get_remote_url(repo_root)
-        if not remote_url:
-            logger.warning(
-                "Could not determine remote URL — falling back to pushing develop only",
-            )
-            await _push_develop_if_pushable(repo_root)
-            return
-
-        parsed = parse_github_remote(remote_url)
-        if parsed is None:
-            logger.warning(
-                "Remote URL '%s' is not a GitHub URL"
-                " — falling back to pushing develop only",
-                remote_url,
-            )
-            await _push_develop_if_pushable(repo_root)
-            return
-
-        owner, repo = parsed
-
-        # Push feature branch if it still exists locally (19-REQ-3.E3)
-        if await local_branch_exists(repo_root, feature_branch):
-            result = await push_to_remote(repo_root, feature_branch)
-            if not result:
-                logger.warning(
-                    "Failed to push feature branch '%s' to origin",
-                    feature_branch,
-                )
-        else:
-            logger.warning(
-                "Feature branch '%s' no longer exists locally — skipping push",
+                "Failed to push feature branch '%s' to origin",
                 feature_branch,
             )
-
-        if platform_config.auto_merge:
-            # 19-REQ-3.2: push develop too
-            await _push_develop_if_pushable(repo_root)
-        else:
-            # 19-REQ-3.3: create PR, do NOT push develop
-            platform = GitHubPlatform(owner=owner, repo=repo, token=token)
-            try:
-                spec = workspace.spec_name
-                group = workspace.task_group
-                pr_url = await platform.create_pr(
-                    branch=feature_branch,
-                    title=f"feat: {spec} task group {group}",
-                    body=f"Automated PR for {spec} task group {group}.",
-                )
-                logger.info("Created PR: %s", pr_url)
-            except Exception as exc:
-                logger.warning(
-                    "PR creation failed for '%s': %s",
-                    feature_branch,
-                    exc,
-                )
     else:
-        # 19-REQ-3.1: type="none" — just push develop
-        await _push_develop_if_pushable(repo_root)
+        logger.warning(
+            "Feature branch '%s' no longer exists locally — skipping push",
+            feature_branch,
+        )
+
+    # Always push develop (65-REQ-3.2)
+    await _push_develop_if_pushable(repo_root)
