@@ -212,7 +212,7 @@ class TestBudgetPassthrough:
         opts = captured_options[0]
         assert (
             getattr(opts, "max_budget_usd", None) == 3.0
-            or opts.extra_args.get("max_budget_usd") == "3.0"
+            or opts.extra_args.get("max-budget-usd") == "3.0"
         )
 
 
@@ -264,7 +264,7 @@ class TestFallbackModelPassthrough:
         opts = captured_options[0]
         assert (
             getattr(opts, "fallback_model", None) == "claude-sonnet-4-6"
-            or opts.extra_args.get("fallback_model") == "claude-sonnet-4-6"
+            or opts.extra_args.get("fallback-model") == "claude-sonnet-4-6"
         )
 
 
