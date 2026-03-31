@@ -23,28 +23,28 @@ and simplification of the `plan_cmd` function.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/unit/cli/test_plan_always_rebuild.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/unit/cli/test_plan_always_rebuild.py`
     - TS-63-5: Assert `_compute_specs_hash`, `_compute_config_hash`,
       `_cache_matches_request` do not exist in `agent_fox.cli.plan`
     - TS-63-6: Assert `PlanMetadata` has no `specs_hash` or `config_hash` fields
     - _Test Spec: TS-63-5, TS-63-6_
 
-  - [ ] 1.2 Add edge case test for old plan.json loading
+  - [x] 1.2 Add edge case test for old plan.json loading
     - TS-63-E1: Write a plan.json with `specs_hash`/`config_hash` in metadata,
       verify `load_plan()` succeeds and the loaded metadata lacks those fields
     - _Test Spec: TS-63-E1_
 
-  - [ ] 1.3 Add integration tests
+  - [x] 1.3 Add integration tests
     - TS-63-1: Plan rebuilds after spec modification (no `--reanalyze` needed)
     - TS-63-4: `--reanalyze` rejected as unrecognized option
     - Modify or replace existing `test_plan_with_reanalyze` test
     - _Test Spec: TS-63-1, TS-63-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
 - [ ] 2. Remove cache and --reanalyze
   - [ ] 2.1 Remove `--reanalyze` option and cache logic from `plan_cmd`
