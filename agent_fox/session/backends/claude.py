@@ -106,9 +106,9 @@ class ClaudeBackend:
         # (56-REQ-2.2, 56-REQ-3.2)
         extra_args: dict[str, str | None] = {}
         if max_budget_usd:
-            extra_args["max_budget_usd"] = str(max_budget_usd)
+            extra_args["max-budget-usd"] = str(max_budget_usd)
         if fallback_model:
-            extra_args["fallback_model"] = fallback_model
+            extra_args["fallback-model"] = fallback_model
 
         # Build core options — max_turns is a native ClaudeAgentOptions field
         options = ClaudeAgentOptions(
