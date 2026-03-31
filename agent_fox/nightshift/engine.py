@@ -56,6 +56,7 @@ class NightShiftEngine:
         self._platform = platform
         self._auto_fix = auto_fix
         self.state = NightShiftState()
+        self._hunt_scan_in_progress = False
 
     def request_shutdown(self) -> None:
         """Request graceful shutdown of the engine."""
@@ -110,9 +111,21 @@ class NightShiftEngine:
     async def _run_hunt_scan(self) -> None:
         """Execute a full hunt scan and create issues from findings.
 
-        Requirements: 61-REQ-2.2, 61-REQ-5.1, 61-REQ-5.2
+        Skips if a hunt scan is already in progress (overlap prevention).
+
+        Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2
         """
-        findings = await self._run_hunt_scan_inner()
+        if self._hunt_scan_in_progress:
+            logger.info(
+                "Hunt scan already in progress, skipping overlapping scan"
+            )
+            return
+
+        self._hunt_scan_in_progress = True
+        try:
+            findings = await self._run_hunt_scan_inner()
+        finally:
+            self._hunt_scan_in_progress = False
         if not findings:
             return
 

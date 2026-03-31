@@ -102,39 +102,39 @@ coherent set of requirements and makes the corresponding spec tests pass.
   - Ensure all tests pass, ask the user if questions arise.
   - Verify platform protocol is implementable and config is loadable.
 
-- [ ] 4. Scheduling and hunt category system
-  - [ ] 4.1 Implement Scheduler
+- [x] 4. Scheduling and hunt category system
+  - [x] 4.1 Implement Scheduler
     - Create `agent_fox/nightshift/scheduler.py`
     - Implement timed callbacks for issue check and hunt scan
     - Implement overlap prevention (skip if scan in progress)
     - Implement initial-run-on-startup behaviour
     - _Requirements: 2.1, 2.2, 2.3, 2.E2_
 
-  - [ ] 4.2 Implement HuntCategory protocol and registry
+  - [x] 4.2 Implement HuntCategory protocol and registry
     - Create `agent_fox/nightshift/hunt.py` with `HuntCategory` protocol
     - Implement `HuntCategoryRegistry` with registration and lookup
     - Implement parallel category dispatch via `asyncio.gather`
     - Implement per-category error isolation (catch + log + continue)
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.E1_
 
-  - [ ] 4.3 Implement built-in hunt categories (batch 1)
+  - [x] 4.3 Implement built-in hunt categories (batch 1)
     - Create `agent_fox/nightshift/categories/__init__.py`
     - Implement `dependency_freshness`, `todo_fixme`, `linter_debt`
     - Each category: static tool phase + AI agent phase
     - Each category has a distinct prompt template
     - _Requirements: 3.1, 4.1, 4.2, 4.3, 4.E1_
 
-  - [ ] 4.4 Implement built-in hunt categories (batch 2)
+  - [x] 4.4 Implement built-in hunt categories (batch 2)
     - Implement `test_coverage`, `deprecated_api`, `dead_code`, `documentation_drift`
     - Same two-phase pattern as batch 1
     - _Requirements: 3.1, 4.1, 4.2, 4.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_scheduler.py tests/unit/nightshift/test_hunt.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/nightshift/test_nightshift_props.py::test_schedule_interval_compliance tests/property/nightshift/test_nightshift_props.py::test_category_isolation`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
-    - [ ] Requirements 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_scheduler.py tests/unit/nightshift/test_hunt.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/nightshift/test_nightshift_props.py::test_schedule_interval_compliance tests/property/nightshift/test_nightshift_props.py::test_category_isolation`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
+    - [x] Requirements 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 acceptance criteria met
 
 - [ ] 5. Finding consolidation and issue creation
   - [ ] 5.1 Implement finding-to-issue pipeline
