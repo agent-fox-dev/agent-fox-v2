@@ -60,7 +60,6 @@ class TestMaxTurnsDefaults:
             "auditor": 50,
             "librarian": 100,
             "cartographer": 100,
-            "coordinator": 30,
         }
         for archetype, turns in expected.items():
             entry = ARCHETYPE_REGISTRY[archetype]
@@ -187,7 +186,6 @@ class TestThinkingDefaults:
             "auditor",
             "librarian",
             "cartographer",
-            "coordinator",
         ):
             entry = ARCHETYPE_REGISTRY[name]
             assert entry.default_thinking_mode == "disabled", (

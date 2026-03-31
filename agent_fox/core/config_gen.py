@@ -89,7 +89,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("RoutingConfig", "retrain_interval"): "Retrain interval",
     # ModelConfig
     ("ModelConfig", "coding"): "Model tier for coding tasks",
-    ("ModelConfig", "coordinator"): "Model tier for coordination",
     ("ModelConfig", "memory_extraction"): "Model tier for memory extraction",
     # HookConfig
     ("HookConfig", "pre_code"): "Commands to run before coding",

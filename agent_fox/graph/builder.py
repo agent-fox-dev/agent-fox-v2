@@ -14,7 +14,6 @@ from agent_fox.core.errors import PlanError
 from agent_fox.graph.injection import (
     collect_enabled_auto_post,
     collect_enabled_auto_pre,
-    is_archetype_enabled,
     resolve_auditor_config,
     resolve_instances,
 )
@@ -309,61 +308,6 @@ def _inject_archetype_nodes(
     _inject_auto_mid_nodes(nodes, edges, specs, task_groups, archetypes_config)
 
 
-def _apply_coordinator_overrides(
-    nodes: dict[str, Node],
-    coordinator_overrides: list[Any] | None,
-    archetypes_config: Any | None,
-) -> None:
-    """Apply coordinator archetype overrides (layer 2 priority).
-
-    Requirements: 26-REQ-5.2, 26-REQ-5.E1
-    """
-    if not coordinator_overrides:
-        return
-
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
-    for override in coordinator_overrides:
-        node_id = override.node
-        arch_name = override.archetype
-
-        if node_id not in nodes:
-            logger.warning(
-                "Coordinator override references unknown node '%s'; ignoring",
-                node_id,
-            )
-            continue
-
-        # Check if archetype exists and is enabled
-        if arch_name not in ARCHETYPE_REGISTRY:
-            logger.warning(
-                "Coordinator override references unknown archetype '%s'; ignoring",
-                arch_name,
-            )
-            continue
-
-        if not is_archetype_enabled(arch_name, archetypes_config):
-            logger.warning(
-                "Coordinator override references disabled archetype '%s'; ignoring",
-                arch_name,
-            )
-            continue
-
-        entry = ARCHETYPE_REGISTRY[arch_name]
-        if not entry.task_assignable:
-            logger.warning(
-                "Coordinator override references non-assignable archetype '%s'; "
-                "falling back to 'coder'",
-                arch_name,
-            )
-            continue
-
-        # Only apply if no tasks.md tag already set (tag has higher priority,
-        # but at this point we don't know yet — we apply coordinator first,
-        # then tasks.md tag overwrites in the next step)
-        nodes[node_id].archetype = arch_name
-
-
 def _apply_tasks_md_overrides(
     nodes: dict[str, Node],
     task_groups: dict[str, list[TaskGroupDef]],
@@ -405,13 +349,12 @@ def build_graph(
     task_groups: dict[str, list[TaskGroupDef]],
     cross_deps: list[CrossSpecDep],
     archetypes_config: Any | None = None,
-    coordinator_overrides: list[Any] | None = None,
 ) -> TaskGraph:
     """Construct a TaskGraph from discovered specs and parsed tasks.
 
     1. Create nodes and intra-spec edges.
     2. Inject auto_pre/auto_post archetype nodes.
-    3. Apply three-layer archetype assignment.
+    3. Apply two-layer archetype assignment.
     4. Add cross-spec edges with validation.
     5. Return TaskGraph (ordering computed separately by resolver).
 
@@ -420,7 +363,6 @@ def build_graph(
         task_groups: Mapping of spec_name -> list of TaskGroupDef.
         cross_deps: Cross-spec dependency declarations.
         archetypes_config: ArchetypesConfig for archetype injection/toggles.
-        coordinator_overrides: Coordinator-provided archetype overrides.
 
     Returns:
         TaskGraph with nodes and edges but no ordering yet.
@@ -443,11 +385,9 @@ def build_graph(
     # coder nodes in their spec are completed.
     _propagate_completion_to_archetype_nodes(nodes)
 
-    # Three-layer assignment priority (26-REQ-5.2):
+    # Two-layer assignment priority (26-REQ-5.2):
     # Layer 1 (lowest): graph builder default — already set to "coder"
-    # Layer 2: coordinator overrides
-    _apply_coordinator_overrides(nodes, coordinator_overrides, archetypes_config)
-    # Layer 3 (highest): tasks.md tags — overwrites coordinator
+    # Layer 2 (highest): tasks.md tags
     _apply_tasks_md_overrides(nodes, task_groups)
 
     # 26-REQ-5.5: Log final archetype assignment

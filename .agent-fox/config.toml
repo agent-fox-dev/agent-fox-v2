@@ -91,8 +91,6 @@ verifier = 2
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")
 coding = "STANDARD"
-## Model tier for coordination (default: "STANDARD")
-coordinator = "ADVANCED"
 ## Model tier for memory extraction (default: "SIMPLE")
 # memory_extraction = "SIMPLE"
 ## Fallback model ID when primary is unavailable (default: "claude-sonnet-4-6")

@@ -26,7 +26,7 @@ except ImportError:
 
 
 class TestRegistryCompleteness:
-    """Verify registry contains all six archetypes with valid fields."""
+    """Verify registry contains all archetypes with valid fields."""
 
     def test_all_archetypes_present(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
@@ -37,7 +37,6 @@ class TestRegistryCompleteness:
             "verifier",
             "librarian",
             "cartographer",
-            "coordinator",
             "oracle",
             "auditor",
         }
@@ -53,29 +52,6 @@ class TestRegistryCompleteness:
             assert entry.default_model_tier in valid_tiers, (
                 f"{name} has invalid model tier: {entry.default_model_tier}"
             )
-
-
-# ---------------------------------------------------------------------------
-# TS-26-10: Coordinator is not task-assignable
-# Requirement: 26-REQ-3.3
-# ---------------------------------------------------------------------------
-
-
-class TestCoordinatorNotAssignable:
-    """Verify coordinator archetype has task_assignable=False."""
-
-    def test_coordinator_not_assignable(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
-        entry = ARCHETYPE_REGISTRY["coordinator"]
-        assert entry.task_assignable is False
-
-    def test_other_archetypes_are_assignable(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
-        for name in ["coder", "skeptic", "verifier", "librarian", "cartographer"]:
-            entry = ARCHETYPE_REGISTRY[name]
-            assert entry.task_assignable is True, f"{name} should be assignable"
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +122,6 @@ class TestPropertyRegistryCompleteness:
             "verifier",
             "librarian",
             "cartographer",
-            "coordinator",
         }
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
 
@@ -181,7 +156,6 @@ class TestPropertyArchetypeFallback:
                     "verifier",
                     "librarian",
                     "cartographer",
-                    "coordinator",
                 }
             )
         )

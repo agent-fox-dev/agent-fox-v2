@@ -50,26 +50,26 @@ tests. Task group 3 is a final verification checkpoint.
     - [x] All spec tests FAIL (red) — coordinator still exists
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Remove coordinator code and update existing tests
-  - [ ] 2.1 Remove coordinator from archetype registry and prompt mapping
+- [x] 2. Remove coordinator code and update existing tests
+  - [x] 2.1 Remove coordinator from archetype registry and prompt mapping
     - Delete `"coordinator"` entry from `ARCHETYPE_REGISTRY` in `agent_fox/session/archetypes.py`
     - Remove `"coordinator": "coordinator"` from role mapping in `agent_fox/session/prompt.py`
     - Remove `"coordinator"` from known archetypes in `agent_fox/spec/parser.py`
     - _Requirements: 1.1, 1.2, 4.1, 5.1_
 
-  - [ ] 2.2 Remove coordinator from graph builder
+  - [x] 2.2 Remove coordinator from graph builder
     - Delete `_apply_coordinator_overrides()` function from `agent_fox/graph/builder.py`
     - Remove `coordinator_overrides` parameter from `build_graph()`
     - Remove Layer 2 call and update Layer 3 comment to Layer 2
     - _Requirements: 3.1, 3.2, 3.3_
 
-  - [ ] 2.3 Remove coordinator template and config
+  - [x] 2.3 Remove coordinator template and config
     - Delete `agent_fox/_templates/prompts/coordinator.md`
     - Remove `coordinator` field from `ModelConfig` in `agent_fox/core/config.py`
     - Remove coordinator description from `agent_fox/core/config_gen.py`
     - _Requirements: 2.1, 6.1, 6.2_
 
-  - [ ] 2.4 Update existing tests that reference coordinator
+  - [x] 2.4 Update existing tests that reference coordinator
     - Remove `TestCoordinatorNotAssignable` class from `tests/unit/session/test_archetypes.py`
     - Remove `"coordinator"` from archetype lists in `test_archetypes.py`, `test_archetype_tiers.py`, `test_archetype_tiers_props.py`
     - Remove coordinator prompt tests from `tests/unit/session/test_prompt.py`
@@ -81,16 +81,16 @@ tests. Task group 3 is a final verification checkpoint.
     - Remove coordinator default config assertion from `tests/property/core/test_config_props.py`
     - _Requirements: 7.1, 7.2_
 
-  - [ ] 2.5 Update config files
+  - [x] 2.5 Update config files
     - Remove `coordinator = "ADVANCED"` from `.agent-fox/config.toml`
     - Remove `coordinator = "STANDARD"` from `hack/config.toml`
     - _Requirements: 6.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_no_coordinator.py tests/unit/session/test_no_coordinator.py tests/unit/core/test_no_coordinator.py tests/property/test_no_coordinator_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 1.1–7.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/graph/test_no_coordinator.py tests/unit/session/test_no_coordinator.py tests/unit/core/test_no_coordinator.py tests/property/test_no_coordinator_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 1.1–7.2 acceptance criteria met
 
 - [ ] 3. Checkpoint — Coordinator fully removed
   - Ensure `make check` passes with no regressions.

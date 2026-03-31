@@ -100,14 +100,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         task_assignable=True,
         default_max_turns=100,
     ),
-    "coordinator": ArchetypeEntry(
-        name="coordinator",
-        templates=["coordinator.md"],
-        default_model_tier="STANDARD",
-        injection=None,
-        task_assignable=False,
-        default_max_turns=30,
-    ),
     "auditor": ArchetypeEntry(
         name="auditor",
         templates=["auditor.md"],

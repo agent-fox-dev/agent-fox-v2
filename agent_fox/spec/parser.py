@@ -48,7 +48,6 @@ _KNOWN_ARCHETYPES = {
     "verifier",
     "librarian",
     "cartographer",
-    "coordinator",
 }
 
 

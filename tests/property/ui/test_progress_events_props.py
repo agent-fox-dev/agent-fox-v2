@@ -29,7 +29,6 @@ _ARCHETYPES = [
     "auditor",
     "librarian",
     "cartographer",
-    "coordinator",
 ]
 
 

@@ -171,9 +171,6 @@ class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     coding: str = Field(default="ADVANCED", description="Model tier for coding tasks")
-    coordinator: str = Field(
-        default="STANDARD", description="Model tier for coordination"
-    )
     memory_extraction: str = Field(
         default="SIMPLE", description="Model tier for memory extraction"
     )

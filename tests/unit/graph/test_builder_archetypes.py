@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -370,52 +369,6 @@ class TestInstancesOver5Clamped:
         with caplog.at_level(logging.WARNING):
             result = clamp_instances("skeptic", 10)
         assert result == 5
-
-
-# -------------------------------------------------------------------
-# TS-26-E7: Disabled archetype in coordinator override
-# Requirement: 26-REQ-5.E1
-# -------------------------------------------------------------------
-
-
-class TestDisabledArchetypeOverrideIgnored:
-    """Verify disabled archetype override is ignored."""
-
-    def test_disabled_override_ignored(
-        self,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        from agent_fox.core.config import ArchetypesConfig
-        from agent_fox.graph.builder import build_graph
-
-        config = ArchetypesConfig(librarian=False)
-        specs = [_spec()]
-        task_groups = {"spec": [_tgd(3, "Task")]}
-
-        @dataclass
-        class _Override:
-            node: str
-            archetype: str
-            reason: str = ""
-
-        overrides = [
-            _Override(node="spec:3", archetype="librarian"),
-        ]
-
-        with caplog.at_level(logging.WARNING):
-            graph = build_graph(
-                specs,
-                task_groups,
-                [],
-                archetypes_config=config,
-                coordinator_overrides=overrides,
-            )
-
-        assert graph.nodes["spec:3"].archetype == "coder"
-        assert any(
-            "librarian" in r.message and "disabled" in r.message.lower()
-            for r in caplog.records
-        )
 
 
 # -------------------------------------------------------------------
