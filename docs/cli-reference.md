@@ -12,6 +12,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox status` | Show execution progress dashboard |
 | `agent-fox standup` | Generate daily activity report |
 | `agent-fox fix` | Detect and auto-fix quality check failures |
+| `agent-fox night-shift` | Run autonomous maintenance daemon (hunt scans + issue fixes) |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
 | `agent-fox export` | Export knowledge store data (memory summary or full DB dump) |
 | `agent-fox lint-specs` | Validate specification files |
@@ -329,6 +330,77 @@ With `--hard <TASK_ID>`, performs a partial rollback:
 Hard reset requires confirmation unless `--yes` or `--json` is provided.
 
 **Exit codes:** `0` success, `1` error.
+
+---
+
+### night-shift
+
+Run the autonomous maintenance daemon.
+
+```
+agent-fox night-shift [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--auto` | flag | off | Auto-assign the `af:fix` label to every issue created during hunt scans |
+
+Night Shift is a continuously-running maintenance daemon that:
+
+1. **Hunts for maintenance issues** — runs all enabled hunt categories (linter
+   debt, dead code, test coverage gaps, dependency freshness, TODO/FIXME
+   resolution, deprecated API usage, and documentation drift) at the configured
+   `hunt_scan_interval`. Each category uses static tooling followed by AI
+   analysis to produce structured findings.
+2. **Reports findings as platform issues** — groups findings by root cause and
+   creates one GitHub issue per group, including category, severity, affected
+   files, and a suggested fix.
+3. **Fixes `af:fix`-labelled issues** — polls GitHub for open issues with the
+   `af:fix` label at the configured `issue_check_interval`, then runs each
+   through the full skeptic → coder → verifier archetype pipeline and opens a
+   pull request.
+
+**Requirements:**
+
+- A `[platform]` configuration section with `type = "github"` and a valid
+  `GITHUB_PAT` environment variable (or equivalent token). Night Shift aborts
+  with exit code 1 if the platform is not configured.
+
+**`--auto` flag:**
+
+When `--auto` is active, every issue created during a hunt scan is
+automatically labelled `af:fix`, making it eligible for autonomous fixing in
+the same run. This enables a fully hands-off maintenance loop.
+
+**Scheduling:**
+
+Both intervals run immediately on startup and then repeat on their configured
+period. If a hunt scan is already running when the next interval fires, the
+overlapping scan is skipped (logged as informational). If the platform API is
+temporarily unavailable during an issue check, the error is logged as a
+warning and the next interval retries normally.
+
+**Cost control:**
+
+Night Shift honours `orchestrator.max_cost` and `orchestrator.max_sessions`.
+When the accumulated cost reaches `max_cost`, the daemon stops dispatching new
+fix sessions and exits with code 0.
+
+**Graceful shutdown:**
+
+Send SIGINT (Ctrl-C) once to request a graceful shutdown. The daemon completes
+the currently active operation before exiting with code 0. Send SIGINT a
+second time to abort immediately; exit code is 130.
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | Clean shutdown (SIGINT or cost limit reached) |
+| `1` | Startup failure (platform not configured, missing token) |
+| `130` | Immediate abort (second SIGINT) |
+
+**Configuration:** See `[night_shift]` in [configuration.md](configuration.md).
 
 ---
 

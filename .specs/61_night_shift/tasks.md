@@ -224,24 +224,24 @@ coherent set of requirements and makes the corresponding spec tests pass.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/ agent_fox/cli/`
     - [x] Requirements 1.1, 1.2, 1.3, 1.4, 9.3 acceptance criteria met
 
-- [ ] 9. Documentation and final verification
-  - [ ] 9.1 Update CLI reference
+- [x] 9. Documentation and final verification
+  - [x] 9.1 Update CLI reference
     - Add `night-shift` command to `docs/cli-reference.md`
     - Document `--auto` flag and exit codes
 
-  - [ ] 9.2 Update configuration docs
+  - [x] 9.2 Update configuration docs
     - Add `[night_shift]` section to `docs/configuration.md`
     - Document all category toggles and interval settings
 
-  - [ ] 9.3 Update README
+  - [x] 9.3 Update README
     - Add night-shift to the quick-start section
     - Brief description of the feature
 
-  - [ ] 9.V Verify task group 9
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/nightshift/ tests/integration/nightshift/ tests/property/nightshift/`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Documentation updated: cli-reference.md, configuration.md, README.md
+  - [x] 9.V Verify task group 9
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/nightshift/ tests/integration/nightshift/ tests/property/nightshift/`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Documentation updated: cli-reference.md, configuration.md, README.md
 
 ## Traceability
 
