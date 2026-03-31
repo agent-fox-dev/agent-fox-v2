@@ -2,7 +2,6 @@
 .agent-fox/*
 !.agent-fox/config.toml
 !.agent-fox/memory.jsonl
-!.agent-fox/state.jsonl
 
 # Python
 __pycache__/

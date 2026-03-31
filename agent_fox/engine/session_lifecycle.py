@@ -390,7 +390,7 @@ class NodeSessionRunner:
         # Try to get commit diff from the worktree
         try:
             result = subprocess.run(
-                ["git", "diff", "HEAD~1"],
+                ["git", "diff", "HEAD~1", "--", ".", ":!.agent-fox/"],
                 cwd=workspace.path,
                 capture_output=True,
                 text=True,
