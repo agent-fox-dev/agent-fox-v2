@@ -1,0 +1,179 @@
+## agent-fox configuration
+## Generated from schema — do not remove section headers.
+## Uncomment and edit values to customize.
+
+[orchestrator]
+## Maximum parallel sessions (1-8, default: 2)
+parallel = 4
+## Sync interval in task groups (>=0, default: 5)
+sync_interval = 6
+## Hot-load specs between sessions (default: true)
+# hot_load = true
+## Maximum retries per task group (>=0, default: 2)
+# max_retries = 2
+## Session timeout in minutes (>=1, default: 30)
+# session_timeout = 30
+## Delay between sessions in seconds (>=0, default: 3)
+# inter_session_delay = 3
+## Maximum cost limit (not set by default)
+## max_cost =
+## Maximum number of sessions (not set by default)
+## max_sessions =
+## Maximum number of runs to retain in the audit log (default: 20)
+# audit_retention_runs = 20
+## Stop the run when this fraction of nodes are blocked (0.0-1.0). None = disabled. (not set by default)
+## max_blocked_fraction =
+## Shell command to run after each coder session (default: "")
+# quality_gate = ""
+## Quality gate timeout in seconds (default: 300)
+# quality_gate_timeout = 300
+## Maximum USD spend per session, 0 = unlimited (default: 2.0)
+# max_budget_usd = 2.0
+## Maximum number of prior facts included in the causal extraction prompt. When total non-superseded facts exceed this limit, prior facts are ranked by embedding similarity to the new facts and only the top N are included. (default: 200)
+# causal_context_limit = 200
+
+[archetypes]
+## Enable coder archetype (default: true)
+coder = true
+## Enable skeptic archetype (default: true)
+skeptic = true
+## Enable verifier archetype (default: true)
+verifier = true
+## Enable oracle archetype (default: true)
+oracle = true
+## Enable auditor archetype (default: true)
+auditor = true
+## Enable librarian archetype (default: false)
+# librarian = false
+## Enable cartographer archetype (default: false)
+# cartographer = false
+## Per-archetype model overrides (default: {})
+# models = {}
+## Per-archetype command allowlists (default: {})
+# allowlists = {}
+## Per-archetype maximum turn limits (default: {})
+# max_turns = {}
+## Per-archetype extended thinking configuration (default: {})
+# thinking = {}
+
+[archetypes.instances]
+## Number of skeptic instances (1-5, default: 1)
+# skeptic = 1
+## Number of verifier instances (1-5, default: 1)
+verifier = 2
+## Number of auditor instances (1-5, default: 1)
+# auditor = 1
+
+# [archetypes.skeptic_settings]
+## Finding count to block merge (>=0, default: 3)
+# block_threshold = 3
+
+# [archetypes.oracle_settings]
+## Drift count to block (None = advisory) (>=1, not set by default)
+## block_threshold =
+
+# [archetypes.auditor_config]
+## Minimum TS entries to trigger auditor injection (>=1, default: 5)
+# min_ts_entries = 5
+## Maximum auditor-coder retry iterations (>=0, default: 2)
+# max_retries = 2
+
+# [routing]
+## Retries before model escalation (0-3, default: 1)
+# retries_before_escalation = 1
+## Training data threshold (5-1000, default: 20)
+# training_threshold = 20
+## Accuracy threshold for routing (0.5-1.0, default: 0.75)
+# accuracy_threshold = 0.75
+## Retrain interval (5-100, default: 10)
+# retrain_interval = 10
+
+[models]
+## Model tier for coding tasks (default: "ADVANCED")
+coding = "STANDARD"
+## Model tier for coordination (default: "STANDARD")
+coordinator = "ADVANCED"
+## Model tier for memory extraction (default: "SIMPLE")
+# memory_extraction = "SIMPLE"
+## Fallback model ID when primary is unavailable (default: "claude-sonnet-4-6")
+# fallback_model = "claude-sonnet-4-6"
+
+# [hooks]
+## Commands to run before coding (default: [])
+# pre_code = []
+## Commands to run after coding (default: [])
+# post_code = []
+## Commands to run at sync barriers (default: [])
+# sync_barrier = []
+## Hook command timeout in seconds (>=1, default: 300)
+# timeout = 300
+## Hook modes configuration (default: {})
+# modes = {}
+
+# [security]
+## Allowed bash commands (not set by default)
+## bash_allowlist =
+## Additional allowed bash commands (default: [])
+# bash_allowlist_extend = []
+
+# [theme]
+## Enable playful output style (default: true)
+# playful = true
+## Header text style (default: "bold #ff8c00")
+# header = "bold #ff8c00"
+## Success text style (default: "bold green")
+# success = "bold green"
+## Error text style (default: "bold red")
+# error = "bold red"
+## Warning text style (default: "bold yellow")
+# warning = "bold yellow"
+## Info text style (default: "#daa520")
+# info = "#daa520"
+## Tool text style (default: "bold #cd853f")
+# tool = "bold #cd853f"
+## Muted text style (default: "dim")
+# muted = "dim"
+
+#[platform]
+## Platform type (none or github) (default: "none")
+#type = "github"
+## Auto-merge pull requests (default: false)
+#auto_merge = true
+
+# [knowledge]
+## Path to knowledge store (default: ".agent-fox/knowledge.duckdb")
+# store_path = ".agent-fox/knowledge.duckdb"
+## Embedding model for knowledge (default: "all-MiniLM-L6-v2")
+# embedding_model = "all-MiniLM-L6-v2"
+## Embedding vector dimensions (default: 384)
+# embedding_dimensions = 384
+## Number of results for knowledge queries (>=1, default: 20)
+# ask_top_k = 20
+## Model tier for answer synthesis (default: "STANDARD")
+# ask_synthesis_model = "STANDARD"
+## Minimum confidence for fact inclusion in session context (default: 0.5)
+# confidence_threshold = 0.5
+## Pre-compute fact rankings at plan time (default: true)
+# fact_cache_enabled = true
+
+# [pricing]
+## Per-model pricing configuration (default: {claude-haiku-4-5 = {input_price_per_m = 1.0, output_price_per_m = 5.0, cache_read_price_per_m = 0.1, cache_creation_price_per_m = 1.25}, claude-sonnet-4-6 = {input_price_per_m = 3.0, output_price_per_m = 15.0, cache_read_price_per_m = 0.3, cache_creation_price_per_m = 3.75}, claude-opus-4-6 = {input_price_per_m = 5.0, output_price_per_m = 25.0, cache_read_price_per_m = 0.5, cache_creation_price_per_m = 6.25}})
+# models = {claude-haiku-4-5 = {input_price_per_m = 1.0, output_price_per_m = 5.0, cache_read_price_per_m = 0.1, cache_creation_price_per_m = 1.25}, claude-sonnet-4-6 = {input_price_per_m = 3.0, output_price_per_m = 15.0, cache_read_price_per_m = 0.3, cache_creation_price_per_m = 3.75}, claude-opus-4-6 = {input_price_per_m = 5.0, output_price_per_m = 25.0, cache_read_price_per_m = 0.5, cache_creation_price_per_m = 6.25}}
+
+# [planning]
+## Sort ready tasks by predicted duration (default: true)
+# duration_ordering = true
+## Minimum outcomes before using historical duration data (default: 10)
+# min_outcomes_for_historical = 10
+## Minimum outcomes before training duration regression model (default: 30)
+# min_outcomes_for_regression = 30
+## Detect file conflicts between parallel tasks (default: false)
+# file_conflict_detection = false
+
+# [blocking]
+## Learn blocking thresholds from history (default: false)
+# learn_thresholds = false
+## Minimum blocking decisions before learning thresholds (default: 20)
+# min_decisions_for_learning = 20
+## Maximum acceptable false negative rate (default: 0.1)
+# max_false_negative_rate = 0.1
