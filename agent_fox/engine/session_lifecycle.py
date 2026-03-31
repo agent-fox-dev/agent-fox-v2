@@ -421,6 +421,10 @@ class NodeSessionRunner:
         resolved_fallback = resolve_fallback_model(self._config)
         resolved_budget = resolve_max_budget(self._config)
 
+        # Claude CLI rejects fallback_model when it equals the main model.
+        if resolved_fallback and resolved_fallback == self._resolved_model_id:
+            resolved_fallback = None
+
         logger.info(
             "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, "
             "thinking=%s",
