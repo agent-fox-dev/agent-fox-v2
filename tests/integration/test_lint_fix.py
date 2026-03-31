@@ -1,4 +1,4 @@
-"""Integration tests for lint-spec --fix CLI flag.
+"""Integration tests for lint-specs --fix CLI flag.
 
 Test Spec: TS-20-14 (CLI integration)
 Requirements: 20-REQ-6.1, #115
@@ -66,16 +66,16 @@ def _setup_project_with_coarse_dep(project_dir: Path) -> None:
 
 
 class TestLintSpecFix:
-    """Verify lint-spec --fix rewrites files and re-validates."""
+    """Verify lint-specs --fix rewrites files and re-validates."""
 
     def test_fix_exits_zero(self, tmp_path: Path) -> None:
-        """lint-spec --fix exits without errors after fixing."""
+        """lint-specs --fix exits without errors after fixing."""
         _setup_project_with_coarse_dep(tmp_path)
         runner = CliRunner()
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = runner.invoke(main, ["lint-spec", "--fix"])
+            result = runner.invoke(main, ["lint-specs", "--fix"])
             assert result.exit_code == 0, (
                 f"Exit code {result.exit_code}, output:\n{result.output}"
             )
@@ -83,13 +83,13 @@ class TestLintSpecFix:
             os.chdir(original_dir)
 
     def test_fix_rewrites_prd(self, tmp_path: Path) -> None:
-        """lint-spec --fix rewrites the coarse dependency table."""
+        """lint-specs --fix rewrites the coarse dependency table."""
         _setup_project_with_coarse_dep(tmp_path)
         runner = CliRunner()
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            runner.invoke(main, ["lint-spec", "--fix"])
+            runner.invoke(main, ["lint-specs", "--fix"])
             prd_content = (tmp_path / ".specs" / "02_beta" / "prd.md").read_text()
             assert "From Group" in prd_content
             assert "This Spec" not in prd_content
@@ -103,7 +103,7 @@ class TestLintSpecFix:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = runner.invoke(main, ["--json", "lint-spec", "--fix"])
+            result = runner.invoke(main, ["--json", "lint-specs", "--fix"])
             # Fix summary goes to stderr; JSON findings go to stdout.
             # In Click's test runner, both may appear in result.output.
             # Extract just the JSON portion.
@@ -142,7 +142,7 @@ def _setup_project_with_mixed_ids(project_dir: Path) -> None:
 
 
 class TestLintSpecFixRobustness:
-    """Verify lint-spec --fix handles new robustness rules."""
+    """Verify lint-specs --fix handles new robustness rules."""
 
     def test_fix_converts_bold_ids_to_bracket(self, tmp_path: Path) -> None:
         """--fix converts bold req IDs to bracket format."""
@@ -151,7 +151,7 @@ class TestLintSpecFixRobustness:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            runner.invoke(main, ["lint-spec", "--fix"])
+            runner.invoke(main, ["lint-specs", "--fix"])
             req_text = (
                 tmp_path / ".specs" / "01_feature" / "requirements.md"
             ).read_text()
@@ -167,7 +167,7 @@ class TestLintSpecFixRobustness:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            runner.invoke(main, ["lint-spec", "--fix"])
+            runner.invoke(main, ["lint-specs", "--fix"])
             design_text = (tmp_path / ".specs" / "01_feature" / "design.md").read_text()
             assert "## Definition of Done" in design_text
             assert "## Error Handling" in design_text
@@ -182,7 +182,7 @@ class TestLintSpecFixRobustness:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = runner.invoke(main, ["--json", "lint-spec", "--fix"])
+            result = runner.invoke(main, ["--json", "lint-specs", "--fix"])
             output = result.output
             json_start = output.index("{")
             json_str = output[json_start:]

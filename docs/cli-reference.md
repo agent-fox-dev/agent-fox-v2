@@ -13,8 +13,8 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox standup` | Generate daily activity report |
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
-| `agent-fox dump` | Export knowledge store data (memory summary or full DB dump) |
-| `agent-fox lint-spec` | Validate specification files |
+| `agent-fox export` | Export knowledge store data (memory summary or full DB dump) |
+| `agent-fox lint-specs` | Validate specification files |
 
 ## Global Options
 
@@ -73,12 +73,12 @@ echo 'not json' | agent-fox --json status
 
 ## Commands
 
-### dump
+### export
 
 Export knowledge store data as Markdown or JSON.
 
 ```
-agent-fox dump [OPTIONS]
+agent-fox export [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
@@ -332,12 +332,12 @@ Hard reset requires confirmation unless `--yes` or `--json` is provided.
 
 ---
 
-### lint-spec
+### lint-specs
 
 Validate specification files.
 
 ```
-agent-fox lint-spec [OPTIONS]
+agent-fox lint-specs [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
@@ -346,7 +346,7 @@ agent-fox lint-spec [OPTIONS]
 | `--fix` | flag | off | Auto-fix findings where possible |
 | `--all` | flag | off | Lint all specs, including fully-implemented ones |
 
-Use `agent-fox --json lint-spec` for structured JSON output.
+Use `agent-fox --json lint-specs` for structured JSON output.
 
 Runs structural validation rules against specs in `.specs/`: missing files,
 oversized task groups, missing verification subtasks, missing acceptance

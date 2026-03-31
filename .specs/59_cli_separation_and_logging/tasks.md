@@ -60,8 +60,8 @@ The order ensures renames land first (simple, mechanical), then module extractio
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Rename CLI commands
-  - [ ] 2.1 Rename dump → export
+- [x] 2. Rename CLI commands
+  - [x] 2.1 Rename dump → export
     - Rename `agent_fox/cli/dump.py` → `agent_fox/cli/export.py`
     - Change Click decorator from `@click.command("dump")` to
       `@click.command("export")`
@@ -69,7 +69,7 @@ The order ensures renames land first (simple, mechanical), then module extractio
     - Update `app.py`: change import and `main.add_command` name
     - _Requirements: 59-REQ-1.1, 59-REQ-1.2_
 
-  - [ ] 2.2 Rename lint-spec → lint-specs
+  - [x] 2.2 Rename lint-spec → lint-specs
     - Rename `agent_fox/cli/lint_spec.py` → `agent_fox/cli/lint_specs.py`
     - Change Click decorator from `@click.command("lint-spec")` to
       `@click.command("lint-specs")`
@@ -77,21 +77,21 @@ The order ensures renames land first (simple, mechanical), then module extractio
     - Update `app.py`: change import and `main.add_command` name
     - _Requirements: 59-REQ-1.3, 59-REQ-1.4_
 
-  - [ ] 2.3 Remove old command registrations
+  - [x] 2.3 Remove old command registrations
     - Ensure `app.py` does NOT register `dump` or `lint-spec`
     - _Requirements: 59-REQ-1.E1, 59-REQ-1.E2_
 
-  - [ ] 2.4 Update all references
+  - [x] 2.4 Update all references
     - Update imports in test files that reference the old module names
     - Update `docs/cli-reference.md` with new command names
     - Update any references in `CLAUDE.md`, `docs/skills.md`, etc.
     - _Requirements: 59-REQ-1.1 through 59-REQ-1.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests TS-59-1 through TS-59-6 pass
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 59-REQ-1.1 through 59-REQ-1.E2 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests TS-59-1 through TS-59-6 pass
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 59-REQ-1.1 through 59-REQ-1.E2 met
 
 - [ ] 3. Extract export backing module
   - [ ] 3.1 Create `agent_fox/knowledge/export.py`

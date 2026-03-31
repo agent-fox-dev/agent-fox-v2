@@ -32,13 +32,15 @@ class TestDiscoveryOnlyOnCompleted:
     """
 
     @given(
-        status=st.sampled_from([
-            RunStatus.STALLED,
-            RunStatus.COST_LIMIT,
-            RunStatus.SESSION_LIMIT,
-            RunStatus.BLOCK_LIMIT,
-            RunStatus.INTERRUPTED,
-        ]),
+        status=st.sampled_from(
+            [
+                RunStatus.STALLED,
+                RunStatus.COST_LIMIT,
+                RunStatus.SESSION_LIMIT,
+                RunStatus.BLOCK_LIMIT,
+                RunStatus.INTERRUPTED,
+            ]
+        ),
     )
     @settings(
         max_examples=10,
@@ -93,9 +95,7 @@ class TestHotLoadGateRespected:
         node_count: int,
     ) -> None:
         """With hot_load=False, barrier is never called regardless of state."""
-        config = OrchestratorConfig(
-            parallel=1, inter_session_delay=0, hot_load=False
-        )
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=False)
         orch = Orchestrator(
             config=config,
             plan_path=MagicMock(),
@@ -213,14 +213,16 @@ class TestGracefulFailure:
     """
 
     @given(
-        exc_type=st.sampled_from([
-            RuntimeError,
-            OSError,
-            IOError,
-            ValueError,
-            TypeError,
-            KeyError,
-        ]),
+        exc_type=st.sampled_from(
+            [
+                RuntimeError,
+                OSError,
+                IOError,
+                ValueError,
+                TypeError,
+                KeyError,
+            ]
+        ),
         exc_msg=st.text(min_size=1, max_size=50, alphabet="abcdefghijklmnop "),
     )
     @settings(
@@ -234,9 +236,7 @@ class TestGracefulFailure:
         exc_msg: str,
     ) -> None:
         """Any exception from barrier returns False, never propagates."""
-        config = OrchestratorConfig(
-            parallel=1, inter_session_delay=0, hot_load=True
-        )
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=True)
         orch = Orchestrator(
             config=config,
             plan_path=MagicMock(),
@@ -283,9 +283,7 @@ class TestLoopContinuation:
         task_count: int,
     ) -> None:
         """When barrier produces N ready tasks, method returns True."""
-        config = OrchestratorConfig(
-            parallel=1, inter_session_delay=0, hot_load=True
-        )
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=True)
         orch = Orchestrator(
             config=config,
             plan_path=MagicMock(),

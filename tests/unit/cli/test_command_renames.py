@@ -18,7 +18,7 @@ from agent_fox.cli.app import main
 
 @pytest.fixture()
 def cli_runner() -> CliRunner:
-    return CliRunner(mix_stderr=False)
+    return CliRunner()
 
 
 class TestExportReplacedDumpMemory:
@@ -54,8 +54,7 @@ class TestExportReplacedDumpMemory:
             result = cli_runner.invoke(main, ["export", "--memory"])
 
         assert result.exit_code == 0, (
-            f"Expected exit code 0, got {result.exit_code}. "
-            f"Output: {result.output}\nStderr: {result.stderr}"
+            f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
         )
 
 
@@ -89,8 +88,7 @@ class TestExportReplacedDumpDb:
             result = cli_runner.invoke(main, ["export", "--db"])
 
         assert result.exit_code == 0, (
-            f"Expected exit code 0, got {result.exit_code}. "
-            f"Output: {result.output}\nStderr: {result.stderr}"
+            f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
         )
 
 

@@ -1,4 +1,4 @@
-"""Integration tests for the lint-spec CLI command.
+"""Integration tests for the lint-specs CLI command.
 
 Test Spec: TS-09-E1, TS-09-E2, TS-09-E4, TS-09-E5, TS-09-E6,
            TS-09-E7, TS-09-E8
@@ -114,11 +114,11 @@ class TestNoSpecsDirectory:
     """TS-09-E1: No specs directory.
 
     Requirements: 09-REQ-1.E1, 09-REQ-9.4
-    Verify lint-spec reports error when .specs/ does not exist.
+    Verify lint-specs reports error when .specs/ does not exist.
     """
 
     def test_exits_with_code_one(self, cli_runner: CliRunner, tmp_path: Path) -> None:
-        """lint-spec exits with code 1 when no .specs/ directory."""
+        """lint-specs exits with code 1 when no .specs/ directory."""
         # Create minimal project without .specs/
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir()
@@ -127,7 +127,7 @@ class TestNoSpecsDirectory:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert result.exit_code == 1
         finally:
             os.chdir(original_dir)
@@ -135,7 +135,7 @@ class TestNoSpecsDirectory:
     def test_output_indicates_no_specs(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
-        """lint-spec output mentions no specifications found."""
+        """lint-specs output mentions no specifications found."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir()
         (agent_fox_dir / "config.toml").write_text("")
@@ -143,7 +143,7 @@ class TestNoSpecsDirectory:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             output_lower = result.output.lower()
             assert "no specifications" in output_lower or "error" in output_lower
         finally:
@@ -157,11 +157,11 @@ class TestEmptySpecsDirectory:
     """TS-09-E2: Empty specs directory.
 
     Requirements: 09-REQ-1.E1, 09-REQ-9.4
-    Verify lint-spec reports error when .specs/ exists but is empty.
+    Verify lint-specs reports error when .specs/ exists but is empty.
     """
 
     def test_exits_with_code_one(self, cli_runner: CliRunner, tmp_path: Path) -> None:
-        """lint-spec exits with code 1 when .specs/ is empty."""
+        """lint-specs exits with code 1 when .specs/ is empty."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir()
         (agent_fox_dir / "config.toml").write_text("")
@@ -170,7 +170,7 @@ class TestEmptySpecsDirectory:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert result.exit_code == 1
         finally:
             os.chdir(original_dir)
@@ -193,7 +193,7 @@ class TestJsonOutputFormat:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["--json", "lint-spec"])
+            result = cli_runner.invoke(main, ["--json", "lint-specs"])
             data = json.loads(result.output)
             assert "findings" in data
             assert "summary" in data
@@ -209,7 +209,7 @@ class TestJsonOutputFormat:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["--json", "lint-spec"])
+            result = cli_runner.invoke(main, ["--json", "lint-specs"])
             data = json.loads(result.output)
             assert data["summary"]["total"] == len(data["findings"])
         finally:
@@ -235,7 +235,7 @@ class TestTableOutputSummary:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert "error" in result.output.lower()
         finally:
             os.chdir(original_dir)
@@ -254,13 +254,13 @@ class TestExitCodeZeroWarningsOnly:
     def test_warnings_only_exits_zero(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
-        """lint-spec exits with code 0 when only warnings are present."""
+        """lint-specs exits with code 0 when only warnings are present."""
         _setup_project_with_specs(tmp_path, ["warnings_only_spec"])
 
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert result.exit_code == 0
         finally:
             os.chdir(original_dir)
@@ -335,7 +335,7 @@ class TestValidDependenciesIntegration:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["--json", "lint-spec"])
+            result = cli_runner.invoke(main, ["--json", "lint-specs"])
             data = json.loads(result.output)
             broken_deps = [
                 f for f in data["findings"] if f["rule"] == "broken-dependency"
@@ -351,7 +351,7 @@ class TestValidDependenciesIntegration:
 class TestAllFlagDefaultSkipsImplemented:
     """Issue #118: Default behavior skips fully-implemented specs.
 
-    Verify that lint-spec only lints specs with incomplete tasks by default,
+    Verify that lint-specs only lints specs with incomplete tasks by default,
     and --all includes all specs.
     """
 
@@ -368,12 +368,12 @@ class TestAllFlagDefaultSkipsImplemented:
     def test_default_skips_implemented_spec(
         self, cli_runner: CliRunner, tmp_path: Path
     ) -> None:
-        """Default lint-spec does not report findings for completed specs."""
+        """Default lint-specs does not report findings for completed specs."""
         self._setup_mixed_project(tmp_path)
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["--json", "lint-spec"])
+            result = cli_runner.invoke(main, ["--json", "lint-specs"])
             data = json.loads(result.output)
             spec_names = {f["spec_name"] for f in data["findings"]}
             assert "01_done_spec" not in spec_names
@@ -389,7 +389,7 @@ class TestAllFlagDefaultSkipsImplemented:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["--json", "lint-spec", "--all"])
+            result = cli_runner.invoke(main, ["--json", "lint-specs", "--all"])
             data = json.loads(result.output)
             spec_names = {f["spec_name"] for f in data["findings"]}
             assert "01_done_spec" in spec_names
@@ -411,7 +411,7 @@ class TestAllFlagDefaultSkipsImplemented:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert "No findings" in result.output or result.exit_code == 0
         finally:
             os.chdir(original_dir)
@@ -436,7 +436,7 @@ class TestAllFlagDefaultSkipsImplemented:
         os.chdir(tmp_path)
         try:
             # Use table mode — JSON mode can have log warnings mixed in
-            result = cli_runner.invoke(main, ["lint-spec"])
+            result = cli_runner.invoke(main, ["lint-specs"])
             assert "01_no_tasks" in result.output
         finally:
             os.chdir(original_dir)
