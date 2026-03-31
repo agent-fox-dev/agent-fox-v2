@@ -167,15 +167,12 @@ agent-fox plan [OPTIONS]
 |--------|------|---------|-------------|
 | `--fast` | flag | off | Exclude optional tasks |
 | `--spec NAME` | string | all | Plan a single spec |
-| `--reanalyze` | flag | off | Discard cached plan and rebuild |
 | `--analyze` | flag | off | Show parallelism analysis |
 
 Scans `.specs/` for specification folders, parses task groups, builds a
 dependency graph, resolves topological ordering, and persists the plan to
-`.agent-fox/plan.json`.
-
-If a cached plan exists and `--reanalyze` is not set, the cached plan is
-loaded and displayed without rebuilding.
+`.agent-fox/plan.json`. The plan is always rebuilt from `.specs/` on every
+invocation.
 
 **Exit codes:** `0` success, `1` plan error.
 

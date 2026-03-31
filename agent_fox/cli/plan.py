@@ -9,8 +9,6 @@ Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4, 02-REQ-7.5
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -21,65 +19,13 @@ from agent_fox import __version__
 from agent_fox.core.config import AgentFoxConfig, load_config
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.builder import build_graph
-from agent_fox.graph.persistence import load_plan, save_plan
+from agent_fox.graph.persistence import save_plan
 from agent_fox.graph.resolver import apply_fast_mode, resolve_order
 from agent_fox.graph.types import NodeStatus, PlanMetadata, TaskGraph
 from agent_fox.spec.discovery import SpecInfo, discover_specs
 from agent_fox.spec.parser import CrossSpecDep, parse_cross_deps, parse_tasks
 
 logger = logging.getLogger(__name__)
-
-
-def _compute_specs_hash(specs_dir: Path) -> str:
-    """Compute a content hash over all tasks.md and prd.md files in specs_dir.
-
-    This ensures the plan cache is invalidated whenever spec content changes,
-    including when new specs are added or existing ones are modified.
-    """
-    hasher = hashlib.sha256()
-    if not specs_dir.is_dir():
-        return hasher.hexdigest()
-
-    for path in sorted(specs_dir.rglob("*.md")):
-        # Include the relative path so renames/moves also invalidate
-        hasher.update(str(path.relative_to(specs_dir)).encode())
-        hasher.update(path.read_bytes())
-
-    return hasher.hexdigest()
-
-
-def _compute_config_hash(config: AgentFoxConfig) -> str:
-    """Compute a hash over archetype-relevant config fields.
-
-    Ensures the plan cache is invalidated when archetypes are
-    enabled/disabled or their settings change.
-    """
-    data = {
-        "skeptic": config.archetypes.skeptic,
-        "verifier": config.archetypes.verifier,
-        "librarian": config.archetypes.librarian,
-        "cartographer": config.archetypes.cartographer,
-        "instances": config.archetypes.instances.model_dump(),
-        "skeptic_config": config.archetypes.skeptic_config.model_dump(),
-    }
-    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
-
-
-def _cache_matches_request(
-    graph: TaskGraph,
-    *,
-    fast: bool,
-    filter_spec: str | None,
-    specs_hash: str,
-    config_hash: str,
-) -> bool:
-    """Return True when cached plan matches request flags, spec content, and config."""
-    return (
-        graph.metadata.fast_mode == fast
-        and graph.metadata.filtered_spec == filter_spec
-        and graph.metadata.specs_hash == specs_hash
-        and graph.metadata.config_hash == config_hash
-    )
 
 
 def _build_plan(
@@ -151,8 +97,6 @@ def _build_plan(
         fast_mode=fast,
         filtered_spec=filter_spec,
         version=__version__,
-        specs_hash=_compute_specs_hash(specs_dir),
-        config_hash=_compute_config_hash(config),
     )
 
     return graph
@@ -215,14 +159,12 @@ def _print_summary(graph: TaskGraph, specs: list[SpecInfo]) -> None:
 @click.command("plan")
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
-@click.option("--reanalyze", is_flag=True, help="Discard cached plan")
 @click.option("--analyze", is_flag=True, help="Show parallelism analysis")
 @click.pass_context
 def plan_cmd(
     ctx: click.Context,
     fast: bool,
     filter_spec: str | None,
-    reanalyze: bool,
     analyze: bool,
 ) -> None:
     """Build an execution plan from specifications."""
@@ -231,65 +173,35 @@ def plan_cmd(
     specs_dir = project_root / ".specs"
     plan_path = project_root / ".agent-fox" / "plan.json"
 
-    # Load config for archetypes and cache invalidation
+    # Load config for archetypes
     config_path = project_root / ".agent-fox" / "config.toml"
     config = load_config(config_path if config_path.exists() else None)
 
-    # Compute content hashes for cache invalidation
-    specs_hash = _compute_specs_hash(specs_dir)
-    config_hash = _compute_config_hash(config)
-
-    graph: TaskGraph | None = None
-
-    # 02-REQ-6.3: Load existing plan if available (unless --reanalyze)
-    if not reanalyze and plan_path.exists():
-        existing = load_plan(plan_path)
-        if existing is not None:
-            if _cache_matches_request(
-                existing,
-                fast=fast,
-                filter_spec=filter_spec,
-                specs_hash=specs_hash,
-                config_hash=config_hash,
-            ):
-                logger.info("Using cached plan from %s", plan_path)
-                graph = existing
-            else:
-                logger.info(
-                    "Cached plan metadata mismatch; rebuilding "
-                    "(cached fast=%s spec=%s, requested fast=%s spec=%s)",
-                    existing.metadata.fast_mode,
-                    existing.metadata.filtered_spec,
-                    fast,
-                    filter_spec,
-                )
-
-    # Build fresh plan if no cached plan was used
+    # Always rebuild the plan from .specs/ (63-REQ-1.1)
     json_mode = ctx.obj.get("json", False)
-    if graph is None:
-        from agent_fox.ui.progress import PlanSpinner
+    from agent_fox.ui.progress import PlanSpinner
 
-        spinner = PlanSpinner("Planning...")
-        if not json_mode:
-            spinner.start()
-        try:
-            graph = _build_plan(specs_dir, filter_spec, fast, config)
-        except PlanError as exc:
-            spinner.stop()
-            if json_mode:
-                from agent_fox.cli.json_io import emit_error
+    spinner = PlanSpinner("Planning...")
+    if not json_mode:
+        spinner.start()
+    try:
+        graph = _build_plan(specs_dir, filter_spec, fast, config)
+    except PlanError as exc:
+        spinner.stop()
+        if json_mode:
+            from agent_fox.cli.json_io import emit_error
 
-                emit_error(str(exc))
-                ctx.exit(1)
-                return
-            click.echo(f"Error: {exc}", err=True)
+            emit_error(str(exc))
             ctx.exit(1)
             return
-        finally:
-            spinner.stop()
+        click.echo(f"Error: {exc}", err=True)
+        ctx.exit(1)
+        return
+    finally:
+        spinner.stop()
 
-        # Persist the plan (02-REQ-6.1, 02-REQ-6.2)
-        save_plan(graph, plan_path)
+    # Persist the plan (02-REQ-6.1, 02-REQ-6.2, 63-REQ-1.2)
+    save_plan(graph, plan_path)
 
     # Re-discover specs for summary display
     try:
@@ -298,7 +210,6 @@ def plan_cmd(
         specs = []
 
     # 23-REQ-3.4: JSON output for plan command
-    json_mode = ctx.obj.get("json", False)
     if json_mode:
         from dataclasses import asdict
 

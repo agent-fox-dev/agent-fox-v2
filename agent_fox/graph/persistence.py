@@ -50,14 +50,16 @@ def _node_from_dict(data: dict[str, Any]) -> Node:
 
 
 def _metadata_from_dict(data: dict[str, Any]) -> PlanMetadata:
-    """Deserialize PlanMetadata from a dictionary (handles defaults for older plans)."""
+    """Deserialize PlanMetadata from a dictionary (handles defaults for older plans).
+
+    Old plan.json files may contain legacy fields (specs_hash, config_hash) which
+    are silently ignored for backward compatibility (63-REQ-3.E1).
+    """
     return PlanMetadata(
         created_at=data.get("created_at", ""),
         fast_mode=data.get("fast_mode", False),
         filtered_spec=data.get("filtered_spec"),
         version=data.get("version", ""),
-        specs_hash=data.get("specs_hash", ""),
-        config_hash=data.get("config_hash", ""),
     )
 
 

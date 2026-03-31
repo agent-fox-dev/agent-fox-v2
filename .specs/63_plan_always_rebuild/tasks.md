@@ -46,8 +46,8 @@ and simplification of the `plan_cmd` function.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Remove cache and --reanalyze
-  - [ ] 2.1 Remove `--reanalyze` option and cache logic from `plan_cmd`
+- [x] 2. Remove cache and --reanalyze
+  - [x] 2.1 Remove `--reanalyze` option and cache logic from `plan_cmd`
     - Remove `@click.option("--reanalyze", ...)` decorator
     - Remove `reanalyze` parameter from `plan_cmd`
     - Remove the `if not reanalyze and plan_path.exists():` block
@@ -55,35 +55,35 @@ and simplification of the `plan_cmd` function.
     - The function should always call `_build_plan()` and `save_plan()`
     - _Requirements: 63-REQ-1.1, 63-REQ-1.2, 63-REQ-2.1_
 
-  - [ ] 2.2 Remove dead functions from `agent_fox/cli/plan.py`
+  - [x] 2.2 Remove dead functions from `agent_fox/cli/plan.py`
     - Delete `_compute_specs_hash()`
     - Delete `_compute_config_hash()`
     - Delete `_cache_matches_request()`
     - Remove unused imports (`hashlib`, `json`, and any others now unused)
     - _Requirements: 63-REQ-3.1_
 
-  - [ ] 2.3 Remove `specs_hash` and `config_hash` from `PlanMetadata`
+  - [x] 2.3 Remove `specs_hash` and `config_hash` from `PlanMetadata`
     - Edit `agent_fox/graph/types.py`: remove the two fields
     - Edit `agent_fox/graph/persistence.py`: remove references in
       `_metadata_from_dict` (the `.get()` calls for removed fields)
     - _Requirements: 63-REQ-3.2, 63-REQ-3.E1_
 
-  - [ ] 2.4 Update documentation
+  - [x] 2.4 Update documentation
     - Edit `docs/cli-reference.md`: remove `--reanalyze` row and caching
       description
     - _Requirements: 63-REQ-4.1, 63-REQ-4.2_
 
-  - [ ] 2.5 Remove or update existing tests
+  - [x] 2.5 Remove or update existing tests
     - Remove `test_plan_with_reanalyze` from `tests/integration/test_plan.py`
     - Remove any unit tests that reference `_compute_specs_hash`,
       `_compute_config_hash`, or `_cache_matches_request`
     - _Requirements: 63-REQ-2.1, 63-REQ-3.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest tests/unit/cli/test_plan_always_rebuild.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 63-REQ-1.*, 63-REQ-2.*, 63-REQ-3.*, 63-REQ-4.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest tests/unit/cli/test_plan_always_rebuild.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 63-REQ-1.*, 63-REQ-2.*, 63-REQ-3.*, 63-REQ-4.* met
 
 ## Traceability
 
