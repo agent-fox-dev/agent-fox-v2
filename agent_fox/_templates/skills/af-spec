@@ -18,6 +18,12 @@ specification package consisting of four artifacts:
 Follow the steps below **in order**. Do not skip steps. Do not proceed to the
 next step until the current step is fully complete and the user has confirmed.
 
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
 ---
 
 ## Step 1: Understand the PRD

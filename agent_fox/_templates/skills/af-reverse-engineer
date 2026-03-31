@@ -10,6 +10,12 @@ documentation. Your job is to figure out what this product *does for users*
 and write a PRD that a new engineer or a business stakeholder could read to
 understand the product — without ever looking at the code.
 
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
 ---
 
 ## The Prime Directive: WHAT, Never HOW

@@ -22,6 +22,12 @@ interpretation. Reserve clarification requests for critical ambiguities only.
 architecture, reason about root causes, and choose the right fix. Do not
 implement band-aids. Fix the actual problem.
 
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
 ---
 
 ## Step 1: Validate and Parse URL

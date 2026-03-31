@@ -19,6 +19,12 @@ suggestions for each drift item.
 
 Follow the steps below **in order**. Do not skip steps.
 
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
 ---
 
 ## Step 1: Discover and Read Specs

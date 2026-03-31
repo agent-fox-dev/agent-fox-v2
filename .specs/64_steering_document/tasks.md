@@ -100,23 +100,23 @@ runtime behavior and can be done independently.
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 1.*, 2.*, 5.* acceptance criteria met
 
-- [ ] 3. Update templates
-  - [ ] 3.1 Add steering reference to AGENTS.md template
+- [x] 3. Update templates
+  - [x] 3.1 Add steering reference to AGENTS.md template
     - Add step to "Understand Before You Code" section in `agent_fox/_templates/agents_md.md`
     - Place after existing orientation steps, before "Explore the codebase"
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 3.2 Add steering instruction to all skill templates
+  - [x] 3.2 Add steering instruction to all skill templates
     - Add instruction block to each file in `agent_fox/_templates/skills/`
     - Place early in each skill (before main workflow steps)
     - Instruction: read and follow `.specs/steering.md` if it exists
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/cli/test_steering.py::test_agents_md_template_references_steering tests/unit/cli/test_steering.py::test_skill_templates_reference_steering`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 3.*, 4.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/cli/test_steering.py::test_agents_md_template_references_steering tests/unit/cli/test_steering.py::test_skill_templates_reference_steering`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 3.*, 4.* acceptance criteria met
 
 - [ ] 4. Checkpoint — Steering Document Complete
   - Ensure all tests pass, update docs if needed.
