@@ -28,7 +28,7 @@ sync_interval = 6
 ## Quality gate timeout in seconds (default: 300)
 # quality_gate_timeout = 300
 ## Maximum USD spend per session, 0 = unlimited (default: 2.0)
-# max_budget_usd = 2.0
+max_budget_usd = 10.0
 ## Maximum number of prior facts included in the causal extraction prompt. When total non-superseded facts exceed this limit, prior facts are ranked by embedding similarity to the new facts and only the top N are included. (default: 200)
 # causal_context_limit = 200
 
