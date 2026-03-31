@@ -878,3 +878,93 @@ def hard_reset_task(
         memory_path,
         db_conn,
     )
+
+
+def run_reset(
+    target: str | None = None,
+    config: object | None = None,
+    *,
+    soft: bool = True,
+    hard: bool = False,
+    spec: str | None = None,
+    state_path: Path | None = None,
+    plan_path: Path | None = None,
+    worktrees_dir: Path | None = None,
+    repo_path: Path | None = None,
+    memory_path: Path | None = None,
+    specs_dir: Path | None = None,
+) -> ResetResult | HardResetResult:
+    """Reset task state.
+
+    Convenience wrapper that selects the appropriate reset function
+    based on the provided arguments. Can be called without the CLI.
+
+    Args:
+        target: Optional task ID to reset. If None, resets all.
+        config: Optional AgentFoxConfig (used to derive paths if not given).
+        soft: Perform a soft reset (default).
+        hard: Perform a hard reset (overrides soft).
+        spec: Reset all tasks for a single spec.
+        state_path: Path to state.jsonl.
+        plan_path: Path to plan.json.
+        worktrees_dir: Path to worktrees directory.
+        repo_path: Project root directory.
+        memory_path: Path to memory.jsonl (needed for hard reset).
+        specs_dir: Not used directly, reserved for future use.
+
+    Returns:
+        ResetResult or HardResetResult.
+
+    Requirements: 59-REQ-5.1, 59-REQ-5.2, 59-REQ-5.3
+    """
+    from agent_fox.core.paths import AGENT_FOX_DIR
+
+    project_root = repo_path or Path.cwd()
+    agent_dir = project_root / AGENT_FOX_DIR
+    resolved_state = state_path or agent_dir / "state.jsonl"
+    resolved_plan = plan_path or agent_dir / "plan.json"
+    resolved_worktrees = worktrees_dir or agent_dir / "worktrees"
+    resolved_memory = memory_path or agent_dir / "memory.jsonl"
+
+    if spec is not None:
+        return reset_spec(
+            spec_name=spec,
+            state_path=resolved_state,
+            plan_path=resolved_plan,
+            worktrees_dir=resolved_worktrees,
+            repo_path=project_root,
+        )
+
+    if hard:
+        if target is not None:
+            return hard_reset_task(
+                task_id=target,
+                state_path=resolved_state,
+                plan_path=resolved_plan,
+                worktrees_dir=resolved_worktrees,
+                repo_path=project_root,
+                memory_path=resolved_memory,
+            )
+        return hard_reset_all(
+            state_path=resolved_state,
+            plan_path=resolved_plan,
+            worktrees_dir=resolved_worktrees,
+            repo_path=project_root,
+            memory_path=resolved_memory,
+        )
+
+    if target is not None:
+        return reset_task(
+            task_id=target,
+            state_path=resolved_state,
+            plan_path=resolved_plan,
+            worktrees_dir=resolved_worktrees,
+            repo_path=project_root,
+        )
+
+    return reset_all(
+        state_path=resolved_state,
+        plan_path=resolved_plan,
+        worktrees_dir=resolved_worktrees,
+        repo_path=project_root,
+    )

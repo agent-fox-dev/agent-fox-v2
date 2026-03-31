@@ -263,7 +263,7 @@ def _compute_per_spec(
 
 def generate_status(
     state_path: Path,
-    plan_path: Path,
+    plan_path: Path | None = None,
     db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> StatusReport:
     """Generate a status report from execution state and plan.
@@ -273,8 +273,11 @@ def generate_status(
     is not.
 
     Args:
-        state_path: Path to .agent-fox/state.jsonl.
-        plan_path: Path to .agent-fox/plan.json.
+        state_path: Path to .agent-fox/state.jsonl (or AgentFoxConfig for
+            programmatic use — paths will be derived from defaults).
+        plan_path: Path to .agent-fox/plan.json. If None, defaults to the
+            standard location. When the plan file does not exist, returns
+            an empty report.
         db_conn: Optional DuckDB connection for audit events and fact loading.
             If None, session metrics come from state.jsonl and facts section
             will be empty.
@@ -285,10 +288,31 @@ def generate_status(
     Raises:
         AgentFoxError: If neither state nor plan file can be read.
 
-    Requirements: 40-REQ-14.1, 40-REQ-14.3
+    Requirements: 40-REQ-14.1, 40-REQ-14.3, 59-REQ-5.1
     """
-    # Load the plan (required)
-    graph = load_plan_or_raise(plan_path)
+    # Resolve plan_path if not provided
+    _plan_path_was_none = plan_path is None
+    if plan_path is None:
+        from agent_fox.core.paths import PLAN_PATH
+
+        plan_path = PLAN_PATH
+
+    # Load the plan (required when explicitly provided)
+    try:
+        graph = load_plan_or_raise(plan_path)
+    except Exception:
+        if not _plan_path_was_none:
+            raise
+        # Return empty report when plan_path was not explicitly given
+        return StatusReport(
+            counts={},
+            total_tasks=0,
+            input_tokens=0,
+            output_tokens=0,
+            estimated_cost=0.0,
+            problem_tasks=[],
+            per_spec={},
+        )
 
     # Load execution state (optional - may not exist yet)
     state = _load_state(state_path)

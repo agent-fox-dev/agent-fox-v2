@@ -136,19 +136,19 @@ The order ensures renames land first (simple, mechanical), then module extractio
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 59-REQ-3.1 through 59-REQ-3.E1 met
 
-- [ ] 5. Extract code and remaining command backing modules
-  - [ ] 5.1 Create `agent_fox/engine/run.py`
+- [x] 5. Extract code and remaining command backing modules
+  - [x] 5.1 Create `agent_fox/engine/run.py`
     - Implement `run_code(config, *, parallel, no_hooks, max_cost, ...)` →
       `ExecutionState`
     - Move orchestrator initialization, ingestion, fact cache setup from CLI
     - Handle KeyboardInterrupt → return interrupted state
     - _Requirements: 59-REQ-4.1, 59-REQ-4.2, 59-REQ-4.3, 59-REQ-4.E1_
 
-  - [ ] 5.2 Slim down `cli/code.py`
+  - [x] 5.2 Slim down `cli/code.py`
     - CLI handler calls `run_code()`, maps status to exit code, formats output
     - _Requirements: 59-REQ-9.1, 59-REQ-9.2_
 
-  - [ ] 5.3 Audit and formalize remaining 6 commands
+  - [x] 5.3 Audit and formalize remaining 6 commands
     - Verify/create backing functions for: fix, plan, reset, init, status,
       standup
     - For commands already well-separated (status, standup, plan), ensure
@@ -156,11 +156,11 @@ The order ensures renames land first (simple, mechanical), then module extractio
     - For commands with embedded logic (fix, reset), extract to backing modules
     - _Requirements: 59-REQ-5.1, 59-REQ-5.2, 59-REQ-5.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests TS-59-14 through TS-59-19, TS-59-29, TS-59-30 pass
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 59-REQ-4.1 through 59-REQ-5.3 met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests TS-59-14 through TS-59-19, TS-59-29, TS-59-30 pass
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 59-REQ-4.1 through 59-REQ-5.3 met
 
 - [ ] 6. Progress display improvements
   - [ ] 6.1 Increase truncation default to 60

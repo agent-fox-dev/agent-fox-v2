@@ -367,8 +367,8 @@ class StandupReport:
 
 def generate_standup(
     state_path: Path,
-    plan_path: Path,
-    repo_path: Path,
+    plan_path: Path | None = None,
+    repo_path: Path | None = None,
     hours: int = 24,
     agent_author: str = "agent-fox",
     db_conn: duckdb.DuckDBPyConnection | None = None,
@@ -397,6 +397,14 @@ def generate_standup(
     now = datetime.now(UTC)
     window_start = now - timedelta(hours=hours)
     window_end = now
+
+    # Resolve default paths if not provided
+    if plan_path is None:
+        from agent_fox.core.paths import PLAN_PATH
+
+        plan_path = PLAN_PATH
+    if repo_path is None:
+        repo_path = Path.cwd()
 
     # Load plan (needed for queue summary)
     graph = load_plan(plan_path)
