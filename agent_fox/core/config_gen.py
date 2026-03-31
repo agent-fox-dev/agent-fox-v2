@@ -110,7 +110,7 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("ThemeConfig", "muted"): "Muted text style",
     # PlatformConfig
     ("PlatformConfig", "type"): "Platform type (none or github)",
-    ("PlatformConfig", "auto_merge"): "Auto-merge pull requests",
+    ("PlatformConfig", "url"): "Issue tracker URL — overrides default for type",
     # KnowledgeConfig
     ("KnowledgeConfig", "store_path"): "Path to knowledge store",
     ("KnowledgeConfig", "embedding_model"): "Embedding model for knowledge",

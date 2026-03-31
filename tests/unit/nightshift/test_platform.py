@@ -19,7 +19,8 @@ class TestPlatformProtocolCompleteness:
 
     def test_protocol_has_required_methods(self) -> None:
         """Protocol defines create_issue, list_issues_by_label,
-        add_issue_comment, assign_label, create_pr, close."""
+        add_issue_comment, assign_label, close.
+        Note: create_pr was removed in spec 65 (65-REQ-4.1)."""
         from agent_fox.platform.protocol import PlatformProtocol
 
         methods = {m for m in dir(PlatformProtocol) if not m.startswith("_")}
@@ -28,7 +29,6 @@ class TestPlatformProtocolCompleteness:
             "list_issues_by_label",
             "add_issue_comment",
             "assign_label",
-            "create_pr",
             "close",
         }
         assert required.issubset(methods)

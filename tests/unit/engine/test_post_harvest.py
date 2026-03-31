@@ -1,22 +1,17 @@
-"""Tests for post-harvest remote integration.
+"""Tests for simplified post-harvest integration — spec 65.
 
-Test Spec: TS-19-10 (no platform pushes develop), TS-19-11 (github auto_merge),
-           TS-19-12 (github no auto_merge creates PR),
-           TS-19-E5 (push failure continues), TS-19-E6 (PR failure continues),
-           TS-19-E7 (GITHUB_PAT not set falls back),
-           TS-19-E11 (feature branch deleted)
-Requirements: 19-REQ-3.1, 19-REQ-3.2, 19-REQ-3.3, 19-REQ-3.E1,
-              19-REQ-3.E2, 19-REQ-3.E3, 19-REQ-4.E1
+Test Spec: TS-65-7 through TS-65-11, TS-65-E3
+Requirements: 65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5,
+              65-REQ-3.E1
 """
 
 from __future__ import annotations
 
+import inspect
 import logging
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-from agent_fox.core.config import PlatformConfig
-from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace import WorkspaceInfo
 from agent_fox.workspace.harvest import post_harvest_integrate
 
@@ -33,24 +28,23 @@ def _make_workspace(branch: str = "feature/test_spec/1") -> WorkspaceInfo:
 
 
 # ---------------------------------------------------------------------------
-# TS-19-10: Post-Harvest No Platform Pushes Develop
+# TS-65-7: Post-harvest pushes feature branch
 # ---------------------------------------------------------------------------
 
 
-class TestPostHarvestNoPlatform:
-    """TS-19-10: With no platform (type="none"), post-harvest pushes develop.
+class TestPostHarvestPushesFeature:
+    """TS-65-7: post_harvest_integrate pushes the feature branch to origin.
 
-    Requirement: 19-REQ-3.1
+    Requirement: 65-REQ-3.1
     """
 
-    async def test_pushes_develop_only(self, tmp_path: Path) -> None:
-        """Post-harvest with type=none pushes develop to origin."""
-        config = PlatformConfig(type="none")
+    async def test_pushes_feature_branch(self, tmp_path: Path) -> None:
+        """post_harvest_integrate calls push_to_remote with the feature branch."""
         workspace = _make_workspace()
-        push_calls: list[str] = []
+        push_calls: list[tuple] = []
 
         async def mock_push(repo_root, branch, remote="origin"):
-            push_calls.append(branch)
+            push_calls.append((repo_root, branch))
             return True
 
         with (
@@ -61,92 +55,109 @@ class TestPostHarvestNoPlatform:
             patch(
                 "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
+            ),
+            patch(
+                "agent_fox.workspace.harvest._push_develop_if_pushable",
+                new_callable=AsyncMock,
             ),
         ):
             await post_harvest_integrate(
                 repo_root=tmp_path,
                 workspace=workspace,
-                platform_config=config,
             )
 
-        assert "develop" in push_calls
-        # No PR should be created — we just need develop pushed
+        pushed_branches = [branch for _, branch in push_calls]
+        assert workspace.branch in pushed_branches
 
 
 # ---------------------------------------------------------------------------
-# TS-19-11: Post-Harvest GitHub Auto-Merge Pushes Both
+# TS-65-8: Post-harvest pushes develop
 # ---------------------------------------------------------------------------
 
 
-class TestPostHarvestGithubAutoMerge:
-    """TS-19-11: With github + auto_merge=true, post-harvest pushes feature
-    branch and develop.
+class TestPostHarvestPushesDevelop:
+    """TS-65-8: post_harvest_integrate pushes develop to origin.
 
-    Requirement: 19-REQ-3.2
+    Requirement: 65-REQ-3.2
     """
 
-    async def test_pushes_feature_and_develop(self, tmp_path: Path) -> None:
-        """Post-harvest with github + auto_merge pushes both branches."""
-        config = PlatformConfig(type="github", auto_merge=True)
+    async def test_pushes_develop(self, tmp_path: Path) -> None:
+        """post_harvest_integrate calls _push_develop_if_pushable."""
         workspace = _make_workspace()
-        push_calls: list[str] = []
-
-        async def mock_push(repo_root, branch, remote="origin"):
-            push_calls.append(branch)
-            return True
 
         with (
             patch(
                 "agent_fox.workspace.harvest.push_to_remote",
-                side_effect=mock_push,
+                return_value=True,
             ),
             patch(
                 "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
-            patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.harvest.get_remote_url",
-                return_value="https://github.com/owner/repo.git",
-            ),
+                "agent_fox.workspace.harvest._push_develop_if_pushable",
+                new_callable=AsyncMock,
+            ) as mock_push_develop,
         ):
             await post_harvest_integrate(
                 repo_root=tmp_path,
                 workspace=workspace,
-                platform_config=config,
             )
 
-        assert workspace.branch in push_calls
-        assert "develop" in push_calls
+        mock_push_develop.assert_called_once_with(tmp_path)
 
 
 # ---------------------------------------------------------------------------
-# TS-19-12: Post-Harvest GitHub No Auto-Merge Creates PR
+# TS-65-9: Post-harvest has no platform_config parameter
 # ---------------------------------------------------------------------------
 
 
-class TestPostHarvestGithubCreatePR:
-    """TS-19-12: With github + auto_merge=false, post-harvest pushes feature
-    branch and creates a PR against main.
+class TestPostHarvestNoPlatformConfigParam:
+    """TS-65-9: post_harvest_integrate signature has no platform_config param.
 
-    Requirement: 19-REQ-3.3
+    Requirement: 65-REQ-3.3
     """
 
-    async def test_pushes_feature_and_creates_pr(self, tmp_path: Path) -> None:
-        """Post-harvest creates PR and does NOT push develop."""
-        config = PlatformConfig(type="github", auto_merge=False)
+    def test_no_platform_config_param(self) -> None:
+        """post_harvest_integrate does not accept platform_config."""
+        sig = inspect.signature(post_harvest_integrate)
+        assert "platform_config" not in sig.parameters
+
+
+# ---------------------------------------------------------------------------
+# TS-65-10: Post-harvest does not import GitHubPlatform
+# ---------------------------------------------------------------------------
+
+
+class TestPostHarvestNoGitHubPlatformRef:
+    """TS-65-10: post_harvest_integrate source has no GitHubPlatform references.
+
+    Requirement: 65-REQ-3.4
+    """
+
+    def test_no_github_platform_ref(self) -> None:
+        """Source of post_harvest_integrate does not contain GitHubPlatform."""
+        source = inspect.getsource(post_harvest_integrate)
+        assert "GitHubPlatform" not in source
+
+
+# ---------------------------------------------------------------------------
+# TS-65-11: Post-harvest push failure is best-effort
+# ---------------------------------------------------------------------------
+
+
+class TestPostHarvestPushFailureBestEffort:
+    """TS-65-11: Push failure logs warning but does not raise exception.
+
+    Requirement: 65-REQ-3.5
+    """
+
+    async def test_push_failure_no_exception(self, tmp_path: Path, caplog) -> None:
+        """Push failure is swallowed — no exception raised."""
         workspace = _make_workspace()
-        push_calls: list[str] = []
-        pr_created = False
 
         async def mock_push(repo_root, branch, remote="origin"):
-            push_calls.append(branch)
-            return True
-
-        async def mock_create_pr(self_inner, branch, title, body):
-            nonlocal pr_created
-            pr_created = True
-            return "https://github.com/owner/repo/pull/1"
+            return False  # simulate push failure
 
         with (
             patch(
@@ -157,180 +168,35 @@ class TestPostHarvestGithubCreatePR:
                 "agent_fox.workspace.harvest.local_branch_exists",
                 return_value=True,
             ),
-            patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.harvest.get_remote_url",
-                return_value="https://github.com/owner/repo.git",
-            ),
-            patch(
-                "agent_fox.platform.github.GitHubPlatform.create_pr",
-                mock_create_pr,
-            ),
-        ):
-            await post_harvest_integrate(
-                repo_root=tmp_path,
-                workspace=workspace,
-                platform_config=config,
-            )
-
-        assert workspace.branch in push_calls
-        assert "develop" not in push_calls
-        assert pr_created is True
-
-
-# ---------------------------------------------------------------------------
-# TS-19-E5: Post-Harvest Push Failure Continues
-# ---------------------------------------------------------------------------
-
-
-class TestPostHarvestPushFailureContinues:
-    """TS-19-E5: When push fails, log warning and continue.
-
-    Requirement: 19-REQ-3.E1
-    """
-
-    async def test_no_exception_on_push_failure(self, tmp_path: Path, caplog) -> None:
-        """Post-harvest doesn't raise when push fails."""
-        config = PlatformConfig(type="none")
-        workspace = _make_workspace()
-
-        async def mock_push(repo_root, branch, remote="origin"):
-            return False  # push failed
-
-        with (
-            patch(
-                "agent_fox.workspace.harvest.push_to_remote",
-                side_effect=mock_push,
-            ),
-            patch(
-                "agent_fox.workspace.harvest.local_branch_exists",
-                return_value=True,
+                "agent_fox.workspace.harvest._push_develop_if_pushable",
+                new_callable=AsyncMock,
             ),
         ):
             with caplog.at_level(logging.WARNING):
-                # Should not raise
+                # Must not raise
                 await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
-                    platform_config=config,
                 )
 
-
-# ---------------------------------------------------------------------------
-# TS-19-E6: Post-Harvest PR Creation Failure Continues
-# ---------------------------------------------------------------------------
-
-
-class TestPostHarvestPRFailureContinues:
-    """TS-19-E6: When PR creation fails, log warning and continue.
-
-    Requirement: 19-REQ-3.E2
-    """
-
-    async def test_no_exception_on_pr_failure(self, tmp_path: Path, caplog) -> None:
-        """Post-harvest doesn't raise when PR creation fails."""
-        config = PlatformConfig(type="github", auto_merge=False)
-        workspace = _make_workspace()
-
-        async def mock_push(repo_root, branch, remote="origin"):
-            return True
-
-        async def mock_create_pr(self_inner, branch, title, body):
-            raise IntegrationError("API error")
-
-        with (
-            patch(
-                "agent_fox.workspace.harvest.push_to_remote",
-                side_effect=mock_push,
-            ),
-            patch(
-                "agent_fox.workspace.harvest.local_branch_exists",
-                return_value=True,
-            ),
-            patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
-            patch(
-                "agent_fox.workspace.harvest.get_remote_url",
-                return_value="https://github.com/owner/repo.git",
-            ),
-            patch(
-                "agent_fox.platform.github.GitHubPlatform.create_pr",
-                mock_create_pr,
-            ),
-        ):
-            with caplog.at_level(logging.WARNING):
-                # Should not raise
-                await post_harvest_integrate(
-                    repo_root=tmp_path,
-                    workspace=workspace,
-                    platform_config=config,
-                )
+        # Warning must be logged
+        assert any(r.levelno >= logging.WARNING for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
-# TS-19-E7: GITHUB_PAT Not Set Falls Back
-# ---------------------------------------------------------------------------
-
-
-class TestPostHarvestMissingPAT:
-    """TS-19-E7: Missing GITHUB_PAT causes fallback to no-platform behavior.
-
-    Requirement: 19-REQ-4.E1
-    """
-
-    async def test_falls_back_to_push_develop(self, tmp_path: Path, caplog) -> None:
-        """Without GITHUB_PAT, falls back to pushing develop only."""
-        config = PlatformConfig(type="github", auto_merge=False)
-        workspace = _make_workspace()
-        push_calls: list[str] = []
-
-        async def mock_push(repo_root, branch, remote="origin"):
-            push_calls.append(branch)
-            return True
-
-        env_without_pat = {k: v for k, v in __import__("os").environ.items()}
-        env_without_pat.pop("GITHUB_PAT", None)
-
-        with (
-            patch(
-                "agent_fox.workspace.harvest.push_to_remote",
-                side_effect=mock_push,
-            ),
-            patch(
-                "agent_fox.workspace.harvest.local_branch_exists",
-                return_value=True,
-            ),
-            patch.dict("os.environ", env_without_pat, clear=True),
-        ):
-            with caplog.at_level(logging.WARNING):
-                await post_harvest_integrate(
-                    repo_root=tmp_path,
-                    workspace=workspace,
-                    platform_config=config,
-                )
-
-        # Should fall back to pushing develop
-        assert "develop" in push_calls
-        # Warning about missing token
-        assert any(
-            "github_pat" in r.message.lower() or "token" in r.message.lower()
-            for r in caplog.records
-        )
-
-
-# ---------------------------------------------------------------------------
-# TS-19-E11: Feature Branch Deleted Before Push
+# TS-65-E3: Feature branch deleted before post-harvest
 # ---------------------------------------------------------------------------
 
 
 class TestPostHarvestFeatureBranchDeleted:
-    """TS-19-E11: If feature branch no longer exists locally, skip pushing it.
+    """TS-65-E3: Deleted feature branch is skipped; develop still pushed.
 
-    Requirement: 19-REQ-3.E3
+    Requirement: 65-REQ-3.E1
     """
 
-    async def test_skips_feature_push(self, tmp_path: Path, caplog) -> None:
-        """Post-harvest skips feature branch push when branch deleted."""
-        config = PlatformConfig(type="github", auto_merge=True)
+    async def test_feature_branch_deleted(self, tmp_path: Path, caplog) -> None:
+        """When feature branch is gone, skip its push; still push develop."""
         workspace = _make_workspace()
         push_calls: list[str] = []
 
@@ -339,8 +205,8 @@ class TestPostHarvestFeatureBranchDeleted:
             return True
 
         async def mock_local_exists(repo_root, branch):
-            # Feature branch doesn't exist, but develop does
-            return branch == "develop"
+            # Feature branch does not exist locally
+            return branch != workspace.branch
 
         with (
             patch(
@@ -351,20 +217,20 @@ class TestPostHarvestFeatureBranchDeleted:
                 "agent_fox.workspace.harvest.local_branch_exists",
                 side_effect=mock_local_exists,
             ),
-            patch.dict("os.environ", {"GITHUB_PAT": "test-token"}),
             patch(
-                "agent_fox.workspace.harvest.get_remote_url",
-                return_value="https://github.com/owner/repo.git",
-            ),
+                "agent_fox.workspace.harvest._push_develop_if_pushable",
+                new_callable=AsyncMock,
+            ) as mock_push_develop,
         ):
             with caplog.at_level(logging.WARNING):
                 await post_harvest_integrate(
                     repo_root=tmp_path,
                     workspace=workspace,
-                    platform_config=config,
                 )
 
-        # Feature branch should NOT be pushed
+        # Feature branch push must NOT happen
         assert workspace.branch not in push_calls
-        # Develop should still be pushed
-        assert "develop" in push_calls
+        # Develop push must still be attempted
+        mock_push_develop.assert_called_once_with(tmp_path)
+        # Warning must be logged about missing branch
+        assert any(r.levelno >= logging.WARNING for r in caplog.records)

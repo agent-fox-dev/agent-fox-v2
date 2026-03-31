@@ -121,32 +121,33 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 65-REQ-3.* met
 
-- [ ] 4. Update config generation and clean up old tests
-  - [ ] 4.1 Update config generation in `agent_fox/core/config_gen.py`
+- [x] 4. Update config generation and clean up old tests
+  - [x] 4.1 Update config generation in `agent_fox/core/config_gen.py`
     - Remove `("PlatformConfig", "auto_merge")` from `_DEFAULT_DESCRIPTIONS`
     - Add description for `("PlatformConfig", "url")`
     - _Requirements: 65-REQ-7.1, 65-REQ-7.2, 65-REQ-7.3_
 
-  - [ ] 4.2 Remove or rewrite old spec 19 tests
+  - [x] 4.2 Remove or rewrite old spec 19 tests
     - Remove `tests/unit/platform/test_platform_config.py` (superseded by v2)
     - Remove `tests/unit/engine/test_post_harvest.py` (superseded by v2)
     - Rewrite `tests/property/platform/test_overhaul_props.py`:
       remove TS-19-P4 (strategy-matches-config), update TS-19-P3
       (backward compat) to exclude `auto_merge` from "old fields"
+    - Also cleaned up `tests/unit/platform/test_github_rest.py` and
+      `tests/unit/nightshift/test_platform.py` to remove create_pr references
     - _Requirements: all (regression prevention)_
 
-  - [ ] 4.3 Rename v2 test files to replace originals
+  - [x] 4.3 Rename v2 test files to replace originals
     - Rename `test_platform_config_v2.py` → `test_platform_config.py`
     - Rename `test_post_harvest_v2.py` → `test_post_harvest.py`
-    - Rename `test_platform_overhaul_v2.py` → `test_overhaul_props.py`
-      (or merge into existing)
+    - Merged `test_platform_overhaul_v2.py` into `test_overhaul_props.py`
     - _Requirements: all (clean file naming)_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Config template tests pass: `uv run pytest -q tests/unit/core/test_config_gen.py`
-    - [ ] All tests pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 65-REQ-7.* met
+  - [x] 4.V Verify task group 4
+    - [x] Config template tests pass: `uv run pytest -q tests/unit/core/test_config_gen.py`
+    - [x] All tests pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 65-REQ-7.* met
 
 - [ ] 5. Checkpoint — Platform Config Overhaul Complete
   - Ensure `make check` passes (lint + all tests).
