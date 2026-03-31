@@ -27,8 +27,8 @@ hot-load logic is reused as-is.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file for end-of-run discovery
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file for end-of-run discovery
     - Create `tests/unit/engine/test_end_of_run_discovery.py`
     - Set up fixtures: `mock_barrier`, `mock_graph_sync`,
       `orchestrator_with_mocks`
@@ -36,26 +36,26 @@ hot-load logic is reused as-is.
       termination, repeated cycles, hot-load gate, barrier failure)
     - _Test Spec: TC-60-01, TC-60-02, TC-60-03, TC-60-04, TC-60-05, TC-60-06_
 
-  - [ ] 1.2 Create tests for terminal state exclusivity
+  - [x] 1.2 Create tests for terminal state exclusivity
     - Add tests for TC-60-07 through TC-60-11 (STALLED, COST_LIMIT,
       SESSION_LIMIT, BLOCK_LIMIT, INTERRUPTED do not trigger discovery)
     - _Test Spec: TC-60-07, TC-60-08, TC-60-09, TC-60-10, TC-60-11_
 
-  - [ ] 1.3 Create tests for barrier sequence reuse
+  - [x] 1.3 Create tests for barrier sequence reuse
     - Add tests for TC-60-12 through TC-60-14 (full barrier call with
       correct parameters, same hot-load function, same audit emitter)
     - _Test Spec: TC-60-12, TC-60-13, TC-60-14_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/engine/test_end_of_run_discovery_props.py`
     - Property tests for TS-60-P1 through TS-60-P5 (discovery exclusivity,
       hot-load gate, barrier equivalence, graceful failure, loop continuation)
     - _Test Spec: TS-60-P1, TS-60-P2, TS-60-P3, TS-60-P4, TS-60-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Implement end-of-run discovery
   - [ ] 2.1 Add `_try_end_of_run_discovery` method to `Orchestrator`
