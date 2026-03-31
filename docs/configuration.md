@@ -289,6 +289,46 @@ are rejected at startup.
 
 ---
 
+## `[night_shift]`
+
+Autonomous maintenance daemon configuration. See [Night Shift](#night-shift-command)
+in the CLI reference for the `agent-fox night-shift` command.
+
+| Key | Type | Default | Range | Description |
+|-----|------|---------|-------|-------------|
+| `issue_check_interval` | int | `900` | 60+ | Seconds between polls for `af:fix`-labelled issues |
+| `hunt_scan_interval` | int | `14400` | 60+ | Seconds between full codebase hunt scans |
+
+Both intervals are clamped to a minimum of 60 seconds; values below 60 trigger
+a warning and are silently raised to 60.
+
+### `[night_shift.categories]`
+
+Enable or disable individual hunt categories. All categories are enabled by
+default. Set a category to `false` to skip it during hunt scans.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `dependency_freshness` | bool | `true` | Detect outdated or insecure dependencies |
+| `todo_fixme` | bool | `true` | Resolve TODO/FIXME comments |
+| `test_coverage` | bool | `true` | Identify gaps in test coverage |
+| `deprecated_api` | bool | `true` | Flag usage of deprecated APIs |
+| `linter_debt` | bool | `true` | Surface accumulated linter warnings |
+| `dead_code` | bool | `true` | Detect unreachable or unused code |
+| `documentation_drift` | bool | `true` | Find documentation out of sync with code |
+
+Example — disable dead code detection and run scans hourly:
+
+```toml
+[night_shift]
+hunt_scan_interval = 3600
+
+[night_shift.categories]
+dead_code = false
+```
+
+---
+
 ## `[pricing]`
 
 Configurable per-model pricing for cost calculations. If this section is

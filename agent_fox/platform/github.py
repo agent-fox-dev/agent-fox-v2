@@ -41,6 +41,7 @@ class IssueResult:
     number: int
     title: str
     html_url: str
+    body: str = ""
 
 
 class GitHubPlatform:
@@ -174,6 +175,7 @@ class GitHubPlatform:
         self,
         title: str,
         body: str,
+        labels: list[str] | None = None,
     ) -> IssueResult:
         """Create a new issue.
 
@@ -185,7 +187,9 @@ class GitHubPlatform:
         """
         headers = self._auth_headers()
         url = f"{_GITHUB_API}/repos/{self._owner}/{self._repo}/issues"
-        payload = {"title": title, "body": body}
+        payload: dict[str, object] = {"title": title, "body": body}
+        if labels:
+            payload["labels"] = labels
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
         if resp.status_code != 201:
@@ -255,6 +259,86 @@ class GitHubPlatform:
                 f"GitHub issue comment failed ({resp.status_code})",
             )
         logger.info("Added comment to issue #%d", issue_number)
+
+    async def list_issues_by_label(
+        self,
+        label: str,
+        state: str = "open",
+    ) -> list[IssueResult]:
+        """List issues with a specific label.
+
+        Uses GET /repos/{owner}/{repo}/issues with label filter.
+        Returns list of IssueResult, empty if none found.
+
+        Requirements: 61-REQ-8.1
+        """
+        headers = self._auth_headers()
+        url = f"{_GITHUB_API}/repos/{self._owner}/{self._repo}/issues"
+        params = {"labels": label, "state": state, "per_page": "100"}
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params, headers=headers)
+        if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
+            logger.debug(
+                "Issue list by label response (%d): %s",
+                resp.status_code,
+                detail,
+            )
+            raise IntegrationError(
+                f"GitHub issue list failed ({resp.status_code})",
+            )
+        items = resp.json()
+        results = [
+            IssueResult(
+                number=item["number"],
+                title=item["title"],
+                html_url=item["html_url"],
+                body=item.get("body") or "",
+            )
+            for item in items
+            if "pull_request" not in item  # exclude PRs
+        ]
+        logger.debug("Issues with label %r: %d result(s)", label, len(results))
+        return results
+
+    async def assign_label(
+        self,
+        issue_number: int,
+        label: str,
+    ) -> None:
+        """Assign a label to an issue.
+
+        Uses POST /repos/{owner}/{repo}/issues/{issue_number}/labels.
+
+        Requirements: 61-REQ-8.1
+        """
+        headers = self._auth_headers()
+        url = (
+            f"{_GITHUB_API}/repos/{self._owner}/{self._repo}"
+            f"/issues/{issue_number}/labels"
+        )
+        payload = {"labels": [label]}
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code not in (200, 201):
+            detail = _truncate_response(resp.text)
+            logger.debug(
+                "Label assignment response (%d): %s",
+                resp.status_code,
+                detail,
+            )
+            raise IntegrationError(
+                f"GitHub label assignment failed ({resp.status_code})",
+            )
+        logger.info("Assigned label %r to issue #%d", label, issue_number)
+
+    async def close(self) -> None:
+        """Clean up resources.
+
+        No-op for the REST-based implementation (no persistent connections).
+
+        Requirements: 61-REQ-8.1
+        """
 
     async def close_issue(
         self,

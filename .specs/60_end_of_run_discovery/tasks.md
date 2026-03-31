@@ -27,8 +27,8 @@ hot-load logic is reused as-is.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file for end-of-run discovery
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file for end-of-run discovery
     - Create `tests/unit/engine/test_end_of_run_discovery.py`
     - Set up fixtures: `mock_barrier`, `mock_graph_sync`,
       `orchestrator_with_mocks`
@@ -36,29 +36,29 @@ hot-load logic is reused as-is.
       termination, repeated cycles, hot-load gate, barrier failure)
     - _Test Spec: TC-60-01, TC-60-02, TC-60-03, TC-60-04, TC-60-05, TC-60-06_
 
-  - [ ] 1.2 Create tests for terminal state exclusivity
+  - [x] 1.2 Create tests for terminal state exclusivity
     - Add tests for TC-60-07 through TC-60-11 (STALLED, COST_LIMIT,
       SESSION_LIMIT, BLOCK_LIMIT, INTERRUPTED do not trigger discovery)
     - _Test Spec: TC-60-07, TC-60-08, TC-60-09, TC-60-10, TC-60-11_
 
-  - [ ] 1.3 Create tests for barrier sequence reuse
+  - [x] 1.3 Create tests for barrier sequence reuse
     - Add tests for TC-60-12 through TC-60-14 (full barrier call with
       correct parameters, same hot-load function, same audit emitter)
     - _Test Spec: TC-60-12, TC-60-13, TC-60-14_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/engine/test_end_of_run_discovery_props.py`
     - Property tests for TS-60-P1 through TS-60-P5 (discovery exclusivity,
       hot-load gate, barrier equivalence, graceful failure, loop continuation)
     - _Test Spec: TS-60-P1, TS-60-P2, TS-60-P3, TS-60-P4, TS-60-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Implement end-of-run discovery
-  - [ ] 2.1 Add `_try_end_of_run_discovery` method to `Orchestrator`
+- [x] 2. Implement end-of-run discovery
+  - [x] 2.1 Add `_try_end_of_run_discovery` method to `Orchestrator`
     - Add new async method to `agent_fox/engine/engine.py`
     - Guard on `self._config.hot_load` (return `False` if disabled)
     - Call `run_sync_barrier_sequence()` with same parameters as
@@ -69,7 +69,7 @@ hot-load logic is reused as-is.
     - _Requirements: 60-REQ-1.1, 60-REQ-1.E1, 60-REQ-1.E2, 60-REQ-3.1,
       60-REQ-3.2, 60-REQ-3.3_
 
-  - [ ] 2.2 Modify main loop COMPLETED branch
+  - [x] 2.2 Modify main loop COMPLETED branch
     - In `Orchestrator.run()`, after the `is_stalled()` check and before
       setting `RunStatus.COMPLETED`, add the discovery call
     - If `_try_end_of_run_discovery()` returns `True`, `continue` the
@@ -78,27 +78,27 @@ hot-load logic is reused as-is.
     - _Requirements: 60-REQ-1.2, 60-REQ-1.3, 60-REQ-1.4, 60-REQ-2.1,
       60-REQ-2.2, 60-REQ-2.3, 60-REQ-2.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All spec tests pass (green)
-    - [ ] All existing tests pass: `make test`
-    - [ ] Linter passes: `make lint`
-    - [ ] Full check passes: `make check`
+  - [x] 2.V Verify task group 2
+    - [x] All spec tests pass (green)
+    - [x] All existing tests pass: `make test`
+    - [x] Linter passes: `make lint`
+    - [x] Full check passes: `make check`
 
-- [ ] 3. Final verification checkpoint
-  - [ ] 3.1 Run full test suite
+- [x] 3. Final verification checkpoint
+  - [x] 3.1 Run full test suite
     - `make check` passes with no regressions
     - All 14 test contracts pass
     - _Requirements: all 60-REQ-*_
 
-  - [ ] 3.2 Verify traceability
+  - [x] 3.2 Verify traceability
     - Confirm every requirement in `requirements.md` has at least one
       passing test
     - Confirm every test contract in `test_spec.md` is implemented
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All tests pass: `make check`
-    - [ ] Feature branch pushed to origin
-    - [ ] Clean working tree: `git status`
+  - [x] 3.V Verify task group 3
+    - [x] All tests pass: `make check`
+    - [x] Feature branch pushed to origin
+    - [x] Clean working tree: `git status`
 
 ## Traceability
 

@@ -324,6 +324,7 @@ class SessionResultHandler:
                     node_id=node_id,
                     status="completed",
                     duration_s=duration_s,
+                    archetype=self._get_node_archetype(node_id),
                 )
             )
 
@@ -424,6 +425,17 @@ class SessionResultHandler:
             node_id,
             attempt,
         )
+        # 59-REQ-8.1: Emit disagreement event
+        if self._task_callback is not None:
+            self._task_callback(
+                TaskEvent(
+                    node_id=node_id,
+                    status="disagreed",
+                    duration_s=0,
+                    archetype=self._get_node_archetype(node_id),
+                    predecessor_node=pred_id,
+                )
+            )
         # 58-REQ-1.2: Reset predecessor to pending
         self._graph_sync.node_states[pred_id] = "pending"
         error_tracker[pred_id] = record.error_message
@@ -451,6 +463,7 @@ class SessionResultHandler:
                     status="failed",
                     duration_s=duration_s,
                     error_message=record.error_message,
+                    archetype=self._get_node_archetype(node_id),
                 )
             )
         self._block_task(
@@ -500,4 +513,22 @@ class SessionResultHandler:
                 "reason": record.error_message or "retrying after failure",
             },
         )
+        # 59-REQ-8.2, 59-REQ-8.3: Emit retry task event with escalation info
+        if self._task_callback is not None:
+            escalated_from: str | None = None
+            escalated_to: str | None = None
+            if ladder is not None and ladder.escalation_count > 0:
+                escalated_from = record.model or "unknown"
+                escalated_to = ladder.current_tier.value
+            self._task_callback(
+                TaskEvent(
+                    node_id=node_id,
+                    status="retry",
+                    duration_s=0,
+                    archetype=self._get_node_archetype(node_id),
+                    attempt=attempt + 1,
+                    escalated_from=escalated_from,
+                    escalated_to=escalated_to,
+                )
+            )
         self._graph_sync.node_states[node_id] = "pending"

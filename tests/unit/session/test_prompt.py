@@ -43,21 +43,6 @@ class TestSystemPromptCodingTemplate:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-4: System prompt loads coordinator template
-# Requirement: 15-REQ-2.3
-# ---------------------------------------------------------------------------
-
-
-class TestSystemPromptCoordinatorTemplate:
-    """TS-15-4: build_system_prompt with role='coordinator' loads coordinator.md."""
-
-    def test_contains_coordinator_agent_keyword(self) -> None:
-        """Output contains recognizable text from coordinator.md."""
-        result = build_system_prompt("context", 1, "my_spec", role="coordinator")
-        assert "COORDINATOR AGENT" in result
-
-
-# ---------------------------------------------------------------------------
 # TS-15-5: Role parameter defaults to coding
 # Requirement: 15-REQ-2.4
 # ---------------------------------------------------------------------------
@@ -221,11 +206,10 @@ class TestUnknownRoleRaisesValueError:
 class TestLiteralBracesPreserved:
     """TS-15-E4: Literal braces in templates don't cause interpolation errors."""
 
-    def test_coordinator_json_braces_preserved(self) -> None:
-        """Coordinator template's JSON examples with literal braces are preserved."""
-        result = build_system_prompt("ctx", 1, "spec", role="coordinator")
-        # coordinator.md contains JSON output format with literal braces
-        assert "inter_spec_edges" in result
+    def test_coding_template_braces_preserved(self) -> None:
+        """Coding template with literal braces doesn't cause interpolation errors."""
+        result = build_system_prompt("ctx", 1, "spec", role="coding")
+        assert "CODER ARCHETYPE" in result
 
 
 # ---------------------------------------------------------------------------

@@ -47,9 +47,14 @@ class TaskEvent:
     """Orchestrator task state change."""
 
     node_id: str
-    status: str  # "completed" | "failed" | "blocked"
+    status: str  # "completed" | "failed" | "blocked" | "retry" | "disagreed"
     duration_s: float  # wall-clock seconds for the task
     error_message: str | None = None
+    archetype: str | None = None  # e.g. "coder", "skeptic", "verifier"
+    attempt: int | None = None  # retry attempt number
+    escalated_from: str | None = None  # e.g. "STANDARD"
+    escalated_to: str | None = None  # e.g. "ADVANCED"
+    predecessor_node: str | None = None  # for disagreement lines
 
 
 ActivityCallback = Callable[[ActivityEvent], None]
@@ -83,7 +88,7 @@ def verbify_tool(tool_name: str) -> str:
     return tool_name
 
 
-def abbreviate_arg(raw: str, max_len: int = 30) -> str:
+def abbreviate_arg(raw: str, max_len: int = 60) -> str:
     """Shorten a tool argument for display.
 
     - File paths: keep as many trailing path components as fit within
@@ -190,6 +195,7 @@ logger = logging.getLogger(__name__)
 # Icons for permanent lines
 _CHECK = "\u2714"  # ✔
 _CROSS = "\u2718"  # ✘
+_RETRY = "\u27f3"  # ⟳
 
 
 class ProgressDisplay:
@@ -323,15 +329,29 @@ class ProgressDisplay:
     def _format_task_line(self, event: TaskEvent) -> Text:
         """Format a permanent line for a task event."""
         duration = format_duration(event.duration_s)
+        arch_label = f" [{event.archetype}]" if event.archetype else ""
 
         if event.status == "completed":
-            text = f"{_CHECK} {event.node_id} done ({duration})"
+            text = f"{_CHECK} {event.node_id}{arch_label} done ({duration})"
             return Text(text, style="bold green")
         elif event.status == "failed":
-            text = f"{_CROSS} {event.node_id} failed"
+            text = f"{_CROSS} {event.node_id}{arch_label} failed"
             return Text(text, style="bold red")
-        else:  # blocked
-            text = f"{_CROSS} {event.node_id} blocked"
+        elif event.status == "blocked":
+            text = f"{_CROSS} {event.node_id}{arch_label} blocked"
+            return Text(text, style="bold red")
+        elif event.status == "disagreed":
+            pred = event.predecessor_node or ""
+            text = f"{_CROSS} {event.node_id}{arch_label} disagrees → retry {pred}"
+            return Text(text, style="bold yellow")
+        elif event.status == "retry":
+            attempt = event.attempt or 1
+            base = f"{_RETRY} {event.node_id}{arch_label} retry #{attempt}"
+            if event.escalated_from:
+                base += f" (escalated: {event.escalated_from} → {event.escalated_to})"
+            return Text(base, style="bold yellow")
+        else:
+            text = f"{_CROSS} {event.node_id}{arch_label} {event.status}"
             return Text(text, style="bold red")
 
 

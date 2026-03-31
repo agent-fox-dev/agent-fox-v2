@@ -930,6 +930,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=5,
             inter_session_delay=0,
+            hot_load=False,
         )
         hook_config = HookConfig()
 
@@ -987,6 +988,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=3,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with (
@@ -1090,6 +1092,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=3,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with (
@@ -1140,6 +1143,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=3,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with (

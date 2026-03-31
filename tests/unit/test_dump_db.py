@@ -1,4 +1,4 @@
-"""DB-dump module tests for the dump command.
+"""DB-dump module tests for the export command.
 
 Test Spec: TS-49-7 through TS-49-10, TS-49-E3
 Requirements: 49-REQ-3.1, 49-REQ-3.2, 49-REQ-3.3, 49-REQ-3.4, 49-REQ-3.E1
@@ -61,13 +61,13 @@ class TestDbDumpMarkdown:
     """
 
     def test_db_dump_markdown(self, tmp_path: Path) -> None:
-        """dump --db writes markdown with table headings."""
+        """export --db writes markdown with table headings."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             _create_db_file(td_path / ".agent-fox" / "knowledge.duckdb")
 
-            result = runner.invoke(main, ["dump", "--db"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--db"], catch_exceptions=False)
 
             assert result.exit_code == 0
             dump_md = td_path / ".agent-fox" / "knowledge_dump.md"
@@ -99,20 +99,20 @@ class TestDbDumpMarkdown:
 
 
 class TestDbDumpJson:
-    """TS-49-8: --json dump --db produces .agent-fox/knowledge_dump.json.
+    """TS-49-8: --json export --db produces .agent-fox/knowledge_dump.json.
 
     Requirement: 49-REQ-3.2
     """
 
     def test_db_dump_json(self, tmp_path: Path) -> None:
-        """dump --db with --json writes JSON with tables dict."""
+        """export --db with --json writes JSON with tables dict."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             _create_db_file(td_path / ".agent-fox" / "knowledge.duckdb")
 
             result = runner.invoke(
-                main, ["--json", "dump", "--db"], catch_exceptions=False
+                main, ["--json", "export", "--db"], catch_exceptions=False
             )
 
             assert result.exit_code == 0
@@ -148,13 +148,13 @@ class TestDbDumpConfirmation:
     """
 
     def test_db_dump_confirmation(self, tmp_path: Path) -> None:
-        """dump --db prints confirmation message."""
+        """export --db prints confirmation message."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
             _create_db_file(td_path / ".agent-fox" / "knowledge.duckdb")
 
-            result = runner.invoke(main, ["dump", "--db"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--db"], catch_exceptions=False)
 
             assert result.exit_code == 0
             output = result.output.lower()
@@ -205,7 +205,7 @@ class TestNoTablesError:
     """
 
     def test_no_tables_error(self, tmp_path: Path) -> None:
-        """dump --db with an empty database exits 1."""
+        """export --db with an empty database exits 1."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -215,7 +215,7 @@ class TestNoTablesError:
             conn = duckdb.connect(str(af_dir / "knowledge.duckdb"))
             conn.close()
 
-            result = runner.invoke(main, ["dump", "--db"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--db"], catch_exceptions=False)
 
         assert result.exit_code == 1
         output = result.output.lower()

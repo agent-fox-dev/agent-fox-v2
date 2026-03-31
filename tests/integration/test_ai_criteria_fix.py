@@ -66,7 +66,7 @@ class TestNoRewriteWithoutAiFlag:
                 mock_client.__aenter__.return_value = mock_client
                 mock_cls.return_value = mock_client
 
-                runner.invoke(main, ["lint-spec", "--fix"])
+                runner.invoke(main, ["lint-specs", "--fix"])
                 # No AI rewrite call should have been made
                 assert mock_client.messages.create.call_count == 0
         finally:
@@ -91,7 +91,7 @@ class TestNoReRewrite:
         os.chdir(tmp_path)
         try:
             # Mock the rewrite_criteria function directly
-            with patch("agent_fox.cli.lint_spec.resolve_model") as mock_model:
+            with patch("agent_fox.spec.lint.resolve_model") as mock_model:
                 mock_model.return_value = MagicMock(model_id="test-model")
 
                 # Mock AI analysis to always return a vague-criterion finding
@@ -144,7 +144,7 @@ class TestNoReRewrite:
                     mock_client.__aenter__.return_value = mock_client
                     mock_cls.return_value = mock_client
 
-                    runner.invoke(main, ["lint-spec", "--ai", "--fix"])
+                    runner.invoke(main, ["lint-specs", "--ai", "--fix"])
 
                     # rewrite_criteria should be called at most once
                     # (analysis + rewrite + re-analysis = 3 calls max,

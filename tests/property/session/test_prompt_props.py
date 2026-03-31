@@ -43,7 +43,7 @@ _fuzz_spec_name_strategy = st.text(
 )
 
 # Strategy for valid roles
-_role_strategy = st.sampled_from(["coding", "coordinator"])
+_role_strategy = st.sampled_from(["coding", "skeptic"])
 
 
 def _make_spec_dir(tmp: Path) -> Path:
@@ -118,7 +118,7 @@ class TestTemplateContentPresent:
         if role == "coding":
             assert "CODER ARCHETYPE" in result
         else:
-            assert "COORDINATOR AGENT" in result
+            assert "SKEPTIC ARCHETYPE" in result
 
 
 # ---------------------------------------------------------------------------

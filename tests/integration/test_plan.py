@@ -256,18 +256,57 @@ class TestPlanCLIEndToEnd:
         assert loaded.nodes
         assert {node.spec_name for node in loaded.nodes.values()} == {"01_test"}
 
-    def test_plan_with_reanalyze(
+    def test_plan_reanalyze_rejected(
         self, cli_runner: CliRunner, tmp_git_repo: Path
     ) -> None:
-        """plan --reanalyze rebuilds from scratch."""
+        """plan --reanalyze is no longer a valid option (63-REQ-2.1, 63-REQ-2.2).
+
+        Test Spec: TS-63-4
+        """
         _setup_project(tmp_git_repo)
 
-        # First run creates plan
-        cli_runner.invoke(main, ["plan"])
-        # Second run with --reanalyze should succeed
         result = cli_runner.invoke(main, ["plan", "--reanalyze"])
 
-        assert result.exit_code == 0
+        assert result.exit_code != 0
+        assert "no such option" in result.output.lower()
+
+    def test_plan_always_rebuilds_after_spec_change(
+        self, cli_runner: CliRunner, tmp_git_repo: Path
+    ) -> None:
+        """plan rebuilds from .specs/ even when plan.json exists (63-REQ-1.1).
+
+        Modifying a spec's tasks.md and re-running plan (without --reanalyze)
+        must produce output that reflects the updated spec.
+
+        Test Spec: TS-63-1
+        """
+        _setup_project(tmp_git_repo)
+
+        # First run — creates plan.json
+        first = cli_runner.invoke(main, ["plan"])
+        assert first.exit_code == 0, f"First plan invocation failed:\n{first.output}"
+
+        # Add a new task group to the spec
+        tasks_path = tmp_git_repo / ".specs" / "01_test" / "tasks.md"
+        tasks_path.write_text(
+            "# Tasks\n\n"
+            "- [ ] 1. Write tests\n"
+            "  - [ ] 1.1 Unit tests\n"
+            "\n"
+            "- [ ] 2. Implement feature\n"
+            "  - [ ] 2.1 Core logic\n"
+            "\n"
+            "- [ ] 3. new_group: Deploy changes\n"
+            "  - [ ] 3.1 Deploy to staging\n"
+        )
+
+        # Second run — must reflect the new task group
+        second = cli_runner.invoke(main, ["plan"])
+        assert second.exit_code == 0, f"Second plan invocation failed:\n{second.output}"
+        assert "new_group" in second.output, (
+            f"Expected 'new_group' in plan output after spec change; "
+            f"got:\n{second.output}"
+        )
 
     def test_plan_verify_removed(
         self, cli_runner: CliRunner, tmp_git_repo: Path

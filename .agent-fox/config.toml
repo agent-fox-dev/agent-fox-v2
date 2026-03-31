@@ -4,9 +4,9 @@
 
 [orchestrator]
 ## Maximum parallel sessions (1-8, default: 2)
-parallel = 8
+parallel = 4
 ## Sync interval in task groups (>=0, default: 5)
-# sync_interval = 5
+sync_interval = 6
 ## Hot-load specs between sessions (default: true)
 # hot_load = true
 ## Maximum retries per task group (>=0, default: 2)
@@ -21,6 +21,16 @@ parallel = 8
 ## max_sessions =
 ## Maximum number of runs to retain in the audit log (default: 20)
 # audit_retention_runs = 20
+## Stop the run when this fraction of nodes are blocked (0.0-1.0). None = disabled. (not set by default)
+## max_blocked_fraction =
+## Shell command to run after each coder session (default: "")
+# quality_gate = ""
+## Quality gate timeout in seconds (default: 300)
+# quality_gate_timeout = 300
+## Maximum USD spend per session, 0 = unlimited (default: 2.0)
+max_budget_usd = 10.0
+## Maximum number of prior facts included in the causal extraction prompt. When total non-superseded facts exceed this limit, prior facts are ranked by embedding similarity to the new facts and only the top N are included. (default: 200)
+# causal_context_limit = 200
 
 [archetypes]
 ## Enable coder archetype (default: true)
@@ -37,20 +47,22 @@ auditor = true
 # librarian = false
 ## Enable cartographer archetype (default: false)
 # cartographer = false
-## Per-archetype model overrides — review archetypes (skeptic, oracle, verifier)
-## default to ADVANCED (Opus); execution archetypes (coder, auditor, librarian,
-## cartographer, coordinator) default to STANDARD (Sonnet). (default: {})
-# models = {coder = "ADVANCED", skeptic = "STANDARD"}
+## Per-archetype model overrides (default: {})
+# models = {}
 ## Per-archetype command allowlists (default: {})
 # allowlists = {}
+## Per-archetype maximum turn limits (default: {})
+# max_turns = {}
+## Per-archetype extended thinking configuration (default: {})
+# thinking = {}
 
 [archetypes.instances]
 ## Number of skeptic instances (1-5, default: 1)
-skeptic = 2
+# skeptic = 1
 ## Number of verifier instances (1-5, default: 1)
 verifier = 2
 ## Number of auditor instances (1-5, default: 1)
-auditor = 2
+# auditor = 1
 
 # [archetypes.skeptic_settings]
 ## Finding count to block merge (>=0, default: 3)
@@ -76,13 +88,13 @@ auditor = 2
 ## Retrain interval (5-100, default: 10)
 # retrain_interval = 10
 
-# [models]
+[models]
 ## Model tier for coding tasks (default: "ADVANCED")
-# coding = "ADVANCED"
-## Model tier for coordination (default: "STANDARD")
-# coordinator = "STANDARD"
+coding = "STANDARD"
 ## Model tier for memory extraction (default: "SIMPLE")
 # memory_extraction = "SIMPLE"
+## Fallback model ID when primary is unavailable (default: "claude-sonnet-4-6")
+# fallback_model = "claude-sonnet-4-6"
 
 # [hooks]
 ## Commands to run before coding (default: [])
@@ -120,11 +132,11 @@ auditor = 2
 ## Muted text style (default: "dim")
 # muted = "dim"
 
-# [platform]
+#[platform]
 ## Platform type (none or github) (default: "none")
-# type = "none"
+#type = "github"
 ## Auto-merge pull requests (default: false)
-# auto_merge = false
+#auto_merge = true
 
 # [knowledge]
 ## Path to knowledge store (default: ".agent-fox/knowledge.duckdb")
@@ -141,7 +153,6 @@ auditor = 2
 # confidence_threshold = 0.5
 ## Pre-compute fact rankings at plan time (default: true)
 # fact_cache_enabled = true
-
 
 # [pricing]
 ## Per-model pricing configuration (default: {claude-haiku-4-5 = {input_price_per_m = 1.0, output_price_per_m = 5.0, cache_read_price_per_m = 0.1, cache_creation_price_per_m = 1.25}, claude-sonnet-4-6 = {input_price_per_m = 3.0, output_price_per_m = 15.0, cache_read_price_per_m = 0.3, cache_creation_price_per_m = 3.75}, claude-opus-4-6 = {input_price_per_m = 5.0, output_price_per_m = 25.0, cache_read_price_per_m = 0.5, cache_creation_price_per_m = 6.25}})

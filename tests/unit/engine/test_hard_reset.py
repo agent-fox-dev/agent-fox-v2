@@ -758,9 +758,7 @@ class TestResetTasksMdCheckboxes:
         # Already-pending subtask unchanged
         assert "  - [ ] 1.3 Pending subtask" in text
 
-    def test_subtask_reset_does_not_affect_other_groups(
-        self, tmp_path: Path
-    ) -> None:
+    def test_subtask_reset_does_not_affect_other_groups(self, tmp_path: Path) -> None:
         """Resetting group 1 sub-tasks does not touch group 2 sub-tasks."""
         from agent_fox.engine.reset import reset_tasks_md_checkboxes
 

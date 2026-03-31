@@ -1,4 +1,4 @@
-"""CLI-level tests for the dump command.
+"""CLI-level tests for the export command.
 
 Test Spec: TS-49-1 through TS-49-6, TS-49-11, TS-49-E1, TS-49-E2
 Requirements: 49-REQ-1.1, 49-REQ-1.2, 49-REQ-1.E1, 49-REQ-2.1,
@@ -75,8 +75,8 @@ class TestCommandRegistered:
     """
 
     def test_command_registered(self) -> None:
-        """'dump' is a key in main.commands."""
-        assert "dump" in main.commands
+        """'export' is a key in main.commands."""
+        assert "export" in main.commands
 
 
 # -- TS-49-2: Error when no flags -------------------------------------------
@@ -100,7 +100,7 @@ class TestNoFlagsError:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb")
 
-            result = runner.invoke(main, ["dump"], catch_exceptions=False)
+            result = runner.invoke(main, ["export"], catch_exceptions=False)
 
         assert result.exit_code == 1
         output = result.output.lower()
@@ -111,7 +111,7 @@ class TestNoFlagsError:
 
 
 class TestBothFlagsError:
-    """TS-49-3: dump --memory --db exits with code 1.
+    """TS-49-3: export --memory --db exits with code 1.
 
     Requirement: 49-REQ-1.E1
     """
@@ -125,7 +125,7 @@ class TestBothFlagsError:
             _create_db_with_facts(af_dir / "knowledge.duckdb")
 
             result = runner.invoke(
-                main, ["dump", "--memory", "--db"], catch_exceptions=False
+                main, ["export", "--memory", "--db"], catch_exceptions=False
             )
 
         assert result.exit_code == 1
@@ -143,7 +143,7 @@ class TestMemoryMarkdown:
     """
 
     def test_memory_markdown(self, tmp_path: Path) -> None:
-        """dump --memory writes docs/memory.md with category headings."""
+        """export --memory writes docs/memory.md with category headings."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -151,7 +151,7 @@ class TestMemoryMarkdown:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb", SAMPLE_FACTS)
 
-            result = runner.invoke(main, ["dump", "--memory"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--memory"], catch_exceptions=False)
 
             assert result.exit_code == 0
             memory_md = td_path / "docs" / "memory.md"
@@ -165,13 +165,13 @@ class TestMemoryMarkdown:
 
 
 class TestMemoryJson:
-    """TS-49-5: --json dump --memory produces docs/memory.json.
+    """TS-49-5: --json export --memory produces docs/memory.json.
 
     Requirement: 49-REQ-2.2
     """
 
     def test_memory_json(self, tmp_path: Path) -> None:
-        """dump --memory with --json writes docs/memory.json."""
+        """export --memory with --json writes docs/memory.json."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -180,7 +180,7 @@ class TestMemoryJson:
             _create_db_with_facts(af_dir / "knowledge.duckdb", SAMPLE_FACTS)
 
             result = runner.invoke(
-                main, ["--json", "dump", "--memory"], catch_exceptions=False
+                main, ["--json", "export", "--memory"], catch_exceptions=False
             )
 
             assert result.exit_code == 0
@@ -206,7 +206,7 @@ class TestMemoryConfirmation:
     """
 
     def test_memory_confirmation(self, tmp_path: Path) -> None:
-        """dump --memory prints confirmation to stderr."""
+        """export --memory prints confirmation to stderr."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -214,7 +214,7 @@ class TestMemoryConfirmation:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb", SAMPLE_FACTS)
 
-            result = runner.invoke(main, ["dump", "--memory"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--memory"], catch_exceptions=False)
 
             assert result.exit_code == 0
             # Confirmation should mention the output path and fact count
@@ -233,21 +233,21 @@ class TestMissingDbError:
     """
 
     def test_missing_db_error(self, tmp_path: Path) -> None:
-        """dump --memory exits 1 when DB is missing."""
+        """export --memory exits 1 when DB is missing."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path):
             # No .agent-fox/knowledge.duckdb created
-            result = runner.invoke(main, ["dump", "--memory"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--memory"], catch_exceptions=False)
 
         assert result.exit_code == 1
         output = result.output.lower()
         assert "not found" in output or "does not exist" in output
 
     def test_missing_db_error_db_flag(self, tmp_path: Path) -> None:
-        """dump --db also exits 1 when DB is missing."""
+        """export --db also exits 1 when DB is missing."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            result = runner.invoke(main, ["dump", "--db"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--db"], catch_exceptions=False)
 
         assert result.exit_code == 1
         output = result.output.lower()
@@ -264,7 +264,7 @@ class TestMemoryEmptyMarkdown:
     """
 
     def test_memory_empty_markdown(self, tmp_path: Path) -> None:
-        """dump --memory with no facts writes empty-state markdown."""
+        """export --memory with no facts writes empty-state markdown."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -272,7 +272,7 @@ class TestMemoryEmptyMarkdown:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb", facts=None)
 
-            result = runner.invoke(main, ["dump", "--memory"], catch_exceptions=False)
+            result = runner.invoke(main, ["export", "--memory"], catch_exceptions=False)
 
             assert result.exit_code == 0
             memory_md = td_path / "docs" / "memory.md"
@@ -295,7 +295,7 @@ class TestMemoryEmptyJson:
     """
 
     def test_memory_empty_json(self, tmp_path: Path) -> None:
-        """dump --memory --json with no facts writes empty facts array."""
+        """export --memory --json with no facts writes empty facts array."""
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             td_path = Path(td)
@@ -304,7 +304,7 @@ class TestMemoryEmptyJson:
             _create_db_with_facts(af_dir / "knowledge.duckdb", facts=None)
 
             result = runner.invoke(
-                main, ["--json", "dump", "--memory"], catch_exceptions=False
+                main, ["--json", "export", "--memory"], catch_exceptions=False
             )
 
             assert result.exit_code == 0

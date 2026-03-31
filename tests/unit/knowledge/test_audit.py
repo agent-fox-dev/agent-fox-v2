@@ -86,8 +86,12 @@ class TestAuditEventTypeEnum:
     """
 
     def test_completeness(self) -> None:
-        """AuditEventType has exactly 21 variants matching the spec."""
-        expected = {
+        """AuditEventType has at least the required variants from spec 40.
+
+        Night-shift (spec 61) adds additional event types; the set is a
+        superset of the spec-40 variants.
+        """
+        required = {
             "run.start",
             "run.complete",
             "run.limit_reached",
@@ -113,7 +117,7 @@ class TestAuditEventTypeEnum:
             "review.parse_failure",
         }
         actual = {e.value for e in AuditEventType}
-        assert actual == expected
+        assert required.issubset(actual)
 
     def test_is_str_enum(self) -> None:
         """AuditEventType values are usable as strings."""

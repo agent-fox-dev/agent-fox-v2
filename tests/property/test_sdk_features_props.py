@@ -58,7 +58,6 @@ class TestZeroTurnsUnlimited:
                 "auditor",
                 "librarian",
                 "cartographer",
-                "coordinator",
             ]
         )
     )
@@ -182,7 +181,6 @@ class TestConfigOverridePrecedence:
                 "auditor",
                 "librarian",
                 "cartographer",
-                "coordinator",
             ]
         ),
         override_turns=st.integers(min_value=1, max_value=500),

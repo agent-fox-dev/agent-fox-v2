@@ -65,6 +65,25 @@ agent-fox status
 
 See the [CLI reference](docs/cli-reference.md) for all command options.
 
+### Night Shift — Autonomous Maintenance
+
+Keep your codebase healthy while you sleep. Night Shift is a continuously-running
+maintenance daemon that hunts for linter debt, dead code, test coverage gaps,
+outdated dependencies, and more — then files GitHub issues and autonomously fixes
+the ones labelled `af:fix`.
+
+```bash
+# Start the maintenance daemon (Ctrl-C to stop gracefully)
+agent-fox night-shift
+
+# Automatically label every discovered issue as af:fix for hands-off repair
+agent-fox night-shift --auto
+```
+
+Requires a GitHub platform configured in `.agent-fox/config.toml` (`[platform] type = "github"`).
+See the [Night Shift CLI reference](docs/cli-reference.md#night-shift) and
+[configuration](docs/configuration.md#night_shift) for full details.
+
 ### Spec-driven Development
 
 Your project needs specs under `.specs/` before running `plan` or `code`.

@@ -253,13 +253,13 @@ class TestStandupJson:
 
 
 class TestLintSpecJson:
-    """TS-23-7: lint-spec --json emits findings as JSON."""
+    """TS-23-7: lint-specs --json emits findings as JSON."""
 
     def test_lint_spec_json_output(
         self, cli_runner: CliRunner, tmp_project: Path
     ) -> None:
-        """lint-spec with --json produces JSON with findings and summary."""
-        # Create a minimal spec so lint-spec has something to process
+        """lint-specs with --json produces JSON with findings and summary."""
+        # Create a minimal spec so lint-specs has something to process
         specs_dir = tmp_project / ".specs"
         specs_dir.mkdir()
         spec_dir = specs_dir / "01_test_spec"
@@ -272,7 +272,7 @@ class TestLintSpecJson:
         (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task one\n")
         (spec_dir / "test_spec.md").write_text("# Test Spec\n")
 
-        result = cli_runner.invoke(main, ["--json", "lint-spec"])
+        result = cli_runner.invoke(main, ["--json", "lint-specs"])
         data = json.loads(result.output)
         assert "findings" in data
         assert "summary" in data
@@ -494,11 +494,11 @@ class TestFormatRemovedStandup:
 
 
 class TestFormatRemovedLintSpec:
-    """TS-23-23: lint-spec --format json produces Click usage error."""
+    """TS-23-23: lint-specs --format json produces Click usage error."""
 
     def test_format_removed_lint_spec(self, cli_runner: CliRunner) -> None:
-        """lint-spec --format json exits with code 2."""
-        result = cli_runner.invoke(main, ["lint-spec", "--format", "json"])
+        """lint-specs --format json exits with code 2."""
+        result = cli_runner.invoke(main, ["lint-specs", "--format", "json"])
         assert result.exit_code == 2
 
 

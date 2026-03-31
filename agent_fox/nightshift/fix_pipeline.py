@@ -1,0 +1,180 @@
+"""Fix pipeline: issue-to-PR workflow.
+
+Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
+              61-REQ-7.1, 61-REQ-7.2, 61-REQ-7.3, 61-REQ-7.E1,
+              61-REQ-6.E1, 61-REQ-6.E2
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
+from agent_fox.platform.github import IssueResult
+
+logger = logging.getLogger(__name__)
+
+
+def build_pr_body(issue_number: int, summary: str) -> str:
+    """Build a PR body with an issue reference.
+
+    Requirements: 61-REQ-7.2
+    """
+    return f"## Summary\n\n{summary}\n\nFixes #{issue_number}\n"
+
+
+class FixPipeline:
+    """Issue-to-PR fix workflow.
+
+    Drives an issue through investigation, coding, and review using
+    the full archetype pipeline, then creates a PR.
+
+    Requirements: 61-REQ-6.1 through 61-REQ-6.4, 61-REQ-7.1, 61-REQ-7.3
+    """
+
+    def __init__(
+        self,
+        config: object,
+        platform: object,
+    ) -> None:
+        self._config = config
+        self._platform = platform
+
+    async def _run_session(
+        self,
+        archetype: str,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        """Run a single archetype session for an issue fix.
+
+        Uses run_session() with prompts derived from the InMemorySpec.
+        Subclasses or tests can override this for mock execution.
+
+        Requirements: 61-REQ-6.3
+        """
+        from agent_fox.session.prompt import build_system_prompt
+        from agent_fox.session.session import run_session
+        from agent_fox.workspace.worktree import WorkspaceInfo
+
+        spec: InMemorySpec = kwargs["spec"]  # type: ignore[assignment]
+        repo_root = Path.cwd()
+
+        # Build a minimal workspace on the fix branch.
+        # The branch must already exist before this call.
+        workspace = WorkspaceInfo(
+            path=repo_root,
+            branch=spec.branch_name,
+            spec_name=f"fix-issue-{spec.issue_number}",
+            task_group=0,
+        )
+
+        # Build the archetype-specific system prompt.
+        system_prompt = build_system_prompt(
+            context=spec.system_context,
+            task_group=0,
+            spec_name=f"fix-issue-{spec.issue_number}",
+            archetype=archetype,
+        )
+
+        node_id = f"fix-issue-{spec.issue_number}:0:{archetype}"
+
+        return await run_session(
+            workspace=workspace,
+            node_id=node_id,
+            system_prompt=system_prompt,
+            task_prompt=spec.task_prompt,
+            config=self._config,  # type: ignore[arg-type]
+        )
+
+    async def _create_fix_branch(self, branch_name: str) -> None:
+        """Create a git branch for the fix from develop HEAD.
+
+        Requirements: 61-REQ-6.2
+        """
+        from agent_fox.workspace.git import run_git
+
+        repo_root = Path.cwd()
+        rc, _stdout, _stderr = await run_git(
+            ["checkout", "-b", branch_name, "develop"],
+            cwd=repo_root,
+            check=False,
+        )
+        if rc != 0:
+            # Branch may already exist — try to check it out
+            await run_git(
+                ["checkout", branch_name],
+                cwd=repo_root,
+                check=False,
+            )
+
+    async def process_issue(
+        self,
+        issue: IssueResult,
+        issue_body: str = "",
+    ) -> None:
+        """Process an af:fix issue through the full pipeline.
+
+        Requirements: 61-REQ-6.1, 61-REQ-6.E2
+        """
+        # 61-REQ-6.E2: reject empty issue body
+        if not issue_body or not issue_body.strip():
+            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                issue.number,
+                "Insufficient detail in issue body to build a fix. "
+                "Please add more detail describing the problem and expected behavior.",
+            )
+            return
+
+        spec = build_in_memory_spec(issue, issue_body)
+
+        # Post progress comment
+        await self._platform.add_issue_comment(  # type: ignore[union-attr]
+            issue.number,
+            f"Starting fix session on branch `{spec.branch_name}`...",
+        )
+
+        try:
+            # 61-REQ-6.3: full archetype pipeline
+            await self._run_session("skeptic", spec=spec)
+            await self._run_session("coder", spec=spec)
+            await self._run_session("verifier", spec=spec)
+        except Exception as exc:
+            # 61-REQ-6.E1: post comment on failure
+            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                issue.number,
+                f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}`",
+            )
+            logger.warning(
+                "Fix session failed for issue #%d: %s",
+                issue.number,
+                exc,
+            )
+            return
+
+        # 61-REQ-7.1: create PR
+        try:
+            pr_body = build_pr_body(issue.number, f"Fix for: {issue.title}")
+            pr_url = await self._platform.create_pr(  # type: ignore[union-attr]
+                spec.branch_name,
+                f"fix: {issue.title}",
+                pr_body,
+            )
+            # 61-REQ-7.3: link PR in issue comment
+            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                issue.number,
+                f"Pull request created: {pr_url}",
+            )
+        except Exception:
+            # 61-REQ-7.E1: fallback comment with branch name
+            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                issue.number,
+                "PR creation failed. You can create a PR manually "
+                f"from branch `{spec.branch_name}`.",
+            )
+            logger.warning(
+                "PR creation failed for issue #%d",
+                issue.number,
+                exc_info=True,
+            )

@@ -603,6 +603,9 @@ class Orchestrator:
                         self._state_manager.save(state)
                         return state
 
+                    if await self._try_end_of_run_discovery(state):
+                        continue  # New specs found — re-enter the main loop
+
                     state.run_status = RunStatus.COMPLETED
                     self._state_manager.save(state)
                     return state
@@ -1128,6 +1131,48 @@ class Orchestrator:
             knowledge_db_conn=self._knowledge_db_conn,
         )
 
+    async def _try_end_of_run_discovery(self, state: ExecutionState) -> bool:
+        """Run a sync barrier at end-of-run to check for new specs.
+
+        Returns True if new ready tasks were discovered (caller should
+        continue the main loop). Returns False if no new work was found
+        or if the barrier failed (caller should terminate).
+
+        Requirements: 60-REQ-1.1, 60-REQ-1.E1, 60-REQ-1.E2,
+                      60-REQ-3.1, 60-REQ-3.2, 60-REQ-3.3
+        """
+        if not self._config.hot_load:
+            return False
+
+        logger.info("End-of-run discovery: checking for new specs")
+
+        try:
+            await run_sync_barrier_sequence(
+                state=state,
+                sync_interval=self._config.sync_interval,
+                repo_root=self._plan_path.parent,
+                emit_audit=self._emit_audit,
+                hook_config=self._hook_config,
+                no_hooks=self._no_hooks,
+                specs_dir=self._specs_dir,
+                hot_load_enabled=self._config.hot_load,
+                hot_load_fn=self._hot_load_new_specs,
+                sync_plan_fn=self._sync_plan_statuses,
+                barrier_callback=self._barrier_callback,
+                knowledge_db_conn=self._knowledge_db_conn,
+            )
+        except Exception:
+            logger.error("End-of-run discovery barrier failed", exc_info=True)
+            return False
+
+        assert self._graph_sync is not None  # noqa: S101
+        ready = self._graph_sync.ready_tasks()
+        if ready:
+            logger.info("End-of-run discovery found %d new ready task(s)", len(ready))
+            return True
+
+        return False
+
     async def _hot_load_new_specs(self, state: ExecutionState) -> None:
         """Discover and incorporate new specs into the running graph.
 
@@ -1220,6 +1265,7 @@ class Orchestrator:
                         status="blocked",
                         duration_s=0,
                         error_message=reason,
+                        archetype=self._get_node_archetype(node_id),
                     )
                 )
             for blocked_id in cascade_blocked:
@@ -1232,6 +1278,7 @@ class Orchestrator:
                             status="blocked",
                             duration_s=0,
                             error_message=cascade_reason,
+                            archetype=self._get_node_archetype(blocked_id),
                         )
                     )
                 logger.info("Cascade-blocked %s due to %s", blocked_id, node_id)

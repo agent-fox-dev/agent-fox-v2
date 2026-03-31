@@ -51,7 +51,6 @@ class TestConfigDefaultsCompleteness:
         assert config.theme.tool == "bold #cd853f"
         assert config.theme.muted == "dim"
         assert config.models.coding == "ADVANCED"
-        assert config.models.coordinator == "STANDARD"
         assert config.models.memory_extraction == "SIMPLE"
 
 
