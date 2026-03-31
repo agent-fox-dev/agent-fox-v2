@@ -27,39 +27,39 @@ coherent set of requirements and makes the corresponding spec tests pass.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/unit/nightshift/` with `__init__.py`
     - Create `tests/integration/nightshift/` with `__init__.py`
     - Create `tests/property/nightshift/` with `__init__.py`
     - _Test Spec: TS-61-1 through TS-61-28, TS-61-E1 through TS-61-E12, TS-61-P1 through TS-61-P8_
 
-  - [ ] 1.2 Write unit tests for config and data types
+  - [x] 1.2 Write unit tests for config and data types
     - `tests/unit/nightshift/test_config.py`: TS-61-26, TS-61-27, TS-61-E12
     - `tests/unit/nightshift/test_finding.py`: TS-61-9, TS-61-13, TS-61-15
     - `tests/unit/nightshift/test_platform.py`: TS-61-23, TS-61-24, TS-61-25, TS-61-E1, TS-61-E11
     - _Test Spec: TS-61-9, TS-61-13, TS-61-15, TS-61-23 through TS-61-27, TS-61-E1, TS-61-E11, TS-61-E12_
 
-  - [ ] 1.3 Write unit tests for scheduling and hunt system
+  - [x] 1.3 Write unit tests for scheduling and hunt system
     - `tests/unit/nightshift/test_scheduler.py`: TS-61-4, TS-61-5, TS-61-6, TS-61-E4
     - `tests/unit/nightshift/test_hunt.py`: TS-61-7, TS-61-8, TS-61-11, TS-61-12
     - `tests/unit/nightshift/test_fix_pipeline.py`: TS-61-2, TS-61-16, TS-61-17, TS-61-21, TS-61-E2, TS-61-E6, TS-61-E9
     - _Test Spec: TS-61-2, TS-61-4 through TS-61-8, TS-61-11, TS-61-12, TS-61-16, TS-61-17, TS-61-21, TS-61-E2, TS-61-E4, TS-61-E6, TS-61-E9_
 
-  - [ ] 1.4 Write integration tests
+  - [x] 1.4 Write integration tests
     - `tests/integration/nightshift/test_engine.py`: TS-61-1, TS-61-3, TS-61-28
     - `tests/integration/nightshift/test_hunt_scan.py`: TS-61-10, TS-61-14, TS-61-E3, TS-61-E5, TS-61-E7
     - `tests/integration/nightshift/test_fix_flow.py`: TS-61-18, TS-61-19, TS-61-20, TS-61-22, TS-61-E8, TS-61-E10
     - _Test Spec: TS-61-1, TS-61-3, TS-61-10, TS-61-14, TS-61-18 through TS-61-20, TS-61-22, TS-61-28, TS-61-E3, TS-61-E5, TS-61-E7, TS-61-E8, TS-61-E10_
 
-  - [ ] 1.5 Write property tests
+  - [x] 1.5 Write property tests
     - `tests/property/nightshift/test_nightshift_props.py`: TS-61-P1 through TS-61-P8
     - _Test Spec: TS-61-P1 through TS-61-P8_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/nightshift/ tests/integration/nightshift/ tests/property/nightshift/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/nightshift/ tests/integration/nightshift/ tests/property/nightshift/`
 
 - [ ] 2. Core data types, config, and platform protocol
   - [ ] 2.1 Implement Finding dataclass and FindingGroup
