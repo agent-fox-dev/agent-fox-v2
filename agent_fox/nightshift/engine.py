@@ -75,9 +75,11 @@ class NightShiftEngine:
         )
         if max_cost is None:
             return False
-        # Stop when remaining budget is less than 10% of max
+        # Stop when remaining budget is less than 50% of max.
+        # This conservative threshold prevents overspending when individual
+        # operations may cost a significant fraction of the total budget.
         remaining = max_cost - self.state.total_cost
-        return remaining < max_cost * 0.1
+        return remaining < max_cost * 0.5
 
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.

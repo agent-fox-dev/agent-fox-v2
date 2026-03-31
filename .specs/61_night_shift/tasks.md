@@ -136,29 +136,29 @@ coherent set of requirements and makes the corresponding spec tests pass.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
     - [x] Requirements 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3 acceptance criteria met
 
-- [ ] 5. Finding consolidation and issue creation
-  - [ ] 5.1 Implement finding-to-issue pipeline
+- [x] 5. Finding consolidation and issue creation
+  - [x] 5.1 Implement finding-to-issue pipeline
     - Implement `build_issue_body()` in `agent_fox/nightshift/finding.py`
     - Include category, severity, affected files, suggested fix in issue body
     - Implement `create_issues_from_groups()` with per-issue error isolation
     - _Requirements: 5.2, 5.3, 5.E1_
 
-  - [ ] 5.2 Implement auto-label assignment
+  - [x] 5.2 Implement auto-label assignment
     - Wire `--auto` flag through to issue creation
     - Call `platform.assign_label()` after issue creation when auto is True
     - _Requirements: 1.2, 5.4_
 
-  - [ ] 5.3 Implement PR body builder
+  - [x] 5.3 Implement PR body builder
     - Create `build_pr_body()` in `agent_fox/nightshift/fix_pipeline.py`
     - Include issue reference (Fixes #N) and summary
     - _Requirements: 7.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_finding.py::TestIssueBody tests/unit/nightshift/test_fix_pipeline.py::TestPRBody tests/integration/nightshift/test_hunt_scan.py::TestIssueCreation`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/nightshift/test_nightshift_props.py::test_issue_finding_bijection`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
-    - [ ] Requirements 1.2, 5.1, 5.2, 5.3, 5.4, 7.2 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_finding.py::TestIssueBody tests/unit/nightshift/test_fix_pipeline.py::TestPRBody tests/integration/nightshift/test_hunt_scan.py::TestIssueCreation`
+    - [x] Property tests pass: `uv run pytest -q tests/property/nightshift/test_nightshift_props.py::test_issue_finding_bijection`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
+    - [x] Requirements 1.2, 5.1, 5.2, 5.3, 5.4, 7.2 acceptance criteria met
 
 - [ ] 6. Fix pipeline
   - [ ] 6.1 Implement FixPipeline class
