@@ -29,15 +29,15 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for config schema changes
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for config schema changes
     - Create `tests/unit/platform/test_platform_config_v2.py`
     - Tests for TS-65-1 (no auto_merge), TS-65-2 (old key ignored),
       TS-65-3 (url field), TS-65-4 (url defaults)
     - Tests for TS-65-E1 (unknown keys), TS-65-E2 (url with type=none)
     - _Test Spec: TS-65-1, TS-65-2, TS-65-3, TS-65-4, TS-65-E1, TS-65-E2_
 
-  - [ ] 1.2 Create unit test file for post-harvest simplification
+  - [x] 1.2 Create unit test file for post-harvest simplification
     - Create `tests/unit/engine/test_post_harvest_v2.py`
     - Tests for TS-65-7 (pushes feature), TS-65-8 (pushes develop),
       TS-65-9 (no platform_config param), TS-65-10 (no GitHubPlatform ref),
@@ -45,7 +45,7 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
     - Tests for TS-65-E3 (feature branch deleted)
     - _Test Spec: TS-65-7, TS-65-8, TS-65-9, TS-65-10, TS-65-11, TS-65-E3_
 
-  - [ ] 1.3 Create unit tests for platform layer removal and URL
+  - [x] 1.3 Create unit tests for platform layer removal and URL
     - Add tests to `tests/unit/platform/test_platform_config_v2.py` or
       a new file for TS-65-12 (protocol no create_pr),
       TS-65-13 (GitHubPlatform no create_pr),
@@ -56,21 +56,21 @@ to make those tests pass. Group 5 cleans up old tests and documentation.
       TS-65-E4 (empty url default)
     - _Test Spec: TS-65-5, TS-65-6, TS-65-12, TS-65-13, TS-65-14, TS-65-15, TS-65-E4_
 
-  - [ ] 1.4 Create unit tests for factory and config generation
+  - [x] 1.4 Create unit tests for factory and config generation
     - Test for TS-65-16 (factory wires url)
     - Tests for TS-65-17 (template has type+url), TS-65-18 (no auto_merge)
     - Test for TS-65-E5 (missing GITHUB_PAT exits)
     - _Test Spec: TS-65-16, TS-65-17, TS-65-18, TS-65-E5_
 
-  - [ ] 1.5 Create property tests
+  - [x] 1.5 Create property tests
     - Create `tests/property/platform/test_platform_overhaul_v2.py`
     - Property tests for TS-65-P1 through TS-65-P6
     - _Test Spec: TS-65-P1, TS-65-P2, TS-65-P3, TS-65-P4, TS-65-P5, TS-65-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Implement config model and platform layer changes
   - [ ] 2.1 Update PlatformConfig in `agent_fox/core/config.py`
