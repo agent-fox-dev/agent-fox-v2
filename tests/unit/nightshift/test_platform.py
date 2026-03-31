@@ -45,9 +45,8 @@ class TestGitHubPlatformProtocol:
 
     def test_isinstance_check(self) -> None:
         """GitHubPlatform is an instance of PlatformProtocol."""
-        from agent_fox.platform.protocol import PlatformProtocol
-
         from agent_fox.platform.github import GitHubPlatform
+        from agent_fox.platform.protocol import PlatformProtocol
 
         gh = GitHubPlatform(owner="x", repo="y", token="t")
         assert isinstance(gh, PlatformProtocol)
@@ -66,9 +65,8 @@ class TestPlatformFactory:
         """Config with type='github' returns a GitHubPlatform."""
         from unittest.mock import patch
 
-        from agent_fox.nightshift.platform_factory import create_platform
-
         from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.nightshift.platform_factory import create_platform
         from agent_fox.platform.github import GitHubPlatform
 
         config = AgentFoxConfig()
@@ -91,9 +89,8 @@ class TestPlatformNotConfigured:
 
     def test_abort_with_exit_code_1(self) -> None:
         """Raises SystemExit with code 1 when platform type is 'none'."""
-        from agent_fox.nightshift.engine import validate_night_shift_prerequisites
-
         from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.nightshift.engine import validate_night_shift_prerequisites
 
         config = AgentFoxConfig()
         assert config.platform.type == "none"
@@ -114,9 +111,8 @@ class TestUnknownPlatformType:
 
     def test_abort_with_exit_code_1(self, tmp_path: object) -> None:
         """Raises SystemExit with code 1 for unknown platform type."""
-        from agent_fox.nightshift.platform_factory import create_platform
-
         from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.nightshift.platform_factory import create_platform
 
         config = AgentFoxConfig()
         config.platform.type = "bitbucket"  # type: ignore[misc]

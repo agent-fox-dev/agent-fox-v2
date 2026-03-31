@@ -187,7 +187,7 @@ coherent set of requirements and makes the corresponding spec tests pass.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/`
     - [x] Requirements 6.1, 6.2, 6.3, 6.4, 7.1, 7.3 acceptance criteria met
 
-- [ ] 7. Checkpoint -- Hunt + Fix Complete
+- [x] 7. Checkpoint -- Hunt + Fix Complete
   - Ensure all unit, integration, and property tests pass.
   - Review finding format, platform protocol, and fix pipeline for consistency.
 

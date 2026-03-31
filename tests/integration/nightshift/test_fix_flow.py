@@ -237,6 +237,7 @@ class TestPRCreationFailure:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         import httpx
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()

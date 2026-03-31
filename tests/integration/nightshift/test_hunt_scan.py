@@ -143,6 +143,7 @@ class TestPlatformAPIUnavailable:
         from unittest.mock import AsyncMock, MagicMock
 
         import httpx
+
         from agent_fox.nightshift.engine import NightShiftEngine
 
         config = MagicMock()
@@ -239,6 +240,7 @@ class TestIssueCreationFailure:
         from unittest.mock import AsyncMock, MagicMock
 
         import httpx
+
         from agent_fox.nightshift.finding import (
             FindingGroup,
             create_issues_from_groups,

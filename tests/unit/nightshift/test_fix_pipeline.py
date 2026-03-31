@@ -84,7 +84,6 @@ class TestInMemorySpec:
     def test_build_spec_from_issue(self) -> None:
         """InMemorySpec has populated fields from issue."""
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
-
         from agent_fox.platform.github import IssueResult
 
         issue = IssueResult(
@@ -101,7 +100,6 @@ class TestInMemorySpec:
     def test_spec_has_system_context(self) -> None:
         """InMemorySpec contains the issue body as system context."""
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
-
         from agent_fox.platform.github import IssueResult
 
         issue = IssueResult(
@@ -220,7 +218,6 @@ class TestEmptyIssueBody:
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-
         from agent_fox.platform.github import IssueResult
 
         config = MagicMock()

@@ -111,7 +111,6 @@ class TestCostLimitHonoured:
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_fox.nightshift.engine import NightShiftEngine
-
         from agent_fox.platform.github import IssueResult
 
         config = MagicMock()
