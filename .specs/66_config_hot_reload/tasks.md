@@ -25,34 +25,34 @@ to the audit event type enum.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for config reload
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for config reload
     - Create `tests/unit/engine/test_config_reload.py`
     - Tests for TS-66-1 (barrier trigger), TS-66-2 (no-op hash match),
       TS-66-3 (reload on hash change), TS-66-4 (field updates),
       TS-66-5 (CircuitBreaker rebuild), TS-66-6 (parallel immutable)
     - _Test Spec: TS-66-1, TS-66-2, TS-66-3, TS-66-4, TS-66-5, TS-66-6_
 
-  - [ ] 1.2 Create unit tests for auxiliary configs and audit
+  - [x] 1.2 Create unit tests for auxiliary configs and audit
     - Tests for TS-66-7 (HookConfig), TS-66-8 (ArchetypesConfig),
       TS-66-9 (PlanningConfig), TS-66-10 (audit event),
       TS-66-11 (config path stored)
     - _Test Spec: TS-66-7, TS-66-8, TS-66-9, TS-66-10, TS-66-11_
 
-  - [ ] 1.3 Create edge case tests
+  - [x] 1.3 Create edge case tests
     - Tests for TS-66-E1 (file missing), TS-66-E2 (invalid TOML),
       TS-66-E3 (I/O error), TS-66-E4 (sync_interval=0)
     - _Test Spec: TS-66-E1, TS-66-E2, TS-66-E3, TS-66-E4_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/engine/test_config_reload_props.py`
     - Property tests for TS-66-P1 through TS-66-P6
     - _Test Spec: TS-66-P1, TS-66-P2, TS-66-P3, TS-66-P4, TS-66-P5, TS-66-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Implement core reload logic
   - [ ] 2.1 Add `CONFIG_RELOADED` to `AuditEventType` enum
