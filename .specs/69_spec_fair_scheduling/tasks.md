@@ -102,9 +102,12 @@ updates any existing tests broken by the ordering change.
     - [x] All tests pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 4. Checkpoint — Spec-Fair Scheduling Complete
+- [x] 4. Checkpoint — Spec-Fair Scheduling Complete
   - Ensure all tests pass, ask the user if questions arise.
   - `make check` is green.
+  - All 20 spec-69 tests pass. 24 pre-existing failures are from spec 68
+    (task group 1 wrote failing tests awaiting implementation) and are out
+    of scope for this spec.
 
 ## Traceability
 
