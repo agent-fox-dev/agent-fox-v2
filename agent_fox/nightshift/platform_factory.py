@@ -17,12 +17,13 @@ logger = logging.getLogger(__name__)
 _SUPPORTED_PLATFORMS = {"github"}
 
 
-def create_platform(config: object, project_root: Path) -> object:
+def create_platform(config: object, project_root: Path) -> GitHubPlatform:
     """Create a platform instance from configuration.
 
     Requirements: 61-REQ-8.3, 61-REQ-8.E1
     """
-    platform_type = getattr(getattr(config, "platform", None), "type", "none")
+    platform_cfg = getattr(config, "platform", None)
+    platform_type = getattr(platform_cfg, "type", "none")
 
     if platform_type == "none":
         logger.error(
@@ -39,33 +40,28 @@ def create_platform(config: object, project_root: Path) -> object:
         )
         sys.exit(1)
 
-    if platform_type == "github":
-        token = os.environ.get("GITHUB_PAT", "")
-        if not token:
-            logger.error("GITHUB_PAT environment variable is required")
-            sys.exit(1)
+    token = os.environ.get("GITHUB_PAT", "")
+    if not token:
+        logger.error("GITHUB_PAT environment variable is required")
+        sys.exit(1)
 
-        # Try to detect owner/repo from git remote
-        owner, repo = "owner", "repo"
-        try:
-            import subprocess
+    # Try to detect owner/repo from git remote
+    owner, repo = "owner", "repo"
+    try:
+        import subprocess
 
-            result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                capture_output=True,
-                text=True,
-                cwd=str(project_root),
-            )
-            if result.returncode == 0:
-                parsed = parse_github_remote(result.stdout.strip())
-                if parsed:
-                    owner, repo = parsed
-        except Exception:
-            pass
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+        )
+        if result.returncode == 0:
+            parsed = parse_github_remote(result.stdout.strip())
+            if parsed:
+                owner, repo = parsed
+    except Exception:
+        pass
 
-        platform_cfg = getattr(config, "platform", None)
-        url = getattr(platform_cfg, "url", "") or "github.com"
-        return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)
-
-    # Unreachable but satisfies type checker
-    sys.exit(1)  # pragma: no cover
+    url = getattr(platform_cfg, "url", "") or "github.com"
+    return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)
