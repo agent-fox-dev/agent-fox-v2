@@ -25,8 +25,8 @@ integration with staleness). Each layer is independently testable.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_fix_ordering.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_fix_ordering.py`
     - Test classes for base ordering (TS-71-1, TS-71-2)
     - Test classes for reference parsing (TS-71-3, TS-71-4, TS-71-5)
     - Test classes for AI triage (TS-71-6, TS-71-7, TS-71-8, TS-71-9, TS-71-10)
@@ -35,23 +35,23 @@ integration with staleness). Each layer is independently testable.
     - Test classes for observability (TS-71-18, TS-71-19, TS-71-20)
     - _Test Spec: TS-71-1 through TS-71-20_
 
-  - [ ] 1.2 Create edge case tests (in `tests/unit/test_fix_ordering.py`)
+  - [x] 1.2 Create edge case tests (in `tests/unit/test_fix_ordering.py`)
     - TS-71-E1 through TS-71-E9
     - _Test Spec: TS-71-E1 through TS-71-E9_
 
-  - [ ] 1.3 Create property test file `tests/property/test_fix_ordering.py`
+  - [x] 1.3 Create property test file `tests/property/test_fix_ordering.py`
     - TS-71-P1 through TS-71-P7
     - Include Hypothesis strategies for generating issue batches and edge sets
     - _Test Spec: TS-71-P1 through TS-71-P7_
 
-  - [ ] 1.4 Create integration test file `tests/integration/test_fix_ordering.py`
+  - [x] 1.4 Create integration test file `tests/integration/test_fix_ordering.py`
     - End-to-end `_run_issue_check()` with mocked platform and AI
     - _Test Spec: TS-71-1, TS-71-17_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `ruff check tests/unit/test_fix_ordering.py tests/property/test_fix_ordering.py tests/integration/test_fix_ordering.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `ruff check tests/unit/test_fix_ordering.py tests/property/test_fix_ordering.py tests/integration/test_fix_ordering.py`
 
 - [ ] 2. Data models and platform extension
   - [ ] 2.1 Create `DependencyEdge` dataclass
