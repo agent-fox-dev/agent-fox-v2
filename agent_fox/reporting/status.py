@@ -124,6 +124,7 @@ class StatusReport:
     memory_by_category: dict[str, int] = field(default_factory=dict)
     cost_by_archetype: dict[str, float] = field(default_factory=dict)
     cost_by_spec: dict[str, float] = field(default_factory=dict)
+    active_agents: list[str] = field(default_factory=list)
 
 
 def extract_spec_name(node_id: str) -> str:
@@ -340,6 +341,13 @@ def generate_status(
 
     total_tasks = len(task_node_ids)
 
+    # Collect active (in-progress) agent nodes
+    active_agents = sorted(
+        graph.nodes[nid].archetype
+        for nid, status in node_states.items()
+        if nid not in task_node_ids and status == "in_progress"
+    )
+
     # Try DuckDB audit_events for session metrics first (40-REQ-14.1)
     audit_report = build_status_report_from_audit(db_conn)
 
@@ -414,4 +422,5 @@ def generate_status(
         memory_by_category=memory_by_category,
         cost_by_archetype=cost_by_archetype,
         cost_by_spec=dict(cost_by_spec_agg),
+        active_agents=active_agents,
     )

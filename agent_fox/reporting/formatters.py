@@ -74,12 +74,16 @@ class TableFormatter:
         in_progress = report.counts.get("in_progress", 0)
         pending = report.counts.get("pending", 0)
         failed = report.counts.get("failed", 0)
-        lines.append(
-            f"Tasks: {done}/{report.total_tasks} done | "
-            f"{in_progress} in progress | "
-            f"{pending} pending | "
-            f"{failed} failed"
-        )
+        task_parts = [
+            f"Tasks: {done}/{report.total_tasks} done",
+            f"{in_progress} in progress",
+            f"{pending} pending",
+            f"{failed} failed",
+        ]
+        if report.active_agents:
+            agent_names = ", ".join(report.active_agents)
+            task_parts.append(f"agents running: {agent_names}")
+        lines.append(" | ".join(task_parts))
 
         # Memory line
         if report.memory_total > 0:
