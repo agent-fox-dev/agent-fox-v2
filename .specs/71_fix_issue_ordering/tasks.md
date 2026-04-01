@@ -110,10 +110,10 @@ integration with staleness). Each layer is independently testable.
     - [x] No linter warnings introduced: `ruff check agent_fox/nightshift/`
     - [x] Requirements 71-REQ-2.*, 71-REQ-4.* acceptance criteria met
 
-- [ ] 4. Checkpoint - Graph Layer Complete
-  - [ ] 4.1 Run full test suite and linter
-  - [ ] 4.2 Verify reference parsing handles all four text patterns
-  - [ ] 4.3 Verify cycle breaking with property tests
+- [x] 4. Checkpoint - Graph Layer Complete
+  - [x] 4.1 Run full test suite and linter
+  - [x] 4.2 Verify reference parsing handles all four text patterns
+  - [x] 4.3 Verify cycle breaking with property tests
 
 - [ ] 5. AI triage and staleness
   - [ ] 5.1 Implement `run_batch_triage()`
