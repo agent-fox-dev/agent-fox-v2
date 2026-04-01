@@ -167,7 +167,7 @@ class TestJsonOutput:
         with (
             patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
             patch(
-                "agent_fox.engine.reset._cleanup_task",
+                "agent_fox.engine.reset_artifacts._cleanup_task",
                 return_value=(None, None),
             ),
         ):

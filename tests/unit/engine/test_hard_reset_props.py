@@ -154,7 +154,7 @@ class TestTotalTaskResetProperty:
 
         with (
             patch(
-                "agent_fox.engine.reset.subprocess.run",
+                "agent_fox.engine.reset_artifacts.subprocess.run",
                 side_effect=_mock_git_subprocess,
             ),
             patch(
@@ -215,7 +215,7 @@ class TestCounterPreservationProperty:
 
         with (
             patch(
-                "agent_fox.engine.reset.subprocess.run",
+                "agent_fox.engine.reset_artifacts.subprocess.run",
                 side_effect=_mock_git_subprocess,
             ),
             patch(
@@ -278,7 +278,7 @@ class TestGracefulDegradationProperty:
 
         with (
             patch(
-                "agent_fox.engine.reset.subprocess.run",
+                "agent_fox.engine.reset_artifacts.subprocess.run",
                 side_effect=_mock_git_subprocess,
             ),
             patch(

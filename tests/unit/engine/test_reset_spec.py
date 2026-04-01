@@ -268,7 +268,7 @@ class TestWorktreesAndBranchesCleaned:
         state_path, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         # Mock git branch -D to simulate branch deletion
-        with patch("agent_fox.engine.reset.subprocess.run") as mock_run:
+        with patch("agent_fox.engine.reset_artifacts.subprocess.run") as mock_run:
             mock_run.return_value = subprocess.CompletedProcess(
                 args=[], returncode=0, stdout="", stderr=""
             )

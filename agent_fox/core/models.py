@@ -11,6 +11,7 @@ Requirements: 01-REQ-5.1, 01-REQ-5.2, 01-REQ-5.3, 01-REQ-5.4, 01-REQ-5.E1,
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
     from agent_fox.core.config import PricingConfig
 
 logger = logging.getLogger(__name__)
+
+
+def content_hash(text: str) -> str:
+    """Compute SHA-256 hex digest of a text string."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def ensure_iso(ts: object) -> str:

@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from anthropic import RateLimitError  # used in TestExtractionRetry
 
+from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.knowledge.extraction import (
     _parse_extraction_response,
-    _strip_markdown_fences,
     extract_facts,
 )
 from agent_fox.knowledge.facts import Category
@@ -211,31 +211,31 @@ class TestExtractionUnknownCategory:
         )
 
 
-class TestStripMarkdownFences:
-    """Tests for _strip_markdown_fences helper."""
+class TestExtractJsonArray:
+    """Tests for extract_json_array (consolidated from _strip_markdown_fences)."""
 
-    def test_strips_json_code_fence(self) -> None:
-        result = _strip_markdown_fences('```json\n[{"a": 1}]\n```')
-        assert result == '[{"a": 1}]'
+    def test_extracts_from_json_code_fence(self) -> None:
+        result = extract_json_array('```json\n[{"a": 1}]\n```')
+        assert result == [{"a": 1}]
 
-    def test_strips_plain_code_fence(self) -> None:
-        result = _strip_markdown_fences('```\n[{"a": 1}]\n```')
-        assert result == '[{"a": 1}]'
+    def test_extracts_from_plain_code_fence(self) -> None:
+        result = extract_json_array('```\n[{"a": 1}]\n```')
+        assert result == [{"a": 1}]
 
     def test_extracts_array_from_prose(self) -> None:
         text = 'Here are results:\n[{"a": 1}]\nDone!'
-        result = _strip_markdown_fences(text)
-        assert result == '[{"a": 1}]'
+        result = extract_json_array(text)
+        assert result == [{"a": 1}]
 
-    def test_returns_clean_json_unchanged(self) -> None:
+    def test_extracts_clean_json(self) -> None:
         text = '[{"a": 1}]'
-        result = _strip_markdown_fences(text)
-        assert result == '[{"a": 1}]'
+        result = extract_json_array(text)
+        assert result == [{"a": 1}]
 
-    def test_returns_garbage_unchanged(self) -> None:
+    def test_returns_none_for_garbage(self) -> None:
         text = "not json at all"
-        result = _strip_markdown_fences(text)
-        assert result == "not json at all"
+        result = extract_json_array(text)
+        assert result is None
 
     def test_extracts_array_when_bracketed_refs_precede_json(self) -> None:
         """Prose with [bracketed] references before the JSON array."""
@@ -244,10 +244,9 @@ class TestStripMarkdownFences:
             '[{"content": "a fact", "category": "gotcha", '
             '"confidence": "high", "keywords": ["k"]}]'
         )
-        result = _strip_markdown_fences(text)
-        parsed = __import__("json").loads(result)
-        assert isinstance(parsed, list)
-        assert parsed[0]["content"] == "a fact"
+        result = extract_json_array(text)
+        assert isinstance(result, list)
+        assert result[0]["content"] == "a fact"
 
     def test_extracts_array_from_prose_with_multiple_brackets(self) -> None:
         """Multiple non-JSON brackets in prose before the real JSON array."""
@@ -257,9 +256,8 @@ class TestStripMarkdownFences:
             '[{"a": 1}]\n\n'
             "Done!"
         )
-        result = _strip_markdown_fences(text)
-        parsed = __import__("json").loads(result)
-        assert parsed == [{"a": 1}]
+        result = extract_json_array(text)
+        assert result == [{"a": 1}]
 
 
 class TestExtractionMarkdownFenced:

@@ -532,7 +532,7 @@ class TestFindAffectedTasks:
                 result.returncode = 1
             return result
 
-        with patch("agent_fox.engine.reset.subprocess.run", side_effect=mock_run):
+        with patch("agent_fox.engine.reset_artifacts.subprocess.run", side_effect=mock_run):
             affected = find_affected_tasks(history, new_head, tmp_path)
 
         assert "s:2" in affected
@@ -1208,7 +1208,7 @@ def _mock_git_for_hard_reset(
     def _ctx():
         with (
             patch(
-                "agent_fox.engine.reset.subprocess.run",
+                "agent_fox.engine.reset_artifacts.subprocess.run",
                 side_effect=mock_subprocess_run,
             ),
             patch("agent_fox.engine.reset.compact", return_value=(0, 0)),

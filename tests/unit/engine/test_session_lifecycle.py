@@ -222,7 +222,7 @@ class TestExecuteErrorHandling:
             ),
             patch.object(runner, "_run_and_harvest", _fake_run_and_harvest),
             patch(
-                "agent_fox.engine.session_lifecycle.load_all_facts",
+                "agent_fox.engine.context_assembly.load_all_facts",
                 return_value=[],
             ),
         ):

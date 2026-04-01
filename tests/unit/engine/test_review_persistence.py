@@ -51,7 +51,7 @@ class TestSkepticOutputParsedAndPersisted:
         # Patch extract_json_array as imported in session_lifecycle.
         # This will raise AttributeError until Task Group 3 adds the import.
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
         ) as mock_extract:
             mock_extract.return_value = [
                 {
@@ -86,7 +86,7 @@ class TestSkepticOutputParsedAndPersisted:
 
         # Patch extract_json_array in session_lifecycle (fails until TG3)
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
             return_value=[
                 {
                     "severity": "major",
@@ -130,7 +130,7 @@ class TestVerifierOutputParsedAndPersisted:
 
         # Patch extract_json_array in session_lifecycle (fails until TG3)
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
         ) as mock_extract:
             mock_extract.return_value = [_verdict_item]
             runner._persist_review_findings(output, "03_api:2:1", 1)
@@ -155,7 +155,7 @@ class TestVerifierOutputParsedAndPersisted:
         )
 
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
             return_value=[_verdict_item],
         ):
             runner._persist_review_findings(output, "03_api:2:1", 1)
@@ -197,7 +197,7 @@ class TestOracleOutputParsedAndPersisted:
 
         # Patch extract_json_array in session_lifecycle (fails until TG3)
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
         ) as mock_extract:
             mock_extract.return_value = [
                 {
@@ -231,7 +231,7 @@ class TestOracleOutputParsedAndPersisted:
         )
 
         with patch(
-            "agent_fox.engine.session_lifecycle.extract_json_array",
+            "agent_fox.engine.review_persistence.extract_json_array",
             return_value=[
                 {
                     "severity": "critical",
