@@ -306,7 +306,7 @@ class ArchetypeInstancesConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     skeptic: int = Field(default=1, description="Number of skeptic instances")
-    verifier: int = Field(default=1, description="Number of verifier instances")
+    verifier: int = Field(default=2, description="Number of verifier instances")
     auditor: int = Field(default=1, description="Number of auditor instances")
 
     clamp_instances = _clamped_validator("skeptic", "verifier", "auditor", ge=1, le=5)

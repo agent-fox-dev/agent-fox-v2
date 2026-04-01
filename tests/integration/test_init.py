@@ -293,25 +293,26 @@ class TestInitConfigGeneration:
     def test_fresh_config_contains_all_sections(
         self, cli_runner: CliRunner, tmp_git_repo: Path
     ) -> None:
-        """Fresh config.toml contains commented section headers for all sections."""
+        """Fresh config.toml contains section headers for all visible sections.
+
+        The simplified template includes only visible sections. Hidden sections
+        (routing, hooks, theme, platform, knowledge) are omitted.
+        """
         cli_runner.invoke(main, ["init"])
 
         config_path = tmp_git_repo / ".agent-fox" / "config.toml"
         content = config_path.read_text()
 
-        for section in [
-            "orchestrator",
-            "routing",
-            "models",
-            "hooks",
-            "security",
-            "theme",
-            "platform",
-            "knowledge",
-            "archetypes",
-        ]:
+        # Visible sections must appear
+        for section in ["orchestrator", "models", "security", "archetypes"]:
             # Sections may be active [section] or commented # [section]
             assert f"[{section}]" in content, f"Missing section header: {section}"
+
+        # Hidden sections must NOT appear
+        for section in ["routing", "hooks", "theme", "platform", "knowledge"]:
+            assert f"[{section}]" not in content, (
+                f"Hidden section [{section}] should not appear in simplified template"
+            )
 
     def test_reinit_merges_new_fields(
         self, cli_runner: CliRunner, tmp_git_repo: Path
@@ -334,9 +335,12 @@ class TestInitConfigGeneration:
         content = config_path.read_text()
         # User value preserved
         assert "parallel = 4" in content
-        # Missing sections added as comments
-        assert "# [routing]" in content or "[routing]" in content
-        assert "# [theme]" in content or "[theme]" in content
+        # Visible sections added when missing
+        assert "# [models]" in content or "[models]" in content
+        assert "# [archetypes]" in content or "[archetypes]" in content
+        # Hidden sections must NOT be added by merge
+        assert "# [routing]" not in content and "[routing]" not in content
+        assert "# [theme]" not in content and "[theme]" not in content
 
     def test_reinit_marks_deprecated_fields(
         self, cli_runner: CliRunner, tmp_git_repo: Path

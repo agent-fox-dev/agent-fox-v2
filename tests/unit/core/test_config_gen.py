@@ -85,9 +85,11 @@ class TestTemplateGeneration:
     """Tests for config template generation (TS-33-1 through TS-33-5)."""
 
     def test_template_contains_all_fields(self) -> None:
-        """TS-33-1: Template includes an entry for every field.
+        """TS-33-1: Template includes active entries for all promoted fields.
 
-        Promoted fields appear as active (uncommented); others as commented.
+        Promoted fields appear as active (uncommented). Non-promoted fields in
+        visible sections are omitted from the simplified template (see
+        docs/config-reference.md for all options).
         Requirement: 33-REQ-1.1
         """
         template = generate_default_config()
@@ -101,59 +103,48 @@ class TestTemplateGeneration:
                             f"Missing active entry for '{field.name}' "
                             f"in section '{section.path}'"
                         )
-                    else:
-                        assert f"# {field.name} =" in template, (
-                            f"Missing commented entry for '{field.name}' "
-                            f"in section '{section.path}'"
-                        )
 
     def test_template_includes_descriptions_and_bounds(self) -> None:
-        """TS-33-2: Fields include descriptions and bounds in comments.
+        """TS-33-2: Promoted fields include descriptions and bounds in comments.
 
         Requirement: 33-REQ-1.2
         """
         template = generate_default_config()
 
-        # parallel has bounds 1-8
+        # parallel has bounds 1-8 and is a promoted field
         assert "1-8" in template, "Missing bounds for parallel field"
-        # sync_interval has bounds >=0
-        assert ">=0" in template, "Missing bounds for sync_interval"
-        # parallel default is 1
+        # parallel default is 2
         assert "default: 2" in template, "Missing default for parallel"
-        # playful default is true
-        assert "default: true" in template, "Missing default for playful"
+        # verifier instances has bounds 1-5 and is promoted
+        assert "1-5" in template, "Missing bounds for verifier instances"
 
     def test_template_has_section_headers(self) -> None:
-        """TS-33-3: Template emits proper TOML section headers.
+        """TS-33-3: Template emits proper TOML section headers for visible sections.
 
         Requirement: 33-REQ-1.3
         """
         template = generate_default_config()
 
         # Sections with promoted fields have active headers
-        for section in ["orchestrator", "archetypes"]:
+        for section in ["orchestrator", "archetypes", "models"]:
             assert f"[{section}]" in template, (
                 f"Missing active section header for [{section}]"
             )
 
-        # Other sections have commented headers
-        for section in [
-            "routing",
-            "models",
-            "hooks",
-            "security",
-            "theme",
-            "platform",
-            "knowledge",
-        ]:
-            assert f"# [{section}]" in template, (
-                f"Missing section header for [{section}]"
+        # Security has no promoted fields — appears as commented header
+        assert "# [security]" in template
+
+        # Hidden sections must not appear (even commented)
+        for section in ["routing", "hooks", "theme", "platform", "knowledge"]:
+            assert f"[{section}]" not in template, (
+                f"Hidden section [{section}] should not appear in simplified template"
+            )
+            assert f"# [{section}]" not in template, (
+                f"Commented hidden section # [{section}] should not appear in template"
             )
 
-        # Sub-table headers
-        assert "# [archetypes.instances]" in template
-        assert "# [archetypes.skeptic_settings]" in template
-        assert "# [archetypes.oracle_settings]" in template
+        # Visible sub-table headers
+        assert "[archetypes.instances]" in template
 
     def test_template_uncommented_is_valid_toml(self, tmp_path: Path) -> None:
         """TS-33-4: Uncommented template is valid TOML that load_config accepts.
@@ -173,20 +164,24 @@ class TestTemplateGeneration:
         assert isinstance(config, AgentFoxConfig)
 
     def test_template_field_ordering(self) -> None:
-        """TS-33-5: Fields appear in model definition order.
+        """TS-33-5: Promoted fields appear in model definition order.
 
         Requirement: 33-REQ-1.5
         """
         template = generate_default_config()
 
-        # Check orchestrator field ordering matches model
+        # Check promoted orchestrator fields appear in model definition order
         template_fields = _extract_field_names_in_order(template, "orchestrator")
         model_fields = list(OrchestratorConfig.model_fields.keys())
-        assert template_fields == model_fields, (
-            f"Field ordering mismatch.\n"
-            f"Template: {template_fields}\n"
-            f"Model: {model_fields}"
-        )
+        # Template should only contain promoted fields, which are a subset of
+        # model fields and must maintain their relative order
+        for i in range(len(template_fields) - 1):
+            idx_a = model_fields.index(template_fields[i])
+            idx_b = model_fields.index(template_fields[i + 1])
+            assert idx_a < idx_b, (
+                f"Field '{template_fields[i]}' appears before "
+                f"'{template_fields[i + 1]}' in template but not in model"
+            )
 
 
 class TestConfigMerge:
@@ -218,16 +213,19 @@ class TestConfigMerge:
     def test_merge_adds_missing_fields(self) -> None:
         """TS-33-7: Merge adds fields present in schema but missing from file.
 
+        Only visible sections are added by merge. Hidden sections (routing,
+        theme, etc.) are not injected.
         Requirement: 33-REQ-2.2
         """
         existing = "[orchestrator]\nparallel = 4\n"
         merged = merge_existing_config(existing)
 
-        # Should have commented entries for other orchestrator fields
-        assert "# sync_interval" in merged
-        # Should have other sections
-        assert "# [routing]" in merged or "[routing]" in merged
-        assert "# [theme]" in merged or "[theme]" in merged
+        # Should have visible sections added
+        assert "[models]" in merged or "# [models]" in merged
+        assert "[archetypes]" in merged or "# [archetypes]" in merged
+        # Hidden sections must NOT be added by merge
+        assert "# [routing]" not in merged and "[routing]" not in merged
+        assert "# [theme]" not in merged and "[theme]" not in merged
 
     def test_merge_preserves_user_comments(self) -> None:
         """TS-33-8: User comments not managed by the generator are preserved.
@@ -345,45 +343,60 @@ class TestTemplateEdgeCases:
     def test_none_default(self) -> None:
         """TS-33-E1: Fields with None default show 'not set by default'.
 
+        The simplified template omits non-promoted fields from visible sections.
+        This is tested via the schema directly rather than the template output.
         Requirement: 33-REQ-1.E1
         """
-        template = generate_default_config()
-        assert "not set by default" in template
+        # Verify the format function itself handles None correctly
+        from agent_fox.core.config_gen import _format_field_comment
+        from agent_fox.core.config_schema import FieldSpec
 
-        # The 'not set by default' comment should appear near max_cost
-        lines = template.split("\n")
-        max_cost_indices = [i for i, line in enumerate(lines) if "max_cost" in line]
-        assert max_cost_indices, "max_cost field not found in template"
-        max_cost_idx = max_cost_indices[0]
-        # Check the line above or the same line has 'not set by default'
-        context = "\n".join(lines[max(0, max_cost_idx - 1) : max_cost_idx + 1])
-        assert "not set by default" in context
+        fs = FieldSpec(
+            name="test_field",
+            section="orchestrator",
+            python_type="float | None",
+            default=None,
+            description="A nullable field",
+            bounds=None,
+            is_nested=False,
+        )
+        comment = _format_field_comment(fs)
+        assert "not set by default" in comment
 
     def test_empty_list_default(self) -> None:
         """TS-33-E2: Fields with [] default render as [].
 
         Requirement: 33-REQ-1.E2
         """
-        template = generate_default_config()
-        assert "# pre_code = []" in template
+        from agent_fox.core.config_gen import _format_toml_value
+
+        assert _format_toml_value([]) == "[]"
 
     def test_empty_dict_default(self) -> None:
         """TS-33-E3: Fields with {} default render as {}.
 
         Requirement: 33-REQ-1.E3
         """
-        template = generate_default_config()
-        # modes should appear with empty table value
-        assert "# modes" in template
+        from agent_fox.core.config_gen import _format_toml_value
+
+        assert _format_toml_value({}) == "{}"
 
     def test_alias_used_in_template(self) -> None:
         """TS-33-E4: Fields with aliases use alias as TOML key.
 
+        The simplified template only renders promoted fields; skeptic_settings
+        is not promoted. Verify the schema correctly uses alias as TOML key.
         Requirement: 33-REQ-3.E1
         """
-        template = generate_default_config()
-        assert "skeptic_settings" in template
-        assert "skeptic_config" not in template
+        schema = extract_schema(AgentFoxConfig)
+        archetypes_section = next(s for s in schema if s.path == "archetypes")
+        # Find the skeptic_config field (alias: skeptic_settings)
+        skeptic_field = next(
+            (f for f in archetypes_section.fields if f.name == "skeptic_settings"),
+            None,
+        )
+        assert skeptic_field is not None, "skeptic_settings alias not found in schema"
+        assert skeptic_field.name == "skeptic_settings"
 
 
 class TestMergeEdgeCases:

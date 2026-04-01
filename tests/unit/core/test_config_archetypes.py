@@ -54,7 +54,7 @@ class TestInstanceCounts:
 
         cfg = ArchetypeInstancesConfig()
         assert cfg.skeptic == 1
-        assert cfg.verifier == 1
+        assert cfg.verifier == 2  # default changed from 1 to 2 (spec 68-REQ-2.6)
 
     def test_custom_instances(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig

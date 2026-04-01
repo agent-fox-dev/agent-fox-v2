@@ -144,49 +144,60 @@ def unknown_field_names(draw: st.DrawFn) -> list[str]:
 
 
 class TestTemplateCompleteness:
-    """TS-33-P1: Every scalar field appears as a commented entry."""
+    """TS-33-P1: Promoted fields appear as active entries in the template."""
 
     def test_template_has_all_scalar_fields(self) -> None:
-        """Property 1: Template completeness.
+        """Property 1: Template completeness for promoted fields.
 
-        Validates: 33-REQ-1.1, 33-REQ-1.2, 33-REQ-4.2
+        The simplified template only contains promoted fields (not all schema
+        fields). Validates that every promoted field appears in the template.
+        Validates: 33-REQ-1.1, 68-REQ-1.1
         """
+        from agent_fox.core.config_gen import _PROMOTED_DEFAULTS
+
         schema = extract_schema(AgentFoxConfig)
         template = generate_default_config()
 
-        total_scalar = _count_scalar_fields(schema)
-        total_fields = _count_field_lines(template)
-
-        assert total_fields == total_scalar, (
-            f"Expected {total_scalar} field entries, got {total_fields}"
-        )
+        # Every promoted field must appear as an active (uncommented) entry
+        for section in schema:
+            for field in section.fields:
+                if not field.is_nested:
+                    if (section.path, field.name) in _PROMOTED_DEFAULTS:
+                        assert f"{field.name} =" in template, (
+                            f"Promoted field '{field.name}' in section "
+                            f"'{section.path}' missing from template"
+                        )
 
 
 class TestRoundTripDefaultEquivalence:
-    """TS-33-P2: Uncommenting all fields produces default config."""
+    """TS-33-P2: Template is valid TOML and loads cleanly."""
 
     def test_uncommented_template_matches_defaults(self, tmp_path: Path) -> None:
-        """Property 2: Round-trip default equivalence.
+        """Property 2: Simplified template loads as a valid AgentFoxConfig.
 
-        Validates: 33-REQ-1.4, 33-REQ-3.2
+        The simplified template uses template-level overrides (e.g.,
+        quality_gate = "make check") that differ from model defaults. This
+        test verifies the template parses correctly and loads the promoted
+        field values.
+        Validates: 33-REQ-1.4, 68-REQ-1.2
         """
+        import tomllib
+
         template = generate_default_config()
-        uncommented = _strip_comment_prefixes(template)
 
+        # Template (with active sections only) must parse as valid TOML
+        parsed = tomllib.loads(template)
+        assert isinstance(parsed, dict)
+
+        # Load via load_config succeeds
         config_path = tmp_path / "config.toml"
-        config_path.write_text(uncommented)
+        config_path.write_text(template)
         config = load_config(config_path)
-        default = AgentFoxConfig()
+        assert isinstance(config, AgentFoxConfig)
 
-        # Compare each section
-        for section_name in AgentFoxConfig.model_fields:
-            loaded_section = getattr(config, section_name)
-            default_section = getattr(default, section_name)
-            assert loaded_section == default_section, (
-                f"Section '{section_name}' mismatch.\n"
-                f"Loaded: {loaded_section}\n"
-                f"Default: {default_section}"
-            )
+        # Promoted values are loaded correctly
+        assert config.orchestrator.parallel == 2
+        assert config.models.coding == "ADVANCED"
 
 
 class TestMergeValuePreservation:
@@ -225,19 +236,22 @@ class TestMergeValuePreservation:
 
 
 class TestMergeCompleteness:
-    """TS-33-P4: After merge, every schema field appears in the output."""
+    """TS-33-P4: After merge, all visible-section fields appear in the output."""
 
     @given(data=st.data())
     @settings(max_examples=10)
     def test_all_fields_present_after_merge(self, data: st.DataObject) -> None:
-        """Property 4: Merge completeness.
+        """Property 4: Merge completeness for visible sections.
 
-        Validates: 33-REQ-2.2
+        After merge, all promoted fields (which are in visible sections)
+        appear in the output. Hidden sections are not injected.
+        Validates: 33-REQ-2.2, 68-REQ-5.3
         """
-        schema = extract_schema(AgentFoxConfig)
-        all_names = _get_all_schema_field_names(schema)
+        from agent_fox.core.config_gen import _PROMOTED_DEFAULTS
 
-        # Generate a config with a random subset of fields
+        schema = extract_schema(AgentFoxConfig)
+
+        # Generate a config with a random subset of orchestrator fields
         subset_size = data.draw(
             st.integers(min_value=0, max_value=min(3, len(_ORCHESTRATOR_FIELDS)))
         )
@@ -263,9 +277,14 @@ class TestMergeCompleteness:
 
         merged = merge_existing_config(existing)
 
-        # Every schema field name should appear somewhere in the output
-        for name in all_names:
-            assert name in merged, f"Field '{name}' missing from merged output"
+        # Every promoted field should appear somewhere in the output
+        for section in schema:
+            for field in section.fields:
+                key = (section.path, field.name)
+                if not field.is_nested and key in _PROMOTED_DEFAULTS:
+                    assert field.name in merged, (
+                        f"Promoted field '{field.name}' missing from merged output"
+                    )
 
 
 class TestDeprecatedFieldDetection:

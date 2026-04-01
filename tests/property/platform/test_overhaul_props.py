@@ -25,7 +25,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig, PlatformConfig
-from agent_fox.core.config_gen import extract_schema, generate_config_template
+from agent_fox.core.config_gen import extract_schema
 from agent_fox.nightshift.platform_factory import create_platform
 from agent_fox.platform.github import GitHubPlatform, parse_github_remote
 from agent_fox.workspace import WorkspaceInfo
@@ -404,8 +404,15 @@ class TestConfigTemplateSchemaCorrectness:
     """
 
     def test_template_schema(self) -> None:
-        """Template always contains type and url, never auto_merge."""
-        template = generate_config_template(extract_schema(AgentFoxConfig))
-        assert "type" in template
-        assert "url" in template
-        assert "auto_merge" not in template
+        """Schema always contains type and url fields, never auto_merge.
+
+        Platform is a hidden section in the simplified template, so we verify
+        the schema (not the template output) has the correct fields.
+        """
+        schema = extract_schema(AgentFoxConfig)
+        platform_section = next((s for s in schema if s.path == "platform"), None)
+        assert platform_section is not None, "platform section missing from schema"
+        field_names = {f.name for f in platform_section.fields}
+        assert "type" in field_names, "platform.type not in schema"
+        assert "url" in field_names, "platform.url not in schema"
+        assert "auto_merge" not in field_names, "auto_merge should not be in schema"

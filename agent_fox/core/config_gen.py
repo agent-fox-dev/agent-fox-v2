@@ -22,6 +22,8 @@ from agent_fox.core.config_merge import (  # noqa: F401
 )
 from agent_fox.core.config_schema import (  # noqa: F401
     _PROMOTED_DEFAULTS,
+    _PROMOTED_DEFAULTS_OVERRIDES,
+    _VISIBLE_SECTIONS,
     FieldSpec,
     SectionSpec,
     extract_schema,
@@ -91,23 +93,30 @@ def _section_has_promoted(section: SectionSpec) -> bool:
     return False
 
 
+_FOOTER_COMMENT = "## For all configuration options, see docs/config-reference.md"
+
+
 def generate_config_template(schema: list[SectionSpec]) -> str:
     """Render a config.toml from extracted schema with promoted defaults active.
 
-    Sections with promoted fields are rendered first with active [section]
-    headers. Remaining sections follow as commented # [section] blocks.
+    Only sections in _VISIBLE_SECTIONS are rendered. Sections with promoted
+    fields are rendered first with active [section] headers; remaining visible
+    sections follow as commented # [section] blocks.
 
-    Requirements: 33-REQ-1.1, 33-REQ-1.2, 33-REQ-1.3, 33-REQ-1.4, 33-REQ-1.5
+    Requirements: 33-REQ-1.1, 33-REQ-1.2, 33-REQ-1.3, 33-REQ-1.4, 33-REQ-1.5,
+                  68-REQ-1.1, 68-REQ-1.2, 68-REQ-1.3, 68-REQ-1.4, 68-REQ-6.1
     """
     lines: list[str] = [
         "## agent-fox configuration",
-        "## Generated from schema — do not remove section headers.",
         "## Uncomment and edit values to customize.",
     ]
 
+    # Filter schema to only visible sections
+    visible_schema = [s for s in schema if s.path in _VISIBLE_SECTIONS]
+
     # Partition into active (have promoted fields) and inactive sections
-    active_sections = [s for s in schema if _section_has_promoted(s)]
-    inactive_sections = [s for s in schema if not _section_has_promoted(s)]
+    active_sections = [s for s in visible_schema if _section_has_promoted(s)]
+    inactive_sections = [s for s in visible_schema if not _section_has_promoted(s)]
 
     for section in active_sections:
         lines.append("")
@@ -116,6 +125,9 @@ def generate_config_template(schema: list[SectionSpec]) -> str:
     for section in inactive_sections:
         lines.append("")
         _render_section(section, lines)
+
+    lines.append("")
+    lines.append(_FOOTER_COMMENT)
 
     # Ensure trailing newline
     result = "\n".join(lines)
@@ -150,19 +162,20 @@ def _render_section(section: SectionSpec, lines: list[str]) -> None:
 
     for field_spec in promoted_fields:
         lines.append(_format_field_comment(field_spec))
-        toml_val = _format_toml_value(field_spec.default)
+        # Use template-level override value if available
+        override = _PROMOTED_DEFAULTS_OVERRIDES.get((section.path, field_spec.name))
+        value = override if override is not None else field_spec.default
+        toml_val = _format_toml_value(value)
         lines.append(f"{field_spec.name} = {toml_val}")
 
-    for field_spec in inactive_fields:
-        lines.append(_format_field_comment(field_spec))
-        toml_val = _format_toml_value(field_spec.default)
-        if field_spec.default is None:
-            lines.append(f"## {field_spec.name} =")
-        else:
-            lines.append(f"# {field_spec.name} = {toml_val}")
+    # Inactive fields are omitted from the simplified template.
+    # All options are documented in docs/config-reference.md.
+    # (inactive_fields are still rendered during config_merge operations)
 
-    # Render subsections
+    # Render subsections (filtered to visible sections only)
     for sub in section.subsections:
+        if sub.path not in _VISIBLE_SECTIONS:
+            continue
         lines.append("")
         _render_section(sub, lines)
 

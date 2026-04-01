@@ -48,21 +48,49 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("ArchetypeInstancesConfig", "auditor"): "1-5",
 }
 
+# Sections that appear in the simplified config template (active or commented).
+# Sections NOT in this set are completely omitted from the template output.
+# Requirements: 68-REQ-1.1, 68-REQ-1.2
+_VISIBLE_SECTIONS: set[str] = {
+    "orchestrator",
+    "models",
+    "archetypes",
+    "archetypes.instances",
+    "archetypes.thinking",
+    "archetypes.thinking.coder",
+    "archetypes.thinking.skeptic",
+    "archetypes.thinking.verifier",
+    "security",
+}
+
 # Fields rendered as active (uncommented) in the default config template.
 # Keyed by (section_path, field_name). Sections with promoted fields are
 # rendered first with an active [section] header; remaining sections follow
 # as commented # [section] blocks.
 _PROMOTED_DEFAULTS: set[tuple[str, str]] = {
     ("orchestrator", "parallel"),
+    ("orchestrator", "quality_gate"),
+    ("orchestrator", "max_budget_usd"),
+    ("models", "coding"),
     ("archetypes", "coder"),
     ("archetypes", "skeptic"),
     ("archetypes", "verifier"),
     ("archetypes", "oracle"),
     ("archetypes", "auditor"),
+    ("archetypes.instances", "verifier"),
+}
+
+# Template-level value overrides for promoted fields.
+# These override the model's default value in the generated template only.
+# Requirements: 68-REQ-2.1, 68-REQ-2.2, 68-REQ-2.4, 68-REQ-2.5
+_PROMOTED_DEFAULTS_OVERRIDES: dict[tuple[str, str], object] = {
+    ("orchestrator", "quality_gate"): "make check",
+    ("orchestrator", "max_budget_usd"): 5.0,
 }
 
 # Default descriptions for fields that lack description metadata.
 # Keyed by (model_class_name, field_name).
+# Requirements: 68-REQ-3.1, 68-REQ-3.2, 68-REQ-3.3
 _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     # OrchestratorConfig
     ("OrchestratorConfig", "parallel"): "Maximum parallel sessions",
@@ -76,13 +104,21 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("OrchestratorConfig", "max_blocked_fraction"): (
         "Stop run when this fraction of nodes are blocked"
     ),
+    ("OrchestratorConfig", "quality_gate"): (
+        "Shell command run after each coder session to verify quality"
+    ),
+    ("OrchestratorConfig", "max_budget_usd"): (
+        "Per-session budget cap in USD (0 = unlimited)"
+    ),
     # RoutingConfig
     ("RoutingConfig", "retries_before_escalation"): "Retries before model escalation",
     ("RoutingConfig", "training_threshold"): "Training data threshold",
     ("RoutingConfig", "accuracy_threshold"): "Accuracy threshold for routing",
     ("RoutingConfig", "retrain_interval"): "Retrain interval",
     # ModelConfig
-    ("ModelConfig", "coding"): "Model tier for coding tasks",
+    ("ModelConfig", "coding"): (
+        "Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED"
+    ),
     ("ModelConfig", "memory_extraction"): "Model tier for memory extraction",
     # HookConfig
     ("HookConfig", "pre_code"): "Commands to run before coding",
@@ -113,17 +149,25 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("KnowledgeConfig", "ask_synthesis_model"): "Model tier for answer synthesis",
     # ArchetypesConfig
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
-    ("ArchetypesConfig", "skeptic"): "Enable skeptic archetype",
-    ("ArchetypesConfig", "verifier"): "Enable verifier archetype",
+    ("ArchetypesConfig", "skeptic"): "Code review — flags issues before merge",
+    ("ArchetypesConfig", "verifier"): (
+        "Post-code verification — runs tests, checks correctness"
+    ),
     ("ArchetypesConfig", "librarian"): "Enable librarian archetype",
     ("ArchetypesConfig", "cartographer"): "Enable cartographer archetype",
-    ("ArchetypesConfig", "oracle"): "Enable oracle archetype",
-    ("ArchetypesConfig", "auditor"): "Enable auditor archetype",
+    ("ArchetypesConfig", "oracle"): (
+        "Spec-drift detection — compares code against specs"
+    ),
+    ("ArchetypesConfig", "auditor"): (
+        "Test-quality gate — ensures test coverage meets standards"
+    ),
     ("ArchetypesConfig", "models"): "Per-archetype model overrides",
     ("ArchetypesConfig", "allowlists"): "Per-archetype command allowlists",
     # ArchetypeInstancesConfig
     ("ArchetypeInstancesConfig", "skeptic"): "Number of skeptic instances",
-    ("ArchetypeInstancesConfig", "verifier"): "Number of verifier instances",
+    ("ArchetypeInstancesConfig", "verifier"): (
+        "Run multiple verifier instances for deeper coverage"
+    ),
     ("ArchetypeInstancesConfig", "auditor"): "Number of auditor instances",
     # AuditorConfig
     ("AuditorConfig", "min_ts_entries"): (

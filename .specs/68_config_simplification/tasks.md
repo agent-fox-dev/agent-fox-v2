@@ -51,33 +51,33 @@ code changes; group 4 is documentation-only.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Simplify template generation
-  - [ ] 2.1 Update `_VISIBLE_SECTIONS` and `_PROMOTED_DEFAULTS` in `config_schema.py`
+- [x] 2. Simplify template generation
+  - [x] 2.1 Update `_VISIBLE_SECTIONS` and `_PROMOTED_DEFAULTS` in `config_schema.py`
     - Add `_VISIBLE_SECTIONS` set with orchestrator, models, archetypes (+ subsections), security
     - Update `_PROMOTED_DEFAULTS` to include quality_gate, max_budget_usd, instances.verifier
     - _Requirements: 68-REQ-1.1, 68-REQ-2.1 through 68-REQ-2.5_
 
-  - [ ] 2.2 Update `_DEFAULT_DESCRIPTIONS` in `config_schema.py`
+  - [x] 2.2 Update `_DEFAULT_DESCRIPTIONS` in `config_schema.py`
     - Replace terse descriptions with plain-language explanations for all promoted fields
     - Ensure no description is a mechanical transformation of the field name
     - _Requirements: 68-REQ-3.1, 68-REQ-3.2, 68-REQ-3.3_
 
-  - [ ] 2.3 Update `generate_config_template()` in `config_gen.py`
+  - [x] 2.3 Update `generate_config_template()` in `config_gen.py`
     - Filter sections to only render those in `_VISIBLE_SECTIONS`
     - Append footer comment referencing `docs/config-reference.md`
     - Ensure template stays under 60 lines
     - _Requirements: 68-REQ-1.1, 68-REQ-1.2, 68-REQ-1.4, 68-REQ-6.1_
 
-  - [ ] 2.4 Update `ArchetypeInstancesConfig.verifier` default in config model
+  - [x] 2.4 Update `ArchetypeInstancesConfig.verifier` default in config model
     - Change default from `1` to `2`
     - _Requirements: 68-REQ-2.6_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/core/test_config_simplification.py -k "test_visible or test_hidden or test_footer or test_line_count or test_quality_gate or test_verifier_instances or test_archetype_toggles or test_budget_model or test_verifier_default or test_descriptions" -v`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/core/test_config_simplification_props.py -v`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 68-REQ-1.1 through 68-REQ-1.4, 68-REQ-2.1 through 68-REQ-2.6, 68-REQ-3.1 through 68-REQ-3.3, 68-REQ-6.1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/core/test_config_simplification.py -k "test_visible or test_hidden or test_footer or test_line_count or test_quality_gate or test_verifier_instances or test_archetype_toggles or test_budget_model or test_verifier_default or test_descriptions" -v`
+    - [x] Property tests pass: `uv run pytest -q tests/property/core/test_config_simplification_props.py -v`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 68-REQ-1.1 through 68-REQ-1.4, 68-REQ-2.1 through 68-REQ-2.6, 68-REQ-3.1 through 68-REQ-3.3, 68-REQ-6.1 acceptance criteria met
 
 - [ ] 3. Update merge logic
   - [ ] 3.1 Update `merge_config()` in `config_merge.py`

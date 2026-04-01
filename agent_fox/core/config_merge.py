@@ -16,7 +16,12 @@ import tomlkit
 from tomlkit.items import InlineTable
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.core.config_schema import FieldSpec, SectionSpec, extract_schema
+from agent_fox.core.config_schema import (
+    _VISIBLE_SECTIONS,
+    FieldSpec,
+    SectionSpec,
+    extract_schema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -125,15 +130,22 @@ def merge_config(
                     result_lines[insert_idx:insert_idx] = new_lines
                     added_count += _count_section_fields(sub)
 
-    # Add missing sections (not active and not already commented)
+    # Add missing sections (not active and not already commented).
+    # Only add sections that are visible (in _VISIBLE_SECTIONS) — hidden
+    # sections are never injected into a config that doesn't already have them.
+    # Requirements: 68-REQ-5.3
     for section in schema:
+        if section.path not in _VISIBLE_SECTIONS:
+            continue
         if (
             section.path not in active_sections
             and section.path not in commented_sections
         ):
             new_lines = [""] + _render_section_comments(section)
-            # Also add subsections
+            # Also add subsections (visible only)
             for sub in section.subsections:
+                if sub.path not in _VISIBLE_SECTIONS:
+                    continue
                 if sub.path not in commented_sections:
                     new_lines.extend([""] + _render_section_comments(sub))
             result_lines.extend(new_lines)
@@ -147,10 +159,33 @@ def merge_config(
             deprecated_count,
         )
 
+    # Ensure the footer appears exactly once at the end.
+    # Requirements: 68-REQ-6.1, 68-REQ-6.E1
+    from agent_fox.core.config_gen import _FOOTER_COMMENT
+
+    _ensure_footer(result_lines, _FOOTER_COMMENT)
+
     result = "\n".join(result_lines)
     if not result.endswith("\n"):
         result += "\n"
     return result
+
+
+def _ensure_footer(lines: list[str], footer: str) -> None:
+    """Ensure the footer comment appears exactly once at the end of the file.
+
+    Removes any existing occurrences of the footer, strips trailing blank
+    lines, then appends a blank line and the footer.
+    Requirements: 68-REQ-6.1, 68-REQ-6.E1
+    """
+    # Remove all existing occurrences
+    lines[:] = [ln for ln in lines if ln.strip() != footer.strip()]
+    # Strip trailing blank lines for idempotency
+    while lines and not lines[-1].strip():
+        lines.pop()
+    # Append a blank line then the footer
+    lines.append("")
+    lines.append(footer)
 
 
 def _build_schema_lookup(
