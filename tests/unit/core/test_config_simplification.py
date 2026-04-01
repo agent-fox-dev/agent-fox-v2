@@ -1,8 +1,8 @@
 """Unit tests for config simplification.
 
-Test Spec: TS-68-1 through TS-68-10, TS-68-12 through TS-68-14, TS-68-17,
+Test Spec: TS-68-1 through TS-68-10, TS-68-12 through TS-68-17,
            TS-68-E1 through TS-68-E4
-Requirements: 68-REQ-1.*, 68-REQ-2.*, 68-REQ-3.*, 68-REQ-5.*, 68-REQ-6.*
+Requirements: 68-REQ-1.*, 68-REQ-2.*, 68-REQ-3.*, 68-REQ-4.*, 68-REQ-5.*, 68-REQ-6.*
 """
 
 from __future__ import annotations
@@ -542,3 +542,108 @@ class TestEdgeCaseDescriptionFallback:
         )  # noqa: E501
         result = _get_description(_TestModel, "my_field", field_info_with_desc)
         assert result == "My custom desc", f"Expected 'My custom desc', got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# TS-68-15: Config reference doc exists with required structure
+# ---------------------------------------------------------------------------
+
+_CONFIG_REFERENCE_PATH = (
+    __import__("pathlib").Path(__file__).parent.parent.parent.parent
+    / "docs"
+    / "config-reference.md"
+)
+
+_ALL_CONFIG_SECTIONS = [
+    "orchestrator",
+    "routing",
+    "models",
+    "hooks",
+    "security",
+    "theme",
+    "platform",
+    "knowledge",
+    "archetypes",
+    "pricing",
+    "planning",
+    "blocking",
+    "night_shift",
+]
+
+
+class TestReferenceDocExists:
+    """TS-68-15: docs/config-reference.md exists and has required structure.
+
+    Requirements: 68-REQ-4.1, 68-REQ-4.3, 68-REQ-4.4
+    """
+
+    def test_reference_doc_file_exists(self):
+        """docs/config-reference.md must exist in the repository."""
+        assert _CONFIG_REFERENCE_PATH.exists(), (
+            f"docs/config-reference.md not found at {_CONFIG_REFERENCE_PATH}"
+        )
+
+    def test_reference_doc_not_empty(self):
+        """docs/config-reference.md must have non-empty content."""
+        content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
+        assert len(content.strip()) > 0, "docs/config-reference.md is empty"
+
+    def test_reference_doc_has_table_of_contents(self):
+        """docs/config-reference.md must contain a table of contents section."""
+        content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
+        has_toc = "## Table of Contents" in content or "## Contents" in content
+        assert has_toc, (
+            "docs/config-reference.md does not contain a Table of Contents section"
+        )
+
+    @pytest.mark.parametrize("section", _ALL_CONFIG_SECTIONS)
+    def test_reference_doc_contains_section_heading(self, section: str):
+        """Every config section must appear as a heading in the reference doc."""
+        content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
+        # Accept both "## section" heading and "night_shift" as a word in the doc
+        import re
+
+        pattern = rf"#+\s+{re.escape(section)}"
+        assert re.search(pattern, content), (
+            f"Config section '{section}' not found as a heading in config-reference.md"
+        )
+
+    def test_reference_doc_has_toml_examples(self):
+        """docs/config-reference.md must contain TOML code block examples."""
+        content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
+        assert "```toml" in content, (
+            "docs/config-reference.md has no TOML code block examples (```toml)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TS-68-16: Config reference doc covers all fields
+# ---------------------------------------------------------------------------
+
+
+class TestReferenceDocCoverage:
+    """TS-68-16: Every field from extract_schema appears in the reference doc.
+
+    Requirements: 68-REQ-4.2
+    """
+
+    def _collect_all_field_names(self) -> list[str]:
+        """Return unique field names from extract_schema(AgentFoxConfig)."""
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.core.config_schema import extract_schema
+
+        schema = extract_schema(AgentFoxConfig)
+        names: list[str] = []
+        for section in schema:
+            for field in section.fields:
+                names.append(field.name)
+        return names
+
+    def test_reference_doc_mentions_all_field_names(self):
+        """Every field name from the schema must appear in config-reference.md."""
+        content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
+        field_names = self._collect_all_field_names()
+        missing = [name for name in field_names if name not in content]
+        assert not missing, (
+            f"The following field names are missing from config-reference.md: {missing}"
+        )

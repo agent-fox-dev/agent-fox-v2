@@ -101,23 +101,23 @@ code changes; group 4 is documentation-only.
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 68-REQ-5.1 through 68-REQ-5.3, 68-REQ-1.E1, 68-REQ-5.E1, 68-REQ-5.E2, 68-REQ-6.E1 acceptance criteria met
 
-- [ ] 4. Create config reference documentation
-  - [ ] 4.1 Write `docs/config-reference.md`
+- [x] 4. Create config reference documentation
+  - [x] 4.1 Write `docs/config-reference.md`
     - Table of contents with links to each section
     - Every config section as a heading
     - Every field with type, default, bounds, description
     - TOML examples for complex fields (thinking, pricing, allowlists)
     - _Requirements: 68-REQ-4.1, 68-REQ-4.2, 68-REQ-4.3, 68-REQ-4.4_
 
-  - [ ] 4.2 Update template header comment
+  - [x] 4.2 Update template header comment
     - Remove "do not remove section headers" instruction (no longer relevant with simplified template)
-    - _Requirements: 68-REQ-1.4_
+    - _Requirements: 68-REQ-1.4_ (already removed in task group 2; verified clean)
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Doc tests pass: `uv run pytest -q tests/unit/core/test_config_simplification.py -k "test_reference_doc" -v`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 68-REQ-4.1 through 68-REQ-4.4 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Doc tests pass: `uv run pytest -q tests/unit/core/test_config_simplification.py -k "test_reference_doc" -v`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 68-REQ-4.1 through 68-REQ-4.4 acceptance criteria met
 
 - [ ] 5. Checkpoint — Config Simplification Complete
   - Ensure all tests pass, ask the user if questions arise.
