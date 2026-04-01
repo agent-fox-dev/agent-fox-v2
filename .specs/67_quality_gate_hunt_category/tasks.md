@@ -48,45 +48,45 @@ timeout field is available when the category code is written.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Config extensions and category registration
-  - [ ] 2.1 Add `quality_gate: bool = True` to `NightShiftCategoryConfig`
+- [x] 2. Config extensions and category registration
+  - [x] 2.1 Add `quality_gate: bool = True` to `NightShiftCategoryConfig`
     - File: `agent_fox/nightshift/config.py`
     - _Requirements: 67-REQ-5.1_
 
-  - [ ] 2.2 Add `quality_gate_timeout: int = 600` to `NightShiftConfig`
+  - [x] 2.2 Add `quality_gate_timeout: int = 600` to `NightShiftConfig`
     - Add field with `Field(default=600, description=...)`
     - Add to the existing `clamp_interval_minimum` validator or create
       a dedicated validator that clamps to minimum 60
     - File: `agent_fox/nightshift/config.py`
     - _Requirements: 67-REQ-5.2, 67-REQ-5.3_
 
-  - [ ] 2.3 Register `QualityGateCategory` in `HuntCategoryRegistry`
+  - [x] 2.3 Register `QualityGateCategory` in `HuntCategoryRegistry`
     - Add import and instantiation in `_register_builtins()`
     - File: `agent_fox/nightshift/hunt.py`
     - _Requirements: 67-REQ-6.1_
 
-  - [ ] 2.4 Export `QualityGateCategory` from categories package
+  - [x] 2.4 Export `QualityGateCategory` from categories package
     - Add to `__init__.py` imports and `__all__`
     - File: `agent_fox/nightshift/categories/__init__.py`
     - _Requirements: 67-REQ-6.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Config tests pass: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py::TestConfiguration`
-    - [ ] Registration test passes: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py::TestRegistration`
-    - [ ] Timeout clamping property passes: `uv run pytest -q tests/property/nightshift/test_quality_gate_props.py -k "timeout"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 67-REQ-5.1, 67-REQ-5.2, 67-REQ-5.3, 67-REQ-6.1, 67-REQ-6.2 met
+  - [x] 2.V Verify task group 2
+    - [x] Config tests pass: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py::TestConfiguration`
+    - [x] Registration test passes: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py::TestRegistration`
+    - [x] Timeout clamping property passes: `uv run pytest -q tests/property/nightshift/test_quality_gate_props.py -k "timeout"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 67-REQ-5.1, 67-REQ-5.2, 67-REQ-5.3, 67-REQ-6.1, 67-REQ-6.2 met
 
-- [ ] 3. QualityGateCategory implementation
-  - [ ] 3.1 Create `agent_fox/nightshift/categories/quality_gate.py`
+- [x] 3. QualityGateCategory implementation
+  - [x] 3.1 Create `agent_fox/nightshift/categories/quality_gate.py`
     - Define `QualityGateCategory(BaseHuntCategory)` with `_name = "quality_gate"`
     - Define `QUALITY_GATE_PROMPT` template for AI analysis
     - Define `SEVERITY_MAP` dict mapping `CheckCategory` to severity string
     - Define `MAX_OUTPUT_CHARS = 8000` for output truncation
     - _Requirements: 67-REQ-3.4, 67-REQ-4.1, 67-REQ-4.2, 67-REQ-4.3, 67-REQ-4.4_
 
-  - [ ] 3.2 Implement `_run_static_tool()` method
+  - [x] 3.2 Implement `_run_static_tool()` method
     - Call `detect_checks(project_root)` to discover checks
     - Return empty string if no checks detected
     - Execute each check via `subprocess.run()` with configured timeout
@@ -94,7 +94,7 @@ timeout field is available when the category code is written.
     - Return empty string if all checks pass
     - _Requirements: 67-REQ-1.1, 67-REQ-1.2, 67-REQ-2.1, 67-REQ-2.2, 67-REQ-2.3, 67-REQ-2.4, 67-REQ-2.E1, 67-REQ-2.E2_
 
-  - [ ] 3.3 Implement `_run_ai_analysis()` method
+  - [x] 3.3 Implement `_run_ai_analysis()` method
     - Return `[]` if static_output is empty
     - Send failure output to AI with `QUALITY_GATE_PROMPT`
     - Parse response with `extract_json_array()`
@@ -102,22 +102,22 @@ timeout field is available when the category code is written.
     - Populate `evidence` with raw output (truncated)
     - _Requirements: 67-REQ-3.1, 67-REQ-3.2, 67-REQ-3.3, 67-REQ-3.4_
 
-  - [ ] 3.4 Implement mechanical fallback for AI failure
+  - [x] 3.4 Implement mechanical fallback for AI failure
     - On AI exception or unparseable response, generate one Finding per
       failure mechanically (check name as title, raw output as description)
     - _Requirements: 67-REQ-3.E1_
 
-  - [ ] 3.5 Override `detect()` to handle `detect_checks()` exceptions
+  - [x] 3.5 Override `detect()` to handle `detect_checks()` exceptions
     - Wrap the base class `detect()` call to catch exceptions from the
       static phase and return `[]` with a warning log
     - _Requirements: 67-REQ-1.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All unit tests pass: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py`
-    - [ ] All property tests pass: `uv run pytest -q tests/property/nightshift/test_quality_gate_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] All 67-REQ-* requirements met
+  - [x] 3.V Verify task group 3
+    - [x] All unit tests pass: `uv run pytest -q tests/unit/nightshift/test_quality_gate.py`
+    - [x] All property tests pass: `uv run pytest -q tests/property/nightshift/test_quality_gate_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] All 67-REQ-* requirements met
 
 - [ ] 4. Checkpoint -- Quality Gate Category Complete
   - Ensure all tests pass, ask the user if questions arise.

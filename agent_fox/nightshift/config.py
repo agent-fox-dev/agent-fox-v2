@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 class NightShiftCategoryConfig(BaseModel):
     """Per-category enable/disable toggles.
 
-    All seven built-in categories are enabled by default.
+    All eight built-in categories are enabled by default.
 
-    Requirements: 61-REQ-9.2
+    Requirements: 61-REQ-9.2, 67-REQ-5.1
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -29,6 +29,7 @@ class NightShiftCategoryConfig(BaseModel):
     linter_debt: bool = True
     dead_code: bool = True
     documentation_drift: bool = True
+    quality_gate: bool = True
 
 
 class NightShiftConfig(BaseModel):
@@ -51,6 +52,10 @@ class NightShiftConfig(BaseModel):
         default_factory=NightShiftCategoryConfig,
         description="Category enable/disable toggles",
     )
+    quality_gate_timeout: int = Field(
+        default=600,
+        description="Per-check timeout in seconds (minimum 60)",
+    )
 
     @field_validator("issue_check_interval", "hunt_scan_interval")
     @classmethod
@@ -63,6 +68,22 @@ class NightShiftConfig(BaseModel):
             logger.warning(
                 "Config field '%s' value %d below minimum, clamped to 60",
                 getattr(info, "field_name", "interval"),
+                v,
+            )
+            return 60
+        return v
+
+    @field_validator("quality_gate_timeout")
+    @classmethod
+    def clamp_quality_gate_timeout(cls, v: int, info: object) -> int:
+        """Clamp quality_gate_timeout to a minimum of 60 seconds.
+
+        Requirements: 67-REQ-5.3
+        """
+        if v < 60:
+            logger.warning(
+                "Config field '%s' value %d below minimum, clamped to 60",
+                getattr(info, "field_name", "quality_gate_timeout"),
                 v,
             )
             return 60

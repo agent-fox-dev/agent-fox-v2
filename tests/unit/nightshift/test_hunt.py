@@ -16,10 +16,10 @@ import pytest
 
 
 class TestHuntCategoryRegistry:
-    """Verify that all seven categories are registered."""
+    """Verify that all eight categories are registered."""
 
     def test_seven_categories_registered(self) -> None:
-        """Registry contains exactly the 7 built-in categories."""
+        """Registry contains exactly the 8 built-in categories."""
         from agent_fox.nightshift.hunt import HuntCategoryRegistry
 
         registry = HuntCategoryRegistry()
@@ -32,6 +32,7 @@ class TestHuntCategoryRegistry:
             "linter_debt",
             "dead_code",
             "documentation_drift",
+            "quality_gate",
         }
         assert names == expected
 
@@ -138,14 +139,14 @@ class TestCategoryPromptTemplates:
     """Verify that each category has a distinct prompt template."""
 
     def test_distinct_prompt_templates(self) -> None:
-        """Each of the 7 categories has a unique, non-empty prompt template."""
+        """Each of the 8 categories has a unique, non-empty prompt template."""
         from agent_fox.nightshift.hunt import HuntCategoryRegistry
 
         registry = HuntCategoryRegistry()
         templates = {cat.name: cat.prompt_template for cat in registry.all()}
-        assert len(templates) == 7
+        assert len(templates) == 8
         # All templates are distinct
-        assert len(set(templates.values())) == 7
+        assert len(set(templates.values())) == 8
         # All templates are non-empty
         for t in templates.values():
             assert len(t) > 0

@@ -38,9 +38,9 @@ class HuntCategory(Protocol):
 class HuntCategoryRegistry:
     """Registry of all available hunt categories.
 
-    On instantiation, registers all seven built-in categories.
+    On instantiation, registers all eight built-in categories.
 
-    Requirements: 61-REQ-3.1
+    Requirements: 61-REQ-3.1, 67-REQ-6.1
     """
 
     def __init__(self) -> None:
@@ -48,13 +48,14 @@ class HuntCategoryRegistry:
         self._register_builtins()
 
     def _register_builtins(self) -> None:
-        """Register the seven built-in hunt categories."""
+        """Register the eight built-in hunt categories."""
         from agent_fox.nightshift.categories import (
             DeadCodeCategory,
             DependencyFreshnessCategory,
             DeprecatedAPICategory,
             DocumentationDriftCategory,
             LinterDebtCategory,
+            QualityGateCategory,
             TestCoverageCategory,
             TodoFixmeCategory,
         )
@@ -67,6 +68,7 @@ class HuntCategoryRegistry:
             LinterDebtCategory(),
             DeadCodeCategory(),
             DocumentationDriftCategory(),
+            QualityGateCategory(),
         ]
 
     def all(self) -> list[HuntCategory]:

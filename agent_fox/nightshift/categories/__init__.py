@@ -17,6 +17,7 @@ from agent_fox.nightshift.categories.documentation_drift import (
     DocumentationDriftCategory,
 )
 from agent_fox.nightshift.categories.linter_debt import LinterDebtCategory
+from agent_fox.nightshift.categories.quality_gate import QualityGateCategory
 from agent_fox.nightshift.categories.test_coverage import TestCoverageCategory
 from agent_fox.nightshift.categories.todo_fixme import TodoFixmeCategory
 
@@ -27,6 +28,7 @@ __all__ = [
     "DeprecatedAPICategory",
     "DocumentationDriftCategory",
     "LinterDebtCategory",
+    "QualityGateCategory",
     "TestCoverageCategory",
     "TodoFixmeCategory",
 ]
