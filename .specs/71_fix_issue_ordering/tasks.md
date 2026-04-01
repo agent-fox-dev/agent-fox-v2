@@ -75,40 +75,40 @@ integration with staleness). Each layer is independently testable.
     - [x] No linter warnings introduced: `ruff check agent_fox/nightshift/ agent_fox/platform/`
     - [x] Requirements 71-REQ-1.1, 71-REQ-1.E1 acceptance criteria met
 
-- [ ] 3. Reference parsing and dependency graph
-  - [ ] 3.1 Implement `parse_text_references()`
+- [x] 3. Reference parsing and dependency graph
+  - [x] 3.1 Implement `parse_text_references()`
     - Case-insensitive pattern matching for dependency hints
     - Filter edges to batch-only issue numbers
     - File: `agent_fox/nightshift/reference_parser.py`
     - _Requirements: 2.1, 2.3, 2.E1_
 
-  - [ ] 3.2 Implement `fetch_github_relationships()`
+  - [x] 3.2 Implement `fetch_github_relationships()`
     - Query GitHub timeline/relationship API
     - Convert to DependencyEdge objects
     - File: `agent_fox/nightshift/reference_parser.py`
     - _Requirements: 2.2_
 
-  - [ ] 3.3 Implement `build_graph()` with topological sort
+  - [x] 3.3 Implement `build_graph()` with topological sort
     - Kahn's algorithm with tie-breaking by ascending issue number
     - File: `agent_fox/nightshift/dep_graph.py`
     - _Requirements: 4.1, 4.2, 4.E1_
 
-  - [ ] 3.4 Implement cycle detection and breaking
+  - [x] 3.4 Implement cycle detection and breaking
     - Detect cycles, break at edge pointing to oldest issue, log warning
     - File: `agent_fox/nightshift/dep_graph.py`
     - _Requirements: 4.3, 2.E2, 6.3_
 
-  - [ ] 3.5 Implement `merge_edges()` with explicit precedence
+  - [x] 3.5 Implement `merge_edges()` with explicit precedence
     - Explicit edges override conflicting AI edges
     - File: `agent_fox/nightshift/dep_graph.py`
     - _Requirements: 3.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_fix_ordering.py -k "reference or graph or cycle or merge or topo"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_fix_ordering.py -k "P1 or P2 or P3 or P4"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/nightshift/`
-    - [ ] Requirements 71-REQ-2.*, 71-REQ-4.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_fix_ordering.py -k "reference or graph or cycle or merge or topo"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_fix_ordering.py -k "P1 or P2 or P3 or P4"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `ruff check agent_fox/nightshift/`
+    - [x] Requirements 71-REQ-2.*, 71-REQ-4.* acceptance criteria met
 
 - [ ] 4. Checkpoint - Graph Layer Complete
   - [ ] 4.1 Run full test suite and linter
