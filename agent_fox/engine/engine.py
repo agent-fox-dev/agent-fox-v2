@@ -16,6 +16,7 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import signal
 from collections.abc import Callable
@@ -24,13 +25,15 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import (
+    AgentFoxConfig,
     ArchetypesConfig,
     HookConfig,
     OrchestratorConfig,
     PlanningConfig,
     RoutingConfig,
+    load_config,
 )
-from agent_fox.core.errors import PlanError
+from agent_fox.core.errors import ConfigError, PlanError
 from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
@@ -65,6 +68,39 @@ from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
+
+
+def diff_configs(old: AgentFoxConfig, new: AgentFoxConfig) -> dict[str, dict[str, Any]]:
+    """Compare two AgentFoxConfig instances field-by-field.
+
+    Returns a dict mapping "section.field" -> {"old": ..., "new": ...}
+    for every field whose value has changed. Handles nested Pydantic
+    models by walking model_fields one level deep.
+
+    Requirements: 66-REQ-6.2
+    """
+    changed: dict[str, dict[str, Any]] = {}
+    for section_name in AgentFoxConfig.model_fields:
+        old_section = getattr(old, section_name)
+        new_section = getattr(new, section_name)
+        if old_section == new_section:
+            continue
+        # Walk the sub-model fields if it's a Pydantic model
+        if hasattr(old_section.__class__, "model_fields") and hasattr(
+            new_section.__class__, "model_fields"
+        ):
+            for field_name in old_section.__class__.model_fields:
+                old_val = getattr(old_section, field_name)
+                new_val = getattr(new_section, field_name)
+                if old_val != new_val:
+                    changed[f"{section_name}.{field_name}"] = {
+                        "old": old_val,
+                        "new": new_val,
+                    }
+        else:
+            # Non-model section (e.g. night_shift Any field)
+            changed[section_name] = {"old": old_section, "new": new_section}
+    return changed
 
 
 def _build_edges_dict_from_graph(graph: TaskGraph) -> dict[str, list[str]]:
@@ -306,6 +342,8 @@ class Orchestrator:
         audit_dir: Path | None = None,
         audit_db_conn: Any | None = None,
         knowledge_db_conn: Any | None = None,
+        config_path: Path | None = None,
+        full_config: AgentFoxConfig | None = None,
     ) -> None:
         self._config = config
         self._plan_path = plan_path
@@ -327,6 +365,10 @@ class Orchestrator:
         self._audit_dir = audit_dir
         self._audit_db_conn = audit_db_conn
         self._knowledge_db_conn = knowledge_db_conn
+        # 66-REQ-7.1, 66-REQ-7.2: Config hot-reload state
+        self._config_path = config_path
+        self._full_config = full_config
+        self._config_hash: str = ""  # empty = first reload always fires
 
         # 30-REQ-7: Adaptive routing state
         _rc = routing_config or RoutingConfig()
@@ -1351,6 +1393,100 @@ class Orchestrator:
             logger.info("Updated plan.json with current node statuses")
         except OSError:
             logger.warning("Failed to update plan.json", exc_info=True)
+
+    def _reload_config(self) -> None:
+        """Reload configuration from disk if the file has changed.
+
+        Steps:
+        1. If config_path is None, return immediately (no-op).
+        2. Read the file, compute SHA-256 hash; return if hash matches.
+        3. On hash change: parse the config, diff against current, update
+           self._config (preserving parallel), rebuild CircuitBreaker,
+           update auxiliary configs, emit CONFIG_RELOADED audit event.
+        4. On any error: log warning and return without changes.
+
+        Requirements: 66-REQ-1.1 through 66-REQ-7.2
+        """
+        if self._config_path is None:
+            return
+
+        # 66-REQ-1.1 / 66-REQ-1.2: Read file and compare hash
+        try:
+            content = self._config_path.read_text(encoding="utf-8")
+        except (FileNotFoundError, OSError) as exc:
+            logger.warning(
+                "Config hot-reload: cannot read %s: %s", self._config_path, exc
+            )
+            return
+
+        new_hash = hashlib.sha256(content.encode()).hexdigest()
+        if new_hash == self._config_hash:
+            # 66-REQ-1.2: No-op when hash matches
+            return
+
+        # 66-REQ-1.3: Hash differs — parse and apply new config
+        try:
+            new_full_config = load_config(self._config_path)
+        except (ConfigError, OSError, ValueError) as exc:
+            # 66-REQ-5.1, 66-REQ-5.E1: Errors preserve current config
+            logger.warning(
+                "Config hot-reload: failed to parse %s: %s; keeping current config",
+                self._config_path,
+                exc,
+            )
+            return
+
+        old_full_config = self._full_config or AgentFoxConfig()
+        new_orch_cfg = new_full_config.orchestrator
+
+        # 66-REQ-3.1, 66-REQ-3.2: parallel is immutable — preserve original
+        original_parallel = self._config.parallel
+        if new_orch_cfg.parallel != original_parallel:
+            logger.warning(
+                "Config hot-reload: 'parallel' changed from %d to %d but "
+                "cannot be changed at runtime; keeping original value.",
+                original_parallel,
+                new_orch_cfg.parallel,
+            )
+            new_orch_cfg = new_orch_cfg.model_copy(
+                update={"parallel": original_parallel}
+            )
+            new_full_config = new_full_config.model_copy(
+                update={"orchestrator": new_orch_cfg}
+            )
+
+        # 66-REQ-6.2: Compute diff before applying changes
+        changed_fields = diff_configs(old_full_config, new_full_config)
+
+        # 66-REQ-2.1: Update OrchestratorConfig
+        self._config = new_orch_cfg
+
+        # 66-REQ-2.2: Rebuild CircuitBreaker with new config
+        self._circuit = CircuitBreaker(new_orch_cfg)
+
+        # 66-REQ-4.1, 66-REQ-4.2, 66-REQ-4.3: Update auxiliary configs
+        self._hook_config = new_full_config.hooks
+        self._archetypes_config = new_full_config.archetypes
+        self._planning_config = new_full_config.planning
+
+        # Update stored full config and hash
+        self._full_config = new_full_config
+        self._config_hash = new_hash
+
+        # 66-REQ-6.1: Emit CONFIG_RELOADED audit event when fields changed
+        if changed_fields:
+            emit_audit_event(
+                self._sink,
+                self._run_id,
+                AuditEventType.CONFIG_RELOADED,
+                payload={"changed_fields": changed_fields},
+            )
+
+        logger.info(
+            "Config hot-reload: applied %d changed field(s) from %s",
+            len(changed_fields),
+            self._config_path,
+        )
 
     async def _shutdown(self, state: ExecutionState) -> None:
         """Save state, cancel in-flight tasks, log resume instructions."""

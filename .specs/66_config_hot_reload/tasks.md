@@ -54,25 +54,25 @@ to the audit event type enum.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Implement core reload logic
-  - [ ] 2.1 Add `CONFIG_RELOADED` to `AuditEventType` enum
+- [x] 2. Implement core reload logic
+  - [x] 2.1 Add `CONFIG_RELOADED` to `AuditEventType` enum
     - In `agent_fox/knowledge/audit.py`, add `CONFIG_RELOADED = "config.reloaded"`
     - _Requirements: 66-REQ-6.1_
 
-  - [ ] 2.2 Add `config_path` and `full_config` to Orchestrator.__init__
+  - [x] 2.2 Add `config_path` and `full_config` to Orchestrator.__init__
     - Add `config_path: Path | None = None` parameter
     - Add `full_config: AgentFoxConfig | None = None` parameter
     - Store as `self._config_path`, `self._full_config`
     - Initialize `self._config_hash = ""` (empty = first reload always fires)
     - _Requirements: 66-REQ-7.1, 66-REQ-7.2_
 
-  - [ ] 2.3 Implement `diff_configs` utility
+  - [x] 2.3 Implement `diff_configs` utility
     - Compare two `AgentFoxConfig` instances field-by-field
     - Return dict of `"section.field"` -> `{"old": ..., "new": ...}`
     - Handle nested Pydantic models by walking `model_fields`
     - _Requirements: 66-REQ-6.2_
 
-  - [ ] 2.4 Implement `_reload_config` method on Orchestrator
+  - [x] 2.4 Implement `_reload_config` method on Orchestrator
     - Read config file, compute SHA-256 hash, compare to stored hash
     - On hash match: return immediately (no-op)
     - On hash change: call `load_config`, diff against `self._full_config`,
@@ -83,12 +83,12 @@ to the audit event type enum.
       66-REQ-2.2, 66-REQ-3.1, 66-REQ-3.2, 66-REQ-4.1, 66-REQ-4.2,
       66-REQ-4.3, 66-REQ-5.1, 66-REQ-6.1, 66-REQ-6.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Core reload tests pass: `uv run pytest -q tests/unit/engine/test_config_reload.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/engine/test_config_reload_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 66-REQ-1.*, 66-REQ-2.*, 66-REQ-3.*, 66-REQ-4.*,
+  - [x] 2.V Verify task group 2
+    - [x] Core reload tests pass: `uv run pytest -q tests/unit/engine/test_config_reload.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/engine/test_config_reload_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 66-REQ-1.*, 66-REQ-2.*, 66-REQ-3.*, 66-REQ-4.*,
           66-REQ-5.*, 66-REQ-6.*, 66-REQ-7.* met
 
 - [ ] 3. Integrate reload into barrier sequence

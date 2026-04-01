@@ -114,6 +114,7 @@ async def run_sync_barrier_sequence(
     sync_plan_fn: Callable[..., None],
     barrier_callback: Callable[[], None] | None,
     knowledge_db_conn: Any | None,
+    reload_config_fn: Callable[[], None] | None = None,
 ) -> None:
     """Execute the sync barrier sequence.
 
@@ -203,3 +204,10 @@ async def run_sync_barrier_sequence(
         render_summary(conn=knowledge_db_conn)
     except Exception:
         logger.warning("Memory summary regeneration failed", exc_info=True)
+
+    # 66-REQ-1.1: Reload configuration after barrier completes
+    if reload_config_fn is not None:
+        try:
+            reload_config_fn()
+        except Exception:
+            logger.warning("Config reload failed at barrier", exc_info=True)
