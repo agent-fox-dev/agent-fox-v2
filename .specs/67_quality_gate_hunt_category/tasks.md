@@ -25,8 +25,8 @@ timeout field is available when the category code is written.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/nightshift/test_quality_gate.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/nightshift/test_quality_gate.py`
     - Test class `TestStaticPhase` with tests for TS-67-1, TS-67-2
     - Test class `TestAIAnalysis` with tests for TS-67-3, TS-67-4, TS-67-5
     - Test class `TestSeverityMapping` with tests for TS-67-6, TS-67-7, TS-67-8
@@ -34,19 +34,19 @@ timeout field is available when the category code is written.
     - Test class `TestRegistration` with test for TS-67-11
     - _Test Spec: TS-67-1 through TS-67-11_
 
-  - [ ] 1.2 Create edge case tests in same file
+  - [x] 1.2 Create edge case tests in same file
     - Test class `TestEdgeCases` with tests for TS-67-E1 through TS-67-E7
     - _Test Spec: TS-67-E1 through TS-67-E7_
 
-  - [ ] 1.3 Create property test file `tests/property/nightshift/test_quality_gate_props.py`
+  - [x] 1.3 Create property test file `tests/property/nightshift/test_quality_gate_props.py`
     - Property tests for TS-67-P1 through TS-67-P6
     - Use Hypothesis for input generation
     - _Test Spec: TS-67-P1 through TS-67-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Config extensions and category registration
   - [ ] 2.1 Add `quality_gate: bool = True` to `NightShiftCategoryConfig`
