@@ -44,14 +44,14 @@ work as `asdict()` handles serialization automatically.
     - [x] All spec tests FAIL (red) — no implementation yet (15 failed)
     - [x] No linter warnings introduced: `ruff check tests/unit/test_status_active_tasks.py tests/property/test_status_active_tasks.py`
 
-- [ ] 2. Data model and report generation
-  - [ ] 2.1 Add `in_progress_tasks` field to `StatusReport` dataclass
+- [x] 2. Data model and report generation
+  - [x] 2.1 Add `in_progress_tasks` field to `StatusReport` dataclass
     - Import `TaskActivity` from `reporting/standup.py`
     - Add field: `in_progress_tasks: list[TaskActivity] = field(default_factory=list)`
     - File: `agent_fox/reporting/status.py`
     - _Requirements: 72-REQ-1.1_
 
-  - [ ] 2.2 Compute in-progress task activities in `generate_status()`
+  - [x] 2.2 Compute in-progress task activities in `generate_status()`
     - Import `_compute_task_activities` from `reporting/standup.py`
     - Call `_compute_task_activities()` with all sessions and node_states
     - Filter to `current_status == "in_progress"` entries only
@@ -60,11 +60,11 @@ work as `asdict()` handles serialization automatically.
     - File: `agent_fox/reporting/status.py`
     - _Requirements: 72-REQ-1.1, 72-REQ-1.2, 72-REQ-1.3, 72-REQ-1.E1, 72-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_status_active_tasks.py -k "TestReportGeneration or TestEdgeCases"`
-    - [ ] JSON tests pass (asdict handles new field): `uv run pytest -q tests/unit/test_status_active_tasks.py -k "TestJsonOutput"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/reporting/`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_status_active_tasks.py -k "TestReportGeneration or TestEdgeCases"`
+    - [x] JSON tests pass (asdict handles new field): `uv run pytest -q tests/unit/test_status_active_tasks.py -k "TestJsonOutput"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `ruff check agent_fox/reporting/`
 
 - [ ] 3. Text formatting
   - [ ] 3.1 Add "Active Tasks" section to `TableFormatter.format_status()`

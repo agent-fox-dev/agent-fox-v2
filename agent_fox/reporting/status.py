@@ -20,6 +20,7 @@ from agent_fox.graph.persistence import load_plan_or_raise
 from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.store import read_all_facts
 from agent_fox.reporting import parse_audit_payload
+from agent_fox.reporting.standup import TaskActivity, _compute_task_activities
 
 if TYPE_CHECKING:
     import duckdb
@@ -125,6 +126,7 @@ class StatusReport:
     cost_by_archetype: dict[str, float] = field(default_factory=dict)
     cost_by_spec: dict[str, float] = field(default_factory=dict)
     active_agents: list[str] = field(default_factory=list)
+    in_progress_tasks: list[TaskActivity] = field(default_factory=list)
 
 
 def extract_spec_name(node_id: str) -> str:
@@ -410,6 +412,15 @@ def generate_status(
             spec_name = spec_name_of(record.node_id)
             cost_by_spec_agg[spec_name] += record.cost
 
+    # Compute in-progress task activities (72-REQ-1.1, 72-REQ-1.2, 72-REQ-1.3)
+    if state is not None:
+        all_activities = _compute_task_activities(state.session_history, node_states)
+        in_progress_tasks = [
+            ta for ta in all_activities if ta.current_status == "in_progress"
+        ]
+    else:
+        in_progress_tasks = []
+
     return StatusReport(
         counts=counts,
         total_tasks=total_tasks,
@@ -423,4 +434,5 @@ def generate_status(
         cost_by_archetype=cost_by_archetype,
         cost_by_spec=dict(cost_by_spec_agg),
         active_agents=active_agents,
+        in_progress_tasks=in_progress_tasks,
     )
