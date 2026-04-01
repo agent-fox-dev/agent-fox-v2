@@ -66,37 +66,37 @@ updates existing tests.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Implement data models and mechanical grouping
-  - [ ] 2.1 Create `agent_fox/nightshift/critic.py` with module docstring
+- [x] 2. Implement data models and mechanical grouping
+  - [x] 2.1 Create `agent_fox/nightshift/critic.py` with module docstring
     - Define `MINIMUM_FINDING_THRESHOLD = 3`
     - Define `CriticDecision` dataclass
     - Define `CriticSummary` dataclass
     - _Requirements: 73-REQ-4.1_
 
-  - [ ] 2.2 Implement `_mechanical_grouping()`
+  - [x] 2.2 Implement `_mechanical_grouping()`
     - Each finding becomes its own FindingGroup
     - Title from finding.title, body from build_issue_body pattern
     - affected_files sorted and deduplicated
     - _Requirements: 73-REQ-4.2, 73-REQ-5.1_
 
-  - [ ] 2.3 Implement `_log_decisions()` and `_log_summary()`
+  - [x] 2.3 Implement `_log_decisions()` and `_log_summary()`
     - Log merges, drops, severity changes at INFO
     - Log full reasoning at DEBUG
     - Swallow logging exceptions
     - _Requirements: 73-REQ-6.1, 73-REQ-6.2, 73-REQ-6.3, 73-REQ-6.4, 73-REQ-6.E1_
 
-  - [ ] 2.4 Implement skeleton `consolidate_findings()` async function
+  - [x] 2.4 Implement skeleton `consolidate_findings()` async function
     - Handle empty input (return [])
     - Handle below-threshold (call _mechanical_grouping)
     - Stub the critic path to fall through to _mechanical_grouping
     - _Requirements: 73-REQ-4.E1, 73-REQ-7.2, 73-REQ-7.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Unit tests for mechanical grouping pass: `uv run pytest -q tests/unit/nightshift/test_critic.py`
-    - [ ] Property tests P2, P3, P4, P6 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 73-REQ-4.*, 73-REQ-6.* met
+  - [x] 2.V Verify task group 2
+    - [x] Unit tests for mechanical grouping pass: `uv run pytest -q tests/unit/nightshift/test_critic.py`
+    - [x] Property tests P2, P3, P4, P6 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 73-REQ-4.*, 73-REQ-6.* met
 
 - [ ] 3. Implement AI critic path
   - [ ] 3.1 Define critic prompt template
