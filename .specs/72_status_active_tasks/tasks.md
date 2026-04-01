@@ -24,23 +24,25 @@ work as `asdict()` handles serialization automatically.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_status_active_tasks.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_status_active_tasks.py`
     - Test class for report generation (TS-72-1, TS-72-2, TS-72-3)
     - Test class for text formatting (TS-72-4, TS-72-5, TS-72-6, TS-72-7, TS-72-8)
     - Test class for JSON output (TS-72-9, TS-72-10)
     - Test class for edge cases (TS-72-E1, TS-72-E2, TS-72-E3)
     - _Test Spec: TS-72-1 through TS-72-10, TS-72-E1 through TS-72-E3_
+    - _Note: placed in `tests/unit/reporting/` following project convention_
 
-  - [ ] 1.2 Create property test file `tests/property/test_status_active_tasks.py`
+  - [x] 1.2 Create property test file `tests/property/test_status_active_tasks.py`
     - TS-72-P1: In-progress filter invariant
     - TS-72-P2: Text section presence invariant
     - _Test Spec: TS-72-P1, TS-72-P2_
+    - _Note: placed in `tests/property/reporting/` following project convention_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `ruff check tests/unit/test_status_active_tasks.py tests/property/test_status_active_tasks.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet (15 failed)
+    - [x] No linter warnings introduced: `ruff check tests/unit/test_status_active_tasks.py tests/property/test_status_active_tasks.py`
 
 - [ ] 2. Data model and report generation
   - [ ] 2.1 Add `in_progress_tasks` field to `StatusReport` dataclass
