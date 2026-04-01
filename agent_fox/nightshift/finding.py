@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class FindingGroup:
     title: str
     body: str
     category: str
+    affected_files: list[str] = field(default_factory=list)
 
 
 def consolidate_findings(findings: list[Finding]) -> list[FindingGroup]:
