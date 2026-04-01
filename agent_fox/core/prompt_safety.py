@@ -12,8 +12,7 @@ from __future__ import annotations
 import re
 import secrets
 
-# Matches ANSI escape sequences (SGR and other CSI sequences).
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]?")
+from agent_fox.knowledge._text_utils import strip_ansi
 
 # Matches C0 control characters except tab (0x09), newline (0x0a),
 # and carriage return (0x0d).
@@ -30,7 +29,7 @@ def strip_control_chars(text: str) -> str:
 
     Preserves tabs, newlines, and carriage returns.
     """
-    text = _ANSI_RE.sub("", text)
+    text = strip_ansi(text)
     return _CONTROL_RE.sub("", text)
 
 

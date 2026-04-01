@@ -22,9 +22,17 @@ from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.audit_helpers import emit_audit_event
-from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
+from agent_fox.engine.context_assembly import (
+    build_retry_context,
+    enhance_with_causal,
+    load_relevant_facts,
+)
+from agent_fox.engine.fact_cache import RankedFactCache
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
-from agent_fox.engine.review_parser import extract_json_array
+from agent_fox.engine.review_persistence import (
+    persist_review_findings,
+    record_session_to_sink,
+)
 from agent_fox.engine.sdk_params import (
     clamp_instances,
     resolve_fallback_model,
@@ -40,15 +48,12 @@ from agent_fox.hooks.hooks import (
 )
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.filtering import select_relevant_facts
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
-from agent_fox.knowledge.store import load_all_facts
 from agent_fox.session.archetypes import get_archetype
 from agent_fox.session.prompt import (
     assemble_context,
     build_system_prompt,
     build_task_prompt,
-    select_context_with_causal,
 )
 from agent_fox.session.session import run_session
 from agent_fox.ui.progress import ActivityCallback
@@ -256,53 +261,13 @@ class NodeSessionRunner:
     def _load_relevant_facts(self) -> list:
         """Load relevant facts, using the pre-computed cache when available.
 
-        When a valid cache entry exists for the current spec and the fact
-        count has not changed since the cache was built, return cached facts
-        directly. Otherwise fall back to live computation via
-        select_relevant_facts().
-
         Requirements: 42-REQ-3.2, 42-REQ-3.3, 42-REQ-3.4
         """
-        # 42-REQ-3.2: Try cache first when cache is available
-        if self._fact_cache is not None:
-            try:
-                current_count: int = self._knowledge_db.connection.execute(
-                    "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-                ).fetchone()[0]
-                cached = get_cached_facts(
-                    self._fact_cache,
-                    self._spec_name,
-                    current_count,
-                )
-                if cached is not None:
-                    logger.debug(
-                        "Using cached fact rankings for %s (%d facts)",
-                        self._spec_name,
-                        len(cached),
-                    )
-                    return cached
-                # 42-REQ-3.3: Cache is stale or missing — fall through to live
-                logger.debug(
-                    "Cache miss for %s (count mismatch or absent); "
-                    "falling back to live computation",
-                    self._spec_name,
-                )
-            except Exception:
-                logger.debug(
-                    "Cache lookup failed for %s; falling back to live computation",
-                    self._spec_name,
-                    exc_info=True,
-                )
-
-        # Live computation (no cache, stale cache, or cache lookup failure)
-        all_facts = load_all_facts(self._knowledge_db.connection)
-        if not all_facts:
-            return []
-        return select_relevant_facts(
-            all_facts,
+        return load_relevant_facts(
+            self._knowledge_db,
             self._spec_name,
-            task_keywords=[self._spec_name],
-            confidence_threshold=self._config.knowledge.confidence_threshold,
+            self._config.knowledge.confidence_threshold,
+            fact_cache=self._fact_cache,
         )
 
     def _enhance_with_causal(
@@ -311,27 +276,13 @@ class NodeSessionRunner:
     ) -> list[str]:
         """Enhance keyword-selected facts with causal context.
 
-        Uses select_context_with_causal() to augment the keyword-matched
-        facts with causally-linked facts from the DuckDB knowledge store.
-
         Requirements: 13-REQ-7.1, 13-REQ-7.2, 38-REQ-2.1, 38-REQ-2.3
         """
-        keyword_dicts = [
-            {
-                "id": f.id,
-                "content": f.content,
-                "spec_name": f.spec_name,
-            }
-            for f in relevant_facts
-        ]
-
-        enhanced = select_context_with_causal(
-            self._knowledge_db.connection,
+        return enhance_with_causal(
+            self._knowledge_db,
             self._spec_name,
-            touched_files=[],
-            keyword_facts=keyword_dicts,
+            relevant_facts,
         )
-        return [f["content"] for f in enhanced]
 
     def _build_hook_context(self, workspace: WorkspaceInfo) -> HookContext:
         """Build a HookContext for pre/post-session hooks."""
@@ -716,16 +667,7 @@ class NodeSessionRunner:
         node_id: str,
     ) -> None:
         """Record a session outcome to the sink dispatcher (best-effort)."""
-        if self._sink is None:
-            return
-        try:
-            self._sink.record_session_outcome(outcome)
-        except Exception:
-            logger.warning(
-                "Failed to record session outcome to sink for %s",
-                node_id,
-                exc_info=True,
-            )
+        record_session_to_sink(self._sink, outcome, node_id)
 
     def _persist_review_findings(
         self,
@@ -735,151 +677,35 @@ class NodeSessionRunner:
     ) -> None:
         """Parse and persist structured findings from review archetypes.
 
-        Uses extract_json_array to extract JSON from archetype output, then
-        routes to the correct typed parser and insert function based on
-        archetype:
-        - skeptic  → parse_review_findings   → insert_findings
-        - verifier → parse_verification_results → insert_verdicts
-        - oracle   → parse_drift_findings    → insert_drift_findings
-
-        Non-review archetypes (coder, librarian, etc.) are silently skipped.
-        When JSON extraction fails, a review.parse_failure audit event is
-        emitted at WARNING severity. All other failures are logged and
-        swallowed to avoid blocking the orchestrator.
-
-        Requirements: 53-REQ-1.1, 53-REQ-2.1, 53-REQ-3.1,
-                      53-REQ-1.E1, 53-REQ-2.E1, 53-REQ-3.E1
+        Requirements: 53-REQ-1.1, 53-REQ-2.1, 53-REQ-3.1
         """
-        if self._archetype not in ("skeptic", "verifier", "oracle", "auditor"):
-            return
-
-        session_id = f"{node_id}:{attempt}"
-        task_group = str(self._task_group)
-
         try:
-            if self._archetype in ("skeptic", "verifier", "oracle"):
-                json_objects = extract_json_array(transcript)
-                if json_objects is None:
-                    emit_audit_event(
-                        self._sink,
-                        self._run_id,
-                        AuditEventType.REVIEW_PARSE_FAILURE,
-                        node_id=node_id,
-                        archetype=self._archetype,
-                        severity=AuditSeverity.WARNING,
-                        payload={"raw_output": transcript[:2000]},
-                    )
-                    return
-
-                from agent_fox.engine.review_parser import (
-                    parse_drift_findings,
-                    parse_review_findings,
-                    parse_verification_results,
-                )
-                from agent_fox.knowledge.review_store import (
-                    insert_drift_findings,
-                    insert_findings,
-                    insert_verdicts,
-                )
-
-                conn = self._knowledge_db.connection
-
-                # Dispatch table: archetype -> (parser, inserter, label)
-                _review_dispatch = {
-                    "skeptic": (
-                        parse_review_findings,
-                        insert_findings,
-                        "skeptic findings",
-                    ),
-                    "verifier": (
-                        parse_verification_results,
-                        insert_verdicts,
-                        "verifier verdicts",
-                    ),
-                    "oracle": (
-                        parse_drift_findings,
-                        insert_drift_findings,
-                        "oracle drift findings",
-                    ),
-                }
-                parser, inserter, label = _review_dispatch[self._archetype]
-                records = parser(json_objects, self._spec_name, task_group, session_id)
-                if records:
-                    count = inserter(conn, records)
-                    logger.info("Persisted %d %s for %s", count, label, node_id)
-                else:
-                    emit_audit_event(
-                        self._sink,
-                        self._run_id,
-                        AuditEventType.REVIEW_PARSE_FAILURE,
-                        node_id=node_id,
-                        archetype=self._archetype,
-                        severity=AuditSeverity.WARNING,
-                        payload={"raw_output": transcript[:2000]},
-                    )
-
-            elif self._archetype == "auditor":
-                from agent_fox.session.auditor_output import (
-                    persist_auditor_results,
-                )
-                from agent_fox.session.review_parser import parse_auditor_output
-
-                audit_result = parse_auditor_output(transcript)
-                if audit_result is not None:
-                    spec_dir = Path.cwd() / ".specs" / self._spec_name
-                    persist_auditor_results(spec_dir, audit_result, attempt=attempt)
-
+            conn = self._knowledge_db.connection
         except Exception:
             logger.warning(
-                "Failed to persist %s findings for %s, continuing",
-                self._archetype,
+                "Failed to access knowledge DB for review persistence on %s",
                 node_id,
                 exc_info=True,
             )
+            return
+        persist_review_findings(
+            transcript,
+            node_id,
+            attempt,
+            archetype=self._archetype,
+            spec_name=self._spec_name,
+            task_group=self._task_group,
+            knowledge_db_conn=conn,
+            sink=self._sink,
+            run_id=self._run_id,
+        )
 
     def _build_retry_context(self, spec_name: str) -> str:
         """Query active critical/major findings for the spec and format them.
 
-        Returns a structured block for inclusion in coder retry prompts,
-        listing all active critical and major review findings. Returns an
-        empty string if no such findings exist or if the DB is unavailable.
-
         Requirements: 53-REQ-5.1, 53-REQ-5.2, 53-REQ-5.E1
         """
-        try:
-            from agent_fox.knowledge.review_store import query_active_findings
-
-            conn = self._knowledge_db.connection
-            findings = query_active_findings(conn, spec_name)
-            critical_major = [
-                f for f in findings if f.severity in ("critical", "major")
-            ]
-            if not critical_major:
-                return ""
-
-            lines = [
-                f"## Prior Review Findings for {spec_name}",
-                "",
-                "The following critical/major issues were identified in prior "
-                "review sessions. Please address these in your implementation:",
-                "",
-            ]
-            for finding in critical_major:
-                ref_str = (
-                    f" [{finding.requirement_ref}]" if finding.requirement_ref else ""
-                )
-                lines.append(
-                    f"- **{finding.severity.upper()}**{ref_str}: {finding.description}"
-                )
-            return "\n".join(lines)
-
-        except Exception:
-            logger.warning(
-                "Failed to build retry context for %s, continuing without",
-                spec_name,
-                exc_info=True,
-            )
-            return ""
+        return build_retry_context(self._knowledge_db, spec_name)
 
     async def _setup_workspace(
         self,

@@ -5,7 +5,6 @@ Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass, field
@@ -217,8 +216,10 @@ class StateManager:
             "edges": data.get("edges", []),
             "order": data.get("order", []),
         }
+        from agent_fox.core.models import content_hash
+
         content = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(content.encode()).hexdigest()
+        return content_hash(content)
 
 
 # ---------------------------------------------------------------------------

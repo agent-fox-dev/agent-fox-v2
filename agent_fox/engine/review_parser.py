@@ -10,11 +10,10 @@ Requirements: 53-REQ-4.1, 53-REQ-4.2, 53-REQ-4.E1
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 import uuid
 
+from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.core.llm_validation import (
     MAX_CONTENT_LENGTH,
     MAX_EVIDENCE_LENGTH,
@@ -31,71 +30,8 @@ from agent_fox.knowledge.review_store import (
 
 logger = logging.getLogger(__name__)
 
-# Regex for markdown code fences (```json ... ``` or ``` ... ```)
-_FENCE_RE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
-
-
-def extract_json_array(output_text: str) -> list[dict] | None:
-    """Extract a JSON array from archetype output text.
-
-    Strategy 1: Scan left-to-right for bracket-delimited arrays using
-    depth-tracking; return the first one that parses as a valid JSON list.
-
-    Strategy 2: If no valid bare array found, scan markdown code fences
-    (```json ... ``` or ``` ... ```) for a valid JSON list.
-
-    Returns None if no valid JSON array is found anywhere in the text.
-
-    Requirements: 53-REQ-4.1, 53-REQ-4.E1
-    """
-    if not output_text:
-        return None
-
-    # Strategy 1: bracket-scan from left to right
-    result = _scan_bracket_arrays(output_text)
-    if result is not None:
-        return result
-
-    # Strategy 2: markdown fences
-    for match in _FENCE_RE.finditer(output_text):
-        content = match.group(1).strip()
-        try:
-            parsed = json.loads(content)
-            if isinstance(parsed, list):
-                return parsed  # type: ignore[return-value]
-        except (json.JSONDecodeError, ValueError):
-            continue
-
-    return None
-
-
-def _scan_bracket_arrays(text: str) -> list[dict] | None:
-    """Scan text left-to-right for bracket-delimited JSON arrays.
-
-    Uses ``json.JSONDecoder.raw_decode()`` to properly handle brackets
-    inside JSON strings, nested objects, and other edge cases. Returns the
-    first valid JSON list found starting at a ``[`` character, or None.
-    """
-    decoder = json.JSONDecoder()
-    pos = 0
-    text_len = len(text)
-
-    while pos < text_len:
-        start = text.find("[", pos)
-        if start == -1:
-            break
-
-        try:
-            parsed, _ = decoder.raw_decode(text, start)
-            if isinstance(parsed, list):
-                return parsed  # type: ignore[return-value]
-        except (json.JSONDecodeError, ValueError):
-            pass
-
-        # Advance past the opening bracket and try the next one
-        pos = start + 1
-
-    return None
+# Re-export for backward compatibility with tests and consumers
+__all__ = ["extract_json_array"]
 
 
 # ---------------------------------------------------------------------------

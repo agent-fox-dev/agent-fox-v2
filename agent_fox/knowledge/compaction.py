@@ -9,13 +9,13 @@ Requirements: 05-REQ-5.1, 05-REQ-5.2, 05-REQ-5.3, 05-REQ-5.E1,
 
 from __future__ import annotations
 
-import hashlib
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 
+from agent_fox.core.models import content_hash
 from agent_fox.knowledge.facts import Fact
 from agent_fox.knowledge.store import (
     DEFAULT_MEMORY_PATH,
@@ -115,7 +115,7 @@ def compact(
 
 def _content_hash(content: str) -> str:
     """Compute SHA-256 hash of a fact's content string."""
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+    return content_hash(content)
 
 
 def _deduplicate_by_content(facts: list[Fact]) -> list[Fact]:

@@ -6,15 +6,14 @@ Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1,
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 import uuid
 from datetime import UTC, datetime
 
 from anthropic.types import TextBlock
 
 from agent_fox.core.client import create_async_anthropic_client
+from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.core.llm_validation import (
     MAX_CONTENT_LENGTH,
     check_response_size,
@@ -171,23 +170,14 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     Returns a list of (cause_id, effect_id) tuples. Silently skips
     malformed entries.
     """
-    cleaned = _strip_markdown_fences(extraction_response)
-    try:
-        data = json.loads(cleaned)
-    except (json.JSONDecodeError, ValueError):
-        # Attempt to salvage truncated JSON by closing open brackets
-        data = _repair_truncated_json_array(cleaned)
-        if data is None:
-            logger.warning(
-                "Failed to parse causal links JSON, returning empty list. "
-                "Response (first 300 chars): %s",
-                extraction_response[:300],
-            )
-            return []
-        logger.debug(
-            "Recovered %d entries from truncated causal links JSON",
-            len(data),
+    data = extract_json_array(extraction_response, repair_truncated=True)
+    if data is None:
+        logger.warning(
+            "Failed to parse causal links JSON, returning empty list. "
+            "Response (first 300 chars): %s",
+            extraction_response[:300],
         )
+        return []
 
     if not isinstance(data, list):
         logger.warning("Causal links response is not a JSON array")
@@ -204,85 +194,6 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
         else:
             logger.debug("Skipping malformed causal link entry: %s", item)
     return links
-
-
-def _strip_markdown_fences(text: str) -> str:
-    """Strip markdown code fences and surrounding prose from LLM output.
-
-    Handles ```json ... ```, ``` ... ```, and plain text wrapping a JSON
-    array.  Returns the inner text if fences are found, otherwise attempts
-    to locate a top-level JSON array bracket pair.
-    """
-    # 1. Strip ```json ... ``` or ``` ... ``` fences
-    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
-    if fence_match:
-        return fence_match.group(1).strip()
-
-    # 1b. Handle unclosed fence (truncated LLM output) — extract everything
-    # after the opening fence marker.
-    open_fence = re.search(r"```(?:json)?\s*\n?", text)
-    if open_fence:
-        return text[open_fence.end() :].strip()
-
-    # 2. If the raw text isn't already valid JSON, try to extract [...]
-    stripped = text.strip()
-    if stripped.startswith("["):
-        return stripped
-
-    # 3. Find a valid JSON array using bracket-depth counting.
-    # The greedy regex (\[.*\]) fails when prose contains [bracketed]
-    # references (e.g. [uuid]) before the actual JSON array.
-    for match in re.finditer(r"\[", stripped):
-        start = match.start()
-        depth = 0
-        for i, ch in enumerate(stripped[start:], start=start):
-            if ch == "[":
-                depth += 1
-            elif ch == "]":
-                depth -= 1
-                if depth == 0:
-                    candidate = stripped[start : i + 1]
-                    try:
-                        json.loads(candidate)
-                        return candidate
-                    except (json.JSONDecodeError, ValueError):
-                        break
-
-    # 4. Give up — return original text so json.loads produces a clear error
-    return stripped
-
-
-def _repair_truncated_json_array(text: str) -> list[dict] | None:
-    """Try to recover valid entries from a truncated JSON array.
-
-    When an LLM response is cut off mid-stream, the JSON may be
-    incomplete (e.g. ``[{"a":1},{"b":2},{"c"``). This function
-    finds the last complete object in the array and returns a list
-    of all complete objects parsed so far.
-
-    Returns None if no valid entries can be recovered.
-    """
-    stripped = text.strip()
-    if not stripped.startswith("["):
-        return None
-
-    # Find the last complete object by looking for the last "},"
-    # or "}" that closes a top-level array element.
-    last_complete = stripped.rfind("},")
-    if last_complete == -1:
-        last_complete = stripped.rfind("}")
-    if last_complete == -1:
-        return None
-
-    # Close the array after the last complete object
-    candidate = stripped[: last_complete + 1] + "]"
-    try:
-        data = json.loads(candidate)
-        if isinstance(data, list) and len(data) > 0:
-            return data
-    except (json.JSONDecodeError, ValueError):
-        pass
-    return None
 
 
 def _parse_extraction_response(
@@ -309,11 +220,9 @@ def _parse_extraction_response(
         ResponseTooLargeError: If the raw response exceeds the size limit.
     """
     check_response_size(raw_response, context="fact extraction response")
-    cleaned = _strip_markdown_fences(raw_response)
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in extraction response: {exc}") from exc
+    data = extract_json_array(raw_response)
+    if data is None:
+        raise ValueError("Invalid JSON in extraction response: no JSON array found")
 
     if not isinstance(data, list):
         raise ValueError("Extraction response is not a JSON array")
