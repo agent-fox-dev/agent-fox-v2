@@ -57,57 +57,6 @@ class TestFindingContract:
 
 
 # ---------------------------------------------------------------------------
-# TS-61-13: Finding grouping by root cause
-# Requirement: 61-REQ-5.1
-# ---------------------------------------------------------------------------
-
-
-class TestFindingConsolidation:
-    """Verify that findings are grouped by root cause (group_key)."""
-
-    def test_group_by_root_cause(self) -> None:
-        """4 findings with 2 group_keys produce 2 groups."""
-        from agent_fox.nightshift.finding import consolidate_findings
-
-        findings = [
-            _make_finding(group_key="unused-imports", title="A"),
-            _make_finding(group_key="unused-imports", title="B"),
-            _make_finding(group_key="missing-docstring", title="C"),
-            _make_finding(group_key="missing-docstring", title="D"),
-        ]
-        groups = consolidate_findings(findings)
-        assert len(groups) == 2
-        group_sizes = sorted(len(g.findings) for g in groups)
-        assert group_sizes == [2, 2]
-
-    def test_single_finding_per_group(self) -> None:
-        """3 findings with distinct group_keys produce 3 groups."""
-        from agent_fox.nightshift.finding import consolidate_findings
-
-        findings = [
-            _make_finding(group_key="a"),
-            _make_finding(group_key="b"),
-            _make_finding(group_key="c"),
-        ]
-        groups = consolidate_findings(findings)
-        assert len(groups) == 3
-
-    def test_all_findings_preserved(self) -> None:
-        """Every finding appears in exactly one group."""
-        from agent_fox.nightshift.finding import consolidate_findings
-
-        findings = [
-            _make_finding(group_key="x", title="1"),
-            _make_finding(group_key="x", title="2"),
-            _make_finding(group_key="y", title="3"),
-        ]
-        groups = consolidate_findings(findings)
-        all_grouped = [f for g in groups for f in g.findings]
-        assert len(all_grouped) == len(findings)
-        assert set(id(f) for f in all_grouped) == set(id(f) for f in findings)
-
-
-# ---------------------------------------------------------------------------
 # TS-61-15: Issue body contains required fields
 # Requirement: 61-REQ-5.3
 # ---------------------------------------------------------------------------

@@ -11,10 +11,10 @@ import logging
 import sys
 from typing import Any
 
+from agent_fox.nightshift.critic import consolidate_findings
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
 from agent_fox.nightshift.finding import (
     build_issue_body,
-    consolidate_findings,
     create_issues_from_groups,
 )
 from agent_fox.nightshift.reference_parser import (
@@ -282,7 +282,7 @@ class NightShiftEngine:
             self.state.hunt_scans_completed += 1
             return
 
-        groups = consolidate_findings(findings)  # type: ignore[arg-type]
+        groups = await consolidate_findings(findings)  # type: ignore[arg-type]
 
         await create_issues_from_groups(groups, self._platform)
 

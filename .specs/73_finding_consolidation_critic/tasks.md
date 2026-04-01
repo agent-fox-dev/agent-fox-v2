@@ -134,28 +134,28 @@ updates existing tests.
     - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 73-REQ-1.*, 73-REQ-2.*, 73-REQ-3.*, 73-REQ-5.* met
 
-- [ ] 4. Pipeline integration and cleanup
-  - [ ] 4.1 Remove old `consolidate_findings()` from `finding.py`
+- [x] 4. Pipeline integration and cleanup
+  - [x] 4.1 Remove old `consolidate_findings()` from `finding.py`
     - Delete the function
     - Keep Finding, FindingGroup, build_issue_body unchanged
     - _Requirements: 73-REQ-7.1_
 
-  - [ ] 4.2 Update engine.py to use new critic
+  - [x] 4.2 Update engine.py to use new critic
     - Import from `critic` instead of `finding`
     - Await the now-async consolidate_findings call
     - _Requirements: 73-REQ-7.1, 73-REQ-7.2_
 
-  - [ ] 4.3 Update existing tests that import old consolidate_findings
+  - [x] 4.3 Update existing tests that import old consolidate_findings
     - Fix imports to point to critic module
     - Update any tests that relied on sync behavior
     - _Requirements: 73-REQ-7.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/nightshift/test_critic.py tests/property/nightshift/test_critic_props.py tests/integration/nightshift/test_critic.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check && uv run ruff format --check`
-    - [ ] Full pipeline: `make check`
-    - [ ] Requirements 73-REQ-7.* met
+  - [x] 4.V Verify task group 4
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/nightshift/test_critic.py tests/property/nightshift/test_critic_props.py tests/integration/nightshift/test_critic.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
+    - [x] Full pipeline: `make check`
+    - [x] Requirements 73-REQ-7.* met
 
 - [ ] 5. Checkpoint — Critic Complete
   - Verify `make check` passes with zero regressions.

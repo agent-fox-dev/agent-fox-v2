@@ -154,47 +154,6 @@ class TestScheduleIntervalCompliance:
 
 
 # ---------------------------------------------------------------------------
-# TS-61-P3: Issue-finding bijection
-# Property 3: Every finding appears in exactly one group.
-# Requirements: 61-REQ-5.1, 61-REQ-5.2
-# ---------------------------------------------------------------------------
-
-
-class TestIssueFindingBijection:
-    """Every finding appears in exactly one group."""
-
-    @given(
-        group_keys=st.lists(
-            st.text(min_size=1, max_size=20, alphabet="abcdefgh"),
-            min_size=1,
-            max_size=30,
-        )
-    )
-    @settings(max_examples=50)
-    def test_issue_finding_bijection(self, group_keys: list[str]) -> None:
-        from agent_fox.nightshift.finding import Finding, consolidate_findings
-
-        findings = [
-            Finding(
-                category="test",
-                title=f"Finding {i}",
-                description="test",
-                severity="minor",
-                affected_files=[],
-                suggested_fix="fix",
-                evidence="ev",
-                group_key=gk,
-            )
-            for i, gk in enumerate(group_keys)
-        ]
-
-        groups = consolidate_findings(findings)
-        all_grouped = [f for g in groups for f in g.findings]
-        assert len(all_grouped) == len(findings)
-        assert set(id(f) for f in all_grouped) == set(id(f) for f in findings)
-
-
-# ---------------------------------------------------------------------------
 # TS-61-P4: Fix pipeline completeness
 # Property 4: Successful fix produces exactly one branch and one PR.
 # Requirements: 61-REQ-6.2, 61-REQ-7.1, 61-REQ-7.2

@@ -1,4 +1,6 @@
-"""Finding dataclass, FindingGroup, consolidation, and issue body generation.
+"""Finding dataclass, FindingGroup, and issue body generation.
+
+Consolidation is handled by the AI critic stage in critic.py.
 
 Requirements: 61-REQ-3.3, 61-REQ-5.1, 61-REQ-5.2, 61-REQ-5.3, 61-REQ-5.E1
 """
@@ -6,7 +8,6 @@ Requirements: 61-REQ-3.3, 61-REQ-5.1, 61-REQ-5.2, 61-REQ-5.3, 61-REQ-5.E1
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -41,36 +42,6 @@ class FindingGroup:
     body: str
     category: str
     affected_files: list[str] = field(default_factory=list)
-
-
-def consolidate_findings(findings: list[Finding]) -> list[FindingGroup]:
-    """Group findings by root cause (group_key).
-
-    Each unique group_key produces one FindingGroup. The group title
-    is derived from the first finding in the group, and the category
-    is taken from the first finding.
-
-    Requirements: 61-REQ-5.1
-    """
-    groups_map: dict[str, list[Finding]] = defaultdict(list)
-    for finding in findings:
-        groups_map[finding.group_key].append(finding)
-
-    groups: list[FindingGroup] = []
-    for group_key, group_findings in groups_map.items():
-        first = group_findings[0]
-        group = FindingGroup(
-            findings=group_findings,
-            title=first.title,
-            body=(
-                f"{first.description}\n\n"
-                f"Affected files: {', '.join(first.affected_files)}"
-            ),
-            category=first.category,
-        )
-        groups.append(group)
-
-    return groups
 
 
 def build_issue_body(group: FindingGroup) -> str:
