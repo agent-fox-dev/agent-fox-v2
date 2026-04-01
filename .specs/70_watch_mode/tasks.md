@@ -27,8 +27,8 @@ coverage and update documentation.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_watch_mode.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_watch_mode.py`
     - Test classes for config (TS-70-9, TS-70-10), audit enum (TS-70-18)
     - Test classes for watch loop behavior (TS-70-1, TS-70-2, TS-70-4,
       TS-70-5, TS-70-6, TS-70-7, TS-70-8)
@@ -37,7 +37,7 @@ coverage and update documentation.
     - Test class for config hot-reload (TS-70-12)
     - _Test Spec: TS-70-1 through TS-70-18_
 
-  - [ ] 1.2 Create edge case test file (in `tests/unit/test_watch_mode.py`)
+  - [x] 1.2 Create edge case test file (in `tests/unit/test_watch_mode.py`)
     - TS-70-E1: No plan file with --watch
     - TS-70-E2: Empty plan enters watch loop
     - TS-70-E3: Barrier exception during watch poll
@@ -46,22 +46,22 @@ coverage and update documentation.
     - TS-70-E6: Circuit breaker before watch loop entry
     - _Test Spec: TS-70-E1 through TS-70-E6_
 
-  - [ ] 1.3 Create property test file `tests/property/test_watch_mode.py`
+  - [x] 1.3 Create property test file `tests/property/test_watch_mode.py`
     - TS-70-P1: Watch interval clamping invariant
     - TS-70-P2: Poll number monotonicity
     - TS-70-P3: Hot-load gate invariant
     - TS-70-P4: Stall overrides watch invariant
     - _Test Spec: TS-70-P1 through TS-70-P4_
 
-  - [ ] 1.4 Create integration test file `tests/integration/test_watch_mode.py`
+  - [x] 1.4 Create integration test file `tests/integration/test_watch_mode.py`
     - TS-70-3: --watch CLI flag accepted
     - TS-70-11: --watch-interval CLI option overrides config
     - _Test Spec: TS-70-3, TS-70-11_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `ruff check tests/unit/test_watch_mode.py tests/property/test_watch_mode.py tests/integration/test_watch_mode.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `ruff check tests/unit/test_watch_mode.py tests/property/test_watch_mode.py tests/integration/test_watch_mode.py`
 
 - [ ] 2. Config and audit foundations
   - [ ] 2.1 Add `watch_interval` field to `OrchestratorConfig`
