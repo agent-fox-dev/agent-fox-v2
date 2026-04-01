@@ -26,30 +26,30 @@ code changes; group 4 is documentation-only.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/core/test_config_simplification.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/core/test_config_simplification.py`
     - Test functions for TS-68-1 through TS-68-10, TS-68-12 through TS-68-14, TS-68-17
     - Tests for template visibility, promoted fields, footer, line count, descriptions
     - Tests for merge behavior: hidden section preservation, no hidden injection, empty merge, footer dedup
     - _Test Spec: TS-68-1 through TS-68-10, TS-68-12 through TS-68-14, TS-68-17_
 
-  - [ ] 1.2 Create property test file `tests/property/core/test_config_simplification_props.py`
+  - [x] 1.2 Create property test file `tests/property/core/test_config_simplification_props.py`
     - Property tests for TS-68-P1 through TS-68-P6
     - Template TOML validity, section containment, merge preservation, hidden section injection, footer dedup, verifier default
     - _Test Spec: TS-68-P1 through TS-68-P6_
 
-  - [ ] 1.3 Create integration test file `tests/integration/core/test_config_simplification_integ.py`
+  - [x] 1.3 Create integration test file `tests/integration/core/test_config_simplification_integ.py`
     - Integration test for TS-68-11: hidden sections load correctly
     - _Test Spec: TS-68-11_
 
-  - [ ] 1.4 Create edge case tests in unit test file
+  - [x] 1.4 Create edge case tests in unit test file
     - TS-68-E1 through TS-68-E4: merge with hidden sections, template parsability, deprecated fields, description fallback
     - _Test Spec: TS-68-E1 through TS-68-E4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Simplify template generation
   - [ ] 2.1 Update `_VISIBLE_SECTIONS` and `_PROMOTED_DEFAULTS` in `config_schema.py`
