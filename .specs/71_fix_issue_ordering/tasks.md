@@ -149,37 +149,37 @@ integration with staleness). Each layer is independently testable.
     - [x] No linter warnings introduced: `ruff check agent_fox/nightshift/`
     - [x] Requirements 71-REQ-3.*, 71-REQ-5.* acceptance criteria met
 
-- [ ] 6. Engine integration and observability
-  - [ ] 6.1 Modify `_run_issue_check()` to build dependency graph
+- [x] 6. Engine integration and observability
+  - [x] 6.1 Modify `_run_issue_check()` to build dependency graph
     - Parse refs, fetch GitHub relationships, run triage if batch >= 3
     - Sort by resolved order, process sequentially
     - File: `agent_fox/nightshift/engine.py`
     - _Requirements: 1.1, 1.2, 3.1, 4.1_
 
-  - [ ] 6.2 Wire post-fix staleness into processing loop
+  - [x] 6.2 Wire post-fix staleness into processing loop
     - After each successful fix, call `check_staleness()`
     - Remove obsolete issues from queue
     - Skip staleness on fix failure
     - File: `agent_fox/nightshift/engine.py`
     - _Requirements: 5.1, 5.4, 5.E3_
 
-  - [ ] 6.3 Add observability: logging and audit events
+  - [x] 6.3 Add observability: logging and audit events
     - Log resolved order at INFO
     - Emit audit event on staleness closure
     - Log cycle breaks at WARNING
     - File: `agent_fox/nightshift/engine.py`
     - _Requirements: 6.1, 6.2, 6.3_
 
-  - [ ] 6.4 Local sort fallback
+  - [x] 6.4 Local sort fallback
     - Sort fetched issues by number ascending after fetch
     - File: `agent_fox/nightshift/engine.py`
     - _Requirements: 1.E1_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/test_fix_ordering.py tests/property/test_fix_ordering.py tests/integration/test_fix_ordering.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/`
-    - [ ] All requirements 71-REQ-*.* acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/test_fix_ordering.py tests/property/test_fix_ordering.py tests/integration/test_fix_ordering.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `ruff check agent_fox/`
+    - [x] All requirements 71-REQ-*.* acceptance criteria met
 
 ### Checkbox States
 
