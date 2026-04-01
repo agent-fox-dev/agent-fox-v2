@@ -13,11 +13,6 @@ from typing import TYPE_CHECKING
 
 from agent_fox.session.backends.protocol import (
     AgentBackend,
-    AgentMessage,
-    AssistantMessage,
-    PermissionCallback,
-    ResultMessage,
-    ToolUseMessage,
 )
 
 if TYPE_CHECKING:
@@ -27,11 +22,6 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "AgentBackend",
-    "AgentMessage",
-    "AssistantMessage",
-    "PermissionCallback",
-    "ResultMessage",
-    "ToolUseMessage",
     "get_backend",
 ]
 

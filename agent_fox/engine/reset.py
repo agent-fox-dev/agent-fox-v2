@@ -508,15 +508,12 @@ def hard_reset_task(
         if target is not None:
             try:
                 rollback_develop(repo_path, target)
-                rollback_sha = target
-
-                # Find all tasks affected by the rollback
-                cascaded = find_affected_tasks(state.session_history, target, repo_path)
-                for tid in cascaded:
-                    if tid not in affected_ids:
-                        affected_ids.append(tid)
             except AgentFoxError:
                 logger.warning("Rollback failed, skipping code rollback.")
+            else:
+                rollback_sha = target
+                cascaded = find_affected_tasks(state.session_history, target, repo_path)
+                affected_ids.extend(tid for tid in cascaded if tid not in affected_ids)
 
     return _perform_hard_reset(
         state,

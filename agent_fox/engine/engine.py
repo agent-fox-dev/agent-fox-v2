@@ -341,22 +341,16 @@ class Orchestrator:
 
         return (verdict, attempt, previous_error, archetype, instances, assessed_tier)
 
-    async def run(self) -> ExecutionState:
-        """Execute the full orchestration loop.
+    def _init_run(
+        self,
+    ) -> tuple[ExecutionState, dict[str, int], dict[str, str | None]] | ExecutionState:
+        """Set up audit sinks, load graph, initialize state for a run.
 
-        1. Load plan from plan.json
-        2. Load or initialize execution state
-        3. Register SIGINT handler
-        4. Loop: pick ready tasks, dispatch, update state
-        5. Update plan.json with final node statuses
-        6. Return final execution state
-
-        Raises:
-            PlanError: if plan.json is missing or corrupted
+        Returns a bare ExecutionState for an empty plan (early exit), or
+        a (state, attempt_tracker, error_tracker) tuple on success.
         """
         # 40-REQ-2.1: Generate unique run ID at start of execute()
         self._run_id = generate_run_id()
-        run_start_time = datetime.now(UTC)
         logger.debug("Audit run ID: %s", self._run_id)
 
         # 40-REQ-6.1, 40-REQ-6.2: Register AuditJsonlSink now that run_id is known
@@ -431,6 +425,27 @@ class Orchestrator:
 
         attempt_tracker = _init_attempt_tracker(state)
         error_tracker = _init_error_tracker(state)
+        return state, attempt_tracker, error_tracker
+
+    async def run(self) -> ExecutionState:
+        """Execute the full orchestration loop.
+
+        1. Load plan from plan.json
+        2. Load or initialize execution state
+        3. Register SIGINT handler
+        4. Loop: pick ready tasks, dispatch, update state
+        5. Update plan.json with final node statuses
+        6. Return final execution state
+
+        Raises:
+            PlanError: if plan.json is missing or corrupted
+        """
+        run_start_time = datetime.now(UTC)
+        result = self._init_run()
+        if isinstance(result, ExecutionState):
+            return result
+
+        state, attempt_tracker, error_tracker = result
 
         self._signal.install()
 
@@ -440,8 +455,8 @@ class Orchestrator:
             self._run_id,
             AuditEventType.RUN_START,
             payload={
-                "plan_hash": plan_hash,
-                "total_nodes": len(graph.nodes),
+                "plan_hash": self._compute_plan_hash(),
+                "total_nodes": len(self._graph.nodes) if self._graph else 0,
                 "parallel": self._is_parallel,
             },
         )
@@ -596,8 +611,7 @@ class Orchestrator:
             hints: dict[str, int] = {}
 
             for node_id in self.node_states:
-                # Extract spec_name and archetype from plan node data
-                node = self._graph.nodes.get(node_id) if self._graph else None
+                node = self._get_node(node_id)
                 spec_name = node.spec_name if node else ""
                 archetype = node.archetype if node else "coder"
                 tier = "STANDARD"
@@ -643,7 +657,7 @@ class Orchestrator:
 
             impacts: list[FileImpact] = []
             for node_id in ready:
-                node = self._graph.nodes.get(node_id) if self._graph else None
+                node = self._get_node(node_id)
                 spec_name = node.spec_name if node else ""
                 task_group = node.group_number if node else 1
 
@@ -840,55 +854,18 @@ class Orchestrator:
         assert self._graph_sync is not None  # noqa: S101
         assert self._parallel_runner is not None  # noqa: S101
 
-        # Local refs so the nested closure satisfies mypy narrowing.
         graph_sync = self._graph_sync
         parallel_runner = self._parallel_runner
 
         pool: set[asyncio.Task[SessionRecord]] = set()
-        max_pool = parallel_runner.max_parallelism
 
-        async def _fill_pool(candidates: list[str]) -> None:
-            """Launch candidates into the pool up to max_parallelism."""
-            for node_id in candidates:
-                if len(pool) >= max_pool:
-                    break
-                if self._signal.interrupted:
-                    break
-
-                launch = await self._prepare_launch(
-                    node_id,
-                    state,
-                    attempt_tracker,
-                    error_tracker,
-                )
-                if launch is None:
-                    continue
-
-                (
-                    _,
-                    attempt,
-                    previous_error,
-                    node_archetype,
-                    node_instances,
-                    assessed_tier,
-                ) = launch
-                graph_sync.mark_in_progress(node_id)
-
-                task = asyncio.create_task(
-                    parallel_runner.execute_one(
-                        node_id,
-                        attempt,
-                        previous_error,
-                        archetype=node_archetype,
-                        instances=node_instances,
-                        assessed_tier=assessed_tier,
-                        run_id=self._run_id,
-                    ),
-                    name=f"parallel-{node_id}",
-                )
-                pool.add(task)
-
-        await _fill_pool(ready)
+        await self._fill_parallel_pool(
+            pool,
+            ready,
+            state,
+            attempt_tracker,
+            error_tracker,
+        )
 
         if not pool:
             return
@@ -907,30 +884,12 @@ class Orchestrator:
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
-            barrier_needed = False
-            for completed_task in done:
-                try:
-                    record = completed_task.result()
-                except Exception as exc:
-                    logger.error("Parallel task raised: %s", exc)
-                    continue
-
-                self._result_handler.process(
-                    record,
-                    attempt_tracker.get(record.node_id, 1),
-                    state,
-                    attempt_tracker,
-                    error_tracker,
-                )
-
-                # 06-REQ-6.1: Check sync barrier after task completion
-                if record.status == "completed":
-                    # 30-REQ-7.4: Record outcome on success
-                    self._result_handler.record_node_outcome(
-                        record.node_id, state, "completed"
-                    )
-                    if self._should_trigger_barrier(state):
-                        barrier_needed = True
+            barrier_needed = self._process_completed_parallel(
+                done,
+                state,
+                attempt_tracker,
+                error_tracker,
+            )
 
             # 51-REQ-1.1, 51-REQ-1.2, 51-REQ-1.3: Drain remaining pool
             # before entering the barrier sequence.
@@ -946,23 +905,12 @@ class Orchestrator:
                 except asyncio.CancelledError:
                     # 51-REQ-1.E2: SIGINT during drain
                     break
-                for drain_task in drain_done:
-                    try:
-                        drain_record = drain_task.result()
-                    except Exception as exc:
-                        logger.error("Drained task raised: %s", exc)
-                        continue
-                    self._result_handler.process(
-                        drain_record,
-                        attempt_tracker.get(drain_record.node_id, 1),
-                        state,
-                        attempt_tracker,
-                        error_tracker,
-                    )
-                    if drain_record.status == "completed":
-                        self._result_handler.record_node_outcome(
-                            drain_record.node_id, state, "completed"
-                        )
+                self._process_completed_parallel(
+                    drain_done,
+                    state,
+                    attempt_tracker,
+                    error_tracker,
+                )
 
             # Run the barrier after draining
             if barrier_needed:
@@ -973,22 +921,114 @@ class Orchestrator:
                 new_ready = graph_sync.ready_tasks(
                     duration_hints=self._compute_duration_hints()
                 )
-                await _fill_pool(new_ready)
+                await self._fill_parallel_pool(
+                    pool,
+                    new_ready,
+                    state,
+                    attempt_tracker,
+                    error_tracker,
+                )
 
             parallel_runner.track_tasks(list(pool))
             self._state_manager.save(state)
 
+    async def _fill_parallel_pool(
+        self,
+        pool: set[asyncio.Task[SessionRecord]],
+        candidates: list[str],
+        state: ExecutionState,
+        attempt_tracker: dict[str, int],
+        error_tracker: dict[str, str | None],
+    ) -> None:
+        """Launch candidates into the parallel pool up to max_parallelism."""
+        assert self._graph_sync is not None  # noqa: S101
+        assert self._parallel_runner is not None  # noqa: S101
+
+        max_pool = self._parallel_runner.max_parallelism
+        for node_id in candidates:
+            if len(pool) >= max_pool:
+                break
+            if self._signal.interrupted:
+                break
+
+            launch = await self._prepare_launch(
+                node_id,
+                state,
+                attempt_tracker,
+                error_tracker,
+            )
+            if launch is None:
+                continue
+
+            _, attempt, previous_error, archetype, instances, assessed_tier = launch
+            self._graph_sync.mark_in_progress(node_id)
+
+            task = asyncio.create_task(
+                self._parallel_runner.execute_one(
+                    node_id,
+                    attempt,
+                    previous_error,
+                    archetype=archetype,
+                    instances=instances,
+                    assessed_tier=assessed_tier,
+                    run_id=self._run_id,
+                ),
+                name=f"parallel-{node_id}",
+            )
+            pool.add(task)
+
+    def _process_completed_parallel(
+        self,
+        done: set[asyncio.Task[SessionRecord]],
+        state: ExecutionState,
+        attempt_tracker: dict[str, int],
+        error_tracker: dict[str, str | None],
+    ) -> bool:
+        """Process completed parallel tasks. Returns True if a barrier is needed."""
+        assert self._result_handler is not None  # noqa: S101
+
+        barrier_needed = False
+        for completed_task in done:
+            try:
+                record = completed_task.result()
+            except Exception as exc:
+                logger.error("Parallel task raised: %s", exc)
+                continue
+
+            self._result_handler.process(
+                record,
+                attempt_tracker.get(record.node_id, 1),
+                state,
+                attempt_tracker,
+                error_tracker,
+            )
+
+            # 06-REQ-6.1: Check sync barrier after task completion
+            if record.status == "completed":
+                # 30-REQ-7.4: Record outcome on success
+                self._result_handler.record_node_outcome(
+                    record.node_id, state, "completed"
+                )
+                if self._should_trigger_barrier(state):
+                    barrier_needed = True
+
+        return barrier_needed
+
+    def _get_node(self, node_id: str) -> Any | None:
+        """Look up a TaskNode by ID, returning None if graph is unset."""
+        if self._graph is not None:
+            return self._graph.nodes.get(node_id)
+        return None
+
     def _get_node_archetype(self, node_id: str) -> str:
         """Get the archetype name for a node from the task graph."""
-        if self._graph is not None and node_id in self._graph.nodes:
-            return self._graph.nodes[node_id].archetype
-        return "coder"
+        node = self._get_node(node_id)
+        return node.archetype if node else "coder"
 
     def _get_node_instances(self, node_id: str) -> int:
         """Get the instance count for a node from the task graph."""
-        if self._graph is not None and node_id in self._graph.nodes:
-            return self._graph.nodes[node_id].instances
-        return 1
+        node = self._get_node(node_id)
+        return node.instances if node else 1
 
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""
