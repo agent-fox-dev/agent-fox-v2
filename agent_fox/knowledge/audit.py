@@ -74,6 +74,7 @@ class AuditEventType(StrEnum):
     FIX_START = "night_shift.fix_start"
     FIX_COMPLETE = "night_shift.fix_complete"
     FIX_FAILED = "night_shift.fix_failed"
+    WATCH_POLL = "watch.poll"
 
 
 # ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("OrchestratorConfig", "max_retries"): ">=0",
     ("OrchestratorConfig", "session_timeout"): ">=1",
     ("OrchestratorConfig", "inter_session_delay"): ">=0",
+    ("OrchestratorConfig", "watch_interval"): ">=10",
     # RoutingConfig
     ("RoutingConfig", "retries_before_escalation"): "0-3",
     ("RoutingConfig", "training_threshold"): "5-1000",

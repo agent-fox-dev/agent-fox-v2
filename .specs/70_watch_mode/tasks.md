@@ -63,30 +63,30 @@ coverage and update documentation.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `ruff check tests/unit/test_watch_mode.py tests/property/test_watch_mode.py tests/integration/test_watch_mode.py`
 
-- [ ] 2. Config and audit foundations
-  - [ ] 2.1 Add `watch_interval` field to `OrchestratorConfig`
+- [x] 2. Config and audit foundations
+  - [x] 2.1 Add `watch_interval` field to `OrchestratorConfig`
     - Default: 60, clamping validator: min 10
     - File: `agent_fox/core/config.py`
     - _Requirements: 3.1, 3.2, 3.E1_
 
-  - [ ] 2.2 Add `WATCH_POLL` to `AuditEventType` enum
+  - [x] 2.2 Add `WATCH_POLL` to `AuditEventType` enum
     - Value: `"watch.poll"`
     - File: `agent_fox/knowledge/audit.py`
     - _Requirements: 5.3_
 
-  - [ ] 2.3 Add `watch_interval` to config generator descriptions
-    - File: `agent_fox/core/config_gen.py` (if applicable)
+  - [x] 2.3 Add `watch_interval` to config generator descriptions
+    - File: `agent_fox/core/config_schema.py` (added to `_BOUNDS_MAP`)
     - _Requirements: 3.1_
 
-  - [ ] 2.4 Ensure `watch_interval` is included in config hot-reload mutable fields
-    - File: `agent_fox/engine/config_reload.py` or equivalent
+  - [x] 2.4 Ensure `watch_interval` is included in config hot-reload mutable fields
+    - `diff_configs()` in `agent_fox/engine/config_reload.py` automatically detects all `OrchestratorConfig` field changes; no special handling needed
     - _Requirements: 3.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "config or audit_enum or clamp or minimum"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/core/config.py agent_fox/knowledge/audit.py`
-    - [ ] Requirements 70-REQ-3.1, 70-REQ-3.2, 70-REQ-3.E1, 70-REQ-5.3 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "config or audit_enum or clamp or minimum"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `ruff check agent_fox/core/config.py agent_fox/knowledge/audit.py`
+    - [x] Requirements 70-REQ-3.1, 70-REQ-3.2, 70-REQ-3.E1, 70-REQ-5.3 acceptance criteria met
 
 - [ ] 3. Engine watch loop and CLI wiring
   - [ ] 3.1 Add `--watch` and `--watch-interval` CLI options to `code_cmd`

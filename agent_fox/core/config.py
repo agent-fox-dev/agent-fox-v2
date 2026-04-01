@@ -149,6 +149,14 @@ class OrchestratorConfig(BaseModel):
         ),
     )
 
+    watch_interval: int = Field(
+        default=60,
+        description=(
+            "Seconds between watch polls when --watch is active. "
+            "Values below 10 are clamped to 10."
+        ),
+    )
+
     clamp_parallel = _clamped_validator("parallel", ge=1, le=8)
     clamp_sync_interval = _clamped_validator("sync_interval", ge=0)
     clamp_max_retries = _clamped_validator("max_retries", ge=0)
@@ -158,6 +166,7 @@ class OrchestratorConfig(BaseModel):
     clamp_causal_context_limit = _clamped_validator(
         "causal_context_limit", ge=10, le=10000, cast=int
     )
+    clamp_watch_interval = _clamped_validator("watch_interval", ge=10, cast=int)
 
     @field_validator("max_blocked_fraction")
     @classmethod
