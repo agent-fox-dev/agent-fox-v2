@@ -148,7 +148,10 @@ class TestNoopWhenHashMatches:
         def _capture(*args, **kwargs) -> None:
             emitted_events.append({"args": args, "kwargs": kwargs})
 
-        with patch("agent_fox.engine.config_reload.emit_audit_event", side_effect=_capture):
+        with patch(
+            "agent_fox.engine.config_reload.emit_audit_event",
+            side_effect=_capture,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config is original_config
@@ -221,7 +224,10 @@ class TestOrchFieldsUpdated:
             parallel=1,
         )
         new_agent_cfg = AgentFoxConfig(orchestrator=new_orch_cfg)
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config.max_cost == 200.0
@@ -255,7 +261,10 @@ class TestCircuitBreakerRebuilt:
         new_agent_cfg = AgentFoxConfig(
             orchestrator=OrchestratorConfig(max_cost=999.0, parallel=1)
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._circuit is not old_circuit
@@ -294,7 +303,10 @@ class TestParallelChangeNotApplied:
             orchestrator=OrchestratorConfig(parallel=4, inter_session_delay=0)
         )
         with (
-            patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg),
+            patch(
+                "agent_fox.engine.config_reload.load_config",
+                return_value=new_agent_cfg,
+            ),
             caplog.at_level(logging.WARNING, logger="agent_fox.engine.engine"),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
@@ -331,7 +343,10 @@ class TestHookConfigUpdated:
             orchestrator=OrchestratorConfig(parallel=1),
             hooks=new_hooks,
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._hook_config == new_hooks
@@ -364,7 +379,10 @@ class TestArchetypesConfigUpdated:
             orchestrator=OrchestratorConfig(parallel=1),
             archetypes=new_arch,
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._archetypes_config == new_arch
@@ -397,7 +415,10 @@ class TestPlanningConfigUpdated:
             orchestrator=OrchestratorConfig(parallel=1),
             planning=new_plan,
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._planning_config == new_plan
@@ -435,8 +456,14 @@ class TestAuditEventEmitted:
             emitted.append({"event_type": event_type, "payload": payload or {}})
 
         with (
-            patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg),
-            patch("agent_fox.engine.config_reload.emit_audit_event", side_effect=_capture),
+            patch(
+                "agent_fox.engine.config_reload.load_config",
+                return_value=new_agent_cfg,
+            ),
+            patch(
+                "agent_fox.engine.config_reload.emit_audit_event",
+                side_effect=_capture,
+            ),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
@@ -626,7 +653,10 @@ class TestSyncIntervalZeroStopsBarriers:
         new_agent_cfg = AgentFoxConfig(
             orchestrator=OrchestratorConfig(sync_interval=0, parallel=1)
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config.sync_interval == 0

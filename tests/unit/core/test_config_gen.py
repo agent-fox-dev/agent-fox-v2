@@ -288,6 +288,7 @@ class TestSchemaExtraction:
             "pricing",
             "planning",
             "blocking",
+            "caching",
         }
         assert section_paths == expected
 

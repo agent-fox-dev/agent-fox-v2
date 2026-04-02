@@ -562,7 +562,7 @@ class TestObservability:
                 "agent_fox.nightshift.engine.check_staleness",
                 new_callable=AsyncMock,
             ) as mock_staleness,
-            caplog.at_level(logging.INFO),
+            caplog.at_level(logging.INFO, logger="agent_fox"),
         ):
             from agent_fox.nightshift.staleness import StalenessResult
             from agent_fox.nightshift.triage import TriageResult

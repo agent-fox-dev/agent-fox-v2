@@ -42,7 +42,9 @@ class TestPostHarvestDoesNotPushFeature:
     """
 
     async def test_does_not_push_feature_branch(self, tmp_path: Path) -> None:
-        """post_harvest_integrate does not call push_to_remote with the feature branch."""
+        """
+        post_harvest_integrate does not call push_to_remote with the feature branch.
+        """
         workspace = _make_workspace()
 
         with (
@@ -60,7 +62,8 @@ class TestPostHarvestDoesNotPushFeature:
                 workspace=workspace,
             )
 
-        # push_to_remote must NOT be called directly (only via _push_develop_if_pushable)
+        # push_to_remote must NOT be called directly
+        # (only via _push_develop_if_pushable)
         mock_push.assert_not_called()
 
 

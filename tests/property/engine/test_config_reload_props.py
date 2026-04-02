@@ -123,7 +123,10 @@ class TestNoopUnchangedProperty:
         def _capture(*args, **kwargs) -> None:
             emitted.append(args)
 
-        with patch("agent_fox.engine.config_reload.emit_audit_event", side_effect=_capture):
+        with patch(
+            "agent_fox.engine.config_reload.emit_audit_event",
+            side_effect=_capture,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config is original_config
@@ -179,7 +182,10 @@ class TestMutableFieldsUpdatedProperty:
         orch._run_id = "prop_test"
 
         new_agent_cfg = AgentFoxConfig(orchestrator=new_cfg)
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         for field_name in self._MUTABLE_FIELDS:
@@ -224,7 +230,10 @@ class TestCircuitBreakerRebuiltProperty:
         new_agent_cfg = AgentFoxConfig(
             orchestrator=OrchestratorConfig(max_cost=max_cost, parallel=1)
         )
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._circuit is not old_circuit
@@ -265,7 +274,10 @@ class TestParallelImmutableProperty:
 
         new_orch_cfg = OrchestratorConfig(parallel=new_parallel, inter_session_delay=0)
         new_agent_cfg = AgentFoxConfig(orchestrator=new_orch_cfg)
-        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_cfg):
+        with patch(
+            "agent_fox.engine.config_reload.load_config",
+            return_value=new_agent_cfg,
+        ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         # parallel must not have changed
@@ -367,7 +379,10 @@ class TestAuditExactDiffProperty:
 
         with (
             patch("agent_fox.engine.config_reload.load_config", return_value=new_cfg),
-            patch("agent_fox.engine.config_reload.emit_audit_event", side_effect=_capture),
+            patch(
+                "agent_fox.engine.config_reload.emit_audit_event",
+                side_effect=_capture,
+            ),
         ):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 

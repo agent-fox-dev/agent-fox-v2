@@ -36,7 +36,8 @@ def _make_spec_dir(root: Path) -> Path:
 # Strategy for arbitrary file content (at least one char)
 _content_strategy = st.text(min_size=1)
 
-# Strategy for directive text (alphanumeric and spaces, avoids HTML comment chars)
+# Strategy for directive text (alphanumeric and spaces, avoids HTML comment chars).
+# Filtered to exclude whitespace-only strings so load_steering always returns content.
 _directive_strategy = st.text(
     alphabet=st.characters(
         whitelist_categories=("L", "N"),
@@ -44,7 +45,7 @@ _directive_strategy = st.text(
     ),
     min_size=1,
     max_size=200,
-)
+).filter(lambda s: s.strip())
 
 # Strategy for memory facts
 _facts_strategy = st.lists(

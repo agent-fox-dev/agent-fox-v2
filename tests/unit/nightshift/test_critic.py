@@ -279,7 +279,7 @@ class TestDropLogged:
             groups_produced=2,
         )
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.INFO, logger="agent_fox"):
             _log_decisions([decision], summary)
 
         assert any(
@@ -322,7 +322,7 @@ class TestSeverityChangeLogged:
             groups_produced=3,
         )
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.INFO, logger="agent_fox"):
             _log_decisions([decision], summary)
 
         assert any(
@@ -352,7 +352,7 @@ class TestSummaryLog:
             groups_produced=2,
         )
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.INFO, logger="agent_fox"):
             _log_decisions([], summary)
 
         assert any(
@@ -374,7 +374,7 @@ class TestSummaryLog:
             groups_produced=2,
         )
 
-        with caplog.at_level(logging.INFO):
+        with caplog.at_level(logging.INFO, logger="agent_fox"):
             _log_decisions([], summary)
 
         # All four summary values should appear somewhere in the INFO logs

@@ -230,7 +230,9 @@ class TestAlwaysPushesBoth:
     @given(branch_name=_branch_strategy)
     @settings(max_examples=50)
     def test_always_pushes_both(self, branch_name: str) -> None:
-        """For any branch name, post-harvest pushes develop and not the feature branch."""
+        """
+        For any branch name, post-harvest pushes develop and not the feature branch.
+        """
         import asyncio
 
         workspace = _make_workspace(branch=branch_name)
@@ -337,6 +339,9 @@ class TestUnknownConfigKeysIgnored:
     @settings(max_examples=100)
     def test_unknown_keys_ignored(self, extra_keys: dict) -> None:
         """PlatformConfig ignores any extra keys; only type and url accessible."""
+        # Skip examples where a key shadows an existing class attribute
+        # (e.g. Pydantic's .dict(), .json(), .schema() methods).
+        assume(not any(hasattr(PlatformConfig, k) for k in extra_keys))
         data = {"type": "github", **extra_keys}
         config = PlatformConfig(**data)
         assert config.type == "github"
