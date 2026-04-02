@@ -52,30 +52,30 @@ Three implementation phases after test scaffolding:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Configuration fields and validation
-  - [ ] 2.1 Add max_timeout_retries field to RoutingConfig
+- [x] 2. Configuration fields and validation
+  - [x] 2.1 Add max_timeout_retries field to RoutingConfig
     - `agent_fox/core/config.py`
     - Type int, default 2, validator clamps to >= 0
     - _Requirements: 75-REQ-4.1, 75-REQ-4.4_
 
-  - [ ] 2.2 Add timeout_multiplier field to RoutingConfig
+  - [x] 2.2 Add timeout_multiplier field to RoutingConfig
     - Type float, default 1.5, validator clamps to >= 1.0
     - _Requirements: 75-REQ-4.2, 75-REQ-4.5_
 
-  - [ ] 2.3 Add timeout_ceiling_factor field to RoutingConfig
+  - [x] 2.3 Add timeout_ceiling_factor field to RoutingConfig
     - Type float, default 2.0, validator clamps to >= 1.0
     - _Requirements: 75-REQ-4.3, 75-REQ-4.6_
 
-  - [ ] 2.4 Add field descriptions to config_schema.py
+  - [x] 2.4 Add field descriptions to config_schema.py
     - Add entries to `_DEFAULT_DESCRIPTIONS` and `_BOUNDS_MAP`
     - _Requirements: 75-REQ-4.1, 75-REQ-4.2, 75-REQ-4.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: TS-75-16 through TS-75-20
-    - [ ] Property tests pass: TS-75-P6
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 75-REQ-4.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: TS-75-16 through TS-75-20
+    - [x] Property tests pass: TS-75-P6
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 75-REQ-4.* acceptance criteria met
 
 - [ ] 3. Timeout detection, counter, and parameter extension
   - [ ] 3.1 Add timeout state tracking to SessionResultHandler

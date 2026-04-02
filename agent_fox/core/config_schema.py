@@ -31,6 +31,9 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("RoutingConfig", "training_threshold"): "5-1000",
     ("RoutingConfig", "accuracy_threshold"): "0.5-1.0",
     ("RoutingConfig", "retrain_interval"): "5-100",
+    ("RoutingConfig", "max_timeout_retries"): ">=0",
+    ("RoutingConfig", "timeout_multiplier"): ">=1.0",
+    ("RoutingConfig", "timeout_ceiling_factor"): ">=1.0",
     # HookConfig
     ("HookConfig", "timeout"): ">=1",
     # KnowledgeConfig
@@ -116,6 +119,16 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("RoutingConfig", "training_threshold"): "Training data threshold",
     ("RoutingConfig", "accuracy_threshold"): "Accuracy threshold for routing",
     ("RoutingConfig", "retrain_interval"): "Retrain interval",
+    ("RoutingConfig", "max_timeout_retries"): (
+        "Maximum timeout retries before falling through to escalation (0 = disable)"
+    ),
+    ("RoutingConfig", "timeout_multiplier"): (
+        "Factor by which max_turns and session_timeout are extended on timeout retry"
+        " (>=1.0)"
+    ),
+    ("RoutingConfig", "timeout_ceiling_factor"): (
+        "Maximum session_timeout as a factor of the original configured value (>=1.0)"
+    ),
     # ModelConfig
     ("ModelConfig", "coding"): (
         "Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED"
