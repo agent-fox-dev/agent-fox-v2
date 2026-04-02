@@ -25,6 +25,7 @@ the most commonly changed settings. Add any section below manually to
 - [planning](#planning)
 - [blocking](#blocking)
 - [night_shift](#night_shift)
+- [caching](#caching)
 
 ---
 
@@ -499,6 +500,40 @@ quality_gate_timeout = 300
 dead_code = false
 documentation_drift = false
 ```
+
+---
+
+## caching
+
+Prompt caching configuration. Controls whether `cache_control` markers are
+injected into Anthropic API requests, reducing input token costs on cache hits.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cache_policy` | str | `"DEFAULT"` | Caching strategy: `NONE`, `DEFAULT` (5-min TTL), or `EXTENDED` (1-hour TTL) |
+
+**Policies:**
+
+| Policy | `cache_control` marker | TTL | Cost trade-off |
+|--------|------------------------|-----|----------------|
+| `NONE` | None | — | No caching — identical behaviour to pre-caching releases |
+| `DEFAULT` | `{"type": "ephemeral"}` | 5 minutes | Reduces input costs on repeated calls within a short window |
+| `EXTENDED` | `{"type": "ephemeral", "ttl": "1h"}` | 1 hour | Higher cache-write cost; pays off on long-running sessions |
+
+**Token threshold:** Caching is automatically skipped when the system prompt
+is estimated to be below the model's minimum cacheable size (≈2 048 tokens
+for Sonnet-class models, ≈4 096 for Opus/Haiku-class). Prompts below this
+threshold are passed through unchanged regardless of policy.
+
+**Example:**
+
+```toml
+[caching]
+cache_policy = "DEFAULT"   # NONE | DEFAULT | EXTENDED
+```
+
+**Rollback:** Set `cache_policy = "NONE"` to fully disable caching with no
+code changes required.
 
 ---
 

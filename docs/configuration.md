@@ -387,3 +387,37 @@ Blocking threshold learning configuration.
 | `learn_thresholds` | bool | `false` | | Learn blocking thresholds from history |
 | `min_decisions_for_learning` | int | `20` | 1–1000 | Min blocking decisions before learning thresholds |
 | `max_false_negative_rate` | float | `0.1` | 0.0–1.0 | Maximum acceptable false negative rate |
+
+---
+
+## `[caching]`
+
+Prompt caching configuration. When enabled, `cache_control` markers are
+injected into Anthropic API requests so that stable system-prompt content is
+cached on Anthropic's servers, reducing input token costs on repeated calls.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `cache_policy` | str | `"DEFAULT"` | Caching strategy: `NONE`, `DEFAULT`, or `EXTENDED` |
+
+**Policy values:**
+
+| Value | Behaviour | TTL |
+|-------|-----------|-----|
+| `NONE` | No caching — requests are identical to pre-caching behaviour | — |
+| `DEFAULT` | Attaches `{"type": "ephemeral"}` to the last system block | 5 minutes |
+| `EXTENDED` | Attaches `{"type": "ephemeral", "ttl": "1h"}` to the last system block | 1 hour |
+
+Caching is automatically skipped for prompts below the model's minimum token
+threshold (≈2 048 tokens for Sonnet-class, ≈4 096 for Opus/Haiku-class) to
+avoid unnecessary cache-write charges.
+
+**Example:**
+
+```toml
+[caching]
+cache_policy = "DEFAULT"   # NONE | DEFAULT | EXTENDED
+```
+
+To disable caching entirely, set `cache_policy = "NONE"` — no code rollback
+is needed.

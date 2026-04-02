@@ -124,10 +124,10 @@ auxiliary modules, (4) final checkpoint and documentation.
     - [x] Requirements 77-REQ-3.* acceptance criteria met
     - [x] No direct `.messages.create(` calls remain in auxiliary modules
 
-- [ ] 4. Checkpoint — Prompt Caching Complete
-  - [ ] 4.1 Full test suite green
+- [x] 4. Checkpoint — Prompt Caching Complete
+  - [x] 4.1 Full test suite green
     - `make check` passes
-  - [ ] 4.2 Update documentation
+  - [x] 4.2 Update documentation
     - Add `[caching]` section example to `docs/cli-reference.md` or relevant config docs
     - Document the three cache policies and their trade-offs
 
