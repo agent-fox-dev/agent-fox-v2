@@ -454,7 +454,7 @@ A task group is complete when ALL of the following are true:
 3. All property tests for the task group pass
 4. All previously passing tests still pass (no regressions)
 5. No linter warnings or errors introduced
-6. Code is committed on a feature branch and pushed to remote
+6. Code is committed on a feature branch and merged into `develop`
 7. Feature branch is merged back to `develop`
 8. `tasks.md` checkboxes are updated to reflect completion
 ```
@@ -627,7 +627,7 @@ Follow this structure:
 - Implement exactly ONE top-level task group per session
 - Task group 1 writes failing tests from test_spec.md — all subsequent groups
   implement code to make those tests pass
-- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop -> push
+- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop
 - Update checkbox states as you go: [-] in progress, [x] complete
 -->
 

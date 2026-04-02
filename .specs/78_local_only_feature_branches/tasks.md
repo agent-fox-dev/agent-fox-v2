@@ -54,8 +54,8 @@ checkpoint.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Implement changes
-  - [ ] 2.1 Simplify `post_harvest_integrate()` in `agent_fox/workspace/harvest.py`
+- [x] 2. Implement changes
+  - [x] 2.1 Simplify `post_harvest_integrate()` in `agent_fox/workspace/harvest.py`
     - Remove the feature branch existence check (`local_branch_exists` call)
     - Remove the `push_to_remote(repo_root, feature_branch)` call
     - Remove the associated warning log for missing/failed feature branch push
@@ -63,34 +63,35 @@ checkpoint.
     - Update docstring to reflect local-only feature branches
     - _Requirements: 78-REQ-1.1, 78-REQ-1.2, 78-REQ-1.3, 78-REQ-1.E1_
 
-  - [ ] 2.2 Update `_templates/agents_md.md`
+  - [x] 2.2 Update `_templates/agents_md.md`
     - Git Workflow section: add "Feature branches are local-only — do not push them to origin."
     - Remove "push the feature branch to `origin`" from Landing instruction
     - Session Completion: replace "The feature branch is pushed to `origin`" with "Changes are merged into `develop` locally"
     - _Requirements: 78-REQ-2.1, 78-REQ-2.2, 78-REQ-2.3_
 
-  - [ ] 2.3 Update `_templates/skills/af-spec`
+  - [x] 2.3 Update `_templates/skills/af-spec`
     - Definition of Done item 6: change "pushed to remote" to "merged into `develop`"
     - Git-flow comment: change "merge to develop -> push" to "merge to develop"
     - _Requirements: 78-REQ-3.1, 78-REQ-3.2_
 
-  - [ ] 2.4 Update existing post-harvest tests in `tests/unit/engine/test_post_harvest.py`
+  - [x] 2.4 Update existing post-harvest tests in `tests/unit/engine/test_post_harvest.py`
     - Update `TestPostHarvestPushesFeature` (TS-65-7) — change to assert feature branch is NOT pushed
     - Update `TestPostHarvestPushFailureBestEffort` (TS-65-11) — adjust since feature push no longer happens
     - Update `TestPostHarvestFeatureBranchDeleted` (TS-65-E3) — simplify since feature branch existence is no longer checked
     - Keep `TestPostHarvestPushesDevelop` (TS-65-8) unchanged
     - Keep `TestPostHarvestNoPlatformConfigParam` (TS-65-9) unchanged
     - Keep `TestPostHarvestNoGitHubPlatformRef` (TS-65-10) unchanged
+    - Also updated `tests/property/platform/test_overhaul_props.py::TestAlwaysPushesBoth` (spec 65)
     - _Requirements: 78-REQ-1.1, 78-REQ-1.2, 78-REQ-1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_78_post_harvest.py tests/unit/templates/test_78_local_branches.py tests/property/templates/test_78_local_branches_props.py`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 78-REQ-1.*, 78-REQ-2.*, 78-REQ-3.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_78_post_harvest.py tests/unit/templates/test_78_local_branches.py tests/property/templates/test_78_local_branches_props.py`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 78-REQ-1.*, 78-REQ-2.*, 78-REQ-3.* met
 
 - [ ] 3. Create erratum and checkpoint
-  - [ ] 3.1 Create `docs/errata/65_no_feature_branch_push.md`
+  - [x] 3.1 Create `docs/errata/65_no_feature_branch_push.md`
     - Document that 65-REQ-3.1 (push feature branch) is superseded by spec 78
     - Document that 65-REQ-3.E1 (skip push if branch deleted) is no longer applicable
     - Reference spec 78 as the source of the change

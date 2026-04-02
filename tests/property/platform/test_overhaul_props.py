@@ -219,36 +219,29 @@ class TestConfigBackwardCompatibility:
 
 
 class TestAlwaysPushesBoth:
-    """TS-65-P1: For any workspace, post-harvest pushes both branches.
+    """TS-65-P1 (updated by spec 78): post-harvest always pushes develop only.
 
-    Property 1: post_harvest_integrate always pushes feature branch (if exists)
-    and calls _push_develop_if_pushable.
-    Validates: 65-REQ-3.1, 65-REQ-3.2
+    Spec 78 supersedes 65-REQ-3.1. Feature branches are local-only.
+    Property: post_harvest_integrate always calls _push_develop_if_pushable
+    and never calls push_to_remote directly.
+    Validates: 78-REQ-1.1, 78-REQ-1.2
     """
 
     @given(branch_name=_branch_strategy)
     @settings(max_examples=50)
     def test_always_pushes_both(self, branch_name: str) -> None:
-        """For any branch name, post-harvest pushes both branches."""
+        """For any branch name, post-harvest pushes develop and not the feature branch."""
         import asyncio
 
         workspace = _make_workspace(branch=branch_name)
-        push_calls: list[str] = []
-
-        async def mock_push(repo_root, branch, remote="origin"):
-            push_calls.append(branch)
-            return True
 
         async def run_test():
             with (
                 patch(
                     "agent_fox.workspace.harvest.push_to_remote",
-                    side_effect=mock_push,
-                ),
-                patch(
-                    "agent_fox.workspace.harvest.local_branch_exists",
+                    new_callable=AsyncMock,
                     return_value=True,
-                ),
+                ) as mock_push_remote,
                 patch(
                     "agent_fox.workspace.harvest._push_develop_if_pushable",
                     new_callable=AsyncMock,
@@ -261,9 +254,8 @@ class TestAlwaysPushesBoth:
                 # Develop push must be attempted
                 assert mock_push_develop.call_count == 1
                 assert mock_push_develop.call_args[0][0] == Path("/tmp")
-
-            # Feature branch push must be attempted
-            assert branch_name in push_calls
+                # Feature branch must NOT be pushed directly (78-REQ-1.1)
+                assert mock_push_remote.call_count == 0
 
         asyncio.run(run_test())
 

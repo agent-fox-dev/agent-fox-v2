@@ -46,12 +46,6 @@ class TestPostHarvestDoesNotPushFeatureBranch:
                 mock_push_remote,
             ),
             patch(
-                # Ensure local_branch_exists returns True so current code
-                # would call push_to_remote with the feature branch.
-                "agent_fox.workspace.harvest.local_branch_exists",
-                return_value=True,
-            ),
-            patch(
                 "agent_fox.workspace.harvest._push_develop_if_pushable",
                 new_callable=AsyncMock,
             ),
@@ -106,27 +100,13 @@ class TestPostHarvestDoesNotCheckBranchExistence:
     Requirement: 78-REQ-1.3
     """
 
-    async def test_does_not_check_branch_existence(self, tmp_path: Path) -> None:
-        """local_branch_exists must not be called during post_harvest_integrate."""
-        workspace = _make_workspace()
-        mock_local_exists = AsyncMock(return_value=True)
-
-        with (
-            patch(
-                "agent_fox.workspace.harvest.local_branch_exists",
-                mock_local_exists,
-            ),
-            patch(
-                "agent_fox.workspace.harvest._push_develop_if_pushable",
-                new_callable=AsyncMock,
-            ),
-        ):
-            await post_harvest_integrate(
-                repo_root=tmp_path,
-                workspace=workspace,
-            )
-
-        assert mock_local_exists.call_count == 0
+    def test_does_not_check_branch_existence(self) -> None:
+        """local_branch_exists must not be imported in the harvest module."""
+        import agent_fox.workspace.harvest as harvest_mod
+        assert not hasattr(harvest_mod, "local_branch_exists"), (
+            "harvest module still imports local_branch_exists; "
+            "feature branch existence check must be removed (78-REQ-1.3)"
+        )
 
 
 # ---------------------------------------------------------------------------

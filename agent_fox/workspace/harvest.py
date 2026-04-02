@@ -5,8 +5,8 @@ integration (push via local git).
 
 Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
               45-REQ-3.1, 45-REQ-4.1, 45-REQ-6.1,
-              65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5,
-              65-REQ-3.E1, 65-REQ-3.E2
+              65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5, 65-REQ-3.E2,
+              78-REQ-1.1, 78-REQ-1.2, 78-REQ-1.3, 78-REQ-1.E1
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from agent_fox.workspace import (
     checkout_branch,
     get_changed_files,
     has_new_commits,
-    local_branch_exists,
     merge_fast_forward,
     push_to_remote,
     rebase_onto,
@@ -310,33 +309,17 @@ async def post_harvest_integrate(
     repo_root: Path,
     workspace: WorkspaceInfo,
 ) -> None:
-    """Push feature branch and develop to origin after harvest.
+    """Push develop to origin after harvest.
 
-    Always pushes both branches via the local git tool. No GitHub API
-    calls are made. All remote operations are best-effort: failures are
-    logged as warnings and never raised.
+    Feature branches are kept local-only and are not pushed to the remote.
+    The workspace parameter is retained for logging context.
 
-    If the feature branch no longer exists locally, its push is skipped
-    and a warning is logged; develop is still pushed.
+    All remote operations are best-effort: failures are logged as warnings
+    and never raised.
 
-    Requirements: 65-REQ-3.1, 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4,
-                  65-REQ-3.5, 65-REQ-3.E1, 65-REQ-3.E2
+    Requirements: 65-REQ-3.2, 65-REQ-3.3, 65-REQ-3.4, 65-REQ-3.5,
+                  65-REQ-3.E2, 78-REQ-1.1, 78-REQ-1.2, 78-REQ-1.3,
+                  78-REQ-1.E1
     """
-    feature_branch = workspace.branch
-
-    # Push feature branch if it still exists locally (65-REQ-3.E1)
-    if await local_branch_exists(repo_root, feature_branch):
-        result = await push_to_remote(repo_root, feature_branch)
-        if not result:
-            logger.warning(
-                "Failed to push feature branch '%s' to origin",
-                feature_branch,
-            )
-    else:
-        logger.warning(
-            "Feature branch '%s' no longer exists locally — skipping push",
-            feature_branch,
-        )
-
-    # Always push develop (65-REQ-3.2)
+    # Push only develop — feature branches are local-only (78-REQ-1.1)
     await _push_develop_if_pushable(repo_root)

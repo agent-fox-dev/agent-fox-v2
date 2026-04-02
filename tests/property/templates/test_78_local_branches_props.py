@@ -76,12 +76,6 @@ def test_never_pushes_feature(branch: str) -> None:
             mock_push_remote,
         ),
         patch(
-            # Ensure local_branch_exists returns True so current code would
-            # call push_to_remote with the feature branch.
-            "agent_fox.workspace.harvest.local_branch_exists",
-            return_value=True,
-        ),
-        patch(
             "agent_fox.workspace.harvest._push_develop_if_pushable",
             new_callable=AsyncMock,
         ),
@@ -121,15 +115,6 @@ def test_always_pushes_develop(branch: str) -> None:
     repo_root = Path("/tmp/repo")
 
     with (
-        patch(
-            "agent_fox.workspace.harvest.local_branch_exists",
-            return_value=True,
-        ),
-        patch(
-            "agent_fox.workspace.harvest.push_to_remote",
-            new_callable=AsyncMock,
-            return_value=True,
-        ),
         patch(
             "agent_fox.workspace.harvest._push_develop_if_pushable",
             new_callable=AsyncMock,

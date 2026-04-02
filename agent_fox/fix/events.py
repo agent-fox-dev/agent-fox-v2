@@ -22,10 +22,10 @@ class FixProgressEvent:
     and forwarded to the CLI display layer via a progress_callback.
     """
 
-    phase: str       # "repair" (fix loop) or "improve" (improve loop)
+    phase: str  # "repair" (fix loop) or "improve" (improve loop)
     pass_number: int  # current pass, 1-indexed
     max_passes: int  # configured maximum passes
-    stage: str       # event stage identifier; one of:
+    stage: str  # event stage identifier; one of:
     #   "checks_start"   — pass beginning, about to run quality checks
     #   "all_passed"     — all checks returned exit 0
     #   "clusters_found" — failures clustered; detail contains cluster count
@@ -56,10 +56,10 @@ class CheckEvent:
     after execution (stage="done"), even on timeout or failure.
     """
 
-    check_name: str   # e.g. "ruff", "pytest", "cargo test"
-    stage: str        # "start" or "done"
+    check_name: str  # e.g. "ruff", "pytest", "cargo test"
+    stage: str  # "start" or "done"
     passed: bool = True  # True when exit_code == 0; only meaningful at stage="done"
-    exit_code: int = 0   # subprocess exit code; -1 for timeouts; only at stage="done"
+    exit_code: int = 0  # subprocess exit code; -1 for timeouts; only at stage="done"
 
 
 # Type alias for the check execution callback.

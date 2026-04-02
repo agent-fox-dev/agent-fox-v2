@@ -68,6 +68,8 @@ make check
   `refactor:`, `docs:`, `test:`, `chore:`).
 - **Commit discipline:** only commit files relevant to the current change.
 - **Never add `Co-Authored-By` lines.** No AI attribution in commits — ever.
+- **Feature branches are local-only** — do not push them to origin. Only
+  `develop` (and `main` for releases) is pushed to the remote.
 
 ## Scope Discipline
 
@@ -94,6 +96,6 @@ A session is not complete until:
 
 1. `make check` passes (no regressions).
 2. Changes are committed with a clear conventional commit message.
-3. The feature branch is pushed to `origin`.
+3. Changes are merged into `develop` locally.
 4. `git status` shows a clean working tree.
 5. You provide a brief handoff note summarizing what was done and what remains.
