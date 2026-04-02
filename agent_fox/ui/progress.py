@@ -40,6 +40,7 @@ class ActivityEvent:
     argument: str  # abbreviated first argument
     turn: int = 0  # running turn count within the session
     tokens: int | None = None  # cumulative tokens (input + output)
+    archetype: str | None = None  # e.g. "coder", "verifier"
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,8 +263,9 @@ class ProgressDisplay:
             width = self._get_terminal_width()
             verb = verbify_tool(event.tool_name)
             token_str = format_tokens(event.tokens)
+            arch_label = f" [{event.archetype}]" if event.archetype else ""
             prefix = f"[turn {event.turn} | {token_str} tokens] "
-            summary = f"{prefix}[{event.node_id}] {verb}…"
+            summary = f"{prefix}[{event.node_id}]{arch_label} {verb}…"
 
             if event.argument:
                 detail = f"  \u23bf  {event.argument}"

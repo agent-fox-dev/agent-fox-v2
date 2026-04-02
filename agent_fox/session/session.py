@@ -79,6 +79,7 @@ async def run_session(
     fallback_model: str | None = None,
     thinking: dict[str, Any] | None = None,
     session_timeout: int | None = None,
+    archetype: str | None = None,
 ) -> SessionOutcome:
     """Execute a coding session in the given workspace.
 
@@ -151,6 +152,7 @@ async def run_session(
                 max_budget_usd=max_budget_usd,
                 fallback_model=fallback_model,
                 thinking=thinking,
+                archetype=archetype,
             ),
             timeout_minutes=(
                 session_timeout
@@ -201,6 +203,7 @@ async def _execute_query(
     max_budget_usd: float | None = None,
     fallback_model: str | None = None,
     thinking: dict[str, Any] | None = None,
+    archetype: str | None = None,
 ) -> None:
     """Execute the query via an AgentBackend and collect results.
 
@@ -244,7 +247,11 @@ async def _execute_query(
         if activity_callback is not None and not is_result:
             turn_count += 1
             event = _extract_activity(
-                node_id, message, turn=turn_count, tokens=cumulative_tokens
+                node_id,
+                message,
+                turn=turn_count,
+                tokens=cumulative_tokens,
+                archetype=archetype,
             )
             if event is not None:
                 try:
@@ -321,6 +328,7 @@ def _extract_activity(
     *,
     turn: int = 0,
     tokens: int | None = None,
+    archetype: str | None = None,
 ) -> ActivityEvent | None:
     """Extract an ActivityEvent from a canonical message.
 
@@ -340,6 +348,7 @@ def _extract_activity(
             argument=arg,
             turn=turn,
             tokens=tokens,
+            archetype=archetype,
         )
 
     if isinstance(message, AssistantMessage):
@@ -349,6 +358,7 @@ def _extract_activity(
             argument="",
             turn=turn,
             tokens=tokens,
+            archetype=archetype,
         )
 
     # ResultMessage — no activity event

@@ -415,6 +415,7 @@ class NodeSessionRunner:
             fallback_model=resolved_fallback,
             thinking=resolved_thinking,
             session_timeout=self._timeout_override,
+            archetype=self._archetype,
         )
 
     async def _harvest_and_integrate(
