@@ -497,6 +497,18 @@
 - SessionResultHandler needs a _timeout_retries dictionary to track per-node timeout retry counts independently from the escalation ladder's failure counter. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
 - An audit event type SESSION_TIMEOUT_RETRY should be emitted when a timeout triggers a retry, with a payload field indicating the retry count. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
 - Property-based tests with hypothesis are valuable for verifying timeout escalation behavior under diverse event sequences and parameter combinations. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
+- Use the _clamped_validator pattern for numeric fields that need bounded ranges in RoutingConfig to ensure values stay within acceptable limits. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Review archetype prompts (skeptic, verifier, auditor, oracle) require explicit 'no markdown fences' and 'exact field names' instructions in the OUTPUT FORMAT section to ensure consistent parsing. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Adding a CRITICAL REMINDERS section after OUTPUT FORMAT and a WRONG example showing incorrect markdown-fenced JSON output helps prevent LLM parsing failures in review generation. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Implement a WRAPPER_KEY_VARIANTS map with _resolve_wrapper_key() helper to handle case-insensitive and singular/plural variant matching for JSON wrapper keys, improving parser resilience. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Use json.loads() as a direct fast-path before attempting fuzzy key resolution to handle complex nested JSON robustly and improve performance. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- When implementing tolerant parsing, test both standard unit tests and property-based tests to ensure fuzzy matching doesn't break valid inputs and handles edge cases correctly. _(spec: 74_review_parse_resilience, confidence: 0.60)_
+- Timeout state tracking requires multiple dictionary fields (_timeout_retries, _node_max_turns, _node_timeout) in SessionResultHandler to maintain per-node timeout configuration and retry counts across the request lifecycle. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Timeout handling must be routed through a dedicated _handle_timeout() method in the main process() dispatcher, with status='timeout' as the routing condition to separate timeout logic from normal request processing. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Parameter extension for timeout/max_turns uses ceil-multiply logic with ceiling-clamp limits to increase retry budgets in a controlled, bounded way during escalation. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Per-node timeout and max_turns overrides must be wired through the full dispatch chain (SerialRunner → ParallelRunner → NodeSessionRunner → run_session) to ensure configuration reaches the execution layer. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Exhaustion warnings should be logged when timeout/retry budgets are depleted to provide visibility into escalation failures. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
+- The memory.md file containing accumulated architectural decisions, gotchas, and patterns (700+ lines from specs 59-76) was completely cleared during this session, suggesting that memory should be periodically reset between major spec iterations rather than grown indefinitely. _(spec: 73_finding_consolidation_critic, confidence: 0.90)_
 
 ## Decisions
 
@@ -548,6 +560,7 @@
 - RoutingConfig should expose max_timeout_retries, timeout_multiplier, and timeout_ceiling_factor as configurable fields with sensible defaults (2, 1.5, 2.0 respectively). _(spec: 76_fix_progress_display, confidence: 0.90)_
 - RoutingConfig requires three new fields with validation: max_timeout_retries (>=0, default 2), timeout_multiplier (>=1.0, default 1.5), timeout_ceiling_factor (>=1.0, default 2.0). _(spec: 74_review_parse_resilience, confidence: 0.90)_
 - A SESSION_TIMEOUT_RETRY audit event type must be emitted when a timeout is retried, with payload containing timeout_retry_count. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Timeout-related configuration fields should use sensible defaults (e.g., max_timeout_retries=2, timeout_multiplier=1.5, timeout_ceiling_factor=2.0) that work for typical escalation scenarios. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
 
 ## Conventions
 
@@ -659,6 +672,11 @@
 - The test spec structure uses task groups with verification checkpoints (e.g., 1.V) to ensure all tests exist, fail, and pass linting before implementation proceeds. _(spec: 76_fix_progress_display, confidence: 0.60)_
 - RoutingConfig should have three timeout-related fields with specific defaults: max_timeout_retries=2, timeout_multiplier=1.5, and timeout_ceiling_factor=2.0. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
 - A multiplier value of 1.0 should be treated as a valid identity operation (no extension), allowing timeout parameters to remain unchanged across retries. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
+- When adding new configuration fields to RoutingConfig, corresponding entries must be added to _BOUNDS_MAP and _DEFAULT_DESCRIPTIONS in config_schema.py to maintain schema consistency. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Review parse resilience requires consistent formatting across all four archetype templates to maintain reliable downstream parsing. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Apply key normalization (_normalize_keys()) consistently across all parser entry points (parse_review_findings, parse_verification_results, parse_drift_findings, parse_auditor_output) to accept non-standard field key casing. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- New audit event types (SESSION_TIMEOUT_RETRY) must be added to support timeout handling and escalation tracking in the audit system. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- Task checkpoint completion requires verifying that `make check` passes with zero regressions and all traceability entries are satisfied before marking a checkpoint as done. _(spec: 73_finding_consolidation_critic, confidence: 0.90)_
 
 ## Anti-Patterns
 
