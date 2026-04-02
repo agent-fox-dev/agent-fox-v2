@@ -117,7 +117,7 @@ Three implementation phases after test scaffolding:
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 75-REQ-1.* through 75-REQ-3.* acceptance criteria met
 
-- [ ] 4. Observability and integration
+- [x] 4. Observability and integration
   - [x] 4.1 Add SESSION_TIMEOUT_RETRY audit event type
     - In `agent_fox/knowledge/audit.py`
     - _Requirements: 75-REQ-5.1_
@@ -134,21 +134,21 @@ Three implementation phases after test scaffolding:
     - _Requirements: 75-REQ-5.2_
     - Note: Implemented in group 3
 
-  - [ ] 4.4 Integration test: timeout → retry → success
+  - [x] 4.4 Integration test: timeout → retry → success
     - Mock backend with timeout then success
     - Verify extended params used on retry
     - _Test Spec: TS-75-E1_
 
-  - [ ] 4.5 Integration test: exhaustion → escalation → success
+  - [x] 4.5 Integration test: exhaustion → escalation → success
     - Mock backend with repeated timeouts then success at higher tier
     - Verify escalation occurs after timeout exhaustion
     - _Test Spec: TS-75-E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: TS-75-21 through TS-75-23, TS-75-E1, TS-75-E2
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 75-REQ-5.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: TS-75-21 through TS-75-23, TS-75-E1, TS-75-E2
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 75-REQ-5.* acceptance criteria met
 
 - [ ] 5. Checkpoint — Timeout-Aware Escalation Complete
   - [ ] All spec tests pass
