@@ -156,9 +156,7 @@ class NightShiftEngine:
         # Build dependency graph from explicit references and GitHub metadata
         explicit_edges = parse_text_references(issues)
         try:
-            github_edges = await fetch_github_relationships(
-                self._platform, issues
-            )
+            github_edges = await fetch_github_relationships(self._platform, issues)
         except Exception:
             logger.warning(
                 "Failed to fetch GitHub relationships, continuing without",

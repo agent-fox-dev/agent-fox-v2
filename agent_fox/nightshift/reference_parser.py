@@ -86,9 +86,7 @@ async def fetch_github_relationships(
         for event in events:
             event_type = event.get("event", "")
             if event_type == "cross-referenced":
-                source_issue = (
-                    event.get("source", {}).get("issue", {}).get("number")
-                )
+                source_issue = event.get("source", {}).get("issue", {}).get("number")
                 if (
                     source_issue is not None
                     and source_issue in batch_numbers

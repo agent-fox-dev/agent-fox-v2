@@ -123,9 +123,7 @@ def _parse_triage_response(
             and to_issue in issue_numbers
             and from_issue != to_issue
         ):
-            edges.append(
-                DependencyEdge(from_issue, to_issue, "ai", rationale)
-            )
+            edges.append(DependencyEdge(from_issue, to_issue, "ai", rationale))
 
     # Parse supersession pairs
     supersession_pairs: list[tuple[int, int]] = []
