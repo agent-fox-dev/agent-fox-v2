@@ -29,8 +29,8 @@ the CLI layer.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_fix_progress.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_fix_progress.py`
     - Scaffold test file with imports and fixtures
     - Write tests TS-76-1 through TS-76-3 (banner rendering/suppression)
     - Write tests TS-76-4 through TS-76-6 (ProgressDisplay lifecycle)
@@ -41,7 +41,7 @@ the CLI layer.
     - Write edge case tests TS-76-E1 through TS-76-E5
     - _Test Spec: TS-76-1 through TS-76-19, TS-76-E1 through TS-76-E5_
 
-  - [ ] 1.2 Create property test file `tests/property/test_fix_progress_props.py`
+  - [x] 1.2 Create property test file `tests/property/test_fix_progress_props.py`
     - Write TS-76-P1 (quiet suppression invariant)
     - Write TS-76-P2 (lifecycle completeness)
     - Write TS-76-P3 (activity callback wiring invariant)
@@ -50,10 +50,10 @@ the CLI layer.
     - Write TS-76-P6 (check event pairing)
     - _Test Spec: TS-76-P1 through TS-76-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/test_fix_progress.py tests/property/test_fix_progress_props.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/test_fix_progress.py tests/property/test_fix_progress_props.py`
 
 - [ ] 2. Add event types and callback parameters
   - [ ] 2.1 Define `FixProgressEvent` and `CheckEvent` dataclasses
