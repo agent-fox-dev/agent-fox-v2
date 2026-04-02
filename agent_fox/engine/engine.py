@@ -119,38 +119,52 @@ class SerialRunner:
 
 
 class _SignalHandler:
-    """Manages SIGINT handling for graceful orchestrator shutdown.
+    """Manages SIGINT/SIGTERM handling for graceful orchestrator shutdown.
 
+    First signal sets the interrupted flag for graceful shutdown.
     Double-SIGINT exits immediately (04-REQ-8.E1).
     """
 
     def __init__(self) -> None:
         self.interrupted = False
         self._interrupt_count = 0
-        self._prev_handler: Any = None
+        self._prev_sigint: Any = None
+        self._prev_sigterm: Any = None
 
     def install(self) -> None:
-        """Register SIGINT handler."""
+        """Register SIGINT and SIGTERM handlers."""
 
         def handler(signum: int, frame: Any) -> None:
             self._interrupt_count += 1
             if self._interrupt_count >= 2:
-                logger.warning("Double SIGINT received, exiting immediately.")
+                logger.warning("Double interrupt received, exiting immediately.")
                 raise SystemExit(1)
             self.interrupted = True
-            logger.info("SIGINT received, shutting down gracefully...")
+            sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+            logger.info("%s received, shutting down gracefully...", sig_name)
 
         try:
-            self._prev_handler = signal.getsignal(signal.SIGINT)
+            self._prev_sigint = signal.getsignal(signal.SIGINT)
             signal.signal(signal.SIGINT, handler)
         except (OSError, ValueError):
-            self._prev_handler = None
+            self._prev_sigint = None
+
+        try:
+            self._prev_sigterm = signal.getsignal(signal.SIGTERM)
+            signal.signal(signal.SIGTERM, handler)
+        except (OSError, ValueError):
+            self._prev_sigterm = None
 
     def restore(self) -> None:
-        """Restore the previous SIGINT handler."""
-        if self._prev_handler is not None:
+        """Restore the previous signal handlers."""
+        if self._prev_sigint is not None:
             try:
-                signal.signal(signal.SIGINT, self._prev_handler)
+                signal.signal(signal.SIGINT, self._prev_sigint)
+            except (OSError, ValueError):
+                pass
+        if self._prev_sigterm is not None:
+            try:
+                signal.signal(signal.SIGTERM, self._prev_sigterm)
             except (OSError, ValueError):
                 pass
 

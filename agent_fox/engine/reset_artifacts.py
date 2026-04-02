@@ -112,6 +112,25 @@ def _clean_branch(repo_path: Path, task_id: str) -> str | None:
     return None
 
 
+def _prune_worktrees(repo_path: Path) -> None:
+    """Run ``git worktree prune`` to remove stale worktree tracking entries.
+
+    After a worktree directory is deleted with shutil.rmtree, git's internal
+    tracking (under ``.git/worktrees/``) still references it.  Without pruning,
+    ``git branch -D`` will refuse to delete the associated branch because git
+    believes the worktree is still active.
+    """
+    try:
+        subprocess.run(
+            ["git", "worktree", "prune"],
+            cwd=str(repo_path),
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("git worktree prune failed: %s", exc)
+
+
 def _cleanup_task(
     task_id: str,
     worktrees_dir: Path,
@@ -129,6 +148,8 @@ def _cleanup_task(
         the path/name if cleaned, or None.
     """
     wt = _clean_worktree(worktrees_dir, task_id)
+    if wt:
+        _prune_worktrees(repo_path)
     br = _clean_branch(repo_path, task_id)
     return wt, br
 
