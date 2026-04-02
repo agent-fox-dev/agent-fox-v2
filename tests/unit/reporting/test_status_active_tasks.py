@@ -247,7 +247,7 @@ class TestTextFormatting:
         output = TableFormatter().format_status(report)
 
         expected_line = (
-            "spec/0/coder: in_progress. 1/2 sessions. "
+            "spec/0/coder [coder]: in_progress. 1/2 sessions. "
             "tokens 500.0k in / 750.0k out. $12.34"
         )
         assert expected_line in output
@@ -270,9 +270,9 @@ class TestTextFormatting:
 
         output = TableFormatter().format_status(report)
 
-        assert "spec/0/verifier: in_progress" in output
+        assert "spec/0/verifier [coder]: in_progress" in output
         # Must not have trailing dot (no session details)
-        assert "spec/0/verifier: in_progress." not in output
+        assert "spec/0/verifier [coder]: in_progress." not in output
 
     def test_active_tasks_section_absent_when_empty(self) -> None:
         """TS-72-8: 'Active Tasks' section is omitted when in_progress_tasks is empty.
@@ -329,6 +329,7 @@ class TestJsonOutput:
             "input_tokens",
             "output_tokens",
             "cost",
+            "archetype",
         }
         assert set(task.keys()) == required_fields
 

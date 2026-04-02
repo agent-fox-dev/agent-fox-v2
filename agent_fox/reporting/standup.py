@@ -330,6 +330,7 @@ class TaskActivity:
     input_tokens: int
     output_tokens: int
     cost: float
+    archetype: str = "coder"  # agent archetype working on this task
 
 
 @dataclass(frozen=True)
@@ -434,7 +435,12 @@ def generate_standup(
     node_states: dict[str, str] = {}
     if state is not None:
         node_states = dict(state.node_states)
-    task_activities = _compute_task_activities(all_sessions, node_states)
+    node_archetypes = {
+        nid: node.archetype for nid, node in graph.nodes.items()
+    } if graph else None
+    task_activities = _compute_task_activities(
+        all_sessions, node_states, node_archetypes
+    )
 
     # Partition git commits into human and agent
     human_commits, agent_commits = partition_commits(
@@ -541,6 +547,7 @@ def _compute_agent_activity(
 def _compute_task_activities(
     sessions: list[SessionRecord],
     node_states: dict[str, str],
+    node_archetypes: dict[str, str] | None = None,
 ) -> list[TaskActivity]:
     """Compute per-task activity breakdowns across all sessions.
 
@@ -573,6 +580,14 @@ def _compute_task_activities(
         total_cost = sum(s.cost for s in task_sessions)
         current_status = node_states.get(task_id, "pending")
 
+        # Resolve archetype: prefer graph data, fall back to session records
+        if node_archetypes and task_id in node_archetypes:
+            archetype = node_archetypes[task_id]
+        elif task_sessions and hasattr(task_sessions[0], "archetype"):
+            archetype = task_sessions[0].archetype
+        else:
+            archetype = "coder"
+
         activities.append(
             TaskActivity(
                 task_id=task_id,
@@ -582,6 +597,7 @@ def _compute_task_activities(
                 input_tokens=total_input,
                 output_tokens=total_output,
                 cost=total_cost,
+                archetype=archetype,
             )
         )
 

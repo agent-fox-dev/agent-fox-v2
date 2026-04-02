@@ -124,6 +124,7 @@ def make_plan_json(
             "status": props.get("status", "pending"),
             "subtask_count": props.get("subtask_count", 0),
             "body": props.get("body", ""),
+            "archetype": props.get("archetype", "coder"),
         }
 
     plan = {
