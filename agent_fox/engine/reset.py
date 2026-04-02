@@ -186,10 +186,11 @@ def reset_all(
                 cleaned_branches,
             )
 
-    # Update state: set all reset tasks to pending
+    # Update state: set all reset tasks to pending and clear stale reasons
     if reset_tasks:
         for task_id in reset_tasks:
             state.node_states[task_id] = "pending"
+            state.blocked_reasons.pop(task_id, None)
         StateManager(state_path).save(state)
 
     return ResetResult(
@@ -267,6 +268,7 @@ def reset_task(
 
     # Update state for the target task
     state.node_states[task_id] = "pending"
+    state.blocked_reasons.pop(task_id, None)
 
     # Find and unblock downstream tasks where this was the sole blocker
     unblocked_tasks = _find_sole_blocker_dependents(task_id, plan, state)
@@ -274,6 +276,7 @@ def reset_task(
     # Reset unblocked tasks to pending and clean up their artifacts
     for unblocked_id in unblocked_tasks:
         state.node_states[unblocked_id] = "pending"
+        state.blocked_reasons.pop(unblocked_id, None)
         collect_cleanup(
             unblocked_id,
             worktrees_dir,
@@ -349,6 +352,7 @@ def reset_spec(
     # Reset matching node_states to pending (50-REQ-1.1, 50-REQ-1.2)
     for nid in spec_node_ids:
         state.node_states[nid] = "pending"
+        state.blocked_reasons.pop(nid, None)
 
     # Clean worktrees and branches (50-REQ-1.4)
     cleaned_worktrees: list[str] = []
@@ -395,6 +399,7 @@ def _perform_hard_reset(
     # Reset affected tasks to pending
     for tid in affected_ids:
         state.node_states[tid] = "pending"
+        state.blocked_reasons.pop(tid, None)
 
     # Clean worktrees and branches
     cleaned_worktrees: list[str] = []

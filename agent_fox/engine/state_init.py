@@ -86,7 +86,9 @@ def _load_or_init_state(
             existing.node_states = node_states
             existing.updated_at = datetime.now(UTC).isoformat()
             existing.blocked_reasons = {
-                k: v for k, v in existing.blocked_reasons.items() if k in graph.nodes
+                k: v
+                for k, v in existing.blocked_reasons.items()
+                if k in graph.nodes and node_states.get(k) != "pending"
             }
             return existing
 
@@ -126,9 +128,15 @@ def _reset_in_progress_tasks(
 
 
 def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:
-    """Initialize attempt counter from session history."""
+    """Initialize attempt counter from session history.
+
+    Tasks whose current status is ``"pending"`` are excluded — they are
+    either new or have been reset and should start fresh at attempt 0.
+    """
     tracker: dict[str, int] = {}
     for record in state.session_history:
+        if state.node_states.get(record.node_id) == "pending":
+            continue
         current = tracker.get(record.node_id, 0)
         tracker[record.node_id] = max(current, record.attempt)
     return tracker
