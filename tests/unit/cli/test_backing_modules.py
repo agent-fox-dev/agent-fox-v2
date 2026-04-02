@@ -191,7 +191,10 @@ class TestRunCodeCallable:
 
         config = MagicMock()
 
-        with patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls:
+        with (
+            patch("agent_fox.engine.run._setup_infrastructure", return_value=None),
+            patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls,
+        ):
             mock_state = MagicMock()
             mock_state.status = "completed"
             mock_orch = MagicMock()
@@ -217,7 +220,10 @@ class TestRunCodeReturnsExecutionState:
 
         config = MagicMock()
 
-        with patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls:
+        with (
+            patch("agent_fox.engine.run._setup_infrastructure", return_value=None),
+            patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls,
+        ):
             mock_state = MagicMock()
             mock_state.status = "stalled"
             mock_orch = MagicMock()
@@ -247,7 +253,10 @@ class TestRunCodeParallelism:
 
         config = MagicMock()
 
-        with patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls:
+        with (
+            patch("agent_fox.engine.run._setup_infrastructure", return_value=None),
+            patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls,
+        ):
             mock_state = MagicMock()
             mock_state.status = "completed"
             mock_orch = MagicMock()
@@ -274,7 +283,10 @@ class TestRunCodeKeyboardInterrupt:
 
         config = MagicMock()
 
-        with patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls:
+        with (
+            patch("agent_fox.engine.run._setup_infrastructure", return_value=None),
+            patch("agent_fox.engine.run.Orchestrator") as mock_orch_cls,
+        ):
             mock_orch = MagicMock()
             mock_orch.run = AsyncMock(side_effect=KeyboardInterrupt)
             mock_orch_cls.return_value = mock_orch
