@@ -8,6 +8,7 @@ Item-level validation and dataclass construction is delegated to
 validation, truncation, and normalization logic.
 
 Requirements: 27-REQ-3.1, 27-REQ-3.2, 27-REQ-3.3, 27-REQ-3.E1, 27-REQ-3.E2
+             74-REQ-2.1, 74-REQ-2.2, 74-REQ-2.3
 """
 
 from __future__ import annotations
@@ -34,6 +35,40 @@ from agent_fox.knowledge.review_store import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Fuzzy wrapper key matching (74-REQ-2.1, 74-REQ-2.2, 74-REQ-2.3)
+# ---------------------------------------------------------------------------
+
+# Canonical wrapper keys and their accepted variants (case-insensitive lookup
+# is applied by _resolve_wrapper_key, so all entries here are lowercase).
+WRAPPER_KEY_VARIANTS: dict[str, set[str]] = {
+    "findings": {"findings", "finding", "results", "issues"},
+    "verdicts": {"verdicts", "verdict", "results", "verifications"},
+    "drift_findings": {"drift_findings", "drift_finding", "drifts"},
+    "audit": {"audit", "audits", "audit_results", "entries"},
+}
+
+
+def _resolve_wrapper_key(data: dict, canonical_key: str) -> str | None:
+    """Find a matching wrapper key in *data*, case-insensitively, with variants.
+
+    Checks all registered variants of *canonical_key* (from
+    :data:`WRAPPER_KEY_VARIANTS`) against the actual keys in *data* using
+    case-insensitive comparison.  Returns the **actual key** as it appears in
+    *data* (preserving its original casing), or ``None`` if no match is found.
+
+    Requirements: 74-REQ-2.1, 74-REQ-2.2, 74-REQ-2.3
+    """
+    variants = WRAPPER_KEY_VARIANTS.get(canonical_key, {canonical_key})
+    # Build a case-folded map from lowercased actual key → original key
+    lower_map: dict[str, str] = {k.lower(): k for k in data.keys()}
+    for variant in variants:
+        actual = lower_map.get(variant.lower())
+        if actual is not None:
+            return actual
+    return None
+
 
 # Match fenced JSON code blocks or bare JSON objects/arrays
 _JSON_BLOCK_RE = re.compile(
@@ -69,12 +104,56 @@ def _unwrap_items(
     """Extract item dicts from agent response text.
 
     Handles three JSON shapes:
-    1. Wrapper object: ``{wrapper_key: [...]}``
+    1. Wrapper object: ``{wrapper_key: [...]}`` (fuzzy key match)
     2. Bare array: ``[{...}, ...]``
     3. Single object containing all *single_item_keys*: ``{...}``
 
     Returns an empty list if no valid items are found.
+
+    Parsing strategy (in order):
+    - Direct ``json.loads`` on the full response (handles complex nested JSON
+      whose string values may contain brace characters that confuse the regex).
+    - Regex-based block extraction (handles multi-block responses with
+      surrounding prose).
+
+    Requirements: 74-REQ-2.3, 74-REQ-2.E1, 74-REQ-2.E2
     """
+
+    def _process_data(data: object) -> list[dict]:
+        """Convert a parsed JSON value into a list of item dicts."""
+        if isinstance(data, dict):
+            resolved_key = _resolve_wrapper_key(data, wrapper_key)
+            if resolved_key is not None:
+                return list(data[resolved_key])
+            if all(k in data for k in single_item_keys):
+                return [data]
+            return []
+        if isinstance(data, list):
+            return list(data)
+        return []
+
+    # ------------------------------------------------------------------
+    # Fast path: try direct JSON parsing on the entire response.
+    # This correctly handles JSON strings that contain brace characters.
+    # ------------------------------------------------------------------
+    stripped = response.strip()
+    try:
+        direct = json.loads(stripped)
+        items = _process_data(direct)
+        if items:
+            return items
+        # A recognisable JSON value was found but yielded no items.
+        # For single-document responses with an unknown wrapper key we stop
+        # here rather than falling through, to avoid double-counting.
+        if stripped.startswith(("{", "[")):
+            return items
+    except json.JSONDecodeError:
+        pass
+
+    # ------------------------------------------------------------------
+    # Fallback: regex-based block extraction.
+    # Handles responses with multiple JSON blocks interleaved with prose.
+    # ------------------------------------------------------------------
     blocks = _extract_json_blocks(response)
     if not blocks:
         logger.warning("No valid JSON blocks found in %s output", archetype_label)
@@ -87,13 +166,7 @@ def _unwrap_items(
         except json.JSONDecodeError:
             logger.warning("Invalid JSON block in %s output, skipping", archetype_label)
             continue
-
-        if isinstance(data, dict) and wrapper_key in data:
-            all_items.extend(data[wrapper_key])
-        elif isinstance(data, list):
-            all_items.extend(data)
-        elif isinstance(data, dict) and all(k in data for k in single_item_keys):
-            all_items.append(data)
+        all_items.extend(_process_data(data))
 
     return all_items
 
@@ -189,11 +262,14 @@ def parse_auditor_output(
         except json.JSONDecodeError:
             continue
 
-        if not isinstance(data, dict) or "audit" not in data:
+        if not isinstance(data, dict):
+            continue
+        audit_key = _resolve_wrapper_key(data, "audit")
+        if audit_key is None:
             continue
 
         entries: list[AuditEntry] = []
-        for item in data["audit"]:
+        for item in data[audit_key]:
             if not isinstance(item, dict) or "ts_entry" not in item:
                 continue
             entries.append(

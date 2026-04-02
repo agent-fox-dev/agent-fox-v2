@@ -79,35 +79,36 @@ Three implementation phases after test scaffolding:
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 74-REQ-1.1 through 74-REQ-1.6 acceptance criteria met
 
-- [ ] 3. Tolerant parser with fuzzy matching
-  - [ ] 3.1 Add WRAPPER_KEY_VARIANTS map and _resolve_wrapper_key()
+- [x] 3. Tolerant parser with fuzzy matching
+  - [x] 3.1 Add WRAPPER_KEY_VARIANTS map and _resolve_wrapper_key()
     - In `agent_fox/session/review_parser.py`
     - Maps canonical keys to accepted variant sets
     - Case-insensitive lookup
     - _Requirements: 74-REQ-2.1, 74-REQ-2.2, 74-REQ-2.3_
 
-  - [ ] 3.2 Update _unwrap_items() to use fuzzy key matching
+  - [x] 3.2 Update _unwrap_items() to use fuzzy key matching
     - Replace exact `wrapper_key in data` check with `_resolve_wrapper_key()`
     - Preserve existing single-item and bare-array fallbacks
+    - Added direct json.loads fast-path for robustness with nested JSON
     - _Requirements: 74-REQ-2.3, 74-REQ-2.E1_
 
-  - [ ] 3.3 Add _normalize_keys() and apply in field-level parsers
+  - [x] 3.3 Add _normalize_keys() and apply in field-level parsers
     - In `agent_fox/engine/review_parser.py`
     - Apply in `parse_review_findings()`, `parse_verification_results()`,
       `parse_drift_findings()`
     - _Requirements: 74-REQ-2.4_
 
-  - [ ] 3.4 Verify backward compatibility
+  - [x] 3.4 Verify backward compatibility
     - Ensure existing exact-match JSON still parses identically
     - Run existing review parser tests
     - _Requirements: 74-REQ-2.5_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: TS-74-7 through TS-74-13, TS-74-E1, TS-74-E2
-    - [ ] Property tests pass: TS-74-P1, TS-74-P2, TS-74-P5, TS-74-P6
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 74-REQ-2.1 through 74-REQ-2.E2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: TS-74-7 through TS-74-13, TS-74-E1, TS-74-E2
+    - [x] Property tests pass: TS-74-P1, TS-74-P2, TS-74-P5, TS-74-P6
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 74-REQ-2.1 through 74-REQ-2.E2 acceptance criteria met
 
 - [ ] 4. Format retry, partial convergence, and observability
   - [ ] 4.1 Add REVIEW_PARSE_RETRY_SUCCESS audit event type

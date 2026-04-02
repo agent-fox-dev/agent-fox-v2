@@ -35,6 +35,25 @@ __all__ = ["extract_json_array"]
 
 
 # ---------------------------------------------------------------------------
+# Field-level key normalization (74-REQ-2.4)
+# ---------------------------------------------------------------------------
+
+
+def _normalize_keys(obj: dict) -> dict:
+    """Lowercase all keys in *obj* (non-recursive, one level only).
+
+    Allows typed parsers to accept non-standard key casing from LLM output
+    (e.g., ``"Severity"`` or ``"DESCRIPTION"``).
+
+    If two keys collide after lowercasing, the last one wins (standard Python
+    dict behaviour).
+
+    Requirements: 74-REQ-2.4
+    """
+    return {k.lower(): v for k, v in obj.items()}
+
+
+# ---------------------------------------------------------------------------
 # Typed parse functions (53-REQ-4.2)
 # ---------------------------------------------------------------------------
 
@@ -60,6 +79,7 @@ def parse_review_findings(
                 "Skipping non-dict item in review findings: %r", type(obj).__name__
             )
             continue
+        obj = _normalize_keys(obj)
         if "severity" not in obj or "description" not in obj:
             logger.warning(
                 "Skipping review finding: missing required field(s) "
@@ -113,6 +133,7 @@ def parse_verification_results(
                 type(obj).__name__,
             )
             continue
+        obj = _normalize_keys(obj)
         if "requirement_id" not in obj:
             logger.warning(
                 "Skipping verification result: missing required field "
@@ -177,6 +198,7 @@ def parse_drift_findings(
                 "Skipping non-dict item in drift findings: %r", type(obj).__name__
             )
             continue
+        obj = _normalize_keys(obj)
         if "severity" not in obj or "description" not in obj:
             logger.warning(
                 "Skipping drift finding: missing required field(s) "
