@@ -203,6 +203,8 @@ agent-fox code [OPTIONS]
 | `--max-cost USD` | float | from config | Cost ceiling in USD |
 | `--max-sessions N` | int | from config | Session count limit |
 | `--debug` | flag | off | Enable debug audit trail (JSONL + DuckDB tool signals) |
+| `--watch` | flag | off | Keep running and poll for new specs after all tasks complete |
+| `--watch-interval N` | int | 60 | Seconds between watch polls (minimum: 10) |
 
 Runs the orchestrator, which dispatches coding sessions to a Claude agent for
 each ready task in the plan. Sessions execute in isolated git worktrees with
@@ -210,6 +212,28 @@ feature branches. After each session, results are harvested (merged) and state
 is persisted to `.agent-fox/state.jsonl`.
 
 Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
+
+#### Watch Mode (`--watch`)
+
+When `--watch` is set, the orchestrator does not exit after all tasks complete.
+Instead it enters a sleep-poll loop, re-running the sync barrier every
+`--watch-interval` seconds to discover new specs added to `.specs/`. When new
+ready tasks are found, normal dispatch resumes. This turns a single `code`
+invocation into a long-lived process that picks up new work as it appears.
+
+**Requirements for watch mode:**
+
+- `hot_load` must be enabled in project configuration (default: on). If
+  `hot_load` is disabled, `--watch` is silently ignored and the run terminates
+  with COMPLETED status.
+- `--watch-interval` must be ≥ 10 seconds (values below 10 are clamped to 10).
+
+**Example:**
+
+```bash
+# Keep the orchestrator running, check for new specs every 30 seconds
+agent-fox code --watch --watch-interval 30
+```
 
 **Exit codes:**
 

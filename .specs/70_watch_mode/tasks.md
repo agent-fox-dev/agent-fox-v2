@@ -232,13 +232,13 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - [x] No linter warnings: `ruff check agent_fox/engine/engine.py`
     - [x] Requirements 70-REQ-2.*, 70-REQ-1.E2, 70-REQ-4.2, 70-REQ-4.3, 70-REQ-5.1, 70-REQ-5.2 met
 
-- [ ] 6. Checkpoint - Watch Mode Complete
-  - [ ] 6.1 Run full test suite and verify all spec tests pass
+- [x] 6. Checkpoint - Watch Mode Complete
+  - [x] 6.1 Run full test suite and verify all spec tests pass
     - `uv run pytest -q`
     - `ruff check agent_fox/ tests/`
-  - [ ] 6.2 Update CLI reference documentation
+  - [x] 6.2 Update CLI reference documentation
     - Add `--watch` and `--watch-interval` to `docs/cli-reference.md`
-  - [ ] 6.3 Verify traceability: all requirements covered by passing tests
+  - [x] 6.3 Verify traceability: all requirements covered by passing tests
 
 ### Checkbox States
 
