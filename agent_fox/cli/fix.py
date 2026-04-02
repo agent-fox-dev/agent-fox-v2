@@ -8,7 +8,8 @@ the codebase using an analyzer-coder-verifier pipeline.
 
 Requirements: 08-REQ-7.1, 08-REQ-7.2, 08-REQ-7.E1,
               23-REQ-5.3, 23-REQ-5.E1,
-              31-REQ-1.*, 31-REQ-2.*, 31-REQ-9.*, 31-REQ-10.*
+              31-REQ-1.*, 31-REQ-2.*, 31-REQ-9.*, 31-REQ-10.*,
+              76-REQ-1.*, 76-REQ-2.*, 76-REQ-3.*
 """
 
 from __future__ import annotations
@@ -19,29 +20,39 @@ from pathlib import Path
 from typing import Any
 
 import click
-from rich.console import Console
 
 from agent_fox.cli import json_io
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.fix.checks import CheckDescriptor, detect_checks
+from agent_fox.fix.checks import detect_checks
+from agent_fox.fix.events import CheckEvent, FixProgressEvent
 from agent_fox.fix.fix import FixSessionRunner, TerminationReason, run_fix_loop
 from agent_fox.fix.improve import ImproveResult, ImproveTermination, run_improve_loop
 from agent_fox.fix.improve_report import build_combined_json, render_combined_report
 from agent_fox.fix.report import render_fix_report
 from agent_fox.fix.spec_gen import FixSpec
 from agent_fox.session.session import run_session
+from agent_fox.ui.display import create_theme, render_banner
+from agent_fox.ui.progress import ProgressDisplay
 from agent_fox.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 
 
 def _build_fix_session_runner(
-    config: AgentFoxConfig, project_root: Path
+    config: AgentFoxConfig,
+    project_root: Path,
+    activity_callback: Any | None = None,
 ) -> FixSessionRunner:
     """Build a session runner callable for the fix loop.
 
     Returns an async callable that takes a FixSpec and runs a
     coding session in the project root directory.
+
+    Args:
+        config: Agent Fox configuration.
+        project_root: Root path of the project being fixed.
+        activity_callback: Optional callback forwarded to run_session for
+            real-time tool-use events (76-REQ-3.1).
     """
 
     async def _run(fix_spec: FixSpec) -> float:
@@ -61,6 +72,7 @@ def _build_fix_session_runner(
             system_prompt=system_prompt,
             task_prompt=fix_spec.task_prompt,
             config=config,
+            activity_callback=activity_callback,
         )
         from agent_fox.core.config import PricingConfig
         from agent_fox.core.models import calculate_cost, resolve_model
@@ -77,10 +89,20 @@ def _build_fix_session_runner(
     return _run
 
 
-def _build_improve_session_runner(config: AgentFoxConfig, project_root: Path) -> Any:
+def _build_improve_session_runner(
+    config: AgentFoxConfig,
+    project_root: Path,
+    activity_callback: Any | None = None,
+) -> Any:
     """Build a session runner callable for the improve loop.
 
     Returns an async callable: (system_prompt, task_prompt, tier) -> (cost, response).
+
+    Args:
+        config: Agent Fox configuration.
+        project_root: Root path of the project being improved.
+        activity_callback: Optional callback forwarded to run_session for
+            real-time tool-use events (76-REQ-3.2).
     """
 
     async def _run(
@@ -98,6 +120,7 @@ def _build_improve_session_runner(config: AgentFoxConfig, project_root: Path) ->
             system_prompt=system_prompt,
             task_prompt=task_prompt,
             config=config,
+            activity_callback=activity_callback,
         )
         from agent_fox.core.config import PricingConfig
         from agent_fox.core.models import calculate_cost, resolve_model
@@ -116,26 +139,44 @@ def _build_improve_session_runner(config: AgentFoxConfig, project_root: Path) ->
     return _run
 
 
-async def _run_phase2(
-    project_root: Path,
-    config: AgentFoxConfig,
-    checks: list[CheckDescriptor],
-    improve_passes: int,
-    remaining_budget: float | None,
-) -> ImproveResult:
-    """Run Phase 2 improve loop.
+def _format_fix_milestone(event: FixProgressEvent) -> str:
+    """Format a FixProgressEvent into a human-readable milestone string."""
+    prefix = f"[{event.phase}] Pass {event.pass_number}/{event.max_passes}"
+    stage = event.stage
+    detail = event.detail
 
-    Extracted as async helper so it can be called via asyncio.run or
-    directly awaited.
-    """
-    return await run_improve_loop(
-        project_root=project_root,
-        config=config,
-        checks=checks,
-        max_passes=improve_passes,
-        remaining_budget=remaining_budget,
-        phase1_diff="",
-    )
+    if stage == "checks_start":
+        return f"{prefix}: running checks"
+    elif stage == "all_passed":
+        return f"{prefix}: ✔ all checks passed"
+    elif stage == "clusters_found":
+        return f"{prefix}: {detail} cluster(s) found"
+    elif stage == "session_start":
+        return f"{prefix}: fixing cluster '{detail}'"
+    elif stage == "session_done":
+        return f"{prefix}: fix session complete"
+    elif stage == "session_error":
+        return f"{prefix}: ✘ session error for cluster '{detail}'"
+    elif stage == "cost_limit":
+        return f"{prefix}: ✘ cost limit reached"
+    elif stage == "analyzer_start":
+        return f"{prefix}: analyzing"
+    elif stage == "analyzer_done":
+        return f"{prefix}: analysis done"
+    elif stage == "coder_start":
+        return f"{prefix}: coding improvements"
+    elif stage == "coder_done":
+        return f"{prefix}: coding done"
+    elif stage == "verifier_start":
+        return f"{prefix}: verifying"
+    elif stage == "verifier_pass":
+        return f"{prefix}: ✔ verifier passed"
+    elif stage == "verifier_fail":
+        return f"{prefix}: ✘ verifier failed (rolling back)"
+    elif stage == "converged":
+        return f"{prefix}: converged — no further improvements"
+    else:
+        return f"{prefix}: {stage}" + (f" — {detail}" if detail else "")
 
 
 @click.command("fix")
@@ -178,8 +219,8 @@ def fix_cmd(
     """
     config = ctx.obj["config"]
     json_mode: bool = ctx.obj.get("json", False)
+    quiet: bool = ctx.obj.get("quiet", False)
     project_root = Path.cwd()
-    console = Console()
 
     # 31-REQ-1.3: --improve-passes without --auto is an error
     if not auto and improve_passes != 3:
@@ -232,56 +273,112 @@ def fix_cmd(
         logger.warning("--max-passes=%d is invalid, clamping to 1", max_passes)
         max_passes = 1
 
-    # Build session runner (None in dry-run mode)
-    runner = None if dry_run else _build_fix_session_runner(config, project_root)
+    # -- Progress display setup (76-REQ-2.1, 76-REQ-2.3) --
+    theme = create_theme(config.theme)
+    progress = ProgressDisplay(theme, quiet=quiet or json_mode)
 
-    # Run the fix loop (Phase 1)
-    try:
-        result = asyncio.run(
-            run_fix_loop(
-                project_root=project_root,
-                config=config,
-                max_passes=max_passes,
-                session_runner=runner,
+    # -- Banner (76-REQ-1.1, 76-REQ-1.2, 76-REQ-1.3) --
+    if not (quiet or json_mode):
+        render_banner(theme, config.models)
+
+    # -- Callback handlers for progress display --
+    def on_fix_progress(event: FixProgressEvent) -> None:
+        """Convert FixProgressEvent to permanent milestone line on the console."""
+        line = _format_fix_milestone(event)
+        theme.console.print(line, highlight=False)
+
+    def on_check(event: CheckEvent) -> None:
+        """Update spinner for check start; print milestone line on check done."""
+        if event.stage == "start":
+            # Update spinner text to show the running check
+            from agent_fox.ui.progress import ActivityEvent
+
+            act = ActivityEvent(
+                node_id="checks",
+                tool_name="Bash",
+                argument=event.check_name,
             )
+            progress.on_activity(act)
+        else:
+            # Print a permanent line with the check result
+            status = "✔" if event.passed else f"✘ (exit {event.exit_code})"
+            theme.console.print(
+                f"  check {event.check_name}: {status}", highlight=False
+            )
+
+    # Build session runner (None in dry-run mode)
+    runner = (
+        None
+        if dry_run
+        else _build_fix_session_runner(
+            config, project_root, activity_callback=progress.activity_callback
         )
-    except KeyboardInterrupt:
-        # 23-REQ-5.E1: emit interrupted status in JSON mode
-        if json_mode:
-            json_io.emit_line({"status": "interrupted"})
-        ctx.exit(130)
-        return
+    )
 
-    # -- Phase 2: Improve (31-REQ-1.1, 31-REQ-2.1) --
-    improve_result: ImproveResult | None = None
-
-    if (
-        auto
-        and not dry_run
-        and result.termination_reason == TerminationReason.ALL_FIXED
-    ):
-        # 31-REQ-2.3: Compute remaining budget
-        max_cost = getattr(config.orchestrator, "max_cost", None)
-        remaining_budget = max_cost if max_cost is not None else None
-
+    # -- Run Phase 1 and Phase 2 with display lifecycle (76-REQ-2.2, 76-REQ-2.E1) --
+    progress.start()
+    try:
+        # Run the fix loop (Phase 1)
         try:
-            improve_result = asyncio.run(
-                run_improve_loop(
+            result = asyncio.run(
+                run_fix_loop(
                     project_root=project_root,
                     config=config,
-                    checks=checks,
-                    max_passes=improve_passes,
-                    remaining_budget=remaining_budget,
-                    phase1_diff="",
+                    max_passes=max_passes,
+                    session_runner=runner,
+                    progress_callback=on_fix_progress,
+                    check_callback=on_check,
                 )
             )
         except KeyboardInterrupt:
+            # 23-REQ-5.E1: emit interrupted status in JSON mode
             if json_mode:
                 json_io.emit_line({"status": "interrupted"})
             ctx.exit(130)
             return
 
+        # -- Phase 2: Improve (31-REQ-1.1, 31-REQ-2.1) --
+        improve_result: ImproveResult | None = None
+
+        if (
+            auto
+            and not dry_run
+            and result.termination_reason == TerminationReason.ALL_FIXED
+        ):
+            # 31-REQ-2.3: Compute remaining budget
+            max_cost = getattr(config.orchestrator, "max_cost", None)
+            remaining_budget = max_cost if max_cost is not None else None
+
+            improve_runner = _build_improve_session_runner(
+                config, project_root, activity_callback=progress.activity_callback
+            )
+
+            try:
+                improve_result = asyncio.run(
+                    run_improve_loop(
+                        project_root=project_root,
+                        config=config,
+                        checks=checks,
+                        max_passes=improve_passes,
+                        remaining_budget=remaining_budget,
+                        phase1_diff="",
+                        session_runner=improve_runner,
+                        progress_callback=on_fix_progress,
+                    )
+                )
+            except KeyboardInterrupt:
+                if json_mode:
+                    json_io.emit_line({"status": "interrupted"})
+                ctx.exit(130)
+                return
+
+    finally:
+        # 76-REQ-2.2, 76-REQ-2.E1: always stop the display
+        progress.stop()
+
     # -- Report --
+    console = theme.console
+
     if improve_result is not None:
         # Combined Phase 1 + Phase 2 report
         total_cost = improve_result.total_cost
