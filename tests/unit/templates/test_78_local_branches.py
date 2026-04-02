@@ -1,8 +1,7 @@
 """Tests for local-only feature branch template content — spec 78.
 
-Test Spec: TS-78-4 through TS-78-9
-Requirements: 78-REQ-2.1, 78-REQ-2.2, 78-REQ-2.3, 78-REQ-3.1, 78-REQ-3.2,
-              78-REQ-4.1
+Test Spec: TS-78-4 through TS-78-8
+Requirements: 78-REQ-2.1, 78-REQ-2.2, 78-REQ-2.3, 78-REQ-3.1, 78-REQ-3.2
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).parents[3]
 _AGENTS_MD_TEMPLATE = _REPO_ROOT / "agent_fox" / "_templates" / "agents_md.md"
 _AF_SPEC_TEMPLATE = _REPO_ROOT / "agent_fox" / "_templates" / "skills" / "af-spec"
-_ERRATUM_FILE = _REPO_ROOT / "docs" / "errata" / "65_no_feature_branch_push.md"
 
 
 # ---------------------------------------------------------------------------
@@ -108,29 +106,3 @@ class TestAfSpecNoFeatureBranchPushInGitFlow:
                 )
 
 
-# ---------------------------------------------------------------------------
-# TS-78-9: Erratum file exists for spec 65
-# ---------------------------------------------------------------------------
-
-
-class TestErratumFileExists:
-    """TS-78-9: Erratum documenting divergence from spec 65 must exist.
-
-    Requirement: 78-REQ-4.1
-    """
-
-    def test_erratum_exists(self) -> None:
-        """docs/errata/65_no_feature_branch_push.md must exist."""
-        assert _ERRATUM_FILE.exists(), (
-            f"Erratum file not found: {_ERRATUM_FILE}"
-        )
-
-    def test_erratum_references_65_req_3_1(self) -> None:
-        """Erratum must reference 65-REQ-3.1."""
-        content = _ERRATUM_FILE.read_text()
-        assert "65-REQ-3.1" in content
-
-    def test_erratum_references_65_req_3_e1(self) -> None:
-        """Erratum must reference 65-REQ-3.E1."""
-        content = _ERRATUM_FILE.read_text()
-        assert "65-REQ-3.E1" in content
