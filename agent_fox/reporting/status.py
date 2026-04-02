@@ -414,7 +414,12 @@ def generate_status(
 
     # Compute in-progress task activities (72-REQ-1.1, 72-REQ-1.2, 72-REQ-1.3)
     if state is not None:
-        all_activities = _compute_task_activities(state.session_history, node_states)
+        node_archetypes = {
+            nid: node.archetype for nid, node in graph.nodes.items()
+        }
+        all_activities = _compute_task_activities(
+            state.session_history, node_states, node_archetypes
+        )
         in_progress_tasks = [
             ta for ta in all_activities if ta.current_status == "in_progress"
         ]

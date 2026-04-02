@@ -195,7 +195,8 @@ class TestPerTaskActivityLines:
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
         expected = (
-            "  s_a/1: completed. 1/1 sessions. tokens 12.9k in / 29.5k out. $0.80"
+            "  s_a/1 [coder]: completed. 1/1 sessions. "
+            "tokens 12.9k in / 29.5k out. $0.80"
         )
         assert expected in output
 
@@ -203,7 +204,10 @@ class TestPerTaskActivityLines:
         """Second task line matches expected format."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = "  s_a/2: completed. 1/2 sessions. tokens 14.5k in / 9.3k out. $0.31"
+        expected = (
+            "  s_a/2 [coder]: completed. 1/2 sessions. "
+            "tokens 14.5k in / 9.3k out. $0.31"
+        )
         assert expected in output
 
 
