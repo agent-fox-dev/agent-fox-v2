@@ -88,24 +88,24 @@ the CLI layer.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/fix/`
 
-- [ ] 3. Wire CLI layer and session runners
-  - [ ] 3.1 Add `activity_callback` parameter to session runner builders
+- [x] 3. Wire CLI layer and session runners
+  - [x] 3.1 Add `activity_callback` parameter to session runner builders
     - Update `_build_fix_session_runner` to accept and forward `activity_callback`
     - Update `_build_improve_session_runner` to accept and forward `activity_callback`
     - _Requirements: 76-REQ-3.1, 76-REQ-3.2_
 
-  - [ ] 3.2 Add `ProgressDisplay` lifecycle to `fix_cmd`
+  - [x] 3.2 Add `ProgressDisplay` lifecycle to `fix_cmd`
     - Create `AppTheme` via `create_theme(config.theme)`
     - Create `ProgressDisplay(theme, quiet=quiet or json_mode)`
     - Call `progress.start()` before fix loop
     - Call `progress.stop()` in finally block
     - _Requirements: 76-REQ-2.1, 76-REQ-2.2, 76-REQ-2.3, 76-REQ-2.E1_
 
-  - [ ] 3.3 Add banner rendering to `fix_cmd`
+  - [x] 3.3 Add banner rendering to `fix_cmd`
     - Call `render_banner(theme)` when not quiet and not JSON mode
     - _Requirements: 76-REQ-1.1, 76-REQ-1.2, 76-REQ-1.3_
 
-  - [ ] 3.4 Wire progress and check callbacks in `fix_cmd`
+  - [x] 3.4 Wire progress and check callbacks in `fix_cmd`
     - Create `on_fix_progress` handler that converts `FixProgressEvent` to
       milestone lines via `progress.on_task_event` or direct console print
     - Create `on_check` handler that updates spinner on start and prints
@@ -115,11 +115,11 @@ the CLI layer.
     - _Requirements: 76-REQ-3.3, 76-REQ-4.1 through 76-REQ-4.6, 76-REQ-5.1,
       76-REQ-5.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/test_fix_progress.py tests/property/test_fix_progress_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 76-REQ-1.* through 76-REQ-6.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/test_fix_progress.py tests/property/test_fix_progress_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 76-REQ-1.* through 76-REQ-6.* acceptance criteria met
 
 - [ ] 4. Checkpoint — Fix Progress Display Complete
   - Ensure all tests pass: `make check`
