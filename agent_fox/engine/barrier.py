@@ -161,9 +161,7 @@ async def run_sync_barrier_sequence(
 
     # 40-REQ-9.5: Emit sync.barrier audit event (extended payload)
     completed_nodes = [nid for nid, s in state.node_states.items() if s == "completed"]
-    pending_nodes = [
-        nid for nid, s in state.node_states.items() if s in ("pending", "in_progress")
-    ]
+    pending_nodes = [nid for nid, s in state.node_states.items() if s in ("pending", "in_progress")]
     emit_audit(
         AuditEventType.SYNC_BARRIER,
         payload={
@@ -198,6 +196,15 @@ async def run_sync_barrier_sequence(
             barrier_callback()
         except Exception:
             logger.warning("Barrier callback failed", exc_info=True)
+
+    # Compact knowledge base: deduplicate and resolve supersession (fixes #211)
+    if knowledge_db_conn is not None:
+        try:
+            from agent_fox.knowledge.compaction import compact
+
+            compact(knowledge_db_conn)
+        except Exception:
+            logger.warning("Knowledge compaction failed at barrier", exc_info=True)
 
     # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
     try:

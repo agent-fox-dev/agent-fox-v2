@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_fox.engine.barrier import sync_develop_bidirectional, verify_worktrees
+from agent_fox.engine.barrier import (
+    run_sync_barrier_sequence,
+    sync_develop_bidirectional,
+    verify_worktrees,
+)
+from agent_fox.engine.state import ExecutionState
 
 
 class TestVerifyWorktreesOrphansFound:
@@ -37,9 +42,7 @@ class TestVerifyWorktreesOrphansFound:
         assert "spec_a" in names
         assert "spec_b" in names
 
-    def test_logs_warning_for_orphans(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_logs_warning_for_orphans(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """WARNING log emitted listing orphaned paths."""
         wt_dir = tmp_path / ".agent-fox" / "worktrees"
         (wt_dir / "spec_a" / "1").mkdir(parents=True)
@@ -66,9 +69,7 @@ class TestVerifyWorktreesNoOrphans:
         result = verify_worktrees(tmp_path)
         assert result == []
 
-    def test_no_warning_when_no_orphans(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_no_warning_when_no_orphans(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """No warnings logged when no orphans exist."""
         wt_dir = tmp_path / ".agent-fox" / "worktrees"
         wt_dir.mkdir(parents=True)
@@ -130,9 +131,7 @@ class TestSyncDevelopBidirectionalSuccess:
             return (0, "", "")
 
         with (
-            patch(
-                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
-            ),
+            patch("agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance),
             patch(
                 "agent_fox.engine.barrier._sync_develop_with_remote",
                 side_effect=mock_sync,
@@ -154,9 +153,7 @@ class TestSyncDevelopPullFailSkipsPush:
     """
 
     @pytest.mark.asyncio
-    async def test_push_skipped_on_pull_failure(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_push_skipped_on_pull_failure(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """When pull sync fails, push is NOT attempted."""
         push_called = False
 
@@ -179,9 +176,7 @@ class TestSyncDevelopPullFailSkipsPush:
             return (0, "", "")
 
         with (
-            patch(
-                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
-            ),
+            patch("agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance),
             patch(
                 "agent_fox.engine.barrier._sync_develop_with_remote",
                 side_effect=mock_sync,
@@ -202,9 +197,7 @@ class TestSyncDevelopPushFailNonBlocking:
     """
 
     @pytest.mark.asyncio
-    async def test_push_failure_does_not_raise(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_push_failure_does_not_raise(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Push failure logs warning but does not raise."""
         mock_lock_instance = AsyncMock()
         mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
@@ -223,9 +216,7 @@ class TestSyncDevelopPushFailNonBlocking:
             return (0, "", "")
 
         with (
-            patch(
-                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
-            ),
+            patch("agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance),
             patch(
                 "agent_fox.engine.barrier._sync_develop_with_remote",
                 side_effect=mock_sync,
@@ -271,9 +262,7 @@ class TestSyncDevelopNoOrigin:
             return (0, "", "")
 
         with (
-            patch(
-                "agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance
-            ),
+            patch("agent_fox.engine.barrier.MergeLock", return_value=mock_lock_instance),
             patch(
                 "agent_fox.engine.barrier._sync_develop_with_remote",
                 side_effect=mock_sync,
@@ -284,3 +273,126 @@ class TestSyncDevelopNoOrigin:
 
         assert not sync_called
         assert not push_called
+
+
+# ---------------------------------------------------------------------------
+# Knowledge compaction during sync barrier (fixes #211)
+# ---------------------------------------------------------------------------
+
+
+def _make_barrier_state() -> ExecutionState:
+    """Create a minimal ExecutionState for barrier tests."""
+    return ExecutionState(
+        plan_hash="test",
+        node_states={"spec:1": "completed"},
+        session_history=[],
+        total_cost=0.0,
+        total_sessions=1,
+        started_at="2026-04-01T00:00:00Z",
+        updated_at="2026-04-01T00:00:01Z",
+    )
+
+
+class TestCompactionCalledDuringBarrier:
+    """compact() is invoked during run_sync_barrier_sequence when a DB conn is provided."""
+
+    @pytest.mark.asyncio
+    async def test_compact_called_with_db_conn(self, tmp_path: Path) -> None:
+        """compact() is called with the knowledge_db_conn during barrier."""
+        mock_conn = MagicMock()
+
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+            patch("agent_fox.hooks.hooks.run_sync_barrier_hooks"),
+            patch("agent_fox.knowledge.rendering.render_summary"),
+            patch("agent_fox.knowledge.compaction.compact", return_value=(10, 8)) as mock_compact,
+        ):
+            await run_sync_barrier_sequence(
+                state=_make_barrier_state(),
+                sync_interval=5,
+                repo_root=tmp_path,
+                emit_audit=MagicMock(),
+                hook_config=None,
+                no_hooks=True,
+                specs_dir=None,
+                hot_load_enabled=False,
+                hot_load_fn=AsyncMock(),
+                sync_plan_fn=MagicMock(),
+                barrier_callback=None,
+                knowledge_db_conn=mock_conn,
+            )
+
+        mock_compact.assert_called_once_with(mock_conn)
+
+    @pytest.mark.asyncio
+    async def test_compact_skipped_when_no_db_conn(self, tmp_path: Path) -> None:
+        """compact() is NOT called when knowledge_db_conn is None."""
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+            patch("agent_fox.hooks.hooks.run_sync_barrier_hooks"),
+            patch("agent_fox.knowledge.rendering.render_summary"),
+            patch("agent_fox.knowledge.compaction.compact") as mock_compact,
+        ):
+            await run_sync_barrier_sequence(
+                state=_make_barrier_state(),
+                sync_interval=5,
+                repo_root=tmp_path,
+                emit_audit=MagicMock(),
+                hook_config=None,
+                no_hooks=True,
+                specs_dir=None,
+                hot_load_enabled=False,
+                hot_load_fn=AsyncMock(),
+                sync_plan_fn=MagicMock(),
+                barrier_callback=None,
+                knowledge_db_conn=None,
+            )
+
+        mock_compact.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_compact_failure_is_non_blocking(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """compact() failure logs a warning but does not raise."""
+        mock_conn = MagicMock()
+
+        with (
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
+            patch(
+                "agent_fox.engine.barrier.sync_develop_bidirectional",
+                new_callable=AsyncMock,
+            ),
+            patch("agent_fox.hooks.hooks.run_sync_barrier_hooks"),
+            patch("agent_fox.knowledge.rendering.render_summary") as mock_render,
+            patch(
+                "agent_fox.knowledge.compaction.compact",
+                side_effect=RuntimeError("compaction boom"),
+            ),
+            caplog.at_level(logging.WARNING, logger="agent_fox.engine.barrier"),
+        ):
+            # Must not raise
+            await run_sync_barrier_sequence(
+                state=_make_barrier_state(),
+                sync_interval=5,
+                repo_root=tmp_path,
+                emit_audit=MagicMock(),
+                hook_config=None,
+                no_hooks=True,
+                specs_dir=None,
+                hot_load_enabled=False,
+                hot_load_fn=AsyncMock(),
+                sync_plan_fn=MagicMock(),
+                barrier_callback=None,
+                knowledge_db_conn=mock_conn,
+            )
+
+        assert "Knowledge compaction failed" in caplog.text
+        # render_summary should still run after compaction failure
+        mock_render.assert_called_once()
