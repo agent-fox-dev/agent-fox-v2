@@ -150,11 +150,11 @@ Three implementation phases after test scaffolding:
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 75-REQ-5.* acceptance criteria met
 
-- [ ] 5. Checkpoint — Timeout-Aware Escalation Complete
-  - [ ] All spec tests pass
-  - [ ] All property tests pass
-  - [ ] Full test suite passes: `make check`
-  - [ ] Update documentation if needed
+- [x] 5. Checkpoint — Timeout-Aware Escalation Complete
+  - [x] All spec tests pass
+  - [x] All property tests pass
+  - [x] Full test suite passes: `make check`
+  - [x] Update documentation if needed
 
 ## Traceability
 
