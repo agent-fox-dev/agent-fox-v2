@@ -104,6 +104,63 @@ class TestRetryApiCallAsync:
         assert fn.call_count == 1
 
 
+class TestRetryApiCallAsyncNetworkErrors:
+    """Verify that network-level transport errors trigger retries."""
+
+    @pytest.mark.asyncio
+    async def test_retries_on_oserror_then_succeeds(self) -> None:
+        exc = OSError(50, "Network is down")
+        fn = AsyncMock(side_effect=[exc, "ok"])
+
+        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+            result = await retry_api_call_async(fn, context="test")
+
+        assert result == "ok"
+        assert fn.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retries_on_connection_error_then_succeeds(self) -> None:
+        exc = ConnectionError("Connection refused")
+        fn = AsyncMock(side_effect=[exc, "ok"])
+
+        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+            result = await retry_api_call_async(fn, context="test")
+
+        assert result == "ok"
+        assert fn.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_retries_on_timeout_error_then_succeeds(self) -> None:
+        exc = TimeoutError("Connection timed out")
+        fn = AsyncMock(side_effect=[exc, "ok"])
+
+        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+            result = await retry_api_call_async(fn, context="test")
+
+        assert result == "ok"
+        assert fn.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_raises_oserror_after_all_retries_exhausted(self) -> None:
+        exc = OSError(50, "Network is down")
+        fn = AsyncMock(side_effect=exc)
+
+        with patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(OSError):
+                await retry_api_call_async(fn, context="test")
+
+        assert fn.call_count == 4
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_non_retryable_exception(self) -> None:
+        fn = AsyncMock(side_effect=ValueError("bad value"))
+
+        with pytest.raises(ValueError):
+            await retry_api_call_async(fn, context="test")
+
+        assert fn.call_count == 1
+
+
 class TestRetryApiCallSync:
     def test_succeeds_without_retry(self) -> None:
         fn = MagicMock(return_value="ok")
@@ -137,6 +194,48 @@ class TestRetryApiCallSync:
         fn = MagicMock(side_effect=exc)
 
         with pytest.raises(APIStatusError):
+            retry_api_call(fn, context="test")
+
+        assert fn.call_count == 1
+
+
+class TestRetryApiCallSyncNetworkErrors:
+    """Verify sync retry handles network-level transport errors."""
+
+    def test_retries_on_oserror_then_succeeds(self) -> None:
+        exc = OSError(50, "Network is down")
+        fn = MagicMock(side_effect=[exc, "ok"])
+
+        with patch("agent_fox.core.retry.time.sleep"):
+            result = retry_api_call(fn, context="test")
+
+        assert result == "ok"
+        assert fn.call_count == 2
+
+    def test_retries_on_connection_error_then_succeeds(self) -> None:
+        exc = ConnectionError("Connection refused")
+        fn = MagicMock(side_effect=[exc, "ok"])
+
+        with patch("agent_fox.core.retry.time.sleep"):
+            result = retry_api_call(fn, context="test")
+
+        assert result == "ok"
+        assert fn.call_count == 2
+
+    def test_raises_oserror_after_all_retries_exhausted(self) -> None:
+        exc = OSError(50, "Network is down")
+        fn = MagicMock(side_effect=exc)
+
+        with patch("agent_fox.core.retry.time.sleep"):
+            with pytest.raises(OSError):
+                retry_api_call(fn, context="test")
+
+        assert fn.call_count == 4
+
+    def test_does_not_retry_non_retryable_exception(self) -> None:
+        fn = MagicMock(side_effect=ValueError("bad value"))
+
+        with pytest.raises(ValueError):
             retry_api_call(fn, context="test")
 
         assert fn.call_count == 1

@@ -1,7 +1,8 @@
 """Retry helpers for Anthropic API calls with fixed backoff schedule.
 
-Retries on RateLimitError (429) and server errors (5xx) using a fixed
-delay schedule of 2s → 30s → 60s, then aborts.
+Retries on RateLimitError (429), server errors (5xx), and network-level
+transport errors (OSError family) using a fixed delay schedule of
+2s → 30s → 60s, then aborts.
 """
 
 import asyncio
@@ -22,6 +23,8 @@ def _is_retryable(exc: Exception) -> bool:
     if isinstance(exc, RateLimitError):
         return True
     if isinstance(exc, APIStatusError) and exc.status_code >= 500:
+        return True
+    if isinstance(exc, OSError):
         return True
     return False
 
@@ -47,7 +50,7 @@ async def retry_api_call_async[T](
     for attempt in range(max_attempts):
         try:
             return await fn()
-        except (RateLimitError, APIStatusError) as exc:
+        except (RateLimitError, APIStatusError, OSError) as exc:
             if not _is_retryable(exc) or attempt == max_attempts - 1:
                 raise
             delay = _RETRY_DELAYS[attempt]
@@ -73,7 +76,7 @@ def retry_api_call[T](
     for attempt in range(max_attempts):
         try:
             return fn()
-        except (RateLimitError, APIStatusError) as exc:
+        except (RateLimitError, APIStatusError, OSError) as exc:
             if not _is_retryable(exc) or attempt == max_attempts - 1:
                 raise
             delay = _RETRY_DELAYS[attempt]
