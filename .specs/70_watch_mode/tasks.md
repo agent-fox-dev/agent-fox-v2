@@ -119,45 +119,126 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - [x] No linter warnings introduced: `ruff check agent_fox/cli/code.py agent_fox/engine/engine.py`
     - [x] Requirements 70-REQ-1.1, 70-REQ-1.2, 70-REQ-1.3, 70-REQ-3.3, 70-REQ-4.1, 70-REQ-4.E1 acceptance criteria met
 
-- [ ] 4. Watch loop implementation
-  - [ ] 4.1 Implement `_watch_loop()` method on Orchestrator
-    - Sleep for `watch_interval`, check interruption, check circuit breaker
-    - Call `_try_end_of_run_discovery()` on each cycle
-    - Emit `WATCH_POLL` audit event with `poll_number` and `new_tasks_found`
-    - Return `None` when new tasks found (caller continues), or terminal state
-    - Handle barrier exceptions: log and continue (non-fatal)
-    - Read `watch_interval` from config on each cycle (supports hot-reload)
-    - File: `agent_fox/engine/engine.py`
-    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.E1, 2.E2, 4.2, 4.3, 5.1, 5.2_
+- [ ] 4. Fix watch loop test mocks (main loop discovery offset)
+  - [ ] 4.1 Fix TS-70-8 and TS-70-E2: use discovery mock to set interrupted
+    - Both tests currently set `orch._signal.interrupted = True` before
+      `orch.run()`, but the main loop's interrupt check at line 507 catches
+      this before the watch gate is reached. Fix: set interrupted inside a
+      `fake_discovery` side_effect so the flag is set after the main loop
+      reaches the discovery call but before the watch loop starts.
+    - TS-70-8: `test_watch_loop_checks_interruption_before_sleep`
+    - TS-70-E2: `test_empty_plan_enters_watch_loop`
+    - Files: `tests/unit/test_watch_mode.py`
+    - _Test Spec: TS-70-8, TS-70-E2_
 
-  - [ ] 4.2 Handle empty plan with watch mode
-    - Ensure empty graph enters watch loop instead of returning immediately
-    - File: `agent_fox/engine/engine.py`
-    - _Requirements: 1.E2_
+  - [ ] 4.2 Fix TS-70-E3: raise exception on mock call 2 not call 1
+    - The RuntimeError must occur on mock call 2 (first watch loop call),
+      not call 1 (main loop call). The main loop does not catch exceptions
+      from `_try_end_of_run_discovery` the same way the watch loop should.
+    - File: `tests/unit/test_watch_mode.py`
+    - _Test Spec: TS-70-E3_
 
-  - [ ] 4.3 Update watch gate call site to use real `_watch_loop()`
-    - Remove stub from group 3 and wire in the full implementation
-    - If group 3 already calls `_watch_loop()` and the method now has the real
-      body, this subtask is a no-op
-    - File: `agent_fox/engine/engine.py`
-    - _Requirements: 1.1_
+  - [ ] 4.3 Fix TS-70-12 and TS-70-E4: update config on mock call 2
+    - Config change must happen on mock call 2 (first watch poll), not
+      call 1 (main loop). Otherwise the config is already changed before
+      the watch loop's first sleep, and both sleeps use the new value.
+    - TS-70-12: `test_watch_interval_updated_mid_run`
+    - TS-70-E4: `test_watch_interval_updated_via_hot_reload`
+    - File: `tests/unit/test_watch_mode.py`
+    - _Test Spec: TS-70-12, TS-70-E4_
+
+  - [ ] 4.4 Fix TS-70-6: account for re-entry after watch loop returns None
+    - Mock must: return False on call 1 (main loop), True on call 2
+      (watch poll finds tasks), then set interrupted on call 3+ to
+      terminate the main loop after re-entry.
+    - Change expected `state.run_status` from `"completed"` to
+      `"interrupted"` (the run can't complete normally with mocked
+      discovery that never adds real tasks to the graph).
+    - File: `tests/unit/test_watch_mode.py`
+    - _Test Spec: TS-70-6_
+
+  - [ ] 4.5 Fix TS-70-17: offset mock by 1, add termination condition
+    - Mock must: return False on calls 1-2 (main loop + watch poll 1),
+      True on call 3 (watch poll 2), then set interrupted on call 4+.
+    - This gives 2 WATCH_POLL events: poll 1 (False) and poll 2 (True).
+    - File: `tests/unit/test_watch_mode.py`
+    - _Test Spec: TS-70-17_
 
   - [ ] 4.V Verify task group 4
+    - [ ] All fixed tests are syntactically valid: `ruff check tests/unit/test_watch_mode.py`
+    - [ ] All fixed tests still FAIL (stub returns COMPLETED immediately)
+    - [ ] Previously passing tests still pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "Config or AuditEnum or hot_load_false or stall or missing_plan or circuit_breaker_before"`
+    - [ ] No linter warnings: `ruff check tests/`
+
+- [ ] 5. Watch loop core implementation
+  - [ ] 5.1 Add `_watch_poll_count` instance variable
+    - Initialize `self._watch_poll_count = 0` in `run()` (before the
+      main while loop). This counter is run-scoped and persists across
+      multiple `_watch_loop` invocations.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 5.2_
+
+  - [ ] 5.2 Implement `_watch_loop()` skeleton: interrupt checks + sleep
+    - Replace the stub with the loop structure from `design.md §
+      Watch Loop Implementation Detail`.
+    - Steps 1-3 only: check interrupt → emit WATCH_POLL → return if
+      interrupted; sleep for `self._config.watch_interval`; check
+      interrupt after sleep → emit WATCH_POLL → return if interrupted.
+    - Return `state` (with INTERRUPTED status) on interrupt.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 2.1, 2.5, 4.3_
+    - _Test Spec: TS-70-4, TS-70-8, TS-70-15_
+
+  - [ ] 5.3 Add discovery call and return logic
+    - Steps 5+7 from the design pseudocode: call
+      `self._try_end_of_run_discovery(state)`, return `None` if True
+      (new tasks), otherwise loop.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 2.2, 2.3, 2.4_
+    - _Test Spec: TS-70-5, TS-70-6, TS-70-7_
+
+  - [ ] 5.4 Add WATCH_POLL audit event emission
+    - Step 6: emit `WATCH_POLL` after discovery with `poll_number` and
+      `new_tasks_found` in payload. Use `emit_audit_event()`.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 5.1, 5.2_
+    - _Test Spec: TS-70-1, TS-70-16, TS-70-17, TS-70-P2_
+
+  - [ ] 5.5 Add circuit breaker check and barrier exception handling
+    - Step 4: check `self._circuit.should_stop()` after sleep, return
+      terminal state if tripped.
+    - Step 5 exception handling: wrap `_try_end_of_run_discovery` in
+      try/except, log and set `new_tasks = False` on error.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 4.2, 2.E1_
+    - _Test Spec: TS-70-14, TS-70-E3_
+
+  - [ ] 5.6 Handle empty plan entering watch loop
+    - Verify the existing watch gate (group 3) already handles empty
+      plans correctly: empty graph → no ready tasks → not stalled →
+      discovery returns False → watch gate → `_watch_loop()`. If this
+      flow already works, this subtask is a no-op. If not, adjust the
+      watch gate condition.
+    - File: `agent_fox/engine/engine.py`
+    - _Requirements: 1.E2_
+    - _Test Spec: TS-70-E2_
+
+  - [ ] 5.V Verify task group 5
     - [ ] Watch loop tests pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "WatchLoop or WatchActivation or Termination or AuditEvent or ConfigReload"`
     - [ ] Edge case tests pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "EdgeCase"`
     - [ ] Property tests pass: `uv run pytest -q tests/property/test_watch_mode.py`
     - [ ] All spec tests pass: `uv run pytest -q tests/unit/test_watch_mode.py tests/property/test_watch_mode.py tests/integration/test_watch_mode.py`
     - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `ruff check agent_fox/engine/engine.py`
-    - [ ] Requirements 70-REQ-2.*, 70-REQ-1.E2, 70-REQ-4.2, 70-REQ-4.3, 70-REQ-5.1, 70-REQ-5.2 acceptance criteria met
+    - [ ] No linter warnings: `ruff check agent_fox/engine/engine.py`
+    - [ ] Requirements 70-REQ-2.*, 70-REQ-1.E2, 70-REQ-4.2, 70-REQ-4.3, 70-REQ-5.1, 70-REQ-5.2 met
 
-- [ ] 5. Checkpoint - Watch Mode Complete
-  - [ ] 5.1 Run full test suite and verify all spec tests pass
+- [ ] 6. Checkpoint - Watch Mode Complete
+  - [ ] 6.1 Run full test suite and verify all spec tests pass
     - `uv run pytest -q`
     - `ruff check agent_fox/ tests/`
-  - [ ] 5.2 Update CLI reference documentation
+  - [ ] 6.2 Update CLI reference documentation
     - Add `--watch` and `--watch-interval` to `docs/cli-reference.md`
-  - [ ] 5.3 Verify traceability: all requirements covered by passing tests
+  - [ ] 6.3 Verify traceability: all requirements covered by passing tests
 
 ### Checkbox States
 
@@ -177,28 +258,28 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
 | 70-REQ-1.2 | TS-70-2 | 3.3 | test_watch_mode.py::TestHotLoadGate |
 | 70-REQ-1.3 | TS-70-3 | 3.1 | test_watch_mode.py (integration) |
 | 70-REQ-1.E1 | TS-70-E1 | 3.3 | test_watch_mode.py::TestEdgeCases |
-| 70-REQ-1.E2 | TS-70-E2 | 4.2 | test_watch_mode.py::TestEdgeCases |
-| 70-REQ-2.1 | TS-70-4 | 4.1 | test_watch_mode.py::TestWatchLoop |
-| 70-REQ-2.2 | TS-70-5 | 4.1 | test_watch_mode.py::TestWatchLoop |
-| 70-REQ-2.3 | TS-70-6 | 4.1 | test_watch_mode.py::TestWatchLoop |
-| 70-REQ-2.4 | TS-70-7 | 4.1 | test_watch_mode.py::TestWatchLoop |
-| 70-REQ-2.5 | TS-70-8 | 4.1 | test_watch_mode.py::TestWatchLoop |
-| 70-REQ-2.E1 | TS-70-E3 | 4.1 | test_watch_mode.py::TestEdgeCases |
-| 70-REQ-2.E2 | TS-70-E4 | 4.1 | test_watch_mode.py::TestEdgeCases |
+| 70-REQ-1.E2 | TS-70-E2 | 4.1, 5.6 | test_watch_mode.py::TestEdgeCases |
+| 70-REQ-2.1 | TS-70-4 | 5.2 | test_watch_mode.py::TestWatchLoop |
+| 70-REQ-2.2 | TS-70-5 | 5.3 | test_watch_mode.py::TestWatchLoop |
+| 70-REQ-2.3 | TS-70-6 | 4.4, 5.3 | test_watch_mode.py::TestWatchLoop |
+| 70-REQ-2.4 | TS-70-7 | 5.3 | test_watch_mode.py::TestWatchLoop |
+| 70-REQ-2.5 | TS-70-8 | 4.1, 5.2 | test_watch_mode.py::TestWatchLoop |
+| 70-REQ-2.E1 | TS-70-E3 | 4.2, 5.5 | test_watch_mode.py::TestEdgeCases |
+| 70-REQ-2.E2 | TS-70-E4 | 4.3 | test_watch_mode.py::TestEdgeCases |
 | 70-REQ-3.1 | TS-70-9 | 2.1 | test_watch_mode.py::TestConfig |
 | 70-REQ-3.2 | TS-70-10 | 2.1 | test_watch_mode.py::TestConfig |
 | 70-REQ-3.3 | TS-70-11 | 3.1 | test_watch_mode.py (integration) |
-| 70-REQ-3.4 | TS-70-12 | 2.4 | test_watch_mode.py::TestConfigReload |
+| 70-REQ-3.4 | TS-70-12 | 4.3 | test_watch_mode.py::TestConfigReload |
 | 70-REQ-3.E1 | TS-70-E5 | 2.1 | test_watch_mode.py::TestEdgeCases |
 | 70-REQ-4.1 | TS-70-13 | 3.3 | test_watch_mode.py::TestTermination |
-| 70-REQ-4.2 | TS-70-14 | 4.1 | test_watch_mode.py::TestTermination |
-| 70-REQ-4.3 | TS-70-15 | 4.1 | test_watch_mode.py::TestTermination |
+| 70-REQ-4.2 | TS-70-14 | 5.5 | test_watch_mode.py::TestTermination |
+| 70-REQ-4.3 | TS-70-15 | 5.2 | test_watch_mode.py::TestTermination |
 | 70-REQ-4.E1 | TS-70-E6 | 3.3 | test_watch_mode.py::TestEdgeCases |
-| 70-REQ-5.1 | TS-70-16 | 4.1 | test_watch_mode.py::TestAuditEvents |
-| 70-REQ-5.2 | TS-70-17 | 4.1 | test_watch_mode.py::TestAuditEvents |
+| 70-REQ-5.1 | TS-70-16 | 5.4 | test_watch_mode.py::TestAuditEvents |
+| 70-REQ-5.2 | TS-70-17 | 4.5, 5.4 | test_watch_mode.py::TestAuditEvents |
 | 70-REQ-5.3 | TS-70-18 | 2.2 | test_watch_mode.py::TestAuditEnum |
 | Property 1 | TS-70-P1 | 2.1 | test_watch_mode.py (property) |
-| Property 2 | TS-70-P2 | 4.1 | test_watch_mode.py (property) |
+| Property 2 | TS-70-P2 | 5.4 | test_watch_mode.py (property) |
 | Property 3 | TS-70-P3 | 3.3 | test_watch_mode.py (property) |
 | Property 4 | TS-70-P4 | 3.3 | test_watch_mode.py (property) |
 
@@ -210,6 +291,19 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
 - The `_signal.interrupted` check pattern already exists in the main loop and
   should be reused in the watch loop.
 - Circuit breaker checks in the watch loop reuse `self._circuit.should_stop()`.
-- Group 3 may use a stub `_watch_loop()` that returns COMPLETED — this is
+- Group 3 used a stub `_watch_loop()` that returns COMPLETED — this is
   intentional. The stub lets CLI and gate tests pass without the full loop.
-  Group 4 replaces the stub with the real implementation.
+  Group 5 replaces the stub with the real implementation.
+- **CRITICAL: Main loop discovery offset.** The main dispatch loop calls
+  `_try_end_of_run_discovery(state)` once before the watch gate. All test
+  mocks that count calls to this method must account for this offset. The
+  first mock call corresponds to the main loop, not the watch loop. See
+  `design.md § Watch Loop Implementation Detail` for the full offset table.
+  This offset was the root cause of all previous implementation failures.
+- **Do not set `orch._signal.interrupted = True` before `orch.run()`.** The
+  main loop checks this flag at line 507 and shuts down before reaching the
+  watch gate. Instead, set the flag inside a `fake_discovery` side_effect so
+  it takes effect after the main loop's discovery call.
+- `poll_number` is an instance variable (`self._watch_poll_count`) on the
+  Orchestrator, initialized to 0 in `run()`. It persists across multiple
+  `_watch_loop` invocations within the same run.

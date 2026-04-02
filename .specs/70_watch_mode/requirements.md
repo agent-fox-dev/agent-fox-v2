@@ -131,10 +131,13 @@ audit log so I can distinguish idle polling time from active work.
 
 #### Acceptance Criteria
 
-1. [70-REQ-5.1] WHEN a watch poll cycle begins, THE system SHALL emit a
-   `WATCH_POLL` audit event.
+1. [70-REQ-5.1] WHEN a watch poll cycle completes discovery, THE system SHALL
+   emit a `WATCH_POLL` audit event. WHEN the watch loop detects an interrupt
+   before or after sleeping, THE system SHALL emit a `WATCH_POLL` audit event
+   with `new_tasks_found=false` before returning.
 2. [70-REQ-5.2] THE `WATCH_POLL` audit event payload SHALL include
-   `poll_number` (1-indexed count of polls in this run) and
+   `poll_number` (1-indexed, monotonically increasing counter scoped to the
+   entire run — not reset between watch loop invocations) and
    `new_tasks_found` (boolean).
 3. [70-REQ-5.3] THE `WATCH_POLL` event SHALL be added to the
    `AuditEventType` enum as `WATCH_POLL = "watch.poll"`.

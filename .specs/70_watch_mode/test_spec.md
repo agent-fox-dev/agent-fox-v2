@@ -8,6 +8,22 @@ tests validate behavior against the requirements and correctness properties
 defined in the spec. The watch loop is tested with mocked barriers, signals,
 and circuit breakers to avoid real sleeps or I/O.
 
+### Critical: Main Loop Discovery Offset
+
+All tests that mock `_try_end_of_run_discovery` via `patch.object` must
+account for the main dispatch loop calling this method **once** before the
+watch gate is reached. The mock's call counter will be at 1 by the time
+`_watch_loop` starts. See `design.md § Watch Loop Implementation Detail`
+for the full offset table.
+
+**Key rule for mock design:** If you want the watch loop's Nth poll to
+trigger a specific behavior, set the mock to trigger on call `N + 1`
+(not call `N`).
+
+Failure to account for this offset is the primary reason previous
+implementation attempts failed — mocks fired one call too early, causing
+wrong behavior and infinite loops.
+
 ## Test Cases
 
 ### TS-70-1: Watch flag activates watch loop
@@ -147,26 +163,37 @@ ASSERT _try_end_of_run_discovery.call_count >= 2
 **Requirement:** 70-REQ-2.3
 **Type:** unit
 **Description:** Verify the watch loop exits and dispatch resumes when new
-tasks are found.
+tasks are found. After re-entry, the main loop calls discovery again; the
+test terminates via interrupt.
 
 **Preconditions:**
 - Orchestrator with `watch=True`
-- Barrier returns no tasks on first poll, then returns new tasks on second
+- Mock discovery accounting for main loop offset:
+  - Call 1 (main loop): returns False (enters watch gate)
+  - Call 2 (watch poll 1): returns True (new tasks found → watch loop
+    returns None → main loop re-enters dispatch)
+  - Call 3+ (main loop re-entry): set interrupted, return False
 
 **Input:**
 - Call `orchestrator.run()`
 
 **Expected:**
-- After second poll, dispatch loop runs the new tasks
-- Run completes normally
+- Watch loop returned None (verified by main loop re-entry: poll_count >= 3)
+- At least 1 WATCH_POLL event emitted with `new_tasks_found=True`
+- Run terminates with INTERRUPTED (via signal set on re-entry)
 
 **Assertion pseudocode:**
 ```
 orchestrator = create_orchestrator(watch=True)
-mock barrier: poll 1 -> no tasks, poll 2 -> new tasks
+poll_count = 0
+mock _try_end_of_run_discovery:
+    poll_count += 1
+    IF poll_count == 2: RETURN True   # watch poll finds tasks
+    IF poll_count >= 3: set interrupted  # terminate after re-entry
+    RETURN False
 state = orchestrator.run()
-ASSERT new tasks were dispatched
-ASSERT state.run_status == "completed"
+ASSERT poll_count >= 3  # main loop re-entered after watch exit
+ASSERT state.run_status == "interrupted"
 ```
 
 ### TS-70-7: Watch loop re-enters on no tasks
@@ -201,25 +228,31 @@ ASSERT state.run_status == "interrupted"
 
 **Requirement:** 70-REQ-2.5
 **Type:** unit
-**Description:** Verify SIGINT is checked before each sleep.
+**Description:** Verify SIGINT is checked before each sleep in the watch
+loop. The interrupt must be set via the discovery mock (not directly before
+`run()`) so the main loop's interrupt check at the top of the while loop
+does not catch it first.
 
 **Preconditions:**
 - Orchestrator with `watch=True`
-- SIGINT set before first sleep
+- Mock discovery sets `interrupted=True` on call 1 (main loop), returns False
+- This causes the watch loop to see `interrupted=True` on entry
 
 **Input:**
 - Call `orchestrator.run()`
 
 **Expected:**
-- No sleep occurs
+- No sleep occurs in the watch loop
 - Run terminates with INTERRUPTED
 
 **Assertion pseudocode:**
 ```
 orchestrator = create_orchestrator(watch=True)
-set interrupted signal before watch loop entry
+mock _try_end_of_run_discovery:
+    set interrupted = True
+    RETURN False
 state = orchestrator.run()
-ASSERT asyncio.sleep was NOT called
+ASSERT asyncio.sleep was NOT called in watch loop
 ASSERT state.run_status == "interrupted"
 ```
 
@@ -294,25 +327,35 @@ ASSERT orchestrator config watch_interval == 30
 **Requirement:** 70-REQ-3.4
 **Type:** unit
 **Description:** Verify watch_interval changes take effect after config reload.
+The config change must happen on mock call 2 (first watch poll discovery),
+not call 1 (main loop discovery), to ensure the first watch sleep uses the
+original interval.
 
 **Preconditions:**
 - Orchestrator with `watch=True`, `watch_interval=60`
-- Config reload changes `watch_interval` to 30
+- Mock discovery: call 2 (first watch poll) updates config to
+  `watch_interval=20`, returns False
+- Mock sleep: tracks args, sets interrupted after 2 calls
 
 **Input:**
-- First poll uses interval 60
-- Config reload occurs
-- Second poll uses interval 30
+- Call `orchestrator.run()`
 
 **Expected:**
-- First sleep uses 60, second sleep uses 30
+- First sleep uses 60 (original), second sleep uses 20 (hot-reloaded)
 
 **Assertion pseudocode:**
 ```
 orchestrator = create_orchestrator(watch=True, watch_interval=60)
-mock asyncio.sleep to track args
-after first poll, update config watch_interval to 30
-ASSERT sleep calls: [60, 30]
+poll_count = 0
+mock _try_end_of_run_discovery:
+    poll_count += 1
+    IF poll_count == 2:  # first watch poll, not main loop
+        update config.watch_interval = 20
+    RETURN False
+mock asyncio.sleep to track args, set interrupted after 2 calls
+state = orchestrator.run()
+ASSERT sleep_args[0] == 60
+ASSERT sleep_args[1] == 20
 ```
 
 ### TS-70-13: Stall terminates in watch mode
@@ -418,21 +461,36 @@ ASSERT len(watch_events) == 2
 **Requirement:** 70-REQ-5.2
 **Type:** unit
 **Description:** Verify poll_number and new_tasks_found in payload.
+Mock must account for main loop discovery offset: call 1 is the main loop,
+calls 2+ are watch polls.
 
 **Preconditions:**
 - Orchestrator with `watch=True`, audit sink
-- Barrier returns no tasks on poll 1, new tasks on poll 2
+- Mock discovery:
+  - Call 1 (main loop): returns False
+  - Call 2 (watch poll 1): returns False (no tasks)
+  - Call 3 (watch poll 2): returns True (new tasks found)
+  - Call 4+ (main loop re-entry): set interrupted, return False
 
 **Input:**
-- Run until poll 2 finds tasks
+- Call `orchestrator.run()`
 
 **Expected:**
-- Poll 1: `poll_number=1, new_tasks_found=False`
-- Poll 2: `poll_number=2, new_tasks_found=True`
+- At least 2 WATCH_POLL events from the watch loop
+- Event 0: `poll_number=1, new_tasks_found=False`
+- Event 1: `poll_number=2, new_tasks_found=True`
 
 **Assertion pseudocode:**
 ```
+poll_count = 0
+mock _try_end_of_run_discovery:
+    poll_count += 1
+    IF poll_count == 3: RETURN True   # watch poll 2 finds tasks
+    IF poll_count >= 4: set interrupted  # terminate after re-entry
+    RETURN False
+state = orchestrator.run()
 events = get_watch_poll_events()
+ASSERT len(events) >= 2
 ASSERT events[0].payload == {"poll_number": 1, "new_tasks_found": False}
 ASSERT events[1].payload == {"poll_number": 2, "new_tasks_found": True}
 ```
@@ -563,24 +621,31 @@ ASSERT_RAISES PlanError: orchestrator.run()
 **Requirement:** 70-REQ-1.E2
 **Type:** unit
 **Description:** An empty plan with watch mode enters the watch loop.
+The interrupt must be set via the discovery mock (not directly before
+`run()`) — setting `interrupted=True` before `run()` causes the main
+loop to shut down at line 507 before reaching the watch gate.
 
 **Preconditions:**
 - Valid but empty plan.json (no nodes)
 - `watch=True`, `hot_load=True`
+- Mock discovery sets `interrupted=True` on call 1 (main loop),
+  returns False — this causes the watch loop to see the interrupt on entry
 
 **Input:**
-- Call `orchestrator.run()`, SIGINT after first poll
+- Call `orchestrator.run()`
 
 **Expected:**
-- Watch loop entered (WATCH_POLL event emitted)
+- Watch loop entered (at least 1 WATCH_POLL event emitted)
 - Terminates with INTERRUPTED
 
 **Assertion pseudocode:**
 ```
 orchestrator = create_orchestrator(watch=True, empty_plan=True)
-trigger SIGINT after first poll
+mock _try_end_of_run_discovery:
+    set interrupted = True
+    RETURN False
 state = orchestrator.run()
-ASSERT WATCH_POLL event emitted
+ASSERT count(WATCH_POLL events) >= 1
 ASSERT state.run_status == "interrupted"
 ```
 
@@ -589,24 +654,35 @@ ASSERT state.run_status == "interrupted"
 **Requirement:** 70-REQ-2.E1
 **Type:** unit
 **Description:** Barrier exceptions are logged but do not stop the watch loop.
+The exception must be raised on mock call 2 (first watch poll), not call 1
+(main loop) — the main loop does not catch `_try_end_of_run_discovery`
+exceptions the same way.
 
 **Preconditions:**
 - Orchestrator with `watch=True`
-- Barrier raises RuntimeError on first poll, succeeds on second
+- Mock discovery:
+  - Call 1 (main loop): returns False (enters watch gate)
+  - Call 2 (watch poll 1): raises RuntimeError
+  - Call 3 (watch poll 2): sets interrupted, returns False
 
 **Input:**
-- Run two polls, SIGINT after second
+- Call `orchestrator.run()`
 
 **Expected:**
-- Error logged for first poll
-- Second poll runs normally
-- 2 WATCH_POLL events emitted
+- Error logged for watch poll 1
+- Watch poll 2 runs normally
+- 2 WATCH_POLL events emitted (poll 1 with exception treated as
+  `new_tasks_found=False`, poll 2 normal)
 
 **Assertion pseudocode:**
 ```
 orchestrator = create_orchestrator(watch=True)
-mock barrier: poll 1 -> RuntimeError, poll 2 -> no tasks
-trigger SIGINT after poll 2
+poll_count = 0
+mock _try_end_of_run_discovery:
+    poll_count += 1
+    IF poll_count == 2: RAISE RuntimeError  # watch poll 1
+    set interrupted = True  # watch poll 2
+    RETURN False
 state = orchestrator.run()
 ASSERT error logged
 ASSERT count(WATCH_POLL events) == 2
@@ -617,24 +693,31 @@ ASSERT count(WATCH_POLL events) == 2
 **Requirement:** 70-REQ-2.E2
 **Type:** unit
 **Description:** Interval changes from config reload are used on next cycle.
+Config change must happen on mock call 2 (first watch poll), not call 1
+(main loop), to ensure the first watch sleep uses the original interval.
 
 **Preconditions:**
 - Orchestrator with `watch=True`, `watch_interval=60`
+- Mock discovery: call 2 (first watch poll) updates config to
+  `watch_interval=20`, returns False
+- Mock sleep: tracks args, sets interrupted after 2 calls
 
 **Input:**
-- After first poll, config reload sets `watch_interval=20`
-- Second poll occurs
+- Call `orchestrator.run()`
 
 **Expected:**
-- First sleep: 60 seconds
-- Second sleep: 20 seconds
+- First sleep: 60 seconds (original)
+- Second sleep: 20 seconds (hot-reloaded)
 
 **Assertion pseudocode:**
 ```
-orchestrator = create_orchestrator(watch=True, watch_interval=60)
-mock asyncio.sleep
-after first poll, set config.watch_interval = 20
-trigger SIGINT after second poll
+poll_count = 0
+mock _try_end_of_run_discovery:
+    poll_count += 1
+    IF poll_count == 2:  # first watch poll
+        update config.watch_interval = 20
+    RETURN False
+mock asyncio.sleep to track args, set interrupted after 2 calls
 ASSERT sleep_calls == [60, 20]
 ```
 

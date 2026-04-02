@@ -190,6 +190,93 @@ by mid-run sync barriers.
 
 **Validates: Requirements 4.1**
 
+## Watch Loop Implementation Detail
+
+This section specifies the exact internal structure of `_watch_loop()`. The
+pseudocode below is **normative** — the implementation and tests must follow
+this control flow precisely.
+
+### Critical: Main Loop Discovery Offset
+
+The main dispatch loop calls `_try_end_of_run_discovery(state)` **once** at
+line 569 before the watch gate is reached. When tests mock this method on the
+orchestrator instance, the mock's call counter is already at 1 by the time
+`_watch_loop` executes. All test mocks must account for this offset:
+
+| Mock call # | Caller | Context |
+|-------------|--------|---------|
+| 1 | Main dispatch loop | Before watch gate; returns False to enter watch |
+| 2 | `_watch_loop` | First watch poll cycle |
+| 3 | `_watch_loop` | Second watch poll cycle |
+| N+1 | `_watch_loop` | Nth watch poll cycle |
+
+### Poll Number Counter
+
+`poll_number` is stored as an **instance variable** (`self._watch_poll_count`)
+on the Orchestrator, initialized to 0 in `run()`. This ensures poll numbers
+are monotonically increasing across multiple `_watch_loop` invocations within
+the same run (e.g., if the watch loop exits because new tasks were found, then
+re-enters after those tasks complete).
+
+### Loop Pseudocode
+
+```python
+async def _watch_loop(self, state: ExecutionState) -> ExecutionState | None:
+    while True:
+        self._watch_poll_count += 1
+        poll = self._watch_poll_count
+
+        # ── Step 1: Check interruption BEFORE sleep (70-REQ-2.5) ──
+        # Emits WATCH_POLL even on early interrupt so the poll is auditable.
+        if self._signal.interrupted:
+            emit(WATCH_POLL, {poll_number: poll, new_tasks_found: False})
+            state.run_status = INTERRUPTED
+            save(state)
+            return state
+
+        # ── Step 2: Sleep for watch_interval (70-REQ-2.1, 70-REQ-2.E2) ──
+        # Re-reads interval from config each cycle to support hot-reload.
+        await asyncio.sleep(self._config.watch_interval)
+
+        # ── Step 3: Check interruption AFTER sleep (70-REQ-4.3) ──
+        if self._signal.interrupted:
+            emit(WATCH_POLL, {poll_number: poll, new_tasks_found: False})
+            state.run_status = INTERRUPTED
+            save(state)
+            return state
+
+        # ── Step 4: Check circuit breaker (70-REQ-4.2) ──
+        if circuit_breaker_tripped:
+            state.run_status = <appropriate limit status>
+            save(state)
+            return state
+
+        # ── Step 5: Run sync barrier (70-REQ-2.2, 70-REQ-2.E1) ──
+        try:
+            new_tasks = await self._try_end_of_run_discovery(state)
+        except Exception:
+            logger.exception("Watch poll %d: barrier error", poll)
+            new_tasks = False
+
+        # ── Step 6: Emit audit event (70-REQ-5.1, 70-REQ-5.2) ──
+        emit(WATCH_POLL, {poll_number: poll, new_tasks_found: new_tasks})
+
+        # ── Step 7: Decide next action (70-REQ-2.3, 70-REQ-2.4) ──
+        if new_tasks:
+            return None   # Caller re-enters dispatch loop
+
+        # No new tasks → re-enter watch loop (implicit continue)
+```
+
+### Emission Points Summary
+
+WATCH_POLL is emitted at **three** points:
+1. **Step 1** — Interrupt detected before sleep: `new_tasks_found=False`
+2. **Step 3** — Interrupt detected after sleep: `new_tasks_found=False`
+3. **Step 6** — After discovery completes: `new_tasks_found=<discovery result>`
+
+Every loop iteration emits exactly one WATCH_POLL event.
+
 ## Error Handling
 
 | Error Condition | Behavior | Requirement |
