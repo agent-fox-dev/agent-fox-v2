@@ -385,8 +385,14 @@ class TestWatchLoop:
 
     @pytest.mark.asyncio
     async def test_watch_loop_resumes_on_new_tasks(self, tmp_path: Path) -> None:
-        """TS-70-6: Watch loop exits and dispatch resumes when new tasks found."""
-        orch, _ = _make_orchestrator(tmp_path)
+        """TS-70-6: Watch loop exits and dispatch resumes when new tasks found.
+
+        Mock discovery accounting for main loop offset:
+        - Call 1 (main loop): returns False (enters watch gate)
+        - Call 2 (watch poll 1): returns True (new tasks → watch returns None)
+        - Call 3+ (main loop re-entry): set interrupted, return False
+        """
+        orch, sink = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
 
         poll_count = 0
@@ -394,14 +400,21 @@ class TestWatchLoop:
         async def fake_discovery(state: Any) -> bool:
             nonlocal poll_count
             poll_count += 1
-            return poll_count >= 2  # noqa: PLR2004
+            if poll_count == 2:  # noqa: PLR2004
+                return True  # Watch poll finds tasks → watch loop returns None
+            if poll_count >= 3:  # noqa: PLR2004
+                orch._signal.interrupted = True  # Terminate after re-entry
+            return False
 
         with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 state = await orch.run()
 
-        assert poll_count >= 2  # noqa: PLR2004
-        assert state.run_status == "completed"
+        assert poll_count >= 3  # noqa: PLR2004  # Main loop re-entered
+        assert state.run_status == "interrupted"
+        # Verify at least 1 WATCH_POLL event with new_tasks_found=True
+        events = _watch_poll_events(sink)
+        assert any(e.payload["new_tasks_found"] is True for e in events)
 
     @pytest.mark.asyncio
     async def test_watch_loop_continues_on_no_tasks(self, tmp_path: Path) -> None:
@@ -430,10 +443,15 @@ class TestWatchLoop:
     async def test_watch_loop_checks_interruption_before_sleep(
         self, tmp_path: Path
     ) -> None:
-        """TS-70-8: SIGINT before sleep prevents sleep from being called."""
+        """TS-70-8: SIGINT before sleep prevents sleep from being called.
+
+        The interrupt must be set via the discovery mock (not before run())
+        so the main loop's interrupt check at line 507 does not catch it
+        first. Setting it on call 1 (main loop discovery) causes the watch
+        loop to see interrupted=True on entry.
+        """
         orch, _ = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
-        orch._signal.interrupted = True  # Set before watch loop
 
         sleep_called = False
 
@@ -441,8 +459,13 @@ class TestWatchLoop:
             nonlocal sleep_called
             sleep_called = True
 
-        with patch("asyncio.sleep", side_effect=fake_sleep):
-            state = await orch.run()
+        async def fake_discovery(state: Any) -> bool:
+            orch._signal.interrupted = True  # Set during main loop discovery
+            return False
+
+        with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
+            with patch("asyncio.sleep", side_effect=fake_sleep):
+                state = await orch.run()
 
         assert not sleep_called, "sleep should NOT be called when interrupted"
         assert state.run_status == "interrupted"
@@ -462,7 +485,12 @@ class TestConfigReload:
 
     @pytest.mark.asyncio
     async def test_watch_interval_updated_mid_run(self, tmp_path: Path) -> None:
-        """TS-70-12: Watch interval changes take effect on next sleep cycle."""
+        """TS-70-12: Watch interval changes take effect on next sleep cycle.
+
+        Config change must happen on mock call 2 (first watch poll), not
+        call 1 (main loop), to ensure the first watch sleep uses the
+        original interval.
+        """
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
@@ -483,8 +511,8 @@ class TestConfigReload:
         async def fake_discovery(state: Any) -> bool:
             nonlocal poll_count
             poll_count += 1
-            if poll_count == 1:
-                # Simulate config hot-reload updating watch_interval
+            if poll_count == 2:  # noqa: PLR2004
+                # First watch poll — simulate config hot-reload
                 orch._config = orch._config.model_copy(
                     update={"watch_interval": 20}
                 )
@@ -614,7 +642,14 @@ class TestAuditEvents:
 
     @pytest.mark.asyncio
     async def test_watch_poll_payload_contents(self, tmp_path: Path) -> None:
-        """TS-70-17: WATCH_POLL payload has poll_number and new_tasks_found."""
+        """TS-70-17: WATCH_POLL payload has poll_number and new_tasks_found.
+
+        Mock must account for main loop discovery offset:
+        - Call 1 (main loop): returns False
+        - Call 2 (watch poll 1): returns False (no tasks)
+        - Call 3 (watch poll 2): returns True (new tasks found)
+        - Call 4+ (main loop re-entry): set interrupted, return False
+        """
         orch, sink = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
 
@@ -623,13 +658,17 @@ class TestAuditEvents:
         async def fake_discovery(state: Any) -> bool:
             nonlocal poll_count
             poll_count += 1
-            # Poll 1: no tasks; poll 2: new tasks
-            return poll_count >= 2  # noqa: PLR2004
+            if poll_count == 3:  # noqa: PLR2004
+                return True  # Watch poll 2 finds tasks
+            if poll_count >= 4:  # noqa: PLR2004
+                orch._signal.interrupted = True  # Terminate after re-entry
+            return False
 
         with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                await orch.run()
+                final_state = await orch.run()
 
+        assert final_state.run_status == "interrupted"
         events = _watch_poll_events(sink)
         assert len(events) >= 2  # noqa: PLR2004
 
@@ -677,13 +716,23 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_empty_plan_enters_watch_loop(self, tmp_path: Path) -> None:
-        """TS-70-E2: Empty plan with watch=True enters the watch loop."""
+        """TS-70-E2: Empty plan with watch=True enters the watch loop.
+
+        The interrupt must be set via the discovery mock (not before run())
+        so the main loop's interrupt check at line 507 does not catch it
+        first. Setting it on call 1 (main loop discovery) causes the watch
+        loop to see interrupted=True on entry.
+        """
         orch, sink = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
-        orch._signal.interrupted = True  # Interrupt on watch loop entry
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            state = await orch.run()
+        async def fake_discovery(state: Any) -> bool:
+            orch._signal.interrupted = True
+            return False
+
+        with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                state = await orch.run()
 
         events = _watch_poll_events(sink)
         assert len(events) >= 1, "Watch loop should be entered for empty plan"
@@ -693,7 +742,12 @@ class TestEdgeCases:
     async def test_barrier_exception_does_not_stop_watch_loop(
         self, tmp_path: Path
     ) -> None:
-        """TS-70-E3: Barrier exceptions are logged but watch loop continues."""
+        """TS-70-E3: Barrier exceptions are logged but watch loop continues.
+
+        The exception must be raised on mock call 2 (first watch poll), not
+        call 1 (main loop) — the main loop does not catch
+        _try_end_of_run_discovery exceptions the same way.
+        """
         orch, sink = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
 
@@ -703,7 +757,10 @@ class TestEdgeCases:
             nonlocal poll_count
             poll_count += 1
             if poll_count == 1:
+                return False  # Main loop call → enters watch gate
+            if poll_count == 2:  # noqa: PLR2004
                 raise RuntimeError("Simulated barrier failure")
+            # Call 3 (watch poll 2): set interrupted, return False
             orch._signal.interrupted = True
             return False
 
@@ -718,7 +775,12 @@ class TestEdgeCases:
     async def test_watch_interval_updated_via_hot_reload(
         self, tmp_path: Path
     ) -> None:
-        """TS-70-E4: Config hot-reload updates interval used on next sleep."""
+        """TS-70-E4: Config hot-reload updates interval used on next sleep.
+
+        Config change must happen on mock call 2 (first watch poll), not
+        call 1 (main loop), to ensure the first watch sleep uses the
+        original interval.
+        """
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
@@ -739,7 +801,8 @@ class TestEdgeCases:
         async def fake_discovery(state: Any) -> bool:
             nonlocal poll_count
             poll_count += 1
-            if poll_count == 1:
+            if poll_count == 2:  # noqa: PLR2004
+                # First watch poll — simulate config hot-reload
                 orch._config = orch._config.model_copy(
                     update={"watch_interval": 20}
                 )

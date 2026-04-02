@@ -119,8 +119,8 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - [x] No linter warnings introduced: `ruff check agent_fox/cli/code.py agent_fox/engine/engine.py`
     - [x] Requirements 70-REQ-1.1, 70-REQ-1.2, 70-REQ-1.3, 70-REQ-3.3, 70-REQ-4.1, 70-REQ-4.E1 acceptance criteria met
 
-- [ ] 4. Fix watch loop test mocks (main loop discovery offset)
-  - [ ] 4.1 Fix TS-70-8 and TS-70-E2: use discovery mock to set interrupted
+- [x] 4. Fix watch loop test mocks (main loop discovery offset)
+  - [x] 4.1 Fix TS-70-8 and TS-70-E2: use discovery mock to set interrupted
     - Both tests currently set `orch._signal.interrupted = True` before
       `orch.run()`, but the main loop's interrupt check at line 507 catches
       this before the watch gate is reached. Fix: set interrupted inside a
@@ -131,14 +131,14 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - Files: `tests/unit/test_watch_mode.py`
     - _Test Spec: TS-70-8, TS-70-E2_
 
-  - [ ] 4.2 Fix TS-70-E3: raise exception on mock call 2 not call 1
+  - [x] 4.2 Fix TS-70-E3: raise exception on mock call 2 not call 1
     - The RuntimeError must occur on mock call 2 (first watch loop call),
       not call 1 (main loop call). The main loop does not catch exceptions
       from `_try_end_of_run_discovery` the same way the watch loop should.
     - File: `tests/unit/test_watch_mode.py`
     - _Test Spec: TS-70-E3_
 
-  - [ ] 4.3 Fix TS-70-12 and TS-70-E4: update config on mock call 2
+  - [x] 4.3 Fix TS-70-12 and TS-70-E4: update config on mock call 2
     - Config change must happen on mock call 2 (first watch poll), not
       call 1 (main loop). Otherwise the config is already changed before
       the watch loop's first sleep, and both sleeps use the new value.
@@ -147,7 +147,7 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - File: `tests/unit/test_watch_mode.py`
     - _Test Spec: TS-70-12, TS-70-E4_
 
-  - [ ] 4.4 Fix TS-70-6: account for re-entry after watch loop returns None
+  - [x] 4.4 Fix TS-70-6: account for re-entry after watch loop returns None
     - Mock must: return False on call 1 (main loop), True on call 2
       (watch poll finds tasks), then set interrupted on call 3+ to
       terminate the main loop after re-entry.
@@ -157,18 +157,18 @@ Task group 5 is a checkpoint to verify full coverage and update documentation.
     - File: `tests/unit/test_watch_mode.py`
     - _Test Spec: TS-70-6_
 
-  - [ ] 4.5 Fix TS-70-17: offset mock by 1, add termination condition
+  - [x] 4.5 Fix TS-70-17: offset mock by 1, add termination condition
     - Mock must: return False on calls 1-2 (main loop + watch poll 1),
       True on call 3 (watch poll 2), then set interrupted on call 4+.
     - This gives 2 WATCH_POLL events: poll 1 (False) and poll 2 (True).
     - File: `tests/unit/test_watch_mode.py`
     - _Test Spec: TS-70-17_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] All fixed tests are syntactically valid: `ruff check tests/unit/test_watch_mode.py`
-    - [ ] All fixed tests still FAIL (stub returns COMPLETED immediately)
-    - [ ] Previously passing tests still pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "Config or AuditEnum or hot_load_false or stall or missing_plan or circuit_breaker_before"`
-    - [ ] No linter warnings: `ruff check tests/`
+  - [x] 4.V Verify task group 4
+    - [x] All fixed tests are syntactically valid: `ruff check tests/unit/test_watch_mode.py`
+    - [x] All fixed tests still FAIL (stub returns COMPLETED immediately)
+    - [x] Previously passing tests still pass: `uv run pytest -q tests/unit/test_watch_mode.py -k "Config or AuditEnum or hot_load_false or stall or missing_plan or circuit_breaker_before"`
+    - [x] No linter warnings: `ruff check tests/`
 
 - [ ] 5. Watch loop core implementation
   - [ ] 5.1 Add `_watch_poll_count` instance variable
