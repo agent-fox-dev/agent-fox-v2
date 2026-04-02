@@ -23,8 +23,10 @@ def _setup_minimal_project(project_dir: Path) -> None:
     agent_fox_dir = project_dir / ".agent-fox"
     agent_fox_dir.mkdir(exist_ok=True)
 
-    # Minimal config.toml
-    (agent_fox_dir / "config.toml").write_text("")
+    # Minimal config.toml — disable hot_load so watch gate exits
+    # immediately instead of entering the real watch loop (which would
+    # call asyncio.sleep and hang the CliRunner).
+    (agent_fox_dir / "config.toml").write_text("[orchestrator]\nhot_load = false\n")
 
     # Minimal empty plan.json
     plan = {

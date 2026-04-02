@@ -769,7 +769,9 @@ class TestEdgeCases:
                 await orch.run()
 
         events = _watch_poll_events(sink)
-        assert len(events) == 2  # noqa: PLR2004
+        # 3 events: poll 1 (exception→new_tasks_found=False), poll 2 (normal),
+        # poll 3 (interrupt detected before sleep in step 1).
+        assert len(events) == 3  # noqa: PLR2004
 
     @pytest.mark.asyncio
     async def test_watch_interval_updated_via_hot_reload(

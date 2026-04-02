@@ -410,8 +410,9 @@ class Orchestrator:
                     exc_info=True,
                 )
 
-        # 04-REQ-1.E2: Empty plan
-        if not graph.nodes:
+        # 04-REQ-1.E2: Empty plan — return early unless watch mode is
+        # active (70-REQ-1.E2: empty plan + watch should enter watch loop).
+        if not graph.nodes and not self._watch:
             return ExecutionState(
                 plan_hash=self._compute_plan_hash(),
                 node_states={},
@@ -481,6 +482,9 @@ class Orchestrator:
             PlanError: if plan.json is missing or corrupted
         """
         run_start_time = datetime.now(UTC)
+        # 70-REQ-5.2: Run-scoped poll counter for WATCH_POLL audit events.
+        # Persists across multiple _watch_loop invocations within one run.
+        self._watch_poll_count = 0
         result = self._init_run()
         if isinstance(result, ExecutionState):
             return result
@@ -640,21 +644,77 @@ class Orchestrator:
 
         Sleeps for ``watch_interval`` seconds, then runs the sync barrier
         sequence to check for new specs.  Returns when:
-        - New tasks are discovered (returns None; caller re-enters dispatch)
+        - New tasks are discovered (returns ``None``; caller re-enters dispatch)
         - SIGINT is received (returns state with INTERRUPTED status)
         - Circuit breaker trips (returns state with COST_LIMIT/SESSION_LIMIT)
-
-        Full implementation: group 4.  Stub in group 3 returns COMPLETED so
-        that CLI wiring and gate tests pass without the full watch loop.
 
         Requirements: 70-REQ-2.1 through 70-REQ-2.5, 70-REQ-4.2, 70-REQ-4.3,
                       70-REQ-5.1, 70-REQ-5.2
         """
-        # TODO (group 4): implement the full watch loop.
-        # For now, just terminate with COMPLETED so group 3 gate tests pass.
-        state.run_status = RunStatus.COMPLETED
-        self._state_manager.save(state)
-        return state
+        while True:
+            self._watch_poll_count += 1
+            poll = self._watch_poll_count
+
+            # ── Step 1: Check interruption BEFORE sleep (70-REQ-2.5) ──
+            if self._signal.interrupted:
+                emit_audit_event(
+                    self._sink,
+                    self._run_id,
+                    AuditEventType.WATCH_POLL,
+                    payload={"poll_number": poll, "new_tasks_found": False},
+                )
+                state.run_status = RunStatus.INTERRUPTED
+                self._state_manager.save(state)
+                return state
+
+            # ── Step 2: Sleep for watch_interval (70-REQ-2.1) ──
+            interval = self._config.watch_interval
+            logger.info("Watch poll %d: sleeping %ds", poll, interval)
+            await asyncio.sleep(interval)
+
+            # ── Step 3: Check interruption AFTER sleep (70-REQ-4.3) ──
+            if self._signal.interrupted:
+                emit_audit_event(
+                    self._sink,
+                    self._run_id,
+                    AuditEventType.WATCH_POLL,
+                    payload={"poll_number": poll, "new_tasks_found": False},
+                )
+                state.run_status = RunStatus.INTERRUPTED
+                self._state_manager.save(state)
+                return state
+
+            # ── Step 4: Check circuit breaker (70-REQ-4.2) ──
+            stop_decision = self._circuit.should_stop(state)
+            if not stop_decision.allowed:
+                if (
+                    self._config.max_cost is not None
+                    and state.total_cost >= self._config.max_cost
+                ):
+                    state.run_status = RunStatus.COST_LIMIT
+                else:
+                    state.run_status = RunStatus.SESSION_LIMIT
+                self._state_manager.save(state)
+                return state
+
+            # ── Step 5: Run sync barrier (70-REQ-2.2, 70-REQ-2.E1) ──
+            try:
+                new_tasks = await self._try_end_of_run_discovery(state)
+            except Exception:
+                logger.exception("Watch poll %d: barrier error", poll)
+                new_tasks = False
+
+            # ── Step 6: Emit audit event (70-REQ-5.1, 70-REQ-5.2) ──
+            emit_audit_event(
+                self._sink,
+                self._run_id,
+                AuditEventType.WATCH_POLL,
+                payload={"poll_number": poll, "new_tasks_found": new_tasks},
+            )
+
+            # ── Step 7: Decide next action (70-REQ-2.3, 70-REQ-2.4) ──
+            if new_tasks:
+                return None  # Caller re-enters dispatch loop
 
     def _compute_duration_hints(self) -> dict[str, int] | None:
         """Compute duration hints for ready task ordering.
