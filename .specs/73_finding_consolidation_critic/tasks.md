@@ -157,7 +157,7 @@ updates existing tests.
     - [x] Full pipeline: `make check`
     - [x] Requirements 73-REQ-7.* met
 
-- [ ] 5. Checkpoint — Critic Complete
+- [x] 5. Checkpoint — Critic Complete
   - Verify `make check` passes with zero regressions.
   - Review that all traceability entries are satisfied.
 
