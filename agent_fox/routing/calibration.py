@@ -27,7 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 def _feature_vector_to_array(fv_json: str) -> list[float]:
-    """Convert a JSON feature vector to a numeric array for sklearn."""
+    """Convert a JSON feature vector to a numeric array for sklearn.
+
+    Includes both the original 5 fields (spec 30) and the 4 enrichment
+    fields added by spec 54.
+    """
     fv = json.loads(fv_json) if isinstance(fv_json, str) else fv_json
     return [
         float(fv.get("subtask_count", 0)),
@@ -35,17 +39,29 @@ def _feature_vector_to_array(fv_json: str) -> list[float]:
         float(fv.get("has_property_tests", False)),
         float(fv.get("edge_case_count", 0)),
         float(fv.get("dependency_count", 0)),
+        float(fv.get("file_count_estimate", 0)),
+        float(fv.get("cross_spec_integration", False)),
+        float(fv.get("language_count", 1)),
+        float(fv.get("historical_median_duration_ms", 0) or 0),
     ]
 
 
 def _dataclass_to_array(fv: FeatureVector) -> list[float]:
-    """Convert a FeatureVector dataclass to a numeric array."""
+    """Convert a FeatureVector dataclass to a numeric array.
+
+    Includes both the original 5 fields (spec 30) and the 4 enrichment
+    fields added by spec 54.
+    """
     return [
         float(fv.subtask_count),
         float(fv.spec_word_count),
         float(fv.has_property_tests),
         float(fv.edge_case_count),
         float(fv.dependency_count),
+        float(fv.file_count_estimate),
+        float(fv.cross_spec_integration),
+        float(fv.language_count),
+        float(fv.historical_median_duration_ms or 0),
     ]
 
 
@@ -115,13 +131,9 @@ class StatisticalAssessor:
             # Suppress expected sklearn warnings when folds have sparse
             # class distribution (e.g. 3 STANDARD + 1 ADVANCED).
             with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=UserWarning, module="sklearn"
-                )
+                warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
                 warnings.filterwarnings("ignore", category=FitFailedWarning)
-                scores = cross_val_score(
-                    self._model, X, y, cv=cv_folds, error_score=0.0
-                )
+                scores = cross_val_score(self._model, X, y, cv=cv_folds, error_score=0.0)
             valid_scores = scores[~np.isnan(scores)]
             if len(valid_scores) == 0:
                 logger.warning(
