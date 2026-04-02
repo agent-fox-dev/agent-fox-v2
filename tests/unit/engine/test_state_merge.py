@@ -11,7 +11,7 @@ from pathlib import Path
 
 from agent_fox.engine.engine import _load_or_init_state, _seed_node_states_from_graph
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
-from agent_fox.engine.state_init import _init_attempt_tracker
+from agent_fox.engine.state_init import _init_attempt_tracker, _reset_blocked_tasks
 from agent_fox.graph.types import Node, NodeStatus, TaskGraph
 
 
@@ -335,6 +335,38 @@ class TestInitAttemptTracker:
         assert "a" not in tracker
         # "b" is completed — should retain its attempt count
         assert tracker["b"] == 1
+
+
+class TestResetBlockedTasks:
+    """_reset_blocked_tasks resets blocked tasks on engine resume."""
+
+    def test_blocked_reset_to_pending(self, tmp_state_path: Path) -> None:
+        """Blocked tasks are set to pending and blocked_reasons cleared."""
+        manager = StateManager(tmp_state_path)
+        state = _make_state(
+            node_states={"a": "blocked", "b": "completed", "c": "pending"},
+            blocked_reasons={"a": "upstream failed"},
+        )
+        manager.save(state)
+
+        _reset_blocked_tasks(state, manager)
+
+        assert state.node_states["a"] == "pending"
+        assert state.node_states["b"] == "completed"
+        assert state.node_states["c"] == "pending"
+        assert "a" not in state.blocked_reasons
+
+    def test_no_save_when_nothing_blocked(self, tmp_state_path: Path) -> None:
+        """No state save if there are no blocked tasks."""
+        manager = StateManager(tmp_state_path)
+        state = _make_state(
+            node_states={"a": "completed", "b": "pending"},
+        )
+        # Don't save initial state — if _reset_blocked_tasks saves,
+        # the file would be created
+        _reset_blocked_tasks(state, manager)
+        # File should not exist since nothing was written
+        assert not tmp_state_path.exists()
 
 
 class TestNoExistingState:

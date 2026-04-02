@@ -127,6 +127,25 @@ def _reset_in_progress_tasks(
         state_manager.save(state)
 
 
+def _reset_blocked_tasks(
+    state: ExecutionState,
+    state_manager: StateManager,
+) -> None:
+    """Reset blocked tasks to pending on resume so they get fresh retries."""
+    any_reset = False
+    for node_id, status in state.node_states.items():
+        if status == "blocked":
+            state.node_states[node_id] = "pending"
+            state.blocked_reasons.pop(node_id, None)
+            any_reset = True
+            logger.info(
+                "Task %s was blocked from prior run; resetting to pending.",
+                node_id,
+            )
+    if any_reset:
+        state_manager.save(state)
+
+
 def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:
     """Initialize attempt counter from session history.
 

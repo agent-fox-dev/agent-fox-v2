@@ -61,6 +61,7 @@ from agent_fox.engine.state_init import (
     _init_attempt_tracker,
     _init_error_tracker,
     _load_or_init_state,
+    _reset_blocked_tasks,
     _reset_in_progress_tasks,
     _seed_node_states_from_graph,  # noqa: F401
 )
@@ -417,6 +418,7 @@ class Orchestrator:
         plan_hash = self._compute_plan_hash()
         state = _load_or_init_state(self._state_manager, plan_hash, graph)
         _reset_in_progress_tasks(state, self._state_manager)
+        _reset_blocked_tasks(state, self._state_manager)
 
         self._graph_sync = GraphSync(state.node_states, edges_dict)
         self._result_handler = SessionResultHandler(
