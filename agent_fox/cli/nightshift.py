@@ -59,26 +59,29 @@ def night_shift_cmd(ctx: click.Context, auto: bool) -> None:
 
     engine = NightShiftEngine(config=config, platform=platform, auto_fix=auto)
 
-    # --- SIGINT handling ---------------------------------------------------
-    # First SIGINT: graceful shutdown (current operation completes).
-    # Second SIGINT: immediate abort with exit code 130.
+    # --- Signal handling ----------------------------------------------------
+    # First SIGINT/SIGTERM: graceful shutdown (current operation completes).
+    # Second interrupt: immediate abort with exit code 130.
     # 61-REQ-1.3, 61-REQ-1.4
-    _sigint_count = 0
+    _interrupt_count = 0
 
-    def _sigint_handler(signum: int, frame: object) -> None:
-        nonlocal _sigint_count
-        _sigint_count += 1
-        if _sigint_count == 1:
+    def _signal_handler(signum: int, frame: object) -> None:
+        nonlocal _interrupt_count
+        _interrupt_count += 1
+        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
+        if _interrupt_count == 1:
             logger.info(
-                "SIGINT received — completing current operation then exiting "
-                "(send SIGINT again to abort immediately)"
+                "%s received — completing current operation then exiting "
+                "(send another signal to abort immediately)",
+                sig_name,
             )
             engine.request_shutdown()
         else:
-            logger.warning("Second SIGINT received — aborting immediately")
+            logger.warning("Second interrupt received — aborting immediately")
             sys.exit(130)
 
-    signal.signal(signal.SIGINT, _sigint_handler)
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
     # -----------------------------------------------------------------------
 
     click.echo("Night-shift daemon starting. Press Ctrl-C to stop gracefully.")
