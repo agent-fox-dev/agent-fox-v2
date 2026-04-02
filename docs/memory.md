@@ -87,6 +87,20 @@
 - SessionResultHandler needs _max_timeout_retries, _timeout_retries, _node_timeout, and _extend_node_params() attributes/methods to implement timeout-aware escalation. _(spec: 74_review_parse_resilience, confidence: 0.90)_
 - Configuration validation must enforce that max_timeout_retries >= 0, timeout_multiplier >= 1.0, and timeout_ceiling_factor >= 1.0, with invalid values clamped or rejected. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
 - When max_turns is None (unlimited), it must remain None through all retry and timeout extension cycles; it should never be clamped or modified. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
+- When preserving node status across fresh starts in task orchestration, avoid calling _reset_blocked_tasks on the first run to maintain explicit 'blocked' status from the plan. _(spec: 70_watch_mode, confidence: 0.90)_
+- asyncio.get_event_loop() is deprecated and should be replaced in property tests; Hypothesis health checks may also need adjustment in asyncio-based test suites. _(spec: 70_watch_mode, confidence: 0.90)_
+- Suppress `HealthCheck.function_scoped_fixture` in hypothesis settings when using pytest fixtures with property-based tests to avoid spurious health warnings. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Token estimation for prompt caching uses a character-to-token heuristic of len(text) // 4 rather than precise tokenization. _(spec: 77_prompt_caching, confidence: 0.90)_
+- When no system parameter is provided to the messages API call, cache_control should not be injected even if a caching policy is set. _(spec: 77_prompt_caching, confidence: 0.90)_
+- On fresh start (when state file doesn't exist), restore explicit 'blocked' status from the plan before resetting in-progress tasks, so plans with pre-blocked nodes produce a stall condition rather than dispatching those nodes as pending. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Watch mode requires hot_load=True to activate; when hot_load=False, the watch loop is skipped and the run terminates with COMPLETED status instead, with a warning logged to the user. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Hypothesis property tests with function-scoped fixtures require health check suppression to avoid spurious warnings about test inefficiency. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Hypothesis property tests with function-scoped fixtures require suppress_health_check=[HealthCheck.function_scoped_fixture] to avoid spurious warnings. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Hypothesis has internal buffer-size limits that can be exceeded by st.text(min_size=...) with large sizes; use st.integers().map() to generate long strings instead. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Hypothesis property-based tests require `suppress_health_check=[HealthCheck.function_scoped_fixture]` in `@settings` decorator when using pytest fixtures with `@given` strategies. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- When max_turns is None (unlimited), it must remain None through all timeout extension operations; only timeout and turn-count parameters should be extended, not unlimited constraints. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Cache control markers for Anthropic API differ by policy: `DEFAULT` uses `{"type": "ephemeral"}` while `EXTENDED` adds a `"ttl": "1h"` field; these are attached to the last system block. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Caching is automatically skipped when system prompt is below the model's minimum cacheable size (≈2,048 tokens for Sonnet, ≈4,096 for Opus/Haiku) to avoid unnecessary cache-write charges. _(spec: 77_prompt_caching, confidence: 0.90)_
 
 ## Patterns
 
@@ -511,6 +525,59 @@
 - The memory.md file containing accumulated architectural decisions, gotchas, and patterns (700+ lines from specs 59-76) was completely cleared during this session, suggesting that memory should be periodically reset between major spec iterations rather than grown indefinitely. _(spec: 73_finding_consolidation_critic, confidence: 0.90)_
 - When implementing retry logic for parse failures, enrich failure audit event payloads with metadata about retry attempts and the strategy used to help with observability and debugging. _(spec: 74_review_parse_resilience, confidence: 0.90)_
 - When dealing with multi-instance results, create separate helper functions for filtering failed instances and converging partial results rather than embedding this logic inline. _(spec: 74_review_parse_resilience, confidence: 0.60)_
+- Breaking large implementation tasks into smaller, sequenced task groups allows earlier testing and validation of gates/wiring before full implementation, reducing risk of late-stage integration issues. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Using stub implementations (e.g., a `_watch_loop()` that returns COMPLETED) in early task groups allows CLI and gate tests to pass without the full loop, deferring complex logic to a later group. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Configuration fields should be read on each cycle rather than cached at initialization to support hot-reload scenarios where values may change during execution. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Non-fatal barrier exceptions in polling loops should be logged and the loop should continue rather than propagating the exception, ensuring robustness during repeated operations. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Writing comprehensive failing tests before implementation (TDD approach) helps cover all specification entries systematically, including unit tests, property tests, and edge cases. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- When implementing complex features like progress displays, verify callback wiring, lifecycle management, event emission, and function signature inspection as part of the test suite. _(spec: 76_fix_progress_display, confidence: 0.60)_
+- The watch mode gate should be placed in the COMPLETED branch of Orchestrator.run() and should include a hot_load guard to prevent unintended reloads. _(spec: 70_watch_mode, confidence: 0.90)_
+- CLI flags for watch mode (--watch, --watch-interval) need to be wired through multiple layers: CLI parser → code_cmd → Orchestrator.__init__ as instance variables. _(spec: 70_watch_mode, confidence: 0.90)_
+- Use `asyncio.run()` instead of `asyncio.get_event_loop().run_until_complete()` for cleaner async test execution. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Detect fresh vs. resume state before loading/initializing state to preserve explicit 'blocked' status from the plan on fresh starts. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Gate watch mode entry on both the `--watch` flag AND the `hot_load` configuration setting; warn and terminate if watch is enabled but hot_load is disabled. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- CLI option overrides (like `--watch-interval`) should be explicitly added to the `_apply_overrides()` function to flow through to OrchestratorConfig. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Hypothesis property-based tests require conditional import with HAS_HYPOTHESIS flag and pytest.mark.skipif to gracefully handle missing dependency. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Cache control should only be attached to the last block in a multi-block system prompt, not to intermediate blocks. _(spec: 77_prompt_caching, confidence: 0.90)_
+- API errors mentioning 'cache_control' should trigger an automatic retry without caching enabled to work around transient API limitations. _(spec: 77_prompt_caching, confidence: 0.90)_
+- String system prompts must be normalized to a list of content blocks before attaching cache_control metadata. _(spec: 77_prompt_caching, confidence: 0.90)_
+- CLI options like --watch-interval should override config values through the _apply_overrides() function, requiring both the CLI parameter and the corresponding field in OrchestratorConfig to be wired together. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Watch mode implementation uses a stub _watch_loop() method that returns COMPLETED for group 3 (CLI wiring), with the full implementation deferred to group 4 (watch loop logic). _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- The watch gate in Orchestrator.run() should check watch flag after _try_end_of_run_discovery() returns False, logging a warning if hot_load is disabled before returning COMPLETED. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Progress tracking in multi-stage pipelines should emit granular callback events at each stage (start/done) rather than only at completion, enabling real-time progress monitoring. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Timeout events in check runners should be emitted to callbacks alongside normal completion events to ensure callers can track interrupted checks. _(spec: 76_fix_progress_display, confidence: 0.60)_
+- Use frozen dataclasses with slots=True for immutable event objects to ensure thread-safety and memory efficiency in callback-based architectures. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Emit callback events at both start and completion stages (including error/timeout paths) to enable robust progress tracking and state machine validation in the caller. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Design callbacks as optional None parameters with defensive checks at emission points to maintain full backward compatibility when callbacks are not provided. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Encapsulate event emission logic in a nested helper function (_emit) to reduce callback None-checks and maintain DRY principle across multiple emission sites. _(spec: 78_local_only_feature_branches, confidence: 0.60)_
+- When writing failing spec tests for new features, expect some tests to pass immediately if the feature's underlying behavior already exists in the codebase, even though the feature itself is not yet fully implemented. _(spec: 78_local_only_feature_branches, confidence: 0.60)_
+- When testing that certain function calls are NOT made, use mock/spy assertions rather than execution flow tests. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Use StrEnum for cache policy configuration to enable case-insensitive parsing in Pydantic models. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Implement both async and sync versions of message creation functions (_create_async and _create_sync) to support different calling contexts in a caching layer. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Token estimation and cache control injection are separate concerns that should be modular functions in the client layer. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Use `asyncio.run(coro)` in a helper function to run coroutines in fresh event loops, ensuring compatibility with Python 3.12+ when testing async code. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- When testing async functions with mocks, use `AsyncMock` from `unittest.mock` for all async function patches to avoid test failures. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Use context managers (`with` statement) to group related patches together, improving readability and ensuring all mocks are cleaned up properly. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Resolve template and fixture file paths relative to the test file using `Path(__file__).parents[n]` to ensure tests are portable across different working directories. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Use Hypothesis `st.from_regex()` strategy to generate valid strings matching a regex pattern, useful for testing with realistic branch names or identifiers. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Test both positive behavior (function was called correctly) and negative behavior (function was NOT called) to ensure implementation avoids undesired side effects. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- When implementing progress display in CLI layers, use a callback parameter pattern to thread the activity callback through session builder functions, enabling decoupled progress reporting. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- ProgressDisplay objects should be lifecycle-managed with create, start, and stop-in-finally pattern to ensure cleanup even on exceptions. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Wire multiple callback handlers (on_fix_progress, on_check) to a single session runner to support different event types flowing through the same progress infrastructure. _(spec: 76_fix_progress_display, confidence: 0.60)_
+- When migrating to prompt caching in Claude SDK, differentiate between async and sync callers: use cached_messages_create() for async contexts and cached_messages_create_sync() for synchronous contexts. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Prompt caching refactoring across multiple modules requires careful categorization of all callers (9 modules total in this case) to ensure correct function usage and prevent runtime errors. _(spec: 77_prompt_caching, confidence: 0.90)_
+- SessionResultHandler needs _max_timeout_retries, _timeout_retries, _node_timeout, and _extend_node_params() attributes/methods to implement timeout-aware escalation. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Configuration validation must enforce that max_timeout_retries >= 0, timeout_multiplier >= 1.0, and timeout_ceiling_factor >= 1.0, with invalid values clamped or rejected. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Template files (_templates/agents_md.md, _templates/skills/af-spec) must be updated when changing branch workflow patterns to keep documentation in sync with implementation. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- When refactoring core functions like post_harvest_integrate(), update all related test files (test_post_harvest.py, test_overhaul_props.py, test_78_post_harvest.py, test_78_local_branches_props.py) to reflect new behavior. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Agent instructions in AGENTS.md should be updated to reflect workflow changes, particularly around branch handling and merge strategies. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Prompt caching in this system supports three cache policies: NONE, DEFAULT, and EXTENDED, each with different token threshold behaviors that should be documented with TOML configuration examples. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Configuration documentation should be maintained in multiple files (config-reference.md and configuration.md) when adding new features to ensure comprehensive coverage. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Prompt caching with Anthropic API uses `cache_control` markers attached to system blocks; caching is automatically skipped below model-specific token thresholds (≈2,048 for Sonnet, ≈4,096 for Opus/Haiku) to avoid unnecessary cache-write charges. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Three cache policies should be provided: `NONE` (no caching), `DEFAULT` (5-min TTL with ephemeral marker), and `EXTENDED` (1-hour TTL); all policies can be controlled via configuration without code changes. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Prompt caching configuration uses three cache policies: NONE (no caching), DEFAULT (5-minute TTL with ephemeral marker), and EXTENDED (1-hour TTL with explicit ttl parameter). _(spec: 77_prompt_caching, confidence: 0.90)_
+- The cache_policy configuration can be set to NONE for complete rollback without requiring code changes, enabling safe feature toggling. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Prompt caching reduces input token costs on cache hits by injecting cache_control markers into Anthropic API requests through configurable policies. _(spec: 77_prompt_caching, confidence: 0.90)_
 
 ## Decisions
 
@@ -564,6 +631,9 @@
 - A SESSION_TIMEOUT_RETRY audit event type must be emitted when a timeout is retried, with payload containing timeout_retry_count. _(spec: 74_review_parse_resilience, confidence: 0.90)_
 - Timeout-related configuration fields should use sensible defaults (e.g., max_timeout_retries=2, timeout_multiplier=1.5, timeout_ceiling_factor=2.0) that work for typical escalation scenarios. _(spec: 75_timeout_aware_escalation, confidence: 0.60)_
 - Persist functions that handle parsing should accept a session_handle parameter to enable retry logic and better control over transactional boundaries. _(spec: 74_review_parse_resilience, confidence: 0.60)_
+- Unknown/unfamiliar LLM models should default to the highest token threshold (4096) to be conservative about enabling prompt caching. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Prompt caching should be skipped entirely for prompts below model-specific token thresholds to avoid unnecessary API complexity. _(spec: 77_prompt_caching, confidence: 0.90)_
+- When simplifying post_harvest_integrate() to support local-only feature branches, remove the feature branch push logic and local_branch_exists checks, keeping only the develop branch push. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
 
 ## Conventions
 
@@ -681,6 +751,25 @@
 - New audit event types (SESSION_TIMEOUT_RETRY) must be added to support timeout handling and escalation tracking in the audit system. _(spec: 75_timeout_aware_escalation, confidence: 0.90)_
 - Task checkpoint completion requires verifying that `make check` passes with zero regressions and all traceability entries are satisfied before marking a checkpoint as done. _(spec: 73_finding_consolidation_critic, confidence: 0.90)_
 - Define retry strategies as named constants (e.g., FORMAT_RETRY_PROMPT) rather than magic strings to improve maintainability and consistency across the codebase. _(spec: 74_review_parse_resilience, confidence: 0.90)_
+- Complex retry and failure handling logic should be extracted into dedicated helper functions rather than embedded inline, improving testability and maintainability. _(spec: 77_prompt_caching, confidence: 0.60)_
+- Audit event payloads for retries should be enriched with metadata about retry attempts and strategy used to improve observability and debugging. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Retry strategies should be defined as named constants (e.g., FORMAT_RETRY_PROMPT) rather than magic strings to improve maintainability and consistency. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Test specifications should be organized into logical groups (unit tests, property tests, edge cases) and numbered sequentially to map back to requirements and track coverage gaps. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Store watch mode flag as an instance variable on Orchestrator to make it available throughout the run lifecycle. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Stub implementations of complex features (like `_watch_loop()`) should be documented with TODO comments and a note about which task group will implement the full version. _(spec: 76_fix_progress_display, confidence: 0.60)_
+- Policy enum parsing should be case-insensitive (NONE, default, Extended should all parse correctly). _(spec: 77_prompt_caching, confidence: 0.90)_
+- Callback parameters should be consistently named (progress_callback, check_callback) and typed as aliases for clarity when passed through multiple function layers. _(spec: 76_fix_progress_display, confidence: 0.60)_
+- Use exit_code=-1 as a sentinel value for subprocess timeout events to distinguish them from normal error exit codes in callback handlers. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Spec tests should be distributed across multiple test files to organize assertions by concern (e.g., direct function calls, template content, prerequisite artifacts). _(spec: 78_local_only_feature_branches, confidence: 0.60)_
+- Create `__init__.py` files in new test subdirectories to ensure they are recognized as Python packages and allow proper test discovery. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Progress display rendering should be conditional on quiet and JSON output flags to avoid polluting structured output or respecting silent mode preferences. _(spec: 76_fix_progress_display, confidence: 0.90)_
+- Comprehensive test coverage (31 passing tests) and lint checks should be run after large-scale migrations to catch integration issues early. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Creating an erratum file (docs/errata/) is required for task completion verification when deprecating previous behavior (e.g., spec 65 erratum for no feature branch push). _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Feature branches should be kept local-only and never pushed to origin; this constraint is documented in an errata file and enforced through agent instructions. _(spec: 78_local_only_feature_branches, confidence: 0.90)_
+- Session completion items should be updated to match actual implementation behavior (e.g., 'changes merged locally' rather than 'branch pushed'). _(spec: 78_local_only_feature_branches, confidence: 0.60)_
+- Pre-existing test failures and linting errors (like ruff E501) should be tracked separately from new feature work to avoid scope creep and ensure clear responsibility boundaries. _(spec: 77_prompt_caching, confidence: 0.90)_
+- Documentation should include explicit policy trade-offs (e.g., `EXTENDED` has higher cache-write cost but pays off on long-running sessions) and a rollback mechanism via configuration setting. _(spec: 78_local_only_feature_branches, confidence: 0.60)_
+- Documentation for new features should include policy descriptions, token thresholds, trade-offs, and practical examples in both config reference and main configuration documentation. _(spec: 77_prompt_caching, confidence: 0.90)_
 
 ## Anti-Patterns
 
