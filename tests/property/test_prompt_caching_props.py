@@ -67,7 +67,9 @@ def _run(coro: Any) -> Any:
 
 @given(
     policy=st.sampled_from(list(CachePolicy)),
-    system_text=st.text(min_size=20000, max_size=21000),
+    # Large string exceeding all model thresholds (sonnet=8192 chars).
+    # st.text(min_size=20000) exceeds Hypothesis's buffer; use integers.map.
+    system_text=st.integers(min_value=8200, max_value=10000).map(lambda n: "x" * n),
 )
 @settings(max_examples=30)
 def test_policy_fidelity(policy: CachePolicy, system_text: str) -> None:
@@ -111,7 +113,8 @@ def test_policy_fidelity(policy: CachePolicy, system_text: str) -> None:
 
 
 @given(
-    system_text=st.text(min_size=20000, max_size=21000),
+    # Same large-text strategy as test_policy_fidelity (above Hypothesis buffer limit).
+    system_text=st.integers(min_value=8200, max_value=10000).map(lambda n: "x" * n),
     policy=st.sampled_from([CachePolicy.DEFAULT, CachePolicy.EXTENDED]),
 )
 @settings(max_examples=30)

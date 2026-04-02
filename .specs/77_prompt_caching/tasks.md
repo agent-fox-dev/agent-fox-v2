@@ -62,21 +62,21 @@ auxiliary modules, (4) final checkpoint and documentation.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Configuration and cached message helper
-  - [ ] 2.1 Add `CachePolicy` enum and `CachingConfig` model to `agent_fox/core/config.py`
+- [x] 2. Configuration and cached message helper
+  - [x] 2.1 Add `CachePolicy` enum and `CachingConfig` model to `agent_fox/core/config.py`
     - `CachePolicy(str, Enum)` with NONE, DEFAULT, EXTENDED
     - `CachingConfig(BaseModel)` with `cache_policy: CachePolicy = CachePolicy.DEFAULT`
     - Add `caching: CachingConfig` field to `AgentFoxConfig`
     - Case-insensitive parsing via Pydantic validator
     - _Requirements: 77-REQ-1.1, 77-REQ-1.2, 77-REQ-1.E1_
 
-  - [ ] 2.2 Add token threshold constants and `_estimate_tokens()` to `agent_fox/core/client.py`
+  - [x] 2.2 Add token threshold constants and `_estimate_tokens()` to `agent_fox/core/client.py`
     - `_CACHE_TOKEN_THRESHOLDS` dict mapping model IDs to minimum tokens
     - `_DEFAULT_THRESHOLD = 4096`
     - `_estimate_tokens(text: str) -> int` — `len(text) // 4`
     - _Requirements: 77-REQ-4.1, 77-REQ-4.2, 77-REQ-4.3, 77-REQ-4.E1_
 
-  - [ ] 2.3 Add `cached_messages_create()` async helper to `agent_fox/core/client.py`
+  - [x] 2.3 Add `cached_messages_create()` async helper to `agent_fox/core/client.py`
     - Accept same params as `client.messages.create()` plus `cache_policy`
     - NONE → passthrough; DEFAULT/EXTENDED → inject `cache_control` on last system block
     - String system prompt → convert to content-block list
@@ -84,17 +84,17 @@ auxiliary modules, (4) final checkpoint and documentation.
     - On `cache_control`-related API error, log warning and retry without caching
     - _Requirements: 77-REQ-2.1, 77-REQ-2.2, 77-REQ-2.3, 77-REQ-2.4, 77-REQ-2.E1, 77-REQ-2.E2_
 
-  - [ ] 2.4 Add `cached_messages_create_sync()` variant for sync callers
+  - [x] 2.4 Add `cached_messages_create_sync()` variant for sync callers
     - Same logic as async version, using sync `client.messages.create()`
     - Used by `knowledge_harvest.py`, `query_oracle.py`, `clusterer.py`
     - _Requirements: 77-REQ-2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for config and helper pass: `uv run pytest -q tests/unit/test_prompt_caching.py -k "not auxiliary"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_prompt_caching_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 77-REQ-1.*, 77-REQ-2.*, 77-REQ-4.*, 77-REQ-5.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for config and helper pass: `uv run pytest -q tests/unit/test_prompt_caching.py -k "not auxiliary"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_prompt_caching_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 77-REQ-1.*, 77-REQ-2.*, 77-REQ-4.*, 77-REQ-5.* acceptance criteria met
 
 - [ ] 3. Migrate auxiliary modules
   - [ ] 3.1 Migrate async callers to `cached_messages_create()`

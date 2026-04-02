@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import tomllib
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, Self
 
@@ -599,6 +600,39 @@ class BlockingConfig(BaseModel):
     clamp_fnr = _clamped_validator("max_false_negative_rate", ge=0.0, le=1.0)
 
 
+class CachePolicy(StrEnum):
+    """Prompt caching strategy for auxiliary API calls.
+
+    Requirements: 77-REQ-1.1, 77-REQ-1.3, 77-REQ-1.4, 77-REQ-1.5
+    """
+
+    NONE = "NONE"
+    DEFAULT = "DEFAULT"
+    EXTENDED = "EXTENDED"
+
+
+class CachingConfig(BaseModel):
+    """Prompt caching configuration.
+
+    Requirements: 77-REQ-1.1, 77-REQ-1.2, 77-REQ-1.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    cache_policy: CachePolicy = Field(
+        default=CachePolicy.DEFAULT,
+        description="Caching policy: NONE, DEFAULT (5-min), or EXTENDED (1-hour TTL)",
+    )
+
+    @field_validator("cache_policy", mode="before")
+    @classmethod
+    def _parse_policy_case_insensitive(cls, v: Any) -> Any:
+        """Accept policy values case-insensitively."""
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -614,6 +648,7 @@ class AgentFoxConfig(BaseModel):
     pricing: PricingConfig = Field(default_factory=PricingConfig)
     planning: PlanningConfig = Field(default_factory=PlanningConfig)
     blocking: BlockingConfig = Field(default_factory=BlockingConfig)
+    caching: CachingConfig = Field(default_factory=CachingConfig)
 
     # Lazy import to avoid circular dependency; default is constructed
     # from NightShiftConfig which lives in agent_fox.nightshift.config.
