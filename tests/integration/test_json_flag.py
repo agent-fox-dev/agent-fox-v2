@@ -315,7 +315,7 @@ class TestInitJson:
 
     def test_init_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """init with --json produces {"status": "ok"}."""
-        with patch("agent_fox.cli.init._ensure_develop_branch"):
+        with patch("agent_fox.workspace.init_project._ensure_develop_branch"):
             result = cli_runner.invoke(main, ["--json", "init"])
             data = json.loads(result.output)
             assert data["status"] == "ok"
@@ -361,25 +361,23 @@ class TestCodeJsonl:
             total_cost=0.05,
             run_status="completed",
         )
+
+        async def _fake_run_code(*args, **kwargs):
+            return mock_state
+
         with (
-            patch("agent_fox.cli.code.Orchestrator") as mock_orch_cls,
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_ks,
-            patch("agent_fox.cli.code.ProgressDisplay"),
+            patch("agent_fox.cli.code.run_code", side_effect=_fake_run_code),
+            patch("agent_fox.ui.progress.ProgressDisplay"),
         ):
-            mock_ks.return_value = None
-            mock_orch = MagicMock()
-            mock_orch_cls.return_value = mock_orch
+            # Plan file is required
+            plan_path = tmp_project / ".agent-fox" / "plan.json"
+            plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
 
-            with patch("agent_fox.cli.code.asyncio.run", return_value=mock_state):
-                # Plan file is required
-                plan_path = tmp_project / ".agent-fox" / "plan.json"
-                plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
-
-                result = cli_runner.invoke(main, ["--json", "code"])
-                lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
-                for line in lines:
-                    data = json.loads(line)
-                    assert isinstance(data, dict)
+            result = cli_runner.invoke(main, ["--json", "code"])
+            lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
+            for line in lines:
+                data = json.loads(line)
+                assert isinstance(data, dict)
 
 
 # ---------------------------------------------------------------------------
@@ -570,12 +568,9 @@ class TestStreamingInterrupted:
     ) -> None:
         """code --json interrupted by KeyboardInterrupt emits status."""
         with (
-            patch("agent_fox.cli.code.Orchestrator"),
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_ks,
-            patch("agent_fox.cli.code.ProgressDisplay"),
+            patch("agent_fox.ui.progress.ProgressDisplay"),
             patch("agent_fox.cli.code.asyncio.run") as mock_run,
         ):
-            mock_ks.return_value = MagicMock()
             mock_run.side_effect = KeyboardInterrupt()
 
             plan_path = tmp_project / ".agent-fox" / "plan.json"

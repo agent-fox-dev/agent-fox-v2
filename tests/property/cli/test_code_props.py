@@ -86,7 +86,7 @@ class TestOverridePreservation:
         max_sessions: int | None,
     ) -> None:
         """Overridden fields take the new value; others keep the default."""
-        from agent_fox.cli.code import _apply_overrides  # type: ignore[import-not-found]  # noqa: I001
+        from agent_fox.engine.run import _apply_overrides  # type: ignore[import-not-found]  # noqa: I001
 
         default_config = OrchestratorConfig()
         result = _apply_overrides(default_config, parallel, max_cost, max_sessions)

@@ -24,7 +24,7 @@ class TestUnreadableTemplateSkipped:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """47-REQ-1.E1: Unreadable template is skipped; valid ones installed."""
-        from agent_fox.cli.init import _install_skills
+        from agent_fox.workspace.init_project import _install_skills
 
         # Create a fake _SKILLS_DIR with one valid and one unreadable file
         fake_skills = tmp_path / "fake_skills"
@@ -37,7 +37,7 @@ class TestUnreadableTemplateSkipped:
         unreadable.write_text("content")
         unreadable.chmod(0o000)
 
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(init_mod, "_SKILLS_DIR", fake_skills)
 
@@ -60,7 +60,7 @@ class TestUnreadableTemplateSkipped:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """47-REQ-1.E1: Return count excludes skipped skills."""
-        from agent_fox.cli.init import _install_skills
+        from agent_fox.workspace.init_project import _install_skills
 
         fake_skills = tmp_path / "fake_skills"
         fake_skills.mkdir()
@@ -76,7 +76,7 @@ class TestUnreadableTemplateSkipped:
         broken.write_text("content")
         broken.chmod(0o000)
 
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(init_mod, "_SKILLS_DIR", fake_skills)
 
@@ -101,12 +101,12 @@ class TestEmptyTemplatesDirectory:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """47-REQ-2.E1: Empty templates directory returns 0 skills."""
-        from agent_fox.cli.init import _install_skills
+        from agent_fox.workspace.init_project import _install_skills
 
         fake_skills = tmp_path / "empty_skills"
         fake_skills.mkdir()
 
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(init_mod, "_SKILLS_DIR", fake_skills)
 
@@ -120,11 +120,11 @@ class TestEmptyTemplatesDirectory:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """47-REQ-2.E1: Missing templates directory returns 0 skills."""
-        from agent_fox.cli.init import _install_skills
+        from agent_fox.workspace.init_project import _install_skills
 
         fake_skills = tmp_path / "nonexistent_skills"
 
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(init_mod, "_SKILLS_DIR", fake_skills)
 
@@ -147,7 +147,7 @@ class TestPermissionErrorHandled:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """47-REQ-2.E2: Cannot create .claude/skills/ returns 0, no crash."""
-        from agent_fox.cli.init import _install_skills
+        from agent_fox.workspace.init_project import _install_skills
 
         # Set up a valid skills dir with one template
         fake_skills = tmp_path / "fake_skills"
@@ -156,7 +156,7 @@ class TestPermissionErrorHandled:
             "---\nname: af-test\ndescription: Test.\n---\nContent"
         )
 
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(init_mod, "_SKILLS_DIR", fake_skills)
 

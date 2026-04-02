@@ -26,14 +26,14 @@ class TestInitCreatesSteeringFile:
 
     def test_returns_created(self, tmp_path: Path) -> None:
         """Return value is 'created' when file does not exist."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         result = _ensure_steering_md(tmp_path)
         assert result == "created"
 
     def test_file_exists_after_call(self, tmp_path: Path) -> None:
         """steering.md exists after _ensure_steering_md() is called."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         steering_path = tmp_path / ".specs" / "steering.md"
@@ -41,7 +41,7 @@ class TestInitCreatesSteeringFile:
 
     def test_file_contains_sentinel(self, tmp_path: Path) -> None:
         """Created file contains the sentinel marker."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         content = (tmp_path / ".specs" / "steering.md").read_text()
@@ -59,7 +59,7 @@ class TestInitSkipsExistingSteeringFile:
 
     def test_returns_skipped(self, tmp_path: Path) -> None:
         """Return value is 'skipped' when file already exists."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         specs_dir = tmp_path / ".specs"
         specs_dir.mkdir()
@@ -70,7 +70,7 @@ class TestInitSkipsExistingSteeringFile:
 
     def test_file_content_unchanged(self, tmp_path: Path) -> None:
         """Existing file content is left unchanged."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         specs_dir = tmp_path / ".specs"
         specs_dir.mkdir()
@@ -92,7 +92,7 @@ class TestPlaceholderContainsSentinelAndComments:
 
     def test_placeholder_has_sentinel(self, tmp_path: Path) -> None:
         """Placeholder file contains the sentinel marker."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         content = (tmp_path / ".specs" / "steering.md").read_text()
@@ -100,7 +100,7 @@ class TestPlaceholderContainsSentinelAndComments:
 
     def test_placeholder_has_html_comments(self, tmp_path: Path) -> None:
         """Placeholder file contains HTML comment blocks."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         content = (tmp_path / ".specs" / "steering.md").read_text()
@@ -108,7 +108,7 @@ class TestPlaceholderContainsSentinelAndComments:
 
     def test_placeholder_treated_as_no_directives(self, tmp_path: Path) -> None:
         """load_steering() returns None for the placeholder file."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
         from agent_fox.session.prompt import load_steering
 
         _ensure_steering_md(tmp_path)
@@ -127,7 +127,7 @@ class TestInitCreatesSpecsDirectory:
 
     def test_specs_dir_created(self, tmp_path: Path) -> None:
         """The .specs/ directory is created when absent."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         assert not (tmp_path / ".specs").exists()
         _ensure_steering_md(tmp_path)
@@ -135,7 +135,7 @@ class TestInitCreatesSpecsDirectory:
 
     def test_steering_md_created_inside_specs(self, tmp_path: Path) -> None:
         """steering.md is created inside the .specs/ directory."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         assert (tmp_path / ".specs" / "steering.md").exists()
@@ -221,7 +221,7 @@ class TestSentinelMarkerInPlaceholderConstant:
 
     def test_sentinel_in_placeholder_constant(self) -> None:
         """The _STEERING_PLACEHOLDER constant contains the sentinel string."""
-        from agent_fox.cli.init import _STEERING_PLACEHOLDER
+        from agent_fox.workspace.init_project import _STEERING_PLACEHOLDER
 
         assert "<!-- steering:placeholder -->" in _STEERING_PLACEHOLDER
 
@@ -242,7 +242,7 @@ class TestPermissionErrorCreatingSpecsDir:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """No exception raised when mkdir raises OSError; returns 'skipped'."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         original_mkdir = Path.mkdir
 
@@ -265,7 +265,7 @@ class TestPermissionErrorCreatingSpecsDir:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """A warning is logged when .specs/ cannot be created."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         original_mkdir = Path.mkdir
 

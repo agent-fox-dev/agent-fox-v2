@@ -76,7 +76,7 @@ class TestIdempotentInitialization:
     @settings(max_examples=30)
     def test_existing_file_never_changed(self, content: str) -> None:
         """Calling _ensure_steering_md() on an existing file leaves it unchanged."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -109,7 +109,7 @@ class TestPlaceholderDetectionAccuracy:
         self, directive: str
     ) -> None:
         """File with placeholder plus directive text returns non-None."""
-        from agent_fox.cli.init import _STEERING_PLACEHOLDER
+        from agent_fox.workspace.init_project import _STEERING_PLACEHOLDER
         from agent_fox.session.prompt import load_steering
 
         with tempfile.TemporaryDirectory() as tmp:

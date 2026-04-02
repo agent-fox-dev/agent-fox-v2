@@ -14,7 +14,7 @@ from pathlib import Path
 import yaml
 
 import agent_fox
-from agent_fox.cli.init import _install_skills
+from agent_fox.workspace.init_project import _install_skills
 
 # Path to bundled skill templates
 _SKILLS_DIR = Path(agent_fox.__file__).parent / "_templates" / "skills"

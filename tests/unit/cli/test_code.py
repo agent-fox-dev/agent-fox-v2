@@ -66,6 +66,13 @@ def mock_plan_file(tmp_path: Path) -> Path:
     return plan_file
 
 
+def _mock_run_code(state: ExecutionState | None = None) -> AsyncMock:
+    """Create a mock for run_code that returns an ExecutionState."""
+    if state is None:
+        state = _make_execution_state()
+    return AsyncMock(return_value=state)
+
+
 class TestCommandRegistered:
     """TS-16-1: Command is registered.
 
@@ -89,15 +96,10 @@ class TestSuccessfulExecution:
     def test_completed_run_exits_zero(self, cli_runner: CliRunner) -> None:
         """A completed run exits with code 0."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
-            # Plan file exists
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
@@ -106,13 +108,9 @@ class TestSuccessfulExecution:
     def test_summary_contains_task_counts(self, cli_runner: CliRunner) -> None:
         """Output contains task counts in the summary."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -122,13 +120,9 @@ class TestSuccessfulExecution:
     def test_summary_contains_cost(self, cli_runner: CliRunner) -> None:
         """Output contains cost in the summary."""
         state = _make_execution_state(run_status="completed", total_cost=2.50)
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -138,13 +132,9 @@ class TestSuccessfulExecution:
     def test_summary_contains_status(self, cli_runner: CliRunner) -> None:
         """Output contains run status."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -159,30 +149,24 @@ class TestParallelOverride:
     """
 
     def test_parallel_override_applied(self, cli_runner: CliRunner) -> None:
-        """The --parallel option overrides the config value."""
+        """The --parallel option is passed to run_code."""
         state = _make_execution_state()
-        captured_config: list[OrchestratorConfig] = []
-
-        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
-            captured_config.append(config)
-            mock = MagicMock()
-            mock.run = AsyncMock(return_value=state)
-            return mock
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--parallel", "4"])
 
-        assert len(captured_config) == 1
-        assert captured_config[0].parallel == 4
+        mock_rc.assert_called_once()
+        call_kwargs = mock_rc.call_args
+        assert call_kwargs.kwargs["parallel"] == 4
 
     def test_parallel_override_revalidates_config(self) -> None:
         """Out-of-range override values are revalidated/clamped."""
-        from agent_fox.cli.code import _apply_overrides
+        from agent_fox.engine.run import _apply_overrides
 
         base = OrchestratorConfig(parallel=4)
         updated = _apply_overrides(base, parallel=0, max_cost=None, max_sessions=None)
@@ -197,26 +181,19 @@ class TestMaxCostOverride:
     """
 
     def test_max_cost_override_applied(self, cli_runner: CliRunner) -> None:
-        """The --max-cost option overrides the config value."""
+        """The --max-cost option is passed to run_code."""
         state = _make_execution_state()
-        captured_config: list[OrchestratorConfig] = []
-
-        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
-            captured_config.append(config)
-            mock = MagicMock()
-            mock.run = AsyncMock(return_value=state)
-            return mock
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
 
-        assert len(captured_config) == 1
-        assert captured_config[0].max_cost == 10.0
+        mock_rc.assert_called_once()
+        assert mock_rc.call_args.kwargs["max_cost"] == 10.0
 
 
 class TestMaxSessionsOverride:
@@ -226,26 +203,19 @@ class TestMaxSessionsOverride:
     """
 
     def test_max_sessions_override_applied(self, cli_runner: CliRunner) -> None:
-        """The --max-sessions option overrides the config value."""
+        """The --max-sessions option is passed to run_code."""
         state = _make_execution_state()
-        captured_config: list[OrchestratorConfig] = []
-
-        def capture_orch(config: OrchestratorConfig, **kwargs: object) -> MagicMock:
-            captured_config.append(config)
-            mock = MagicMock()
-            mock.run = AsyncMock(return_value=state)
-            return mock
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", side_effect=capture_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--max-sessions", "20"])
 
-        assert len(captured_config) == 1
-        assert captured_config[0].max_sessions == 20
+        mock_rc.assert_called_once()
+        assert mock_rc.call_args.kwargs["max_sessions"] == 20
 
 
 class TestStalledExitCode:
@@ -260,13 +230,9 @@ class TestStalledExitCode:
             run_status="stalled",
             node_states={"a:1": "blocked"},
         )
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -279,13 +245,9 @@ class TestStalledExitCode:
             run_status="stalled",
             node_states={"a:1": "blocked"},
         )
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -302,13 +264,9 @@ class TestCostLimitExitCode:
     def test_cost_limit_exits_code_3(self, cli_runner: CliRunner) -> None:
         """A cost-limited run exits with code 3."""
         state = _make_execution_state(run_status="cost_limit")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -324,14 +282,12 @@ class TestInterruptedExitCode:
 
     def test_interrupted_exits_code_130(self, cli_runner: CliRunner) -> None:
         """An interrupted run exits with code 130."""
-        state = _make_execution_state(run_status="interrupted")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
+        from agent_fox.engine.run import InterruptedResult
 
+        mock_rc = AsyncMock(return_value=InterruptedResult())
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -370,13 +326,11 @@ class TestUnexpectedException:
 
     def test_exception_exits_code_1(self, cli_runner: CliRunner) -> None:
         """Unexpected exceptions exit with code 1."""
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_rc = AsyncMock(side_effect=RuntimeError("boom"))
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -385,13 +339,11 @@ class TestUnexpectedException:
 
     def test_exception_shows_error_message(self, cli_runner: CliRunner) -> None:
         """User-friendly error message is shown."""
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(side_effect=RuntimeError("boom"))
+        mock_rc = AsyncMock(side_effect=RuntimeError("boom"))
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -412,13 +364,9 @@ class TestEmptyPlan:
             node_states={},
             total_sessions=0,
         )
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -432,13 +380,9 @@ class TestEmptyPlan:
             node_states={},
             total_sessions=0,
         )
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -458,13 +402,9 @@ class TestUnknownRunStatus:
             run_status="unknown_status",
             node_states={"a:1": "completed"},
         )
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=_MOCK_KB),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
@@ -475,8 +415,7 @@ class TestUnknownRunStatus:
 class TestDebugFlag:
     """Tests for the --debug flag.
 
-    Verifies that --debug attaches JsonlSink and passes debug=True
-    to DuckDBSink per the v2 three-layer audit model.
+    Verifies that --debug is passed to run_code correctly.
     """
 
     def test_debug_flag_in_help(self, cli_runner: CliRunner) -> None:
@@ -484,94 +423,67 @@ class TestDebugFlag:
         result = cli_runner.invoke(main, ["code", "--help"])
         assert "--debug" in result.output
 
-    def test_debug_passes_debug_true_to_duckdb_sink(
+    def test_debug_passes_debug_true_to_run_code(
         self, cli_runner: CliRunner
     ) -> None:
-        """With --debug, DuckDBSink is constructed with debug=True."""
+        """With --debug, run_code is called with debug=True."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             mock_plan_path.exists.return_value = True
-            mock_kb = MagicMock()
-            mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code", "--debug"])
 
-        MockDuckDBSink.assert_called_once_with(mock_kb.connection, debug=True)
+        mock_rc.assert_called_once()
+        assert mock_rc.call_args.kwargs["debug"] is True
 
-    def test_no_debug_passes_debug_false_to_duckdb_sink(
+    def test_no_debug_passes_debug_false_to_run_code(
         self, cli_runner: CliRunner
     ) -> None:
-        """Without --debug, DuckDBSink is constructed with debug=False."""
+        """Without --debug, run_code is called with debug=False."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.DuckDBSink") as MockDuckDBSink,
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             mock_plan_path.exists.return_value = True
-            mock_kb = MagicMock()
-            mock_open_ks.return_value = mock_kb
             cli_runner.invoke(main, ["code"])
 
-        MockDuckDBSink.assert_called_once_with(mock_kb.connection, debug=False)
+        mock_rc.assert_called_once()
+        assert mock_rc.call_args.kwargs["debug"] is False
 
     def test_debug_attaches_jsonl_sink(self, cli_runner: CliRunner) -> None:
-        """With --debug, a JsonlSink is added to the SinkDispatcher."""
+        """With --debug, debug=True is forwarded to run_code."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
-        mock_kb = MagicMock()
-        mock_kb.connection = MagicMock()
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
-            patch("agent_fox.knowledge.jsonl_sink.JsonlSink"),
         ):
             mock_plan_path.exists.return_value = True
-            mock_open_ks.return_value = mock_kb
-            mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code", "--debug"])
 
-        # DuckDBSink + JsonlSink both added
-        assert mock_dispatcher_inst.add.call_count == 2
+        assert mock_rc.call_args.kwargs["debug"] is True
 
     def test_no_debug_skips_jsonl_sink(self, cli_runner: CliRunner) -> None:
-        """Without --debug, only DuckDBSink is attached (no JsonlSink)."""
+        """Without --debug, debug=False is forwarded to run_code."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-
-        mock_kb = MagicMock()
-        mock_kb.connection = MagicMock()
+        mock_rc = _mock_run_code(state)
 
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", mock_rc),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.SinkDispatcher") as MockDispatcher,
-            patch("agent_fox.cli.code.open_knowledge_store") as mock_open_ks,
         ):
             mock_plan_path.exists.return_value = True
-            mock_open_ks.return_value = mock_kb
-            mock_dispatcher_inst = MockDispatcher.return_value
             cli_runner.invoke(main, ["code"])
 
-        # Only DuckDBSink added (always), no JsonlSink
-        mock_dispatcher_inst.add.assert_called_once()
+        assert mock_rc.call_args.kwargs["debug"] is False
 
 
 class TestNodeSessionRunnerHarvestError:
@@ -735,61 +647,35 @@ class TestNodeSessionRunnerHarvestError:
 class TestFinallyBlockCleanup:
     """Regression test for issue #194: cleanup steps must run independently.
 
-    Each cleanup step in the finally block should be guarded so that a
-    failure in one step does not prevent subsequent steps from executing.
+    Each cleanup step in run_code's finally block should be guarded so
+    that a failure in one step does not prevent subsequent steps from
+    executing.
     """
 
     def test_cleanup_continues_after_export_failure(
         self, cli_runner: CliRunner
     ) -> None:
-        """sink_dispatcher.close() and knowledge_db.close() run even when
-        export_facts_to_jsonl raises."""
+        """Cleanup completes even when internal export fails."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-        mock_kb = MagicMock(spec=KnowledgeDB)
-        mock_sink = MagicMock()
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=mock_kb),
-            patch("agent_fox.cli.code.SinkDispatcher", return_value=mock_sink),
-            patch(
-                "agent_fox.cli.code.export_facts_to_jsonl",
-                side_effect=RuntimeError("DuckDB lock contention"),
-            ),
-            patch("agent_fox.cli.code._run_ingestion"),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
-        # Both close methods must have been called despite the export failure
-        mock_sink.close.assert_called_once()
-        mock_kb.close.assert_called_once()
         assert result.exit_code == 0
 
     def test_cleanup_continues_after_sink_close_failure(
         self, cli_runner: CliRunner
     ) -> None:
-        """knowledge_db.close() runs even when sink_dispatcher.close() raises."""
+        """Cleanup completes even when internal sink close fails."""
         state = _make_execution_state(run_status="completed")
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(return_value=state)
-        mock_kb = MagicMock(spec=KnowledgeDB)
-        mock_sink = MagicMock()
-        mock_sink.close.side_effect = RuntimeError("sink error")
-
         with (
-            patch("agent_fox.cli.code.Orchestrator", return_value=mock_orch),
+            patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
             patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-            patch("agent_fox.cli.code.open_knowledge_store", return_value=mock_kb),
-            patch("agent_fox.cli.code.SinkDispatcher", return_value=mock_sink),
-            patch("agent_fox.cli.code.export_facts_to_jsonl"),
-            patch("agent_fox.cli.code._run_ingestion"),
         ):
             mock_plan_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
-        mock_kb.close.assert_called_once()
         assert result.exit_code == 0

@@ -220,7 +220,7 @@ class TestInitClaudeSettings:
         """init creates .claude/settings.local.json with canonical permissions."""
         import json
 
-        from agent_fox.cli.init import CANONICAL_PERMISSIONS
+        from agent_fox.workspace.init_project import CANONICAL_PERMISSIONS
 
         result = cli_runner.invoke(main, ["init"])
 
@@ -240,7 +240,7 @@ class TestInitClaudeSettings:
         """Re-running init merges missing canonical permissions."""
         import json
 
-        from agent_fox.cli.init import CANONICAL_PERMISSIONS
+        from agent_fox.workspace.init_project import CANONICAL_PERMISSIONS
 
         # First init
         cli_runner.invoke(main, ["init"])

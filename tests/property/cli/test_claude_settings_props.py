@@ -10,7 +10,7 @@ import json
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.cli.init import CANONICAL_PERMISSIONS, _ensure_claude_settings
+from agent_fox.workspace.init_project import CANONICAL_PERMISSIONS, _ensure_claude_settings
 
 # Strategy: list of permission strings (mix of canonical + random)
 _permission_entry = st.text(

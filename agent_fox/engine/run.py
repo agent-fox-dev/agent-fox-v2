@@ -43,11 +43,15 @@ def _apply_overrides(
     parallel: int | None,
     max_cost: float | None,
     max_sessions: int | None,
+    watch_interval: int | None = None,
 ) -> OrchestratorConfig:
     """Return a new OrchestratorConfig with CLI overrides applied.
 
     Only overrides fields that were explicitly provided (not None).
     All non-overridden fields are preserved from the original config.
+
+    Requirements: 16-REQ-2.1, 16-REQ-2.3, 16-REQ-2.4, 16-REQ-2.5,
+                  70-REQ-3.3
     """
     from agent_fox.core.config import OrchestratorConfig as OC
 
@@ -58,6 +62,8 @@ def _apply_overrides(
         overrides["max_cost"] = max_cost
     if max_sessions is not None:
         overrides["max_sessions"] = max_sessions
+    if watch_interval is not None:
+        overrides["watch_interval"] = watch_interval
     if overrides:
         merged = config.model_dump()
         merged.update(overrides)
@@ -119,9 +125,7 @@ def _setup_infrastructure(
 
             plan_data = _json.loads(resolved_plan.read_text(encoding="utf-8"))
             nodes = plan_data.get("nodes", {})
-            spec_names = sorted(
-                {n.get("spec_name", "") for n in nodes.values() if n.get("spec_name")}
-            )
+            spec_names = sorted({n.get("spec_name", "") for n in nodes.values() if n.get("spec_name")})
             if spec_names:
                 fact_cache = precompute_fact_rankings(
                     knowledge_db.connection,
@@ -197,7 +201,8 @@ async def run_code(
     max_cost: float | None = None,
     max_sessions: int | None = None,
     debug: bool = False,
-    review_only: bool = False,
+    watch: bool = False,
+    watch_interval: int | None = None,
     specs_dir: Path | None = None,
     activity_callback: ActivityCallback | None = None,
     task_callback: TaskCallback | None = None,
@@ -216,7 +221,8 @@ async def run_code(
         max_cost: Cost ceiling in USD.
         max_sessions: Session count limit.
         debug: Enable debug audit trail.
-        review_only: Run only review archetypes.
+        watch: Keep running and poll for new specs.
+        watch_interval: Seconds between watch polls.
         specs_dir: Path to specs directory (default: .specs).
         activity_callback: Optional callback for tool activity display.
         task_callback: Optional callback for task event display.
@@ -235,6 +241,7 @@ async def run_code(
             parallel,
             max_cost,
             max_sessions,
+            watch_interval=watch_interval,
         )
     except Exception:
         orch_config = config.orchestrator
@@ -268,10 +275,13 @@ async def run_code(
             "hook_config": config.hooks,
             "specs_dir": specs_path,
             "no_hooks": no_hooks,
+            "watch": watch,
             "task_callback": task_callback,
             "routing_config": config.routing,
             "archetypes_config": config.archetypes,
             "planning_config": config.planning,
+            "config_path": Path(".agent-fox/config.toml"),
+            "full_config": config,
         }
 
         if infra is not None:

@@ -17,7 +17,7 @@ import pytest
 from click.testing import CliRunner
 
 import agent_fox
-from agent_fox.cli.init import _ensure_agents_md
+from agent_fox.workspace.init_project import _ensure_agents_md
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -163,7 +163,7 @@ class TestMissingTemplate:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """44-REQ-1.E1: FileNotFoundError raised when template is missing."""
-        import agent_fox.cli.init as init_mod
+        import agent_fox.workspace.init_project as init_mod
 
         monkeypatch.setattr(
             init_mod,

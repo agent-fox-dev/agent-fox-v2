@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from agent_fox.cli.init import CANONICAL_PERMISSIONS, _ensure_claude_settings
+from agent_fox.workspace.init_project import CANONICAL_PERMISSIONS, _ensure_claude_settings
 
 
 class TestCreateSettings:
@@ -157,10 +157,10 @@ class TestEdgeCases:
 
 @pytest.fixture()
 def caplog(caplog):
-    """Enable log capture at DEBUG level for agent_fox.cli.init."""
+    """Enable log capture at DEBUG level for agent_fox.workspace.init_project."""
     import logging
 
-    caplog.set_level(logging.DEBUG, logger="agent_fox.cli.init")
+    caplog.set_level(logging.DEBUG, logger="agent_fox.workspace.init_project")
     return caplog
 
 

@@ -127,7 +127,7 @@ class TestSteeringPlacementInAssembledContext:
 
     def test_no_steering_section_for_placeholder_content(self, tmp_path: Path) -> None:
         """assemble_context() omits steering when file has only placeholder."""
-        from agent_fox.cli.init import _ensure_steering_md
+        from agent_fox.workspace.init_project import _ensure_steering_md
         from agent_fox.session.prompt import assemble_context
 
         spec_dir = _make_spec_dir(tmp_path)

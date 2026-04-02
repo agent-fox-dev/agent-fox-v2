@@ -14,7 +14,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 import agent_fox
-from agent_fox.cli.init import _ensure_agents_md
+from agent_fox.workspace.init_project import _ensure_agents_md
 
 # The bundled template path (used to assert byte-identical content)
 _AGENTS_MD_TEMPLATE = Path(agent_fox.__file__).parent / "_templates" / "agents_md.md"
