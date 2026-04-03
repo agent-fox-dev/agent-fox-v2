@@ -159,10 +159,12 @@ async def check_staleness(
 
     # Step 1: Try AI staleness evaluation
     ai_rationale: dict[int, str] = {}
+    ai_failed = False
     try:
         ai_result = await _run_ai_staleness(fixed_issue, remaining_issues, fix_diff, config)
         ai_rationale = ai_result.rationale
     except Exception:
+        ai_failed = True
         logger.warning(
             "Staleness AI call failed for fix #%d, falling back to GitHub API",
             fixed_issue.number,
@@ -184,14 +186,24 @@ async def check_staleness(
         )
         return StalenessResult(obsolete_issues=[], rationale={})
 
-    # Step 3: An issue is obsolete when the AI says it is resolved AND
-    # GitHub confirms it is still open (so our close_issue() call is
-    # meaningful).  Issues already closed externally are not our concern.
+    # Step 3: Determine obsolete issues
     obsolete_issues: list[int] = []
     rationale: dict[int, str] = {}
-    for num in remaining_numbers:
-        if num in ai_rationale and num in still_open_numbers:
-            obsolete_issues.append(num)
-            rationale[num] = ai_rationale[num]
+
+    if ai_failed:
+        # AI failure fallback (71-REQ-5.E1): an issue is obsolete when
+        # GitHub confirms it is no longer open.
+        for num in remaining_numbers:
+            if num not in still_open_numbers:
+                obsolete_issues.append(num)
+                rationale[num] = "closed externally (AI fallback)"
+    else:
+        # Normal path: an issue is obsolete when the AI says it is
+        # resolved AND GitHub confirms it is still open (so our
+        # close_issue() call is meaningful).
+        for num in remaining_numbers:
+            if num in ai_rationale and num in still_open_numbers:
+                obsolete_issues.append(num)
+                rationale[num] = ai_rationale[num]
 
     return StalenessResult(obsolete_issues=obsolete_issues, rationale=rationale)
