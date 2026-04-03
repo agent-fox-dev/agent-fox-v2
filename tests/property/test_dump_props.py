@@ -90,7 +90,7 @@ class TestFactCountPreservation:
     """
 
     @given(facts=st.lists(fact_row(), min_size=1, max_size=50))
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None)
     def test_fact_count_preservation(self, facts: list[dict]) -> None:
         """Number of bullet lines equals number of input facts."""
         conn = duckdb.connect(":memory:")

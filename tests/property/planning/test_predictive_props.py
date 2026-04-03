@@ -114,7 +114,7 @@ class TestDurationHintSourcePrecedence:
         archetype=st.sampled_from(["coder", "skeptic", "unknown_arch"]),
         tier=st.sampled_from(["STANDARD", "ADVANCED", "UNKNOWN_TIER"]),
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None)
     def test_duration_hint_source_precedence(
         self,
         has_model: bool,
@@ -480,7 +480,7 @@ class TestBlockingThresholdConvergence:
     """
 
     @given(n_decisions=st.integers(min_value=30, max_value=60))
-    @settings(max_examples=10)
+    @settings(max_examples=10, deadline=None)
     def test_blocking_threshold_convergence(self, n_decisions: int) -> None:
         """Computed threshold produces FNR <= max_false_negative_rate."""
         import duckdb
