@@ -1,9 +1,9 @@
 """Fix pipeline: issue-to-branch workflow.
 
-Post-harvest integration now handles pushing branches to origin via local git.
-PR creation was removed from the platform layer (spec 65, 65-REQ-4.2); the
-pipeline instead posts a completion comment with the branch name so that users
-can create a PR manually.
+After the archetype sessions complete, the fix branch is harvested into
+develop and pushed to origin via post_harvest_integrate.  PR creation was
+removed from the platform layer (spec 65, 65-REQ-4.2).  The originating
+issue is closed with a comment pointing to the fix branch.
 
 Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
               61-REQ-6.E1, 61-REQ-6.E2
@@ -158,15 +158,46 @@ class FixPipeline:
             )
             return
 
-        # Post completion comment — PR creation is no longer done via the
-        # platform layer (65-REQ-4.2).  Post-harvest pushes the branch to
-        # origin; the user creates the PR manually.
-        await self._platform.add_issue_comment(  # type: ignore[union-attr]
+        # Harvest fix branch into develop and push to origin (65-REQ-3.2).
+        await self._harvest_and_push(spec)
+
+        # Close the originating issue with a comment pointing to the branch.
+        # PR creation is no longer done via the platform layer (65-REQ-4.2).
+        await self._platform.close_issue(  # type: ignore[union-attr]
             issue.number,
-            f"Fix sessions complete. Create a PR from branch `{spec.branch_name}`.",
+            f"Fix complete on branch `{spec.branch_name}`. "
+            "Changes have been merged into `develop`. "
+            "Create a PR from that branch to land them on `main`.",
         )
         logger.info(
             "Fix pipeline complete for issue #%d on branch %s",
             issue.number,
             spec.branch_name,
         )
+
+    async def _harvest_and_push(self, spec: InMemorySpec) -> None:
+        """Harvest the fix branch into develop and push to origin.
+
+        Best-effort: failures are logged as warnings and do not abort
+        the pipeline (the issue is still closed on success).
+        """
+        from agent_fox.workspace.harvest import harvest, post_harvest_integrate
+        from agent_fox.workspace.worktree import WorkspaceInfo
+
+        repo_root = Path.cwd()
+        workspace = WorkspaceInfo(
+            path=repo_root,
+            branch=spec.branch_name,
+            spec_name=f"fix-issue-{spec.issue_number}",
+            task_group=0,
+        )
+        try:
+            await harvest(repo_root, workspace)
+            await post_harvest_integrate(repo_root, workspace)
+        except Exception as exc:
+            logger.warning(
+                "Harvest/push failed for issue #%d on branch %s: %s",
+                spec.issue_number,
+                spec.branch_name,
+                exc,
+            )
