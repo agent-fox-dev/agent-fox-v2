@@ -301,6 +301,29 @@ Use these global IDs in cross-spec references, design doc property validation li
 - For each external dependency, specify failure behavior and fallback strategy.
 - Prefer measurable constraints over qualitative language (for example, use concrete timeouts/retry limits).
 
+### Return Value Contracts
+
+When a requirement describes a function whose output is consumed by another
+part of the system, the requirement **must** state what the function returns.
+Omitting return values is the single most common cause of integration gaps: two
+agent sessions implement "create issues" and "label issues" as separate
+requirements, each working against the same input, because neither requirement
+stated that the issue numbers produced by step 1 must flow into step 2.
+
+**Bad** (action only, return value implicit):
+> [05-REQ-5.2] WHEN findings are grouped, THE system SHALL create one platform
+> issue per FindingGroup.
+
+**Good** (action + return contract):
+> [05-REQ-5.2] WHEN findings are grouped, THE system SHALL create one platform
+> issue per FindingGroup AND return the list of created issue references to the
+> caller for use in subsequent operations (e.g. label assignment).
+
+Apply this rule to any function that:
+- Creates, fetches, or transforms data that a caller needs to act on.
+- Is called in one task group and whose result is consumed in another.
+- Has a natural "pipe" relationship with a downstream step.
+
 ### Verification Methods
 
 Every requirement must have an automated verification method. The traceability table's "Verified By Test" column must reference a specific test file or test function — never "Manual" or "Manual (agent behavior)."
@@ -352,12 +375,42 @@ Brief architectural summary.
 ## Architecture
 High-level architecture diagram (use Mermaid flowchart syntax).
 
-If the system manages persistent state or involves multi-step data transformations, 
-also include a **data flow or sequence diagram** (Mermaid `sequenceDiagram` syntax) showing how data 
+If the system manages persistent state or involves multi-step data transformations,
+also include a **data flow or sequence diagram** (Mermaid `sequenceDiagram` syntax) showing how data
 moves through the system during the primary use case.
 
 ### Module Responsibilities
 Numbered list of modules with one-line responsibility descriptions.
+
+## Execution Paths
+
+Trace every user-visible feature from its entry point to its observable side
+effect in a numbered call chain. Every function call in the chain must name the
+exact module and function. If a return value flows from one call to the next,
+show it explicitly.
+
+Example:
+```
+### Path 1: Hunt scan produces GitHub issues
+
+1. `cli/nightshift.py: night_shift_cmd` — starts engine
+2. `nightshift/engine.py: NightShiftEngine._run_hunt_scan` — orchestrates scan
+3. `nightshift/engine.py: NightShiftEngine._run_hunt_scan_inner` — calls scanner
+4. `nightshift/hunt.py: HuntScanner.run` → `list[Finding]`
+5. `nightshift/critic.py: consolidate_findings(findings)` → `list[FindingGroup]`
+6. `nightshift/finding.py: create_issues_from_groups(groups, platform)` → `list[IssueResult]`
+7. `platform/github.py: GitHubPlatform.create_issue` — side effect: issue created on GitHub
+```
+
+**Every path must:**
+- Start at a CLI command, public API, or scheduled trigger.
+- End at a concrete side effect (file written, API call made, value returned to caller).
+- Name the return type of every function whose output is consumed by the next step.
+- Be complete enough that a reviewer can verify the path is live by reading only
+  the named files.
+
+If a path is not yet designed, write `(TBD)` for missing links — this makes
+gaps visible rather than hiding them.
 
 ## Components and Interfaces
 Define CLI commands/API surface, core data types, and module interfaces
@@ -593,6 +646,54 @@ ASSERT result == expected_fallback
 - **Test type classification.** Mark each test as `unit`, `integration`, or
   `property` to guide the coding agent's choice of test framework and fixtures.
 
+### Integration Smoke Tests (Mandatory)
+
+For every **Execution Path** defined in `design.md`, write at least one
+integration smoke test that traverses the full path from entry point to
+observable side effect. This test must **not** mock the component that is
+the subject of the path — it may stub only external I/O (network, filesystem,
+platform API).
+
+The critical rule: **an integration smoke test cannot pass if the execution
+path has a gap.** If `_run_hunt_scan_inner` returns `[]`, the smoke test for
+"hunt scan produces GitHub issues" must fail, not pass silently.
+
+Add these tests in a dedicated section:
+
+```markdown
+## Integration Smoke Tests
+
+### TS-{NN}-SMOKE-{N}: {Short Name}
+
+**Execution Path:** Path N from design.md
+**Description:** One sentence describing what end-to-end behavior is verified.
+
+**Setup:** Describe what is stubbed/mocked (only external I/O; NOT the
+components named in the execution path).
+
+**Trigger:** How the path is invoked (CLI call, method call, event).
+
+**Expected side effects:**
+- Concrete observable outcomes: API called with specific args, file written,
+  return value shape, etc.
+
+**Must NOT satisfy with:** List any mocks that would allow this test to pass
+despite the path being broken (these are forbidden in this test).
+
+**Assertion pseudocode:**
+```
+platform = MockPlatform()
+engine = NightShiftEngine(config, platform)   # real engine, not mocked
+engine._run_hunt_scan_inner = real_scanner_call  # NOT stubbed
+await engine._run_hunt_scan()
+ASSERT platform.create_issue.called_count >= 1
+```
+```
+
+Write one smoke test per execution path. If a path cannot be smoke-tested
+(e.g., requires expensive real infrastructure), document why and propose a
+minimal integration test that gets as close as possible.
+
 ### Coverage Check
 
 After writing all test cases, verify complete coverage:
@@ -760,6 +861,47 @@ has a pre-written test contract, an implementation task, and an executable test.
   `uv run pytest -q tests/test_module.py`).
 - Include a final traceability table: Requirement -> Test Spec Entry -> Task -> Test.
 
+### Wiring Verification Task (Mandatory Final Group)
+
+The **last task group** of every spec must be a wiring verification group. Its
+purpose is to catch integration gaps before the spec is declared done. It
+cannot be satisfied by checking that components work in isolation.
+
+```markdown
+- [ ] N. Wiring verification
+
+  - [ ] N.1 Trace every execution path from design.md end-to-end
+    - For each path, verify the entry point actually calls the next function
+      in the chain (read the calling code, do not assume)
+    - Confirm no function in the chain is a stub (`return []`, `return None`,
+      `pass`, `raise NotImplementedError`) that was never replaced
+    - _Requirements: all_
+
+  - [ ] N.2 Verify return values propagate correctly
+    - For every function in this spec that returns data consumed by a caller,
+      confirm the caller receives and uses the return value
+    - Grep for callers of each such function; confirm none discards the return
+    - _Requirements: all_
+
+  - [ ] N.3 Run the integration smoke tests
+    - All `TS-{NN}-SMOKE-*` tests pass using real components (no stub bypass)
+    - _Test Spec: TS-{NN}-SMOKE-1 through TS-{NN}-SMOKE-N_
+
+  - [ ] N.4 Stub / dead-code audit
+    - Search all files touched by this spec for: `return \[\]`, `return None`
+      on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
+      `# stub`, `override point`, `NotImplementedError`
+    - Each hit must be either: (a) justified with a comment explaining why it
+      is intentional, or (b) replaced with a real implementation
+    - Document any intentional stubs here with rationale
+
+  - [ ] N.V Verify wiring group
+    - [ ] All smoke tests pass
+    - [ ] No unjustified stubs remain in touched files
+    - [ ] All execution paths from design.md are live (traceable in code)
+    - [ ] All existing tests still pass: `<full test suite command>`
+```
+
 ### Task Group Sizing
 
 - Target **3-6 subtasks** per task group (excluding the verification subtask).
@@ -847,12 +989,18 @@ user. These checks mirror what `agent-fox lint-spec` validates:
 - [ ] `## Definition of Done` section is present
 - [ ] `## Overview`, `## Architecture` sections are present
 - [ ] Every requirement ID in the error table exists in requirements.md
+- [ ] `## Execution Paths` section present with one numbered call chain per user-visible feature, naming exact module+function at each step and showing return types where data flows between steps
+
+### Requirements (requirements.md — additional checks)
+- [ ] Every function whose output is consumed by a caller has a return value contract in its requirement (not just an action statement)
 
 ### Test Specification (test_spec.md)
 - [ ] Every acceptance criterion has a `TS-NN-N` entry
 - [ ] Every correctness property has a `TS-NN-PN` entry
 - [ ] Every edge case has a `TS-NN-EN` entry
 - [ ] `## Coverage Matrix` section with a table listing every requirement ID
+- [ ] `## Integration Smoke Tests` section with one `TS-NN-SMOKE-N` entry per execution path from design.md
+- [ ] Each smoke test names which components must NOT be mocked (the ones in the execution path)
 
 ### Implementation Tasks (tasks.md)
 - [ ] Task group 1 is "Write failing spec tests"
@@ -860,3 +1008,4 @@ user. These checks mirror what `agent-fox lint-spec` validates:
 - [ ] Each task group has a verification subtask (N.V)
 - [ ] `## Traceability` section with a table listing every requirement ID
 - [ ] No task group has more than 6 non-verification subtasks
+- [ ] Final task group is "Wiring verification" containing: execution path trace, return value propagation check, smoke test run, stub/dead-code audit
