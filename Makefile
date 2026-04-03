@@ -1,4 +1,4 @@
-.PHONY: install install-local uninstall clean test test-unit test-property test-integration lint format check clean-branches install-skills uninstall-skills bundle-skills stamp-version unstamp-version build-container
+.PHONY: install install-local uninstall clean test test-unit test-property test-integration lint format check clean-branches install-skills uninstall-skills stamp-version unstamp-version build-container
 
 BUILD_INFO := agent_fox/_build_info.py
 
@@ -58,32 +58,20 @@ CONTAINER_FILE := scripts/self-dev/Containerfile
 build-container:
 	podman build -t $(CONTAINER_IMAGE) -f $(CONTAINER_FILE) .
 
-SKILLS_DIR := $(CURDIR)/skills
 SKILLS_TEMPLATES_DIR := $(CURDIR)/agent_fox/_templates/skills
 CLAUDE_SKILLS_DIR := $(HOME)/.claude/skills
 
-bundle-skills:
-	@mkdir -p $(SKILLS_TEMPLATES_DIR)
-	@for skill in $(SKILLS_DIR)/*/SKILL.md; do \
-		name=$$(basename "$$(dirname "$$skill")"); \
-		awk 'BEGIN{fm=0} /^---$$/{fm++; next} fm>=2' "$$skill" > "$(SKILLS_TEMPLATES_DIR)/$$name"; \
-		echo "copied: $$skill -> $(SKILLS_TEMPLATES_DIR)/$$name"; \
-	done
-
 install-skills:
-	@mkdir -p $(CLAUDE_SKILLS_DIR)
-	@for skill in $(SKILLS_DIR)/*/; do \
+	@for skill in $(SKILLS_TEMPLATES_DIR)/*; do \
 		name=$$(basename "$$skill"); \
-		if [ -d "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
-			echo "skip: $$name (already installed)"; \
-		else \
-			cp -R "$$skill" "$(CLAUDE_SKILLS_DIR)/$$name"; \
-			echo "installed: $$name -> $(CLAUDE_SKILLS_DIR)/$$name"; \
-		fi; \
+		target="$(CLAUDE_SKILLS_DIR)/$$name"; \
+		mkdir -p "$$target"; \
+		cp "$$skill" "$$target/SKILL.md"; \
+		echo "installed: $$name -> $$target/SKILL.md"; \
 	done
 
 uninstall-skills:
-	@for skill in $(SKILLS_DIR)/*/; do \
+	@for skill in $(SKILLS_TEMPLATES_DIR)/*; do \
 		name=$$(basename "$$skill"); \
 		if [ -d "$(CLAUDE_SKILLS_DIR)/$$name" ]; then \
 			rm -rf "$(CLAUDE_SKILLS_DIR)/$$name"; \
