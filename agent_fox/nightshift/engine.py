@@ -112,6 +112,18 @@ class NightShiftEngine:
         remaining = max_cost - self.state.total_cost
         return remaining < max_cost * 0.5
 
+    def _check_session_limit(self) -> bool:
+        """Check whether the session limit has been reached.
+
+        Returns True when total_sessions >= max_sessions.
+
+        Requirements: 61-REQ-9.3
+        """
+        max_sessions = getattr(getattr(self._config, "orchestrator", None), "max_sessions", None)
+        if not isinstance(max_sessions, (int, float)):
+            return False
+        return self.state.total_sessions >= max_sessions
+
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.
 
@@ -209,6 +221,9 @@ class NightShiftEngine:
                 break
             if self._check_cost_limit():
                 logger.info("Cost limit reached, stopping issue processing")
+                break
+            if self._check_session_limit():
+                logger.info("Session limit reached, stopping issue processing")
                 break
 
             issue = issue_map[issue_num]
@@ -422,6 +437,10 @@ class NightShiftEngine:
         while not self.state.is_shutting_down:
             if self._check_cost_limit():
                 logger.info("Cost limit reached, shutting down")
+                self.state.is_shutting_down = True
+                break
+            if self._check_session_limit():
+                logger.info("Session limit reached, shutting down")
                 self.state.is_shutting_down = True
                 break
 

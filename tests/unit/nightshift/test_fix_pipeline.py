@@ -200,6 +200,61 @@ class TestCostLimitReached:
 
 
 # ---------------------------------------------------------------------------
+# Session limit reached
+# Requirement: 61-REQ-9.3
+# ---------------------------------------------------------------------------
+
+
+class TestSessionLimitReached:
+    """Verify engine stops on session limit."""
+
+    def test_check_session_limit_true(self) -> None:
+        """_check_session_limit returns True when sessions >= max."""
+        from unittest.mock import MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = 5
+        platform = MagicMock()
+
+        engine = NightShiftEngine(config=config, platform=platform)
+        engine.state.total_sessions = 5
+        assert engine._check_session_limit() is True
+
+    def test_check_session_limit_false(self) -> None:
+        """_check_session_limit returns False when sessions under max."""
+        from unittest.mock import MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = 10
+        platform = MagicMock()
+
+        engine = NightShiftEngine(config=config, platform=platform)
+        engine.state.total_sessions = 3
+        assert engine._check_session_limit() is False
+
+    def test_check_session_limit_unconfigured(self) -> None:
+        """_check_session_limit returns False when max_sessions is None."""
+        from unittest.mock import MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+        platform = MagicMock()
+
+        engine = NightShiftEngine(config=config, platform=platform)
+        engine.state.total_sessions = 100
+        assert engine._check_session_limit() is False
+
+
+# ---------------------------------------------------------------------------
 # Harvest and close: successful fix merges branch and closes issue
 # ---------------------------------------------------------------------------
 
