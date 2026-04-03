@@ -54,14 +54,14 @@ Group 3 is wiring verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Implement worktree hardening
-  - [ ] 2.1 Add `branch_used_by_worktree()` to `agent_fox/workspace/git.py`
+- [x] 2. Implement worktree hardening
+  - [x] 2.1 Add `branch_used_by_worktree()` to `agent_fox/workspace/git.py`
     - Parse `git worktree list --porcelain` output
     - Check for `branch refs/heads/{name}` in any entry
     - Return False on command failure (optimistic fallback)
     - _Requirements: 80-REQ-1.3, 80-REQ-1.E2_
 
-  - [ ] 2.2 Modify `delete_branch()` in `agent_fox/workspace/git.py`
+  - [x] 2.2 Modify `delete_branch()` in `agent_fox/workspace/git.py`
     - Detect "used by worktree" in stderr on failure
     - Extract worktree path from error message
     - If path does not exist: prune + retry once
@@ -69,33 +69,33 @@ Group 3 is wiring verification.
     - If path exists: raise WorkspaceError (legitimate use)
     - _Requirements: 80-REQ-2.1, 80-REQ-2.2, 80-REQ-2.E1_
 
-  - [ ] 2.3 Add `_cleanup_empty_ancestors()` to `agent_fox/workspace/worktree.py`
+  - [x] 2.3 Add `_cleanup_empty_ancestors()` to `agent_fox/workspace/worktree.py`
     - Walk from worktree_path up to root
     - Remove empty directories, stop at non-empty
     - Swallow errors (log at DEBUG)
     - _Requirements: 80-REQ-3.1, 80-REQ-3.2, 80-REQ-3.E1, 80-REQ-3.E2_
 
-  - [ ] 2.4 Modify `destroy_worktree()` in `agent_fox/workspace/worktree.py`
+  - [x] 2.4 Modify `destroy_worktree()` in `agent_fox/workspace/worktree.py`
     - After prune: call `branch_used_by_worktree` to verify
     - If still referenced: prune again + re-verify
     - If still referenced after second prune: log warning, skip deletion
     - Call `_cleanup_empty_ancestors` after branch deletion
     - _Requirements: 80-REQ-1.1, 80-REQ-1.E1, 80-REQ-3.1_
 
-  - [ ] 2.5 Modify `create_worktree()` in `agent_fox/workspace/worktree.py`
+  - [x] 2.5 Modify `create_worktree()` in `agent_fox/workspace/worktree.py`
     - After stale cleanup: call `_cleanup_empty_ancestors`
     - After prune: call `branch_used_by_worktree` to verify
     - Same retry logic as destroy_worktree
     - _Requirements: 80-REQ-1.2, 80-REQ-3.2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All unit tests pass: `uv run pytest -q tests/unit/workspace/test_worktree_hardening.py`
-    - [ ] All property tests pass: `uv run pytest -q tests/property/workspace/test_worktree_hardening_props.py`
-    - [ ] All integration tests pass: `uv run pytest -q tests/integration/workspace/test_worktree_hardening.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check && uv run ruff format --check`
+  - [x] 2.V Verify task group 2
+    - [x] All unit tests pass: `uv run pytest -q tests/unit/workspace/test_worktree_hardening.py`
+    - [x] All property tests pass: `uv run pytest -q tests/property/workspace/test_worktree_hardening_props.py`
+    - [x] All integration tests pass: `uv run pytest -q tests/integration/workspace/test_worktree_hardening.py`
+    - [x] All existing tests still pass: `uv run pytest -q` (3 pre-existing event-loop flakes in property suite; unchanged from baseline)
+    - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
     - [ ] Full pipeline: `make check`
-    - [ ] Requirements 80-REQ-1.*, 80-REQ-2.*, 80-REQ-3.* met
+    - [x] Requirements 80-REQ-1.*, 80-REQ-2.*, 80-REQ-3.* met
 
 - [ ] 3. Wiring verification
   - [ ] 3.1 Trace every execution path from design.md end-to-end
