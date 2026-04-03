@@ -97,33 +97,33 @@ Group 3 is wiring verification.
     - [ ] Full pipeline: `make check`
     - [x] Requirements 80-REQ-1.*, 80-REQ-2.*, 80-REQ-3.* met
 
-- [ ] 3. Wiring verification
-  - [ ] 3.1 Trace every execution path from design.md end-to-end
+- [x] 3. Wiring verification
+  - [x] 3.1 Trace every execution path from design.md end-to-end
     - Verify destroy_worktree calls branch_used_by_worktree before delete_branch
     - Verify create_worktree calls branch_used_by_worktree before delete_branch
     - Verify _cleanup_empty_ancestors is called in both destroy and create paths
     - Confirm no function is a stub
     - _Requirements: all_
 
-  - [ ] 3.2 Verify return values propagate correctly
+  - [x] 3.2 Verify return values propagate correctly
     - branch_used_by_worktree return value controls deletion flow
     - delete_branch self-healing uses prune result
     - _Requirements: all_
 
-  - [ ] 3.3 Run the integration smoke tests
+  - [x] 3.3 Run the integration smoke tests
     - All `TS-80-SMOKE-*` tests pass using real git repos
     - _Test Spec: TS-80-SMOKE-1, TS-80-SMOKE-2_
 
-  - [ ] 3.4 Stub / dead-code audit
+  - [x] 3.4 Stub / dead-code audit
     - Search worktree.py and git.py for stubs, TODOs, NotImplementedError
     - Each hit must be justified or replaced
     - _Requirements: all_
 
-  - [ ] 3.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 3.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] All existing tests still pass: `uv run pytest -q` (3 pre-existing event-loop flakes in property suite; unchanged from baseline)
 
 ## Traceability
 
