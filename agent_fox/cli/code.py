@@ -89,45 +89,6 @@ def _print_summary(state: ExecutionState) -> None:
     click.echo(f"Status: {state.run_status}")
 
 
-def _run_review_only_mode(
-    config: object,
-    specs_dir_override: str | None,
-) -> None:
-    """Execute review-only mode: run review archetypes without coder sessions.
-
-    Requirements: 53-REQ-6.1, 53-REQ-6.3, 53-REQ-6.5, 53-REQ-6.E1
-    """
-    from agent_fox.graph.injection import (
-        build_review_only_graph,
-        run_review_only,
-    )
-    from agent_fox.knowledge.db import open_knowledge_store
-    from agent_fox.knowledge.duckdb_sink import DuckDBSink
-    from agent_fox.knowledge.sink import SinkDispatcher
-
-    specs_path = Path(specs_dir_override) if specs_dir_override else Path(".specs")
-
-    graph = build_review_only_graph(specs_path, config.archetypes)
-
-    if not graph.nodes:
-        click.echo("No specs eligible for review")
-        return
-
-    sink_dispatcher = SinkDispatcher()
-    knowledge_db = open_knowledge_store(config.knowledge)
-    sink_dispatcher.add(DuckDBSink(knowledge_db.connection))
-
-    try:
-        run_review_only(specs_path, config.archetypes, sink=sink_dispatcher)
-
-        from agent_fox.graph.injection import print_review_only_summary
-
-        print_review_only_summary(knowledge_db.connection)
-    finally:
-        sink_dispatcher.close()
-        knowledge_db.close()
-
-
 @click.command("code")
 @click.option(
     "--parallel",
@@ -142,28 +103,10 @@ def _run_review_only_mode(
     help="Skip all hook scripts",
 )
 @click.option(
-    "--max-cost",
-    type=float,
-    default=None,
-    help="Cost ceiling in USD",
-)
-@click.option(
-    "--max-sessions",
-    type=int,
-    default=None,
-    help="Session count limit",
-)
-@click.option(
     "--debug",
     is_flag=True,
     default=False,
     help="Enable debug audit trail (JSONL + DuckDB tool signals)",
-)
-@click.option(
-    "--review-only",
-    is_flag=True,
-    default=False,
-    help="Run only review archetypes (Skeptic, Verifier, Oracle), skip coder sessions",
 )
 @click.option(
     "--specs-dir",
@@ -188,10 +131,7 @@ def code_cmd(
     ctx: click.Context,
     parallel: int | None,
     no_hooks: bool,
-    max_cost: float | None,
-    max_sessions: int | None,
     debug: bool,
-    review_only: bool,
     specs_dir: str | None,
     watch: bool,
     watch_interval: int | None,
@@ -202,20 +142,11 @@ def code_cmd(
     quiet: bool = ctx.obj.get("quiet", False)
     json_mode: bool = ctx.obj.get("json", False)
 
-    # 53-REQ-6.1: review-only mode — skip coder sessions, run review archetypes only
-    if review_only:
-        _run_review_only_mode(config, specs_dir)
-        return
-
     # 23-REQ-7.1: read stdin JSON when in JSON mode
     if json_mode:
         stdin_data = json_io.read_stdin()
         if parallel is None and "parallel" in stdin_data:
             parallel = int(stdin_data["parallel"])
-        if max_cost is None and "max_cost" in stdin_data:
-            max_cost = float(stdin_data["max_cost"])
-        if max_sessions is None and "max_sessions" in stdin_data:
-            max_sessions = int(stdin_data["max_sessions"])
 
     # 16-REQ-1.E1: check plan file exists
     plan_path = PLAN_PATH
@@ -243,8 +174,6 @@ def code_cmd(
                 config,
                 parallel=parallel,
                 no_hooks=no_hooks,
-                max_cost=max_cost,
-                max_sessions=max_sessions,
                 debug=debug,
                 watch=watch,
                 watch_interval=watch_interval,

@@ -29,7 +29,6 @@ from agent_fox.engine.review_parser import (
     extract_json_array,
 )
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
-from agent_fox.graph.injection import build_review_only_graph
 from agent_fox.knowledge.audit import AuditEventType
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.migrations import apply_pending_migrations
