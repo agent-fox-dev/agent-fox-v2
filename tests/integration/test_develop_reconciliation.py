@@ -148,9 +148,7 @@ class TestRebaseFailMergeSucceed:
     """
 
     @pytest.mark.asyncio
-    async def test_diverged_non_conflicting_produces_merge_commit(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_diverged_non_conflicting_produces_merge_commit(self, tmp_path: Path) -> None:
         """Diverged branches with non-conflicting changes -> merge commit."""
         working, _origin = _create_diverged_repo(tmp_path, conflicting=False)
 
@@ -165,9 +163,7 @@ class TestRebaseFailMergeSucceed:
             ["merge-base", "--is-ancestor", "origin/develop", "develop"],
             cwd=working,
         )
-        assert result.returncode == 0, (
-            "origin/develop should be an ancestor of develop after reconciliation"
-        )
+        assert result.returncode == 0, "origin/develop should be an ancestor of develop after reconciliation"
 
 
 # ---------------------------------------------------------------------------
@@ -193,9 +189,7 @@ class TestMergeFailOursSucceed:
 
         # Local content should be preserved (ours strategy)
         content = (working / "shared.txt").read_text()
-        assert "local content" in content, (
-            f"Expected local content preserved by -X ours, got: {content}"
-        )
+        assert "local content" in content, f"Expected local content preserved by -X ours, got: {content}"
 
 
 # ---------------------------------------------------------------------------
@@ -263,9 +257,7 @@ class TestPostHarvestReconcile:
         _run(["fetch", "origin"], cwd=working)
         local_head = _get_head(working, "develop")
         origin_head = _get_head(working, "origin/develop")
-        assert local_head == origin_head, (
-            "After reconcile+push, origin/develop should match local develop"
-        )
+        assert local_head == origin_head, "After reconcile+push, origin/develop should match local develop"
 
 
 # ---------------------------------------------------------------------------
@@ -280,9 +272,7 @@ class TestPushAfterReconcile:
     """
 
     @pytest.mark.asyncio
-    async def test_origin_matches_local_after_reconcile_push(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_origin_matches_local_after_reconcile_push(self, tmp_path: Path) -> None:
         """origin/develop HEAD matches local develop HEAD after push."""
         working, origin = _create_diverged_repo(tmp_path, conflicting=False)
         _run(["checkout", "develop"], cwd=working)

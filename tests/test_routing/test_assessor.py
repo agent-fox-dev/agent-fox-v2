@@ -25,9 +25,7 @@ class TestAssessmentProduction:
     """TS-30-2: Complexity assessment production."""
 
     @pytest.mark.asyncio
-    async def test_assessment_production(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_assessment_production(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-2: Verify assessment has all required fields.
 
         Requirement: 30-REQ-1.1
@@ -58,9 +56,7 @@ class TestHeuristicOnZeroHistory:
     """TS-30-3: Heuristic-only assessment on zero history."""
 
     @pytest.mark.asyncio
-    async def test_heuristic_on_zero_history(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_heuristic_on_zero_history(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-3: Verify heuristic when no historical data.
 
         Requirement: 30-REQ-1.3
@@ -83,9 +79,7 @@ class TestStatisticalPreferred:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_statistical_preferred(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_statistical_preferred(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-4: Verify statistical method when accuracy exceeds threshold.
 
         Requirement: 30-REQ-1.4
@@ -113,9 +107,7 @@ class TestHybridAssessment:
 
     @pytest.mark.asyncio
     @pytest.mark.integration
-    async def test_hybrid_assessment(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_hybrid_assessment(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-5: Verify hybrid when accuracy below threshold.
 
         Requirement: 30-REQ-1.5
@@ -142,9 +134,7 @@ class TestLlmFailureFallback:
     """TS-30-E1: LLM assessment failure fallback."""
 
     @pytest.mark.asyncio
-    async def test_llm_failure_fallback(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_llm_failure_fallback(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-E1: LLM call failure falls back to heuristic.
 
         Requirement: 30-REQ-1.E1
@@ -182,9 +172,7 @@ class TestNoDbAssessment:
     """
 
     @pytest.mark.asyncio
-    async def test_no_db_assessment(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_no_db_assessment(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-E2: Assessment works with empty DuckDB (heuristic).
 
         Requirement: 30-REQ-1.E2
@@ -273,9 +261,7 @@ class TestP6MethodSelection:
         """
         from agent_fox.routing.assessor import select_method
 
-        method = select_method(
-            outcome_count, accuracy, training_threshold, accuracy_threshold
-        )
+        method = select_method(outcome_count, accuracy, training_threshold, accuracy_threshold)
 
         if outcome_count < training_threshold:
             assert method == "heuristic"
@@ -289,9 +275,7 @@ class TestP7GracefulDegradation:
     """TS-30-P7: Assessment pipeline always returns a valid result."""
 
     @pytest.mark.asyncio
-    async def test_p7_graceful_degradation_no_db(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_p7_graceful_degradation_no_db(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """Assessment pipeline with empty DB returns valid result.
 
         Requirement: 30-REQ-1.E2, 30-REQ-7.E1
@@ -315,9 +299,7 @@ class TestP7GracefulDegradation:
         assert result.predicted_tier in valid_tiers
 
     @pytest.mark.asyncio
-    async def test_p7_graceful_degradation_bad_dir(
-        self, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_p7_graceful_degradation_bad_dir(self, routing_db: duckdb.DuckDBPyConnection) -> None:
         """Assessment pipeline with bad spec dir still returns valid result.
 
         Requirement: 30-REQ-1.E3, 30-REQ-7.E1

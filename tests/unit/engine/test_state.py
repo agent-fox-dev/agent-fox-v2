@@ -308,9 +308,7 @@ class TestPlanHashMismatch:
         path2 = tmp_path / "plan2.json"
         path2.write_text(content)
 
-        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(
-            path2
-        )
+        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(path2)
 
     def test_different_content_different_hash(
         self,
@@ -323,9 +321,7 @@ class TestPlanHashMismatch:
         path2 = tmp_path / "plan2.json"
         path2.write_text('{"nodes": {"B": {"id": "B"}}, "edges": [], "order": ["B"]}')
 
-        assert StateManager.compute_plan_hash(path1) != StateManager.compute_plan_hash(
-            path2
-        )
+        assert StateManager.compute_plan_hash(path1) != StateManager.compute_plan_hash(path2)
 
     def test_status_change_does_not_change_hash(
         self,
@@ -354,6 +350,4 @@ class TestPlanHashMismatch:
             )
         )
 
-        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(
-            path2
-        )
+        assert StateManager.compute_plan_hash(path1) == StateManager.compute_plan_hash(path2)

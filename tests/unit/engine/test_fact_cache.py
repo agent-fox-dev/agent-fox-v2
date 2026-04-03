@@ -83,9 +83,7 @@ class TestFactCache:
             created_at="2026-01-01T00:00:00",
             fact_count_at_creation=5,
         )
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=7
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=7)
         assert result is None
 
     def test_cache_invalidation(self) -> None:
@@ -104,9 +102,7 @@ class TestFactCache:
             fact_count_at_creation=5,
         )
         # One new fact added (count went from 5 to 6)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=6
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=6)
         assert result is None
 
     def test_valid_cache_returns_facts(self) -> None:
@@ -120,8 +116,6 @@ class TestFactCache:
             created_at="2026-01-01T00:00:00",
             fact_count_at_creation=5,
         )
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=5
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=5)
         assert result is not None
         assert len(result) == 1

@@ -152,9 +152,7 @@ class TestSkillTemplatesReferenceSteeringMd:
 
     def test_skill_templates_reference_steering(self) -> None:
         """All skill templates contain a reference to .specs/steering.md."""
-        templates_dir = (
-            Path(__file__).parents[3] / "agent_fox" / "_templates" / "skills"
-        )
+        templates_dir = Path(__file__).parents[3] / "agent_fox" / "_templates" / "skills"
         assert templates_dir.is_dir(), f"Skills directory not found: {templates_dir}"
 
         skill_files = [f for f in templates_dir.iterdir() if not f.name.startswith(".")]
@@ -180,33 +178,24 @@ class TestAgentsMdTemplateReferencesSteeringMd:
 
     def test_agents_md_template_references_steering(self) -> None:
         """AGENTS.md template contains a reference to .specs/steering.md."""
-        agents_md_path = (
-            Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
-        )
+        agents_md_path = Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
         assert agents_md_path.exists(), f"agents_md.md not found at {agents_md_path}"
         content = agents_md_path.read_text(encoding="utf-8")
         assert ".specs/steering.md" in content
 
     def test_steering_reference_position_in_agents_md(self) -> None:
         """steering.md reference after README.md and before 'Explore the codebase'."""
-        agents_md_path = (
-            Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
-        )
+        agents_md_path = Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
         content = agents_md_path.read_text(encoding="utf-8")
-        assert ".specs/steering.md" in content, (
-            "steering.md not referenced in agents_md.md"
-        )
+        assert ".specs/steering.md" in content, "steering.md not referenced in agents_md.md"
         assert "README.md" in content, "README.md not in agents_md.md"
-        assert "Explore the codebase" in content, (
-            "'Explore the codebase' not in agents_md.md"
-        )
+        assert "Explore the codebase" in content, "'Explore the codebase' not in agents_md.md"
 
         readme_pos = content.index("README.md")
         steering_pos = content.index(".specs/steering.md")
         explore_pos = content.index("Explore the codebase")
         assert readme_pos < steering_pos < explore_pos, (
-            f"Expected README.md ({readme_pos}) < steering.md ({steering_pos})"
-            f" < 'Explore the codebase' ({explore_pos})"
+            f"Expected README.md ({readme_pos}) < steering.md ({steering_pos}) < 'Explore the codebase' ({explore_pos})"
         )
 
 
@@ -279,6 +268,4 @@ class TestPermissionErrorCreatingSpecsDir:
         with caplog.at_level(logging.WARNING):
             _ensure_steering_md(tmp_path)
 
-        assert any(record.levelno >= logging.WARNING for record in caplog.records), (
-            "Expected a warning to be logged"
-        )
+        assert any(record.levelno >= logging.WARNING for record in caplog.records), "Expected a warning to be logged"

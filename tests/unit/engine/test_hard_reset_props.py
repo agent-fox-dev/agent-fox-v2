@@ -19,9 +19,7 @@ from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 # Hypothesis strategies
 # ---------------------------------------------------------------------------
 
-_STATUSES = st.sampled_from(
-    ["pending", "in_progress", "completed", "failed", "blocked"]
-)
+_STATUSES = st.sampled_from(["pending", "in_progress", "completed", "failed", "blocked"])
 
 
 @st.composite
@@ -55,9 +53,7 @@ def execution_state_strategy(
     for i in range(1, n + 1):
         node_states[f"s:{i}"] = draw(_STATUSES)
 
-    session_history = draw(
-        st.lists(session_record_strategy(), min_size=0, max_size=min(n, 10))
-    )
+    session_history = draw(st.lists(session_record_strategy(), min_size=0, max_size=min(n, 10)))
 
     return ExecutionState(
         plan_hash="abc123",
@@ -286,9 +282,7 @@ class TestGracefulDegradationProperty:
                 return_value=(0, 0),
             ),
         ):
-            result = hard_reset_all(
-                state_path, plan_path, worktrees_dir, tmp_path, memory_path
-            )
+            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert result.rollback_sha is None
 

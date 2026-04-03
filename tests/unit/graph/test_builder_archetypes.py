@@ -174,11 +174,7 @@ class TestArchetypeTagExtraction:
     ) -> None:
         from agent_fox.spec.parser import parse_tasks
 
-        tasks_md = (
-            "## Tasks\n\n"
-            "- [ ] 3. Update docs [archetype: cartographer]\n"
-            "  - [ ] 3.1 Write docs\n"
-        )
+        tasks_md = "## Tasks\n\n- [ ] 3. Update docs [archetype: cartographer]\n  - [ ] 3.1 Write docs\n"
         path = tmp_path / "tasks.md"  # type: ignore[operator]
         path.write_text(tasks_md)
 
@@ -252,10 +248,7 @@ class TestSkepticAutoInjection:
 
         assert "spec:0" in graph.nodes
         assert graph.nodes["spec:0"].archetype == "skeptic"
-        assert any(
-            e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec"
-            for e in graph.edges
-        )
+        assert any(e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
 
 
 # -------------------------------------------------------------------
@@ -317,11 +310,7 @@ class TestAssignmentLogged:
                 archetypes_config=config,
             )
 
-        assert any(
-            "archetype" in r.message.lower()
-            for r in caplog.records
-            if r.name == "agent_fox.graph.builder"
-        )
+        assert any("archetype" in r.message.lower() for r in caplog.records if r.name == "agent_fox.graph.builder")
 
 
 # -------------------------------------------------------------------
@@ -339,10 +328,7 @@ class TestCoderInstancesClamped:
         with caplog.at_level(logging.WARNING):
             result = clamp_instances("coder", 3)
         assert result == 1
-        assert any(
-            "clamped" in r.message.lower() or "coder" in r.message.lower()
-            for r in caplog.records
-        )
+        assert any("clamped" in r.message.lower() or "coder" in r.message.lower() for r in caplog.records)
 
 
 # -------------------------------------------------------------------

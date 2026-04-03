@@ -46,9 +46,7 @@ class KnowledgeDB:
         """
         try:
             self._ensure_parent_dir()
-            self._conn = duckdb.connect(
-                self._config.store_path, read_only=self._read_only
-            )
+            self._conn = duckdb.connect(self._config.store_path, read_only=self._read_only)
             if not self._read_only:
                 self._setup_vss()
                 self._initialize_schema()
@@ -169,9 +167,7 @@ class KnowledgeDB:
         self.close()
 
 
-def open_knowledge_store(
-    config: KnowledgeConfig, *, read_only: bool = False
-) -> KnowledgeDB:
+def open_knowledge_store(config: KnowledgeConfig, *, read_only: bool = False) -> KnowledgeDB:
     """Open the knowledge store. Raises on failure.
 
     Args:
@@ -193,6 +189,4 @@ def open_knowledge_store(
         db.open()
         return db
     except Exception as exc:
-        raise RuntimeError(
-            f"Knowledge store initialization failed ({config.store_path}): {exc}"
-        ) from exc
+        raise RuntimeError(f"Knowledge store initialization failed ({config.store_path}): {exc}") from exc

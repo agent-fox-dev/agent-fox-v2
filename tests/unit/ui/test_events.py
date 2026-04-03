@@ -65,9 +65,7 @@ class TestAbbreviateArgTrailingComponents:
 
     def test_path_keeps_maximum_context(self) -> None:
         """TS-18-12: Abbreviation keeps as many trailing path components as possible."""
-        result = abbreviate_arg(
-            "/home/user/project/src/components/Button.tsx", max_len=40
-        )
+        result = abbreviate_arg("/home/user/project/src/components/Button.tsx", max_len=40)
         assert "components/Button.tsx" in result
         assert result.startswith("…/")
         assert len(result) <= 40
@@ -164,9 +162,7 @@ class TestActivityEventConstruction:
 
     def test_basic_construction(self) -> None:
         """ActivityEvent can be constructed with required fields."""
-        event = ActivityEvent(
-            node_id="03_session:2", tool_name="Read", argument="config.py"
-        )
+        event = ActivityEvent(node_id="03_session:2", tool_name="Read", argument="config.py")
         assert event.node_id == "03_session:2"
         assert event.tool_name == "Read"
         assert event.argument == "config.py"
@@ -187,9 +183,7 @@ class TestActivityEventConstruction:
 
     def test_frozen(self) -> None:
         """ActivityEvent is frozen (immutable)."""
-        event = ActivityEvent(
-            node_id="03_session:2", tool_name="Read", argument="config.py"
-        )
+        event = ActivityEvent(node_id="03_session:2", tool_name="Read", argument="config.py")
         try:
             event.node_id = "other"  # type: ignore[misc]
             raise AssertionError("Expected FrozenInstanceError")

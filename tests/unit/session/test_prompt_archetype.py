@@ -61,9 +61,7 @@ class TestRegistryBasedResolution:
             content = f.read()
 
         # After refactor, _ROLE_TEMPLATES should not exist
-        assert "_ROLE_TEMPLATES" not in content, (
-            "prompt.py should not contain _ROLE_TEMPLATES after refactor"
-        )
+        assert "_ROLE_TEMPLATES" not in content, "prompt.py should not contain _ROLE_TEMPLATES after refactor"
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +197,7 @@ class TestRunnerUsesArchetype:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={"skeptic": "SIMPLE"})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"skeptic": "SIMPLE"}))
         runner = NodeSessionRunner(
             "spec:3",
             config,
@@ -230,9 +226,7 @@ class TestRunnerUsesArchetype:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(allowlists={"skeptic": ["ls", "cat"]})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"skeptic": ["ls", "cat"]}))
         runner = NodeSessionRunner(
             "spec:0",
             config,

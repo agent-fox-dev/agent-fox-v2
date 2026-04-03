@@ -253,9 +253,7 @@ class TestTraceabilityTableCompleteness:
 
     def test_detects_missing_requirement_in_table(self) -> None:
         fixture = FIXTURES_DIR / "traceability_gaps_spec"
-        findings = check_traceability_table_completeness(
-            "traceability_gaps_spec", fixture
-        )
+        findings = check_traceability_table_completeness("traceability_gaps_spec", fixture)
         # 99-REQ-1.2 and 99-REQ-2.1 are in requirements but not in traceability
         missing_ids = {f.message.split()[1] for f in findings}
         assert "99-REQ-1.2" in missing_ids
@@ -263,9 +261,7 @@ class TestTraceabilityTableCompleteness:
 
     def test_complete_table_clean(self) -> None:
         fixture = FIXTURES_DIR / "robust_complete_spec"
-        findings = check_traceability_table_completeness(
-            "robust_complete_spec", fixture
-        )
+        findings = check_traceability_table_completeness("robust_complete_spec", fixture)
         assert len(findings) == 0
 
 
@@ -280,19 +276,13 @@ class TestSectionSchema:
     def test_complete_spec_no_missing_required(self) -> None:
         fixture = FIXTURES_DIR / "robust_complete_spec"
         findings = check_section_schema("robust_complete_spec", fixture)
-        missing_required = [
-            f
-            for f in findings
-            if f.rule == "missing-section" and f.severity == "warning"
-        ]
+        missing_required = [f for f in findings if f.rule == "missing-section" and f.severity == "warning"]
         assert len(missing_required) == 0
 
     def test_minimal_design_flags_missing_sections(self) -> None:
         fixture = FIXTURES_DIR / "warnings_only_spec"
         findings = check_section_schema("warnings_only_spec", fixture)
-        missing = [
-            f for f in findings if f.rule == "missing-section" and f.file == "design.md"
-        ]
+        missing = [f for f in findings if f.rule == "missing-section" and f.file == "design.md"]
         # Should flag multiple missing required sections
         assert len(missing) >= 3
 

@@ -42,9 +42,7 @@ def check_oversized_groups(
         if group.completed:
             continue
         # Count non-verification subtasks: exclude N.V pattern
-        non_verify_count = sum(
-            1 for st in group.subtasks if not re.match(rf"^{group.number}\.V$", st.id)
-        )
+        non_verify_count = sum(1 for st in group.subtasks if not re.match(rf"^{group.number}\.V$", st.id))
         if non_verify_count > MAX_SUBTASKS_PER_GROUP:
             findings.append(
                 Finding(
@@ -53,8 +51,7 @@ def check_oversized_groups(
                     rule="oversized-group",
                     severity=SEVERITY_WARNING,
                     message=(
-                        f"Task group {group.number} has {non_verify_count} subtasks "
-                        f"(max {MAX_SUBTASKS_PER_GROUP})"
+                        f"Task group {group.number} has {non_verify_count} subtasks (max {MAX_SUBTASKS_PER_GROUP})"
                     ),
                     line=None,
                 )
@@ -79,9 +76,7 @@ def check_missing_verification(
         # Checkpoint groups are themselves a final verification step
         if group.title.startswith("Checkpoint"):
             continue
-        has_verify = any(
-            re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks
-        )
+        has_verify = any(re.match(rf"^{group.number}\.V$", st.id) for st in group.subtasks)
         if not has_verify:
             findings.append(
                 Finding(
@@ -89,10 +84,7 @@ def check_missing_verification(
                     file="tasks.md",
                     rule="missing-verification",
                     severity=SEVERITY_WARNING,
-                    message=(
-                        f"Task group {group.number} is missing a verification step "
-                        f"({group.number}.V)"
-                    ),
+                    message=(f"Task group {group.number} is missing a verification step ({group.number}.V)"),
                     line=None,
                 )
             )
@@ -148,10 +140,7 @@ def check_archetype_tags(
                         file="tasks.md",
                         rule="malformed-archetype-tag",
                         severity=SEVERITY_ERROR,
-                        message=(
-                            f"Duplicate archetype tags on line {i}: "
-                            f"{', '.join(all_matches)}"
-                        ),
+                        message=(f"Duplicate archetype tags on line {i}: {', '.join(all_matches)}"),
                         line=i,
                     )
                 )
@@ -204,10 +193,7 @@ def check_checkbox_states(
                         file="tasks.md",
                         rule="invalid-checkbox-state",
                         severity=SEVERITY_ERROR,
-                        message=(
-                            f"Invalid checkbox state '[{char}]' on line {i}; "
-                            f"valid states: [ ], [x], [-], [~]"
-                        ),
+                        message=(f"Invalid checkbox state '[{char}]' on line {i}; valid states: [ ], [x], [-], [~]"),
                         line=i,
                     )
                 )

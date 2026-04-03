@@ -52,9 +52,7 @@ class TestDiscoverySortOrder:
 
     @given(data=st.data())
     @settings(max_examples=50)
-    def test_prefixes_sorted_ascending(
-        self, data: st.DataObject, tmp_path_factory: pytest.TempPathFactory
-    ) -> None:
+    def test_prefixes_sorted_ascending(self, data: st.DataObject, tmp_path_factory: pytest.TempPathFactory) -> None:
         """Discovery always returns specs sorted by prefix."""
         # Generate unique prefixes
         n = data.draw(st.integers(min_value=1, max_value=10))
@@ -82,6 +80,4 @@ class TestDiscoverySortOrder:
 
         # Verify sorted
         result_prefixes = [s.prefix for s in specs]
-        assert result_prefixes == sorted(result_prefixes), (
-            f"Prefixes not sorted: {result_prefixes}"
-        )
+        assert result_prefixes == sorted(result_prefixes), f"Prefixes not sorted: {result_prefixes}"

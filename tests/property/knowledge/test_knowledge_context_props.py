@@ -108,8 +108,7 @@ class TestDeduplicationInvariant:
         # Create a chain: fact_0 -> fact_1 -> ... -> fact_n
         for i in range(len(fact_ids) - 1):
             conn.execute(
-                "INSERT INTO fact_causes (cause_id, effect_id) "
-                "VALUES (?::UUID, ?::UUID)",
+                "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
                 [fact_ids[i], fact_ids[i + 1]],
             )
 
@@ -134,9 +133,7 @@ class TestDeduplicationInvariant:
                 elif hasattr(item, "id"):
                     ids.append(item.id)
 
-            assert len(ids) == len(set(ids)), (
-                f"Duplicate IDs found in traversal from {fid}"
-            )
+            assert len(ids) == len(set(ids)), f"Duplicate IDs found in traversal from {fid}"
 
         conn.close()
 
@@ -179,9 +176,7 @@ class TestGroupBoundaryInvariant:
 
         for r in result:
             group_val = r.group if hasattr(r, "group") else r.task_group
-            assert int(group_val) < target_group, (
-                f"Finding from group {group_val} included for target {target_group}"
-            )
+            assert int(group_val) < target_group, f"Finding from group {group_val} included for target {target_group}"
 
         conn.close()
 

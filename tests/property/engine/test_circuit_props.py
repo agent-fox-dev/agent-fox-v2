@@ -56,14 +56,9 @@ class TestRetryBound:
         for attempt in range(1, max_retries + 10):
             decision = circuit.check_launch("A", attempt, state)
             if attempt <= max_retries + 1:
-                assert decision.allowed, (
-                    f"Attempt {attempt} should be allowed with "
-                    f"max_retries={max_retries}"
-                )
+                assert decision.allowed, f"Attempt {attempt} should be allowed with max_retries={max_retries}"
             else:
-                assert not decision.allowed, (
-                    f"Attempt {attempt} should be denied with max_retries={max_retries}"
-                )
+                assert not decision.allowed, f"Attempt {attempt} should be denied with max_retries={max_retries}"
 
     @given(max_retries=st.integers(min_value=0, max_value=5))
     @settings(max_examples=50)
@@ -118,10 +113,7 @@ class TestCostLimitEnforcement:
             state = _make_state(total_cost=cumulative)
             decision = circuit.should_stop(state)
             if cumulative >= max_cost:
-                assert not decision.allowed, (
-                    f"Should deny at cumulative={cumulative:.2f} "
-                    f"with max_cost={max_cost:.2f}"
-                )
+                assert not decision.allowed, f"Should deny at cumulative={cumulative:.2f} with max_cost={max_cost:.2f}"
 
     @given(
         max_cost=st.floats(min_value=0.01, max_value=100.0),

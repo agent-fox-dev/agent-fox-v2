@@ -96,9 +96,7 @@ class TestWorktreeVerificationNeverRaises:
         max_examples=30,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_verify_worktrees_never_raises(
-        self, subdir_count: int, dir_exists: bool
-    ) -> None:
+    def test_verify_worktrees_never_raises(self, subdir_count: int, dir_exists: bool) -> None:
         """verify_worktrees returns a list without raising for any state."""
         with tempfile.TemporaryDirectory() as tmp:
             repo_root = Path(tmp)

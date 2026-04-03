@@ -50,9 +50,7 @@ class TestNoCoordinatorInAnyCollection:
             set(_ROLE_TO_ARCHETYPE.keys()),
         ]
         for collection in all_collections:
-            assert "coordinator" not in collection, (
-                f"'coordinator' found in collection: {collection}"
-            )
+            assert "coordinator" not in collection, f"'coordinator' found in collection: {collection}"
 
 
 # -------------------------------------------------------------------
@@ -69,9 +67,7 @@ class TestConfigToleranceExtraModelFields:
         "field_name",
         ["coordinator", "planner", "reviewer", "analyzer"],
     )
-    def test_config_tolerance_extra_model_fields(
-        self, tmp_path: Path, field_name: str
-    ) -> None:
+    def test_config_tolerance_extra_model_fields(self, tmp_path: Path, field_name: str) -> None:
         """Config with extra [models] field loads and the field is not present."""
         from agent_fox.core.config import load_config
 

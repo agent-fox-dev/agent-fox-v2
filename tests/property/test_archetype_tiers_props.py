@@ -45,9 +45,7 @@ class TestRegistryDefaultsMatchSpec:
         for name in _ADVANCED_ARCHETYPES:
             entry = ARCHETYPE_REGISTRY[name]
             got = entry.default_model_tier
-            assert got == "ADVANCED", (
-                f"Expected {name} to have ADVANCED tier, got {got!r}"
-            )
+            assert got == "ADVANCED", f"Expected {name} to have ADVANCED tier, got {got!r}"
 
     def test_standard_archetypes_all_standard(self) -> None:
         """Coder, Auditor, Librarian, Cartographer, Coordinator must all be STANDARD."""
@@ -56,9 +54,7 @@ class TestRegistryDefaultsMatchSpec:
         for name in _STANDARD_ARCHETYPES:
             entry = ARCHETYPE_REGISTRY[name]
             got = entry.default_model_tier
-            assert got == "STANDARD", (
-                f"Expected {name} to have STANDARD tier, got {got!r}"
-            )
+            assert got == "STANDARD", f"Expected {name} to have STANDARD tier, got {got!r}"
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @pytest.mark.property
@@ -223,9 +219,7 @@ class TestConfigOverridePrecedence:
 
         mock_kb = MagicMock(spec=KnowledgeDB)
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={name: override}))
-        runner = NodeSessionRunner(
-            "spec:1", config, archetype=name, knowledge_db=mock_kb
-        )
+        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
         tier = runner._resolve_model_tier()
         assert tier == override
 
@@ -241,9 +235,7 @@ class TestConfigOverridePrecedence:
 
         mock_kb = MagicMock(spec=KnowledgeDB)
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
-        runner = NodeSessionRunner(
-            "spec:1", config, archetype=name, knowledge_db=mock_kb
-        )
+        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
         tier = runner._resolve_model_tier()
         expected = ARCHETYPE_REGISTRY[name].default_model_tier
         assert tier == expected
@@ -258,9 +250,7 @@ class TestConfigOverridePrecedence:
         ),
     )
     @settings(max_examples=50)
-    def test_prop_config_override_precedence(
-        self, name: str, override: str | None
-    ) -> None:
+    def test_prop_config_override_precedence(self, name: str, override: str | None) -> None:
         """Property: override → returned; no override → registry default."""
         from unittest.mock import MagicMock
 
@@ -272,9 +262,7 @@ class TestConfigOverridePrecedence:
         mock_kb = MagicMock(spec=KnowledgeDB)
         models = {name: override} if override is not None else {}
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models=models))
-        runner = NodeSessionRunner(
-            "spec:1", config, archetype=name, knowledge_db=mock_kb
-        )
+        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
         result = runner._resolve_model_tier()
 
         if override is not None:

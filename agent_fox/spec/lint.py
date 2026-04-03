@@ -175,9 +175,7 @@ def _merge_ai_findings(
         from agent_fox.spec.ai_validation import run_ai_validation
 
         standard_model = resolve_model("STANDARD").model_id
-        ai_findings = asyncio.run(
-            run_ai_validation(discovered, standard_model, specs_dir=specs_dir)
-        )
+        ai_findings = asyncio.run(run_ai_validation(discovered, standard_model, specs_dir=specs_dir))
         return sort_findings(findings + ai_findings)
     except Exception as exc:
         logger.warning("AI validation failed: %s", exc)

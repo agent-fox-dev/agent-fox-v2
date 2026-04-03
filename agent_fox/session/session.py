@@ -119,9 +119,7 @@ async def run_session(
     model_entry = resolve_model(model_id or config.models.coding)
 
     # Resolve security config (archetype override or config default)
-    effective_security = (
-        security_config if security_config is not None else config.security
-    )
+    effective_security = security_config if security_config is not None else config.security
 
     # Resolve backend (lazy import to keep SDK isolation)
     if backend is None:
@@ -154,11 +152,7 @@ async def run_session(
                 thinking=thinking,
                 archetype=archetype,
             ),
-            timeout_minutes=(
-                session_timeout
-                if session_timeout is not None
-                else config.orchestrator.session_timeout
-            ),
+            timeout_minutes=(session_timeout if session_timeout is not None else config.orchestrator.session_timeout),
         )
 
     except TimeoutError:
@@ -213,11 +207,7 @@ async def _execute_query(
 
     # 03-REQ-3.4, 26-REQ-3.4: Build the allowlist-based permission callback
     # Use security override (per-archetype allowlist) if provided
-    effective_security = (
-        security_config_override
-        if security_config_override is not None
-        else config.security
-    )
+    effective_security = security_config_override if security_config_override is not None else config.security
     allowlist_hook = make_pre_tool_use_hook(effective_security)
 
     async def _permission_callback(
@@ -260,11 +250,7 @@ async def _execute_query(
                     logger.debug("Activity callback raised; ignoring")
 
         # 40-REQ-8.1, 40-REQ-8.2: Emit tool.invocation audit events
-        if (
-            sink_dispatcher is not None
-            and run_id
-            and isinstance(message, ToolUseMessage)
-        ):
+        if sink_dispatcher is not None and run_id and isinstance(message, ToolUseMessage):
             try:
                 param_parts = []
                 for v in message.tool_input.values():
@@ -317,9 +303,7 @@ async def _execute_query(
 
     if not query_state.saw_result:
         query_state.status = "failed"
-        query_state.error_message = (
-            query_state.error_message or "Session ended without a result message."
-        )
+        query_state.error_message = query_state.error_message or "Session ended without a result message."
 
 
 def _extract_activity(

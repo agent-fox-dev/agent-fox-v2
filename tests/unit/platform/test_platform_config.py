@@ -124,9 +124,7 @@ class TestGitHubPlatformApiBaseGhe:
 
     def test_api_base_ghe(self) -> None:
         """GitHubPlatform with GHE url uses https://{url}/api/v3."""
-        platform = GitHubPlatform(
-            owner="o", repo="r", token="t", url="github.example.com"
-        )
+        platform = GitHubPlatform(owner="o", repo="r", token="t", url="github.example.com")
         assert platform._api_base == "https://github.example.com/api/v3"
 
 
@@ -191,9 +189,7 @@ class TestGitHubPlatformUrlParam:
 
     def test_url_param_accepted(self) -> None:
         """GitHubPlatform(url=...) constructs without error."""
-        platform = GitHubPlatform(
-            owner="o", repo="r", token="t", url="github.example.com"
-        )
+        platform = GitHubPlatform(owner="o", repo="r", token="t", url="github.example.com")
         assert platform is not None
 
 

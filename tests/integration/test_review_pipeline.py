@@ -142,8 +142,7 @@ class TestFindingSupersession:
         insert_verdicts(knowledge_conn, [new_verdict])
 
         old_row = knowledge_conn.execute(
-            "SELECT superseded_by::VARCHAR FROM verification_results "
-            "WHERE id = ?::UUID",
+            "SELECT superseded_by::VARCHAR FROM verification_results WHERE id = ?::UUID",
             [old_verdict.id],
         ).fetchone()
         assert old_row is not None
@@ -209,9 +208,7 @@ class TestReviewOnlyGraphNoCoder:
 class TestReviewOnlySummaryOutput:
     """TS-53-13: Review-only run prints a summary with counts by category."""
 
-    def test_summary_contains_finding_counts(
-        self, knowledge_conn: object, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_summary_contains_finding_counts(self, knowledge_conn: object, capsys: pytest.CaptureFixture) -> None:
         """TS-53-13: Summary includes finding counts by severity."""
         from agent_fox.graph.injection import print_review_only_summary
 
@@ -220,12 +217,8 @@ class TestReviewOnlySummaryOutput:
             insert_findings(knowledge_conn, [_make_finding(severity="critical")])
 
         # Insert 1 PASS verdict and 1 FAIL verdict
-        insert_verdicts(
-            knowledge_conn, [_make_verdict(verdict="PASS", requirement_id="03-REQ-1.1")]
-        )
-        insert_verdicts(
-            knowledge_conn, [_make_verdict(verdict="FAIL", requirement_id="03-REQ-2.1")]
-        )
+        insert_verdicts(knowledge_conn, [_make_verdict(verdict="PASS", requirement_id="03-REQ-1.1")])
+        insert_verdicts(knowledge_conn, [_make_verdict(verdict="FAIL", requirement_id="03-REQ-2.1")])
 
         # Insert 1 major drift finding
         insert_drift_findings(knowledge_conn, [_make_drift(severity="major")])

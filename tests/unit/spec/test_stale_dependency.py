@@ -364,9 +364,7 @@ class TestMissingDesignSkips:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await run_stale_dependency_validation(
-                specs, tmp_path, "STANDARD"
-            )
+            findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
             assert mock_client.messages.create.call_count == 0
@@ -403,16 +401,12 @@ class TestAIUnavailableSkips:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await run_stale_dependency_validation(
-                specs, tmp_path, "STANDARD"
-            )
+            findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
 
     @pytest.mark.asyncio
-    async def test_ai_error_logs_warning(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_ai_error_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """AI error produces a log warning."""
         from agent_fox.spec.ai_validation import run_stale_dependency_validation
 
@@ -433,9 +427,7 @@ class TestAIUnavailableSkips:
             mock_cls.return_value = mock_client
 
             with caplog.at_level(logging.WARNING):
-                _findings = await run_stale_dependency_validation(
-                    specs, tmp_path, "STANDARD"
-                )
+                _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert not _findings  # also empty
             assert any(record.levelno >= logging.WARNING for record in caplog.records)
@@ -474,9 +466,7 @@ class TestMalformedResponse:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await validate_dependency_interfaces(
-                "01_core", "# Design doc", [ref], "STANDARD"
-            )
+            findings = await validate_dependency_interfaces("01_core", "# Design doc", [ref], "STANDARD")
 
             assert len(findings) == 0
 
@@ -508,9 +498,7 @@ class TestBatchSameUpstream:
         # Upstream 01_core with design.md
         upstream_dir = tmp_path / "01_core"
         upstream_dir.mkdir()
-        (upstream_dir / "design.md").write_text(
-            "# Design\n\nConfig and Store are defined."
-        )
+        (upstream_dir / "design.md").write_text("# Design\n\nConfig and Store are defined.")
 
         specs = [
             _make_spec("10_spec_a", spec_a_dir),
@@ -540,9 +528,7 @@ class TestBatchSameUpstream:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            _findings = await run_stale_dependency_validation(
-                specs, tmp_path, "STANDARD"
-            )
+            _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert _findings is not None
             # Only one AI call for the single upstream spec 01_core
@@ -584,9 +570,7 @@ class TestNoBactickTokensZeroCalls:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await run_stale_dependency_validation(
-                specs, tmp_path, "STANDARD"
-            )
+            findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
             assert mock_client.messages.create.call_count == 0
@@ -633,16 +617,12 @@ class TestFindingSeverityFormat:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = await validate_dependency_interfaces(
-                "01_core", "# Design", [ref], "STANDARD"
-            )
+            findings = await validate_dependency_interfaces("01_core", "# Design", [ref], "STANDARD")
 
             assert all(f.severity == "warning" for f in findings)
 
     @pytest.mark.asyncio
-    async def test_stale_dep_findings_via_run_ai_validation(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_stale_dep_findings_via_run_ai_validation(self, tmp_path: Path) -> None:
         """stale-dep findings appear via run_ai_validation.
 
         Requirements: 21-REQ-4.1, 21-REQ-4.2
@@ -653,10 +633,7 @@ class TestFindingSeverityFormat:
         spec_dir = tmp_path / "10_downstream"
         spec_dir.mkdir()
         _write_prd(spec_dir, "Uses `BadRef` for something")
-        req_text = (
-            "# Requirements\n\n## Requirement 1\n\n"
-            "1. [99-REQ-1.1] THE system SHALL work.\n"
-        )
+        req_text = "# Requirements\n\n## Requirement 1\n\n1. [99-REQ-1.1] THE system SHALL work.\n"
         (spec_dir / "requirements.md").write_text(req_text)
 
         # Create upstream with design.md
@@ -766,9 +743,7 @@ class TestMultipleUpstreamsSeparateCalls:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            _findings = await run_stale_dependency_validation(
-                specs, tmp_path, "STANDARD"
-            )
+            _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert _findings is not None  # may or may not have findings
             assert mock_client.messages.create.call_count == 2

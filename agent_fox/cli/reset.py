@@ -432,11 +432,7 @@ def _handle_soft_reset_all(
         return
 
     # Find tasks that would be reset
-    resettable = [
-        (tid, status)
-        for tid, status in state.node_states.items()
-        if status in _RESETTABLE_STATUSES
-    ]
+    resettable = [(tid, status) for tid, status in state.node_states.items() if status in _RESETTABLE_STATUSES]
 
     if not resettable:
         if json_mode:

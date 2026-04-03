@@ -112,8 +112,7 @@ class TestExtractionConfidence:
         mock_response = MagicMock()
         mock_response.content = [
             MagicMock(
-                text='[{"content": "Test fact", "category": "gotcha", '
-                '"confidence": "high", "keywords": ["test"]}]'
+                text='[{"content": "Test fact", "category": "gotcha", "confidence": "high", "keywords": ["test"]}]'
             )
         ]
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)

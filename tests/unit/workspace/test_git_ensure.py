@@ -90,9 +90,7 @@ class TestEnsureDevelopCreatesFromRemote:
         assert len(fetch_calls) >= 1
 
         # Verify branch creation from origin/develop
-        branch_create = [
-            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
-        ]
+        branch_create = [c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"]
         assert len(branch_create) >= 1
         assert "origin/develop" in branch_create[0]
 
@@ -143,9 +141,7 @@ class TestEnsureDevelopCreatesFromDefault:
         ):
             await ensure_develop(tmp_path)
 
-        branch_create = [
-            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
-        ]
+        branch_create = [c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"]
         assert len(branch_create) >= 1
         assert "main" in branch_create[0]
 
@@ -307,9 +303,7 @@ class TestEnsureDevelopAlreadyExists:
             await ensure_develop(tmp_path)
 
         # No branch creation calls
-        branch_create = [
-            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
-        ]
+        branch_create = [c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"]
         assert len(branch_create) == 0
 
 
@@ -409,9 +403,7 @@ class TestEnsureDevelopFetchFails:
         assert any("fetch" in r.message.lower() for r in caplog.records)
 
         # Verify develop created from main
-        branch_create = [
-            c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"
-        ]
+        branch_create = [c for c in calls if len(c) >= 3 and c[0] == "branch" and c[1] == "develop"]
         assert len(branch_create) >= 1
         assert "main" in branch_create[0]
 
@@ -469,9 +461,7 @@ class TestEnsureDevelopDiverged:
         assert len(rebase_calls) == 1
         assert any("rebased" in r.message.lower() for r in caplog.records)
 
-    async def test_rebase_fails_warns_and_keeps_local(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_rebase_fails_warns_and_keeps_local(self, tmp_path: Path, caplog) -> None:
         """ensure_develop falls back to merge when rebase fails."""
         calls: list[list[str]] = []
 

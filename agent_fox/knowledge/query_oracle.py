@@ -90,10 +90,7 @@ class Oracle:
         # Step 1: Embed the question
         query_embedding = self._embedder.embed_text(question)
         if query_embedding is None:
-            raise KnowledgeStoreError(
-                "Failed to embed question. The embedding API may be "
-                "unavailable. Please retry."
-            )
+            raise KnowledgeStoreError("Failed to embed question. The embedding API may be unavailable. Please retry.")
 
         # Step 2: Vector search for top-k similar facts
         results = self._search.search(query_embedding)
@@ -142,10 +139,7 @@ class Oracle:
                 provenance_parts.append(f"commit: {r.commit_sha}")
             provenance = ", ".join(provenance_parts) if provenance_parts else "unknown"
 
-            parts.append(
-                f"[Fact {i}] (id: {r.fact_id}, {provenance}, "
-                f"similarity: {r.similarity:.2f})\n{r.content}"
-            )
+            parts.append(f"[Fact {i}] (id: {r.fact_id}, {provenance}, similarity: {r.similarity:.2f})\n{r.content}")
 
         return "\n\n".join(parts)
 
@@ -214,9 +208,7 @@ class Oracle:
         # The synthesis model may place "CONTRADICTION:" at the start of a
         # line or inline within a sentence.
         contradictions: list[str] = []
-        for match in re.finditer(
-            r"CONTRADICTION:\s*([^\n.]*(?:\.[^\n]*)?)", response_text, re.IGNORECASE
-        ):
+        for match in re.finditer(r"CONTRADICTION:\s*([^\n.]*(?:\.[^\n]*)?)", response_text, re.IGNORECASE):
             desc = match.group(1).strip()
             if desc:
                 contradictions.append(desc)
@@ -224,9 +216,7 @@ class Oracle:
                 contradictions.append(match.group(0).strip())
 
         # Build the answer text by removing contradiction markers
-        answer = re.sub(
-            r"CONTRADICTION:\s*[^\n]*", "", response_text, flags=re.IGNORECASE
-        ).strip()
+        answer = re.sub(r"CONTRADICTION:\s*[^\n]*", "", response_text, flags=re.IGNORECASE).strip()
         confidence = self._determine_confidence(results)
 
         return OracleAnswer(

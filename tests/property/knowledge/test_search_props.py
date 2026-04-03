@@ -90,8 +90,7 @@ class TestSearchResultOrdering:
         # Assert ordering
         for i in range(len(results) - 1):
             assert results[i].similarity >= results[i + 1].similarity, (
-                f"Result {i} (sim={results[i].similarity}) < "
-                f"Result {i + 1} (sim={results[i + 1].similarity})"
+                f"Result {i} (sim={results[i].similarity}) < Result {i + 1} (sim={results[i + 1].similarity})"
             )
 
         conn.close()

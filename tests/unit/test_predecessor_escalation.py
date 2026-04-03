@@ -67,10 +67,7 @@ def _make_orchestrator(
         )
         for nid, n in plan_nodes.items()
     }
-    typed_edges = [
-        Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec"))
-        for e in edges_list
-    ]
+    typed_edges = [Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec")) for e in edges_list]
     orch._graph = TaskGraph(
         nodes=typed_nodes,
         edges=typed_edges,
@@ -453,9 +450,7 @@ class TestMultipleReviewersShareLadder:
             "spec:1:auditor": "pending",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_orchestrator(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator(plan_nodes, edges_list, node_states)
 
         # retries_before_escalation=2: escalation after 3rd failure
         pred_ladder = EscalationLadder(
@@ -542,9 +537,7 @@ class TestCumulativeEscalationDecision:
             "spec:1:auditor": "pending",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_orchestrator(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator(plan_nodes, edges_list, node_states)
 
         # retries_before_escalation=1: 2nd cumulative failure escalates
         pred_ladder = EscalationLadder(

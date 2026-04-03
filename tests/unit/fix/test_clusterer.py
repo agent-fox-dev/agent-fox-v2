@@ -119,8 +119,7 @@ class TestAIClusteringSemanticGroups:
                     {
                         "label": "Style violation",
                         "failure_indices": [2],
-                        "suggested_approach": "Fix formatting and remove unused "
-                        "imports",
+                        "suggested_approach": "Fix formatting and remove unused imports",
                     },
                 ],
             }

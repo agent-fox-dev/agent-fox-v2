@@ -40,9 +40,7 @@ class TestErrorHierarchy:
     """TS-01-11: Error hierarchy completeness."""
 
     @pytest.mark.parametrize("error_class", ALL_ERROR_CLASSES)
-    def test_subclass_of_agent_fox_error(
-        self, error_class: type[AgentFoxError]
-    ) -> None:
+    def test_subclass_of_agent_fox_error(self, error_class: type[AgentFoxError]) -> None:
         """Each error class is a subclass of AgentFoxError."""
         assert issubclass(error_class, AgentFoxError)
 

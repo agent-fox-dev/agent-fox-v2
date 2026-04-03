@@ -35,21 +35,14 @@ class TestFuzzyMatchingSubsumesExactMatching:
     returns canonical_key for every canonical key.
     """
 
-    @given(
-        canonical_key=st.sampled_from(
-            ["findings", "verdicts", "drift_findings", "audit"]
-        )
-    )
+    @given(canonical_key=st.sampled_from(["findings", "verdicts", "drift_findings", "audit"]))
     def test_exact_canonical_key_resolves(self, canonical_key: str) -> None:
         """_resolve_wrapper_key always resolves the exact canonical key."""
         from agent_fox.session.review_parser import _resolve_wrapper_key
 
         data = {canonical_key: []}
         result = _resolve_wrapper_key(data, canonical_key)
-        assert result == canonical_key, (
-            f"Expected '{canonical_key}' but got '{result}' "
-            f"for exact canonical key lookup"
-        )
+        assert result == canonical_key, f"Expected '{canonical_key}' but got '{result}' for exact canonical key lookup"
 
 
 # ---------------------------------------------------------------------------
@@ -80,12 +73,8 @@ class TestCaseNormalizationPreservesValues:
         d = {f"key_{i}": v for i, v in enumerate(items)}
         result = _normalize_keys(d)
 
-        assert len(result) == len(d), (
-            f"_normalize_keys changed dict size: {len(d)} -> {len(result)}"
-        )
-        assert set(result.values()) == set(d.values()), (
-            "_normalize_keys changed the set of values"
-        )
+        assert len(result) == len(d), f"_normalize_keys changed dict size: {len(d)} -> {len(result)}"
+        assert set(result.values()) == set(d.values()), "_normalize_keys changed the set of values"
 
     @given(
         d=st.dictionaries(
@@ -101,9 +90,7 @@ class TestCaseNormalizationPreservesValues:
 
         result = _normalize_keys(d)
         for key in result:
-            assert key == key.lower(), (
-                f"_normalize_keys produced a non-lowercase key: {key!r}"
-            )
+            assert key == key.lower(), f"_normalize_keys produced a non-lowercase key: {key!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -135,9 +122,7 @@ class TestRetryBound:
         mock_session.is_alive = True
         mock_session.append_user_message = MagicMock(return_value="still bad json")
 
-        with patch(
-            "agent_fox.engine.review_persistence.extract_json_array", mock_extract
-        ):
+        with patch("agent_fox.engine.review_persistence.extract_json_array", mock_extract):
             persist_review_findings(
                 transcript="bad json " * n_bad,
                 node_id="test-node",
@@ -151,10 +136,7 @@ class TestRetryBound:
                 session_handle=mock_session,
             )
 
-        assert call_count[0] <= 2, (
-            f"Expected at most 2 extraction attempts, got {call_count[0]} "
-            f"(n_bad={n_bad})"
-        )
+        assert call_count[0] <= 2, f"Expected at most 2 extraction attempts, got {call_count[0]} (n_bad={n_bad})"
 
 
 # ---------------------------------------------------------------------------
@@ -199,14 +181,10 @@ class TestPartialConvergenceMonotonicity:
         none_count=st.integers(min_value=0, max_value=5),
         good_count=st.integers(min_value=0, max_value=5),
     )
-    def test_filter_count_matches_non_none(
-        self, none_count: int, good_count: int
-    ) -> None:
+    def test_filter_count_matches_non_none(self, none_count: int, good_count: int) -> None:
         """Filtered count equals the number of non-None inputs."""
         finding_value = [_make_finding()]
-        raw_results: list[list[ReviewFinding] | None] = [None] * none_count + [
-            finding_value
-        ] * good_count
+        raw_results: list[list[ReviewFinding] | None] = [None] * none_count + [finding_value] * good_count
         filtered = [r for r in raw_results if r is not None]
         assert len(filtered) == good_count
 
@@ -225,11 +203,7 @@ class TestVariantCoverage:
     for all registered variants.
     """
 
-    @given(
-        canonical_key=st.sampled_from(
-            ["findings", "verdicts", "drift_findings", "audit"]
-        )
-    )
+    @given(canonical_key=st.sampled_from(["findings", "verdicts", "drift_findings", "audit"]))
     def test_all_variants_of_canonical_key_resolve(self, canonical_key: str) -> None:
         """Every variant in WRAPPER_KEY_VARIANTS resolves back to the variant key."""
         from agent_fox.session.review_parser import (
@@ -241,10 +215,7 @@ class TestVariantCoverage:
         for variant in variants:
             data = {variant: []}
             result = _resolve_wrapper_key(data, canonical_key)
-            assert result == variant, (
-                f"Variant '{variant}' of '{canonical_key}' did not resolve: "
-                f"got '{result}'"
-            )
+            assert result == variant, f"Variant '{variant}' of '{canonical_key}' did not resolve: got '{result}'"
 
     def test_all_canonical_keys_and_variants_resolve(self) -> None:
         """All (canonical, variant) pairs resolve — exhaustive check."""
@@ -257,9 +228,7 @@ class TestVariantCoverage:
             for variant in variants:
                 data = {variant: []}
                 result = _resolve_wrapper_key(data, canonical)
-                assert result == variant, (
-                    f"Variant '{variant}' of '{canonical}' did not resolve"
-                )
+                assert result == variant, f"Variant '{variant}' of '{canonical}' did not resolve"
 
 
 # ---------------------------------------------------------------------------
@@ -302,9 +271,7 @@ class TestBackwardCompatibility:
             assert item["description"] == original["description"]
 
     @given(findings=st.lists(_valid_finding_dict(), min_size=1, max_size=5))
-    def test_backward_compatible_parse_review_findings(
-        self, findings: list[dict]
-    ) -> None:
+    def test_backward_compatible_parse_review_findings(self, findings: list[dict]) -> None:
         """parse_review_findings works on correctly-cased inputs after changes."""
         results = parse_review_findings(findings, "spec", "1", "sess1")
         assert len(results) == len(findings)

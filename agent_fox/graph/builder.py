@@ -59,8 +59,7 @@ def _inject_auto_mid_nodes(
         ts_count = count_ts_entries(spec.path)
         if ts_count < min_ts:
             logger.info(
-                "Skipping auditor injection for spec '%s': "
-                "%d TS entries < min_ts_entries=%d",
+                "Skipping auditor injection for spec '%s': %d TS entries < min_ts_entries=%d",
                 spec.name,
                 ts_count,
                 min_ts,
@@ -92,28 +91,18 @@ def _inject_auto_mid_nodes(
             test_node_id = f"{spec.name}:{group_num}"
             if test_node_id in nodes:
                 # Remove existing edge from test group to next group
-                next_group = (
-                    sorted_groups[i + 1] if i + 1 < len(sorted_groups) else None
-                )
+                next_group = sorted_groups[i + 1] if i + 1 < len(sorted_groups) else None
                 if next_group is not None:
                     next_node_id = f"{spec.name}:{next_group.number}"
-                    edges[:] = [
-                        e
-                        for e in edges
-                        if not (e.source == test_node_id and e.target == next_node_id)
-                    ]
+                    edges[:] = [e for e in edges if not (e.source == test_node_id and e.target == next_node_id)]
 
-                edges.append(
-                    Edge(source=test_node_id, target=node_id, kind="intra_spec")
-                )
+                edges.append(Edge(source=test_node_id, target=node_id, kind="intra_spec"))
 
                 # Edge from auditor to next group (if exists)
                 if next_group is not None:
                     next_node_id = f"{spec.name}:{next_group.number}"
                     if next_node_id in nodes:
-                        edges.append(
-                            Edge(source=node_id, target=next_node_id, kind="intra_spec")
-                        )
+                        edges.append(Edge(source=node_id, target=next_node_id, kind="intra_spec"))
 
 
 def _create_nodes_and_intra_edges(
@@ -139,9 +128,7 @@ def _create_nodes_and_intra_edges(
         prev_node_id: str | None = None
         for group in sorted_groups:
             node_id = f"{spec.name}:{group.number}"
-            initial_status = (
-                NodeStatus.COMPLETED if group.completed else NodeStatus.PENDING
-            )
+            initial_status = NodeStatus.COMPLETED if group.completed else NodeStatus.PENDING
             # Carry archetype from tasks.md tag if present (applied later
             # as highest-priority layer in build_graph)
             archetype = "coder"
@@ -161,9 +148,7 @@ def _create_nodes_and_intra_edges(
             )
 
             if prev_node_id is not None:
-                edges.append(
-                    Edge(source=prev_node_id, target=node_id, kind="intra_spec")
-                )
+                edges.append(Edge(source=prev_node_id, target=node_id, kind="intra_spec"))
             prev_node_id = node_id
 
     return nodes, edges
@@ -260,9 +245,7 @@ def _inject_archetype_nodes(
         # auto_pre injection (e.g., Skeptic/Oracle at group 0)
         # 32-REQ-3.1/3.2: Collect enabled auto_pre archetypes first to
         # determine whether to use suffixed IDs (multi) or plain :0 (single).
-        enabled_auto_pre = collect_enabled_auto_pre(
-            archetypes_config, spec_path=spec.path
-        )
+        enabled_auto_pre = collect_enabled_auto_pre(archetypes_config, spec_path=spec.path)
         use_suffix = len(enabled_auto_pre) > 1
 
         for arch in enabled_auto_pre:

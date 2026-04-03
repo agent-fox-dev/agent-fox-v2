@@ -24,9 +24,7 @@ class TestTraverseCausalChainForward:
     Requirement: 13-REQ-3.4
     """
 
-    def test_traverses_full_downstream_chain(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_traverses_full_downstream_chain(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Traversing effects from aaa returns the full chain."""
         chain = traverse_causal_chain(causal_db, fact_id=FACT_AAA, direction="effects")
         assert len(chain) == 4
@@ -43,9 +41,7 @@ class TestTraverseCausalChainBackward:
     Requirement: 13-REQ-3.4
     """
 
-    def test_traverses_upstream_chain(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_traverses_upstream_chain(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Traversing causes from ccc returns the upstream chain."""
         chain = traverse_causal_chain(causal_db, fact_id=FACT_CCC, direction="causes")
         assert len(chain) == 3
@@ -61,13 +57,9 @@ class TestTraverseRespectsMaxDepth:
     Requirement: 13-REQ-3.4
     """
 
-    def test_excludes_facts_beyond_max_depth(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_excludes_facts_beyond_max_depth(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Traversal with max_depth=1 excludes ccc (depth 2)."""
-        chain = traverse_causal_chain(
-            causal_db, fact_id=FACT_AAA, max_depth=1, direction="effects"
-        )
+        chain = traverse_causal_chain(causal_db, fact_id=FACT_AAA, max_depth=1, direction="effects")
         fact_ids = {f.fact_id for f in chain}
         assert FACT_AAA in fact_ids
         assert FACT_BBB in fact_ids
@@ -81,9 +73,7 @@ class TestTraverseIsolatedFact:
     Requirement: 13-REQ-3.4
     """
 
-    def test_isolated_fact_returns_self_only(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_isolated_fact_returns_self_only(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """A fact with no causal links returns only itself."""
         chain = traverse_causal_chain(causal_db, fact_id=FACT_DDD)
         assert len(chain) == 1

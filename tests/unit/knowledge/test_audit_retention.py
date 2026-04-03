@@ -64,9 +64,7 @@ class TestRetention:
     Requirements: 40-REQ-12.1, 40-REQ-12.2, 40-REQ-12.E1, 40-REQ-12.E2
     """
 
-    def test_deletes_old(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_deletes_old(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """TS-40-24: Retention deletes oldest runs beyond limit."""
         audit_dir = tmp_path / "audit"
         audit_dir.mkdir(parents=True)
@@ -75,23 +73,17 @@ class TestRetention:
         # Create 25 runs
         for i in range(25):
             run_id = f"20260101_{i:06d}_abc{i:03d}"
-            _insert_run_events(
-                knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i)
-            )
+            _insert_run_events(knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i))
 
         enforce_audit_retention(audit_dir, knowledge_conn, max_runs=20)
 
-        remaining = knowledge_conn.execute(
-            "SELECT DISTINCT run_id FROM audit_events"
-        ).fetchall()
+        remaining = knowledge_conn.execute("SELECT DISTINCT run_id FROM audit_events").fetchall()
         assert len(remaining) == 20
 
         jsonl_files = list(audit_dir.glob("audit_*.jsonl"))
         assert len(jsonl_files) == 20
 
-    def test_under_limit(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_under_limit(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """TS-40-25: No data deleted when under retention limit."""
         audit_dir = tmp_path / "audit"
         audit_dir.mkdir(parents=True)
@@ -99,15 +91,11 @@ class TestRetention:
         base_time = datetime(2026, 1, 1, tzinfo=UTC)
         for i in range(10):
             run_id = f"20260101_{i:06d}_abc{i:03d}"
-            _insert_run_events(
-                knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i)
-            )
+            _insert_run_events(knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i))
 
         enforce_audit_retention(audit_dir, knowledge_conn, max_runs=20)
 
-        remaining = knowledge_conn.execute(
-            "SELECT DISTINCT run_id FROM audit_events"
-        ).fetchall()
+        remaining = knowledge_conn.execute("SELECT DISTINCT run_id FROM audit_events").fetchall()
         assert len(remaining) == 10
 
     def test_jsonl_delete_failure(
@@ -124,9 +112,7 @@ class TestRetention:
         # Create 3 runs, retain 1
         for i in range(3):
             run_id = f"20260101_{i:06d}_abc{i:03d}"
-            _insert_run_events(
-                knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i)
-            )
+            _insert_run_events(knowledge_conn, audit_dir, run_id, base_time + timedelta(hours=i))
 
         # Make the oldest JSONL file read-only (undeletable)
         oldest_file = audit_dir / "audit_20260101_000000_abc000.jsonl"
@@ -138,25 +124,19 @@ class TestRetention:
             enforce_audit_retention(audit_dir, knowledge_conn, max_runs=1)
 
         # DuckDB cleanup should still have happened
-        remaining = knowledge_conn.execute(
-            "SELECT DISTINCT run_id FROM audit_events"
-        ).fetchall()
+        remaining = knowledge_conn.execute("SELECT DISTINCT run_id FROM audit_events").fetchall()
         assert len(remaining) == 1
 
         # Restore permissions for cleanup
         if oldest_file.exists():
             oldest_file.chmod(stat.S_IRWXU)
 
-    def test_empty_database(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_empty_database(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Retention with no events is a no-op."""
         audit_dir = tmp_path / "audit"
         audit_dir.mkdir(parents=True)
 
         enforce_audit_retention(audit_dir, knowledge_conn, max_runs=20)
 
-        remaining = knowledge_conn.execute(
-            "SELECT DISTINCT run_id FROM audit_events"
-        ).fetchall()
+        remaining = knowledge_conn.execute("SELECT DISTINCT run_id FROM audit_events").fetchall()
         assert len(remaining) == 0

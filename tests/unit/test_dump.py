@@ -124,9 +124,7 @@ class TestBothFlagsError:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb")
 
-            result = runner.invoke(
-                main, ["export", "--memory", "--db"], catch_exceptions=False
-            )
+            result = runner.invoke(main, ["export", "--memory", "--db"], catch_exceptions=False)
 
         assert result.exit_code == 1
         output = result.output.lower()
@@ -179,9 +177,7 @@ class TestMemoryJson:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb", SAMPLE_FACTS)
 
-            result = runner.invoke(
-                main, ["--json", "export", "--memory"], catch_exceptions=False
-            )
+            result = runner.invoke(main, ["--json", "export", "--memory"], catch_exceptions=False)
 
             assert result.exit_code == 0
             memory_json = td_path / "docs" / "memory.json"
@@ -191,9 +187,7 @@ class TestMemoryJson:
             assert "generated" in data
             assert len(data["facts"]) == len(SAMPLE_FACTS)
             for fact_obj in data["facts"]:
-                assert {"id", "content", "category", "spec_name", "confidence"} <= set(
-                    fact_obj.keys()
-                )
+                assert {"id", "content", "category", "spec_name", "confidence"} <= set(fact_obj.keys())
 
 
 # -- TS-49-6: Memory export prints confirmation ------------------------------
@@ -303,9 +297,7 @@ class TestMemoryEmptyJson:
             af_dir.mkdir(parents=True, exist_ok=True)
             _create_db_with_facts(af_dir / "knowledge.duckdb", facts=None)
 
-            result = runner.invoke(
-                main, ["--json", "export", "--memory"], catch_exceptions=False
-            )
+            result = runner.invoke(main, ["--json", "export", "--memory"], catch_exceptions=False)
 
             assert result.exit_code == 0
             memory_json = td_path / "docs" / "memory.json"

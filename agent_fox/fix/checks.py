@@ -101,9 +101,7 @@ def _inspect_pyproject(path: Path) -> list[CheckDescriptor]:
     # tool -> pytest -> ini_options
     pytest_section = tool.get("pytest", {})
     has_pytest = "pytest" in tool
-    has_ini_options = (
-        isinstance(pytest_section, dict) and "ini_options" in pytest_section
-    )
+    has_ini_options = isinstance(pytest_section, dict) and "ini_options" in pytest_section
 
     if has_pytest or has_ini_options:
         checks.append(
@@ -302,8 +300,7 @@ def run_checks(
             failures.append(
                 FailureRecord(
                     check=check,
-                    output=f"Timeout: check '{check.name}' exceeded "
-                    f"{SUBPROCESS_TIMEOUT} second limit",
+                    output=f"Timeout: check '{check.name}' exceeded {SUBPROCESS_TIMEOUT} second limit",
                     exit_code=-1,
                 )
             )

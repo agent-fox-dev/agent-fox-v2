@@ -142,9 +142,7 @@ class TestPostHarvestPushFailureBestEffort:
     Note: Feature branch push no longer happens (spec 78).
     """
 
-    async def test_develop_push_failure_no_exception(
-        self, tmp_path: Path, caplog
-    ) -> None:
+    async def test_develop_push_failure_no_exception(self, tmp_path: Path, caplog) -> None:
         """_push_develop_if_pushable failure does not raise an exception."""
         workspace = _make_workspace()
 
@@ -180,9 +178,7 @@ class TestPostHarvestFeatureBranchDeleted:
     Requirement: 78-REQ-1.E1
     """
 
-    async def test_feature_branch_deleted_still_pushes_develop(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_feature_branch_deleted_still_pushes_develop(self, tmp_path: Path) -> None:
         """Even if workspace branch is gone, develop is still pushed without error."""
         workspace = _make_workspace(branch="feature/deleted/1")
 

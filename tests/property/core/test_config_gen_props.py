@@ -132,9 +132,7 @@ def unknown_field_names(draw: st.DrawFn) -> list[str]:
 
     names = draw(
         st.lists(
-            st.from_regex(r"[a-z][a-z0-9_]{2,15}", fullmatch=True).filter(
-                lambda n: n not in known
-            ),
+            st.from_regex(r"[a-z][a-z0-9_]{2,15}", fullmatch=True).filter(lambda n: n not in known),
             min_size=1,
             max_size=3,
             unique=True,
@@ -164,8 +162,7 @@ class TestTemplateCompleteness:
                 if not field.is_nested:
                     if (section.path, field.name) in _PROMOTED_DEFAULTS:
                         assert f"{field.name} =" in template, (
-                            f"Promoted field '{field.name}' in section "
-                            f"'{section.path}' missing from template"
+                            f"Promoted field '{field.name}' in section '{section.path}' missing from template"
                         )
 
 
@@ -252,9 +249,7 @@ class TestMergeCompleteness:
         schema = extract_schema(AgentFoxConfig)
 
         # Generate a config with a random subset of orchestrator fields
-        subset_size = data.draw(
-            st.integers(min_value=0, max_value=min(3, len(_ORCHESTRATOR_FIELDS)))
-        )
+        subset_size = data.draw(st.integers(min_value=0, max_value=min(3, len(_ORCHESTRATOR_FIELDS))))
         if subset_size > 0:
             keys = data.draw(
                 st.lists(
@@ -282,9 +277,7 @@ class TestMergeCompleteness:
             for field in section.fields:
                 key = (section.path, field.name)
                 if not field.is_nested and key in _PROMOTED_DEFAULTS:
-                    assert field.name in merged, (
-                        f"Promoted field '{field.name}' missing from merged output"
-                    )
+                    assert field.name in merged, f"Promoted field '{field.name}' missing from merged output"
 
 
 class TestDeprecatedFieldDetection:
@@ -307,9 +300,7 @@ class TestDeprecatedFieldDetection:
         for name in unknowns:
             # Find lines referencing this unknown field
             field_lines = [line for line in merged.split("\n") if name in line]
-            assert any("DEPRECATED" in line for line in field_lines), (
-                f"Unknown field '{name}' not marked as DEPRECATED"
-            )
+            assert any("DEPRECATED" in line for line in field_lines), f"Unknown field '{name}' not marked as DEPRECATED"
 
 
 class TestSchemaExtractionDeterminism:
@@ -332,16 +323,12 @@ class TestSchemaExtractionDeterminism:
             for s0, si in zip(results[0], results[i]):
                 names_0 = [f.name for f in s0.fields]
                 names_i = [f.name for f in si.fields]
-                assert names_0 == names_i, (
-                    f"Call {i} has different fields in section '{s0.path}'"
-                )
+                assert names_0 == names_i, f"Call {i} has different fields in section '{s0.path}'"
 
                 # Compare defaults
                 defaults_0 = [f.default for f in s0.fields]
                 defaults_i = [f.default for f in si.fields]
-                assert defaults_0 == defaults_i, (
-                    f"Call {i} has different defaults in section '{s0.path}'"
-                )
+                assert defaults_0 == defaults_i, f"Call {i} has different defaults in section '{s0.path}'"
 
 
 class TestMergeIdempotency:

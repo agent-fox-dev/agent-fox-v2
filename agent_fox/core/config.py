@@ -82,13 +82,9 @@ class RoutingConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    retries_before_escalation: int = Field(
-        default=1, description="Retries before model escalation"
-    )
+    retries_before_escalation: int = Field(default=1, description="Retries before model escalation")
     training_threshold: int = Field(default=20, description="Training data threshold")
-    accuracy_threshold: float = Field(
-        default=0.75, description="Accuracy threshold for routing"
-    )
+    accuracy_threshold: float = Field(default=0.75, description="Accuracy threshold for routing")
     retrain_interval: int = Field(default=10, description="Retrain interval")
     max_timeout_retries: int = Field(
         default=2,
@@ -96,27 +92,18 @@ class RoutingConfig(BaseModel):
     )
     timeout_multiplier: float = Field(
         default=1.5,
-        description=(
-            "Factor by which max_turns and session_timeout are extended"
-            " on timeout retry"
-        ),
+        description=("Factor by which max_turns and session_timeout are extended on timeout retry"),
     )
     timeout_ceiling_factor: float = Field(
         default=2.0,
-        description=(
-            "Maximum session_timeout as a factor of the original configured value"
-        ),
+        description=("Maximum session_timeout as a factor of the original configured value"),
     )
 
-    clamp_retries = _clamped_validator(
-        "retries_before_escalation", ge=0, le=3, cast=int
-    )
+    clamp_retries = _clamped_validator("retries_before_escalation", ge=0, le=3, cast=int)
     clamp_training = _clamped_validator("training_threshold", ge=5, le=1000, cast=int)
     clamp_accuracy = _clamped_validator("accuracy_threshold", ge=0.5, le=1.0)
     clamp_retrain = _clamped_validator("retrain_interval", ge=5, le=100, cast=int)
-    clamp_max_timeout_retries = _clamped_validator(
-        "max_timeout_retries", ge=0, cast=int
-    )
+    clamp_max_timeout_retries = _clamped_validator("max_timeout_retries", ge=0, cast=int)
     clamp_timeout_multiplier = _clamped_validator("timeout_multiplier", ge=1.0)
     clamp_timeout_ceiling_factor = _clamped_validator("timeout_ceiling_factor", ge=1.0)
 
@@ -129,23 +116,16 @@ class OrchestratorConfig(BaseModel):
     hot_load: bool = Field(default=True, description="Hot-load specs between sessions")
     max_retries: int = Field(default=2, description="Maximum retries per task group")
     session_timeout: int = Field(default=30, description="Session timeout in minutes")
-    inter_session_delay: int = Field(
-        default=3, description="Delay between sessions in seconds"
-    )
+    inter_session_delay: int = Field(default=3, description="Delay between sessions in seconds")
     max_cost: float | None = Field(default=None, description="Maximum cost limit")
-    max_sessions: int | None = Field(
-        default=None, description="Maximum number of sessions"
-    )
+    max_sessions: int | None = Field(default=None, description="Maximum number of sessions")
     audit_retention_runs: int = Field(
         default=20,
         description="Maximum number of runs to retain in the audit log",
     )
     max_blocked_fraction: float | None = Field(
         default=None,
-        description=(
-            "Stop the run when this fraction of nodes are blocked "
-            "(0.0-1.0). None = disabled."
-        ),
+        description=("Stop the run when this fraction of nodes are blocked (0.0-1.0). None = disabled."),
     )
     quality_gate: str = Field(
         default="",
@@ -174,10 +154,7 @@ class OrchestratorConfig(BaseModel):
 
     watch_interval: int = Field(
         default=60,
-        description=(
-            "Seconds between watch polls when --watch is active. "
-            "Values below 10 are clamped to 10."
-        ),
+        description=("Seconds between watch polls when --watch is active. Values below 10 are clamped to 10."),
     )
 
     clamp_parallel = _clamped_validator("parallel", ge=1, le=8)
@@ -186,9 +163,7 @@ class OrchestratorConfig(BaseModel):
     clamp_session_timeout = _clamped_validator("session_timeout", ge=1)
     clamp_inter_session_delay = _clamped_validator("inter_session_delay", ge=0)
     clamp_audit_retention = _clamped_validator("audit_retention_runs", ge=1, cast=int)
-    clamp_causal_context_limit = _clamped_validator(
-        "causal_context_limit", ge=10, le=10000, cast=int
-    )
+    clamp_causal_context_limit = _clamped_validator("causal_context_limit", ge=10, le=10000, cast=int)
     clamp_watch_interval = _clamped_validator("watch_interval", ge=10, cast=int)
 
     @field_validator("max_blocked_fraction")
@@ -203,9 +178,7 @@ class ModelConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     coding: str = Field(default="ADVANCED", description="Model tier for coding tasks")
-    memory_extraction: str = Field(
-        default="SIMPLE", description="Model tier for memory extraction"
-    )
+    memory_extraction: str = Field(default="SIMPLE", description="Model tier for memory extraction")
     fallback_model: str = Field(
         default="claude-sonnet-4-6",
         description="Fallback model ID when primary is unavailable",
@@ -215,19 +188,11 @@ class ModelConfig(BaseModel):
 class HookConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    pre_code: list[str] = Field(
-        default_factory=list, description="Commands to run before coding"
-    )
-    post_code: list[str] = Field(
-        default_factory=list, description="Commands to run after coding"
-    )
-    sync_barrier: list[str] = Field(
-        default_factory=list, description="Commands to run at sync barriers"
-    )
+    pre_code: list[str] = Field(default_factory=list, description="Commands to run before coding")
+    post_code: list[str] = Field(default_factory=list, description="Commands to run after coding")
+    sync_barrier: list[str] = Field(default_factory=list, description="Commands to run at sync barriers")
     timeout: int = Field(default=300, description="Hook command timeout in seconds")
-    modes: dict[str, str] = Field(
-        default_factory=dict, description="Hook modes configuration"
-    )
+    modes: dict[str, str] = Field(default_factory=dict, description="Hook modes configuration")
 
     clamp_timeout = _clamped_validator("timeout", ge=1)
 
@@ -235,12 +200,8 @@ class HookConfig(BaseModel):
 class SecurityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    bash_allowlist: list[str] | None = Field(
-        default=None, description="Allowed bash commands"
-    )
-    bash_allowlist_extend: list[str] = Field(
-        default_factory=list, description="Additional allowed bash commands"
-    )
+    bash_allowlist: list[str] | None = Field(default=None, description="Allowed bash commands")
+    bash_allowlist_extend: list[str] = Field(default_factory=list, description="Additional allowed bash commands")
 
 
 class ThemeConfig(BaseModel):
@@ -282,21 +243,11 @@ class KnowledgeConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    store_path: str = Field(
-        default=".agent-fox/knowledge.duckdb", description="Path to knowledge store"
-    )
-    embedding_model: str = Field(
-        default="all-MiniLM-L6-v2", description="Embedding model for knowledge"
-    )
-    embedding_dimensions: int = Field(
-        default=384, description="Embedding vector dimensions"
-    )
-    ask_top_k: int = Field(
-        default=20, description="Number of results for knowledge queries"
-    )
-    ask_synthesis_model: str = Field(
-        default="STANDARD", description="Model tier for answer synthesis"
-    )
+    store_path: str = Field(default=".agent-fox/knowledge.duckdb", description="Path to knowledge store")
+    embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Embedding model for knowledge")
+    embedding_dimensions: int = Field(default=384, description="Embedding vector dimensions")
+    ask_top_k: int = Field(default=20, description="Number of results for knowledge queries")
+    ask_synthesis_model: str = Field(default="STANDARD", description="Model tier for answer synthesis")
     confidence_threshold: float = Field(
         default=0.5,
         description="Minimum confidence for fact inclusion in session context",
@@ -365,9 +316,7 @@ class OracleSettings(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    block_threshold: int | None = Field(
-        default=None, description="Drift count to block (None = advisory)"
-    )
+    block_threshold: int | None = Field(default=None, description="Drift count to block (None = advisory)")
 
     @field_validator("block_threshold")
     @classmethod
@@ -386,12 +335,8 @@ class AuditorConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    min_ts_entries: int = Field(
-        default=5, description="Minimum TS entries to trigger auditor injection"
-    )
-    max_retries: int = Field(
-        default=2, description="Maximum auditor-coder retry iterations"
-    )
+    min_ts_entries: int = Field(default=5, description="Minimum TS entries to trigger auditor injection")
+    max_retries: int = Field(default=2, description="Maximum auditor-coder retry iterations")
 
     clamp_min_ts = _clamped_validator("min_ts_entries", ge=1, cast=int)
     clamp_max_retries = _clamped_validator("max_retries", ge=0, cast=int)
@@ -409,9 +354,7 @@ class ArchetypesConfig(BaseModel):
     skeptic: bool = Field(default=True, description="Enable skeptic archetype")
     verifier: bool = Field(default=True, description="Enable verifier archetype")
     librarian: bool = Field(default=False, description="Enable librarian archetype")
-    cartographer: bool = Field(
-        default=False, description="Enable cartographer archetype"
-    )
+    cartographer: bool = Field(default=False, description="Enable cartographer archetype")
     oracle: bool = Field(default=True, description="Enable oracle archetype")
     auditor: bool = Field(default=True, description="Enable auditor archetype")
 
@@ -432,12 +375,8 @@ class ArchetypesConfig(BaseModel):
         default_factory=AuditorConfig,
         description="Auditor-specific configuration",
     )
-    models: dict[str, str] = Field(
-        default_factory=dict, description="Per-archetype model overrides"
-    )
-    allowlists: dict[str, list[str]] = Field(
-        default_factory=dict, description="Per-archetype command allowlists"
-    )
+    models: dict[str, str] = Field(default_factory=dict, description="Per-archetype model overrides")
+    allowlists: dict[str, list[str]] = Field(default_factory=dict, description="Per-archetype command allowlists")
     max_turns: dict[str, int] = Field(
         default_factory=dict,
         description="Per-archetype maximum turn limits",
@@ -463,9 +402,7 @@ class ArchetypesConfig(BaseModel):
         """
         for archetype, turns in v.items():
             if turns < 0:
-                raise ValueError(
-                    f"max_turns for '{archetype}' must be >= 0, got {turns}"
-                )
+                raise ValueError(f"max_turns for '{archetype}' must be >= 0, got {turns}")
         return v
 
 
@@ -477,18 +414,10 @@ class ModelPricing(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    input_price_per_m: float = Field(
-        default=0.0, description="USD per million input tokens"
-    )
-    output_price_per_m: float = Field(
-        default=0.0, description="USD per million output tokens"
-    )
-    cache_read_price_per_m: float = Field(
-        default=0.0, description="USD per million cache-read input tokens"
-    )
-    cache_creation_price_per_m: float = Field(
-        default=0.0, description="USD per million cache-creation input tokens"
-    )
+    input_price_per_m: float = Field(default=0.0, description="USD per million input tokens")
+    output_price_per_m: float = Field(default=0.0, description="USD per million output tokens")
+    cache_read_price_per_m: float = Field(default=0.0, description="USD per million cache-read input tokens")
+    cache_creation_price_per_m: float = Field(default=0.0, description="USD per million cache-creation input tokens")
 
     # Requirements: 34-REQ-2.E2
     clamp_negative_price = _clamped_validator(
@@ -549,9 +478,7 @@ class PlanningConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    duration_ordering: bool = Field(
-        default=True, description="Sort ready tasks by predicted duration"
-    )
+    duration_ordering: bool = Field(default=True, description="Sort ready tasks by predicted duration")
     min_outcomes_for_historical: int = Field(
         default=10,
         description="Minimum outcomes before using historical duration data",
@@ -565,12 +492,8 @@ class PlanningConfig(BaseModel):
         description="Detect file conflicts between parallel tasks",
     )
 
-    clamp_min_historical = _clamped_validator(
-        "min_outcomes_for_historical", ge=1, le=1000, cast=int
-    )
-    clamp_min_regression = _clamped_validator(
-        "min_outcomes_for_regression", ge=5, le=10000, cast=int
-    )
+    clamp_min_historical = _clamped_validator("min_outcomes_for_historical", ge=1, le=1000, cast=int)
+    clamp_min_regression = _clamped_validator("min_outcomes_for_regression", ge=5, le=10000, cast=int)
 
 
 class BlockingConfig(BaseModel):
@@ -594,9 +517,7 @@ class BlockingConfig(BaseModel):
         description="Maximum acceptable false negative rate",
     )
 
-    clamp_min_decisions = _clamped_validator(
-        "min_decisions_for_learning", ge=1, le=1000, cast=int
-    )
+    clamp_min_decisions = _clamped_validator("min_decisions_for_learning", ge=1, le=1000, cast=int)
     clamp_fnr = _clamped_validator("max_false_negative_rate", ge=0.0, le=1.0)
 
 

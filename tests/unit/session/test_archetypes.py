@@ -49,9 +49,7 @@ class TestRegistryCompleteness:
         for name, entry in ARCHETYPE_REGISTRY.items():
             assert entry.name == name
             assert len(entry.templates) >= 1, f"{name} has no templates"
-            assert entry.default_model_tier in valid_tiers, (
-                f"{name} has invalid model tier: {entry.default_model_tier}"
-            )
+            assert entry.default_model_tier in valid_tiers, f"{name} has invalid model tier: {entry.default_model_tier}"
 
 
 # ---------------------------------------------------------------------------

@@ -41,9 +41,7 @@ class DuckDBSink:
         If touched_paths is empty, inserts one row with NULL touched_path.
         DuckDB errors propagate to the caller (38-REQ-3.1).
         """
-        paths: list[str | None] = (
-            list(outcome.touched_paths) if outcome.touched_paths else [None]
-        )
+        paths: list[str | None] = list(outcome.touched_paths) if outcome.touched_paths else [None]
         for i, path in enumerate(paths):
             row_id = outcome.id if i == 0 else uuid4()
             self._conn.execute(

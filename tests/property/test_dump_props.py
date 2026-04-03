@@ -102,9 +102,7 @@ class TestFactCountPreservation:
             render_summary(conn, output_path)
 
             content = output_path.read_text()
-            bullet_count = sum(
-                1 for line in content.splitlines() if line.startswith("- ")
-            )
+            bullet_count = sum(1 for line in content.splitlines() if line.startswith("- "))
             assert bullet_count == len(facts)
         conn.close()
 

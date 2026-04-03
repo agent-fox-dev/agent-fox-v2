@@ -276,9 +276,7 @@ class TestHashMismatchMerge:
 
         assert "gone" not in result.blocked_reasons
 
-    def test_blocked_reasons_cleared_for_reset_nodes(
-        self, tmp_state_path: Path
-    ) -> None:
+    def test_blocked_reasons_cleared_for_reset_nodes(self, tmp_state_path: Path) -> None:
         """Blocked reasons are cleared for nodes reset to pending during
         plan merge — stale reasons would cause immediate re-blocking."""
         manager = StateManager(tmp_state_path)

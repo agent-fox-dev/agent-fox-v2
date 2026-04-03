@@ -80,16 +80,12 @@ class TestEndToEndIssueCheck:
 
             call_count = 0
 
-            async def staleness_side_effect(
-                *args: object, **kwargs: object
-            ) -> StalenessResult:
+            async def staleness_side_effect(*args: object, **kwargs: object) -> StalenessResult:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
                     # After fixing #10, mark #20 as obsolete
-                    return StalenessResult(
-                        obsolete_issues=[20], rationale={20: "resolved by #10"}
-                    )
+                    return StalenessResult(obsolete_issues=[20], rationale={20: "resolved by #10"})
                 return StalenessResult(obsolete_issues=[], rationale={})
 
             mock_staleness.side_effect = staleness_side_effect
@@ -135,9 +131,7 @@ class TestEndToEndIssueCheck:
                 edges=[],
                 supersession_pairs=[],
             )
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[], rationale={}
-            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
 
             await engine._run_issue_check()
 

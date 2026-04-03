@@ -182,12 +182,8 @@ class TestReloadWhenHashDiffers:
         orch._full_config = AgentFoxConfig()  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_agent_config = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(max_cost=100.0, parallel=1)
-        )
-        with patch(
-            "agent_fox.engine.config_reload.load_config", return_value=new_agent_config
-        ):
+        new_agent_config = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=100.0, parallel=1))
+        with patch("agent_fox.engine.config_reload.load_config", return_value=new_agent_config):
             orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
 
         assert orch._config.max_cost == 100.0
@@ -258,9 +254,7 @@ class TestCircuitBreakerRebuilt:
         orch._full_config = AgentFoxConfig()  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(max_cost=999.0, parallel=1)
-        )
+        new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=999.0, parallel=1))
         with patch(
             "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,
@@ -299,9 +293,7 @@ class TestParallelChangeNotApplied:
         orch._full_config = AgentFoxConfig(orchestrator=start_cfg)  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(parallel=4, inter_session_delay=0)
-        )
+        new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(parallel=4, inter_session_delay=0))
         with (
             patch(
                 "agent_fox.engine.config_reload.load_config",
@@ -447,9 +439,7 @@ class TestAuditEventEmitted:
         orch._full_config = AgentFoxConfig(orchestrator=start_cfg)  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(max_cost=100.0, parallel=1)
-        )
+        new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=100.0, parallel=1))
         emitted: list[dict] = []
 
         def _capture(sink, run_id, event_type, *, payload=None, **kwargs) -> None:
@@ -641,18 +631,14 @@ class TestSyncIntervalZeroStopsBarriers:
         config_file = tmp_path / "config.toml"
         config_file.write_text("[orchestrator]\nsync_interval = 0\n")
 
-        start_cfg = OrchestratorConfig(
-            sync_interval=5, parallel=1, inter_session_delay=0
-        )
+        start_cfg = OrchestratorConfig(sync_interval=5, parallel=1, inter_session_delay=0)
         orch = _make_orch(tmp_path, config=start_cfg)
         orch._config_path = config_file  # type: ignore[attr-defined]
         orch._config_hash = "stale"  # type: ignore[attr-defined]
         orch._full_config = AgentFoxConfig(orchestrator=start_cfg)  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(sync_interval=0, parallel=1)
-        )
+        new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(sync_interval=0, parallel=1))
         with patch(
             "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,

@@ -70,9 +70,7 @@ def _make_verdict(
 class TestReviewFindingsTableCreated:
     """TS-27-1: review_findings table exists after schema creation."""
 
-    def test_review_findings_table_created(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_review_findings_table_created(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """review_findings table exists with expected columns."""
         rows = schema_conn.execute(
             "SELECT column_name FROM information_schema.columns "
@@ -93,9 +91,7 @@ class TestReviewFindingsTableCreated:
 class TestVerificationResultsTableCreated:
     """TS-27-2: verification_results table exists after schema creation."""
 
-    def test_verification_results_table_created(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_verification_results_table_created(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """verification_results table exists with expected columns."""
         rows = schema_conn.execute(
             "SELECT column_name FROM information_schema.columns "
@@ -116,9 +112,7 @@ class TestVerificationResultsTableCreated:
 class TestInsertFindingsSupersession:
     """TS-27-6: insert findings with supersession."""
 
-    def test_insert_findings_supersession(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_insert_findings_supersession(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """New findings supersede existing active records for same spec/task_group."""
         # Insert first batch
         f1 = _make_finding(description="First finding", session_id="s1")
@@ -140,8 +134,7 @@ class TestInsertFindingsSupersession:
 
         # Verify first batch is superseded
         all_rows = schema_conn.execute(
-            "SELECT description, superseded_by FROM review_findings "
-            "ORDER BY description"
+            "SELECT description, superseded_by FROM review_findings ORDER BY description"
         ).fetchall()
         assert len(all_rows) == 2
         first = next(r for r in all_rows if r[0] == "First finding")
@@ -151,9 +144,7 @@ class TestInsertFindingsSupersession:
 class TestInsertVerdictsSupersession:
     """TS-27-7: insert verdicts with supersession."""
 
-    def test_insert_verdicts_supersession(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_insert_verdicts_supersession(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """New verdicts supersede existing active records."""
         v1 = _make_verdict(verdict="FAIL", session_id="s1")
         insert_verdicts(schema_conn, [v1])
@@ -173,9 +164,7 @@ class TestInsertVerdictsSupersession:
 class TestCausalLinksOnSupersession:
     """TS-27-8: causal links from superseded to new records."""
 
-    def test_causal_links_on_supersession(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_causal_links_on_supersession(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """Supersession creates causal links in fact_causes."""
         f1 = _make_finding(description="Old finding", session_id="s1")
         insert_findings(schema_conn, [f1])
@@ -184,9 +173,7 @@ class TestCausalLinksOnSupersession:
         insert_findings(schema_conn, [f2])
 
         # Check that a causal link was created
-        links = schema_conn.execute(
-            "SELECT cause_id::VARCHAR, effect_id::VARCHAR FROM fact_causes"
-        ).fetchall()
+        links = schema_conn.execute("SELECT cause_id::VARCHAR, effect_id::VARCHAR FROM fact_causes").fetchall()
         cause_ids = {r[0] for r in links}
         effect_ids = {r[1] for r in links}
 
@@ -197,9 +184,7 @@ class TestCausalLinksOnSupersession:
 class TestNoRecordsToSupersede:
     """TS-27-E5: no existing records to supersede."""
 
-    def test_no_records_to_supersede(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_records_to_supersede(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """Insert works cleanly when no prior records exist."""
         f1 = _make_finding(description="First ever finding")
         count = insert_findings(schema_conn, [f1])
@@ -239,9 +224,7 @@ class TestMigrationFailureRaises:
                 )
             ],
         ):
-            with pytest.raises(
-                KnowledgeStoreError, match="Migration to version 2 failed"
-            ):
+            with pytest.raises(KnowledgeStoreError, match="Migration to version 2 failed"):
                 apply_pending_migrations(conn)
 
         conn.close()
@@ -278,9 +261,7 @@ class TestMigrationAlreadyAppliedSkips:
 class TestQueryBySession:
     """Query findings/verdicts by session_id for convergence."""
 
-    def test_query_findings_by_session(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_query_findings_by_session(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """Findings can be queried by session_id."""
         f1 = _make_finding(description="Finding 1", session_id="s1")
         f2 = _make_finding(description="Finding 2", session_id="s2")
@@ -301,9 +282,7 @@ class TestQueryBySession:
         assert len(results) == 1
         assert results[0].description == "Finding 1"
 
-    def test_query_verdicts_by_session(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_query_verdicts_by_session(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         """Verdicts can be queried by session_id."""
         v1 = _make_verdict(session_id="s1")
         v2 = _make_verdict(session_id="s2", requirement_id="27-REQ-2.1")
@@ -344,17 +323,13 @@ class TestTableNameValidation:
         with pytest.raises(ValueError, match="not in the allowed set"):
             _validate_table_name("users; DROP TABLE --")
 
-    def test_supersede_rejects_bad_table(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_supersede_rejects_bad_table(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.review_store import _supersede_active_records
 
         with pytest.raises(ValueError, match="not in the allowed set"):
             _supersede_active_records(schema_conn, "evil_table", "spec", "1", "marker")
 
-    def test_insert_with_supersession_rejects_bad_table(
-        self, schema_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_insert_with_supersession_rejects_bad_table(self, schema_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.review_store import _insert_with_supersession
 
         with pytest.raises(ValueError, match="not in the allowed set"):

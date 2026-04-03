@@ -275,9 +275,7 @@ class TestConfigOverridePrecedence:
 
     def test_config_override_takes_precedence(self) -> None:
         """archetypes.models.coder = ADVANCED overrides STANDARD registry default."""
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={"coder": "ADVANCED"})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "ADVANCED"}))
         runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
         # With override "ADVANCED", model should be Opus
         assert runner._resolved_model_id == "claude-opus-4-6"
@@ -295,9 +293,7 @@ class TestNoOverrideUsesRegistry:
     def test_no_override_uses_registry_default(self) -> None:
         """Skeptic with no override should use registry default (ADVANCED = Opus)."""
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
-        runner = NodeSessionRunner(
-            "spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB
-        )
+        runner = NodeSessionRunner("spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB)
         # After the fix, Skeptic defaults to ADVANCED → Opus
         assert runner._resolved_model_id == "claude-opus-4-6"
 
@@ -313,9 +309,7 @@ class TestAssessedTierOverridesAll:
 
     def test_assessed_tier_overrides_all(self) -> None:
         """assessed_tier=SIMPLE resolves to Haiku regardless of other config."""
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={"coder": "ADVANCED"})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "ADVANCED"}))
         runner = NodeSessionRunner(
             "spec:1",
             config,
@@ -383,13 +377,9 @@ class TestInvalidConfigTierRaises:
     """TS-57-E3: Invalid tier name in config raises ConfigError."""
 
     def test_invalid_config_tier_raises_config_error(self) -> None:
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={"coder": "INVALID_TIER"})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "INVALID_TIER"}))
         with pytest.raises(ConfigError):
-            NodeSessionRunner(
-                "spec:1", config, archetype="coder", knowledge_db=_MOCK_KB
-            )
+            NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
 
 
 # ---------------------------------------------------------------------------
@@ -425,9 +415,7 @@ class TestDocsListDefaultTiers:
             section_start = max(0, name_idx - 200)
             section_end = min(len(content), name_idx + 500)
             section = content[section_start:section_end]
-            assert "ADVANCED" in section, (
-                f"Expected ADVANCED near '{name}' section in docs/archetypes.md"
-            )
+            assert "ADVANCED" in section, f"Expected ADVANCED near '{name}' section in docs/archetypes.md"
 
     def test_docs_show_coder_as_standard(self) -> None:
         docs_path = Path("docs/archetypes.md")
@@ -436,9 +424,7 @@ class TestDocsListDefaultTiers:
         coder_idx = content.lower().find("## coder")
         assert coder_idx != -1, "## Coder section not found in docs"
         coder_section = content[coder_idx : coder_idx + 600]
-        assert "STANDARD" in coder_section, (
-            "Expected STANDARD in Coder section of docs/archetypes.md"
-        )
+        assert "STANDARD" in coder_section, "Expected STANDARD in Coder section of docs/archetypes.md"
 
 
 # ---------------------------------------------------------------------------
@@ -453,9 +439,7 @@ class TestDocsDescribeConfigOverride:
     def test_docs_mention_models_config_key(self) -> None:
         docs_path = Path("docs/archetypes.md")
         content = docs_path.read_text()
-        assert "models" in content, (
-            "docs/archetypes.md must mention 'models' config key"
-        )
+        assert "models" in content, "docs/archetypes.md must mention 'models' config key"
 
     def test_docs_mention_config(self) -> None:
         docs_path = Path("docs/archetypes.md")
@@ -475,13 +459,9 @@ class TestDocsExplainEscalation:
     def test_docs_mention_escalation(self) -> None:
         docs_path = Path("docs/archetypes.md")
         content = docs_path.read_text()
-        assert "escalat" in content.lower(), (
-            "docs/archetypes.md must describe escalation behavior"
-        )
+        assert "escalat" in content.lower(), "docs/archetypes.md must describe escalation behavior"
 
     def test_docs_mention_retry(self) -> None:
         docs_path = Path("docs/archetypes.md")
         content = docs_path.read_text()
-        assert "retr" in content.lower(), (
-            "docs/archetypes.md must describe retry behavior (retry/retries)"
-        )
+        assert "retr" in content.lower(), "docs/archetypes.md must describe retry behavior (retry/retries)"

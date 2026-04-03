@@ -214,9 +214,7 @@ class TestReleaseMissingLockFile:
     """TS-45-E4: Release handles missing lock file gracefully."""
 
     @pytest.mark.asyncio
-    async def test_release_missing_file_logs_warning(
-        self, lock_repo: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_release_missing_file_logs_warning(self, lock_repo: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Releasing when lock file is gone logs a warning."""
         lock_repo.mkdir(parents=True)
         lock = MergeLock(lock_repo)

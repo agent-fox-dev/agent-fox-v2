@@ -135,9 +135,7 @@ class TestSynthesisedTitleBody:
         )
 
         synthesised_title = "Synthesised title from critic"
-        synthesised_description = (
-            "This is the synthesised description combining both findings"
-        )
+        synthesised_description = "This is the synthesised description combining both findings"
 
         mock_response = _make_critic_response(
             groups=[
@@ -167,10 +165,7 @@ class TestSynthesisedTitleBody:
 
         merged_group = next(g for g in groups if len(g.findings) > 1)
         assert merged_group.title == synthesised_title
-        assert (
-            "synthesised description" in merged_group.body.lower()
-            or synthesised_description in merged_group.body
-        )
+        assert "synthesised description" in merged_group.body.lower() or synthesised_description in merged_group.body
 
 
 # ---------------------------------------------------------------------------
@@ -290,10 +285,7 @@ class TestSeverityCalibration:
 
         merged_group = next(g for g in groups if len(g.findings) > 1)
         # Calibrated severity must appear in the body or as a dedicated field
-        assert (
-            "critical" in merged_group.body
-            or getattr(merged_group, "severity", None) == "critical"
-        )
+        assert "critical" in merged_group.body or getattr(merged_group, "severity", None) == "critical"
 
     @pytest.mark.asyncio
     async def test_standalone_severity_info_in_body(self) -> None:
@@ -620,15 +612,9 @@ class TestSeverityPreservedWhenNotMerged:
 
         from agent_fox.nightshift.critic import consolidate_findings
 
-        finding_a = _make_finding(
-            title="Minor standalone", severity="minor", group_key="a"
-        )
-        finding_b = _make_finding(
-            title="Finding B to merge", severity="major", group_key="b"
-        )
-        finding_c = _make_finding(
-            title="Finding C to merge", severity="major", group_key="c"
-        )
+        finding_a = _make_finding(title="Minor standalone", severity="minor", group_key="a")
+        finding_b = _make_finding(title="Finding B to merge", severity="major", group_key="b")
+        finding_c = _make_finding(title="Finding C to merge", severity="major", group_key="c")
 
         mock_response = _make_critic_response(
             groups=[
@@ -670,9 +656,7 @@ class TestMalformedJsonFallback:
     """Malformed JSON response triggers mechanical grouping fallback."""
 
     @pytest.mark.asyncio
-    async def test_malformed_json_falls_back_to_mechanical(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_malformed_json_falls_back_to_mechanical(self, caplog: pytest.LogCaptureFixture) -> None:
         """Invalid JSON response causes fallback: three groups for three findings."""
         from unittest.mock import AsyncMock, patch
 
@@ -696,9 +680,7 @@ class TestMalformedJsonFallback:
         assert len(groups) == 3
         # Warning logged about malformed response
         assert any(
-            "malformed" in r.message.lower()
-            or "fallback" in r.message.lower()
-            or "invalid" in r.message.lower()
+            "malformed" in r.message.lower() or "fallback" in r.message.lower() or "invalid" in r.message.lower()
             for r in caplog.records
             if r.levelno == logging.WARNING
         )
@@ -714,9 +696,7 @@ class TestAiBackendFailure:
     """AI backend failure triggers mechanical grouping fallback."""
 
     @pytest.mark.asyncio
-    async def test_backend_exception_falls_back_to_mechanical(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_backend_exception_falls_back_to_mechanical(self, caplog: pytest.LogCaptureFixture) -> None:
         """AI backend exception causes fallback: three groups for three findings."""
         from unittest.mock import AsyncMock, patch
 
@@ -740,9 +720,7 @@ class TestAiBackendFailure:
         assert len(groups) == 3
         # Warning logged about backend failure
         assert any(
-            "fallback" in r.message.lower()
-            or "unavailable" in r.message.lower()
-            or "failed" in r.message.lower()
+            "fallback" in r.message.lower() or "unavailable" in r.message.lower() or "failed" in r.message.lower()
             for r in caplog.records
             if r.levelno == logging.WARNING
         )

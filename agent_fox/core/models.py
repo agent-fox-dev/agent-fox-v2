@@ -137,10 +137,6 @@ def calculate_cost(
 
     input_cost = (input_tokens / 1_000_000) * model_pricing.input_price_per_m
     output_cost = (output_tokens / 1_000_000) * model_pricing.output_price_per_m
-    cache_read_cost = (
-        cache_read_input_tokens / 1_000_000
-    ) * model_pricing.cache_read_price_per_m
-    cache_creation_cost = (
-        cache_creation_input_tokens / 1_000_000
-    ) * model_pricing.cache_creation_price_per_m
+    cache_read_cost = (cache_read_input_tokens / 1_000_000) * model_pricing.cache_read_price_per_m
+    cache_creation_cost = (cache_creation_input_tokens / 1_000_000) * model_pricing.cache_creation_price_per_m
     return input_cost + output_cost + cache_read_cost + cache_creation_cost

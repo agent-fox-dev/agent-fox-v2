@@ -28,9 +28,7 @@ fact_content_st = st.text(
     max_size=200,
 )
 
-category_st = st.sampled_from(
-    ["gotcha", "pattern", "decision", "convention", "anti_pattern", "fragile_area"]
-)
+category_st = st.sampled_from(["gotcha", "pattern", "decision", "convention", "anti_pattern", "fragile_area"])
 
 spec_name_st = st.text(
     alphabet=st.characters(whitelist_categories=("L", "N")),

@@ -32,9 +32,7 @@ class TestWorktreeCreation:
     ) -> None:
         """Creating a worktree produces the expected directory."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
-        expected_path = (
-            tmp_worktree_repo / ".agent-fox" / "worktrees" / "test_spec" / "1"
-        )
+        expected_path = tmp_worktree_repo / ".agent-fox" / "worktrees" / "test_spec" / "1"
         assert ws.path == expected_path
         assert ws.path.is_dir()
 

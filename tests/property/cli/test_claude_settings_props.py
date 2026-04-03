@@ -14,9 +14,7 @@ from agent_fox.workspace.init_project import CANONICAL_PERMISSIONS, _ensure_clau
 
 # Strategy: list of permission strings (mix of canonical + random)
 _permission_entry = st.text(
-    alphabet=st.sampled_from(
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:*()._- "
-    ),
+    alphabet=st.sampled_from("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:*()._- "),
     min_size=1,
     max_size=40,
 )

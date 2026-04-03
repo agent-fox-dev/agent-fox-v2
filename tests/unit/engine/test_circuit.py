@@ -156,9 +156,7 @@ class TestZeroRetriesBlocksImmediately:
         decision = circuit.check_launch("A", attempt=2, state=state)
 
         assert decision.reason is not None
-        assert (
-            "retry" in decision.reason.lower() or "attempt" in decision.reason.lower()
-        )
+        assert "retry" in decision.reason.lower() or "attempt" in decision.reason.lower()
 
 
 class TestCircuitBreakerDeniesAtCostLimit:

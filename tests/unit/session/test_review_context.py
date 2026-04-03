@@ -78,9 +78,7 @@ def _make_verdict(
 class TestRenderReviewContext:
     """TS-27-9: render review context from DB."""
 
-    def test_render_review_context(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_render_review_context(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """Active findings are rendered as Skeptic Review markdown."""
         findings = [
             _make_finding(severity="critical", description="Big problem"),
@@ -100,15 +98,11 @@ class TestRenderReviewContext:
 class TestRenderVerificationContext:
     """TS-27-10: render verification context from DB."""
 
-    def test_render_verification_context(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_render_verification_context(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """Active verdicts are rendered as Verification Report markdown."""
         verdicts = [
             _make_verdict(requirement_id="05-REQ-1.1", verdict="PASS"),
-            _make_verdict(
-                requirement_id="05-REQ-2.1", verdict="FAIL", evidence="Not implemented"
-            ),
+            _make_verdict(requirement_id="05-REQ-2.1", verdict="FAIL", evidence="Not implemented"),
         ]
         insert_verdicts(review_conn, verdicts)
 
@@ -124,9 +118,7 @@ class TestRenderVerificationContext:
 class TestRenderedFormatMatchesLegacy:
     """TS-27-11: rendered format matches legacy template format."""
 
-    def test_rendered_format_matches_legacy(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_rendered_format_matches_legacy(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """Rendered markdown matches the expected structure."""
         findings = [
             _make_finding(severity="critical", description="Issue 1"),
@@ -146,9 +138,7 @@ class TestRenderedFormatMatchesLegacy:
         assert "### Observations" in result
         assert "Summary:" in result
 
-    def test_verification_format_matches_legacy(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_verification_format_matches_legacy(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """Verification context has table format."""
         verdicts = [_make_verdict()]
         insert_verdicts(review_conn, verdicts)
@@ -165,16 +155,12 @@ class TestRenderedFormatMatchesLegacy:
 class TestNoFindingsOmitsSection:
     """TS-27-E7: no findings means section is omitted."""
 
-    def test_no_findings_omits_section(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_findings_omits_section(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """render_review_context returns None when no findings."""
         result = render_review_context(review_conn, "nonexistent_spec")
         assert result is None
 
-    def test_no_verdicts_omits_section(
-        self, review_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_verdicts_omits_section(self, review_conn: duckdb.DuckDBPyConnection) -> None:
         """render_verification_context returns None when no verdicts."""
         result = render_verification_context(review_conn, "nonexistent_spec")
         assert result is None
@@ -195,9 +181,7 @@ class TestDbUnavailableFallback:
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
-        (spec_dir / "review.md").write_text(
-            "# Skeptic Review\n\n## Critical Findings\n- [severity: major] Test\n"
-        )
+        (spec_dir / "review.md").write_text("# Skeptic Review\n\n## Critical Findings\n- [severity: major] Test\n")
 
         conn = duckdb.connect(":memory:")
         create_schema(conn)
@@ -215,9 +199,7 @@ class TestDbUnavailableFallback:
         spec_dir = tmp_path / "test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
-        (spec_dir / "review.md").write_text(
-            "# Skeptic Review\n- [severity: minor] Fallback test\n"
-        )
+        (spec_dir / "review.md").write_text("# Skeptic Review\n- [severity: minor] Fallback test\n")
 
         # Use a closed connection to trigger an error
         conn = duckdb.connect(":memory:")
@@ -238,9 +220,7 @@ class TestLegacyFileMigration:
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text("# Requirements\n")
         (spec_dir / "review.md").write_text(
-            "# Skeptic Review\n\n"
-            "## Critical Findings\n"
-            "- [severity: critical] Legacy finding\n"
+            "# Skeptic Review\n\n## Critical Findings\n- [severity: critical] Legacy finding\n"
         )
 
         conn = duckdb.connect(":memory:")

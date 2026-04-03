@@ -140,10 +140,7 @@ class TestTemporalQuery:
         try:
             # Install VSS extension for vector search
             conn.execute("INSTALL vss; LOAD vss;")
-            conn.execute(
-                "CREATE INDEX emb_idx ON memory_embeddings "
-                "USING HNSW (embedding) WITH (metric = 'cosine');"
-            )
+            conn.execute("CREATE INDEX emb_idx ON memory_embeddings USING HNSW (embedding) WITH (metric = 'cosine');")
         except Exception:
             conn.close()
             return  # Skip if VSS not available
@@ -209,10 +206,7 @@ class TestTemporalQuery:
         conn = create_empty_db()
         try:
             conn.execute("INSTALL vss; LOAD vss;")
-            conn.execute(
-                "CREATE INDEX emb_idx ON memory_embeddings "
-                "USING HNSW (embedding) WITH (metric = 'cosine');"
-            )
+            conn.execute("CREATE INDEX emb_idx ON memory_embeddings USING HNSW (embedding) WITH (metric = 'cosine');")
         except Exception:
             conn.close()
             return

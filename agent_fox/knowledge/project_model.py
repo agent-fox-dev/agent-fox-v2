@@ -79,9 +79,7 @@ def build_project_model(conn: duckdb.DuckDBPyConnection) -> ProjectModel:
     return model
 
 
-def _compute_spec_outcomes(
-    conn: duckdb.DuckDBPyConnection, model: ProjectModel
-) -> None:
+def _compute_spec_outcomes(conn: duckdb.DuckDBPyConnection, model: ProjectModel) -> None:
     """Compute per-spec average cost, duration, failure rate, session count.
 
     Requirement: 39-REQ-7.1
@@ -115,9 +113,7 @@ def _compute_spec_outcomes(
         )
 
 
-def _compute_module_stability(
-    conn: duckdb.DuckDBPyConnection, model: ProjectModel
-) -> None:
+def _compute_module_stability(conn: duckdb.DuckDBPyConnection, model: ProjectModel) -> None:
     """Compute module stability as finding density per spec.
 
     Finding density = total review findings / total sessions (from outcomes).
@@ -147,9 +143,7 @@ def _compute_module_stability(
             model.module_stability[spec_name] = float(findings)
 
 
-def _compute_archetype_effectiveness(
-    conn: duckdb.DuckDBPyConnection, model: ProjectModel
-) -> None:
+def _compute_archetype_effectiveness(conn: duckdb.DuckDBPyConnection, model: ProjectModel) -> None:
     """Compute archetype effectiveness as success rate per archetype.
 
     Requirement: 39-REQ-7.3

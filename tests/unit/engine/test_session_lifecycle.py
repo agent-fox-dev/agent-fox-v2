@@ -67,9 +67,7 @@ class TestResolveModelTier:
 
     def test_skeptic_defaults_to_advanced(self) -> None:
         """Skeptic archetype defaults to ADVANCED from the registry."""
-        runner = NodeSessionRunner(
-            "spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB
-        )
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB)
         assert runner._resolved_model_id == "claude-opus-4-6"
 
 
@@ -88,21 +86,15 @@ class TestResolveSecurityConfig:
 
     def test_skeptic_returns_default_allowlist(self) -> None:
         """Skeptic has a default allowlist from the registry."""
-        runner = NodeSessionRunner(
-            "spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB
-        )
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
         assert "ls" in runner._resolved_security.bash_allowlist
         assert "git" in runner._resolved_security.bash_allowlist
 
     def test_config_allowlist_overrides_registry(self) -> None:
         """Config allowlist override takes priority over registry default."""
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(allowlists={"skeptic": ["echo", "pwd"]})
-        )
-        runner = NodeSessionRunner(
-            "spec:1", config, archetype="skeptic", knowledge_db=_MOCK_KB
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"skeptic": ["echo", "pwd"]}))
+        runner = NodeSessionRunner("spec:1", config, archetype="skeptic", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["echo", "pwd"]
 
@@ -119,25 +111,19 @@ class TestReadSessionArtifacts:
         """Valid .session-summary.json is parsed and returned."""
         summary = {"summary": "Did things", "tests_added_or_modified": []}
         (tmp_path / ".session-summary.json").write_text(json.dumps(summary))
-        workspace = WorkspaceInfo(
-            path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1"
-        )
+        workspace = WorkspaceInfo(path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1")
         result = NodeSessionRunner._read_session_artifacts(workspace)
         assert result == summary
 
     def test_returns_none_when_missing(self, tmp_path: Path) -> None:
         """Returns None when .session-summary.json does not exist."""
-        workspace = WorkspaceInfo(
-            path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1"
-        )
+        workspace = WorkspaceInfo(path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1")
         assert NodeSessionRunner._read_session_artifacts(workspace) is None
 
     def test_returns_none_on_invalid_json(self, tmp_path: Path) -> None:
         """Returns None when .session-summary.json contains invalid JSON."""
         (tmp_path / ".session-summary.json").write_text("not valid json {{{")
-        workspace = WorkspaceInfo(
-            path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1"
-        )
+        workspace = WorkspaceInfo(path=tmp_path, spec_name="s", task_group=1, branch="feature/s/1")
         assert NodeSessionRunner._read_session_artifacts(workspace) is None
 
 
@@ -186,9 +172,7 @@ class TestExecuteErrorHandling:
 
         captured_prompts: dict = {}
 
-        async def _fake_run_and_harvest(
-            node_id, attempt, workspace, system_prompt, task_prompt, repo_root
-        ):
+        async def _fake_run_and_harvest(node_id, attempt, workspace, system_prompt, task_prompt, repo_root):
             captured_prompts["task"] = task_prompt
             from datetime import UTC, datetime
 

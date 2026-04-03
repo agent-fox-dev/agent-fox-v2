@@ -216,9 +216,7 @@ def lint_specs_cmd(ctx: click.Context, ai: bool, fix: bool, lint_all: bool) -> N
                 exc.stderr or exc,
             )
             click.echo(
-                "Warning: fixes applied but could not be "
-                "committed to a branch. Changes are in your "
-                "working tree.",
+                "Warning: fixes applied but could not be committed to a branch. Changes are in your working tree.",
                 err=True,
             )
 

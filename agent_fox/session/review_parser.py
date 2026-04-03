@@ -229,9 +229,7 @@ def parse_oracle_output(
 
     Requirements: 32-REQ-6.1, 32-REQ-6.2, 32-REQ-6.E1, 32-REQ-6.E2
     """
-    items = _unwrap_items(
-        response, "drift_findings", ("severity", "description"), "Oracle"
-    )
+    items = _unwrap_items(response, "drift_findings", ("severity", "description"), "Oracle")
     findings = parse_drift_findings(items, spec_name, task_group, session_id)
     if not findings:
         logger.warning("No valid drift findings extracted from Oracle output")

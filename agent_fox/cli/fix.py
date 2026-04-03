@@ -105,9 +105,7 @@ def _build_improve_session_runner(
             real-time tool-use events (76-REQ-3.2).
     """
 
-    async def _run(
-        system_prompt: str, task_prompt: str, model_tier: str
-    ) -> tuple[float, str]:
+    async def _run(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
         workspace = WorkspaceInfo(
             path=project_root,
             branch="",
@@ -302,17 +300,13 @@ def fix_cmd(
         else:
             # Print a permanent line with the check result
             status = "✔" if event.passed else f"✘ (exit {event.exit_code})"
-            theme.console.print(
-                f"  check {event.check_name}: {status}", highlight=False
-            )
+            theme.console.print(f"  check {event.check_name}: {status}", highlight=False)
 
     # Build session runner (None in dry-run mode)
     runner = (
         None
         if dry_run
-        else _build_fix_session_runner(
-            config, project_root, activity_callback=progress.activity_callback
-        )
+        else _build_fix_session_runner(config, project_root, activity_callback=progress.activity_callback)
     )
 
     # -- Run Phase 1 and Phase 2 with display lifecycle (76-REQ-2.2, 76-REQ-2.E1) --
@@ -340,11 +334,7 @@ def fix_cmd(
         # -- Phase 2: Improve (31-REQ-1.1, 31-REQ-2.1) --
         improve_result: ImproveResult | None = None
 
-        if (
-            auto
-            and not dry_run
-            and result.termination_reason == TerminationReason.ALL_FIXED
-        ):
+        if auto and not dry_run and result.termination_reason == TerminationReason.ALL_FIXED:
             # 31-REQ-2.3: Compute remaining budget
             max_cost = getattr(config.orchestrator, "max_cost", None)
             remaining_budget = max_cost if max_cost is not None else None

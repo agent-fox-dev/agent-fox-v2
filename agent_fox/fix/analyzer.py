@@ -44,10 +44,7 @@ _REQUIRED_IMPROVEMENT_FIELDS = {
 _CONVENTION_FILES = ("CLAUDE.md", "AGENTS.md", "README.md")
 
 # Seed question for oracle context enrichment (31-REQ-4.1)
-_ORACLE_SEED_QUESTION = (
-    "What are the established patterns, conventions, "
-    "and architectural decisions in this project?"
-)
+_ORACLE_SEED_QUESTION = "What are the established patterns, conventions, and architectural decisions in this project?"
 
 
 @dataclass(frozen=True)
@@ -111,8 +108,7 @@ def build_analyzer_prompt(
         "## Guardrails",
         "",
         "- NEVER refactor test code for DRYness — test readability trumps DRY",
-        "- NEVER change public APIs "
-        "(function signatures, class interfaces, CLI options)",
+        "- NEVER change public APIs (function signatures, class interfaces, CLI options)",
         '- NEVER remove "why" comments — only remove "what" comments that restate code',
         "- NEVER remove or weaken error handling or logging",
         "- NEVER introduce new dependencies",
@@ -153,9 +149,7 @@ def build_analyzer_prompt(
         "",
         "## Previous Pass",
         "",
-        previous_pass_result
-        if previous_pass_result
-        else "This is the first improvement pass.",
+        previous_pass_result if previous_pass_result else "This is the first improvement pass.",
         "",
         "## Instructions",
         "",
@@ -214,9 +208,7 @@ def parse_analyzer_response(response: str) -> AnalyzerResult:
     # Validate required top-level fields
     missing = _REQUIRED_RESPONSE_FIELDS - set(data.keys())
     if missing:
-        raise ValueError(
-            f"Analyzer response missing required fields: {sorted(missing)}"
-        )
+        raise ValueError(f"Analyzer response missing required fields: {sorted(missing)}")
 
     # Parse improvements
     raw_improvements = data.get("improvements", [])
@@ -322,10 +314,7 @@ def load_review_context(project_root: Path) -> str:
 
     parts: list[str] = []
     for f in findings:
-        parts.append(
-            f"- [{f.severity}] {f.description} "
-            f"(spec: {f.spec_name}, task: {f.task_group})"
-        )
+        parts.append(f"- [{f.severity}] {f.description} (spec: {f.spec_name}, task: {f.task_group})")
 
     db.close()
     return "\n".join(parts)
@@ -428,9 +417,7 @@ def _parse_improvement(data: Any, *, index: int) -> Improvement:
 
     missing = _REQUIRED_IMPROVEMENT_FIELDS - set(data.keys())
     if missing:
-        raise ValueError(
-            f"Improvement at index {index} missing fields: {sorted(missing)}"
-        )
+        raise ValueError(f"Improvement at index {index} missing fields: {sorted(missing)}")
 
     files = data["files"]
     if not isinstance(files, list):

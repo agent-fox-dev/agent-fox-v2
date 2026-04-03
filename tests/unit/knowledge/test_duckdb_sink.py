@@ -25,9 +25,7 @@ class TestDuckDBSinkRecordsSessionOutcome:
     Requirements: 11-REQ-5.1, 11-REQ-5.2
     """
 
-    def test_records_outcome_with_debug_false(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_records_outcome_with_debug_false(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify outcome is written even with debug=False."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
@@ -43,16 +41,12 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = knowledge_conn.execute(
-            "SELECT spec_name, status FROM session_outcomes"
-        ).fetchall()
+        rows = knowledge_conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "test_spec"
         assert rows[0][1] == "completed"
 
-    def test_records_outcome_with_debug_true(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_records_outcome_with_debug_true(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify outcome is written with debug=True."""
         sink = DuckDBSink(knowledge_conn, debug=True)
 
@@ -62,9 +56,7 @@ class TestDuckDBSinkRecordsSessionOutcome:
         )
         sink.record_session_outcome(outcome)
 
-        rows = knowledge_conn.execute(
-            "SELECT spec_name, status FROM session_outcomes"
-        ).fetchall()
+        rows = knowledge_conn.execute("SELECT spec_name, status FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "debug_spec"
         assert rows[0][1] == "failed"
@@ -76,39 +68,25 @@ class TestDuckDBSinkDebugGating:
     Requirements: 11-REQ-5.3, 11-REQ-5.4
     """
 
-    def test_tool_calls_no_op_when_debug_false(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_tool_calls_no_op_when_debug_false(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify tool_calls table empty when debug=False."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert (
-            knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
-        )
-        assert (
-            knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0]
-            == 0
-        )
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0
 
-    def test_tool_calls_written_when_debug_true(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_tool_calls_written_when_debug_true(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify tool_calls and tool_errors are written when debug=True."""
         sink = DuckDBSink(knowledge_conn, debug=True)
 
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert (
-            knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
-        )
-        assert (
-            knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0]
-            == 1
-        )
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1
 
 
 class TestDuckDBSinkMultipleTouchedPaths:
@@ -117,9 +95,7 @@ class TestDuckDBSinkMultipleTouchedPaths:
     Requirement: 11-REQ-5.2
     """
 
-    def test_creates_one_row_per_path(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_creates_one_row_per_path(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify 3 touched paths produce 3 rows with same id."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
@@ -130,9 +106,7 @@ class TestDuckDBSinkMultipleTouchedPaths:
         )
         sink.record_session_outcome(outcome)
 
-        rows = knowledge_conn.execute(
-            "SELECT touched_path FROM session_outcomes ORDER BY touched_path"
-        ).fetchall()
+        rows = knowledge_conn.execute("SELECT touched_path FROM session_outcomes ORDER BY touched_path").fetchall()
         assert len(rows) == 3
         assert [r[0] for r in rows] == ["a.py", "b.py", "c.py"]
 
@@ -186,16 +160,12 @@ class TestDuckDBSinkEmptyTouchedPaths:
     Requirement: 11-REQ-5.2
     """
 
-    def test_empty_paths_creates_one_null_row(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_empty_paths_creates_one_null_row(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify empty touched_paths creates one row with NULL touched_path."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
         sink.record_session_outcome(SessionOutcome(status="failed", touched_paths=[]))
 
-        rows = knowledge_conn.execute(
-            "SELECT touched_path FROM session_outcomes"
-        ).fetchall()
+        rows = knowledge_conn.execute("SELECT touched_path FROM session_outcomes").fetchall()
         assert len(rows) == 1
         assert rows[0][0] is None

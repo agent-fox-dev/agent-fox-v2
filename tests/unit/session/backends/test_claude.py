@@ -202,9 +202,7 @@ class TestSessionNoSdkImports:
         with open(session_path, encoding="utf-8") as f:
             content = f.read()
 
-        assert "claude_agent_sdk" not in content, (
-            "session.py should not import from claude_agent_sdk after refactor"
-        )
+        assert "claude_agent_sdk" not in content, "session.py should not import from claude_agent_sdk after refactor"
 
 
 # ---------------------------------------------------------------------------

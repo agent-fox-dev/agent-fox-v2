@@ -57,9 +57,7 @@ class TestSteeringPlacementInAssembledContext:
         conn.execute(SCHEMA_DDL)
         apply_pending_migrations(conn)
 
-        context = assemble_context(
-            spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path
-        )
+        context = assemble_context(spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path)
         conn.close()
 
         assert "## Steering Directives" in context
@@ -75,17 +73,14 @@ class TestSteeringPlacementInAssembledContext:
         conn.execute(SCHEMA_DDL)
         apply_pending_migrations(conn)
 
-        context = assemble_context(
-            spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path
-        )
+        context = assemble_context(spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path)
         conn.close()
 
         req_pos = context.index("## Requirements")
         steer_pos = context.index("## Steering Directives")
         mem_pos = context.index("## Memory Facts")
         assert req_pos < steer_pos < mem_pos, (
-            f"Expected Requirements ({req_pos}) < Steering ({steer_pos})"
-            f" < Memory Facts ({mem_pos})"
+            f"Expected Requirements ({req_pos}) < Steering ({steer_pos}) < Memory Facts ({mem_pos})"
         )
 
     def test_no_steering_section_when_file_missing(self, tmp_path: Path) -> None:
@@ -99,16 +94,12 @@ class TestSteeringPlacementInAssembledContext:
         conn.execute(SCHEMA_DDL)
         apply_pending_migrations(conn)
 
-        context = assemble_context(
-            spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path
-        )
+        context = assemble_context(spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path)
         conn.close()
 
         assert "## Steering Directives" not in context
 
-    def test_no_steering_section_when_project_root_not_provided(
-        self, tmp_path: Path
-    ) -> None:
+    def test_no_steering_section_when_project_root_not_provided(self, tmp_path: Path) -> None:
         """assemble_context() omits steering when project_root is None."""
         from agent_fox.session.prompt import assemble_context
 
@@ -137,9 +128,7 @@ class TestSteeringPlacementInAssembledContext:
         conn.execute(SCHEMA_DDL)
         apply_pending_migrations(conn)
 
-        context = assemble_context(
-            spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path
-        )
+        context = assemble_context(spec_dir, 1, ["fact1"], conn=conn, project_root=tmp_path)
         conn.close()
 
         assert "## Steering Directives" not in context

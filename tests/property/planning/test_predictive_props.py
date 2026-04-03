@@ -58,9 +58,7 @@ def dag_strategy(
         if deps:
             edges[node_ids[i]] = deps
 
-    durations = {
-        nid: draw(st.integers(min_value=1, max_value=100_000)) for nid in node_ids
-    }
+    durations = {nid: draw(st.integers(min_value=1, max_value=100_000)) for nid in node_ids}
 
     return nodes, edges, durations
 
@@ -91,13 +89,10 @@ class TestDurationOrderingCorrectness:
         for i in range(len(ordered) - 1):
             dur_i = hints[ordered[i]]
             dur_next = hints[ordered[i + 1]]
-            assert dur_i >= dur_next, (
-                f"Duration {dur_i} at position {i} < {dur_next} at position {i + 1}"
-            )
+            assert dur_i >= dur_next, f"Duration {dur_i} at position {i} < {dur_next} at position {i + 1}"
             if dur_i == dur_next:
                 assert ordered[i] < ordered[i + 1], (
-                    f"Equal durations should be alphabetical: "
-                    f"{ordered[i]} >= {ordered[i + 1]}"
+                    f"Equal durations should be alphabetical: {ordered[i]} >= {ordered[i + 1]}"
                 )
 
 
@@ -201,9 +196,7 @@ class TestDurationHintSourcePrecedence:
             model=model,
         )
 
-        has_preset = archetype in DURATION_PRESETS and tier in DURATION_PRESETS.get(
-            archetype, {}
-        )
+        has_preset = archetype in DURATION_PRESETS and tier in DURATION_PRESETS.get(archetype, {})
 
         if model is not None:
             assert hint.source == "regression"
@@ -250,18 +243,12 @@ class TestConfidenceFilterMonotonicity:
             for i in range(11)  # 0.0, 0.1, ..., 1.0
         ]
 
-        result_low = select_relevant_facts(
-            facts, "s", ["test"], confidence_threshold=t1
-        )
-        result_high = select_relevant_facts(
-            facts, "s", ["test"], confidence_threshold=t2
-        )
+        result_low = select_relevant_facts(facts, "s", ["test"], confidence_threshold=t1)
+        result_high = select_relevant_facts(facts, "s", ["test"], confidence_threshold=t2)
 
         ids_low = {f.id for f in result_low}
         ids_high = {f.id for f in result_high}
-        assert ids_high.issubset(ids_low), (
-            f"Facts passing threshold {t2} should be subset of those passing {t1}"
-        )
+        assert ids_high.issubset(ids_low), f"Facts passing threshold {t2} should be subset of those passing {t1}"
 
 
 # ---------------------------------------------------------------------------
@@ -282,10 +269,7 @@ class TestFactCacheConsistency:
         """Cached result matches live result when cache is not stale."""
         from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 
-        facts = [
-            make_fact(id=f"f{i}", spec_name="spec_a", keywords=["test"])
-            for i in range(n_facts)
-        ]
+        facts = [make_fact(id=f"f{i}", spec_name="spec_a", keywords=["test"]) for i in range(n_facts)]
 
         cache_entry = RankedFactCache(
             spec_name="spec_a",
@@ -295,16 +279,12 @@ class TestFactCacheConsistency:
         )
 
         # When count matches, cache should return the same facts
-        cached = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=n_facts
-        )
+        cached = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=n_facts)
         assert cached is not None
         assert len(cached) == n_facts
 
         # When count differs, cache should be stale
-        stale = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=n_facts + 1
-        )
+        stale = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=n_facts + 1)
         assert stale is None
 
 
@@ -350,9 +330,7 @@ class TestCrossGroupFindingVisibility:
             findings = get_prior_group_findings(conn, "spec_test", task_group=k)
             finding_texts = {f.description for f in findings}
             for g in range(1, k):
-                assert f"finding_group_{g}" in finding_texts, (
-                    f"Finding from group {g} should be visible in group {k}"
-                )
+                assert f"finding_group_{g}" in finding_texts, f"Finding from group {g} should be visible in group {k}"
 
         conn.close()
 
@@ -442,8 +420,7 @@ class TestCriticalPathValidity:
         for path in all_paths:
             path_duration = sum(durations[n] for n in path)
             assert result.total_duration_ms >= path_duration, (
-                f"Path {path} has duration {path_duration} > "
-                f"critical path {result.total_duration_ms}"
+                f"Path {path} has duration {path_duration} > critical path {result.total_duration_ms}"
             )
 
 
@@ -566,24 +543,17 @@ class TestBlockingThresholdConvergence:
                 ),
             )
 
-        threshold = compute_optimal_threshold(
-            conn, "skeptic", min_decisions=20, max_false_negative_rate=0.1
-        )
+        threshold = compute_optimal_threshold(conn, "skeptic", min_decisions=20, max_false_negative_rate=0.1)
 
         if threshold is not None:
             # Verify the threshold satisfies FNR constraint
             rows = conn.execute(
-                "SELECT critical_count, outcome FROM blocking_history "
-                "WHERE archetype = 'skeptic'"
+                "SELECT critical_count, outcome FROM blocking_history WHERE archetype = 'skeptic'"
             ).fetchall()
 
             # Compute FNR: missed blocks / (missed blocks + correct blocks)
             should_block_count = sum(1 for cc, _ in rows if cc > threshold)
-            missed_blocks = sum(
-                1
-                for cc, out in rows
-                if cc > threshold and out in ("correct_pass", "missed_block")
-            )
+            missed_blocks = sum(1 for cc, out in rows if cc > threshold and out in ("correct_pass", "missed_block"))
 
             if should_block_count > 0:
                 fnr = missed_blocks / should_block_count

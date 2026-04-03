@@ -27,9 +27,7 @@ from .conftest import (
 )
 
 
-def _make_search_results(
-    *, count: int = 3, similarity: float = 0.8
-) -> list[SearchResult]:
+def _make_search_results(*, count: int = 3, similarity: float = 0.8) -> list[SearchResult]:
     """Create mock search results."""
     fact_ids = [FACT_AAA, FACT_BBB, FACT_CCC]
     contents = [
@@ -82,12 +80,8 @@ class TestOracleGroundedAnswer:
 
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
-        mock_response = _make_mock_synthesis_response(
-            "DuckDB was chosen because of its columnar storage capabilities."
-        )
-        with patch.object(
-            type(oracle), "client", new_callable=PropertyMock
-        ) as mock_client_prop:
+        mock_response = _make_mock_synthesis_response("DuckDB was chosen because of its columnar storage capabilities.")
+        with patch.object(type(oracle), "client", new_callable=PropertyMock) as mock_client_prop:
             mock_client = MagicMock()
             mock_client.messages.create.return_value = mock_response
             mock_client_prop.return_value = mock_client
@@ -115,9 +109,7 @@ class TestOracleGroundedAnswer:
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
         mock_response = _make_mock_synthesis_response("DuckDB was chosen...")
-        with patch.object(
-            type(oracle), "client", new_callable=PropertyMock
-        ) as mock_client_prop:
+        with patch.object(type(oracle), "client", new_callable=PropertyMock) as mock_client_prop:
             mock_client = MagicMock()
             mock_client.messages.create.return_value = mock_response
             mock_client_prop.return_value = mock_client
@@ -148,9 +140,7 @@ class TestOracleSingleAPICall:
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
         mock_response = _make_mock_synthesis_response("Answer text")
-        with patch.object(
-            type(oracle), "client", new_callable=PropertyMock
-        ) as mock_client_prop:
+        with patch.object(type(oracle), "client", new_callable=PropertyMock) as mock_client_prop:
             mock_client = MagicMock()
             mock_client.messages.create.return_value = mock_response
             mock_client_prop.return_value = mock_client
@@ -172,9 +162,7 @@ class TestOracleSingleAPICall:
         oracle = Oracle(mock_embedder, mock_search, knowledge_config)
 
         mock_response = _make_mock_synthesis_response("Answer text")
-        with patch.object(
-            type(oracle), "client", new_callable=PropertyMock
-        ) as mock_client_prop:
+        with patch.object(type(oracle), "client", new_callable=PropertyMock) as mock_client_prop:
             mock_client = MagicMock()
             mock_client.messages.create.return_value = mock_response
             mock_client_prop.return_value = mock_client
@@ -230,9 +218,7 @@ class TestOracleContradictionDetection:
             "CONTRADICTION: Fact A says SQLite while Fact B says DuckDB."
         )
         mock_response = _make_mock_synthesis_response(contradiction_response)
-        with patch.object(
-            type(oracle), "client", new_callable=PropertyMock
-        ) as mock_client_prop:
+        with patch.object(type(oracle), "client", new_callable=PropertyMock) as mock_client_prop:
             mock_client = MagicMock()
             mock_client.messages.create.return_value = mock_response
             mock_client_prop.return_value = mock_client

@@ -137,9 +137,7 @@ async def run_fix_loop(
             _emit("checks_start", pass_num=pass_num)
 
             # Step 2a: Run all checks, collect failures
-            failures, _passed = run_checks(
-                checks, project_root, check_callback=check_callback
-            )
+            failures, _passed = run_checks(checks, project_root, check_callback=check_callback)
 
             # Step 2b: If no failures, terminate with ALL_FIXED
             if not failures:
@@ -205,9 +203,7 @@ async def run_fix_loop(
         else:
             # Loop exhausted max_passes: run a final check to verify
             # the outcome of the last pass (08-REQ-5.1).
-            final_failures, _passed = run_checks(
-                checks, project_root, check_callback=check_callback
-            )
+            final_failures, _passed = run_checks(checks, project_root, check_callback=check_callback)
             if not final_failures:
                 termination_reason = TerminationReason.ALL_FIXED
                 current_failures = []

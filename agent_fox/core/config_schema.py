@@ -105,15 +105,9 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("OrchestratorConfig", "inter_session_delay"): "Delay between sessions in seconds",
     ("OrchestratorConfig", "max_cost"): "Maximum cost limit",
     ("OrchestratorConfig", "max_sessions"): "Maximum number of sessions",
-    ("OrchestratorConfig", "max_blocked_fraction"): (
-        "Stop run when this fraction of nodes are blocked"
-    ),
-    ("OrchestratorConfig", "quality_gate"): (
-        "Shell command run after each coder session to verify quality"
-    ),
-    ("OrchestratorConfig", "max_budget_usd"): (
-        "Per-session budget cap in USD (0 = unlimited)"
-    ),
+    ("OrchestratorConfig", "max_blocked_fraction"): ("Stop run when this fraction of nodes are blocked"),
+    ("OrchestratorConfig", "quality_gate"): ("Shell command run after each coder session to verify quality"),
+    ("OrchestratorConfig", "max_budget_usd"): ("Per-session budget cap in USD (0 = unlimited)"),
     # RoutingConfig
     ("RoutingConfig", "retries_before_escalation"): "Retries before model escalation",
     ("RoutingConfig", "training_threshold"): "Training data threshold",
@@ -123,16 +117,13 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
         "Maximum timeout retries before falling through to escalation (0 = disable)"
     ),
     ("RoutingConfig", "timeout_multiplier"): (
-        "Factor by which max_turns and session_timeout are extended on timeout retry"
-        " (>=1.0)"
+        "Factor by which max_turns and session_timeout are extended on timeout retry (>=1.0)"
     ),
     ("RoutingConfig", "timeout_ceiling_factor"): (
         "Maximum session_timeout as a factor of the original configured value (>=1.0)"
     ),
     # ModelConfig
-    ("ModelConfig", "coding"): (
-        "Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED"
-    ),
+    ("ModelConfig", "coding"): ("Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED"),
     ("ModelConfig", "memory_extraction"): "Model tier for memory extraction",
     # HookConfig
     ("HookConfig", "pre_code"): "Commands to run before coding",
@@ -164,29 +155,19 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     # ArchetypesConfig
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
     ("ArchetypesConfig", "skeptic"): "Code review — flags issues before merge",
-    ("ArchetypesConfig", "verifier"): (
-        "Post-code verification — runs tests, checks correctness"
-    ),
+    ("ArchetypesConfig", "verifier"): ("Post-code verification — runs tests, checks correctness"),
     ("ArchetypesConfig", "librarian"): "Enable librarian archetype",
     ("ArchetypesConfig", "cartographer"): "Enable cartographer archetype",
-    ("ArchetypesConfig", "oracle"): (
-        "Spec-drift detection — compares code against specs"
-    ),
-    ("ArchetypesConfig", "auditor"): (
-        "Test-quality gate — ensures test coverage meets standards"
-    ),
+    ("ArchetypesConfig", "oracle"): ("Spec-drift detection — compares code against specs"),
+    ("ArchetypesConfig", "auditor"): ("Test-quality gate — ensures test coverage meets standards"),
     ("ArchetypesConfig", "models"): "Per-archetype model overrides",
     ("ArchetypesConfig", "allowlists"): "Per-archetype command allowlists",
     # ArchetypeInstancesConfig
     ("ArchetypeInstancesConfig", "skeptic"): "Number of skeptic instances",
-    ("ArchetypeInstancesConfig", "verifier"): (
-        "Run multiple verifier instances for deeper coverage"
-    ),
+    ("ArchetypeInstancesConfig", "verifier"): ("Run multiple verifier instances for deeper coverage"),
     ("ArchetypeInstancesConfig", "auditor"): "Number of auditor instances",
     # AuditorConfig
-    ("AuditorConfig", "min_ts_entries"): (
-        "Minimum TS entries to trigger auditor injection"
-    ),
+    ("AuditorConfig", "min_ts_entries"): ("Minimum TS entries to trigger auditor injection"),
     ("AuditorConfig", "max_retries"): "Maximum auditor-coder retry iterations",
     # SkepticConfig
     ("SkepticConfig", "block_threshold"): "Finding count to block merge",
@@ -287,9 +268,7 @@ def _is_nested_model(annotation: Any) -> bool:
     return False
 
 
-def _get_description(
-    model_class: type[BaseModel], field_name: str, field_info: FieldInfo
-) -> str:
+def _get_description(model_class: type[BaseModel], field_name: str, field_info: FieldInfo) -> str:
     """Get description for a field from metadata or fallback map."""
     if field_info.description:
         return field_info.description
@@ -315,12 +294,8 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
     if not prefix:
         # Check if this is a root model (all fields are nested BaseModels)
         # or a flat model (has scalar fields directly)
-        has_nested = any(
-            _is_nested_model(fi.annotation) for fi in model.model_fields.values()
-        )
-        has_scalar = any(
-            not _is_nested_model(fi.annotation) for fi in model.model_fields.values()
-        )
+        has_nested = any(_is_nested_model(fi.annotation) for fi in model.model_fields.values())
+        has_scalar = any(not _is_nested_model(fi.annotation) for fi in model.model_fields.values())
 
         if has_nested and not has_scalar:
             # Pure root model: each nested field is a section
@@ -328,9 +303,7 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
             for field_name, field_info in model.model_fields.items():
                 annotation = field_info.annotation
                 if _is_nested_model(annotation):
-                    section = _extract_section(
-                        annotation, field_name, model_class=annotation
-                    )
+                    section = _extract_section(annotation, field_name, model_class=annotation)
                     sections.append(section)
             return sections
         elif has_nested and has_scalar:
@@ -339,9 +312,7 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
             for field_name, field_info in model.model_fields.items():
                 annotation = field_info.annotation
                 if _is_nested_model(annotation):
-                    section = _extract_section(
-                        annotation, field_name, model_class=annotation
-                    )
+                    section = _extract_section(annotation, field_name, model_class=annotation)
                     sections.append(section)
             return sections
         else:
@@ -355,9 +326,7 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
         return [section]
 
 
-def _extract_section(
-    model: type[BaseModel], path: str, model_class: type[BaseModel]
-) -> SectionSpec:
+def _extract_section(model: type[BaseModel], path: str, model_class: type[BaseModel]) -> SectionSpec:
     """Extract a SectionSpec from a Pydantic model."""
     section = SectionSpec(path=path)
 

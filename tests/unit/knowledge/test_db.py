@@ -71,8 +71,7 @@ class TestSchemaVersionRecordedOnCreation:
         db = KnowledgeDB(knowledge_config)
         db.open()
         rows = db.connection.execute(
-            "SELECT version, applied_at, description FROM schema_version "
-            "ORDER BY version"
+            "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
         # v1..v6 (review, routing, drift, confidence, audit)
         assert len(rows) == 6
@@ -108,18 +107,14 @@ class TestContextManagerOpensAndCloses:
     Requirements: 11-REQ-1.1, 11-REQ-1.3
     """
 
-    def test_with_block_provides_connection(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_with_block_provides_connection(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify connection is accessible inside the with block."""
         with KnowledgeDB(knowledge_config) as db:
             assert db.connection is not None
             tables = db.connection.execute("SHOW TABLES").fetchall()
             assert len(tables) > 0
 
-    def test_connection_closed_after_block(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_connection_closed_after_block(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify KnowledgeStoreError raised after the block exits."""
         with KnowledgeDB(knowledge_config) as db:
             _ = db.connection  # should work inside block
@@ -133,9 +128,7 @@ class TestSchemaInitializationIdempotent:
     Requirements: 11-REQ-2.1, 11-REQ-2.2
     """
 
-    def test_double_open_does_not_duplicate(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_double_open_does_not_duplicate(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify that opening twice does not duplicate version rows."""
         db1 = KnowledgeDB(knowledge_config)
         db1.open()
@@ -193,9 +186,7 @@ class TestCorruptedDatabaseDegradesGracefully:
 class TestConnectionClosedRaisesError:
     """Accessing connection after close raises KnowledgeStoreError."""
 
-    def test_connection_property_after_close(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_connection_property_after_close(self, knowledge_config: KnowledgeConfig) -> None:
         """Accessing .connection after close raises KnowledgeStoreError."""
         db = KnowledgeDB(knowledge_config)
         db.open()
@@ -203,9 +194,7 @@ class TestConnectionClosedRaisesError:
         with pytest.raises(KnowledgeStoreError, match="not open"):
             _ = db.connection
 
-    def test_connection_property_before_open(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_connection_property_before_open(self, knowledge_config: KnowledgeConfig) -> None:
         """Accessing .connection before open raises KnowledgeStoreError."""
         db = KnowledgeDB(knowledge_config)
         with pytest.raises(KnowledgeStoreError, match="not open"):

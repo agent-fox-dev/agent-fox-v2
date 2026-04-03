@@ -65,9 +65,7 @@ class TestFeatureDeterminism:
         max_examples=20,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_p5_determinism(
-        self, spec_dir: Path, task_group: int, archetype: str
-    ) -> None:
+    def test_p5_determinism(self, spec_dir: Path, task_group: int, archetype: str) -> None:
         """TS-30-P5: Two calls with identical inputs produce identical results.
 
         Requirement: 30-REQ-1.2

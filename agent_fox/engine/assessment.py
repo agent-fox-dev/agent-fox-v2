@@ -98,8 +98,7 @@ class AssessmentManager:
             self.assessments[node_id] = assessment
 
             logger.info(
-                "Adaptive routing for %s: predicted_tier=%s confidence=%.2f "
-                "method=%s ceiling=%s",
+                "Adaptive routing for %s: predicted_tier=%s confidence=%.2f method=%s ceiling=%s",
                 node_id,
                 predicted_tier,
                 assessment.confidence,
@@ -120,8 +119,7 @@ class AssessmentManager:
         except Exception:
             # 30-REQ-7.E1 / 57-REQ-2.E1: Fall back to archetype default tier
             logger.error(
-                "Assessment pipeline failed for %s, falling back to "
-                "archetype default tier %s",
+                "Assessment pipeline failed for %s, falling back to archetype default tier %s",
                 node_id,
                 archetype_default_tier,
                 exc_info=True,

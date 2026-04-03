@@ -26,9 +26,7 @@ from .conftest import make_improvement
 class TestBuildAnalyzerPrompt:
     """TS-31-6, TS-31-7, TS-31-8: Analyzer prompt building."""
 
-    def test_prompt_includes_conventions(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    def test_prompt_includes_conventions(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-6: Prompt includes content from CLAUDE.md."""
         claude_md = tmp_path / "CLAUDE.md"
         claude_md.write_text("Use ruff for formatting")
@@ -38,9 +36,7 @@ class TestBuildAnalyzerPrompt:
         assert "ruff" in system_prompt
         assert "formatting" in system_prompt
 
-    def test_prompt_includes_oracle_context(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    def test_prompt_includes_oracle_context(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-7: Oracle context is included in the prompt."""
         system_prompt, _ = build_analyzer_prompt(
             tmp_path,
@@ -51,13 +47,9 @@ class TestBuildAnalyzerPrompt:
         assert "## Project Knowledge" in system_prompt
         assert "ADR-001" in system_prompt
 
-    def test_prompt_omits_oracle_when_unavailable(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    def test_prompt_omits_oracle_when_unavailable(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-8: Prompt works without oracle context."""
-        system_prompt, _ = build_analyzer_prompt(
-            tmp_path, mock_config, oracle_context=""
-        )
+        system_prompt, _ = build_analyzer_prompt(tmp_path, mock_config, oracle_context="")
 
         assert "## Project Knowledge" not in system_prompt
 
@@ -130,9 +122,7 @@ class TestQueryOracleContext:
         assert len(context) > 0
         assert "dataclasses" in context
 
-    def test_oracle_propagates_error_when_unavailable(
-        self, mock_config: AgentFoxConfig
-    ) -> None:
+    def test_oracle_propagates_error_when_unavailable(self, mock_config: AgentFoxConfig) -> None:
         """TS-31-30 (superseded by 38-REQ-3.1): Oracle errors propagate."""
         with patch(
             "agent_fox.fix.analyzer._query_oracle_facts",

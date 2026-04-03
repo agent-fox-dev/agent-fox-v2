@@ -22,9 +22,7 @@ from agent_fox.ui.progress import ActivityEvent, ProgressDisplay, TaskEvent
 _STYLE_ROLES = ("header", "success", "error", "warning", "info", "tool", "muted")
 
 
-def _make_theme(
-    *, force_terminal: bool = True, width: int = 120
-) -> tuple[AppTheme, StringIO]:
+def _make_theme(*, force_terminal: bool = True, width: int = 120) -> tuple[AppTheme, StringIO]:
     """Create an AppTheme with a StringIO-backed console for testing.
 
     Returns:
@@ -34,9 +32,7 @@ def _make_theme(
     theme = create_theme(config)
     buf = StringIO()
     rich_theme = Theme({role: getattr(config, role) for role in _STYLE_ROLES})
-    theme.console = Console(
-        file=buf, theme=rich_theme, width=width, force_terminal=force_terminal
-    )
+    theme.console = Console(file=buf, theme=rich_theme, width=width, force_terminal=force_terminal)
     return theme, buf
 
 
@@ -94,11 +90,7 @@ class TestProgressDisplayActivity:
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=False)
         display.start()
-        display.on_activity(
-            ActivityEvent(
-                node_id="x:1", tool_name="Edit", argument="foo.py", turn=1, tokens=500
-            )
-        )
+        display.on_activity(ActivityEvent(node_id="x:1", tool_name="Edit", argument="foo.py", turn=1, tokens=500))
         text = display._get_spinner_text()
         display.stop()
         lines = text.split("\n")
@@ -141,9 +133,7 @@ class TestProgressDisplayTaskCompleted:
         theme, buf = _make_theme(force_terminal=False)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
-        display.on_task_event(
-            TaskEvent(node_id="03_session:2", status="completed", duration_s=45.0)
-        )
+        display.on_task_event(TaskEvent(node_id="03_session:2", status="completed", duration_s=45.0))
         display.stop()
         output = buf.getvalue()
         assert "\u2714" in output
@@ -183,12 +173,8 @@ class TestProgressDisplayQuiet:
         theme, buf = _make_theme()
         display = ProgressDisplay(theme, quiet=True)
         display.start()
-        display.on_activity(
-            ActivityEvent(node_id="x:1", tool_name="Read", argument="foo.py")
-        )
-        display.on_task_event(
-            TaskEvent(node_id="x:1", status="completed", duration_s=1.0)
-        )
+        display.on_activity(ActivityEvent(node_id="x:1", tool_name="Read", argument="foo.py"))
+        display.on_task_event(TaskEvent(node_id="x:1", status="completed", duration_s=1.0))
         display.stop()
         assert buf.getvalue() == ""
 
@@ -201,9 +187,7 @@ class TestProgressDisplayNonTTY:
         theme, buf = _make_theme(force_terminal=False)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
-        display.on_task_event(
-            TaskEvent(node_id="x:1", status="completed", duration_s=10.0)
-        )
+        display.on_task_event(TaskEvent(node_id="x:1", status="completed", duration_s=10.0))
         display.stop()
         output = buf.getvalue()
         assert "x:1" in output
@@ -219,9 +203,7 @@ class TestProgressDisplayDefaultWidth:
         theme, buf = _make_theme(width=80)
         display = ProgressDisplay(theme, quiet=False)
         display.start()
-        display.on_activity(
-            ActivityEvent(node_id="x:1", tool_name="Read", argument="a" * 200)
-        )
+        display.on_activity(ActivityEvent(node_id="x:1", tool_name="Read", argument="a" * 200))
         text = display._get_spinner_text()
         display.stop()
         for line in text.split("\n"):

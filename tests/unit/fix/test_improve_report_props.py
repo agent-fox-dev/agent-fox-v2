@@ -33,12 +33,7 @@ def _build_consistent_result(
     """Build a consistent ImproveResult (passes_completed <= max_passes)."""
     passes_completed = min(passes_completed, max_passes)
     # Distribute verdicts across passes; ensure fail_count <= passes_completed
-    fail_count = (
-        1
-        if termination_reason == ImproveTermination.VERIFIER_FAIL
-        and passes_completed > 0
-        else 0
-    )
+    fail_count = 1 if termination_reason == ImproveTermination.VERIFIER_FAIL and passes_completed > 0 else 0
     pass_count = max(0, passes_completed - fail_count)
 
     return ImproveResult(
@@ -62,9 +57,6 @@ class TestReportFieldConsistency:
     @settings(max_examples=50)
     def test_fields_consistent(self, result: ImproveResult) -> None:
         assert result.passes_completed <= result.max_passes
-        assert (
-            result.verifier_pass_count + result.verifier_fail_count
-            <= result.passes_completed
-        )
+        assert result.verifier_pass_count + result.verifier_fail_count <= result.passes_completed
         assert result.sessions_consumed >= 0
         assert result.termination_reason in ImproveTermination

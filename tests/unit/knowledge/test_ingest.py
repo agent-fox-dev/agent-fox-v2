@@ -66,9 +66,7 @@ class TestIngestADRs:
         assert result.facts_added == 2
         assert result.source_type == "adr"
 
-        rows = schema_conn.execute(
-            "SELECT * FROM memory_facts WHERE category = 'adr'"
-        ).fetchall()
+        rows = schema_conn.execute("SELECT * FROM memory_facts WHERE category = 'adr'").fetchall()
         assert len(rows) == 2
 
     def test_adr_facts_have_embeddings(
@@ -84,9 +82,7 @@ class TestIngestADRs:
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
         ingestor.ingest_adrs(adr_dir=adr_dir)
 
-        emb_count = schema_conn.execute(
-            "SELECT COUNT(*) FROM memory_embeddings"
-        ).fetchone()
+        emb_count = schema_conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()
         assert emb_count is not None
         assert emb_count[0] >= 1
 
@@ -159,9 +155,7 @@ class TestIngestGitCommits:
         ):
             ingestor.ingest_git_commits(limit=10)
 
-        rows = schema_conn.execute(
-            "SELECT commit_sha FROM memory_facts WHERE category = 'git'"
-        ).fetchall()
+        rows = schema_conn.execute("SELECT commit_sha FROM memory_facts WHERE category = 'git'").fetchall()
         assert len(rows) == 3
         assert all(row[0] is not None for row in rows)
 
@@ -185,9 +179,7 @@ class TestIngestGitCommits:
         ):
             ingestor.ingest_git_commits(limit=10)
 
-        rows = schema_conn.execute(
-            "SELECT category FROM memory_facts WHERE category = 'git'"
-        ).fetchall()
+        rows = schema_conn.execute("SELECT category FROM memory_facts WHERE category = 'git'").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "git"
 

@@ -88,20 +88,14 @@ class TestPropVisibleContainment:
         template = generate_default_config()
         section_names = _extract_section_names(template)
         for name in section_names:
-            assert name in _EXPECTED_VISIBLE_SECTIONS, (
-                f"Section [{name}] found in template but is not in visible set"
-            )
+            assert name in _EXPECTED_VISIBLE_SECTIONS, f"Section [{name}] found in template but is not in visible set"
 
     def test_no_hidden_section_headers(self):
         """No hidden section name appears as a header (active or commented)."""
         template = generate_default_config()
         for hidden in _EXPECTED_HIDDEN_SECTIONS:
-            assert f"[{hidden}]" not in template, (
-                f"Hidden section [{hidden}] found in template"
-            )
-            assert f"# [{hidden}]" not in template, (
-                f"Commented hidden section # [{hidden}] found in template"
-            )
+            assert f"[{hidden}]" not in template, f"Hidden section [{hidden}] found in template"
+            assert f"# [{hidden}]" not in template, f"Commented hidden section # [{hidden}] found in template"
 
 
 # ---------------------------------------------------------------------------
@@ -114,9 +108,7 @@ class TestPropMergePreservesValues:
 
     @given(
         parallel=st.integers(1, 8),
-        max_budget=st.floats(0.1, 100.0, allow_nan=False, allow_infinity=False).map(
-            lambda x: round(x, 2)
-        ),
+        max_budget=st.floats(0.1, 100.0, allow_nan=False, allow_infinity=False).map(lambda x: round(x, 2)),
         skeptic=st.booleans(),
     )
     @settings(max_examples=20)
@@ -131,12 +123,8 @@ class TestPropMergePreservesValues:
             f"skeptic = {skeptic_str}\n"
         )
         result = merge_existing_config(existing)
-        assert f"parallel = {parallel}" in result, (
-            f"parallel = {parallel} not preserved in merge result"
-        )
-        assert f"skeptic = {skeptic_str}" in result, (
-            f"skeptic = {skeptic_str} not preserved in merge result"
-        )
+        assert f"parallel = {parallel}" in result, f"parallel = {parallel} not preserved in merge result"
+        assert f"skeptic = {skeptic_str}" in result, f"skeptic = {skeptic_str} not preserved in merge result"
 
 
 # ---------------------------------------------------------------------------
@@ -178,12 +166,8 @@ class TestPropNoHiddenInjection:
         result = merge_existing_config(existing)
 
         for hidden in _EXPECTED_HIDDEN_SECTIONS:
-            assert f"[{hidden}]" not in result, (
-                f"Hidden section [{hidden}] was injected by merge"
-            )
-            assert f"# [{hidden}]" not in result, (
-                f"Commented hidden section # [{hidden}] was injected by merge"
-            )
+            assert f"[{hidden}]" not in result, f"Hidden section [{hidden}] was injected by merge"
+            assert f"# [{hidden}]" not in result, f"Commented hidden section # [{hidden}] was injected by merge"
 
 
 # ---------------------------------------------------------------------------
@@ -202,9 +186,7 @@ class TestPropFooterNonDuplication:
         for _ in range(n):
             content = merge_existing_config(content)
         count = content.count("docs/config-reference.md")
-        assert count == 1, (
-            f"After {n} merges, footer appears {count} times, expected exactly 1"
-        )
+        assert count == 1, f"After {n} merges, footer appears {count} times, expected exactly 1"
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +200,4 @@ class TestPropVerifierDefault:
     def test_verifier_default_is_2(self):
         """Default-constructed ArchetypeInstancesConfig always has verifier=2."""
         config = ArchetypeInstancesConfig()
-        assert config.verifier == 2, (
-            f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"
-        )
+        assert config.verifier == 2, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"

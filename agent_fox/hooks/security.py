@@ -238,10 +238,7 @@ def check_command_allowed(
     # Build a helpful message listing up to 10 allowed commands
     sorted_allowed = sorted(allowlist)[:10]
     alternatives = ", ".join(sorted_allowed)
-    msg = (
-        f"Command '{name}' is not on the allowlist. "
-        f"Allowed commands include: {alternatives}"
-    )
+    msg = f"Command '{name}' is not on the allowlist. Allowed commands include: {alternatives}"
     if len(allowlist) > 10:
         msg += f" (and {len(allowlist) - 10} more)"
 

@@ -28,13 +28,9 @@ def review_finding_list(draw: st.DrawFn) -> list[ReviewFinding]:
     return [
         ReviewFinding(
             id=str(uuid.uuid4()),
-            severity=draw(
-                st.sampled_from(["critical", "major", "minor", "observation"])
-            ),
+            severity=draw(st.sampled_from(["critical", "major", "minor", "observation"])),
             description=draw(st.text(min_size=1, max_size=100)),
-            requirement_ref=draw(
-                st.one_of(st.none(), st.text(min_size=1, max_size=20))
-            ),
+            requirement_ref=draw(st.one_of(st.none(), st.text(min_size=1, max_size=20))),
             spec_name="prop_test_spec",
             task_group="1",
             session_id=session_id,

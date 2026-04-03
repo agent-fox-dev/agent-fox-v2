@@ -94,9 +94,7 @@ def _load_template(name: str) -> str:
 _KNOWN_KEYS = ("spec_name", "task_group", "number", "specification")
 
 # Pattern: match {key} for each known key only
-_INTERPOLATION_RE = re.compile(
-    r"\{(" + "|".join(re.escape(k) for k in _KNOWN_KEYS) + r")\}"
-)
+_INTERPOLATION_RE = re.compile(r"\{(" + "|".join(re.escape(k) for k in _KNOWN_KEYS) + r")\}")
 
 
 def _interpolate(template: str, variables: dict[str, str]) -> str:

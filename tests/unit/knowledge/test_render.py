@@ -54,9 +54,7 @@ class TestRenderMarkdownByCategory:
     Requirements: 05-REQ-6.1, 05-REQ-6.2
     """
 
-    def test_renders_sections_by_category(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_renders_sections_by_category(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify output has section headings for each populated category."""
         output_path = tmp_path / "docs" / "memory.md"
 
@@ -80,9 +78,7 @@ class TestRenderMarkdownByCategory:
         assert "## Gotchas" in content
         assert "## Patterns" in content
 
-    def test_renders_fact_content_and_attribution(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_renders_fact_content_and_attribution(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify each fact includes content, spec name, and confidence."""
         output_path = tmp_path / "docs" / "memory.md"
 
@@ -127,9 +123,7 @@ class TestRenderEmptyKnowledgeBase:
     Requirement: 05-REQ-6.E2
     """
 
-    def test_renders_no_facts_message(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_renders_no_facts_message(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify render produces 'no facts' summary when DB is empty."""
         output_path = tmp_path / "docs" / "memory.md"
 

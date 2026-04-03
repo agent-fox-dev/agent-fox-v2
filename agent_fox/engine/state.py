@@ -207,9 +207,7 @@ class StateManager:
         nodes = data.get("nodes", {})
         structural_nodes = {}
         for nid, node in sorted(nodes.items()):
-            structural_nodes[nid] = {
-                k: v for k, v in sorted(node.items()) if k != "status"
-            }
+            structural_nodes[nid] = {k: v for k, v in sorted(node.items()) if k != "status"}
 
         canonical = {
             "nodes": structural_nodes,

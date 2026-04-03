@@ -22,17 +22,13 @@ VALID_SEVERITIES = {"critical", "major", "minor", "observation"}
 VALID_VERDICTS = {"PASS", "FAIL"}
 
 # Defense-in-depth: only these table names may be interpolated into SQL.
-_ALLOWED_TABLES: frozenset[str] = frozenset(
-    {"review_findings", "drift_findings", "verification_results"}
-)
+_ALLOWED_TABLES: frozenset[str] = frozenset({"review_findings", "drift_findings", "verification_results"})
 
 
 def _validate_table_name(table: str) -> None:
     """Raise ValueError if *table* is not in the allowlist."""
     if table not in _ALLOWED_TABLES:
-        raise ValueError(
-            f"Table {table!r} is not in the allowed set: {sorted(_ALLOWED_TABLES)}"
-        )
+        raise ValueError(f"Table {table!r} is not in the allowed set: {sorted(_ALLOWED_TABLES)}")
 
 
 _SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
@@ -161,8 +157,7 @@ def _insert_causal_links(
     for old_id in superseded_ids:
         for new_id in new_ids:
             conn.execute(
-                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
-                "VALUES (?::UUID, ?::UUID)",
+                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
                 [old_id, new_id],
             )
 
@@ -187,9 +182,7 @@ def _insert_with_supersession(
     task_group = records[0].task_group
     session_id = records[0].session_id
 
-    superseded_ids = _supersede_active_records(
-        conn, table, spec_name, task_group, session_id
-    )
+    superseded_ids = _supersede_active_records(conn, table, spec_name, task_group, session_id)
 
     placeholders = ", ".join("?" for _ in columns.split(", "))
     for r in records:
@@ -230,10 +223,7 @@ def insert_findings(
     return _insert_with_supersession(
         conn,
         table="review_findings",
-        columns=(
-            "id, severity, description, requirement_ref,"
-            " spec_name, task_group, session_id"
-        ),
+        columns=("id, severity, description, requirement_ref, spec_name, task_group, session_id"),
         records=findings,
         value_extractor=lambda f: [
             f.id,
@@ -260,9 +250,7 @@ def insert_verdicts(
     return _insert_with_supersession(
         conn,
         table="verification_results",
-        columns=(
-            "id, requirement_id, verdict, evidence, spec_name, task_group, session_id"
-        ),
+        columns=("id, requirement_id, verdict, evidence, spec_name, task_group, session_id"),
         records=verdicts,
         value_extractor=lambda v: [
             v.id,
@@ -429,9 +417,7 @@ def query_findings_by_session(
     Requirements: 27-REQ-6.1
     """
     rows = conn.execute(
-        f"SELECT {_FINDING_COLS} "
-        "FROM review_findings WHERE session_id = ? "
-        "ORDER BY severity, description",
+        f"SELECT {_FINDING_COLS} FROM review_findings WHERE session_id = ? ORDER BY severity, description",
         [session_id],
     ).fetchall()
 
@@ -449,9 +435,7 @@ def query_verdicts_by_session(
     Requirements: 27-REQ-6.2
     """
     rows = conn.execute(
-        f"SELECT {_VERDICT_COLS} "
-        "FROM verification_results WHERE session_id = ? "
-        "ORDER BY requirement_id",
+        f"SELECT {_VERDICT_COLS} FROM verification_results WHERE session_id = ? ORDER BY requirement_id",
         [session_id],
     ).fetchall()
 

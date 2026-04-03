@@ -67,9 +67,7 @@ _EXPECTED_PROMOTED_FIELDS = [
 def _extract_section_headers(template: str) -> set[str]:
     """Extract all section names from active and commented section headers."""
     headers: set[str] = set()
-    for m in re.finditer(
-        r"^#?\s*\[([a-zA-Z_][a-zA-Z0-9_.]*)\]\s*$", template, re.MULTILINE
-    ):
+    for m in re.finditer(r"^#?\s*\[([a-zA-Z_][a-zA-Z0-9_.]*)\]\s*$", template, re.MULTILINE):
         headers.add(m.group(1).strip())
     return headers
 
@@ -110,21 +108,15 @@ class TestTemplateSectionVisibility:
         """Hidden sections must be completely absent — not even commented out."""
         template = generate_default_config()
         for section in _EXPECTED_HIDDEN_SECTIONS:
-            assert f"[{section}]" not in template, (
-                f"Hidden section [{section}] found in template"
-            )
-            assert f"# [{section}]" not in template, (
-                f"Commented hidden section # [{section}] found in template"
-            )
+            assert f"[{section}]" not in template, f"Hidden section [{section}] found in template"
+            assert f"# [{section}]" not in template, f"Commented hidden section # [{section}] found in template"
 
     def test_only_visible_section_headers(self):
         """Every section header in the template belongs to the visible set."""
         template = generate_default_config()
         headers = _extract_section_headers(template)
         for header in headers:
-            assert header in _EXPECTED_VISIBLE_SECTIONS, (
-                f"Unexpected section [{header}] found in template"
-            )
+            assert header in _EXPECTED_VISIBLE_SECTIONS, f"Unexpected section [{header}] found in template"
 
 
 # ---------------------------------------------------------------------------
@@ -144,17 +136,13 @@ class TestTemplateFooter:
         """Footer appears exactly one time."""
         template = generate_default_config()
         count = template.count("docs/config-reference.md")
-        assert count == 1, (
-            f"Expected exactly 1 occurrence of 'docs/config-reference.md', got {count}"
-        )
+        assert count == 1, f"Expected exactly 1 occurrence of 'docs/config-reference.md', got {count}"
 
     def test_footer_near_end_of_template(self):
         """Footer appears among the last non-empty lines."""
         template = generate_default_config()
         non_empty_lines = [ln for ln in template.rstrip().split("\n") if ln.strip()]
-        assert _FOOTER in non_empty_lines[-5:], (
-            "Footer not in the last 5 non-empty lines of template"
-        )
+        assert _FOOTER in non_empty_lines[-5:], "Footer not in the last 5 non-empty lines of template"
 
 
 # ---------------------------------------------------------------------------
@@ -183,18 +171,14 @@ class TestQualityGatePromoted:
     def test_quality_gate_active_in_template(self):
         """quality_gate = "make check" must appear as an uncommented line."""
         template = generate_default_config()
-        assert 'quality_gate = "make check"' in template, (
-            "quality_gate is not promoted with value 'make check'"
-        )
+        assert 'quality_gate = "make check"' in template, "quality_gate is not promoted with value 'make check'"
 
     def test_quality_gate_line_is_not_commented(self):
         """The quality_gate line must not start with '#'."""
         template = generate_default_config()
         for line in template.split("\n"):
             if 'quality_gate = "make check"' in line:
-                assert not line.strip().startswith("#"), (
-                    f"quality_gate line is commented: {line!r}"
-                )
+                assert not line.strip().startswith("#"), f"quality_gate line is commented: {line!r}"
                 return
         pytest.fail('quality_gate = "make check" not found in template')
 
@@ -226,9 +210,7 @@ class TestVerifierInstancesPromoted:
             if in_instances and re.match(r"^\[", stripped):
                 in_instances = False
             if in_instances and re.match(r"^verifier\s*=\s*2", stripped):
-                assert not line.strip().startswith("#"), (
-                    f"verifier = 2 is commented: {line!r}"
-                )
+                assert not line.strip().startswith("#"), f"verifier = 2 is commented: {line!r}"
                 return
         # If we reach here, line was not found as uncommented
         pytest.fail("Uncommented 'verifier = 2' not found under [archetypes.instances]")
@@ -276,14 +258,10 @@ class TestBudgetAndModelPromoted:
     def test_max_budget_line_not_commented(self):
         """max_budget_usd = 8.0 appears as an active line."""
         template = generate_default_config()
-        assert "max_budget_usd = 8.0" in template, (
-            "max_budget_usd = 8.0 not found as active line"
-        )
+        assert "max_budget_usd = 8.0" in template, "max_budget_usd = 8.0 not found as active line"
         for line in template.split("\n"):
             if "max_budget_usd = 8.0" in line:
-                assert not line.strip().startswith("#"), (
-                    f"max_budget_usd line is commented: {line!r}"
-                )
+                assert not line.strip().startswith("#"), f"max_budget_usd line is commented: {line!r}"
                 return
 
 
@@ -298,9 +276,7 @@ class TestVerifierDefaultChanged:
     def test_verifier_default_is_2(self):
         """ArchetypeInstancesConfig() has verifier == 2."""
         config = ArchetypeInstancesConfig()
-        assert config.verifier == 2, (
-            f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"
-        )
+        assert config.verifier == 2, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"
 
 
 # ---------------------------------------------------------------------------
@@ -319,18 +295,14 @@ class TestDescriptionsMeaningful:
             if desc_line is None:
                 continue  # Field not active — other tests cover that
             mechanical = field_name.replace("_", " ").title()
-            assert mechanical not in desc_line, (
-                f"Field '{field_name}' has mechanical description: {desc_line!r}"
-            )
+            assert mechanical not in desc_line, f"Field '{field_name}' has mechanical description: {desc_line!r}"
 
     def test_promoted_fields_have_descriptions(self):
         """Every promoted field in the template has a ## comment above it."""
         template = generate_default_config()
         for _section, field_name in _EXPECTED_PROMOTED_FIELDS:
             desc_line = _find_description_above(template, field_name)
-            assert desc_line is not None, (
-                f"Promoted field '{field_name}' has no ## description comment above it"
-            )
+            assert desc_line is not None, f"Promoted field '{field_name}' has no ## description comment above it"
 
 
 # ---------------------------------------------------------------------------
@@ -343,14 +315,10 @@ class TestMergePreservesHiddenSections:
 
     def test_routing_section_preserved(self):
         """[routing] with active values is preserved after merge."""
-        existing = (
-            "[orchestrator]\nparallel = 4\n\n[routing]\nretries_before_escalation = 3\n"
-        )
+        existing = "[orchestrator]\nparallel = 4\n\n[routing]\nretries_before_escalation = 3\n"
         result = merge_existing_config(existing)
         assert "[routing]" in result, "[routing] section not preserved"
-        assert "retries_before_escalation = 3" in result, (
-            "retries_before_escalation = 3 not preserved"
-        )
+        assert "retries_before_escalation = 3" in result, "retries_before_escalation = 3 not preserved"
 
     def test_theme_section_preserved(self):
         """[theme] with active values is preserved after merge."""
@@ -373,24 +341,16 @@ class TestMergeNoHiddenInjection:
         existing = "[orchestrator]\nparallel = 4\n\n[archetypes]\nskeptic = true\n"
         result = merge_existing_config(existing)
         for section in _EXPECTED_HIDDEN_SECTIONS:
-            assert f"[{section}]" not in result, (
-                f"Hidden section [{section}] was added by merge"
-            )
-            assert f"# [{section}]" not in result, (
-                f"Commented hidden section # [{section}] was added by merge"
-            )
+            assert f"[{section}]" not in result, f"Hidden section [{section}] was added by merge"
+            assert f"# [{section}]" not in result, f"Commented hidden section # [{section}] was added by merge"
 
     def test_merge_with_only_orchestrator_no_hidden(self):
         """Merge of orchestrator-only config adds no hidden sections."""
         existing = "[orchestrator]\nparallel = 2\n"
         result = merge_existing_config(existing)
         for section in _EXPECTED_HIDDEN_SECTIONS:
-            assert f"[{section}]" not in result, (
-                f"Hidden section [{section}] injected by merge"
-            )
-            assert f"# [{section}]" not in result, (
-                f"Commented hidden section # [{section}] injected by merge"
-            )
+            assert f"[{section}]" not in result, f"Hidden section [{section}] injected by merge"
+            assert f"# [{section}]" not in result, f"Commented hidden section # [{section}] injected by merge"
 
 
 # ---------------------------------------------------------------------------
@@ -405,17 +365,13 @@ class TestMergeEmptyConfig:
         """merge_existing_config('') must equal generate_default_config()."""
         result = merge_existing_config("")
         expected = generate_default_config()
-        assert result == expected, (
-            "merge_existing_config('') did not produce the simplified template"
-        )
+        assert result == expected, "merge_existing_config('') did not produce the simplified template"
 
     def test_whitespace_only_produces_simplified_template(self):
         """Whitespace-only existing config also produces simplified template."""
         result = merge_existing_config("   \n  \n  ")
         expected = generate_default_config()
-        assert result == expected, (
-            "merge_existing_config(whitespace) did not produce the simplified template"
-        )
+        assert result == expected, "merge_existing_config(whitespace) did not produce the simplified template"
 
 
 # ---------------------------------------------------------------------------
@@ -432,9 +388,7 @@ class TestFooterNotDuplicated:
         existing = generate_default_config()  # already has footer
         result = merge_existing_config(existing)
         count = result.count("docs/config-reference.md")
-        assert count == 1, (
-            f"Expected exactly 1 footer occurrence after merge, got {count}"
-        )
+        assert count == 1, f"Expected exactly 1 footer occurrence after merge, got {count}"
 
     def test_double_merge_still_one_footer(self):
         """Two successive merges still result in exactly one footer."""
@@ -442,9 +396,7 @@ class TestFooterNotDuplicated:
         content = merge_existing_config(content)
         content = merge_existing_config(content)
         count = content.count("docs/config-reference.md")
-        assert count == 1, (
-            f"Expected exactly 1 footer occurrence after 2 merges, got {count}"
-        )
+        assert count == 1, f"Expected exactly 1 footer occurrence after 2 merges, got {count}"
 
 
 # ---------------------------------------------------------------------------
@@ -464,9 +416,7 @@ class TestEdgeCaseMultipleHiddenSectionsPreserved:
             "[knowledge]\nask_top_k = 50\n"
         )
         result = merge_existing_config(existing)
-        assert "retries_before_escalation = 2" in result, (
-            "routing.retries_before_escalation not preserved"
-        )
+        assert "retries_before_escalation = 2" in result, "routing.retries_before_escalation not preserved"
         assert "playful = false" in result, "theme.playful not preserved"
         assert "ask_top_k = 50" in result, "knowledge.ask_top_k not preserved"
 
@@ -526,9 +476,7 @@ class TestEdgeCaseDescriptionFallback:
         # Construct a FieldInfo without description
         field_info_no_desc = FieldInfo(default="default")
         result = _get_description(_TestModel, "unknown_field", field_info_no_desc)
-        assert result == "Unknown Field", (
-            f"Expected fallback 'Unknown Field', got {result!r}"
-        )
+        assert result == "Unknown Field", f"Expected fallback 'Unknown Field', got {result!r}"
 
     def test_fallback_uses_description_when_present(self):
         """_get_description returns the provided description if set."""
@@ -537,9 +485,7 @@ class TestEdgeCaseDescriptionFallback:
         class _TestModel(BaseModel):
             my_field: str = "default"
 
-        field_info_with_desc = FieldInfo(
-            default="default", description="My custom desc"
-        )  # noqa: E501
+        field_info_with_desc = FieldInfo(default="default", description="My custom desc")  # noqa: E501
         result = _get_description(_TestModel, "my_field", field_info_with_desc)
         assert result == "My custom desc", f"Expected 'My custom desc', got {result!r}"
 
@@ -549,9 +495,7 @@ class TestEdgeCaseDescriptionFallback:
 # ---------------------------------------------------------------------------
 
 _CONFIG_REFERENCE_PATH = (
-    __import__("pathlib").Path(__file__).parent.parent.parent.parent
-    / "docs"
-    / "config-reference.md"
+    __import__("pathlib").Path(__file__).parent.parent.parent.parent / "docs" / "config-reference.md"
 )
 
 _ALL_CONFIG_SECTIONS = [
@@ -579,9 +523,7 @@ class TestReferenceDocExists:
 
     def test_reference_doc_file_exists(self):
         """docs/config-reference.md must exist in the repository."""
-        assert _CONFIG_REFERENCE_PATH.exists(), (
-            f"docs/config-reference.md not found at {_CONFIG_REFERENCE_PATH}"
-        )
+        assert _CONFIG_REFERENCE_PATH.exists(), f"docs/config-reference.md not found at {_CONFIG_REFERENCE_PATH}"
 
     def test_reference_doc_not_empty(self):
         """docs/config-reference.md must have non-empty content."""
@@ -592,9 +534,7 @@ class TestReferenceDocExists:
         """docs/config-reference.md must contain a table of contents section."""
         content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
         has_toc = "## Table of Contents" in content or "## Contents" in content
-        assert has_toc, (
-            "docs/config-reference.md does not contain a Table of Contents section"
-        )
+        assert has_toc, "docs/config-reference.md does not contain a Table of Contents section"
 
     @pytest.mark.parametrize("section", _ALL_CONFIG_SECTIONS)
     def test_reference_doc_contains_section_heading(self, section: str):
@@ -604,16 +544,12 @@ class TestReferenceDocExists:
         import re
 
         pattern = rf"#+\s+{re.escape(section)}"
-        assert re.search(pattern, content), (
-            f"Config section '{section}' not found as a heading in config-reference.md"
-        )
+        assert re.search(pattern, content), f"Config section '{section}' not found as a heading in config-reference.md"
 
     def test_reference_doc_has_toml_examples(self):
         """docs/config-reference.md must contain TOML code block examples."""
         content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
-        assert "```toml" in content, (
-            "docs/config-reference.md has no TOML code block examples (```toml)"
-        )
+        assert "```toml" in content, "docs/config-reference.md has no TOML code block examples (```toml)"
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +580,4 @@ class TestReferenceDocCoverage:
         content = _CONFIG_REFERENCE_PATH.read_text(encoding="utf-8")
         field_names = self._collect_all_field_names()
         missing = [name for name in field_names if name not in content]
-        assert not missing, (
-            f"The following field names are missing from config-reference.md: {missing}"
-        )
+        assert not missing, f"The following field names are missing from config-reference.md: {missing}"

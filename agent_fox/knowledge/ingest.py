@@ -88,9 +88,7 @@ class KnowledgeIngestor:
         Returns:
             An IngestResult summarizing what was ingested.
         """
-        target_dir = (
-            adr_dir if adr_dir is not None else (self._project_root / "docs" / "adr")
-        )
+        target_dir = adr_dir if adr_dir is not None else (self._project_root / "docs" / "adr")
 
         if not target_dir.exists() or not target_dir.is_dir():
             return IngestResult(
@@ -280,14 +278,12 @@ class KnowledgeIngestor:
         """
         if category == "adr":
             row = self._conn.execute(
-                "SELECT COUNT(*) FROM memory_facts "
-                "WHERE category = 'adr' AND spec_name = ?",
+                "SELECT COUNT(*) FROM memory_facts WHERE category = 'adr' AND spec_name = ?",
                 [identifier],
             ).fetchone()
         elif category == "git":
             row = self._conn.execute(
-                "SELECT COUNT(*) FROM memory_facts "
-                "WHERE category = 'git' AND commit_sha = ?",
+                "SELECT COUNT(*) FROM memory_facts WHERE category = 'git' AND commit_sha = ?",
                 [identifier],
             ).fetchone()
         else:

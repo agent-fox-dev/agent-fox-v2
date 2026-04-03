@@ -103,6 +103,7 @@ class TestPostHarvestDoesNotCheckBranchExistence:
     def test_does_not_check_branch_existence(self) -> None:
         """local_branch_exists must not be imported in the harvest module."""
         import agent_fox.workspace.harvest as harvest_mod
+
         assert not hasattr(harvest_mod, "local_branch_exists"), (
             "harvest module still imports local_branch_exists; "
             "feature branch existence check must be removed (78-REQ-1.3)"

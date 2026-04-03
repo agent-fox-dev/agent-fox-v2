@@ -28,9 +28,7 @@ def _make_config(timeout: int = 600) -> MagicMock:
     return config
 
 
-def _make_check(
-    name: str, category_str: str, command: list[str] | None = None
-) -> object:
+def _make_check(name: str, category_str: str, command: list[str] | None = None) -> object:
     """Build a CheckDescriptor for testing."""
     from agent_fox.fix.checks import CheckCategory, CheckDescriptor
 
@@ -90,9 +88,7 @@ class TestStaticPhase:
                 "agent_fox.nightshift.categories.quality_gate.detect_checks",
                 return_value=[pytest_check, ruff_check],
             ) as mock_detect,
-            patch(
-                "subprocess.run", return_value=_completed(1, "error details")
-            ) as mock_subproc,
+            patch("subprocess.run", return_value=_completed(1, "error details")) as mock_subproc,
         ):
             cat = QualityGateCategory()
             result = await cat._run_static_tool(project_root)
@@ -352,9 +348,7 @@ class TestEdgeCases:
     """Edge case tests for QualityGateCategory."""
 
     @pytest.mark.asyncio
-    async def test_detect_checks_raises_returns_empty(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_detect_checks_raises_returns_empty(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-67-E1: OSError from detect_checks produces zero findings with warning."""
         from agent_fox.nightshift.categories.quality_gate import QualityGateCategory
 
@@ -370,10 +364,7 @@ class TestEdgeCases:
 
         assert findings == []
         # Either the error message or the category name should appear in the log
-        assert any(
-            "disk error" in r.message or "quality_gate" in r.message.lower()
-            for r in caplog.records
-        )
+        assert any("disk error" in r.message or "quality_gate" in r.message.lower() for r in caplog.records)
 
     # TS-67-E2: No Checks Detected
     # Requirement: 67-REQ-1.2

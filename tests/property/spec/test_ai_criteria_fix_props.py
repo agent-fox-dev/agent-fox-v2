@@ -48,9 +48,7 @@ def _make_multi_section_fixture(n_reqs: int, criterion_id: str) -> str:
     """Build a requirements.md with n_reqs requirement sections."""
     sections = []
     for i in range(1, n_reqs + 1):
-        sections.append(
-            f"### Requirement {i}: Feature {i}\n\n#### Acceptance Criteria\n\n"
-        )
+        sections.append(f"### Requirement {i}: Feature {i}\n\n#### Acceptance Criteria\n\n")
         if i == 1:
             sections.append(f"1. [{criterion_id}] THE system SHALL be fast.\n")
         else:
@@ -182,9 +180,7 @@ class TestEarsInPrompt:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            findings = [
-                _make_finding(f"99-REQ-1.{i}") for i in range(1, n_findings + 1)
-            ]
+            findings = [_make_finding(f"99-REQ-1.{i}") for i in range(1, n_findings + 1)]
             req_text = _make_bracket_fixture("99-REQ-1.1")
 
             await rewrite_criteria("spec", req_text, findings, "model")

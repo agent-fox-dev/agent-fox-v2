@@ -105,6 +105,5 @@ class TestCrossProcessLockSerialization:
         data_b = json.loads(result_b.read_text())
 
         assert data_b["acquired_at"] >= data_a["released_at"], (
-            f"Process B acquired at {data_b['acquired_at']} "
-            f"before A released at {data_a['released_at']}"
+            f"Process B acquired at {data_b['acquired_at']} before A released at {data_a['released_at']}"
         )

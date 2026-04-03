@@ -48,9 +48,7 @@ class TestAllowlistBlocksNonAllowlisted:
 
         command = f"{first_token} --some-arg value"
         result = hook(tool_name="Bash", tool_input={"command": command})
-        assert result.get("decision") == "block", (
-            f"Command '{command}' should be blocked but was not"
-        )
+        assert result.get("decision") == "block", f"Command '{command}' should be blocked but was not"
 
     @given(
         cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
@@ -78,6 +76,4 @@ class TestAllowlistBlocksNonAllowlisted:
 
         command = f"{cmd} {args}".strip()
         result = hook(tool_name="Bash", tool_input={"command": command})
-        assert result.get("decision") != "block", (
-            f"Command '{command}' should be allowed but was blocked"
-        )
+        assert result.get("decision") != "block", f"Command '{command}' should be allowed but was blocked"

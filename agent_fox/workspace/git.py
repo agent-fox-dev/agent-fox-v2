@@ -76,9 +76,7 @@ async def run_git(
 
     if timeout is None:
         subcommand = args[0] if args else ""
-        timeout = (
-            _GIT_REMOTE_TIMEOUT if subcommand in _REMOTE_SUBCOMMANDS else _GIT_TIMEOUT
-        )
+        timeout = _GIT_REMOTE_TIMEOUT if subcommand in _REMOTE_SUBCOMMANDS else _GIT_TIMEOUT
 
     proc = await asyncio.create_subprocess_exec(
         "git",
@@ -111,9 +109,7 @@ async def run_git(
     if check and returncode != 0:
         cmd_str = " ".join(["git", *args])
         subcommand = args[0] if args else "unknown"
-        logger.debug(
-            "git %s failed (rc=%d): %s", subcommand, returncode, stderr.strip()
-        )
+        logger.debug("git %s failed (rc=%d): %s", subcommand, returncode, stderr.strip())
         raise WorkspaceError(
             f"git {subcommand} failed (exit code {returncode})",
             command=cmd_str,
@@ -376,8 +372,7 @@ async def detect_default_branch(repo_root: Path) -> str:
             return candidate
 
     raise WorkspaceError(
-        "Cannot determine default branch: no symbolic-ref, "
-        "no local 'main' or 'master' branch found.",
+        "Cannot determine default branch: no symbolic-ref, no local 'main' or 'master' branch found.",
     )
 
 

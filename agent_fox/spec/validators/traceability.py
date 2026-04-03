@@ -154,8 +154,7 @@ def check_untraced_properties(
                     rule="untraced-property",
                     severity=SEVERITY_WARNING,
                     message=(
-                        f"Property {prop_num} in design.md has no corresponding "
-                        f"test spec entry ({expected_ts_id})"
+                        f"Property {prop_num} in design.md has no corresponding test spec entry ({expected_ts_id})"
                     ),
                     line=None,
                 )
@@ -211,10 +210,7 @@ def check_orphan_error_refs(
                     file="design.md",
                     rule="orphan-error-ref",
                     severity=SEVERITY_WARNING,
-                    message=(
-                        f"Error handling table references {ref_id} which "
-                        f"does not exist in requirements.md"
-                    ),
+                    message=(f"Error handling table references {ref_id} which does not exist in requirements.md"),
                     line=None,
                 )
             )
@@ -274,10 +270,7 @@ def check_coverage_matrix_completeness(
                 file="test_spec.md",
                 rule="coverage-matrix-mismatch",
                 severity=SEVERITY_WARNING,
-                message=(
-                    f"Requirement {req_id} is in requirements.md but missing "
-                    f"from the coverage matrix"
-                ),
+                message=(f"Requirement {req_id} is in requirements.md but missing from the coverage matrix"),
                 line=None,
             )
         )
@@ -336,10 +329,7 @@ def check_traceability_table_completeness(
                 file="tasks.md",
                 rule="traceability-table-mismatch",
                 severity=SEVERITY_WARNING,
-                message=(
-                    f"Requirement {req_id} is in requirements.md but missing "
-                    f"from the traceability table"
-                ),
+                message=(f"Requirement {req_id} is in requirements.md but missing from the traceability table"),
                 line=None,
             )
         )

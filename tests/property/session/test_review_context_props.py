@@ -176,9 +176,7 @@ class TestFallbackCorrectness:
 
         if has_file:
             (spec_dir / "review.md").write_text(
-                "# Skeptic Review\n\n"
-                "## Critical Findings\n"
-                "- [severity: major] File finding\n"
+                "# Skeptic Review\n\n## Critical Findings\n- [severity: major] File finding\n"
             )
 
         result = assemble_context(spec_dir, 1, conn=conn)

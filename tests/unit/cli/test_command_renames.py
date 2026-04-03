@@ -28,9 +28,7 @@ class TestExportReplacedDumpMemory:
     Requirement: 59-REQ-1.1
     """
 
-    def test_export_memory_exits_zero(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_export_memory_exits_zero(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """export --memory exits 0 and writes memory summary file."""
         mock_conn = MagicMock()
         with (
@@ -47,15 +45,11 @@ class TestExportReplacedDumpMemory:
 
             from agent_fox.knowledge.export import ExportResult
 
-            mock_export.return_value = ExportResult(
-                count=5, output_path=tmp_path / "memory.md"
-            )
+            mock_export.return_value = ExportResult(count=5, output_path=tmp_path / "memory.md")
 
             result = cli_runner.invoke(main, ["export", "--memory"])
 
-        assert result.exit_code == 0, (
-            f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
-        )
+        assert result.exit_code == 0, f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
 
 
 class TestExportReplacedDumpDb:
@@ -81,15 +75,11 @@ class TestExportReplacedDumpDb:
 
             from agent_fox.knowledge.export import ExportResult
 
-            mock_export.return_value = ExportResult(
-                count=3, output_path=tmp_path / "dump.md"
-            )
+            mock_export.return_value = ExportResult(count=3, output_path=tmp_path / "dump.md")
 
             result = cli_runner.invoke(main, ["export", "--db"])
 
-        assert result.exit_code == 0, (
-            f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
-        )
+        assert result.exit_code == 0, f"Expected exit code 0, got {result.exit_code}. Output: {result.output}"
 
 
 class TestLintSpecsReplacedLintSpec:
@@ -104,15 +94,10 @@ class TestLintSpecsReplacedLintSpec:
         with patch("agent_fox.cli.lint_specs.run_lint_specs") as mock_lint:
             from agent_fox.spec.lint import LintResult
 
-            mock_lint.return_value = LintResult(
-                findings=[], fix_results=[], exit_code=0
-            )
+            mock_lint.return_value = LintResult(findings=[], fix_results=[], exit_code=0)
             result = cli_runner.invoke(main, ["lint-specs"])
 
-        assert result.exit_code in (0, 1), (
-            f"Expected exit code 0 or 1, got {result.exit_code}. "
-            f"Output: {result.output}"
-        )
+        assert result.exit_code in (0, 1), f"Expected exit code 0 or 1, got {result.exit_code}. Output: {result.output}"
 
 
 class TestLintSpecsAcceptsFlags:
@@ -126,14 +111,10 @@ class TestLintSpecsAcceptsFlags:
         with patch("agent_fox.cli.lint_specs.run_lint_specs") as mock_lint:
             from agent_fox.spec.lint import LintResult
 
-            mock_lint.return_value = LintResult(
-                findings=[], fix_results=[], exit_code=0
-            )
+            mock_lint.return_value = LintResult(findings=[], fix_results=[], exit_code=0)
             result = cli_runner.invoke(main, ["lint-specs", "--all"])
 
-        assert "no such option" not in (result.output or "").lower(), (
-            f"Unexpected error: {result.output}"
-        )
+        assert "no such option" not in (result.output or "").lower(), f"Unexpected error: {result.output}"
 
 
 class TestOldDumpRemoved:
@@ -145,9 +126,7 @@ class TestOldDumpRemoved:
     def test_dump_command_rejected(self, cli_runner: CliRunner) -> None:
         """dump command is no longer recognized."""
         result = cli_runner.invoke(main, ["dump"])
-        assert result.exit_code != 0, (
-            f"Expected non-zero exit code, got {result.exit_code}"
-        )
+        assert result.exit_code != 0, f"Expected non-zero exit code, got {result.exit_code}"
 
 
 class TestOldLintSpecRemoved:
@@ -159,6 +138,4 @@ class TestOldLintSpecRemoved:
     def test_lint_spec_command_rejected(self, cli_runner: CliRunner) -> None:
         """lint-spec command is no longer recognized."""
         result = cli_runner.invoke(main, ["lint-spec"])
-        assert result.exit_code != 0, (
-            f"Expected non-zero exit code, got {result.exit_code}"
-        )
+        assert result.exit_code != 0, f"Expected non-zero exit code, got {result.exit_code}"

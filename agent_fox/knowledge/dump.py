@@ -137,10 +137,7 @@ def dump_all_tables_json(conn: duckdb.DuckDBPyConnection, output: Path) -> int:
         result = conn.execute(f'SELECT * FROM "{table}"')
         columns = [desc[0] for desc in result.description]
         rows = result.fetchall()
-        tables_dict[table] = [
-            {col: _serialize_value(val) for col, val in zip(columns, row)}
-            for row in rows
-        ]
+        tables_dict[table] = [{col: _serialize_value(val) for col, val in zip(columns, row)} for row in rows]
 
     data = {
         "tables": tables_dict,

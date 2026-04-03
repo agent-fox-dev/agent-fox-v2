@@ -116,9 +116,7 @@ def test_claude_md_independence(claude_present, tmp_path_factory):
     result2 = _ensure_agents_md(tmp2)
 
     assert result1 == result2
-    assert (tmp1 / "AGENTS.md").read_text(encoding="utf-8") == (
-        tmp2 / "AGENTS.md"
-    ).read_text(encoding="utf-8")
+    assert (tmp1 / "AGENTS.md").read_text(encoding="utf-8") == (tmp2 / "AGENTS.md").read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------

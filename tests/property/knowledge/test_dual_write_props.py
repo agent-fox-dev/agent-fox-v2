@@ -47,9 +47,7 @@ fact_content = st.text(
     max_size=200,
 )
 
-fact_category = st.sampled_from(
-    ["gotcha", "pattern", "decision", "convention", "anti_pattern", "fragile_area"]
-)
+fact_category = st.sampled_from(["gotcha", "pattern", "decision", "convention", "anti_pattern", "fragile_area"])
 
 
 @st.composite
@@ -103,8 +101,7 @@ class TestDuckDBWriteConsistency:
 
             # Assert: fact in DuckDB
             row = conn.execute(
-                "SELECT CAST(id AS VARCHAR) FROM memory_facts "
-                "WHERE CAST(id AS VARCHAR) = ?",
+                "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
                 [fact.id],
             ).fetchone()
             assert row is not None, f"Fact {fact.id} not found in DuckDB"
@@ -126,9 +123,7 @@ class TestEmbeddingNonFatality:
 
     @given(fact=random_memory_fact(), embed_succeeds=st.booleans())
     @settings(max_examples=20, deadline=None)
-    def test_fact_persisted_regardless_of_embedding(
-        self, fact: Fact, embed_succeeds: bool
-    ) -> None:
+    def test_fact_persisted_regardless_of_embedding(self, fact: Fact, embed_succeeds: bool) -> None:
         """Fact is always in DuckDB regardless of embedding success."""
         from agent_fox.knowledge.store import MemoryStore
 
@@ -148,8 +143,7 @@ class TestEmbeddingNonFatality:
 
             # Assert: fact in DuckDB
             row = conn.execute(
-                "SELECT CAST(id AS VARCHAR) FROM memory_facts "
-                "WHERE CAST(id AS VARCHAR) = ?",
+                "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
                 [fact.id],
             ).fetchone()
             assert row is not None

@@ -22,9 +22,7 @@ def tmp_spec_dir(tmp_path: Path) -> Path:
 
     (spec_dir / "requirements.md").write_text("# Requirements\nREQ content here\n")
     (spec_dir / "design.md").write_text("# Design\nDesign content here\n")
-    (spec_dir / "test_spec.md").write_text(
-        "# Test Specification\nTest spec content here\n"
-    )
+    (spec_dir / "test_spec.md").write_text("# Test Specification\nTest spec content here\n")
     (spec_dir / "tasks.md").write_text("# Tasks\nTask content here\n")
 
     return spec_dir

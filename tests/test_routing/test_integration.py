@@ -65,9 +65,7 @@ class TestCostInCircuitBreaker:
         # across multiple attempts feeds into the circuit breaker.
         from agent_fox.routing.escalation import EscalationLadder
 
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
 
         # Simulate: fail at SIMPLE ($0.04), fail retry ($0.04),
         # escalate to STANDARD, succeed ($0.08)
@@ -89,9 +87,7 @@ class TestAssessmentBeforeSession:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_assessment_before_session(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_assessment_before_session(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-26: Verify assessment runs before session execution.
 
         Requirement: 30-REQ-7.1
@@ -131,9 +127,7 @@ class TestStaticResolutionReplaced:
         from agent_fox.routing.escalation import EscalationLadder
 
         assessed_tier = ModelTier.SIMPLE
-        ladder = EscalationLadder(
-            assessed_tier, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(assessed_tier, ModelTier.ADVANCED, retries_before_escalation=1)
         assert ladder.current_tier == ModelTier.SIMPLE
 
 
@@ -149,9 +143,7 @@ class TestEscalationLadderInOrchestrator:
         """
         from agent_fox.routing.escalation import EscalationLadder
 
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
 
         attempts = []
 
@@ -175,9 +167,7 @@ class TestOutcomeRecordedAfterCompletion:
     """TS-30-29: Outcome recorded after completion."""
 
     @pytest.mark.integration
-    def test_outcome_recorded_after_completion(
-        self, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_outcome_recorded_after_completion(self, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-29: Verify outcome persisted after execution.
 
         Requirement: 30-REQ-7.4
@@ -209,9 +199,7 @@ class TestAssessmentFailureFallback:
     """TS-30-E11: Assessment pipeline unhandled exception."""
 
     @pytest.mark.asyncio
-    async def test_assessment_failure_fallback(
-        self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_assessment_failure_fallback(self, spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-E11: Unhandled exception falls back to default tier.
 
         Requirement: 30-REQ-7.E1
@@ -247,9 +235,7 @@ class TestP4PersistenceCompleteness:
     """TS-30-P4: Assessment persistence completeness."""
 
     @pytest.mark.integration
-    def test_p4_persistence_completeness(
-        self, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_p4_persistence_completeness(self, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-P4: Every task has exactly one assessment and one outcome.
 
         Requirement: 30-REQ-1.6, 30-REQ-3.1, 30-REQ-3.2
@@ -277,12 +263,8 @@ class TestP4PersistenceCompleteness:
             )
             persist_outcome(routing_db, outcome)
 
-        assessment_count = routing_db.execute(
-            "SELECT COUNT(*) FROM complexity_assessments"
-        ).fetchone()[0]
-        outcome_count = routing_db.execute(
-            "SELECT COUNT(*) FROM execution_outcomes"
-        ).fetchone()[0]
+        assessment_count = routing_db.execute("SELECT COUNT(*) FROM complexity_assessments").fetchone()[0]
+        outcome_count = routing_db.execute("SELECT COUNT(*) FROM execution_outcomes").fetchone()[0]
         assert assessment_count == n
         assert outcome_count == n
 
@@ -312,9 +294,7 @@ class TestP8CostAccounting:
         # Verify with escalation ladder tracking
         from agent_fox.routing.escalation import EscalationLadder
 
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
         accumulated_cost = 0.0
         for cost in attempt_costs:
             accumulated_cost += cost

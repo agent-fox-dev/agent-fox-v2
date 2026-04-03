@@ -71,8 +71,7 @@ def collect_enabled_auto_pre(
     enabled: list[ArchetypeEntry] = [
         ArchetypeEntry(arch_name, entry)
         for arch_name, entry in ARCHETYPE_REGISTRY.items()
-        if entry.injection == "auto_pre"
-        and is_archetype_enabled(arch_name, archetypes_config)
+        if entry.injection == "auto_pre" and is_archetype_enabled(arch_name, archetypes_config)
     ]
 
     # Gate oracle: skip when spec has no existing code to validate against
@@ -102,8 +101,7 @@ def collect_enabled_auto_post(
     return [
         ArchetypeEntry(arch_name, entry)
         for arch_name, entry in ARCHETYPE_REGISTRY.items()
-        if entry.injection == "auto_post"
-        and is_archetype_enabled(arch_name, archetypes_config)
+        if entry.injection == "auto_post" and is_archetype_enabled(arch_name, archetypes_config)
     ]
 
 
@@ -168,9 +166,7 @@ def ensure_graph_archetypes(
 
         # auto_pre injection
         spec_path = (specs_dir / spec) if specs_dir is not None else None
-        enabled_auto_pre = collect_enabled_auto_pre(
-            archetypes_config, spec_path=spec_path
-        )
+        enabled_auto_pre = collect_enabled_auto_pre(archetypes_config, spec_path=spec_path)
 
         # Dedup: find existing auto_pre archetypes for this spec
         existing_archetypes: set[str] = set()
@@ -235,9 +231,7 @@ def ensure_graph_archetypes(
             sorted_grps = sorted(groups)
 
             # Dedup: skip if auditor nodes already exist for this spec
-            if any(
-                n.spec_name == spec and n.archetype == "auditor" for n in nodes.values()
-            ):
+            if any(n.spec_name == spec and n.archetype == "auditor" for n in nodes.values()):
                 continue
 
             # Resolve spec path for TS count
@@ -247,8 +241,7 @@ def ensure_graph_archetypes(
             ts_count = count_ts_entries(candidate_path)
             if ts_count < aud_cfg.min_ts_entries:
                 logger.info(
-                    "Skipping auditor injection for spec '%s': "
-                    "%d TS entries < min_ts_entries=%d",
+                    "Skipping auditor injection for spec '%s': %d TS entries < min_ts_entries=%d",
                     spec,
                     ts_count,
                     aud_cfg.min_ts_entries,
@@ -276,27 +269,19 @@ def ensure_graph_archetypes(
                 )
 
                 grp_idx = sorted_grps.index(grp_num)
-                next_grp = (
-                    sorted_grps[grp_idx + 1] if grp_idx + 1 < len(sorted_grps) else None
-                )
+                next_grp = sorted_grps[grp_idx + 1] if grp_idx + 1 < len(sorted_grps) else None
 
                 # Rewire edges: test_group → auditor → next_group
                 if next_grp is not None:
                     next_nid = f"{spec}:{next_grp}"
-                    graph.edges[:] = [
-                        e
-                        for e in graph.edges
-                        if not (e.source == grp_nid and e.target == next_nid)
-                    ]
+                    graph.edges[:] = [e for e in graph.edges if not (e.source == grp_nid and e.target == next_nid)]
 
                 edges.append(Edge(source=grp_nid, target=aud_nid, kind="intra_spec"))
 
                 if next_grp is not None:
                     next_nid = f"{spec}:{next_grp}"
                     if next_nid in nodes:
-                        edges.append(
-                            Edge(source=aud_nid, target=next_nid, kind="intra_spec")
-                        )
+                        edges.append(Edge(source=aud_nid, target=next_nid, kind="intra_spec"))
 
                 if grp_nid in graph.order:
                     idx = graph.order.index(grp_nid)
@@ -360,9 +345,7 @@ def build_review_only_graph(
         spec_name = spec_dir.name
 
         # Check for source files
-        has_source = any(
-            f.suffix in _SOURCE_EXTENSIONS for f in spec_dir.iterdir() if f.is_file()
-        )
+        has_source = any(f.suffix in _SOURCE_EXTENSIONS for f in spec_dir.iterdir() if f.is_file())
 
         # Check for requirements.md
         has_reqs = (spec_dir / "requirements.md").exists()
@@ -463,22 +446,19 @@ def print_review_only_summary(conn: Any) -> None:
     """
     # Findings by severity
     finding_rows = conn.execute(
-        "SELECT severity, COUNT(*) FROM review_findings "
-        "WHERE superseded_by IS NULL GROUP BY severity"
+        "SELECT severity, COUNT(*) FROM review_findings WHERE superseded_by IS NULL GROUP BY severity"
     ).fetchall()
     finding_counts: dict[str, int] = {row[0]: row[1] for row in finding_rows}
 
     # Verdicts by status
     verdict_rows = conn.execute(
-        "SELECT verdict, COUNT(*) FROM verification_results "
-        "WHERE superseded_by IS NULL GROUP BY verdict"
+        "SELECT verdict, COUNT(*) FROM verification_results WHERE superseded_by IS NULL GROUP BY verdict"
     ).fetchall()
     verdict_counts: dict[str, int] = {row[0]: row[1] for row in verdict_rows}
 
     # Drift findings by severity
     drift_rows = conn.execute(
-        "SELECT severity, COUNT(*) FROM drift_findings "
-        "WHERE superseded_by IS NULL GROUP BY severity"
+        "SELECT severity, COUNT(*) FROM drift_findings WHERE superseded_by IS NULL GROUP BY severity"
     ).fetchall()
     drift_counts: dict[str, int] = {row[0]: row[1] for row in drift_rows}
 
@@ -486,10 +466,7 @@ def print_review_only_summary(conn: Any) -> None:
     print("=======================")
 
     # Findings line
-    f_parts = [
-        f"{finding_counts.get(sev, 0)} {sev}"
-        for sev in ("critical", "major", "minor", "observation")
-    ]
+    f_parts = [f"{finding_counts.get(sev, 0)} {sev}" for sev in ("critical", "major", "minor", "observation")]
     print(f"Findings:  {', '.join(f_parts)}")
 
     # Verdicts line
@@ -498,8 +475,5 @@ def print_review_only_summary(conn: Any) -> None:
     print(f"Verdicts:  {pass_count} PASS, {fail_count} FAIL")
 
     # Drift line
-    d_parts = [
-        f"{drift_counts.get(sev, 0)} {sev}"
-        for sev in ("critical", "major", "minor", "observation")
-    ]
+    d_parts = [f"{drift_counts.get(sev, 0)} {sev}" for sev in ("critical", "major", "minor", "observation")]
     print(f"Drift:     {', '.join(d_parts)}")

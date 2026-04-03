@@ -101,9 +101,7 @@ class TestCausalTraversalWithReviews:
     Requirements: 39-REQ-3.1, 39-REQ-3.2, 39-REQ-3.3
     """
 
-    def test_includes_review_findings(
-        self, causal_review_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_includes_review_findings(self, causal_review_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-8: Traversal includes linked review findings.
 
         Requirement: 39-REQ-3.1
@@ -132,9 +130,7 @@ class TestCausalTraversalWithReviews:
         assert "conn" in sig.parameters
         assert "fact_id" in sig.parameters
 
-    def test_requirement_id_linking(
-        self, causal_review_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_requirement_id_linking(self, causal_review_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-10: Review findings linked via requirement ID are included.
 
         Requirement: 39-REQ-3.3
@@ -145,11 +141,7 @@ class TestCausalTraversalWithReviews:
         results = traverse_with_reviews(causal_review_db, ids["fact_id"])
 
         # Review finding referencing '39-REQ-1.1' should appear
-        has_req_finding = any(
-            hasattr(r, "requirement_ref") and r.requirement_ref == "39-REQ-1.1"
-            for r in results
-        )
+        has_req_finding = any(hasattr(r, "requirement_ref") and r.requirement_ref == "39-REQ-1.1" for r in results)
         assert has_req_finding, (
-            "Review finding referencing requirement_id '39-REQ-1.1' "
-            "should appear in traversal results"
+            "Review finding referencing requirement_id '39-REQ-1.1' should appear in traversal results"
         )

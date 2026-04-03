@@ -97,9 +97,9 @@ def test_adr_alternatives() -> None:
     content = _find_adr().read_text()
     assert "OpenAI" in content, "ADR must mention OpenAI"
     assert "Gemini" in content, "ADR must mention Gemini"
-    assert (
-        "multi-provider" in content.lower() or "multiple providers" in content.lower()
-    ), "ADR must mention multi-provider or multiple providers"
+    assert "multi-provider" in content.lower() or "multiple providers" in content.lower(), (
+        "ADR must mention multi-provider or multiple providers"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +110,7 @@ def test_adr_alternatives() -> None:
 def test_adr_non_coding() -> None:
     """ADR acknowledges future non-coding provider use."""
     content = _find_adr().read_text().lower()
-    assert "non-coding" in content or "embeddings" in content, (
-        "ADR must mention non-coding tasks or embeddings"
-    )
+    assert "non-coding" in content or "embeddings" in content, "ADR must mention non-coding tasks or embeddings"
 
 
 # ---------------------------------------------------------------------------

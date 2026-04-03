@@ -128,9 +128,7 @@ class TestTimeoutNeverDirectlyEscalates:
         timeout_count=st.integers(min_value=1, max_value=5),
     )
     @settings(max_examples=50)
-    def test_timeout_never_escalates_while_retries_remain(
-        self, max_timeout_retries: int, timeout_count: int
-    ) -> None:
+    def test_timeout_never_escalates_while_retries_remain(self, max_timeout_retries: int, timeout_count: int) -> None:
         """TS-75-P1: Processing N ≤ max_timeout_retries timeouts → 0 ladder failures.
 
         For any N in [1..max_timeout_retries], processing N timeout records
@@ -164,9 +162,7 @@ class TestTimeoutNeverDirectlyEscalates:
 
     def test_single_timeout_no_escalation(self) -> None:
         """TS-75-P1 (concrete): One timeout with max_timeout_retries=1 → none."""
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            max_timeout_retries=1
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(max_timeout_retries=1)
         # Currently FAILS: _max_timeout_retries doesn't exist.
         handler._max_timeout_retries = 1
 
@@ -201,9 +197,7 @@ class TestCounterIndependence:
         )
     )
     @settings(max_examples=50)
-    def test_counters_independent_for_any_event_sequence(
-        self, events: list[str]
-    ) -> None:
+    def test_counters_independent_for_any_event_sequence(self, events: list[str]) -> None:
         """TS-75-P2: Timeout and failure counts are independent in any sequence.
 
         For any sequence of 'timeout' and 'failed' events:
@@ -230,14 +224,10 @@ class TestCounterIndependence:
                 error_tracker=error_tracker,
             )
 
-        expected_timeouts_before_max = min(
-            sum(1 for e in events if e == "timeout"), max_timeout_retries
-        )
+        expected_timeouts_before_max = min(sum(1 for e in events if e == "timeout"), max_timeout_retries)
         expected_failures = sum(1 for e in events if e == "failed")
         # Timeouts that fell through after exhaustion also count as failures.
-        timeouts_after_max = max(
-            0, sum(1 for e in events if e == "timeout") - max_timeout_retries
-        )
+        timeouts_after_max = max(0, sum(1 for e in events if e == "timeout") - max_timeout_retries)
         total_expected_ladder_failures = expected_failures + timeouts_after_max
 
         # Currently FAILS: _timeout_retries doesn't exist.
@@ -327,9 +317,7 @@ class TestTimeoutExhaustionFallsThrough:
 
         Validates: 75-REQ-2.4
         """
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            max_timeout_retries=max_retries
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(max_timeout_retries=max_retries)
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
         handler._max_timeout_retries = max_retries
@@ -362,9 +350,7 @@ class TestTimeoutExhaustionFallsThrough:
 
     def test_concrete_exhaustion_at_max_two(self) -> None:
         """TS-75-P4 (concrete): max_timeout_retries=2; 3rd timeout → escalation."""
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            max_timeout_retries=2
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(max_timeout_retries=2)
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
         handler._max_timeout_retries = 2
@@ -453,12 +439,8 @@ class TestConfigValidationBounds:
     @pytest.mark.property
     @given(
         max_timeout_retries=st.integers(min_value=-10, max_value=100),
-        timeout_multiplier=st.floats(
-            min_value=0.0, max_value=10.0, allow_nan=False, allow_infinity=False
-        ),
-        timeout_ceiling_factor=st.floats(
-            min_value=0.0, max_value=10.0, allow_nan=False, allow_infinity=False
-        ),
+        timeout_multiplier=st.floats(min_value=0.0, max_value=10.0, allow_nan=False, allow_infinity=False),
+        timeout_ceiling_factor=st.floats(min_value=0.0, max_value=10.0, allow_nan=False, allow_infinity=False),
     )
     @settings(max_examples=100)
     def test_config_bounds_always_valid(

@@ -43,9 +43,7 @@ def check_response_size(
     """
     size = len(text.encode("utf-8", errors="replace"))
     if size > max_bytes:
-        raise ResponseTooLargeError(
-            f"{context} is {size:,} bytes, exceeding the {max_bytes:,}-byte limit"
-        )
+        raise ResponseTooLargeError(f"{context} is {size:,} bytes, exceeding the {max_bytes:,}-byte limit")
 
 
 def truncate_field(value: str, *, max_length: int, field_name: str) -> str:

@@ -25,3 +25,4 @@ hack/**
 
 # other
 **/.env
+!.agent-fox/state.jsonl

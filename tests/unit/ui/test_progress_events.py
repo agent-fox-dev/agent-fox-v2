@@ -23,17 +23,13 @@ from agent_fox.ui.progress import (
 _STYLE_ROLES = ("header", "success", "error", "warning", "info", "tool", "muted")
 
 
-def _make_theme(
-    *, force_terminal: bool = False, width: int = 120
-) -> tuple[AppTheme, StringIO]:
+def _make_theme(*, force_terminal: bool = False, width: int = 120) -> tuple[AppTheme, StringIO]:
     """Create an AppTheme with a StringIO-backed console for testing."""
     config = ThemeConfig()
     theme = create_theme(config)
     buf = StringIO()
     rich_theme = Theme({role: getattr(config, role) for role in _STYLE_ROLES})
-    theme.console = Console(
-        file=buf, theme=rich_theme, width=width, force_terminal=force_terminal
-    )
+    theme.console = Console(file=buf, theme=rich_theme, width=width, force_terminal=force_terminal)
     return theme, buf
 
 
@@ -82,9 +78,7 @@ class TestPathTruncation60:
         long_path = "/very/long/path/to/some/deeply/nested/directory/structure/file.py"
         result = abbreviate_arg(long_path)
         if len(long_path) > 60:
-            assert "…/" in result or result == "file.py", (
-                f"Expected '…/' prefix or basename only: {result!r}"
-            )
+            assert "…/" in result or result == "file.py", f"Expected '…/' prefix or basename only: {result!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -255,9 +249,7 @@ class TestRetryWithEscalation:
         )
         line = display._format_task_line(event)
         text = str(line)
-        assert "escalated: STANDARD" in text, (
-            f"Expected 'escalated: STANDARD' in: {text!r}"
-        )
+        assert "escalated: STANDARD" in text, f"Expected 'escalated: STANDARD' in: {text!r}"
         assert "ADVANCED" in text, f"Expected 'ADVANCED' in: {text!r}"
 
 

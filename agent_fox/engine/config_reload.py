@@ -46,9 +46,7 @@ def diff_configs(old: AgentFoxConfig, new: AgentFoxConfig) -> dict[str, dict[str
         if old_section == new_section:
             continue
         # Walk the sub-model fields if it's a Pydantic model
-        if hasattr(old_section.__class__, "model_fields") and hasattr(
-            new_section.__class__, "model_fields"
-        ):
+        if hasattr(old_section.__class__, "model_fields") and hasattr(new_section.__class__, "model_fields"):
             for field_name in old_section.__class__.model_fields:
                 old_val = getattr(old_section, field_name)
                 new_val = getattr(new_section, field_name)
@@ -127,9 +125,7 @@ class ConfigReloader:
         try:
             raw = self._config_path.read_text(encoding="utf-8")
         except (FileNotFoundError, OSError) as exc:
-            logger.warning(
-                "Config hot-reload: cannot read %s: %s", self._config_path, exc
-            )
+            logger.warning("Config hot-reload: cannot read %s: %s", self._config_path, exc)
             return None
 
         new_hash = content_hash(raw)
@@ -161,12 +157,8 @@ class ConfigReloader:
                 original_parallel,
                 new_orch_cfg.parallel,
             )
-            new_orch_cfg = new_orch_cfg.model_copy(
-                update={"parallel": original_parallel}
-            )
-            new_full_config = new_full_config.model_copy(
-                update={"orchestrator": new_orch_cfg}
-            )
+            new_orch_cfg = new_orch_cfg.model_copy(update={"parallel": original_parallel})
+            new_full_config = new_full_config.model_copy(update={"orchestrator": new_orch_cfg})
 
         # 66-REQ-6.2: Compute diff before applying changes
         changed_fields = diff_configs(old_full_config, new_full_config)

@@ -39,9 +39,7 @@ _AF_SPEC_TEMPLATE = _REPO_ROOT / "agent_fox" / "_templates" / "skills" / "af-spe
 # Strategy: generate valid feature branch names
 # ---------------------------------------------------------------------------
 
-_feature_branch_strategy = st.from_regex(
-    r"feature/[a-z_]+/[0-9]+", fullmatch=True
-)
+_feature_branch_strategy = st.from_regex(r"feature/[a-z_]+/[0-9]+", fullmatch=True)
 
 
 def _run(coro):
@@ -88,8 +86,7 @@ def test_never_pushes_feature(branch: str) -> None:
         )
 
     assert mock_push_remote.call_count == 0, (
-        f"push_to_remote was called {mock_push_remote.call_count} time(s) "
-        f"for branch {branch!r}"
+        f"push_to_remote was called {mock_push_remote.call_count} time(s) for branch {branch!r}"
     )
 
 
@@ -142,12 +139,8 @@ def test_agent_template_no_push() -> None:
     Requirements: 78-REQ-2.1, 78-REQ-2.2
     """
     content = _AGENTS_MD_TEMPLATE.read_text()
-    assert "pushed to `origin`" not in content, (
-        "agents_md.md still contains 'pushed to `origin`'"
-    )
-    assert "push the feature branch" not in content, (
-        "agents_md.md still contains 'push the feature branch'"
-    )
+    assert "pushed to `origin`" not in content, "agents_md.md still contains 'pushed to `origin`'"
+    assert "push the feature branch" not in content, "agents_md.md still contains 'push the feature branch'"
 
 
 # ---------------------------------------------------------------------------
@@ -162,6 +155,4 @@ def test_spec_template_no_push() -> None:
     Requirements: 78-REQ-3.1, 78-REQ-3.2
     """
     content = _AF_SPEC_TEMPLATE.read_text()
-    assert "pushed to remote" not in content, (
-        "af-spec still contains 'pushed to remote'"
-    )
+    assert "pushed to remote" not in content, "af-spec still contains 'pushed to remote'"

@@ -9,9 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 # Resolve template directory relative to agent_fox package
-_TEMPLATE_DIR = (
-    Path(__file__).resolve().parents[3] / "agent_fox" / "_templates" / "prompts"
-)
+_TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "agent_fox" / "_templates" / "prompts"
 
 
 # ---------------------------------------------------------------------------

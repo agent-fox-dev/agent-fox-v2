@@ -34,9 +34,7 @@ class TestMigrationAppliesPendingMigrations:
         test_migration = Migration(
             version=2,
             description="add test_col to session_outcomes",
-            apply=lambda c: c.execute(
-                "ALTER TABLE session_outcomes ADD COLUMN test_col TEXT"
-            ),
+            apply=lambda c: c.execute("ALTER TABLE session_outcomes ADD COLUMN test_col TEXT"),
         )
 
         with patch(
@@ -46,9 +44,7 @@ class TestMigrationAppliesPendingMigrations:
             apply_pending_migrations(conn)
 
         # Verify version 2 was recorded
-        rows = conn.execute(
-            "SELECT version FROM schema_version ORDER BY version"
-        ).fetchall()
+        rows = conn.execute("SELECT version FROM schema_version ORDER BY version").fetchall()
         assert (2,) in rows
 
         # Verify column exists

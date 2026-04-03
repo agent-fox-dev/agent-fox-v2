@@ -167,14 +167,10 @@ class TestTiedCriticalPaths:
     Diamond graph has two paths of equal length (A->B->D and A->C->D).
     """
 
-    def test_has_alternative_critical_paths(
-        self, analyzer_diamond_graph: TaskGraph
-    ) -> None:
+    def test_has_alternative_critical_paths(self, analyzer_diamond_graph: TaskGraph) -> None:
         analysis = analyze_plan(analyzer_diamond_graph)
         assert analysis.has_alternative_critical_paths is True
 
-    def test_critical_path_length_still_correct(
-        self, analyzer_diamond_graph: TaskGraph
-    ) -> None:
+    def test_critical_path_length_still_correct(self, analyzer_diamond_graph: TaskGraph) -> None:
         analysis = analyze_plan(analyzer_diamond_graph)
         assert analysis.critical_path_length == 3

@@ -145,9 +145,7 @@ class TestExhaustedMeansBlocked:
         extra_failures=st.integers(min_value=0, max_value=5),
     )
     @settings(max_examples=40)
-    def test_exhausted_state_is_sticky(
-        self, starting: ModelTier, n: int, extra_failures: int
-    ) -> None:
+    def test_exhausted_state_is_sticky(self, starting: ModelTier, n: int, extra_failures: int) -> None:
         """Once exhausted, calling record_failure() more times is a no-op.
 
         The orchestrator must not reset the predecessor after exhaustion,

@@ -69,9 +69,7 @@ class TestPersistSkepticFindings:
         )
         runner._persist_review_findings("No JSON here at all.", "my_spec:0", 1)
 
-        rows = knowledge_db._conn.execute(
-            "SELECT COUNT(*) FROM review_findings"
-        ).fetchone()
+        rows = knowledge_db._conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
         assert rows[0] == 0
 
 
@@ -122,9 +120,7 @@ class TestPersistOracleDrift:
     """Oracle drift findings are parsed and inserted into drift_findings."""
 
     def test_drift_findings_persisted(self, knowledge_db: KnowledgeDB) -> None:
-        runner = NodeSessionRunner(
-            "my_spec:0", AgentFoxConfig(), archetype="oracle", knowledge_db=knowledge_db
-        )
+        runner = NodeSessionRunner("my_spec:0", AgentFoxConfig(), archetype="oracle", knowledge_db=knowledge_db)
         transcript = json.dumps(
             {
                 "drift_findings": [
@@ -140,8 +136,7 @@ class TestPersistOracleDrift:
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
         rows = knowledge_db._conn.execute(
-            "SELECT severity, description, spec_ref, artifact_ref, spec_name "
-            "FROM drift_findings"
+            "SELECT severity, description, spec_ref, artifact_ref, spec_name FROM drift_findings"
         ).fetchall()
         assert len(rows) == 1
         assert rows[0] == (
@@ -157,17 +152,11 @@ class TestCoderSkipped:
     """Non-review archetypes are silently skipped."""
 
     def test_coder_does_nothing(self, knowledge_db: KnowledgeDB) -> None:
-        runner = NodeSessionRunner(
-            "my_spec:1", AgentFoxConfig(), archetype="coder", knowledge_db=knowledge_db
-        )
-        transcript = json.dumps(
-            {"findings": [{"severity": "critical", "description": "x"}]}
-        )
+        runner = NodeSessionRunner("my_spec:1", AgentFoxConfig(), archetype="coder", knowledge_db=knowledge_db)
+        transcript = json.dumps({"findings": [{"severity": "critical", "description": "x"}]})
         runner._persist_review_findings(transcript, "my_spec:1", 1)
 
-        rows = knowledge_db._conn.execute(
-            "SELECT COUNT(*) FROM review_findings"
-        ).fetchone()
+        rows = knowledge_db._conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
         assert rows[0] == 0
 
 
@@ -177,10 +166,6 @@ class TestParseFailureSwallowed:
     def test_db_error_swallowed(self) -> None:
         mock_kb = MagicMock(spec=KnowledgeDB)
         type(mock_kb).connection = PropertyMock(side_effect=RuntimeError("DB gone"))
-        runner = NodeSessionRunner(
-            "my_spec:0", AgentFoxConfig(), archetype="skeptic", knowledge_db=mock_kb
-        )
+        runner = NodeSessionRunner("my_spec:0", AgentFoxConfig(), archetype="skeptic", knowledge_db=mock_kb)
         # Should not raise
-        runner._persist_review_findings(
-            '{"findings":[{"severity":"major","description":"x"}]}', "my_spec:0", 1
-        )
+        runner._persist_review_findings('{"findings":[{"severity":"major","description":"x"}]}', "my_spec:0", 1)

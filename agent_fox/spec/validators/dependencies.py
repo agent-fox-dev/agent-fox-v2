@@ -70,9 +70,7 @@ def check_broken_dependencies(
                             file="prd.md",
                             rule="broken-dependency",
                             severity=SEVERITY_ERROR,
-                            message=(
-                                f"Dependency references non-existent spec '{to_spec}'"
-                            ),
+                            message=(f"Dependency references non-existent spec '{to_spec}'"),
                             line=None,
                         )
                     )
@@ -88,9 +86,7 @@ def check_broken_dependencies(
                                     rule="broken-dependency",
                                     severity=SEVERITY_ERROR,
                                     message=(
-                                        f"Dependency references non-existent "
-                                        f"task group {group_num} in spec "
-                                        f"'{to_spec}'"
+                                        f"Dependency references non-existent task group {group_num} in spec '{to_spec}'"
                                     ),
                                     line=None,
                                 )
@@ -117,9 +113,7 @@ def check_broken_dependencies(
                             file="prd.md",
                             rule="broken-dependency",
                             severity=SEVERITY_ERROR,
-                            message=(
-                                f"Dependency references non-existent spec '{dep_spec}'"
-                            ),
+                            message=(f"Dependency references non-existent spec '{dep_spec}'"),
                             line=None,
                         )
                     )
@@ -133,9 +127,7 @@ def check_broken_dependencies(
                                 rule="broken-dependency",
                                 severity=SEVERITY_ERROR,
                                 message=(
-                                    f"Dependency references non-existent "
-                                    f"task group {from_group} in spec "
-                                    f"'{dep_spec}'"
+                                    f"Dependency references non-existent task group {from_group} in spec '{dep_spec}'"
                                 ),
                                 line=None,
                             )
@@ -149,10 +141,7 @@ def check_broken_dependencies(
                             file="prd.md",
                             rule="broken-dependency",
                             severity=SEVERITY_ERROR,
-                            message=(
-                                f"Dependency references non-existent "
-                                f"task group {to_group} in current spec"
-                            ),
+                            message=(f"Dependency references non-existent task group {to_group} in current spec"),
                             line=None,
                         )
                     )

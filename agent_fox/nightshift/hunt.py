@@ -80,17 +80,11 @@ class HuntCategoryRegistry:
 
         Requirements: 61-REQ-3.2
         """
-        categories_config = getattr(
-            getattr(config, "night_shift", None), "categories", None
-        )
+        categories_config = getattr(getattr(config, "night_shift", None), "categories", None)
         if categories_config is None:
             return list(self._categories)
 
-        return [
-            cat
-            for cat in self._categories
-            if getattr(categories_config, cat.name, True)
-        ]
+        return [cat for cat in self._categories if getattr(categories_config, cat.name, True)]
 
 
 class HuntScanner:
@@ -123,9 +117,7 @@ class HuntScanner:
             all_findings.extend(findings)
         return all_findings
 
-    async def _run_category(
-        self, category: HuntCategory, project_root: Path
-    ) -> list[Finding]:
+    async def _run_category(self, category: HuntCategory, project_root: Path) -> list[Finding]:
         """Run a single category with error isolation.
 
         Requirements: 61-REQ-3.E1

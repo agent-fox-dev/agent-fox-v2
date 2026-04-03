@@ -45,9 +45,7 @@ def valid_facts(draw: st.DrawFn) -> Fact:
         ),
         category=draw(st.sampled_from(VALID_CATEGORIES)),
         spec_name=draw(st.from_regex(r"[a-z0-9_]{2,20}", fullmatch=True)),
-        keywords=draw(
-            st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)
-        ),
+        keywords=draw(st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)),
         confidence=draw(st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
         created_at="2025-01-01T00:00:00Z",
         session_id=draw(st.from_regex(r"[a-z0-9_/]{2,20}", fullmatch=True)),
@@ -107,8 +105,7 @@ class TestFactProvenanceCompleteness:
             sync_facts_to_duckdb(db, [fact])
 
             row = db.connection.execute(
-                "SELECT category, confidence, spec_name, session_id, commit_sha "
-                "FROM memory_facts WHERE id = ?::UUID",
+                "SELECT category, confidence, spec_name, session_id, commit_sha FROM memory_facts WHERE id = ?::UUID",
                 [fact.id],
             ).fetchone()
 
@@ -144,9 +141,7 @@ class TestEmbeddingFailureIsolation:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_fact_exists_regardless_of_embedding(
-        self, fact: Fact, embed_fails: bool
-    ) -> None:
+    def test_fact_exists_regardless_of_embedding(self, fact: Fact, embed_fails: bool) -> None:
         db = _make_knowledge_db()
         try:
             # Use sync_facts_to_duckdb directly (no embedding step)
@@ -219,14 +214,10 @@ class TestCausalExtractionMinimumThreshold:
 
                 total = n + 1  # n existing + 1 new
                 if total >= 5:
-                    assert mock_causal.called, (
-                        f"Causal extraction should be called when "
-                        f"total facts={total} >= 5"
-                    )
+                    assert mock_causal.called, f"Causal extraction should be called when total facts={total} >= 5"
                 else:
                     assert not mock_causal.called, (
-                        f"Causal extraction should NOT be called when "
-                        f"total facts={total} < 5"
+                        f"Causal extraction should NOT be called when total facts={total} < 5"
                     )
         finally:
             db.close()
@@ -261,8 +252,7 @@ class TestCausalLinkIdempotency:
                 store_causal_links(db.connection, [(cause_id, effect_id)])
 
             count = db.connection.execute(
-                "SELECT COUNT(*) FROM fact_causes "
-                "WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
+                "SELECT COUNT(*) FROM fact_causes WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
                 [cause_id, effect_id],
             ).fetchone()[0]
             assert count == 1
@@ -368,9 +358,7 @@ class TestAuditEventOnSuccess:
                     run_id="test_run",
                 )
 
-            harvest_events = [
-                e for e in emitted if e.event_type == AuditEventType.HARVEST_COMPLETE
-            ]
+            harvest_events = [e for e in emitted if e.event_type == AuditEventType.HARVEST_COMPLETE]
             assert len(harvest_events) == 1
             assert harvest_events[0].payload["fact_count"] == n
         finally:
@@ -433,9 +421,7 @@ class TestAuditEventOnEmptyHarvest:
                     run_id="test_run",
                 )
 
-            empty_events = [
-                e for e in emitted if e.event_type == AuditEventType.HARVEST_EMPTY
-            ]
+            empty_events = [e for e in emitted if e.event_type == AuditEventType.HARVEST_EMPTY]
             assert len(empty_events) == 1
             assert empty_events[0].severity == AuditSeverity.WARNING
         finally:

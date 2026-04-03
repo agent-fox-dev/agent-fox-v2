@@ -40,9 +40,7 @@ class TestEmbedSingleText:
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
         mock_model.encode.return_value = np.array([MOCK_EMBEDDING_1])
 
-        result = generator.embed_text(
-            "DuckDB was chosen for its columnar analytics capabilities"
-        )
+        result = generator.embed_text("DuckDB was chosen for its columnar analytics capabilities")
 
         assert result is not None
         assert len(result) == 384
@@ -67,9 +65,7 @@ class TestEmbedBatch:
     def test_returns_parallel_list(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify embed_batch returns one embedding per input text."""
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
-        mock_model.encode.return_value = np.array(
-            [MOCK_EMBEDDING_1, MOCK_EMBEDDING_2, MOCK_EMBEDDING_3]
-        )
+        mock_model.encode.return_value = np.array([MOCK_EMBEDDING_1, MOCK_EMBEDDING_2, MOCK_EMBEDDING_3])
 
         results = generator.embed_batch(["fact one", "fact two", "fact three"])
 
@@ -78,9 +74,7 @@ class TestEmbedBatch:
             assert result is not None
             assert len(result) == 384
 
-    def test_single_encode_call_for_batch(
-        self, knowledge_config: KnowledgeConfig
-    ) -> None:
+    def test_single_encode_call_for_batch(self, knowledge_config: KnowledgeConfig) -> None:
         """Verify batch uses a single encode call, not one per text."""
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
         mock_model.encode.return_value = np.array([MOCK_EMBEDDING_1, MOCK_EMBEDDING_2])
@@ -105,9 +99,7 @@ class TestEmbedFailure:
 
         assert result is None
 
-    def test_logs_warning_on_failure(
-        self, knowledge_config: KnowledgeConfig, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_logs_warning_on_failure(self, knowledge_config: KnowledgeConfig, caplog: pytest.LogCaptureFixture) -> None:
         """Verify a warning is logged when embedding fails."""
         generator, mock_model = _make_generator_with_mock_model(knowledge_config)
         mock_model.encode.side_effect = Exception("model load failed")

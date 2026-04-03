@@ -165,13 +165,9 @@ class TestInProgressFilterInvariant:
 
         report = generate_status(state_path, plan_path)
 
-        expected_count = sum(
-            1 for s in node_states.values() if s == "in_progress"
-        )
+        expected_count = sum(1 for s in node_states.values() if s == "in_progress")
         assert len(report.in_progress_tasks) == expected_count
-        assert all(
-            ta.current_status == "in_progress" for ta in report.in_progress_tasks
-        )
+        assert all(ta.current_status == "in_progress" for ta in report.in_progress_tasks)
 
 
 # ---------------------------------------------------------------------------

@@ -107,9 +107,7 @@ class TestCycleDetection:
         # At least two cycle nodes should be mentioned
         node_ids = ["spec:1", "spec:2", "spec:3"]
         mentioned = sum(1 for nid in node_ids if nid in error_msg)
-        assert mentioned >= 2, (
-            f"Expected at least 2 cycle node IDs in error, got: {error_msg!r}"
-        )
+        assert mentioned >= 2, f"Expected at least 2 cycle node IDs in error, got: {error_msg!r}"
 
     def test_self_loop_raises_plan_error(self) -> None:
         """A self-loop (A -> A) raises PlanError."""

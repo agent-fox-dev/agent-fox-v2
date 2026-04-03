@@ -55,9 +55,7 @@ async def extract_and_store_knowledge(
                   52-REQ-3.1, 52-REQ-3.2, 52-REQ-4.1, 52-REQ-4.2,
                   52-REQ-4.E1, 52-REQ-5.1, 52-REQ-5.2
     """
-    facts = await extract_facts(
-        transcript, spec_name, memory_extraction_model, session_id=node_id
-    )
+    facts = await extract_facts(transcript, spec_name, memory_extraction_model, session_id=node_id)
 
     causal_link_count = 0
 
@@ -123,9 +121,7 @@ def _count_non_superseded_facts(knowledge_db: KnowledgeDB) -> int:
 
     Requirements: 52-REQ-5.1, 52-REQ-5.2
     """
-    row = knowledge_db.connection.execute(
-        "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-    ).fetchone()
+    row = knowledge_db.connection.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()
     return row[0] if row else 0
 
 
@@ -153,8 +149,7 @@ def _generate_embeddings(
             if embedding is not None:
                 try:
                     conn.execute(
-                        "INSERT OR IGNORE INTO memory_embeddings (id, embedding) "
-                        f"VALUES (?::UUID, ?::FLOAT[{dim}])",
+                        f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
                         [fact.id, embedding],
                     )
                 except Exception:
@@ -302,20 +297,14 @@ def _select_causal_context(
     if not new_embeddings:
         # No embeddings for new facts — fall back to first N prior facts
         logger.debug(
-            "No new-fact embeddings available; using first %d prior facts "
-            "in causal context",
+            "No new-fact embeddings available; using first %d prior facts in causal context",
             causal_context_limit,
         )
-        return [
-            {"id": f.id, "content": f.content}
-            for f in prior_facts[:causal_context_limit]
-        ]
+        return [{"id": f.id, "content": f.content} for f in prior_facts[:causal_context_limit]]
 
     # Average the new-fact embeddings
     dim = len(new_embeddings[0])
-    avg_embedding = [
-        sum(e[i] for e in new_embeddings) / len(new_embeddings) for i in range(dim)
-    ]
+    avg_embedding = [sum(e[i] for e in new_embeddings) / len(new_embeddings) for i in range(dim)]
 
     # Rank prior facts with embeddings by similarity to the average embedding
     try:
@@ -339,10 +328,7 @@ def _select_causal_context(
             causal_context_limit,
             exc_info=True,
         )
-        return [
-            {"id": f.id, "content": f.content}
-            for f in prior_facts[:causal_context_limit]
-        ]
+        return [{"id": f.id, "content": f.content} for f in prior_facts[:causal_context_limit]]
 
     ranked_ids = {row[0] for row in rows}
     ranked_dicts = [{"id": row[0], "content": row[1]} for row in rows]
@@ -350,11 +336,7 @@ def _select_causal_context(
     # Append unembedded prior facts (not in ranked results) up to the limit
     remaining = causal_context_limit - len(ranked_dicts)
     if remaining > 0:
-        unembedded_dicts = [
-            {"id": f.id, "content": f.content}
-            for f in prior_facts
-            if f.id not in ranked_ids
-        ]
+        unembedded_dicts = [{"id": f.id, "content": f.content} for f in prior_facts if f.id not in ranked_ids]
         ranked_dicts.extend(unembedded_dicts[:remaining])
 
     return ranked_dicts
@@ -388,9 +370,7 @@ def _extract_causal_links(
     prior_facts = load_all_facts(knowledge_db.connection)
 
     # 52-REQ-6.1, 52-REQ-6.2, 52-REQ-6.E1: Apply context window bounding
-    prior_dicts = _select_causal_context(
-        knowledge_db, prior_facts, new_facts, causal_context_limit
-    )
+    prior_dicts = _select_causal_context(knowledge_db, prior_facts, new_facts, causal_context_limit)
     # Include new facts so the LLM can link them
     all_dicts = list(prior_dicts)
     for f in new_facts:
@@ -447,9 +427,7 @@ def _extract_causal_links(
         try:
             from agent_fox.knowledge.audit import AuditEvent, AuditEventType
 
-            total_link_count = knowledge_db.connection.execute(
-                "SELECT COUNT(*) FROM fact_causes"
-            ).fetchone()[0]
+            total_link_count = knowledge_db.connection.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]
             event = AuditEvent(
                 run_id=run_id,
                 event_type=AuditEventType.FACT_CAUSAL_LINKS,

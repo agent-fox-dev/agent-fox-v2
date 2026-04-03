@@ -128,9 +128,7 @@ class ClaudeBackend:
             try:
                 options.thinking = thinking  # type: ignore[attr-defined]
             except TypeError as exc:
-                logger.warning(
-                    "SDK does not support 'thinking' parameter, omitting: %s", exc
-                )
+                logger.warning("SDK does not support 'thinking' parameter, omitting: %s", exc)
 
         saw_result = False
         try:
@@ -190,25 +188,18 @@ class ClaudeBackend:
         Requirements: 26-REQ-2.2
         """
         # Check for SDK ResultMessage
-        if (
-            isinstance(message, SDKResultMessage)
-            or getattr(message, "type", None) == "result"
-        ):
+        if isinstance(message, SDKResultMessage) or getattr(message, "type", None) == "result":
             usage = getattr(message, "usage", None)
             if isinstance(usage, dict):
                 input_tokens = _coerce_int(usage.get("input_tokens", 0))
                 output_tokens = _coerce_int(usage.get("output_tokens", 0))
                 cache_read = _coerce_int(usage.get("cache_read_input_tokens", 0))
-                cache_creation = _coerce_int(
-                    usage.get("cache_creation_input_tokens", 0)
-                )
+                cache_creation = _coerce_int(usage.get("cache_creation_input_tokens", 0))
             else:
                 input_tokens = _coerce_int(getattr(usage, "input_tokens", 0))
                 output_tokens = _coerce_int(getattr(usage, "output_tokens", 0))
                 cache_read = _coerce_int(getattr(usage, "cache_read_input_tokens", 0))
-                cache_creation = _coerce_int(
-                    getattr(usage, "cache_creation_input_tokens", 0)
-                )
+                cache_creation = _coerce_int(getattr(usage, "cache_creation_input_tokens", 0))
             duration_ms = _coerce_int(getattr(message, "duration_ms", 0))
             is_error = bool(getattr(message, "is_error", False))
             error_message: str | None = None
@@ -234,15 +225,11 @@ class ClaudeBackend:
             results: list[AgentMessage] = []
             for block in message.content:
                 if isinstance(block, ToolUseBlock):
-                    results.append(
-                        ToolUseMessage(tool_name=block.name, tool_input=block.input)
-                    )
+                    results.append(ToolUseMessage(tool_name=block.name, tool_input=block.input))
                 elif isinstance(block, ThinkingBlock):
                     # 56-REQ-4.4: Map ThinkingBlock to AssistantMessage
                     thinking_text = getattr(block, "thinking", "")
-                    results.append(
-                        AssistantMessage(content=f"[thinking] {thinking_text}")
-                    )
+                    results.append(AssistantMessage(content=f"[thinking] {thinking_text}"))
             # If no content blocks produced output, emit a generic AssistantMessage
             if not results:
                 results.append(AssistantMessage(content=""))

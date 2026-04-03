@@ -136,22 +136,16 @@ class TestOneFindingPerFailure:
         fail_flags=st.data(),
     )
     @settings(max_examples=20)
-    def test_finding_count_equals_failing_check_count(
-        self, checks: list, fail_flags: st.DataObject
-    ) -> None:
+    def test_finding_count_equals_failing_check_count(self, checks: list, fail_flags: st.DataObject) -> None:
         """TS-67-P2: Number of findings equals number of failing checks."""
-        booleans = fail_flags.draw(
-            st.lists(st.booleans(), min_size=len(checks), max_size=len(checks))
-        )
+        booleans = fail_flags.draw(st.lists(st.booleans(), min_size=len(checks), max_size=len(checks)))
         k = sum(booleans)
         assume(k > 0)
 
         config = _make_config()
 
         # subprocess.run side_effect: return results in order of checks
-        subprocess_results = [
-            _completed(1, "fail") if fail else _completed(0) for fail in booleans
-        ]
+        subprocess_results = [_completed(1, "fail") if fail else _completed(0) for fail in booleans]
 
         ai_response = _build_ai_response(checks, booleans)
         mock_backend = _mock_backend_with_response(ai_response)
@@ -190,8 +184,7 @@ class TestSeverityMappingConsistency:
         config = _make_config()
 
         ai_response = (
-            '[{"check_name": "mycheck", "title": "T", '
-            '"description": "D", "suggested_fix": "F", "affected_files": []}]'
+            '[{"check_name": "mycheck", "title": "T", "description": "D", "suggested_fix": "F", "affected_files": []}]'
         )
         mock_backend = _mock_backend_with_response(ai_response)
 

@@ -210,10 +210,7 @@ class TestBudgetPassthrough:
         assert len(captured_options) == 1
         # max_budget_usd may be stored as attr or in extra_args
         opts = captured_options[0]
-        assert (
-            getattr(opts, "max_budget_usd", None) == 3.0
-            or opts.extra_args.get("max-budget-usd") == "3.0"
-        )
+        assert getattr(opts, "max_budget_usd", None) == 3.0 or opts.extra_args.get("max-budget-usd") == "3.0"
 
 
 # ---------------------------------------------------------------------------

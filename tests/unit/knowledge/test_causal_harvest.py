@@ -113,9 +113,7 @@ class TestEmbeddingFailureIsolation:
     """
 
     @pytest.mark.asyncio
-    async def test_fact_stored_despite_embedding_failure(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_fact_stored_despite_embedding_failure(self, knowledge_db: KnowledgeDB) -> None:
         """Facts should exist in memory_facts even if embedding generation
         fails."""
         fact = _make_fact()
@@ -164,9 +162,7 @@ class TestHarvestCompleteEvent:
     """
 
     @pytest.mark.asyncio
-    async def test_harvest_complete_event_emitted(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_harvest_complete_event_emitted(self, knowledge_db: KnowledgeDB) -> None:
         """Successful extraction should emit harvest.complete with fact_count
         and categories."""
         facts = [
@@ -193,9 +189,7 @@ class TestHarvestCompleteEvent:
                 run_id="test_run_001",
             )
 
-        harvest_events = [
-            e for e in emitted_events if e.event_type == AuditEventType.HARVEST_COMPLETE
-        ]
+        harvest_events = [e for e in emitted_events if e.event_type == AuditEventType.HARVEST_COMPLETE]
         assert len(harvest_events) == 1, (
             f"Expected exactly 1 harvest.complete event, got {len(harvest_events)}. "
             f"Emitted events: {[e.event_type for e in emitted_events]}"
@@ -221,9 +215,7 @@ class TestHarvestEmptyEvent:
     """
 
     @pytest.mark.asyncio
-    async def test_harvest_empty_event_on_zero_facts(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_harvest_empty_event_on_zero_facts(self, knowledge_db: KnowledgeDB) -> None:
         """Zero facts from non-empty input should emit harvest.empty."""
         mock_sink = MagicMock()
         emitted_events: list[AuditEvent] = []
@@ -245,16 +237,11 @@ class TestHarvestEmptyEvent:
             )
 
         # Should have HARVEST_EMPTY enum member
-        assert hasattr(AuditEventType, "HARVEST_EMPTY"), (
-            "AuditEventType.HARVEST_EMPTY must be added"
-        )
+        assert hasattr(AuditEventType, "HARVEST_EMPTY"), "AuditEventType.HARVEST_EMPTY must be added"
 
-        empty_events = [
-            e for e in emitted_events if e.event_type == AuditEventType.HARVEST_EMPTY
-        ]
+        empty_events = [e for e in emitted_events if e.event_type == AuditEventType.HARVEST_EMPTY]
         assert len(empty_events) == 1, (
-            f"Expected 1 harvest.empty event, got {len(empty_events)}. "
-            f"Events: {[e.event_type for e in emitted_events]}"
+            f"Expected 1 harvest.empty event, got {len(empty_events)}. Events: {[e.event_type for e in emitted_events]}"
         )
         from agent_fox.knowledge.audit import AuditSeverity
 
@@ -314,8 +301,7 @@ class TestInvalidCategorySkipped:
         from agent_fox.knowledge.extraction import _parse_extraction_response
 
         facts = _parse_extraction_response(
-            '[{"content": "test fact", "category": "invalid_cat", '
-            '"confidence": "high", "keywords": ["test"]}]',
+            '[{"content": "test fact", "category": "invalid_cat", "confidence": "high", "keywords": ["test"]}]',
             spec_name="test_spec",
         )
         # Current behavior: defaults to "gotcha" instead of skipping
@@ -340,9 +326,7 @@ class TestCausalTriggerThreshold:
     """
 
     @pytest.mark.asyncio
-    async def test_causal_extraction_triggered_at_threshold(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_causal_extraction_triggered_at_threshold(self, knowledge_db: KnowledgeDB) -> None:
         """When total non-superseded fact count >= 5 after insertion,
         _extract_causal_links should be called."""
         # Insert 5 existing facts
@@ -386,9 +370,7 @@ class TestCausalSkipLowCount:
     """
 
     @pytest.mark.asyncio
-    async def test_causal_extraction_skipped_below_threshold(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_causal_extraction_skipped_below_threshold(self, knowledge_db: KnowledgeDB) -> None:
         """When total non-superseded fact count < 5, _extract_causal_links
         should NOT be called."""
         # Insert 2 existing facts (total after new: 3, below threshold)
@@ -432,9 +414,7 @@ class TestCausalContextBounded:
     """
 
     @pytest.mark.asyncio
-    async def test_context_window_respects_limit(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_context_window_respects_limit(self, knowledge_db: KnowledgeDB) -> None:
         """Causal extraction prompt should contain at most
         causal_context_limit + new_fact_count facts."""
         # Insert 250 existing facts
@@ -443,9 +423,7 @@ class TestCausalContextBounded:
 
         captured_facts_count = []
 
-        def mock_extract_causal(
-            new_facts, node_id, model, kdb, *, causal_context_limit=200, **kwargs
-        ):
+        def mock_extract_causal(new_facts, node_id, model, kdb, *, causal_context_limit=200, **kwargs):
             """Capture the number of prior facts that would be used."""
             from agent_fox.knowledge.store import load_all_facts
 
@@ -495,9 +473,7 @@ class TestCausalLinkAuditEvent:
 
     def test_fact_causal_links_event_type_exists(self) -> None:
         """AuditEventType should have a FACT_CAUSAL_LINKS member."""
-        assert hasattr(AuditEventType, "FACT_CAUSAL_LINKS"), (
-            "AuditEventType.FACT_CAUSAL_LINKS must be added"
-        )
+        assert hasattr(AuditEventType, "FACT_CAUSAL_LINKS"), "AuditEventType.FACT_CAUSAL_LINKS must be added"
 
 
 # ---------------------------------------------------------------------------
@@ -512,9 +488,7 @@ class TestUnembeddedFactsInCausalContext:
     Requirement: 52-REQ-6.E1
     """
 
-    def test_unembedded_facts_appended_after_ranked(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_unembedded_facts_appended_after_ranked(self, knowledge_db: KnowledgeDB) -> None:
         """When prior facts exceed causal_context_limit, facts with embeddings
         are ranked by similarity and placed first; unembedded facts are
         appended after, up to the limit."""
@@ -529,8 +503,7 @@ class TestUnembeddedFactsInCausalContext:
         for i, f in enumerate(prior_facts[:5]):
             emb = [float(i + 1) / 100.0] * dim
             conn.execute(
-                f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) "
-                f"VALUES (?::UUID, ?::FLOAT[{dim}])",
+                f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
                 [f.id, emb],
             )
 
@@ -538,8 +511,7 @@ class TestUnembeddedFactsInCausalContext:
         new_fact = _make_fact(content="New fact for context test")
         sync_facts_to_duckdb(knowledge_db, [new_fact])
         conn.execute(
-            f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) "
-            f"VALUES (?::UUID, ?::FLOAT[{dim}])",
+            f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
             [new_fact.id, [0.01] * dim],
         )
 
@@ -551,14 +523,10 @@ class TestUnembeddedFactsInCausalContext:
             causal_context_limit=7,
         )
 
-        assert len(selected) <= 7, (
-            f"Expected at most 7 facts in causal context, got {len(selected)}"
-        )
+        assert len(selected) <= 7, f"Expected at most 7 facts in causal context, got {len(selected)}"
         assert len(selected) > 0, "Expected at least one fact in causal context"
 
-    def test_no_embeddings_falls_back_to_first_n(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_no_embeddings_falls_back_to_first_n(self, knowledge_db: KnowledgeDB) -> None:
         """When no embeddings are available for new facts, the first N
         prior facts are used (no similarity ranking)."""
         from agent_fox.engine.knowledge_harvest import _select_causal_context
@@ -575,9 +543,7 @@ class TestUnembeddedFactsInCausalContext:
             causal_context_limit=5,
         )
 
-        assert len(selected) == 5, (
-            f"Expected exactly 5 facts (first N fallback), got {len(selected)}"
-        )
+        assert len(selected) == 5, f"Expected exactly 5 facts (first N fallback), got {len(selected)}"
 
     def test_within_limit_includes_all(self, knowledge_db: KnowledgeDB) -> None:
         """When prior facts are within the limit, all are included."""
@@ -594,6 +560,4 @@ class TestUnembeddedFactsInCausalContext:
             causal_context_limit=200,
         )
 
-        assert len(selected) == 5, (
-            f"Expected all 5 prior facts when within limit, got {len(selected)}"
-        )
+        assert len(selected) == 5, f"Expected all 5 prior facts when within limit, got {len(selected)}"

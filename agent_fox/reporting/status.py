@@ -189,11 +189,7 @@ def _get_block_reason(
         A human-readable blocking reason string.
     """
     preds = graph.predecessors(task_id)
-    blockers = [
-        p
-        for p in preds
-        if node_states.get(p, "pending") not in ("completed", "skipped")
-    ]
+    blockers = [p for p in preds if node_states.get(p, "pending") not in ("completed", "skipped")]
     if blockers:
         return f"Blocked by: {', '.join(blockers)}"
     return "Blocked (unknown reason)"
@@ -330,9 +326,7 @@ def generate_status(
                 node_states[nid] = status
 
     # Filter to real task nodes (exclude injected archetype nodes)
-    task_node_ids = {
-        nid for nid, node in graph.nodes.items() if node.archetype == "coder"
-    }
+    task_node_ids = {nid for nid, node in graph.nodes.items() if node.archetype == "coder"}
 
     # Count tasks by status (real tasks only)
     counts: dict[str, int] = defaultdict(int)
@@ -386,9 +380,7 @@ def generate_status(
         failure_reasons = {}
 
     # Build problem tasks list (real tasks only)
-    task_node_states = {
-        nid: s for nid, s in node_states.items() if nid in task_node_ids
-    }
+    task_node_states = {nid: s for nid, s in node_states.items() if nid in task_node_ids}
     blocked_reasons = state.blocked_reasons if state is not None else {}
     problem_tasks = _build_problem_tasks(
         graph,
@@ -414,15 +406,9 @@ def generate_status(
 
     # Compute in-progress task activities (72-REQ-1.1, 72-REQ-1.2, 72-REQ-1.3)
     if state is not None:
-        node_archetypes = {
-            nid: node.archetype for nid, node in graph.nodes.items()
-        }
-        all_activities = _compute_task_activities(
-            state.session_history, node_states, node_archetypes
-        )
-        in_progress_tasks = [
-            ta for ta in all_activities if ta.current_status == "in_progress"
-        ]
+        node_archetypes = {nid: node.archetype for nid, node in graph.nodes.items()}
+        all_activities = _compute_task_activities(state.session_history, node_states, node_archetypes)
+        in_progress_tasks = [ta for ta in all_activities if ta.current_status == "in_progress"]
     else:
         in_progress_tasks = []
 

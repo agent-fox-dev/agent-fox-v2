@@ -119,9 +119,7 @@ class TestFilterMatchesNothing:
 class TestSpecWithoutTasksMd:
     """TS-02-E3: Spec folder without tasks.md."""
 
-    def test_spec_without_tasks_has_false_flag(
-        self, specs_dir_missing_tasks: Path
-    ) -> None:
+    def test_spec_without_tasks_has_false_flag(self, specs_dir_missing_tasks: Path) -> None:
         """Spec without tasks.md has has_tasks=False."""
         specs = discover_specs(specs_dir_missing_tasks)
 

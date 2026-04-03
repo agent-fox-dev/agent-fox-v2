@@ -209,8 +209,7 @@ async def _harvest_under_lock(
             # Replaces blind -X theirs strategy (45-REQ-6.1)
             merge_detail = merge_stderr.strip() or merge_stdout.strip()
             logger.info(
-                "Merge commit of '%s' failed, spawning merge agent "
-                "to resolve conflicts",
+                "Merge commit of '%s' failed, spawning merge agent to resolve conflicts",
                 workspace.branch,
             )
             resolved = await run_merge_agent(
@@ -226,8 +225,7 @@ async def _harvest_under_lock(
                     check=False,
                 )
                 raise IntegrationError(
-                    f"Merge agent failed to resolve conflicts for "
-                    f"'{workspace.branch}' into '{dev_branch}'",
+                    f"Merge agent failed to resolve conflicts for '{workspace.branch}' into '{dev_branch}'",
                     branch=workspace.branch,
                 )
         changed_files = await get_changed_files(
@@ -283,8 +281,7 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
     if remote_ahead > 0:
         # Origin is ahead — attempt reconciliation before push (36-REQ-2.1)
         logger.info(
-            "origin/develop is %d commit(s) ahead. "
-            "Attempting reconciliation before push.",
+            "origin/develop is %d commit(s) ahead. Attempting reconciliation before push.",
             remote_ahead,
         )
         try:
@@ -293,8 +290,7 @@ async def _push_develop_if_pushable(repo_root: Path) -> None:
             # If reconciliation fails (e.g., fetch failed), skip and attempt
             # push as-is (36-REQ-2.E2)
             logger.debug(
-                "Reconciliation failed: %s. Skipping reconciliation and "
-                "attempting push as-is.",
+                "Reconciliation failed: %s. Skipping reconciliation and attempting push as-is.",
                 e,
             )
         # Proceed to push regardless of reconciliation outcome (36-REQ-2.2)

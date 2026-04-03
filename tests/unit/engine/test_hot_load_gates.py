@@ -113,9 +113,7 @@ class TestGitTrackedGateFallback:
     """
 
     @pytest.mark.asyncio
-    async def test_fallback_to_permissive_on_failure(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_fallback_to_permissive_on_failure(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """git ls-tree failure returns True (permissive) and logs warning."""
 
         async def mock_run_git(
@@ -371,9 +369,7 @@ class TestFullGatePipeline:
         # Create spec_c (untracked)
         _create_spec_files(specs_dir / "44_spec_c")
 
-        async def mock_is_tracked(
-            repo_root: Path, spec_name: str, **kwargs: object
-        ) -> bool:
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
             return spec_name != "44_spec_c"
 
         def mock_is_complete(spec_path: Path) -> tuple[bool, list[str]]:
@@ -428,9 +424,7 @@ class TestFullGatePipeline:
                 side_effect=mock_lint_gate,
             ),
         ):
-            result = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path
-            )
+            result = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
 
         assert len(result) == 1
         assert result[0].name == "42_spec_a"
@@ -466,9 +460,7 @@ class TestSkippedSpecReEvaluation:
             has_prd=True,
         )
 
-        async def mock_is_tracked(
-            repo_root: Path, spec_name: str, **kwargs: object
-        ) -> bool:
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
             return True
 
         def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
@@ -489,17 +481,13 @@ class TestSkippedSpecReEvaluation:
             ),
         ):
             # Barrier N: spec is incomplete
-            result_1 = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path
-            )
+            result_1 = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
             assert result_1 == []
 
             # Fix spec: add design.md
             (spec_path / "design.md").write_text("# Design\nContent\n")
 
             # Barrier N+1: spec now passes
-            result_2 = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path
-            )
+            result_2 = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
             assert len(result_2) == 1
             assert result_2[0].name == "42_feature"

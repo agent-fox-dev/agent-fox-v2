@@ -29,9 +29,7 @@ def valid_fact(draw: st.DrawFn) -> Fact:
         content=draw(st.text(min_size=1, max_size=200)),
         category=draw(st.sampled_from(CATEGORIES)),
         spec_name=draw(st.text(min_size=1, max_size=50)),
-        keywords=draw(
-            st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)
-        ),
+        keywords=draw(st.lists(st.text(min_size=1, max_size=20), min_size=0, max_size=5)),
         confidence=draw(st.sampled_from([0.9, 0.6, 0.3])),
         created_at=draw(
             st.from_regex(

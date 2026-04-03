@@ -115,9 +115,7 @@ class TestRewriteProducesReplacement:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1")]
-            result = await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             assert "99-REQ-1.1" in result
             assert len(result["99-REQ-1.1"]) > 0
@@ -157,9 +155,7 @@ class TestEarsKeywordsInPrompt:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1")]
-            await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             call_args = mock_client.messages.create.call_args
             prompt = str(call_args)
@@ -239,9 +235,7 @@ class TestRewritePreservesIntent:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1")]
-            await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             prompt = str(mock_client.messages.create.call_args).lower()
             assert "intent" in prompt
@@ -273,9 +267,7 @@ class TestRewritePreventFixLoops:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1", rule="implementation-leak")]
-            await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             prompt = str(mock_client.messages.create.call_args).lower()
             assert "pass" in prompt or "not be flagged" in prompt
@@ -315,9 +307,7 @@ class TestResponseJsonParsed:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1")]
-            result = await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             assert result == {"99-REQ-1.1": "new text"}
 
@@ -370,9 +360,7 @@ class TestBatchingOneCallPerSpec:
                 _make_finding("99-REQ-1.2", rule="implementation-leak"),
                 _make_finding("99-REQ-1.3"),
             ]
-            await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             assert mock_client.messages.create.call_count == 1
 
@@ -397,9 +385,7 @@ class TestNoCallWithoutFindings:
             mock_client.__aenter__.return_value = mock_client
             mock_cls.return_value = mock_client
 
-            result = await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, [], "standard-model"
-            )
+            result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, [], "standard-model")
 
             assert result == {}
             assert mock_client.messages.create.call_count == 0
@@ -714,9 +700,7 @@ class TestFencedJsonParsed:
             mock_cls.return_value = mock_client
 
             findings = [_make_finding("99-REQ-1.1")]
-            result = await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             assert len(result) > 0
 
@@ -758,9 +742,7 @@ class TestOmittedCriterionSkipped:
                 _make_finding("99-REQ-1.1"),
                 _make_finding("99-REQ-1.2"),
             ]
-            result = await rewrite_criteria(
-                "test_spec", REQUIREMENTS_BRACKET, findings, "standard-model"
-            )
+            result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
             assert "99-REQ-1.1" in result
             assert "99-REQ-1.2" not in result

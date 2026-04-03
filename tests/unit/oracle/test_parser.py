@@ -46,12 +46,7 @@ class TestParseValidJson:
         """Bare JSON object (no fenced block) is also parsed."""
         from agent_fox.session.review_parser import parse_oracle_output
 
-        response = (
-            "Here are my findings:\n"
-            '{"drift_findings": ['
-            '{"severity": "major", "description": "API changed"}'
-            "]}"
-        )
+        response = 'Here are my findings:\n{"drift_findings": [{"severity": "major", "description": "API changed"}]}'
         findings = parse_oracle_output(response, "spec_b", "1", "sess_2")
         assert len(findings) == 1
         assert findings[0].severity == "major"
@@ -147,12 +142,7 @@ class TestMissingFields:
         """TS-32-E5: Entry missing 'description' is skipped."""
         from agent_fox.session.review_parser import parse_oracle_output
 
-        response = (
-            '{"drift_findings": ['
-            '{"severity": "major", "description": "ok"}, '
-            '{"severity": "minor"}'
-            "]}"
-        )
+        response = '{"drift_findings": [{"severity": "major", "description": "ok"}, {"severity": "minor"}]}'
         result = parse_oracle_output(response, "spec", "0", "sess")
         assert len(result) == 1
         assert result[0].description == "ok"

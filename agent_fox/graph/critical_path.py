@@ -105,11 +105,7 @@ def compute_critical_path(
     max_finish = max(earliest_finish.values()) if earliest_finish else 0
 
     # Find all sink nodes (no successors) that achieve max_finish
-    sinks_at_max = [
-        n
-        for n in node_ids
-        if not successors[n] and earliest_finish.get(n, 0) == max_finish
-    ]
+    sinks_at_max = [n for n in node_ids if not successors[n] and earliest_finish.get(n, 0) == max_finish]
 
     # If no sink achieves max, find any node at max (shouldn't happen in a DAG)
     if not sinks_at_max:
@@ -154,9 +150,7 @@ def _backtrack_paths(
     expected_pred_finish = earliest_finish.get(node, 0) - dur
 
     preds = edges.get(node, [])
-    critical_preds = [
-        p for p in preds if earliest_finish.get(p, 0) == expected_pred_finish
-    ]
+    critical_preds = [p for p in preds if earliest_finish.get(p, 0) == expected_pred_finish]
 
     if not critical_preds:
         # This is a source node on the critical path

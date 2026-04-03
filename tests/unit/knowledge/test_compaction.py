@@ -57,9 +57,7 @@ class TestCompactionDeduplicatesByContentHash:
     Requirement: 05-REQ-5.1
     """
 
-    def test_removes_duplicate_content(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_removes_duplicate_content(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify compaction removes facts with identical content."""
         _insert_fact(
             schema_conn,
@@ -80,9 +78,7 @@ class TestCompactionDeduplicatesByContentHash:
         assert original == 2
         assert surviving == 1
 
-    def test_keeps_facts_with_different_content(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_keeps_facts_with_different_content(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify facts with different content are all kept."""
         _insert_fact(schema_conn, fact_id=str(uuid.uuid4()), content="content A")
         _insert_fact(schema_conn, fact_id=str(uuid.uuid4()), content="content B")
@@ -100,9 +96,7 @@ class TestCompactionSupersessionChain:
     Requirement: 05-REQ-5.2
     """
 
-    def test_chain_a_b_c_keeps_only_c(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_chain_a_b_c_keeps_only_c(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify only the terminal fact in a chain survives."""
         # Note: compact reads non-superseded facts. Supersession chains
         # are resolved by the supersedes field on the Fact dataclass,
@@ -120,9 +114,7 @@ class TestCompactionSupersessionChain:
         assert original == 2
         assert surviving == 2
 
-    def test_independent_facts_not_affected(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_independent_facts_not_affected(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify facts without supersession are kept."""
         _insert_fact(schema_conn, fact_id=str(uuid.uuid4()), content="fact A")
         _insert_fact(schema_conn, fact_id=str(uuid.uuid4()), content="fact B")
@@ -139,9 +131,7 @@ class TestCompactionEmptyKnowledgeBase:
     Requirement: 05-REQ-5.E1
     """
 
-    def test_empty_db_returns_zero_zero(
-        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_empty_db_returns_zero_zero(self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify compaction on empty DB returns (0, 0)."""
         jsonl_path = tmp_path / "memory.jsonl"
         original, surviving = compact(schema_conn, jsonl_path)

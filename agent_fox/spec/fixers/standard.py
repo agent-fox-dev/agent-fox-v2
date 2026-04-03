@@ -176,9 +176,7 @@ def fix_coarse_dependency(
     for depends_on, description in parsed_rows:
         upstream_groups = known_specs.get(depends_on, [])
         from_group = max(upstream_groups) if upstream_groups else 0
-        new_lines.append(
-            f"| {depends_on} | {from_group} | {to_group} | {description} |"
-        )
+        new_lines.append(f"| {depends_on} | {from_group} | {to_group} | {description} |")
 
     # Replace the table in the original text
     result_lines = lines[:table_start] + new_lines + lines[table_end:]
@@ -189,10 +187,7 @@ def fix_coarse_dependency(
             rule="coarse-dependency",
             spec_name=spec_name,
             file=str(prd_path),
-            description=(
-                f"Rewrote standard-format dependency table to group-level "
-                f"format ({len(parsed_rows)} row(s))"
-            ),
+            description=(f"Rewrote standard-format dependency table to group-level format ({len(parsed_rows)} row(s))"),
         )
     ]
 
@@ -254,11 +249,7 @@ def fix_missing_verification(
 
     # Find groups that need verification steps (checkpoint groups are
     # themselves a final verification and never need a N.V subtask)
-    groups_to_fix = [
-        g
-        for g in groups
-        if not g["has_verify"] and not g["title"].startswith("Checkpoint")
-    ]
+    groups_to_fix = [g for g in groups if not g["has_verify"] and not g["title"].startswith("Checkpoint")]
     if not groups_to_fix:
         return []
 
@@ -319,9 +310,7 @@ def fix_inconsistent_req_id_format(
             rule="inconsistent-req-id-format",
             spec_name=spec_name,
             file=str(req_path),
-            description=(
-                f"Converted {count} bold-format requirement ID(s) to bracket format"
-            ),
+            description=(f"Converted {count} bold-format requirement ID(s) to bracket format"),
         )
     ]
 
@@ -343,9 +332,7 @@ def _parse_stale_dep_fixes(findings: list[Finding]) -> list[IdentifierFix]:
                 IdentifierFix(
                     original=id_match.group(1),
                     suggestion=sug_match.group(1),
-                    upstream_spec=finding.message.split(":")[0].replace(
-                        "Dependency on ", ""
-                    ),
+                    upstream_spec=finding.message.split(":")[0].replace("Dependency on ", ""),
                 )
             )
     return fixes

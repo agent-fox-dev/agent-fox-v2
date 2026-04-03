@@ -105,9 +105,7 @@ class TestPlaceholderDetectionAccuracy:
 
     @given(directive=_directive_strategy)
     @settings(max_examples=50)
-    def test_directive_appended_to_placeholder_is_detected(
-        self, directive: str
-    ) -> None:
+    def test_directive_appended_to_placeholder_is_detected(self, directive: str) -> None:
         """File with placeholder plus directive text returns non-None."""
         from agent_fox.workspace.init_project import _STEERING_PLACEHOLDER
         from agent_fox.session.prompt import load_steering
@@ -122,9 +120,7 @@ class TestPlaceholderDetectionAccuracy:
             (specs_dir / "steering.md").write_text(content)
 
             result = load_steering(tmp_path)
-            assert result is not None, (
-                f"Expected non-None for directive {directive!r}, got None"
-            )
+            assert result is not None, f"Expected non-None for directive {directive!r}, got None"
 
     @given(directive=_directive_strategy)
     @settings(max_examples=50)
@@ -140,9 +136,7 @@ class TestPlaceholderDetectionAccuracy:
             (specs_dir / "steering.md").write_text(directive)
 
             result = load_steering(tmp_path)
-            assert result is not None, (
-                f"Expected non-None for directive {directive!r}, got None"
-            )
+            assert result is not None, f"Expected non-None for directive {directive!r}, got None"
 
 
 # ---------------------------------------------------------------------------
@@ -160,9 +154,7 @@ class TestContextOrderingInvariant:
         facts=_facts_strategy,
     )
     @settings(max_examples=20)
-    def test_steering_before_memory_facts(
-        self, steering_content: str, facts: list[str]
-    ) -> None:
+    def test_steering_before_memory_facts(self, steering_content: str, facts: list[str]) -> None:
         """## Steering Directives appears before ## Memory Facts in context."""
         from agent_fox.session.prompt import assemble_context
 
@@ -179,15 +171,10 @@ class TestContextOrderingInvariant:
             conn.execute(SCHEMA_DDL)
             apply_pending_migrations(conn)
 
-            context = assemble_context(
-                spec_dir, 1, facts, conn=conn, project_root=tmp_path
-            )
+            context = assemble_context(spec_dir, 1, facts, conn=conn, project_root=tmp_path)
             conn.close()
 
             if "## Steering Directives" in context and "## Memory Facts" in context:
                 steer_pos = context.index("## Steering Directives")
                 mem_pos = context.index("## Memory Facts")
-                assert steer_pos < mem_pos, (
-                    f"Steering ({steer_pos}) should come before"
-                    f" Memory Facts ({mem_pos})"
-                )
+                assert steer_pos < mem_pos, f"Steering ({steer_pos}) should come before Memory Facts ({mem_pos})"

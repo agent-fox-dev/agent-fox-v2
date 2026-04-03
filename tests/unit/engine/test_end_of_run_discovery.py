@@ -144,9 +144,7 @@ class TestNewSpecsDiscovered:
             mock_graph_sync.ready_tasks.return_value = [MagicMock(), MagicMock()]
             orch._graph_sync = mock_graph_sync
 
-            exec_state = ExecutionState(
-                plan_hash="test", node_states={"spec:1": "completed"}
-            )
+            exec_state = ExecutionState(plan_hash="test", node_states={"spec:1": "completed"})
             result = await orch._try_end_of_run_discovery(exec_state)
 
         assert result is True
@@ -256,9 +254,7 @@ class TestHotLoadDisabledSkipsDiscovery:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(
-            tmp_plan_dir, tmp_state_path, mock_runner, hot_load=False
-        )
+        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner, hot_load=False)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -267,9 +263,7 @@ class TestHotLoadDisabledSkipsDiscovery:
             state = await orch.run()
 
             # Also test the method directly
-            exec_state = ExecutionState(
-                plan_hash="test", node_states={"spec:1": "completed"}
-            )
+            exec_state = ExecutionState(plan_hash="test", node_states={"spec:1": "completed"})
             result = await orch._try_end_of_run_discovery(exec_state)
 
         assert result is False

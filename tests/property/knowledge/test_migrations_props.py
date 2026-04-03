@@ -34,9 +34,7 @@ def _make_test_migrations(count: int) -> list[Migration]:
             Migration(
                 version=version,
                 description=f"add {col_name}",
-                apply=lambda c, cn=col_name: c.execute(
-                    f"ALTER TABLE session_outcomes ADD COLUMN {cn} TEXT"
-                ),
+                apply=lambda c, cn=col_name: c.execute(f"ALTER TABLE session_outcomes ADD COLUMN {cn} TEXT"),
             )
         )
     return migrations
@@ -66,12 +64,7 @@ class TestMigrationVersionMonotonicity:
         ):
             apply_pending_migrations(conn)
 
-        versions = [
-            r[0]
-            for r in conn.execute(
-                "SELECT version FROM schema_version ORDER BY version"
-            ).fetchall()
-        ]
+        versions = [r[0] for r in conn.execute("SELECT version FROM schema_version ORDER BY version").fetchall()]
 
         # Verify strict monotonicity
         for i in range(1, len(versions)):

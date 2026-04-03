@@ -98,9 +98,7 @@ class TestContextAssemblyMemoryFacts:
 class TestContextAssemblyMissingFile:
     """TS-03-E4: Context assembly with missing spec file."""
 
-    def test_missing_file_does_not_raise(
-        self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_file_does_not_raise(self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """A missing spec file is skipped without error."""
         spec_dir = tmp_path / "specs" / "partial"
         spec_dir.mkdir(parents=True)
@@ -174,9 +172,7 @@ class TestMissingTestSpecFile:
     Requirement: 15-REQ-1.E1
     """
 
-    def test_missing_test_spec_does_not_raise(
-        self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_test_spec_does_not_raise(self, tmp_path: Path, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Context assembly succeeds when test_spec.md is absent."""
         spec_dir = tmp_path / "specs" / "no_test_spec"
         spec_dir.mkdir(parents=True)

@@ -21,9 +21,7 @@ class TestRollback:
     def test_rollback_executes_git_reset(self, tmp_path: Path) -> None:
         """TS-31-17: Rollback runs git reset --hard HEAD~1."""
         with patch("agent_fox.fix.improve.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
 
             rollback_improvement_pass(tmp_path)
 

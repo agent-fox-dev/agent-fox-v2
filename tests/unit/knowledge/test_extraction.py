@@ -134,9 +134,7 @@ class TestExtractionInvalidJSON:
         assert facts == []
 
     @pytest.mark.asyncio
-    async def test_invalid_json_logs_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_invalid_json_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Verify invalid JSON response logs a warning."""
         mock_client = AsyncMock()
         mock_response = AsyncMock()
@@ -198,17 +196,12 @@ class TestExtractionUnknownCategory:
         assert len(facts) == 1
         assert facts[0].category == "gotcha"
 
-    def test_unknown_category_logs_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_unknown_category_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Verify unknown category logs a warning."""
         with caplog.at_level(logging.WARNING, logger="agent_fox.knowledge.extraction"):
             _parse_extraction_response(UNKNOWN_CATEGORY_LLM_RESPONSE, "spec_01")
 
-        assert any(
-            "unknown" in r.message.lower() or "category" in r.message.lower()
-            for r in caplog.records
-        )
+        assert any("unknown" in r.message.lower() or "category" in r.message.lower() for r in caplog.records)
 
 
 class TestExtractJsonArray:
@@ -250,12 +243,7 @@ class TestExtractJsonArray:
 
     def test_extracts_array_from_prose_with_multiple_brackets(self) -> None:
         """Multiple non-JSON brackets in prose before the real JSON array."""
-        text = (
-            "The fact [abc-123] caused [def-456] to change.\n"
-            "Here is the result:\n\n"
-            '[{"a": 1}]\n\n'
-            "Done!"
-        )
+        text = 'The fact [abc-123] caused [def-456] to change.\nHere is the result:\n\n[{"a": 1}]\n\nDone!'
         result = extract_json_array(text)
         assert result == [{"a": 1}]
 
@@ -344,9 +332,7 @@ class TestExtractionRetry:
         rate_limit_exc.body = None
         rate_limit_exc.response = AsyncMock(status_code=429, headers={})
 
-        mock_client.messages.create = AsyncMock(
-            side_effect=[rate_limit_exc, rate_limit_exc, mock_response]
-        )
+        mock_client.messages.create = AsyncMock(side_effect=[rate_limit_exc, rate_limit_exc, mock_response])
         mock_client.__aenter__.return_value = mock_client
 
         with (

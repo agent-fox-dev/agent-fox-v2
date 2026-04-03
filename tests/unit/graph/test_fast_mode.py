@@ -19,9 +19,7 @@ class TestFastModeRemovesOptional:
 
         assert result.nodes["spec:2"].status == NodeStatus.SKIPPED
 
-    def test_optional_node_not_in_ordering(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_optional_node_not_in_ordering(self, graph_with_optional: TaskGraph) -> None:
         """Optional node is excluded from the ordering."""
         result = apply_fast_mode(graph_with_optional)
 
@@ -33,9 +31,7 @@ class TestFastModeRemovesOptional:
 
         assert len(result.order) == 2
 
-    def test_required_nodes_remain_pending(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_required_nodes_remain_pending(self, graph_with_optional: TaskGraph) -> None:
         """Required nodes keep their PENDING status."""
         result = apply_fast_mode(graph_with_optional)
 
@@ -66,19 +62,13 @@ class TestFastModeRewiresDeps:
         edge_pairs = [(e.source, e.target) for e in result.edges]
         assert ("spec:1", "spec:3") in edge_pairs
 
-    def test_no_edges_reference_removed_node(
-        self, graph_with_optional: TaskGraph
-    ) -> None:
+    def test_no_edges_reference_removed_node(self, graph_with_optional: TaskGraph) -> None:
         """No edges reference the removed optional node B."""
         result = apply_fast_mode(graph_with_optional)
 
         for edge in result.edges:
-            assert edge.source != "spec:2", (
-                f"Edge {edge} still references removed node spec:2"
-            )
-            assert edge.target != "spec:2", (
-                f"Edge {edge} still references removed node spec:2"
-            )
+            assert edge.source != "spec:2", f"Edge {edge} still references removed node spec:2"
+            assert edge.target != "spec:2", f"Edge {edge} still references removed node spec:2"
 
     def test_returns_task_graph(self, graph_with_optional: TaskGraph) -> None:
         """apply_fast_mode returns a TaskGraph instance."""

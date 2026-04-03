@@ -69,9 +69,7 @@ def _extract_field_names_in_order(template: str, section: str) -> list[str]:
             in_section = True
             continue
         # Check for next section header (end of current section)
-        if in_section and (
-            re.match(r"^# \[[\w.]+\]$", stripped) or re.match(r"^\[[\w.]+\]$", stripped)
-        ):
+        if in_section and (re.match(r"^# \[[\w.]+\]$", stripped) or re.match(r"^\[[\w.]+\]$", stripped)):
             break
         # Extract field names from active or commented key-value pairs
         if in_section:
@@ -100,8 +98,7 @@ class TestTemplateGeneration:
                 if not field.is_nested:
                     if (section.path, field.name) in _PROMOTED_DEFAULTS:
                         assert f"{field.name} =" in template, (
-                            f"Missing active entry for '{field.name}' "
-                            f"in section '{section.path}'"
+                            f"Missing active entry for '{field.name}' in section '{section.path}'"
                         )
 
     def test_template_includes_descriptions_and_bounds(self) -> None:
@@ -127,9 +124,7 @@ class TestTemplateGeneration:
 
         # Sections with promoted fields have active headers
         for section in ["orchestrator", "archetypes", "models"]:
-            assert f"[{section}]" in template, (
-                f"Missing active section header for [{section}]"
-            )
+            assert f"[{section}]" in template, f"Missing active section header for [{section}]"
 
         # Security has no promoted fields — appears as commented header
         assert "# [security]" in template
@@ -179,8 +174,7 @@ class TestTemplateGeneration:
             idx_a = model_fields.index(template_fields[i])
             idx_b = model_fields.index(template_fields[i + 1])
             assert idx_a < idx_b, (
-                f"Field '{template_fields[i]}' appears before "
-                f"'{template_fields[i + 1]}' in template but not in model"
+                f"Field '{template_fields[i]}' appears before '{template_fields[i + 1]}' in template but not in model"
             )
 
 
@@ -202,13 +196,9 @@ class TestConfigMerge:
         # Ensure they are NOT commented out
         for line in merged.split("\n"):
             if "parallel = 4" in line:
-                assert not line.lstrip().startswith("#"), (
-                    "parallel = 4 should not be commented out"
-                )
+                assert not line.lstrip().startswith("#"), "parallel = 4 should not be commented out"
             if "session_timeout = 60" in line:
-                assert not line.lstrip().startswith("#"), (
-                    "session_timeout = 60 should not be commented out"
-                )
+                assert not line.lstrip().startswith("#"), "session_timeout = 60 should not be commented out"
 
     def test_merge_adds_missing_fields(self) -> None:
         """TS-33-7: Merge adds fields present in schema but missing from file.
@@ -233,10 +223,7 @@ class TestConfigMerge:
         Requirement: 33-REQ-2.3
         """
         existing = (
-            "# My custom note about this project\n"
-            "[orchestrator]\n"
-            "# I set this high for the big repo\n"
-            "parallel = 8\n"
+            "# My custom note about this project\n[orchestrator]\n# I set this high for the big repo\nparallel = 8\n"
         )
         merged = merge_existing_config(existing)
 
@@ -448,6 +435,4 @@ class TestMergeEdgeCases:
                 pre_code = f
                 break
         assert pre_code is not None, "pre_code field not found"
-        assert pre_code.default == [], (
-            f"Expected [] for pre_code default, got {pre_code.default!r}"
-        )
+        assert pre_code.default == [], f"Expected [] for pre_code default, got {pre_code.default!r}"

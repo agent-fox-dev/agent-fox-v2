@@ -50,10 +50,7 @@ def check_missing_acceptance_criteria(
                     file="requirements.md",
                     rule="missing-acceptance-criteria",
                     severity=SEVERITY_ERROR,
-                    message=(
-                        f"{current_req_name} has no acceptance criteria "
-                        f"(no requirement ID pattern found)"
-                    ),
+                    message=(f"{current_req_name} has no acceptance criteria (no requirement ID pattern found)"),
                     line=current_req_line,
                 )
             )

@@ -145,9 +145,7 @@ class TestZeroFloatImpliesCriticalPath:
         """All nodes on the critical path have float 0."""
         analysis = analyze_plan(dag)
         for nid in analysis.critical_path:
-            assert analysis.timings[nid].slack == 0, (
-                f"Critical path node {nid} has float {analysis.timings[nid].slack}"
-            )
+            assert analysis.timings[nid].slack == 0, f"Critical path node {nid} has float {analysis.timings[nid].slack}"
 
     @given(dag=random_dags())
     @settings(max_examples=50)

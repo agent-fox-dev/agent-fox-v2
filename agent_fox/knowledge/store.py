@@ -361,8 +361,7 @@ class MemoryStore:
             new_fact_id: UUID of the superseding fact.
         """
         self._db_conn.execute(
-            "UPDATE memory_facts SET superseded_by = ?::UUID "
-            "WHERE CAST(id AS VARCHAR) = ?",
+            "UPDATE memory_facts SET superseded_by = ?::UUID WHERE CAST(id AS VARCHAR) = ?",
             [new_fact_id, old_fact_id],
         )
 
@@ -393,13 +392,8 @@ class MemoryStore:
 
     def _write_embedding(self, fact_id: str, embedding: list[float]) -> None:
         """Insert an embedding into the DuckDB ``memory_embeddings`` table."""
-        dim = (
-            self._embedder.embedding_dimensions
-            if self._embedder is not None
-            else len(embedding)
-        )
+        dim = self._embedder.embedding_dimensions if self._embedder is not None else len(embedding)
         self._db_conn.execute(
-            "INSERT INTO memory_embeddings (id, embedding) "
-            f"VALUES (?::UUID, ?::FLOAT[{dim}])",
+            f"INSERT INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
             [fact_id, embedding],
         )

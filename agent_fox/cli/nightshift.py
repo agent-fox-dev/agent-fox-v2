@@ -71,8 +71,7 @@ def night_shift_cmd(ctx: click.Context, auto: bool) -> None:
         sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
         if _interrupt_count == 1:
             logger.info(
-                "%s received — completing current operation then exiting "
-                "(send another signal to abort immediately)",
+                "%s received — completing current operation then exiting (send another signal to abort immediately)",
                 sig_name,
             )
             engine.request_shutdown()

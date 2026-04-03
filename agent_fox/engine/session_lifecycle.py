@@ -389,8 +389,7 @@ class NodeSessionRunner:
             resolved_fallback = None
 
         logger.info(
-            "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, "
-            "thinking=%s, timeout_override=%s",
+            "Session %s: max_turns=%s, max_budget_usd=%s, fallback_model=%s, thinking=%s, timeout_override=%s",
             node_id,
             resolved_max_turns,
             resolved_budget,
@@ -848,9 +847,7 @@ class NodeSessionRunner:
 
         try:
             workspace = await self._setup_workspace(repo_root, node_id)
-            return await self._run_session_lifecycle(
-                node_id, attempt, previous_error, repo_root, workspace
-            )
+            return await self._run_session_lifecycle(node_id, attempt, previous_error, repo_root, workspace)
 
         except Exception as exc:
             logger.error(

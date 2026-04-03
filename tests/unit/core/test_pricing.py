@@ -95,10 +95,8 @@ class TestModelEntryCleanup:
     def test_no_pricing_fields(self) -> None:
         """TS-34-14: ModelEntry does not have input/output_price_per_m."""
         assert not hasattr(ModelEntry, "input_price_per_m") or not any(
-            f.name == "input_price_per_m"
-            for f in ModelEntry.__dataclass_fields__.values()
+            f.name == "input_price_per_m" for f in ModelEntry.__dataclass_fields__.values()
         )
         assert not hasattr(ModelEntry, "output_price_per_m") or not any(
-            f.name == "output_price_per_m"
-            for f in ModelEntry.__dataclass_fields__.values()
+            f.name == "output_price_per_m" for f in ModelEntry.__dataclass_fields__.values()
         )

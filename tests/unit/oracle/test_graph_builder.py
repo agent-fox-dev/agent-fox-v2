@@ -54,10 +54,7 @@ class TestOracleNodeInjected:
 
         assert "spec:0" in graph.nodes
         assert graph.nodes["spec:0"].archetype == "oracle"
-        assert any(
-            e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec"
-            for e in graph.edges
-        )
+        assert any(e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
 
 
 # ---------------------------------------------------------------------------
@@ -86,21 +83,14 @@ class TestDualAutoPre:
         assert skeptic_id in graph.nodes
 
         # Both connect to first coder group
-        assert any(
-            e.source == oracle_id and e.target == "spec:1" and e.kind == "intra_spec"
-            for e in graph.edges
-        )
-        assert any(
-            e.source == skeptic_id and e.target == "spec:1" and e.kind == "intra_spec"
-            for e in graph.edges
-        )
+        assert any(e.source == oracle_id and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
+        assert any(e.source == skeptic_id and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
 
         # No edge between them
         edges_between = [
             e
             for e in graph.edges
-            if (e.source == oracle_id and e.target == skeptic_id)
-            or (e.source == skeptic_id and e.target == oracle_id)
+            if (e.source == oracle_id and e.target == skeptic_id) or (e.source == skeptic_id and e.target == oracle_id)
         ]
         assert len(edges_between) == 0
 
@@ -200,9 +190,7 @@ class TestLegacyPlanCompat:
         assert graph.nodes["spec:0"].archetype == "skeptic"
 
         # Oracle node added with distinct ID
-        oracle_nodes = [
-            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
-        ]
+        oracle_nodes = [nid for nid, n in graph.nodes.items() if n.archetype == "oracle"]
         assert len(oracle_nodes) == 1
 
 
@@ -224,9 +212,7 @@ class TestHotLoadFailureSkip:
         # Valid spec
         valid_spec = specs_dir / "01_valid"
         valid_spec.mkdir()
-        (valid_spec / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task 1\n  - [ ] 1.1 Sub\n"
-        )
+        (valid_spec / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task 1\n  - [ ] 1.1 Sub\n")
 
         # Invalid spec (no tasks.md)
         invalid_spec = specs_dir / "02_invalid"
@@ -259,9 +245,7 @@ class TestSpecHasExistingCode:
         """design.md with only (new) files returns False."""
         from agent_fox.graph.builder import spec_has_existing_code
 
-        (tmp_path / "design.md").write_text(
-            "1. **`agent_fox/brand_new.py`** (new) -- New module.\n"
-        )
+        (tmp_path / "design.md").write_text("1. **`agent_fox/brand_new.py`** (new) -- New module.\n")
         assert spec_has_existing_code(tmp_path) is False
 
     def test_modified_ref_exists(self, tmp_path: Path) -> None:
@@ -270,18 +254,14 @@ class TestSpecHasExistingCode:
 
         target = tmp_path / "real_file.py"
         target.write_text("# existing")
-        (tmp_path / "design.md").write_text(
-            f"1. **`{target}`** (modified) -- Change.\n"
-        )
+        (tmp_path / "design.md").write_text(f"1. **`{target}`** (modified) -- Change.\n")
         assert spec_has_existing_code(tmp_path) is True
 
     def test_modified_ref_missing(self, tmp_path: Path) -> None:
         """Returns False when all (modified) files are absent."""
         from agent_fox.graph.builder import spec_has_existing_code
 
-        (tmp_path / "design.md").write_text(
-            "1. **`nonexistent/foo.py`** (modified) -- Change.\n"
-        )
+        (tmp_path / "design.md").write_text("1. **`nonexistent/foo.py`** (modified) -- Change.\n")
         assert spec_has_existing_code(tmp_path) is False
 
     def test_mixed_new_and_modified(self, tmp_path: Path) -> None:
@@ -291,8 +271,7 @@ class TestSpecHasExistingCode:
         target = tmp_path / "exists.py"
         target.write_text("# code")
         (tmp_path / "design.md").write_text(
-            "1. **`brand_new.py`** (new) -- New.\n"
-            f"2. **`{target}`** (modified) -- Change.\n"
+            f"1. **`brand_new.py`** (new) -- New.\n2. **`{target}`** (modified) -- Change.\n"
         )
         assert spec_has_existing_code(tmp_path) is True
 
@@ -312,17 +291,11 @@ class TestOracleGatingBuildGraph:
 
         spec_dir = tmp_path / ".specs" / "myspec"
         spec_dir.mkdir(parents=True)
-        (spec_dir / "design.md").write_text(
-            "1. **`agent_fox/new_module.py`** (new) -- Brand new.\n"
-        )
-        (spec_dir / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n"
-        )
+        (spec_dir / "design.md").write_text("1. **`agent_fox/new_module.py`** (new) -- Brand new.\n")
+        (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n")
 
         config = ArchetypesConfig(oracle=True, skeptic=False)
-        spec = SpecInfo(
-            name="myspec", prefix=0, path=spec_dir, has_tasks=True, has_prd=False
-        )
+        spec = SpecInfo(name="myspec", prefix=0, path=spec_dir, has_tasks=True, has_prd=False)
         task_groups = {"myspec": [_tgd(1, "T1")]}
 
         graph = build_graph([spec], task_groups, [], archetypes_config=config)
@@ -342,17 +315,11 @@ class TestOracleGatingBuildGraph:
         spec_dir.mkdir(parents=True)
         existing = tmp_path / "real.py"
         existing.write_text("# code")
-        (spec_dir / "design.md").write_text(
-            f"1. **`{existing}`** (modified) -- Change.\n"
-        )
-        (spec_dir / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n"
-        )
+        (spec_dir / "design.md").write_text(f"1. **`{existing}`** (modified) -- Change.\n")
+        (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task one\n  - [ ] 1.1 Sub\n")
 
         config = ArchetypesConfig(oracle=True, skeptic=False)
-        spec = SpecInfo(
-            name="myspec", prefix=0, path=spec_dir, has_tasks=True, has_prd=False
-        )
+        spec = SpecInfo(name="myspec", prefix=0, path=spec_dir, has_tasks=True, has_prd=False)
         task_groups = {"myspec": [_tgd(1, "T1")]}
 
         graph = build_graph([spec], task_groups, [], archetypes_config=config)
@@ -377,9 +344,7 @@ class TestOracleGatingRuntime:
 
         spec_dir = tmp_path / "myspec"
         spec_dir.mkdir()
-        (spec_dir / "design.md").write_text(
-            "1. **`agent_fox/new.py`** (new) -- Brand new.\n"
-        )
+        (spec_dir / "design.md").write_text("1. **`agent_fox/new.py`** (new) -- Brand new.\n")
 
         graph = TaskGraph(
             nodes={
@@ -399,9 +364,7 @@ class TestOracleGatingRuntime:
         config = ArchetypesConfig(oracle=True, skeptic=False)
         ensure_graph_archetypes(graph, config, specs_dir=tmp_path)
 
-        oracle_nodes = [
-            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
-        ]
+        oracle_nodes = [nid for nid, n in graph.nodes.items() if n.archetype == "oracle"]
         assert oracle_nodes == []
 
     def test_runtime_oracle_injected_with_existing_code(self, tmp_path: Path) -> None:
@@ -414,9 +377,7 @@ class TestOracleGatingRuntime:
         spec_dir.mkdir()
         existing = tmp_path / "real.py"
         existing.write_text("# code")
-        (spec_dir / "design.md").write_text(
-            f"1. **`{existing}`** (modified) -- Change.\n"
-        )
+        (spec_dir / "design.md").write_text(f"1. **`{existing}`** (modified) -- Change.\n")
 
         graph = TaskGraph(
             nodes={
@@ -436,7 +397,5 @@ class TestOracleGatingRuntime:
         config = ArchetypesConfig(oracle=True, skeptic=False)
         ensure_graph_archetypes(graph, config, specs_dir=tmp_path)
 
-        oracle_nodes = [
-            nid for nid, n in graph.nodes.items() if n.archetype == "oracle"
-        ]
+        oracle_nodes = [nid for nid, n in graph.nodes.items() if n.archetype == "oracle"]
         assert len(oracle_nodes) == 1

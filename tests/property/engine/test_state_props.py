@@ -26,9 +26,7 @@ def session_records(draw: st.DrawFn) -> SessionRecord:
     output_tokens = draw(st.integers(min_value=0, max_value=100000))
     cost = draw(st.floats(min_value=0.0, max_value=10.0))
     duration_ms = draw(st.integers(min_value=0, max_value=600000))
-    error_message = (
-        draw(st.text(min_size=1, max_size=50)) if status == "failed" else None
-    )
+    error_message = draw(st.text(min_size=1, max_size=50)) if status == "failed" else None
 
     return SessionRecord(
         node_id=node_id,

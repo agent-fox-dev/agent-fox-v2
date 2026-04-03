@@ -34,9 +34,7 @@ def valid_finding_json(draw: st.DrawFn) -> dict:
     result: dict = {"severity": severity, "description": description}
     if draw(st.booleans()):
         ref_alpha = st.characters(whitelist_categories=("L", "N", "P"))
-        result["requirement_ref"] = draw(
-            st.text(min_size=1, max_size=20, alphabet=ref_alpha)
-        )
+        result["requirement_ref"] = draw(st.text(min_size=1, max_size=20, alphabet=ref_alpha))
     return result
 
 

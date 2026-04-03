@@ -32,17 +32,13 @@ _ARCHETYPES = [
 ]
 
 
-def _make_theme(
-    *, force_terminal: bool = False, width: int = 120
-) -> tuple[AppTheme, StringIO]:
+def _make_theme(*, force_terminal: bool = False, width: int = 120) -> tuple[AppTheme, StringIO]:
     """Create an AppTheme with a StringIO-backed console for testing."""
     config = ThemeConfig()
     theme = create_theme(config)
     buf = StringIO()
     rich_theme = Theme({role: getattr(config, role) for role in _STYLE_ROLES})
-    theme.console = Console(
-        file=buf, theme=rich_theme, width=width, force_terminal=force_terminal
-    )
+    theme.console = Console(file=buf, theme=rich_theme, width=width, force_terminal=force_terminal)
     return theme, buf
 
 
@@ -62,8 +58,7 @@ class TestTruncationLengthInvariant:
         """abbreviate_arg result never exceeds max_len."""
         result = abbreviate_arg(s, max_len)
         assert len(result) <= max_len, (
-            f"Result length {len(result)} exceeds max_len {max_len} "
-            f"for input {s!r}: {result!r}"
+            f"Result length {len(result)} exceeds max_len {max_len} for input {s!r}: {result!r}"
         )
 
 
@@ -91,9 +86,7 @@ class TestArchetypeLabelPresence:
         )
         line = display._format_task_line(event)
         text = str(line)
-        assert f"[{archetype}]" in text, (
-            f"Expected [{archetype}] in formatted line: {text!r}"
-        )
+        assert f"[{archetype}]" in text, f"Expected [{archetype}] in formatted line: {text!r}"
 
 
 class TestEventLineFormatCorrectness:
@@ -125,6 +118,4 @@ class TestEventLineFormatCorrectness:
         line = display._format_task_line(event)
         text = str(line)
         assert f"retry #{attempt}" in text, f"Expected 'retry #{attempt}' in: {text!r}"
-        assert ("escalated:" in text) == (esc is not None), (
-            f"Escalation mismatch for esc={esc!r}: {text!r}"
-        )
+        assert ("escalated:" in text) == (esc is not None), f"Escalation mismatch for esc={esc!r}: {text!r}"

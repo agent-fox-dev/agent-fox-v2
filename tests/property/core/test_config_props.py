@@ -23,9 +23,7 @@ class TestConfigDefaultsCompleteness:
 
     @given(whitespace=st.text(alphabet=" \t\n\r", max_size=50))
     @settings(max_examples=20)
-    def test_whitespace_toml_produces_defaults(
-        self, tmp_path_factory: pytest.TempPathFactory, whitespace: str
-    ) -> None:
+    def test_whitespace_toml_produces_defaults(self, tmp_path_factory: pytest.TempPathFactory, whitespace: str) -> None:
         """Any whitespace-only TOML produces all documented defaults."""
         tmp_dir = tmp_path_factory.mktemp("config")
         config_file = tmp_dir / "config.toml"
@@ -63,9 +61,7 @@ class TestConfigNumericClamping:
 
     @given(n=st.integers(min_value=-1000, max_value=1000))
     @settings(max_examples=50)
-    def test_parallel_clamped_to_valid_range(
-        self, tmp_path_factory: pytest.TempPathFactory, n: int
-    ) -> None:
+    def test_parallel_clamped_to_valid_range(self, tmp_path_factory: pytest.TempPathFactory, n: int) -> None:
         """orchestrator.parallel is always clamped to [1, 8]."""
         tmp_dir = tmp_path_factory.mktemp("config")
         config_file = tmp_dir / "config.toml"
@@ -77,9 +73,7 @@ class TestConfigNumericClamping:
 
     @given(n=st.integers(min_value=-1000, max_value=1000))
     @settings(max_examples=50)
-    def test_sync_interval_clamped_to_valid_range(
-        self, tmp_path_factory: pytest.TempPathFactory, n: int
-    ) -> None:
+    def test_sync_interval_clamped_to_valid_range(self, tmp_path_factory: pytest.TempPathFactory, n: int) -> None:
         """orchestrator.sync_interval is always clamped to >= 0."""
         tmp_dir = tmp_path_factory.mktemp("config")
         config_file = tmp_dir / "config.toml"
@@ -91,9 +85,7 @@ class TestConfigNumericClamping:
 
     @given(n=st.integers(min_value=-1000, max_value=1000))
     @settings(max_examples=50)
-    def test_session_timeout_clamped_to_valid_range(
-        self, tmp_path_factory: pytest.TempPathFactory, n: int
-    ) -> None:
+    def test_session_timeout_clamped_to_valid_range(self, tmp_path_factory: pytest.TempPathFactory, n: int) -> None:
         """orchestrator.session_timeout is always clamped to >= 1."""
         tmp_dir = tmp_path_factory.mktemp("config")
         config_file = tmp_dir / "config.toml"

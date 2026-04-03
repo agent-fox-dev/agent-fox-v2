@@ -148,18 +148,14 @@ class TestUnknownSeverityNormalized:
 
     def test_unknown_severity_normalized(self) -> None:
         """Unknown severity value is normalized to 'observation'."""
-        response = (
-            '```json\n[{"severity": "urgent", "description": "Something urgent"}]\n```'
-        )
+        response = '```json\n[{"severity": "urgent", "description": "Something urgent"}]\n```'
         findings = parse_review_output(response, "s", "1", "s1")
         assert len(findings) == 1
         assert findings[0].severity == "observation"
 
     def test_case_insensitive_severity(self) -> None:
         """Severity matching is case-insensitive."""
-        response = (
-            '```json\n[{"severity": "CRITICAL", "description": "Big problem"}]\n```'
-        )
+        response = '```json\n[{"severity": "CRITICAL", "description": "Big problem"}]\n```'
         findings = parse_review_output(response, "s", "1", "s1")
         assert len(findings) == 1
         assert findings[0].severity == "critical"
@@ -171,11 +167,7 @@ class TestSkepticTemplateJson:
     def test_skeptic_template_json(self) -> None:
         """Skeptic template contains JSON output instructions."""
         template_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
-            / "agent_fox"
-            / "_templates"
-            / "prompts"
-            / "skeptic.md"
+            Path(__file__).resolve().parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts" / "skeptic.md"
         )
         content = template_path.read_text(encoding="utf-8")
         assert '"findings"' in content
@@ -186,11 +178,7 @@ class TestSkepticTemplateJson:
     def test_skeptic_template_constraints(self) -> None:
         """Skeptic template retains read-only constraints."""
         template_path = (
-            Path(__file__).resolve().parent.parent.parent.parent
-            / "agent_fox"
-            / "_templates"
-            / "prompts"
-            / "skeptic.md"
+            Path(__file__).resolve().parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts" / "skeptic.md"
         )
         content = template_path.read_text(encoding="utf-8")
         assert "read-only" in content.lower() or "read only" in content.lower()

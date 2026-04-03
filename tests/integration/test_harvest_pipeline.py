@@ -117,8 +117,7 @@ class TestFactProvenance:
         sync_facts_to_duckdb(knowledge_db, [fact])
 
         row = knowledge_db.connection.execute(
-            "SELECT category, spec_name, session_id, commit_sha, confidence "
-            "FROM memory_facts WHERE id = ?::UUID",
+            "SELECT category, spec_name, session_id, commit_sha, confidence FROM memory_facts WHERE id = ?::UUID",
             [fact.id],
         ).fetchone()
 
@@ -201,8 +200,7 @@ class TestCausalLinkIdempotent:
         store_causal_links(conn, [(fact_a.id, fact_b.id)])
 
         count = conn.execute(
-            "SELECT COUNT(*) FROM fact_causes "
-            "WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
+            "SELECT COUNT(*) FROM fact_causes WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
             [fact_a.id, fact_b.id],
         ).fetchone()[0]
         assert count == 1
@@ -219,9 +217,7 @@ class TestMissingFactLinkSkipped:
     Requirement: 52-REQ-7.E1
     """
 
-    def test_link_with_nonexistent_fact_skipped(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_link_with_nonexistent_fact_skipped(self, knowledge_db: KnowledgeDB) -> None:
         """Links referencing non-existent facts should not be inserted."""
         existing_fact = _make_fact(content="I exist")
         sync_facts_to_duckdb(knowledge_db, [existing_fact])
@@ -235,9 +231,7 @@ class TestMissingFactLinkSkipped:
         count = conn.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]
         assert count == 0
 
-    def test_link_with_both_nonexistent_skipped(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_link_with_both_nonexistent_skipped(self, knowledge_db: KnowledgeDB) -> None:
         """Links where both facts are missing should not be inserted."""
         id_a = str(uuid.uuid4())
         id_b = str(uuid.uuid4())

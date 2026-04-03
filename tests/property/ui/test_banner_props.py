@@ -80,9 +80,7 @@ class TestFoxArtAlwaysPresent:
         output = _capture_banner(theme_config, ModelConfig())
 
         for line in EXPECTED_FOX_ART.splitlines():
-            assert line in output, (
-                f"Fox art line {line!r} missing from output with playful={playful}"
-            )
+            assert line in output, f"Fox art line {line!r} missing from output with playful={playful}"
 
 
 class TestVersionLineAlwaysPresent:
@@ -102,9 +100,7 @@ class TestVersionLineAlwaysPresent:
 
         resolved_id = _MODEL_RESOLUTION[model_name]
         expected = f"agent-fox v{__version__} (abc1234).  model: {resolved_id}"
-        assert expected in output, (
-            f"Expected {expected!r} for coding={model_name!r}, got:\n{output}"
-        )
+        assert expected in output, f"Expected {expected!r} for coding={model_name!r}, got:\n{output}"
 
 
 class TestModelFallbackNeverCrashes:
@@ -136,9 +132,7 @@ class TestQuietProducesNoOutput:
         coding=st.sampled_from(_VALID_MODEL_NAMES + ["NONEXISTENT", ""]),
     )
     @settings(max_examples=20)
-    def test_quiet_always_produces_empty_output(
-        self, playful: bool, coding: str
-    ) -> None:
+    def test_quiet_always_produces_empty_output(self, playful: bool, coding: str) -> None:
         """quiet=True always results in empty output."""
         theme_config = ThemeConfig(playful=playful)
         model_config = ModelConfig(coding=coding)
@@ -153,11 +147,7 @@ class TestCwdAlwaysPresent:
     the cwd string.
     """
 
-    @given(
-        cwd_path=st.sampled_from(
-            ["/tmp/a", "/home/user/project", "/a/b/c/d", "/workspace"]
-        )
-    )
+    @given(cwd_path=st.sampled_from(["/tmp/a", "/home/user/project", "/a/b/c/d", "/workspace"]))
     @settings(max_examples=10)
     def test_cwd_appears_for_any_path(self, cwd_path: str) -> None:
         """CWD string appears in banner for any working directory."""
@@ -165,6 +155,4 @@ class TestCwdAlwaysPresent:
 
         with patch.object(Path, "cwd", return_value=Path(cwd_path)):
             output = _capture_banner(ThemeConfig(), ModelConfig())
-        assert cwd_path in output, (
-            f"Expected cwd {cwd_path!r} in output, got:\n{output}"
-        )
+        assert cwd_path in output, f"Expected cwd {cwd_path!r} in output, got:\n{output}"

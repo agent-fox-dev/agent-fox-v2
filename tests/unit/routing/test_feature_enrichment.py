@@ -389,9 +389,7 @@ class TestFeatureVectorSerialization:
 class TestNoPriorOutcomes:
     """TS-54-E2: Historical median is None when no outcomes exist."""
 
-    def test_no_prior_outcomes(
-        self, no_paths_spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_prior_outcomes(self, no_paths_spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-54-E2: Empty outcomes → historical_median_duration_ms=None.
 
         Requirement: 54-REQ-6.2
@@ -414,9 +412,7 @@ class TestNoPriorOutcomes:
 class TestSinglePriorOutcome:
     """TS-54-E3: Median of one value equals that value."""
 
-    def test_single_outcome(
-        self, no_paths_spec_dir: Path, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_single_outcome(self, no_paths_spec_dir: Path, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-54-E3: One outcome of 500ms → median=500.
 
         Requirement: 54-REQ-6.E1

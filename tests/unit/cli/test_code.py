@@ -423,9 +423,7 @@ class TestDebugFlag:
         result = cli_runner.invoke(main, ["code", "--help"])
         assert "--debug" in result.output
 
-    def test_debug_passes_debug_true_to_run_code(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_debug_passes_debug_true_to_run_code(self, cli_runner: CliRunner) -> None:
         """With --debug, run_code is called with debug=True."""
         state = _make_execution_state(run_status="completed")
         mock_rc = _mock_run_code(state)
@@ -440,9 +438,7 @@ class TestDebugFlag:
         mock_rc.assert_called_once()
         assert mock_rc.call_args.kwargs["debug"] is True
 
-    def test_no_debug_passes_debug_false_to_run_code(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_no_debug_passes_debug_false_to_run_code(self, cli_runner: CliRunner) -> None:
         """Without --debug, run_code is called with debug=False."""
         state = _make_execution_state(run_status="completed")
         mock_rc = _mock_run_code(state)
@@ -563,9 +559,7 @@ class TestNodeSessionRunnerHarvestError:
 
         config = AgentFoxConfig()
         sink = MagicMock()
-        runner = NodeSessionRunner(
-            "test_spec:1", config, sink_dispatcher=sink, knowledge_db=_MOCK_KB
-        )
+        runner = NodeSessionRunner("test_spec:1", config, sink_dispatcher=sink, knowledge_db=_MOCK_KB)
 
         mock_outcome = SessionOutcome(
             spec_name="test_spec",
@@ -652,9 +646,7 @@ class TestFinallyBlockCleanup:
     executing.
     """
 
-    def test_cleanup_continues_after_export_failure(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_cleanup_continues_after_export_failure(self, cli_runner: CliRunner) -> None:
         """Cleanup completes even when internal export fails."""
         state = _make_execution_state(run_status="completed")
         with (
@@ -666,9 +658,7 @@ class TestFinallyBlockCleanup:
 
         assert result.exit_code == 0
 
-    def test_cleanup_continues_after_sink_close_failure(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_cleanup_continues_after_sink_close_failure(self, cli_runner: CliRunner) -> None:
         """Cleanup completes even when internal sink close fails."""
         state = _make_execution_state(run_status="completed")
         with (

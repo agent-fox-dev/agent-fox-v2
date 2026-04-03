@@ -140,10 +140,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     # Check if memory_facts table exists; skip if not
     tables = {
         r[0]
-        for r in conn.execute(
-            "SELECT table_name FROM information_schema.tables "
-            "WHERE table_schema = 'main'"
-        ).fetchall()
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
     }
     if "memory_facts" not in tables:
         logger.info("memory_facts table not found, skipping v5 migration")
@@ -194,17 +191,13 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     # Save embeddings data if it exists
     has_embeddings = False
     try:
-        embedding_count = conn.execute(
-            "SELECT COUNT(*) FROM memory_embeddings"
-        ).fetchone()[0]
+        embedding_count = conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0]
         has_embeddings = embedding_count > 0
     except Exception:
         pass
 
     if has_embeddings:
-        conn.execute(
-            "CREATE TEMP TABLE embeddings_backup AS SELECT * FROM memory_embeddings"
-        )
+        conn.execute("CREATE TEMP TABLE embeddings_backup AS SELECT * FROM memory_embeddings")
 
     # Drop memory_embeddings (depends on memory_facts via FK)
     conn.execute("DROP TABLE IF EXISTS memory_embeddings")

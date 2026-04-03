@@ -51,9 +51,7 @@ class TestLockReleaseOnSuccess:
     """TS-45-5: Lock file removed after successful harvest."""
 
     @pytest.mark.asyncio
-    async def test_lock_file_removed_after_harvest(
-        self, repo_root: Path, fake_workspace: WorkspaceInfo
-    ) -> None:
+    async def test_lock_file_removed_after_harvest(self, repo_root: Path, fake_workspace: WorkspaceInfo) -> None:
         """After a successful harvest, the lock file does not exist."""
         lock_file = repo_root / ".agent-fox" / "merge.lock"
 
@@ -93,9 +91,7 @@ class TestLockReleaseOnFailure:
     """TS-45-6: Lock released even when harvest raises."""
 
     @pytest.mark.asyncio
-    async def test_lock_file_removed_on_failure(
-        self, repo_root: Path, fake_workspace: WorkspaceInfo
-    ) -> None:
+    async def test_lock_file_removed_on_failure(self, repo_root: Path, fake_workspace: WorkspaceInfo) -> None:
         """Lock file is removed even when harvest raises IntegrationError."""
         lock_file = repo_root / ".agent-fox" / "merge.lock"
 
@@ -156,9 +152,7 @@ class TestLockCoversPostHarvest:
     """TS-45-7: Lock held during post-harvest integration."""
 
     @pytest.mark.asyncio
-    async def test_post_harvest_runs_inside_lock(
-        self, repo_root: Path, fake_workspace: WorkspaceInfo
-    ) -> None:
+    async def test_post_harvest_runs_inside_lock(self, repo_root: Path, fake_workspace: WorkspaceInfo) -> None:
         """post_harvest_integrate runs while the lock is still held."""
         lock_file = repo_root / ".agent-fox" / "merge.lock"
         lock_held_during_post_harvest = []
@@ -246,9 +240,7 @@ class TestAgentFailureAbortsHarvest:
     """TS-45-E5: Agent failure raises IntegrationError in harvest."""
 
     @pytest.mark.asyncio
-    async def test_agent_failure_raises(
-        self, repo_root: Path, fake_workspace: WorkspaceInfo
-    ) -> None:
+    async def test_agent_failure_raises(self, repo_root: Path, fake_workspace: WorkspaceInfo) -> None:
         """When merge agent returns False, harvest raises IntegrationError."""
         with (
             patch(
@@ -305,9 +297,7 @@ class TestDevelopSyncAgentFailureWarns:
     """TS-45-E7: Develop sync agent failure logs warning and continues."""
 
     @pytest.mark.asyncio
-    async def test_agent_failure_logs_warning(
-        self, repo_root: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_agent_failure_logs_warning(self, repo_root: Path, caplog: pytest.LogCaptureFixture) -> None:
         """When merge agent fails during develop sync, a warning is logged."""
         call_count = 0
 

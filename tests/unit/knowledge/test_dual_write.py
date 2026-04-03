@@ -51,8 +51,7 @@ class TestDuckDBWrite:
 
         # Check DuckDB
         row = schema_conn.execute(
-            "SELECT CAST(id AS VARCHAR), content, category, spec_name "
-            "FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
+            "SELECT CAST(id AS VARCHAR), content, category, spec_name FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
             [FACT_AAA],
         ).fetchone()
         assert row is not None
@@ -137,8 +136,7 @@ class TestDuckDBWriteErrorPropagation:
 
         # Check DuckDB
         row = schema_conn.execute(
-            "SELECT CAST(id AS VARCHAR) FROM memory_facts "
-            "WHERE CAST(id AS VARCHAR) = ?",
+            "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
             [FACT_AAA],
         ).fetchone()
         assert row is not None
@@ -168,8 +166,7 @@ class TestWriteWithoutEmbedding:
 
         # Fact in memory_facts
         row = schema_conn.execute(
-            "SELECT CAST(id AS VARCHAR) FROM memory_facts "
-            "WHERE CAST(id AS VARCHAR) = ?",
+            "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
             [FACT_AAA],
         ).fetchone()
         assert row is not None
@@ -211,8 +208,7 @@ class TestSupersession:
         store.mark_superseded(FACT_AAA, FACT_BBB)
 
         row = schema_conn.execute(
-            "SELECT CAST(superseded_by AS VARCHAR) "
-            "FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
+            "SELECT CAST(superseded_by AS VARCHAR) FROM memory_facts WHERE CAST(id AS VARCHAR) = ?",
             [FACT_AAA],
         ).fetchone()
         assert row is not None

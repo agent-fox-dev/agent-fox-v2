@@ -48,10 +48,7 @@ def _make_orchestrator_with_graph(
         )
         for nid, n in plan_nodes.items()
     }
-    typed_edges = [
-        Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec"))
-        for e in edges_list
-    ]
+    typed_edges = [Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec")) for e in edges_list]
     orch._graph = TaskGraph(
         nodes=typed_nodes,
         edges=typed_edges,
@@ -146,9 +143,7 @@ class TestPredecessorReset:
             "spec:5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(plan_nodes, edges_list, node_states)
 
         failed_record = SessionRecord(
             node_id="spec:5",
@@ -284,9 +279,7 @@ class TestNonCoderPredecessor:
             "spec:4": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_orchestrator_with_graph(plan_nodes, edges_list, node_states)
 
         failed_record = SessionRecord(
             node_id="spec:4",
@@ -331,6 +324,4 @@ class TestPropertyRetryPredecessor:
             if name in retry_archetypes:
                 assert entry.retry_predecessor is True
             else:
-                assert entry.retry_predecessor is False, (
-                    f"{name} should not have retry_predecessor"
-                )
+                assert entry.retry_predecessor is False, f"{name} should not have retry_predecessor"
