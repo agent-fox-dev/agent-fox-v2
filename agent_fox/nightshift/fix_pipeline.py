@@ -12,12 +12,24 @@ Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.github import IssueResult
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FixMetrics:
+    """Aggregated token metrics from all sessions in a fix pipeline run."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    sessions_run: int = 0
 
 
 def build_pr_body(issue_number: int, summary: str) -> str:
@@ -114,15 +126,27 @@ class FixPipeline:
                 check=False,
             )
 
+    def _accumulate_metrics(self, metrics: FixMetrics, outcome: object) -> None:
+        """Add a SessionOutcome's tokens to the running metrics."""
+        metrics.input_tokens += getattr(outcome, "input_tokens", 0)
+        metrics.output_tokens += getattr(outcome, "output_tokens", 0)
+        metrics.cache_read_input_tokens += getattr(outcome, "cache_read_input_tokens", 0)
+        metrics.cache_creation_input_tokens += getattr(outcome, "cache_creation_input_tokens", 0)
+        metrics.sessions_run += 1
+
     async def process_issue(
         self,
         issue: IssueResult,
         issue_body: str = "",
-    ) -> None:
+    ) -> FixMetrics:
         """Process an af:fix issue through the full pipeline.
+
+        Returns FixMetrics with aggregated token counts from all sessions.
 
         Requirements: 61-REQ-6.1, 61-REQ-6.E2
         """
+        metrics = FixMetrics()
+
         # 61-REQ-6.E2: reject empty issue body
         if not issue_body or not issue_body.strip():
             await self._platform.add_issue_comment(  # type: ignore[union-attr]
@@ -130,7 +154,7 @@ class FixPipeline:
                 "Insufficient detail in issue body to build a fix. "
                 "Please add more detail describing the problem and expected behavior.",
             )
-            return
+            return metrics
 
         spec = build_in_memory_spec(issue, issue_body)
 
@@ -145,9 +169,9 @@ class FixPipeline:
 
         try:
             # 61-REQ-6.3: full archetype pipeline
-            await self._run_session("skeptic", spec=spec)
-            await self._run_session("coder", spec=spec)
-            await self._run_session("verifier", spec=spec)
+            for archetype in ("skeptic", "coder", "verifier"):
+                outcome = await self._run_session(archetype, spec=spec)
+                self._accumulate_metrics(metrics, outcome)
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
             await self._platform.add_issue_comment(  # type: ignore[union-attr]
@@ -159,7 +183,7 @@ class FixPipeline:
                 issue.number,
                 exc,
             )
-            return
+            return metrics
 
         # Harvest fix branch into develop and push to origin (65-REQ-3.2).
         if not await self._harvest_and_push(spec):
@@ -169,7 +193,7 @@ class FixPipeline:
                 f"`{spec.branch_name}` into `develop`. "
                 "Manual merge is required.",
             )
-            return
+            return metrics
 
         # Close the originating issue with a comment pointing to the branch.
         # PR creation is no longer done via the platform layer (65-REQ-4.2).
@@ -184,11 +208,19 @@ class FixPipeline:
             issue.number,
             spec.branch_name,
         )
+        return metrics
+
+    async def _restore_develop(self) -> None:
+        """Check out develop to leave the repo in a clean state."""
+        from agent_fox.workspace.git import run_git
+
+        await run_git(["checkout", "develop"], cwd=Path.cwd(), check=False)
 
     async def _harvest_and_push(self, spec: InMemorySpec) -> bool:
         """Harvest the fix branch into develop and push to origin.
 
-        Returns True on success, False on failure.
+        Returns True on success, False on failure.  Always restores the
+        working tree to ``develop`` afterwards.
         """
         from agent_fox.workspace.harvest import harvest, post_harvest_integrate
         from agent_fox.workspace.worktree import WorkspaceInfo
@@ -210,5 +242,7 @@ class FixPipeline:
                 spec.branch_name,
                 exc,
             )
+            await self._restore_develop()
             return False
+        await self._restore_develop()
         return True
