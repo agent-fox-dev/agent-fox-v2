@@ -26,8 +26,8 @@ Group 3 is wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/workspace/test_worktree_hardening.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/workspace/test_worktree_hardening.py`
     - Test `branch_used_by_worktree` — TS-80-1, TS-80-2, TS-80-10
     - Test `delete_branch` self-healing — TS-80-5, TS-80-6
     - Test `_cleanup_empty_ancestors` — TS-80-7
@@ -35,7 +35,7 @@ Group 3 is wiring verification.
     - Test post-prune retry — TS-80-9
     - _Test Spec: TS-80-1, TS-80-2, TS-80-5 through TS-80-10, TS-80-E2, TS-80-E3, TS-80-E4_
 
-  - [ ] 1.2 Create integration test file `tests/integration/workspace/test_worktree_hardening.py`
+  - [x] 1.2 Create integration test file `tests/integration/workspace/test_worktree_hardening.py`
     - Test `destroy_worktree` with real git — TS-80-3
     - Test `create_worktree` with stale state — TS-80-4
     - Test `create_worktree` orphan cleanup — TS-80-8
@@ -43,16 +43,16 @@ Group 3 is wiring verification.
     - Test smoke scenarios — TS-80-SMOKE-1, TS-80-SMOKE-2
     - _Test Spec: TS-80-3, TS-80-4, TS-80-8, TS-80-E1, TS-80-SMOKE-1, TS-80-SMOKE-2_
 
-  - [ ] 1.3 Create property test file `tests/property/workspace/test_worktree_hardening_props.py`
+  - [x] 1.3 Create property test file `tests/property/workspace/test_worktree_hardening_props.py`
     - Porcelain parsing accuracy — TS-80-P1
     - Ancestor cleanup safety — TS-80-P2
     - delete_branch stale worktree safety — TS-80-P3
     - _Test Spec: TS-80-P1, TS-80-P2, TS-80-P3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
 - [ ] 2. Implement worktree hardening
   - [ ] 2.1 Add `branch_used_by_worktree()` to `agent_fox/workspace/git.py`
