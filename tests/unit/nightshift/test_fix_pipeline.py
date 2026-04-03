@@ -222,6 +222,7 @@ class TestSuccessfulFixHarvestsAndCloses:
 
         # Stub out the archetype sessions so they succeed without real work
         pipeline._run_session = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
         issue = IssueResult(
             number=7,
@@ -229,13 +230,42 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/7",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock()) as mock_harvest:
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)) as mock_harvest:
             await pipeline.process_issue(issue, issue_body="Login is broken.")
 
         mock_harvest.assert_awaited_once()
         mock_platform.close_issue.assert_awaited_once()
         closed_num = mock_platform.close_issue.call_args[0][0]
         assert closed_num == 7
+
+    @pytest.mark.asyncio
+    async def test_issue_not_closed_on_harvest_failure(self) -> None:
+        """When harvest/push fails, the issue is NOT closed."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._run_session = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+
+        issue = IssueResult(
+            number=9,
+            title="Fix something else",
+            html_url="https://github.com/test/repo/issues/9",
+        )
+
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+            await pipeline.process_issue(issue, issue_body="Something else is broken.")
+
+        mock_platform.close_issue.assert_not_awaited()
+        # A comment about manual merge should be posted
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+        assert any("manual" in c.lower() or "merge" in c.lower() for c in comments)
 
     @pytest.mark.asyncio
     async def test_issue_not_closed_on_session_failure(self) -> None:
@@ -249,6 +279,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
             side_effect=RuntimeError("session boom")
         )

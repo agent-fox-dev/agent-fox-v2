@@ -134,6 +134,9 @@ class FixPipeline:
 
         spec = build_in_memory_spec(issue, issue_body)
 
+        # 61-REQ-6.2: create the fix branch from develop HEAD
+        await self._create_fix_branch(spec.branch_name)
+
         # Post progress comment
         await self._platform.add_issue_comment(  # type: ignore[union-attr]
             issue.number,
@@ -159,7 +162,14 @@ class FixPipeline:
             return
 
         # Harvest fix branch into develop and push to origin (65-REQ-3.2).
-        await self._harvest_and_push(spec)
+        if not await self._harvest_and_push(spec):
+            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                issue.number,
+                f"Fix sessions completed but failed to merge branch "
+                f"`{spec.branch_name}` into `develop`. "
+                "Manual merge is required.",
+            )
+            return
 
         # Close the originating issue with a comment pointing to the branch.
         # PR creation is no longer done via the platform layer (65-REQ-4.2).
@@ -175,11 +185,10 @@ class FixPipeline:
             spec.branch_name,
         )
 
-    async def _harvest_and_push(self, spec: InMemorySpec) -> None:
+    async def _harvest_and_push(self, spec: InMemorySpec) -> bool:
         """Harvest the fix branch into develop and push to origin.
 
-        Best-effort: failures are logged as warnings and do not abort
-        the pipeline (the issue is still closed on success).
+        Returns True on success, False on failure.
         """
         from agent_fox.workspace.harvest import harvest, post_harvest_integrate
         from agent_fox.workspace.worktree import WorkspaceInfo
@@ -201,3 +210,5 @@ class FixPipeline:
                 spec.branch_name,
                 exc,
             )
+            return False
+        return True

@@ -48,6 +48,7 @@ class TestArchetypePipeline:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
         archetypes_used: list[str] = []
 
@@ -85,6 +86,7 @@ class TestFixProgressComments:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,
@@ -118,6 +120,7 @@ class TestFixCompletionComment:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,
@@ -152,6 +155,7 @@ class TestFixSessionFailure:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,
