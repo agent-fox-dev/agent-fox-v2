@@ -55,24 +55,24 @@ verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Implement dedup module (pure functions)
-  - [ ] 2.1 Create `agent_fox/nightshift/dedup.py` with module docstring
+- [x] 2. Implement dedup module (pure functions)
+  - [x] 2.1 Create `agent_fox/nightshift/dedup.py` with module docstring
     - Define `FINGERPRINT_LABEL = "af:hunt"`
     - Define `_FINGERPRINT_PATTERN` regex
     - _Requirements: 79-REQ-3.1_
 
-  - [ ] 2.2 Implement `compute_fingerprint()`
+  - [x] 2.2 Implement `compute_fingerprint()`
     - SHA-256 of category + NUL + sorted deduplicated affected_files joined by NUL
     - Return first 16 hex characters
     - Handle empty affected_files (category-only hash)
     - _Requirements: 79-REQ-1.1, 79-REQ-1.2, 79-REQ-1.3, 79-REQ-1.E1, 79-REQ-1.E2, 79-REQ-5.1, 79-REQ-5.2, 79-REQ-5.E1_
 
-  - [ ] 2.3 Implement `embed_fingerprint()` and `extract_fingerprint()`
+  - [x] 2.3 Implement `embed_fingerprint()` and `extract_fingerprint()`
     - Append `\n<!-- af:fingerprint:{fp} -->` to body
     - Extract first match of `_FINGERPRINT_PATTERN` from body, return hex or None
     - _Requirements: 79-REQ-2.1, 79-REQ-2.2, 79-REQ-2.E1, 79-REQ-2.E2_
 
-  - [ ] 2.4 Implement `filter_known_duplicates()`
+  - [x] 2.4 Implement `filter_known_duplicates()`
     - Fetch open `af:hunt` issues via `platform.list_issues_by_label`
     - Extract fingerprints from issue bodies into a dict (fp -> issue_number)
     - Compute fingerprint for each group, skip if in known set
@@ -80,13 +80,13 @@ verification.
     - Catch platform exceptions: log warning, return all groups (fail-open)
     - _Requirements: 79-REQ-4.1, 79-REQ-4.2, 79-REQ-4.3, 79-REQ-4.4, 79-REQ-4.E1, 79-REQ-4.E2, 79-REQ-4.E3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Unit tests pass: `uv run pytest -q tests/unit/nightshift/test_dedup.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/nightshift/test_dedup_props.py`
-    - [ ] Integration tests for filter pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py -k "filter"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 79-REQ-1.*, 79-REQ-2.*, 79-REQ-4.*, 79-REQ-5.* met
+  - [x] 2.V Verify task group 2
+    - [x] Unit tests pass: `uv run pytest -q tests/unit/nightshift/test_dedup.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/nightshift/test_dedup_props.py`
+    - [x] Integration tests for filter pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py -k "filter"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 79-REQ-1.*, 79-REQ-2.*, 79-REQ-4.*, 79-REQ-5.* met
 
 - [ ] 3. Pipeline integration
   - [ ] 3.1 Modify `create_issues_from_groups()` in `finding.py`
