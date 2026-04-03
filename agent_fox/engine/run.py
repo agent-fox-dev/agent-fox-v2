@@ -41,6 +41,8 @@ class InterruptedResult:
 def _apply_overrides(
     config: OrchestratorConfig,
     parallel: int | None,
+    max_cost: float | None = None,
+    max_sessions: int | None = None,
     watch_interval: int | None = None,
 ) -> OrchestratorConfig:
     """Return a new OrchestratorConfig with CLI overrides applied.
@@ -48,13 +50,18 @@ def _apply_overrides(
     Only overrides fields that were explicitly provided (not None).
     All non-overridden fields are preserved from the original config.
 
-    Requirements: 16-REQ-2.1, 16-REQ-2.5, 70-REQ-3.3
+    Requirements: 16-REQ-2.1, 16-REQ-2.3, 16-REQ-2.4, 16-REQ-2.5,
+                  70-REQ-3.3
     """
     from agent_fox.core.config import OrchestratorConfig as OC
 
     overrides: dict[str, object] = {}
     if parallel is not None:
         overrides["parallel"] = parallel
+    if max_cost is not None:
+        overrides["max_cost"] = max_cost
+    if max_sessions is not None:
+        overrides["max_sessions"] = max_sessions
     if watch_interval is not None:
         overrides["watch_interval"] = watch_interval
     if overrides:
@@ -191,6 +198,8 @@ async def run_code(
     *,
     parallel: int | None = None,
     no_hooks: bool = False,
+    max_cost: float | None = None,
+    max_sessions: int | None = None,
     debug: bool = False,
     watch: bool = False,
     watch_interval: int | None = None,
@@ -228,6 +237,8 @@ async def run_code(
         orch_config = _apply_overrides(
             config.orchestrator,
             parallel,
+            max_cost=max_cost,
+            max_sessions=max_sessions,
             watch_interval=watch_interval,
         )
     except Exception:

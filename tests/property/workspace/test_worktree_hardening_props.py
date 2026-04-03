@@ -99,19 +99,14 @@ class TestPorcelainParsingAccuracy:
         assume(branch_name and not branch_name.startswith("-"))
 
         porcelain = _build_porcelain(entries)
-        expected = any(
-            e.branch_ref == f"refs/heads/{branch_name}" for e in entries
-        )
+        expected = any(e.branch_ref == f"refs/heads/{branch_name}" for e in entries)
 
         mock_run_git = AsyncMock(return_value=(0, porcelain, ""))
         with patch("agent_fox.workspace.git.run_git", mock_run_git):
-            result = asyncio.get_event_loop().run_until_complete(
-                branch_used_by_worktree(Path("/repo"), branch_name)
-            )
+            result = asyncio.run(branch_used_by_worktree(Path("/repo"), branch_name))
 
         assert result == expected, (
-            f"branch_used_by_worktree({branch_name!r}) returned {result}, "
-            f"expected {expected}. Porcelain:\n{porcelain}"
+            f"branch_used_by_worktree({branch_name!r}) returned {result}, expected {expected}. Porcelain:\n{porcelain}"
         )
 
     @given(
@@ -129,9 +124,7 @@ class TestPorcelainParsingAccuracy:
 
         mock_run_git = AsyncMock(return_value=(0, "", ""))
         with patch("agent_fox.workspace.git.run_git", mock_run_git):
-            result = asyncio.get_event_loop().run_until_complete(
-                branch_used_by_worktree(Path("/repo"), branch_name)
-            )
+            result = asyncio.run(branch_used_by_worktree(Path("/repo"), branch_name))
 
         assert result is False
 
@@ -246,9 +239,7 @@ class TestAncestorCleanupSafety:
         _cleanup_empty_ancestors(target, root)
 
         # The intermediate dir has sibling.txt — must not be removed
-        assert intermediate.exists(), (
-            f"Non-empty intermediate directory {intermediate} must be preserved"
-        )
+        assert intermediate.exists(), f"Non-empty intermediate directory {intermediate} must be preserved"
 
 
 # ---------------------------------------------------------------------------
@@ -288,10 +279,7 @@ class TestDeleteBranchNeverRaisesOnStaleWorktree:
         # Ensure the path genuinely does not exist
         assume(not Path(worktree_path).exists())
 
-        used_by_err = (
-            f"error: Cannot delete branch '{branch_name}' "
-            f"used by worktree at '{worktree_path}'\n"
-        )
+        used_by_err = f"error: Cannot delete branch '{branch_name}' used by worktree at '{worktree_path}'\n"
         call_responses: list[tuple[int, str, str]] = [
             # First delete attempt: fails with "used by worktree"
             (1, "", used_by_err),
@@ -305,10 +293,6 @@ class TestDeleteBranchNeverRaisesOnStaleWorktree:
         with patch("agent_fox.workspace.git.run_git", mock_run_git):
             # Must NOT raise WorkspaceError
             try:
-                asyncio.get_event_loop().run_until_complete(
-                    delete_branch(tmp_path, branch_name, force=True)
-                )
+                asyncio.run(delete_branch(tmp_path, branch_name, force=True))
             except WorkspaceError as exc:
-                pytest.fail(
-                    f"delete_branch raised WorkspaceError for stale worktree: {exc}"
-                )
+                pytest.fail(f"delete_branch raised WorkspaceError for stale worktree: {exc}")
