@@ -85,19 +85,11 @@ def heuristic_assess(features: FeatureVector) -> tuple[ModelTier, float]:
     confidence = 0.6
 
     # Check ADVANCED conditions first (any one triggers ADVANCED)
-    if (
-        features.subtask_count >= 6
-        or features.dependency_count >= 3
-        or features.has_property_tests
-    ):
+    if features.subtask_count >= 6 or features.dependency_count >= 3 or features.has_property_tests:
         return ModelTier.ADVANCED, confidence
 
     # Check SIMPLE conditions (all must hold)
-    if (
-        features.subtask_count <= 3
-        and features.spec_word_count < 500
-        and not features.has_property_tests
-    ):
+    if features.subtask_count <= 3 and features.spec_word_count < 500 and not features.has_property_tests:
         return ModelTier.SIMPLE, confidence
 
     # Default: STANDARD
@@ -161,10 +153,7 @@ async def llm_assess(
                 client,
                 model=model,
                 max_tokens=50,
-                system=(
-                    "You are a task complexity assessor."
-                    " Respond only with the tier and confidence."
-                ),
+                system=("You are a task complexity assessor. Respond only with the tier and confidence."),
                 messages=[{"role": "user", "content": prompt}],
             )
 
@@ -252,18 +241,14 @@ class AssessmentPipeline:
         Requirements: 30-REQ-1.1, 30-REQ-7.E1
         """
         try:
-            return await self._assess_inner(
-                node_id, spec_name, task_group, spec_dir, archetype, tier_ceiling
-            )
+            return await self._assess_inner(node_id, spec_name, task_group, spec_dir, archetype, tier_ceiling)
         except Exception:
             logger.error(
                 "Assessment pipeline failed for %s, falling back to default",
                 node_id,
                 exc_info=True,
             )
-            return self._make_fallback_assessment(
-                node_id, spec_name, task_group, archetype, tier_ceiling
-            )
+            return self._make_fallback_assessment(node_id, spec_name, task_group, archetype, tier_ceiling)
 
     async def _assess_inner(
         self,
@@ -299,9 +284,7 @@ class AssessmentPipeline:
             )
 
         # 4. Run the appropriate assessor(s)
-        predicted_tier, confidence, effective_method = await self._run_assessors(
-            method, features, spec_dir, task_group
-        )
+        predicted_tier, confidence, effective_method = await self._run_assessors(method, features, spec_dir, task_group)
 
         # 5. Clamp to tier ceiling
         predicted_tier = self._clamp_to_ceiling(predicted_tier, tier_ceiling)
@@ -324,9 +307,7 @@ class AssessmentPipeline:
         try:
             persist_assessment(self._db, assessment)
         except Exception:
-            logger.warning(
-                "Failed to persist assessment %s", assessment.id, exc_info=True
-            )
+            logger.warning("Failed to persist assessment %s", assessment.id, exc_info=True)
 
         logger.info(
             "Assessment for %s: tier=%s confidence=%.2f method=%s",
@@ -361,9 +342,7 @@ class AssessmentPipeline:
         # method == "hybrid": run both statistical and LLM
         return await self._run_hybrid(features, spec_dir, task_group)
 
-    def _run_statistical(
-        self, features: FeatureVector
-    ) -> tuple[ModelTier, float, bool]:
+    def _run_statistical(self, features: FeatureVector) -> tuple[ModelTier, float, bool]:
         """Run the statistical assessor.
 
         Returns (tier, confidence, fell_back) where fell_back is True if
@@ -456,16 +435,12 @@ class AssessmentPipeline:
         try:
             from agent_fox.routing.calibration import StatisticalAssessor
         except ImportError:
-            logger.warning(
-                "Statistical assessor not available (calibration module missing)"
-            )
+            logger.warning("Statistical assessor not available (calibration module missing)")
             return
 
         needs_training = self._statistical is None
         needs_retraining = (
-            self._statistical is not None
-            and outcome_count
-            >= self._last_training_count + self._config.retrain_interval
+            self._statistical is not None and outcome_count >= self._last_training_count + self._config.retrain_interval
         )
 
         if needs_training or needs_retraining:
@@ -477,10 +452,7 @@ class AssessmentPipeline:
                 self._statistical_accuracy = accuracy
                 self._last_training_count = outcome_count
 
-                if (
-                    needs_retraining
-                    and accuracy < self._config.accuracy_threshold <= old_accuracy
-                ):
+                if needs_retraining and accuracy < self._config.accuracy_threshold <= old_accuracy:
                     logger.warning(
                         "Statistical model accuracy degraded from %.2f to %.2f "
                         "(below threshold %.2f), reverting to hybrid",
@@ -600,8 +572,7 @@ class AssessmentPipeline:
             # Only retrain at intervals to avoid excessive computation
             if (
                 self._duration_model is not None
-                and outcome_count
-                < self._last_duration_training_count + self._config.retrain_interval
+                and outcome_count < self._last_duration_training_count + self._config.retrain_interval
             ):
                 return
 
@@ -611,9 +582,7 @@ class AssessmentPipeline:
                 self._last_duration_training_count = outcome_count
                 logger.info(
                     "Duration regression model %s (n=%d)",
-                    "retrained"
-                    if self._last_duration_training_count > 0
-                    else "trained",
+                    "retrained" if self._last_duration_training_count > 0 else "trained",
                     outcome_count,
                 )
         except Exception:

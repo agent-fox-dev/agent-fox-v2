@@ -194,11 +194,7 @@ def find_rollback_target(
         sha = target_commit_sha
     else:
         # Find earliest non-empty commit_sha in session history
-        shas = [
-            r.commit_sha
-            for r in session_history
-            if r.commit_sha and r.status == "completed"
-        ]
+        shas = [r.commit_sha for r in session_history if r.commit_sha and r.status == "completed"]
         if not shas:
             return None
         sha = shas[0]  # First in history order = earliest
@@ -244,9 +240,7 @@ def rollback_develop(
             text=True,
         )
         if checkout_result.returncode != 0:
-            raise AgentFoxError(
-                f"Failed to checkout develop: {checkout_result.stderr.strip()}"
-            )
+            raise AgentFoxError(f"Failed to checkout develop: {checkout_result.stderr.strip()}")
 
         # Reset to target SHA
         reset_result = subprocess.run(
@@ -256,10 +250,7 @@ def rollback_develop(
             text=True,
         )
         if reset_result.returncode != 0:
-            raise AgentFoxError(
-                f"Failed to reset develop to {target_sha}: "
-                f"{reset_result.stderr.strip()}"
-            )
+            raise AgentFoxError(f"Failed to reset develop to {target_sha}: {reset_result.stderr.strip()}")
         logger.info("Rolled back develop to %s", target_sha)
     except (OSError, subprocess.SubprocessError) as exc:
         raise AgentFoxError(f"Git rollback failed: {exc}") from exc

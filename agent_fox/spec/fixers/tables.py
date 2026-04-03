@@ -79,10 +79,7 @@ def fix_traceability_table_mismatch(
             rule="traceability-table-mismatch",
             spec_name=spec_name,
             file=str(tasks_path),
-            description=(
-                f"Appended {len(missing_req_ids)} missing requirement(s) "
-                f"to traceability table"
-            ),
+            description=(f"Appended {len(missing_req_ids)} missing requirement(s) to traceability table"),
         )
     ]
 
@@ -113,9 +110,6 @@ def fix_coverage_matrix_mismatch(
             rule="coverage-matrix-mismatch",
             spec_name=spec_name,
             file=str(ts_path),
-            description=(
-                f"Appended {len(missing_req_ids)} missing requirement(s) "
-                f"to coverage matrix"
-            ),
+            description=(f"Appended {len(missing_req_ids)} missing requirement(s) to coverage matrix"),
         )
     ]

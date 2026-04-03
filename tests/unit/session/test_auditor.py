@@ -280,9 +280,7 @@ class TestGitHubIssueOnFail:
 
         mock_platform = AsyncMock()
         mock_platform.search_issues.return_value = []
-        mock_platform.create_issue.return_value = AsyncMock(
-            html_url="https://github.com/o/r/issues/1"
-        )
+        mock_platform.create_issue.return_value = AsyncMock(html_url="https://github.com/o/r/issues/1")
 
         await handle_auditor_github_issue("my_spec", result, platform=mock_platform)
 
@@ -416,10 +414,7 @@ class TestAuditWriteFailure:
             # Should not raise
             persist_auditor_results(bad_path, result)
 
-        assert any(
-            "error" in r.message.lower() or "audit" in r.message.lower()
-            for r in caplog.records
-        )
+        assert any("error" in r.message.lower() or "audit" in r.message.lower() for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -461,17 +456,13 @@ class TestPropertyConvergenceUnion:
             entries = []
             for ts_id in ts_ids:
                 verdict = data.draw(st.sampled_from(VERDICTS))
-                entries.append(
-                    AuditEntry(ts_entry=ts_id, test_functions=[], verdict=verdict)
-                )
+                entries.append(AuditEntry(ts_entry=ts_id, test_functions=[], verdict=verdict))
             has_missing = any(e.verdict == "MISSING" for e in entries)
             has_misaligned = any(e.verdict == "MISALIGNED" for e in entries)
             weak_count = sum(1 for e in entries if e.verdict == "WEAK")
             is_fail = has_missing or has_misaligned or weak_count >= 2
             overall = "FAIL" if is_fail else "PASS"
-            results.append(
-                AuditResult(entries=entries, overall_verdict=overall, summary="")
-            )
+            results.append(AuditResult(entries=entries, overall_verdict=overall, summary=""))
 
         merged = converge_auditor(results)
 
@@ -482,9 +473,7 @@ class TestPropertyConvergenceUnion:
                     if e.ts_entry == ts_id:
                         individual_verdicts.append(e.verdict)
             worst = max(individual_verdicts, key=lambda v: VERDICT_SEVERITY[v])
-            merged_verdict = next(
-                e.verdict for e in merged.entries if e.ts_entry == ts_id
-            )
+            merged_verdict = next(e.verdict for e in merged.entries if e.ts_entry == ts_id)
             assert merged_verdict == worst
 
         if any(r.overall_verdict == "FAIL" for r in results):
@@ -526,12 +515,8 @@ class TestPropertyConvergenceDeterminism:
             entries = []
             for ts_id in ts_ids:
                 verdict = data.draw(st.sampled_from(VERDICTS))
-                entries.append(
-                    AuditEntry(ts_entry=ts_id, test_functions=[], verdict=verdict)
-                )
-            results.append(
-                AuditResult(entries=entries, overall_verdict="PASS", summary="")
-            )
+                entries.append(AuditEntry(ts_entry=ts_id, test_functions=[], verdict=verdict))
+            results.append(AuditResult(entries=entries, overall_verdict="PASS", summary=""))
 
         merged1 = converge_auditor(results)
         merged2 = converge_auditor(results)

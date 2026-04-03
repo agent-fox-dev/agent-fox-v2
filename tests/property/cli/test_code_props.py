@@ -44,24 +44,17 @@ class TestExitCodeMappingConsistency:
 
         result = _exit_code_for_status(status)
         assert result == _EXPECTED_EXIT_CODES[status], (
-            f"Expected exit code {_EXPECTED_EXIT_CODES[status]} for "
-            f"status '{status}', got {result}"
+            f"Expected exit code {_EXPECTED_EXIT_CODES[status]} for status '{status}', got {result}"
         )
 
-    @given(
-        status=st.text(min_size=1, max_size=50).filter(
-            lambda s: s not in _KNOWN_STATUSES
-        )
-    )
+    @given(status=st.text(min_size=1, max_size=50).filter(lambda s: s not in _KNOWN_STATUSES))
     @settings(max_examples=50)
     def test_unknown_statuses_default_to_1(self, status: str) -> None:
         """Unknown run statuses default to exit code 1."""
         from agent_fox.cli.code import _exit_code_for_status  # type: ignore[import-not-found]  # noqa: I001
 
         result = _exit_code_for_status(status)
-        assert result == 1, (
-            f"Expected exit code 1 for unknown status '{status}', got {result}"
-        )
+        assert result == 1, f"Expected exit code 1 for unknown status '{status}', got {result}"
 
 
 class TestOverridePreservation:

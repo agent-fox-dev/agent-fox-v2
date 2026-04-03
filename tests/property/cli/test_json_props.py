@@ -78,9 +78,7 @@ def tmp_project(tmp_path: Path) -> Path:
     (spec_dir / "requirements.md").write_text("# Requirements\n")
     (spec_dir / "design.md").write_text("# Design\n")
     (spec_dir / "test_spec.md").write_text("# Tests\n")
-    (spec_dir / "tasks.md").write_text(
-        "# Tasks\n\n- [ ] 1. First task\n  - [ ] 1.1 Sub\n"
-    )
+    (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. First task\n  - [ ] 1.1 Sub\n")
 
     original = os.getcwd()
     os.chdir(repo)

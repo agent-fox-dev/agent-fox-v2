@@ -131,9 +131,7 @@ class TestSessionEvents:
             },
         )
         dispatcher.emit_audit_event(event)
-        start_events = [
-            e for e in capture.events if e.event_type == AuditEventType.SESSION_START
-        ]
+        start_events = [e for e in capture.events if e.event_type == AuditEventType.SESSION_START]
         assert len(start_events) == 1
 
     def test_harvest_complete(self) -> None:
@@ -212,10 +210,7 @@ class TestToolEvents:
         dispatcher.emit_audit_event(error)
 
         tool_events = [
-            e
-            for e in capture.events
-            if e.event_type
-            in (AuditEventType.TOOL_INVOCATION, AuditEventType.TOOL_ERROR)
+            e for e in capture.events if e.event_type in (AuditEventType.TOOL_INVOCATION, AuditEventType.TOOL_ERROR)
         ]
         assert len(tool_events) == 2
 
@@ -463,9 +458,7 @@ class TestReportingMigration:
         assert report.total_sessions == 5
         assert report.total_input_tokens > 0
 
-    def test_standup_from_audit(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_standup_from_audit(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-40-33 (standup): Standup report reads from audit_events."""
         from agent_fox.reporting.standup import build_standup_from_audit
 

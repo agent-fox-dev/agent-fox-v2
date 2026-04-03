@@ -67,15 +67,11 @@ class TestImproveLoopTermination:
     """TS-31-19 through TS-31-25: Improve loop termination conditions."""
 
     @pytest.mark.asyncio
-    async def test_diminishing_returns_converges(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_diminishing_returns_converges(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-19: Loop stops on diminishing returns."""
         analyzer_result = _make_analyzer_result(diminishing_returns=True)
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             return (0.10, analyzer_result.raw_response)
 
         with (
@@ -107,17 +103,13 @@ class TestImproveLoopTermination:
         assert result.termination_reason == ImproveTermination.CONVERGED
 
     @pytest.mark.asyncio
-    async def test_zero_actionable_improvements_converges(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_zero_actionable_improvements_converges(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-20: Loop stops when no high/medium confidence improvements."""
         low_only = _make_analyzer_result(
             improvements=[make_improvement(id="L1", confidence=0.3)],
         )
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             return (0.10, low_only.raw_response)
 
         with (
@@ -149,17 +141,13 @@ class TestImproveLoopTermination:
         assert result.termination_reason == ImproveTermination.CONVERGED
 
     @pytest.mark.asyncio
-    async def test_pass_limit_reached(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_pass_limit_reached(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-21: Loop stops after max_passes."""
         analyzer_result = _make_analyzer_result()
 
         call_count = 0
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             nonlocal call_count
             call_count += 1
             # Return verifier PASS JSON on verifier calls (every 3rd call)
@@ -204,17 +192,13 @@ class TestImproveLoopTermination:
         assert result.passes_completed == 2
 
     @pytest.mark.asyncio
-    async def test_verifier_fail_triggers_rollback(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_verifier_fail_triggers_rollback(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-22: Verifier FAIL triggers rollback and termination."""
         analyzer_result = _make_analyzer_result()
 
         call_count = 0
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             nonlocal call_count
             call_count += 1
             if call_count % 3 == 0:
@@ -244,9 +228,7 @@ class TestImproveLoopTermination:
             ),
             patch(
                 "agent_fox.fix.improve.subprocess.run",
-                return_value=subprocess.CompletedProcess(
-                    args=[], returncode=0, stdout="", stderr=""
-                ),
+                return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
             ),
         ):
             result = await run_improve_loop(
@@ -261,9 +243,7 @@ class TestImproveLoopTermination:
         assert result.pass_results[0].rolled_back is True
 
     @pytest.mark.asyncio
-    async def test_cost_limit_terminates(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_cost_limit_terminates(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-23: Loop stops when cost budget is exhausted."""
         result = await run_improve_loop(
             project_root=tmp_path,
@@ -276,14 +256,10 @@ class TestImproveLoopTermination:
         assert result.passes_completed == 0
 
     @pytest.mark.asyncio
-    async def test_analyzer_failure_terminates(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_analyzer_failure_terminates(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-24: Analyzer session failure terminates loop."""
 
-        async def failing_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def failing_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             raise RuntimeError("Backend error")
 
         with (
@@ -311,17 +287,13 @@ class TestImproveLoopTermination:
         assert result.termination_reason == ImproveTermination.ANALYZER_ERROR
 
     @pytest.mark.asyncio
-    async def test_coder_failure_terminates(
-        self, tmp_path: Path, mock_config: AgentFoxConfig
-    ) -> None:
+    async def test_coder_failure_terminates(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-25: Coder failure terminates loop and discards changes."""
         analyzer_result = _make_analyzer_result()
 
         call_count = 0
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             nonlocal call_count
             call_count += 1
             # First call is analyzer (succeeds), second is coder (fails)

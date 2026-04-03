@@ -80,9 +80,7 @@ class TestDetectNpmTestAndLintFromPackageJson:
     def test_detects_npm_test_and_lint(self, tmp_project: Path) -> None:
         """Detector finds npm test and lint scripts from package.json."""
         package_json = tmp_project / "package.json"
-        package_json.write_text(
-            json.dumps({"scripts": {"test": "jest", "lint": "eslint ."}})
-        )
+        package_json.write_text(json.dumps({"scripts": {"test": "jest", "lint": "eslint ."}}))
 
         checks = detect_checks(tmp_project)
 

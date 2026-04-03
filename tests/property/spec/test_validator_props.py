@@ -83,9 +83,7 @@ class TestErrorFindingsImplyNonZeroExit:
         )
     )
     @settings(max_examples=50)
-    def test_error_findings_produce_exit_code_one(
-        self, findings: list[Finding]
-    ) -> None:
+    def test_error_findings_produce_exit_code_one(self, findings: list[Finding]) -> None:
         """Any findings list with at least one error produces exit code 1."""
         exit_code = compute_exit_code(findings)
         assert exit_code == 1
@@ -181,13 +179,9 @@ class TestOversizedGroupThresholdExact:
         findings = check_oversized_groups("test", [group])
 
         if n > 6:
-            assert len(findings) == 1, (
-                f"Expected 1 finding for {n} subtasks, got {len(findings)}"
-            )
+            assert len(findings) == 1, f"Expected 1 finding for {n} subtasks, got {len(findings)}"
         else:
-            assert len(findings) == 0, (
-                f"Expected 0 findings for {n} subtasks, got {len(findings)}"
-            )
+            assert len(findings) == 0, f"Expected 0 findings for {n} subtasks, got {len(findings)}"
 
 
 # -- TS-09-P5: Finding immutability -------------------------------------------

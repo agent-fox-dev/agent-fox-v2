@@ -22,9 +22,7 @@ class TestContextEnhancementAddsCausal:
     Requirements: 13-REQ-7.1, 13-REQ-7.2
     """
 
-    def test_includes_keyword_and_causal_facts(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_includes_keyword_and_causal_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Context includes keyword fact aaa and causally-linked facts."""
         result = select_context_with_causal(
             causal_db,
@@ -40,9 +38,7 @@ class TestContextEnhancementAddsCausal:
         assert FACT_BBB in result_ids or FACT_EEE in result_ids
         assert len(result) <= 50
 
-    def test_total_does_not_exceed_max_facts(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_total_does_not_exceed_max_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Total returned facts do not exceed max_facts."""
         result = select_context_with_causal(
             causal_db,
@@ -61,14 +57,9 @@ class TestContextEnhancementRespectsBudget:
     Requirement: 13-REQ-7.2
     """
 
-    def test_budget_with_many_keyword_facts(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_budget_with_many_keyword_facts(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Even with 45 keyword facts and causal links, total <= 50."""
-        keyword_facts = [
-            {"id": f"kw_{i:08d}-0000-0000-0000-000000000000", "content": f"fact {i}"}
-            for i in range(45)
-        ]
+        keyword_facts = [{"id": f"kw_{i:08d}-0000-0000-0000-000000000000", "content": f"fact {i}"} for i in range(45)]
         result = select_context_with_causal(
             causal_db,
             "test_spec",
@@ -86,9 +77,7 @@ class TestFactProvenance:
     Requirements: 13-REQ-1.1, 13-REQ-1.2
     """
 
-    def test_provenance_fields_populated(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_provenance_fields_populated(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Facts in memory_facts carry spec_name, session_id, commit_sha."""
         row = causal_db.execute(
             "SELECT spec_name, session_id, commit_sha FROM memory_facts WHERE id=?",
@@ -99,9 +88,7 @@ class TestFactProvenance:
         assert row[1] == "07/3"
         assert row[2] == "a1b2c3d"
 
-    def test_null_commit_sha_allowed(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_null_commit_sha_allowed(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """commit_sha can be NULL when provenance is unavailable."""
         row = causal_db.execute(
             "SELECT commit_sha FROM memory_facts WHERE id=?",

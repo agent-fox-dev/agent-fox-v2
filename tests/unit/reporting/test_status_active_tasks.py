@@ -246,10 +246,7 @@ class TestTextFormatting:
 
         output = TableFormatter().format_status(report)
 
-        expected_line = (
-            "spec/0/coder [coder]: in_progress. 1/2 sessions. "
-            "tokens 500.0k in / 750.0k out. $12.34"
-        )
+        expected_line = "spec/0/coder [coder]: in_progress. 1/2 sessions. tokens 500.0k in / 750.0k out. $12.34"
         assert expected_line in output
 
     def test_task_with_zero_sessions_formatted_correctly(self) -> None:

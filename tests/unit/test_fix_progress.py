@@ -120,9 +120,7 @@ class TestBannerRendering:
                 catch_exceptions=False,
             )
 
-        assert mock_banner.call_count == 1, (
-            "render_banner should be called once in normal (non-quiet, non-JSON) mode"
-        )
+        assert mock_banner.call_count == 1, "render_banner should be called once in normal (non-quiet, non-JSON) mode"
 
     def test_banner_suppressed_in_quiet_mode(self) -> None:
         """TS-76-2: render_banner is NOT called when --quiet is active.
@@ -153,9 +151,7 @@ class TestBannerRendering:
                 catch_exceptions=False,
             )
 
-        assert mock_banner.call_count == 0, (
-            "render_banner should NOT be called in quiet mode"
-        )
+        assert mock_banner.call_count == 0, "render_banner should NOT be called in quiet mode"
 
     def test_banner_suppressed_in_json_mode(self) -> None:
         """TS-76-3: render_banner is NOT called when JSON mode is active.
@@ -188,9 +184,7 @@ class TestBannerRendering:
             # Suppress unused variable warning
             _ = result
 
-        assert mock_banner.call_count == 0, (
-            "render_banner should NOT be called in JSON mode"
-        )
+        assert mock_banner.call_count == 0, "render_banner should NOT be called in JSON mode"
 
 
 # ---------------------------------------------------------------------------
@@ -234,9 +228,7 @@ class TestProgressDisplayLifecycle:
             )
 
         assert mock_pd_cls.call_count == 1, "ProgressDisplay should be created once"
-        assert mock_pd_cls.return_value.start.call_count == 1, (
-            "start() should be called once before the fix loop"
-        )
+        assert mock_pd_cls.return_value.start.call_count == 1, "start() should be called once before the fix loop"
 
     def test_progress_display_stopped_on_error(self) -> None:
         """TS-76-5: stop() is called even when an exception occurs.
@@ -302,9 +294,7 @@ class TestProgressDisplayLifecycle:
 
         assert mock_pd_cls.call_count == 1
         _, kwargs = mock_pd_cls.call_args
-        assert kwargs.get("quiet") is True, (
-            "ProgressDisplay should be created with quiet=True when quiet mode is on"
-        )
+        assert kwargs.get("quiet") is True, "ProgressDisplay should be created with quiet=True when quiet mode is on"
 
     def test_progress_display_quiet_when_json_mode(self) -> None:
         """TS-76-6 (JSON variant): ProgressDisplay is quiet=True in JSON mode.
@@ -337,9 +327,7 @@ class TestProgressDisplayLifecycle:
 
         assert mock_pd_cls.call_count == 1
         _, kwargs = mock_pd_cls.call_args
-        assert kwargs.get("quiet") is True, (
-            "ProgressDisplay should be created with quiet=True when JSON mode is on"
-        )
+        assert kwargs.get("quiet") is True, "ProgressDisplay should be created with quiet=True when JSON mode is on"
 
 
 # ---------------------------------------------------------------------------
@@ -354,9 +342,7 @@ class TestActivityCallbackWiring:
     """
 
     @pytest.mark.asyncio
-    async def test_fix_session_runner_passes_activity_callback(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_fix_session_runner_passes_activity_callback(self, tmp_path: Path) -> None:
         """TS-76-7: Fix session runner forwards activity_callback to run_session.
 
         Requirement: 76-REQ-3.1
@@ -373,14 +359,10 @@ class TestActivityCallbackWiring:
         mock_fix_spec.cluster_label = "test_cluster"
         mock_fix_spec.task_prompt = "Fix this"
 
-        with patch(
-            "agent_fox.cli.fix.run_session", new_callable=AsyncMock
-        ) as mock_run_session:
+        with patch("agent_fox.cli.fix.run_session", new_callable=AsyncMock) as mock_run_session:
             mock_run_session.return_value = mock_outcome
             # _build_fix_session_runner must accept activity_callback
-            runner = _build_fix_session_runner(
-                config, tmp_path, activity_callback=activity_cb
-            )
+            runner = _build_fix_session_runner(config, tmp_path, activity_callback=activity_cb)
             await runner(mock_fix_spec)
 
         assert mock_run_session.called, "run_session should have been called"
@@ -390,9 +372,7 @@ class TestActivityCallbackWiring:
         )
 
     @pytest.mark.asyncio
-    async def test_improve_session_runner_passes_activity_callback(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_improve_session_runner_passes_activity_callback(self, tmp_path: Path) -> None:
         """TS-76-8: Improve session runner forwards activity_callback to run_session.
 
         Requirement: 76-REQ-3.2
@@ -405,14 +385,10 @@ class TestActivityCallbackWiring:
         mock_outcome.output_tokens = 50
         mock_outcome.output = "{}"
 
-        with patch(
-            "agent_fox.cli.fix.run_session", new_callable=AsyncMock
-        ) as mock_run_session:
+        with patch("agent_fox.cli.fix.run_session", new_callable=AsyncMock) as mock_run_session:
             mock_run_session.return_value = mock_outcome
             # _build_improve_session_runner must accept activity_callback
-            runner = _build_improve_session_runner(
-                config, tmp_path, activity_callback=activity_cb
-            )
+            runner = _build_improve_session_runner(config, tmp_path, activity_callback=activity_cb)
             await runner("sys prompt", "task prompt", "STANDARD")
 
         assert mock_run_session.called, "run_session should have been called"
@@ -458,14 +434,8 @@ class TestFixLoopProgressEvents:
                 progress_callback=callback,
             )
 
-        start_calls = [
-            c
-            for c in callback.call_args_list
-            if c.args[0].stage == "checks_start"
-        ]
-        assert len(start_calls) >= 1, (
-            "progress_callback should be called with stage='checks_start'"
-        )
+        start_calls = [c for c in callback.call_args_list if c.args[0].stage == "checks_start"]
+        assert len(start_calls) >= 1, "progress_callback should be called with stage='checks_start'"
         assert start_calls[0].args[0].pass_number == 1
         assert start_calls[0].args[0].phase == "repair"
         _ = result
@@ -495,10 +465,7 @@ class TestFixLoopProgressEvents:
             )
 
         stages = {c.args[0].stage for c in callback.call_args_list}
-        assert "all_passed" in stages, (
-            "progress_callback should be called with stage='all_passed'"
-            " when all checks pass"
-        )
+        assert "all_passed" in stages, "progress_callback should be called with stage='all_passed' when all checks pass"
 
     @pytest.mark.asyncio
     async def test_fix_loop_emits_clusters_found_event(self, tmp_path: Path) -> None:
@@ -544,17 +511,9 @@ class TestFixLoopProgressEvents:
                 progress_callback=callback,
             )
 
-        cluster_calls = [
-            c
-            for c in callback.call_args_list
-            if c.args[0].stage == "clusters_found"
-        ]
-        assert len(cluster_calls) >= 1, (
-            "progress_callback should be called with stage='clusters_found'"
-        )
-        assert "1" in cluster_calls[0].args[0].detail, (
-            "detail should contain the cluster count"
-        )
+        cluster_calls = [c for c in callback.call_args_list if c.args[0].stage == "clusters_found"]
+        assert len(cluster_calls) >= 1, "progress_callback should be called with stage='clusters_found'"
+        assert "1" in cluster_calls[0].args[0].detail, "detail should contain the cluster count"
 
     @pytest.mark.asyncio
     async def test_fix_loop_emits_session_start_event(self, tmp_path: Path) -> None:
@@ -604,17 +563,9 @@ class TestFixLoopProgressEvents:
                 progress_callback=callback,
             )
 
-        session_calls = [
-            c
-            for c in callback.call_args_list
-            if c.args[0].stage == "session_start"
-        ]
-        assert len(session_calls) >= 1, (
-            "progress_callback should be called with stage='session_start'"
-        )
-        assert session_calls[0].args[0].detail != "", (
-            "session_start detail should contain the cluster label"
-        )
+        session_calls = [c for c in callback.call_args_list if c.args[0].stage == "session_start"]
+        assert len(session_calls) >= 1, "progress_callback should be called with stage='session_start'"
+        assert session_calls[0].args[0].detail != "", "session_start detail should contain the cluster label"
 
 
 # ---------------------------------------------------------------------------
@@ -629,9 +580,7 @@ class TestImproveLoopProgressEvents:
     """
 
     @pytest.mark.asyncio
-    async def test_improve_loop_emits_analyzer_start_event(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_improve_loop_emits_analyzer_start_event(self, tmp_path: Path) -> None:
         """TS-76-13: run_improve_loop emits analyzer_start at the start of each pass.
 
         Requirement: 76-REQ-4.5
@@ -640,13 +589,8 @@ class TestImproveLoopProgressEvents:
         callback = MagicMock()
 
         # Mock improve loop to return early (budget too tight)
-        async def mock_runner(
-            sys_prompt: str, task_prompt: str, tier: str
-        ) -> tuple[float, str]:
-            payload = (
-                '{"improvements": [], "summary": "none",'
-                ' "diminishing_returns": true}'
-            )
+        async def mock_runner(sys_prompt: str, task_prompt: str, tier: str) -> tuple[float, str]:
+            payload = '{"improvements": [], "summary": "none", "diminishing_returns": true}'
             return (100.0, payload)
 
         with (
@@ -671,22 +615,12 @@ class TestImproveLoopProgressEvents:
                 progress_callback=callback,
             )
 
-        calls = [
-            c
-            for c in callback.call_args_list
-            if c.args[0].stage == "analyzer_start"
-        ]
-        assert len(calls) >= 1, (
-            "progress_callback should be called with stage='analyzer_start'"
-        )
-        assert calls[0].args[0].phase == "improve", (
-            "improve loop events should have phase='improve'"
-        )
+        calls = [c for c in callback.call_args_list if c.args[0].stage == "analyzer_start"]
+        assert len(calls) >= 1, "progress_callback should be called with stage='analyzer_start'"
+        assert calls[0].args[0].phase == "improve", "improve loop events should have phase='improve'"
 
     @pytest.mark.asyncio
-    async def test_improve_loop_emits_session_role_events(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_improve_loop_emits_session_role_events(self, tmp_path: Path) -> None:
         """TS-76-14: run_improve_loop emits role events for analyzer/coder/verifier.
 
         Requirement: 76-REQ-4.6
@@ -707,16 +641,13 @@ class TestImproveLoopProgressEvents:
 
         call_count = [0]
 
-        async def mock_runner(
-            sys_prompt: str, task_prompt: str, tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(sys_prompt: str, task_prompt: str, tier: str) -> tuple[float, str]:
             call_count[0] += 1
             if call_count[0] == 1:
                 # Analyzer response with diminishing returns to stop after 1 pass
                 return (
                     0.05,
-                    '{"improvements": [], "summary": "done",'
-                    ' "diminishing_returns": true}',
+                    '{"improvements": [], "summary": "done", "diminishing_returns": true}',
                 )
             return (0.05, verifier_pass_json)
 
@@ -734,9 +665,7 @@ class TestImproveLoopProgressEvents:
 
         stages = {c.args[0].stage for c in callback.call_args_list}
         # At minimum, analyzer_start should appear
-        assert "analyzer_start" in stages or "analyzer_done" in stages, (
-            "improve loop should emit analyzer phase events"
-        )
+        assert "analyzer_start" in stages or "analyzer_done" in stages, "improve loop should emit analyzer phase events"
 
 
 # ---------------------------------------------------------------------------
@@ -763,12 +692,8 @@ class TestCheckCallbackEvents:
             # check_callback parameter must exist in run_checks
             run_checks(checks, tmp_path, check_callback=callback)
 
-        start_calls = [
-            c for c in callback.call_args_list if c.args[0].stage == "start"
-        ]
-        assert len(start_calls) == 2, (
-            "check_callback should be called with stage='start' once per check"
-        )
+        start_calls = [c for c in callback.call_args_list if c.args[0].stage == "start"]
+        assert len(start_calls) == 2, "check_callback should be called with stage='start' once per check"
 
     def test_check_callback_called_on_done(self, tmp_path: Path) -> None:
         """TS-76-16: run_checks calls check_callback with stage='done' after each check.
@@ -787,16 +712,10 @@ class TestCheckCallbackEvents:
             # check_callback parameter must exist in run_checks
             run_checks(checks, tmp_path, check_callback=callback)
 
-        done_calls = [
-            c for c in callback.call_args_list if c.args[0].stage == "done"
-        ]
-        assert len(done_calls) == 2, (
-            "check_callback should be called with stage='done' once per check"
-        )
+        done_calls = [c for c in callback.call_args_list if c.args[0].stage == "done"]
+        assert len(done_calls) == 2, "check_callback should be called with stage='done' once per check"
         pass_results = {c.args[0].passed for c in done_calls}
-        assert pass_results == {True, False}, (
-            "done events should include both passed=True and passed=False"
-        )
+        assert pass_results == {True, False}, "done events should include both passed=True and passed=False"
 
 
 # ---------------------------------------------------------------------------
@@ -816,9 +735,7 @@ class TestSignatures:
         Requirement: 76-REQ-6.1
         """
         sig = inspect.signature(run_fix_loop)
-        assert "progress_callback" in sig.parameters, (
-            "run_fix_loop must have a progress_callback parameter"
-        )
+        assert "progress_callback" in sig.parameters, "run_fix_loop must have a progress_callback parameter"
 
     def test_run_improve_loop_has_progress_callback_parameter(self) -> None:
         """TS-76-18: run_improve_loop signature includes progress_callback parameter.
@@ -826,9 +743,7 @@ class TestSignatures:
         Requirement: 76-REQ-6.2
         """
         sig = inspect.signature(run_improve_loop)
-        assert "progress_callback" in sig.parameters, (
-            "run_improve_loop must have a progress_callback parameter"
-        )
+        assert "progress_callback" in sig.parameters, "run_improve_loop must have a progress_callback parameter"
 
     def test_run_checks_has_check_callback_parameter(self) -> None:
         """TS-76-19: run_checks signature includes check_callback parameter.
@@ -836,9 +751,7 @@ class TestSignatures:
         Requirement: 76-REQ-6.3
         """
         sig = inspect.signature(run_checks)
-        assert "check_callback" in sig.parameters, (
-            "run_checks must have a check_callback parameter"
-        )
+        assert "check_callback" in sig.parameters, "run_checks must have a check_callback parameter"
 
 
 # ---------------------------------------------------------------------------
@@ -881,9 +794,7 @@ class TestEdgeCases:
                 catch_exceptions=True,
             )
 
-        assert mock_pd_cls.return_value.stop.call_count == 1, (
-            "stop() should be called even on KeyboardInterrupt"
-        )
+        assert mock_pd_cls.return_value.stop.call_count == 1, "stop() should be called even on KeyboardInterrupt"
 
     @pytest.mark.asyncio
     async def test_cost_limit_emits_cost_limit_event(self, tmp_path: Path) -> None:
@@ -893,9 +804,7 @@ class TestEdgeCases:
         """
         from agent_fox.core.config import OrchestratorConfig
 
-        config = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(max_cost=0.001)
-        )
+        config = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=0.001))
         callback = MagicMock()
         mock_check = _make_check()
 
@@ -938,14 +847,10 @@ class TestEdgeCases:
             )
 
         stages = {c.args[0].stage for c in callback.call_args_list}
-        assert "cost_limit" in stages, (
-            "progress_callback should be called with stage='cost_limit'"
-        )
+        assert "cost_limit" in stages, "progress_callback should be called with stage='cost_limit'"
 
     @pytest.mark.asyncio
-    async def test_session_error_emits_session_error_event(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_session_error_emits_session_error_event(self, tmp_path: Path) -> None:
         """TS-76-E3: A session_error event is emitted when a fix session raises.
 
         Requirement: 76-REQ-4.E2
@@ -992,14 +897,10 @@ class TestEdgeCases:
             )
 
         stages = {c.args[0].stage for c in callback.call_args_list}
-        assert "session_error" in stages, (
-            "progress_callback should be called with stage='session_error' on exception"
-        )
+        assert "session_error" in stages, "progress_callback should be called with stage='session_error' on exception"
 
     @pytest.mark.asyncio
-    async def test_none_progress_callback_is_backward_compatible(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_none_progress_callback_is_backward_compatible(self, tmp_path: Path) -> None:
         """TS-76-E4: run_fix_loop with progress_callback=None runs without errors.
 
         Requirement: 76-REQ-6.E1

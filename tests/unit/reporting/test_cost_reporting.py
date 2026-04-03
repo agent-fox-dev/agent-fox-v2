@@ -172,9 +172,7 @@ class TestPerSpecCost:
     def test_spec_name_extraction(self) -> None:
         """TS-34-13: Spec name extracted from node_id correctly."""
         assert extract_spec_name("01_core_foundation:3") == "01_core_foundation"
-        assert (
-            extract_spec_name("26_agent_archetypes:0:skeptic") == "26_agent_archetypes"
-        )
+        assert extract_spec_name("26_agent_archetypes:0:skeptic") == "26_agent_archetypes"
 
 
 class TestCallSiteInstrumentation:
@@ -192,9 +190,9 @@ class TestCallSiteInstrumentation:
         ]
         for filepath in files:
             content = Path(filepath).read_text()
-            assert (
-                "record_auxiliary_usage" in content or "track_response_usage" in content
-            ), f"{filepath} does not track auxiliary token usage"
+            assert "record_auxiliary_usage" in content or "track_response_usage" in content, (
+                f"{filepath} does not track auxiliary token usage"
+            )
 
 
 class TestBackwardCompat:

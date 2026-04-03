@@ -21,18 +21,14 @@ from agent_fox.cli.app import main
 class TestInitCreatesStructure:
     """TS-01-6: Init creates project structure."""
 
-    def test_init_creates_agent_fox_directory(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_agent_fox_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates the .agent-fox/ directory."""
         result = cli_runner.invoke(main, ["init"])
 
         assert result.exit_code == 0
         assert (tmp_git_repo / ".agent-fox").is_dir()
 
-    def test_init_creates_config_toml(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_config_toml(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .agent-fox/config.toml."""
         cli_runner.invoke(main, ["init"])
 
@@ -42,25 +38,19 @@ class TestInitCreatesStructure:
         content = config_path.read_text()
         assert isinstance(content, str)
 
-    def test_init_creates_hooks_directory(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_hooks_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .agent-fox/hooks/ directory."""
         cli_runner.invoke(main, ["init"])
 
         assert (tmp_git_repo / ".agent-fox" / "hooks").is_dir()
 
-    def test_init_creates_worktrees_directory(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_worktrees_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .agent-fox/worktrees/ directory."""
         cli_runner.invoke(main, ["init"])
 
         assert (tmp_git_repo / ".agent-fox" / "worktrees").is_dir()
 
-    def test_init_creates_develop_branch(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_develop_branch(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates the develop branch."""
         cli_runner.invoke(main, ["init"])
 
@@ -82,9 +72,7 @@ class TestInitCreatesStructure:
 class TestInitIdempotent:
     """TS-01-7: Init is idempotent."""
 
-    def test_second_init_preserves_config(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_second_init_preserves_config(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Running init twice doesn't overwrite existing config."""
         # First init
         cli_runner.invoke(main, ["init"])
@@ -101,9 +89,7 @@ class TestInitIdempotent:
         content = config_path.read_text()
         assert "parallel = 8" in content
 
-    def test_second_init_reports_already_initialized(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_second_init_reports_already_initialized(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Second init reports that project is already initialized."""
         cli_runner.invoke(main, ["init"])
 
@@ -116,36 +102,28 @@ class TestInitIdempotent:
 class TestInitGitignore:
     """TS-01-8: Init updates gitignore."""
 
-    def test_gitignore_contains_agent_fox_glob(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_gitignore_contains_agent_fox_glob(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds .agent-fox/* to .gitignore."""
         cli_runner.invoke(main, ["init"])
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert ".agent-fox/*" in gitignore
 
-    def test_gitignore_excludes_config(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_gitignore_excludes_config(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds !.agent-fox/config.toml exception to .gitignore."""
         cli_runner.invoke(main, ["init"])
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/config.toml" in gitignore
 
-    def test_gitignore_excludes_state(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_gitignore_excludes_state(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds !.agent-fox/state.jsonl exception to .gitignore."""
         cli_runner.invoke(main, ["init"])
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/state.jsonl" in gitignore
 
-    def test_gitignore_excludes_memory(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_gitignore_excludes_memory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds !.agent-fox/memory.jsonl exception to .gitignore."""
         cli_runner.invoke(main, ["init"])
 
@@ -156,9 +134,7 @@ class TestInitGitignore:
 class TestInitSeedFiles:
     """Init creates seed files so they are tracked in git from the start."""
 
-    def test_init_creates_memory_jsonl(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates an empty .agent-fox/memory.jsonl."""
         cli_runner.invoke(main, ["init"])
 
@@ -166,9 +142,7 @@ class TestInitSeedFiles:
         assert path.exists()
         assert path.read_text() == ""
 
-    def test_init_creates_state_jsonl(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_state_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates an empty .agent-fox/state.jsonl."""
         cli_runner.invoke(main, ["init"])
 
@@ -176,9 +150,7 @@ class TestInitSeedFiles:
         assert path.exists()
         assert path.read_text() == ""
 
-    def test_init_creates_docs_memory_md(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_docs_memory_md(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates docs/memory.md with placeholder content."""
         cli_runner.invoke(main, ["init"])
 
@@ -187,9 +159,7 @@ class TestInitSeedFiles:
         content = path.read_text()
         assert "Agent-Fox Memory" in content
 
-    def test_reinit_preserves_existing_seed_files(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_reinit_preserves_existing_seed_files(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-running init does not overwrite existing seed files."""
         cli_runner.invoke(main, ["init"])
 
@@ -214,9 +184,7 @@ class TestInitClaudeSettings:
     Requirements: 17-REQ-1.1, 17-REQ-1.2
     """
 
-    def test_init_creates_claude_settings(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_claude_settings(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .claude/settings.local.json with canonical permissions."""
         import json
 
@@ -234,9 +202,7 @@ class TestInitClaudeSettings:
         for perm in CANONICAL_PERMISSIONS:
             assert perm in data["permissions"]["allow"]
 
-    def test_reinit_merges_claude_settings(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_reinit_merges_claude_settings(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-running init merges missing canonical permissions."""
         import json
 
@@ -269,9 +235,7 @@ class TestInitConfigGeneration:
     Requirements: 33-REQ-1.1, 33-REQ-3.1
     """
 
-    def test_fresh_config_loads_defaults(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_fresh_config_loads_defaults(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """A freshly generated config.toml loads via load_config with all defaults.
 
         TS-33-11: Fresh config loads with all default values.
@@ -290,9 +254,7 @@ class TestInitConfigGeneration:
         assert config.theme.playful is True
         assert config.models.coding == "ADVANCED"
 
-    def test_fresh_config_contains_all_sections(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_fresh_config_contains_all_sections(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Fresh config.toml contains section headers for all visible sections.
 
         The simplified template includes only visible sections. Hidden sections
@@ -310,13 +272,9 @@ class TestInitConfigGeneration:
 
         # Hidden sections must NOT appear
         for section in ["routing", "hooks", "theme", "platform", "knowledge"]:
-            assert f"[{section}]" not in content, (
-                f"Hidden section [{section}] should not appear in simplified template"
-            )
+            assert f"[{section}]" not in content, f"Hidden section [{section}] should not appear in simplified template"
 
-    def test_reinit_merges_new_fields(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_reinit_merges_new_fields(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-init adds missing schema fields to existing config.
 
         Requirements: 33-REQ-2.1, 33-REQ-2.2
@@ -342,9 +300,7 @@ class TestInitConfigGeneration:
         assert "# [routing]" not in content and "[routing]" not in content
         assert "# [theme]" not in content and "[theme]" not in content
 
-    def test_reinit_marks_deprecated_fields(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_reinit_marks_deprecated_fields(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-init marks unrecognized active fields as DEPRECATED.
 
         Requirements: 33-REQ-2.4
@@ -354,9 +310,7 @@ class TestInitConfigGeneration:
 
         # Add an unrecognized field
         config_path = tmp_git_repo / ".agent-fox" / "config.toml"
-        config_path.write_text(
-            "[orchestrator]\nparallel = 4\nobsolete_setting = true\n"
-        )
+        config_path.write_text("[orchestrator]\nparallel = 4\nobsolete_setting = true\n")
 
         # Re-init should mark it deprecated
         result = cli_runner.invoke(main, ["init"])
@@ -366,9 +320,7 @@ class TestInitConfigGeneration:
         assert "DEPRECATED" in content
         assert "obsolete_setting" in content
 
-    def test_reinit_no_changes_leaves_file_unchanged(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_reinit_no_changes_leaves_file_unchanged(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-init on an up-to-date config leaves file byte-for-byte identical.
 
         Requirements: 33-REQ-2.5
@@ -385,9 +337,7 @@ class TestInitConfigGeneration:
         content_after = config_path.read_text()
         assert content_before == content_after
 
-    def test_config_no_memory_section(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_config_no_memory_section(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Generated config does not contain a [memory] section.
 
         Requirements: 33-REQ-5.1
@@ -403,9 +353,7 @@ class TestInitConfigGeneration:
 class TestInitOutsideGitRepo:
     """TS-01-E4: Init outside git repo fails gracefully."""
 
-    def test_init_outside_git_exits_one(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_init_outside_git_exits_one(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Init outside a git repository exits with code 1."""
         original_dir = os.getcwd()
         os.chdir(tmp_path)
@@ -416,9 +364,7 @@ class TestInitOutsideGitRepo:
         finally:
             os.chdir(original_dir)
 
-    def test_init_outside_git_mentions_git(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_init_outside_git_mentions_git(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Init outside a git repository mentions 'git' in error."""
         original_dir = os.getcwd()
         os.chdir(tmp_path)

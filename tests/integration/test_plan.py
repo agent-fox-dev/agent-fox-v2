@@ -163,21 +163,15 @@ class TestCorruptedPlanJson:
 class TestPlanCLIEndToEnd:
     """TS-02-11: Plan CLI command end-to-end."""
 
-    def test_plan_command_exits_zero(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_command_exits_zero(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan command exits with code 0."""
         _setup_project(tmp_git_repo)
 
         result = cli_runner.invoke(main, ["plan"])
 
-        assert result.exit_code == 0, (
-            f"Exit code {result.exit_code}, output:\n{result.output}"
-        )
+        assert result.exit_code == 0, f"Exit code {result.exit_code}, output:\n{result.output}"
 
-    def test_plan_output_mentions_spec(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_output_mentions_spec(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan command output mentions the spec name."""
         _setup_project(tmp_git_repo)
 
@@ -194,9 +188,7 @@ class TestPlanCLIEndToEnd:
         plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
         assert plan_path.exists()
 
-    def test_plan_with_fast_flag(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_with_fast_flag(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --fast is accepted."""
         _setup_project(tmp_git_repo)
 
@@ -204,9 +196,7 @@ class TestPlanCLIEndToEnd:
 
         assert result.exit_code == 0
 
-    def test_plan_fast_rebuilds_when_cached_plan_was_non_fast(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_fast_rebuilds_when_cached_plan_was_non_fast(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Running --fast after a cached normal plan rebuilds with fast metadata."""
         _setup_project(tmp_git_repo)
 
@@ -221,9 +211,7 @@ class TestPlanCLIEndToEnd:
         assert loaded is not None
         assert loaded.metadata.fast_mode is True
 
-    def test_plan_with_spec_filter(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_with_spec_filter(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --spec NAME is accepted."""
         _setup_project(tmp_git_repo)
 
@@ -231,17 +219,13 @@ class TestPlanCLIEndToEnd:
 
         assert result.exit_code == 0
 
-    def test_plan_spec_rebuilds_when_cached_plan_is_unfiltered(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_spec_rebuilds_when_cached_plan_is_unfiltered(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Running --spec after cached unfiltered plan rebuilds and filters nodes."""
         _setup_project(tmp_git_repo)
 
         second_spec = tmp_git_repo / ".specs" / "02_other"
         second_spec.mkdir(parents=True)
-        (second_spec / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Add second feature\n  - [ ] 1.1 Implement\n"
-        )
+        (second_spec / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Add second feature\n  - [ ] 1.1 Implement\n")
 
         first = cli_runner.invoke(main, ["plan"])
         assert first.exit_code == 0
@@ -256,9 +240,7 @@ class TestPlanCLIEndToEnd:
         assert loaded.nodes
         assert {node.spec_name for node in loaded.nodes.values()} == {"01_test"}
 
-    def test_plan_reanalyze_rejected(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_reanalyze_rejected(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --reanalyze is no longer a valid option (63-REQ-2.1, 63-REQ-2.2).
 
         Test Spec: TS-63-4
@@ -270,9 +252,7 @@ class TestPlanCLIEndToEnd:
         assert result.exit_code != 0
         assert "no such option" in result.output.lower()
 
-    def test_plan_always_rebuilds_after_spec_change(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_always_rebuilds_after_spec_change(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan rebuilds from .specs/ even when plan.json exists (63-REQ-1.1).
 
         Modifying a spec's tasks.md and re-running plan (without --reanalyze)
@@ -304,13 +284,10 @@ class TestPlanCLIEndToEnd:
         second = cli_runner.invoke(main, ["plan"])
         assert second.exit_code == 0, f"Second plan invocation failed:\n{second.output}"
         assert "new_group" in second.output, (
-            f"Expected 'new_group' in plan output after spec change; "
-            f"got:\n{second.output}"
+            f"Expected 'new_group' in plan output after spec change; got:\n{second.output}"
         )
 
-    def test_plan_verify_removed(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_plan_verify_removed(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --verify is no longer a valid option (removed dead code)."""
         _setup_project(tmp_git_repo)
 

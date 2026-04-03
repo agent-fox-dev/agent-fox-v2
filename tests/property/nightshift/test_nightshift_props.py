@@ -74,9 +74,7 @@ class TestFindingFormatUniversality:
         title=st.text(min_size=1, max_size=100),
         description=st.text(min_size=1, max_size=200),
         severity=st.sampled_from(_SEVERITIES),
-        affected_files=st.lists(
-            st.text(min_size=1, max_size=50), min_size=0, max_size=5
-        ),
+        affected_files=st.lists(st.text(min_size=1, max_size=50), min_size=0, max_size=5),
         suggested_fix=st.text(min_size=1, max_size=200),
         evidence=st.text(min_size=1, max_size=200),
         group_key=st.text(min_size=1, max_size=50),

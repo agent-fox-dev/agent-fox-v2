@@ -117,18 +117,12 @@ class TestDurationPredictionsArePositive:
     """TS-41-P4: DurationHint.predicted_ms is always >= 1."""
 
     @given(
-        archetype=st.sampled_from(
-            ["coder", "skeptic", "oracle", "verifier", "librarian", "cartographer"]
-        ),
+        archetype=st.sampled_from(["coder", "skeptic", "oracle", "verifier", "librarian", "cartographer"]),
         tier=st.sampled_from(["STANDARD", "ADVANCED", "MAX"]),
-        spec_name=st.text(
-            alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=10
-        ),
+        spec_name=st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=10),
     )
     @settings(max_examples=50)
-    def test_positive_predictions(
-        self, archetype: str, tier: str, spec_name: str
-    ) -> None:
+    def test_positive_predictions(self, archetype: str, tier: str, spec_name: str) -> None:
         from agent_fox.routing.duration import get_duration_hint
 
         conn = duckdb.connect(":memory:")

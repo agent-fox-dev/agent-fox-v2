@@ -47,10 +47,7 @@ def fix_invalid_checkbox_state(
                         rule="invalid-checkbox-state",
                         spec_name=spec_name,
                         file=str(tasks_path),
-                        description=(
-                            f"Normalized invalid checkbox '[{char}]' to '[ ]' "
-                            f"on line {i + 1}"
-                        ),
+                        description=(f"Normalized invalid checkbox '[{char}]' to '[ ]' on line {i + 1}"),
                     )
                 )
 

@@ -51,11 +51,7 @@ class TestExtractJsonArrayBasic:
 
     def test_array_surrounded_by_prose(self) -> None:
         """Extracts JSON array embedded in surrounding prose."""
-        text = (
-            "Here are the findings:\n"
-            '[{"severity": "major", "description": "Missing null check"}]\n'
-            "End of review."
-        )
+        text = 'Here are the findings:\n[{"severity": "major", "description": "Missing null check"}]\nEnd of review.'
         result = extract_json_array(text)
         assert result == [{"severity": "major", "description": "Missing null check"}]
 
@@ -151,9 +147,7 @@ class TestParseReviewFindings:
         assert result[0].task_group == 2
         assert result[0].session_id == "skeptic_03_2"
 
-    def test_invalid_fields_skipped_with_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_invalid_fields_skipped_with_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-53-7: Objects missing required fields are skipped; warning logged."""
         json_objects: list[dict] = [
             {"severity": "major", "description": "ok"},  # valid
@@ -166,10 +160,7 @@ class TestParseReviewFindings:
         assert result[0].description == "ok"
 
         warning_text = " ".join(r.message for r in caplog.records)
-        assert any(
-            word in warning_text.lower()
-            for word in ("missing", "skip", "required", "invalid")
-        )
+        assert any(word in warning_text.lower() for word in ("missing", "skip", "required", "invalid"))
 
     def test_empty_input_returns_empty(self) -> None:
         """Empty input list returns an empty result list."""

@@ -39,15 +39,12 @@ def _build_triage_prompt(
     issue_descriptions = []
     for issue in issues:
         body_preview = (issue.body or "")[:500]
-        issue_descriptions.append(
-            f"- #{issue.number}: {issue.title}\n  Body: {body_preview}"
-        )
+        issue_descriptions.append(f"- #{issue.number}: {issue.title}\n  Body: {body_preview}")
 
     edges_text = ""
     if explicit_edges:
         edge_lines = [
-            f"  - #{e.from_issue} must be fixed before "
-            f"#{e.to_issue} ({e.source}: {e.rationale})"
+            f"  - #{e.from_issue} must be fixed before #{e.to_issue} ({e.source}: {e.rationale})"
             for e in explicit_edges
         ]
         edges_text = "\nKnown dependency edges:\n" + "\n".join(edge_lines)
@@ -91,9 +88,7 @@ def _parse_triage_response(
             try:
                 data = json.loads(match.group(1))
             except (json.JSONDecodeError, TypeError) as exc:
-                raise TriageError(
-                    f"Failed to parse triage JSON from code fence: {exc}"
-                ) from exc
+                raise TriageError(f"Failed to parse triage JSON from code fence: {exc}") from exc
         else:
             raise TriageError("AI response was not valid JSON")
 
@@ -104,9 +99,7 @@ def _parse_triage_response(
     raw_order = data.get("processing_order", [])
     if not isinstance(raw_order, list):
         raise TriageError("processing_order is not a list")
-    processing_order = [
-        n for n in raw_order if isinstance(n, int) and n in issue_numbers
-    ]
+    processing_order = [n for n in raw_order if isinstance(n, int) and n in issue_numbers]
 
     # Parse dependency edges
     edges: list[DependencyEdge] = []
@@ -132,12 +125,7 @@ def _parse_triage_response(
             continue
         keep = sup.get("keep")
         obsolete = sup.get("obsolete")
-        if (
-            isinstance(keep, int)
-            and isinstance(obsolete, int)
-            and keep in issue_numbers
-            and obsolete in issue_numbers
-        ):
+        if isinstance(keep, int) and isinstance(obsolete, int) and keep in issue_numbers and obsolete in issue_numbers:
             supersession_pairs.append((keep, obsolete))
 
     return TriageResult(

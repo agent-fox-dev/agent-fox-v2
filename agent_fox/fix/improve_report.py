@@ -44,9 +44,7 @@ def render_combined_report(
     Requirements: 31-REQ-9.1, 31-REQ-9.2, 31-REQ-9.E1
     """
     # -- Phase 1 --
-    p1_label = TERMINATION_LABELS.get(
-        fix_result.termination_reason, ("Unknown", "white")
-    )[0]
+    p1_label = TERMINATION_LABELS.get(fix_result.termination_reason, ("Unknown", "white"))[0]
     _print = lambda msg: console.print(msg, highlight=False)  # noqa: E731
 
     _print("[bold]Phase 1: Repair[/bold]")
@@ -64,18 +62,12 @@ def render_combined_report(
         )
         console.print()
         _print("[bold]Phase 2: Improve[/bold]")
-        _print(
-            f"  Passes completed: {improve_result.passes_completed}"
-            f" of {improve_result.max_passes}"
-        )
+        _print(f"  Passes completed: {improve_result.passes_completed} of {improve_result.max_passes}")
         _print(f"  Improvements applied: {improve_result.total_improvements}")
         if improve_result.improvements_by_tier:
             for tier, count in improve_result.improvements_by_tier.items():
                 _print(f"    {tier}: {count}")
-        _print(
-            f"  Verifier: {improve_result.verifier_pass_count} PASS, "
-            f"{improve_result.verifier_fail_count} FAIL"
-        )
+        _print(f"  Verifier: {improve_result.verifier_pass_count} PASS, {improve_result.verifier_fail_count} FAIL")
         _print(f"  Sessions consumed: {improve_result.sessions_consumed}")
         _print(f"  Termination: {p2_label}")
 

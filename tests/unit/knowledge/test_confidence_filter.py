@@ -81,9 +81,7 @@ class TestConfidenceFiltering:
         )
 
         result_ids = {f.id for f in result}
-        assert "low_conf" not in result_ids, (
-            "Low-confidence fact should be excluded regardless of keyword score"
-        )
+        assert "low_conf" not in result_ids, "Low-confidence fact should be excluded regardless of keyword score"
         assert "high_conf" in result_ids
 
     def test_default_threshold(self) -> None:

@@ -59,9 +59,7 @@ def _make_orch(
 def orch_config_strategy(draw: st.DrawFn) -> OrchestratorConfig:
     """Strategy for generating arbitrary OrchestratorConfig instances."""
     return OrchestratorConfig(
-        max_cost=draw(
-            st.one_of(st.none(), st.floats(min_value=0.1, max_value=10000.0))
-        ),
+        max_cost=draw(st.one_of(st.none(), st.floats(min_value=0.1, max_value=10000.0))),
         max_retries=draw(st.integers(min_value=0, max_value=10)),
         session_timeout=draw(st.integers(min_value=1, max_value=120)),
         sync_interval=draw(st.integers(min_value=0, max_value=20)),
@@ -75,12 +73,8 @@ def config_pair_strategy(draw: st.DrawFn) -> tuple[AgentFoxConfig, AgentFoxConfi
     """Strategy generating (old, new) AgentFoxConfig pairs that differ."""
     old_cost = draw(st.floats(min_value=0.1, max_value=100.0, allow_nan=False))
     new_cost = draw(st.floats(min_value=100.1, max_value=200.0, allow_nan=False))
-    old_cfg = AgentFoxConfig(
-        orchestrator=OrchestratorConfig(max_cost=old_cost, parallel=1)
-    )
-    new_cfg = AgentFoxConfig(
-        orchestrator=OrchestratorConfig(max_cost=new_cost, parallel=1)
-    )
+    old_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=old_cost, parallel=1))
+    new_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=new_cost, parallel=1))
     return old_cfg, new_cfg
 
 
@@ -168,9 +162,7 @@ class TestMutableFieldsUpdatedProperty:
         max_examples=30,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_mutable_fields_updated(
-        self, new_cfg: OrchestratorConfig, tmp_path: Path
-    ) -> None:
+    def test_mutable_fields_updated(self, new_cfg: OrchestratorConfig, tmp_path: Path) -> None:
         """After reload, all mutable OrchestratorConfig fields match new config."""
         config_file = tmp_path / "config.toml"
         config_file.write_text("[orchestrator]\n")  # Content differs from hash
@@ -191,9 +183,7 @@ class TestMutableFieldsUpdatedProperty:
         for field_name in self._MUTABLE_FIELDS:
             expected = getattr(new_cfg, field_name)
             actual = getattr(orch._config, field_name)
-            assert actual == expected, (
-                f"Field {field_name}: expected {expected!r}, got {actual!r}"
-            )
+            assert actual == expected, f"Field {field_name}: expected {expected!r}, got {actual!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -227,9 +217,7 @@ class TestCircuitBreakerRebuiltProperty:
         orch._full_config = AgentFoxConfig()  # type: ignore[attr-defined]
         orch._run_id = "prop_test"
 
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(max_cost=max_cost, parallel=1)
-        )
+        new_agent_cfg = AgentFoxConfig(orchestrator=OrchestratorConfig(max_cost=max_cost, parallel=1))
         with patch(
             "agent_fox.engine.config_reload.load_config",
             return_value=new_agent_cfg,

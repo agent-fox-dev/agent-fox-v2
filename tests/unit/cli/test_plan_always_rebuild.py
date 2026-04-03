@@ -38,8 +38,7 @@ class TestDeadFunctionsRemoved:
     def test_cache_matches_request_not_in_module(self) -> None:
         """_cache_matches_request must not exist in agent_fox.cli.plan (63-REQ-3.1)."""
         assert not hasattr(plan_mod, "_cache_matches_request"), (
-            "_cache_matches_request still exists in plan module — "
-            "remove it (63-REQ-3.1)"
+            "_cache_matches_request still exists in plan module — remove it (63-REQ-3.1)"
         )
 
 
@@ -49,16 +48,12 @@ class TestPlanMetadataFieldsRemoved:
     def test_specs_hash_field_not_in_plan_metadata(self) -> None:
         """PlanMetadata must not declare a specs_hash field (63-REQ-3.2)."""
         field_names = {f.name for f in dataclasses.fields(PlanMetadata)}
-        assert "specs_hash" not in field_names, (
-            "specs_hash is still a field on PlanMetadata — remove it (63-REQ-3.2)"
-        )
+        assert "specs_hash" not in field_names, "specs_hash is still a field on PlanMetadata — remove it (63-REQ-3.2)"
 
     def test_config_hash_field_not_in_plan_metadata(self) -> None:
         """PlanMetadata must not declare a config_hash field (63-REQ-3.2)."""
         field_names = {f.name for f in dataclasses.fields(PlanMetadata)}
-        assert "config_hash" not in field_names, (
-            "config_hash is still a field on PlanMetadata — remove it (63-REQ-3.2)"
-        )
+        assert "config_hash" not in field_names, "config_hash is still a field on PlanMetadata — remove it (63-REQ-3.2)"
 
 
 def _write_old_plan_json(plan_path: Path, *, specs_hash: str, config_hash: str) -> None:

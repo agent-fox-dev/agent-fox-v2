@@ -24,19 +24,12 @@ def _setup_project(project_dir: Path) -> None:
     spec1 = project_dir / ".specs" / "01_alpha"
     spec1.mkdir(parents=True)
     (spec1 / "tasks.md").write_text(
-        "# Tasks\n\n"
-        "- [ ] 1. Write tests\n"
-        "  - [ ] 1.1 Unit tests\n"
-        "\n"
-        "- [ ] 2. Implement\n"
-        "  - [ ] 2.1 Core logic\n"
+        "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Unit tests\n\n- [ ] 2. Implement\n  - [ ] 2.1 Core logic\n"
     )
 
     spec2 = project_dir / ".specs" / "02_beta"
     spec2.mkdir(parents=True)
-    (spec2 / "tasks.md").write_text(
-        "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Unit tests\n"
-    )
+    (spec2 / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Unit tests\n")
     (spec2 / "prd.md").write_text(
         "# PRD\n\n"
         "| This Spec | Depends On | What It Uses |\n"
@@ -52,29 +45,21 @@ class TestPlanAnalyzeCLI:
         """plan --analyze exits with code 0."""
         _setup_project(tmp_git_repo)
         result = cli_runner.invoke(main, ["plan", "--analyze"])
-        assert result.exit_code == 0, (
-            f"Exit code {result.exit_code}, output:\n{result.output}"
-        )
+        assert result.exit_code == 0, f"Exit code {result.exit_code}, output:\n{result.output}"
 
-    def test_output_contains_phase(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_output_contains_phase(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --analyze output contains 'Phase' heading."""
         _setup_project(tmp_git_repo)
         result = cli_runner.invoke(main, ["plan", "--analyze"])
         assert "Phase" in result.output
 
-    def test_output_contains_critical_path(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_output_contains_critical_path(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --analyze output contains 'Critical Path' section."""
         _setup_project(tmp_git_repo)
         result = cli_runner.invoke(main, ["plan", "--analyze"])
         assert "Critical Path" in result.output
 
-    def test_output_contains_summary(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_output_contains_summary(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --analyze output contains summary statistics."""
         _setup_project(tmp_git_repo)
         result = cli_runner.invoke(main, ["plan", "--analyze"])

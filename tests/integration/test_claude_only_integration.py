@@ -19,9 +19,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 def test_adr_exists() -> None:
     """Exactly one ADR file matches *use-claude-exclusively*."""
     matches = list(_PROJECT_ROOT.glob("docs/adr/*use-claude-exclusively*"))
-    assert len(matches) == 1, (
-        f"Expected 1 ADR *use-claude-exclusively*, found {len(matches)}: {matches}"
-    )
+    assert len(matches) == 1, f"Expected 1 ADR *use-claude-exclusively*, found {len(matches)}: {matches}"
 
 
 # ---------------------------------------------------------------------------
@@ -53,8 +51,6 @@ def test_readme_claude() -> None:
     readme = (_PROJECT_ROOT / "README.md").read_text()
     readme_lower = readme.lower()
     assert "claude" in readme_lower
-    assert (
-        "built" in readme_lower
-        or "exclusively" in readme_lower
-        or "powered by" in readme_lower
-    ), "README must indicate Claude exclusivity"
+    assert "built" in readme_lower or "exclusively" in readme_lower or "powered by" in readme_lower, (
+        "README must indicate Claude exclusivity"
+    )

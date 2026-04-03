@@ -23,8 +23,7 @@ class TestCoordinatorTemplateDeleted:
 
         template_path = _TEMPLATE_DIR / "coordinator.md"
         assert not template_path.exists(), (
-            f"coordinator.md template should have been deleted but exists at "
-            f"{template_path}"
+            f"coordinator.md template should have been deleted but exists at {template_path}"
         )
 
 
@@ -68,6 +67,4 @@ class TestConfigWithCoordinatorFieldLoadsOk:
         load_config(path=config_file)
 
         # The coordinator field must be silently ignored (not present on model)
-        assert "coordinator" not in ModelConfig.model_fields, (
-            "coordinator should be silently ignored by ModelConfig"
-        )
+        assert "coordinator" not in ModelConfig.model_fields, "coordinator should be silently ignored by ModelConfig"

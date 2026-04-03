@@ -135,9 +135,7 @@ class TestGetDurationHint:
     Test Spec: TS-41-5, TS-41-6, TS-41-10, TS-41-14, TS-41-15
     """
 
-    def test_historical_median_with_sufficient_data(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_historical_median_with_sufficient_data(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-5: Historical median used when >= min_outcomes exist.
 
         Requirement: 41-REQ-2.1
@@ -149,16 +147,12 @@ class TestGetDurationHint:
         for i in range(1, 16):
             _insert_outcome(duration_db, assessment_id=aid, duration_ms=i * 100)
 
-        hint = get_duration_hint(
-            duration_db, "node1", "myspec", "coder", "STANDARD", min_outcomes=10
-        )
+        hint = get_duration_hint(duration_db, "node1", "myspec", "coder", "STANDARD", min_outcomes=10)
         assert isinstance(hint, DurationHint)
         assert hint.source == "historical"
         assert hint.predicted_ms == 800  # median of 100..1500
 
-    def test_historical_median_insufficient_data(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_historical_median_insufficient_data(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-6: Fallthrough when fewer than min_outcomes exist.
 
         Requirement: 41-REQ-2.2
@@ -170,30 +164,22 @@ class TestGetDurationHint:
         for i in range(1, 6):
             _insert_outcome(duration_db, assessment_id=aid, duration_ms=i * 100)
 
-        hint = get_duration_hint(
-            duration_db, "node1", "myspec", "coder", "STANDARD", min_outcomes=10
-        )
+        hint = get_duration_hint(duration_db, "node1", "myspec", "coder", "STANDARD", min_outcomes=10)
         assert hint.source != "historical"
 
-    def test_default_fallback_unknown_archetype(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_default_fallback_unknown_archetype(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-10: Default fallback when no preset matches.
 
         Requirement: 41-REQ-3.3
         """
         from agent_fox.routing.duration import DEFAULT_DURATION_MS, get_duration_hint
 
-        hint = get_duration_hint(
-            duration_db, "node1", "spec", "unknown_arch", "UNKNOWN_TIER"
-        )
+        hint = get_duration_hint(duration_db, "node1", "spec", "unknown_arch", "UNKNOWN_TIER")
         assert hint.source == "default"
         assert hint.predicted_ms == DEFAULT_DURATION_MS
         assert hint.predicted_ms == 300_000
 
-    def test_regression_takes_precedence_over_historical(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_regression_takes_precedence_over_historical(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-14: Regression source used when model is available.
 
         Requirement: 41-REQ-4.4
@@ -210,9 +196,7 @@ class TestGetDurationHint:
                 archetype="coder",
                 task_group=i % 3 + 1,
             )
-            _insert_outcome(
-                duration_db, assessment_id=aid, duration_ms=(i + 1) * 10_000
-            )
+            _insert_outcome(duration_db, assessment_id=aid, duration_ms=(i + 1) * 10_000)
 
         model = train_duration_model(duration_db, min_outcomes=10)
         assert model is not None
@@ -228,9 +212,7 @@ class TestGetDurationHint:
         )
         assert hint.source == "regression"
 
-    def test_regression_prediction_clamped_to_minimum(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_regression_prediction_clamped_to_minimum(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-15: Regression predictions clamped to minimum 1 ms.
 
         Requirement: 41-REQ-4.5
@@ -238,9 +220,7 @@ class TestGetDurationHint:
         from agent_fox.routing.duration import get_duration_hint
 
         # Insert an assessment so _predict_from_model can find a feature vector
-        _insert_assessment(
-            duration_db, assessment_id="neg1", spec_name="spec", archetype="coder"
-        )
+        _insert_assessment(duration_db, assessment_id="neg1", spec_name="spec", archetype="coder")
 
         # Mock model that returns a negative prediction
         import numpy as np
@@ -292,9 +272,7 @@ class TestHistoricalMedian:
         """
         from agent_fox.routing.duration import _get_historical_median
 
-        aid = _insert_assessment(
-            duration_db, assessment_id="med_even", spec_name="spec"
-        )
+        aid = _insert_assessment(duration_db, assessment_id="med_even", spec_name="spec")
         # 10 outcomes with durations [10, 20, ..., 100]
         for i in range(1, 11):
             _insert_outcome(duration_db, assessment_id=aid, duration_ms=i * 10)
@@ -362,9 +340,7 @@ class TestTrainDurationModel:
             )
             _insert_outcome(conn, assessment_id=aid, duration_ms=(i + 1) * 10_000)
 
-    def test_model_training_success(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_model_training_success(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-11: Model training succeeds with sufficient outcomes.
 
         Requirement: 41-REQ-4.1
@@ -378,9 +354,7 @@ class TestTrainDurationModel:
         assert model is not None
         assert isinstance(model, LinearRegression)
 
-    def test_model_training_insufficient_data(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_model_training_insufficient_data(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-12: Model returns None with insufficient outcomes.
 
         Requirement: 41-REQ-4.2
@@ -416,9 +390,7 @@ class TestEdgeCases:
         result = _get_historical_median(mock_conn, "spec", "coder", 10)
         assert result is None
 
-    def test_regression_predict_failure_fallthrough(
-        self, duration_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_regression_predict_failure_fallthrough(self, duration_db: duckdb.DuckDBPyConnection) -> None:
         """TS-41-E4: Fallthrough to historical when model.predict() fails.
 
         Requirement: 41-REQ-4.E1
@@ -426,9 +398,7 @@ class TestEdgeCases:
         from agent_fox.routing.duration import get_duration_hint
 
         # Insert enough data for historical median
-        aid = _insert_assessment(
-            duration_db, assessment_id="ep1", spec_name="spec", archetype="coder"
-        )
+        aid = _insert_assessment(duration_db, assessment_id="ep1", spec_name="spec", archetype="coder")
         for i in range(15):
             _insert_outcome(duration_db, assessment_id=aid, duration_ms=(i + 1) * 100)
 

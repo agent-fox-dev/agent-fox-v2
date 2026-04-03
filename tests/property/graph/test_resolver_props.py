@@ -111,10 +111,7 @@ class TestTopologicalOrderValidity:
         for edge in graph.edges:
             src_idx = order.index(edge.source)
             tgt_idx = order.index(edge.target)
-            assert src_idx < tgt_idx, (
-                f"Edge {edge.source} -> {edge.target}: "
-                f"source at {src_idx}, target at {tgt_idx}"
-            )
+            assert src_idx < tgt_idx, f"Edge {edge.source} -> {edge.target}: source at {src_idx}, target at {tgt_idx}"
 
     @given(graph=acyclic_graphs())
     @settings(max_examples=50)

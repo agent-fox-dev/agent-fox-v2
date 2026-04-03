@@ -79,9 +79,7 @@ def compact(
     removed_ids = [f.id for f in facts if f.id not in surviving_ids]
     if removed_ids:
         placeholders = ", ".join(f"'{rid}'::UUID" for rid in removed_ids)
-        conn.execute(
-            f"UPDATE memory_facts SET superseded_by = id WHERE id IN ({placeholders})"
-        )
+        conn.execute(f"UPDATE memory_facts SET superseded_by = id WHERE id IN ({placeholders})")
 
     # Step 5: Export surviving facts to JSONL
     export_facts_to_jsonl(conn, path)

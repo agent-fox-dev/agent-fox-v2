@@ -59,13 +59,9 @@ class TestFixMissingTraceabilityTable:
 
     def test_appends_table_with_req_ids(self, tmp_path: Path) -> None:
         (tmp_path / "requirements.md").write_text(
-            "# Requirements\n\n"
-            "1. [05-REQ-1.1] THE system SHALL do A.\n"
-            "2. [05-REQ-1.2] THE system SHALL do B.\n"
+            "# Requirements\n\n1. [05-REQ-1.1] THE system SHALL do A.\n2. [05-REQ-1.2] THE system SHALL do B.\n"
         )
-        (tmp_path / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Do stuff\n  - [ ] 1.1 Sub\n"
-        )
+        (tmp_path / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Do stuff\n  - [ ] 1.1 Sub\n")
         results = fix_missing_traceability_table("test", tmp_path)
         assert len(results) == 1
 
@@ -85,12 +81,8 @@ class TestFixMissingCoverageMatrix:
     """Verify coverage matrix generation."""
 
     def test_appends_matrix_with_req_ids(self, tmp_path: Path) -> None:
-        (tmp_path / "requirements.md").write_text(
-            "1. [05-REQ-1.1] THE system SHALL do A.\n"
-        )
-        (tmp_path / "test_spec.md").write_text(
-            "# Test Spec\n\n### TS-05-1: Test A\n\n**Requirement:** 05-REQ-1.1\n"
-        )
+        (tmp_path / "requirements.md").write_text("1. [05-REQ-1.1] THE system SHALL do A.\n")
+        (tmp_path / "test_spec.md").write_text("# Test Spec\n\n### TS-05-1: Test A\n\n**Requirement:** 05-REQ-1.1\n")
         results = fix_missing_coverage_matrix("test", tmp_path)
         assert len(results) == 1
 
@@ -157,8 +149,6 @@ class TestFixMissingCorrectnessProperties:
 
     def test_skips_if_already_present(self, tmp_path: Path) -> None:
         design = tmp_path / "design.md"
-        design.write_text(
-            "# Design\n\n## Correctness Properties\n\n### Property 1: Test\n\nProp.\n"
-        )
+        design.write_text("# Design\n\n## Correctness Properties\n\n### Property 1: Test\n\nProp.\n")
         results = fix_missing_correctness_properties("test", design)
         assert len(results) == 0

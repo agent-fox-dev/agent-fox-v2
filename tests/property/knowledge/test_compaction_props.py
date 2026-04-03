@@ -43,9 +43,7 @@ def fact_strategy(
         content=content or draw(st.text(min_size=1, max_size=50)),
         category=draw(st.sampled_from(CATEGORIES)),
         spec_name=draw(st.text(min_size=1, max_size=20)),
-        keywords=draw(
-            st.lists(st.text(min_size=1, max_size=20), min_size=1, max_size=5)
-        ),
+        keywords=draw(st.lists(st.text(min_size=1, max_size=20), min_size=1, max_size=5)),
         confidence=draw(st.sampled_from([0.9, 0.6, 0.3])),
         created_at=draw(
             st.from_regex(
@@ -61,9 +59,7 @@ def fact_strategy(
 def facts_with_duplicates(draw: st.DrawFn) -> list[Fact]:
     """Generate a list of facts where some may share content."""
     # Generate 2-5 unique content strings, then create facts that may reuse them
-    unique_contents = draw(
-        st.lists(st.text(min_size=1, max_size=50), min_size=1, max_size=5)
-    )
+    unique_contents = draw(st.lists(st.text(min_size=1, max_size=50), min_size=1, max_size=5))
     facts: list[Fact] = []
     n = draw(st.integers(min_value=1, max_value=20))
     for _ in range(n):

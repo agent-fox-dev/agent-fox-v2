@@ -100,9 +100,7 @@ def _inject_cache_control(
     if isinstance(system, str):
         total_text = system
     else:
-        total_text = "".join(
-            block.get("text", "") if isinstance(block, dict) else "" for block in system
-        )
+        total_text = "".join(block.get("text", "") if isinstance(block, dict) else "" for block in system)
 
     threshold = _CACHE_TOKEN_THRESHOLDS.get(model, _DEFAULT_THRESHOLD)
     if model not in _CACHE_TOKEN_THRESHOLDS:
@@ -153,9 +151,7 @@ async def cached_messages_create(
     Requirements: 77-REQ-2.1, 77-REQ-2.2, 77-REQ-2.3, 77-REQ-2.4,
                   77-REQ-2.E1, 77-REQ-2.E2
     """
-    modified_system = _inject_cache_control(
-        system, model=model, cache_policy=cache_policy
-    )
+    modified_system = _inject_cache_control(system, model=model, cache_policy=cache_policy)
 
     call_kwargs: dict[str, Any] = dict(
         model=model,
@@ -208,9 +204,7 @@ def cached_messages_create_sync(
 
     Requirements: 77-REQ-2.1
     """
-    modified_system = _inject_cache_control(
-        system, model=model, cache_policy=cache_policy
-    )
+    modified_system = _inject_cache_control(system, model=model, cache_policy=cache_policy)
 
     call_kwargs: dict[str, Any] = dict(
         model=model,
@@ -247,8 +241,7 @@ def _check_vertex_deps() -> None:
         import google.auth  # noqa: F401
     except ModuleNotFoundError:
         raise RuntimeError(
-            "CLAUDE_CODE_USE_VERTEX=1 is set but google-auth is "
-            "not installed. Run: pip install 'anthropic[vertex]'"
+            "CLAUDE_CODE_USE_VERTEX=1 is set but google-auth is not installed. Run: pip install 'anthropic[vertex]'"
         ) from None
 
 
@@ -258,8 +251,7 @@ def _check_bedrock_deps() -> None:
         import boto3  # noqa: F401
     except ModuleNotFoundError:
         raise RuntimeError(
-            "CLAUDE_CODE_USE_BEDROCK=1 is set but boto3 is "
-            "not installed. Run: pip install 'anthropic[bedrock]'"
+            "CLAUDE_CODE_USE_BEDROCK=1 is set but boto3 is not installed. Run: pip install 'anthropic[bedrock]'"
         ) from None
 
 

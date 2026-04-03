@@ -81,9 +81,7 @@ def fix_missing_traceability_table(
             rule="missing-traceability-table",
             spec_name=spec_name,
             file=str(tasks_path),
-            description=(
-                f"Appended Traceability section with {len(req_ids)} requirement(s)"
-            ),
+            description=(f"Appended Traceability section with {len(req_ids)} requirement(s)"),
         )
     ]
 
@@ -125,9 +123,7 @@ def fix_missing_coverage_matrix(
         rows.append(f"| {req_id} | {matching_ts} | {test_type} |")
 
     section = (
-        "\n## Coverage Matrix\n\n"
-        "| Requirement | Test Spec Entry | Type |\n"
-        "|-------------|-----------------|------|\n"
+        "\n## Coverage Matrix\n\n| Requirement | Test Spec Entry | Type |\n|-------------|-----------------|------|\n"
     )
     section += "\n".join(rows) + "\n"
 
@@ -139,9 +135,7 @@ def fix_missing_coverage_matrix(
             rule="missing-coverage-matrix",
             spec_name=spec_name,
             file=str(ts_path),
-            description=(
-                f"Appended Coverage Matrix section with {len(req_ids)} requirement(s)"
-            ),
+            description=(f"Appended Coverage Matrix section with {len(req_ids)} requirement(s)"),
         )
     ]
 
@@ -210,11 +204,7 @@ def _append_missing_section(
                 return []
 
     file_path.write_text(text.rstrip() + "\n" + template, encoding="utf-8")
-    return [
-        FixResult(
-            rule=rule, spec_name=spec_name, file=str(file_path), description=description
-        )
-    ]
+    return [FixResult(rule=rule, spec_name=spec_name, file=str(file_path), description=description)]
 
 
 def fix_missing_definition_of_done(

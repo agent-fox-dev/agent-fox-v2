@@ -264,9 +264,7 @@ class TestStatusStringDetection:
         timeout_handler_invocations: dict[str, int] = {}
 
         for status in ("timeout", "failed", "completed"):
-            handler, mock_ladder, state, attempt_tracker, error_tracker = (
-                _make_handler()
-            )
+            handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
             record = _make_record(status)
 
             handler.process(
@@ -764,9 +762,7 @@ class TestTimeoutRetryAuditEvent:
         event_type = AuditEventType.SESSION_TIMEOUT_RETRY
 
         sink = _EventCaptureSink()
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            sink=sink
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(sink=sink)
 
         record = _make_record("timeout")
         handler.process(
@@ -787,9 +783,7 @@ class TestTimeoutRetryAuditEvent:
         event_type = AuditEventType.SESSION_TIMEOUT_RETRY  # Currently FAILS
 
         sink = _EventCaptureSink()
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            sink=sink
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(sink=sink)
 
         record = _make_record("timeout")
         handler.process(
@@ -816,9 +810,7 @@ class TestTimeoutRetryAuditEvent:
 class TestExhaustionWarningLog:
     """TS-75-22: Warning logged when timeout retries are exhausted."""
 
-    def test_warning_logged_on_timeout_exhaustion(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_warning_logged_on_timeout_exhaustion(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-75-22: Warning mentioning exhaustion is emitted when retries run out."""
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
 
@@ -839,13 +831,10 @@ class TestExhaustionWarningLog:
             )
 
         # At least one warning must mention exhaustion.
-        warning_messages = [
-            r.message for r in caplog.records if r.levelname == "WARNING"
-        ]
-        assert any(
-            "exhausted" in msg.lower() or "timeout" in msg.lower()
-            for msg in warning_messages
-        ), f"Expected exhaustion warning, got: {warning_messages}"
+        warning_messages = [r.message for r in caplog.records if r.levelname == "WARNING"]
+        assert any("exhausted" in msg.lower() or "timeout" in msg.lower() for msg in warning_messages), (
+            f"Expected exhaustion warning, got: {warning_messages}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -864,9 +853,7 @@ class TestAuditEventPayloadValues:
         event_type = AuditEventType.SESSION_TIMEOUT_RETRY  # Currently FAILS
 
         sink = _EventCaptureSink()
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            sink=sink
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(sink=sink)
 
         record = _make_record("timeout")
         handler.process(
@@ -892,9 +879,7 @@ class TestAuditEventPayloadValues:
         event_type = AuditEventType.SESSION_TIMEOUT_RETRY  # Currently FAILS
 
         sink = _EventCaptureSink()
-        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(
-            sink=sink
-        )
+        handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler(sink=sink)
 
         # Set up expected values.
         # Currently FAILS: attributes don't exist.

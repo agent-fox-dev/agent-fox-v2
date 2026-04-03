@@ -148,9 +148,7 @@ class TestPollNumberMonotonicity:
         max_examples=20,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_poll_numbers_are_monotonically_increasing(
-        self, n: int, tmp_path: Path
-    ) -> None:
+    def test_poll_numbers_are_monotonically_increasing(self, n: int, tmp_path: Path) -> None:
         """For N poll cycles, poll_numbers are [1, 2, ..., N]."""
         import asyncio
 
@@ -192,9 +190,7 @@ class TestPollNumberMonotonicity:
         _method = "_try_end_of_run_discovery"
 
         async def run() -> None:
-            with patch.object(
-                orch, _method, side_effect=fake_try_end_of_run_discovery
-            ):
+            with patch.object(orch, _method, side_effect=fake_try_end_of_run_discovery):
                 with patch("asyncio.sleep", new_callable=AsyncMock):
                     await orch.run()
 
@@ -203,9 +199,7 @@ class TestPollNumberMonotonicity:
         events = _watch_poll_events(sink)
         assert len(events) == n, f"Expected {n} WATCH_POLL events, got {len(events)}"
         poll_numbers = [e.payload["poll_number"] for e in events]
-        assert poll_numbers == list(range(1, n + 1)), (
-            f"poll_numbers should be [1..{n}], got {poll_numbers}"
-        )
+        assert poll_numbers == list(range(1, n + 1)), f"poll_numbers should be [1..{n}], got {poll_numbers}"
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +217,7 @@ class TestHotLoadGate:
         max_examples=20,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_hot_load_false_always_terminates_completed(
-        self, watch_interval: int, tmp_path: Path
-    ) -> None:
+    def test_hot_load_false_always_terminates_completed(self, watch_interval: int, tmp_path: Path) -> None:
         """For any watch_interval, hot_load=False produces COMPLETED, no WATCH_POLL."""
         import asyncio
 
@@ -263,9 +255,7 @@ class TestHotLoadGate:
 
         assert state.run_status == "completed"
         events = _watch_poll_events(sink)
-        assert len(events) == 0, (
-            f"No WATCH_POLL events expected with hot_load=False, got {len(events)}"
-        )
+        assert len(events) == 0, f"No WATCH_POLL events expected with hot_load=False, got {len(events)}"
 
 
 # ---------------------------------------------------------------------------
@@ -283,9 +273,7 @@ class TestStallOverridesWatch:
         max_examples=10,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_stall_always_terminates_stalled(
-        self, watch: bool, tmp_path: Path
-    ) -> None:
+    def test_stall_always_terminates_stalled(self, watch: bool, tmp_path: Path) -> None:
         """For any watch setting, stalled graph returns STALLED."""
         import asyncio
 

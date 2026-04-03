@@ -139,9 +139,7 @@ class TestDuckDBSinkAudit:
             payload={"plan_hash": "abc123"},
         )
         sink.emit_audit_event(event)
-        row = knowledge_conn.execute(
-            "SELECT * FROM audit_events WHERE id = ?", [str(event.id)]
-        ).fetchone()
+        row = knowledge_conn.execute("SELECT * FROM audit_events WHERE id = ?", [str(event.id)]).fetchone()
         assert row is not None
 
     def test_json_payload(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
@@ -153,9 +151,7 @@ class TestDuckDBSinkAudit:
             payload={"plan_hash": "abc123", "total_nodes": 5},
         )
         sink.emit_audit_event(event)
-        row = knowledge_conn.execute(
-            "SELECT payload FROM audit_events WHERE id = ?", [str(event.id)]
-        ).fetchone()
+        row = knowledge_conn.execute("SELECT payload FROM audit_events WHERE id = ?", [str(event.id)]).fetchone()
         assert row is not None
         payload = json.loads(row[0])
         assert payload["plan_hash"] == "abc123"
@@ -175,8 +171,7 @@ class TestDuckDBSinkAudit:
         )
         sink.emit_audit_event(event)
         row = knowledge_conn.execute(
-            "SELECT run_id, event_type, severity, node_id, session_id, archetype "
-            "FROM audit_events WHERE id = ?",
+            "SELECT run_id, event_type, severity, node_id, session_id, archetype FROM audit_events WHERE id = ?",
             [str(event.id)],
         ).fetchone()
         assert row is not None
@@ -253,9 +248,7 @@ class TestAuditJsonlSink:
         file_path = audit_dir / "audit_r1.jsonl"
         assert not file_path.exists()
 
-    def test_write_failure(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_write_failure(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """TS-40-16: Write failure logs warning but does not raise."""
         # Use a path that will fail on write
         sink = AuditJsonlSink(Path("/nonexistent/path/audit"), "r1")

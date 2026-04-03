@@ -52,9 +52,7 @@ class TestTerminationBound:
 
         call_count = 0
 
-        async def mock_runner(
-            system_prompt: str, task_prompt: str, model_tier: str
-        ) -> tuple[float, str]:
+        async def mock_runner(system_prompt: str, task_prompt: str, model_tier: str) -> tuple[float, str]:
             nonlocal call_count
             call_count += 1
             if call_count % 3 == 0:

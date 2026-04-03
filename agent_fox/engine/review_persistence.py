@@ -106,9 +106,7 @@ def persist_review_findings(
 
             if json_objects is None:
                 # Attempt format retry if session is still alive (74-REQ-3.1)
-                session_is_alive = session_handle is not None and getattr(
-                    session_handle, "is_alive", False
-                )
+                session_is_alive = session_handle is not None and getattr(session_handle, "is_alive", False)
 
                 if session_is_alive:
                     # 74-REQ-3.5: Append to existing session
@@ -117,9 +115,7 @@ def persist_review_findings(
                         archetype,
                         node_id,
                     )
-                    retry_response = session_handle.append_user_message(
-                        FORMAT_RETRY_PROMPT
-                    )
+                    retry_response = session_handle.append_user_message(FORMAT_RETRY_PROMPT)
                     retry_attempted = True
                     # Re-extract from the retry response (74-REQ-3.3: at most 1 retry)
                     json_objects = extract_json_array(retry_response)

@@ -238,12 +238,8 @@ class TestCausalContextAssembly:
 
         # The result should include an entry representing the review finding,
         # distinguishable from regular fact dicts (has a "type" key or similar)
-        has_review = any(
-            isinstance(item, dict) and item.get("type") == "review" for item in result
-        )
-        assert has_review, (
-            "Expected review finding in select_context_with_causal result"
-        )
+        has_review = any(isinstance(item, dict) and item.get("type") == "review" for item in result)
+        assert has_review, "Expected review finding in select_context_with_causal result"
 
 
 # ---------------------------------------------------------------------------
@@ -322,9 +318,7 @@ class TestPriorGroupFindings:
         )
 
         # Should include drift findings from both prior groups
-        descriptions = [
-            r.description if hasattr(r, "description") else str(r) for r in result
-        ]
+        descriptions = [r.description if hasattr(r, "description") else str(r) for r in result]
         assert any("Drift from group 1" in d for d in descriptions)
         assert any("Drift from group 2" in d for d in descriptions)
 
@@ -385,9 +379,7 @@ class TestPriorGroupFindings:
         # Only groups 1 and 2 should be present
         for r in result:
             group_val = r.group if hasattr(r, "group") else r.task_group
-            assert int(group_val) < 3, (
-                f"Found finding from group {group_val}, expected only < 3"
-            )
+            assert int(group_val) < 3, f"Found finding from group {group_val}, expected only < 3"
 
     def test_render_includes_type_labels(self) -> None:
         """TS-42-19: render_prior_group_findings includes type labels."""

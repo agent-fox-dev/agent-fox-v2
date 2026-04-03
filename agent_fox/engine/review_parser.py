@@ -75,15 +75,12 @@ def parse_review_findings(
     results: list[ReviewFinding] = []
     for obj in json_objects:
         if not isinstance(obj, dict):
-            logger.warning(
-                "Skipping non-dict item in review findings: %r", type(obj).__name__
-            )
+            logger.warning("Skipping non-dict item in review findings: %r", type(obj).__name__)
             continue
         obj = _normalize_keys(obj)
         if "severity" not in obj or "description" not in obj:
             logger.warning(
-                "Skipping review finding: missing required field(s) "
-                "(severity, description). Got keys: %s",
+                "Skipping review finding: missing required field(s) (severity, description). Got keys: %s",
                 list(obj.keys()),
             )
             continue
@@ -94,9 +91,7 @@ def parse_review_findings(
         )
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
-            req_ref = truncate_field(
-                req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref"
-            )
+            req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
@@ -136,15 +131,13 @@ def parse_verification_results(
         obj = _normalize_keys(obj)
         if "requirement_id" not in obj:
             logger.warning(
-                "Skipping verification result: missing required field "
-                "'requirement_id'. Got keys: %s",
+                "Skipping verification result: missing required field 'requirement_id'. Got keys: %s",
                 list(obj.keys()),
             )
             continue
         if "verdict" not in obj:
             logger.warning(
-                "Skipping verification result: missing required field "
-                "'verdict'. Got keys: %s",
+                "Skipping verification result: missing required field 'verdict'. Got keys: %s",
                 list(obj.keys()),
             )
             continue
@@ -194,15 +187,12 @@ def parse_drift_findings(
     results: list[DriftFinding] = []
     for obj in json_objects:
         if not isinstance(obj, dict):
-            logger.warning(
-                "Skipping non-dict item in drift findings: %r", type(obj).__name__
-            )
+            logger.warning("Skipping non-dict item in drift findings: %r", type(obj).__name__)
             continue
         obj = _normalize_keys(obj)
         if "severity" not in obj or "description" not in obj:
             logger.warning(
-                "Skipping drift finding: missing required field(s) "
-                "(severity, description). Got keys: %s",
+                "Skipping drift finding: missing required field(s) (severity, description). Got keys: %s",
                 list(obj.keys()),
             )
             continue
@@ -213,9 +203,7 @@ def parse_drift_findings(
         )
         spec_ref = obj.get("spec_ref")
         if isinstance(spec_ref, str):
-            spec_ref = truncate_field(
-                spec_ref, max_length=MAX_REF_LENGTH, field_name="drift.spec_ref"
-            )
+            spec_ref = truncate_field(spec_ref, max_length=MAX_REF_LENGTH, field_name="drift.spec_ref")
         artifact_ref = obj.get("artifact_ref")
         if isinstance(artifact_ref, str):
             artifact_ref = truncate_field(

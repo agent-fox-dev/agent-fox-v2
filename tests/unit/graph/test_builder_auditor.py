@@ -148,12 +148,8 @@ class TestAutoMidInjection:
 
         auditor_node = auditor_nodes[0]
         # Verify edges: group 1 -> auditor -> group 2
-        assert any(
-            e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges
-        )
-        assert any(
-            e.source == auditor_node.id and e.target == "spec:2" for e in graph.edges
-        )
+        assert any(e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges)
+        assert any(e.source == auditor_node.id and e.target == "spec:2" for e in graph.edges)
         assert auditor_node.instances == config.instances.auditor
 
 
@@ -263,9 +259,7 @@ class TestInjectionLastGroup:
 
         auditor_node = auditor_nodes[0]
         # Should have incoming edge from group 1
-        assert any(
-            e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges
-        )
+        assert any(e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges)
         # No outgoing edge from auditor
         outgoing = [e for e in graph.edges if e.source == auditor_node.id]
         assert len(outgoing) == 0
@@ -520,9 +514,7 @@ class TestPropertyInjectionIntegrity:
             # Create test_spec.md with enough entries
             spec_dir = Path(tmpdir) / ".specs" / "spec"
             spec_dir.mkdir(parents=True, exist_ok=True)
-            ts_content = "\n".join(
-                f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8)
-            )
+            ts_content = "\n".join(f"### TS-46-{i}\nDescription {i}\n" for i in range(1, 8))
             (spec_dir / "test_spec.md").write_text(ts_content)
 
             config = ArchetypesConfig(

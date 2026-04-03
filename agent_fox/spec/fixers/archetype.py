@@ -54,8 +54,7 @@ def _fix_archetype_tags_in_file(
                         spec_name=spec_name,
                         file=str(tasks_path),
                         description=(
-                            f"Removed unknown archetype tag '{old_tag}' "
-                            f"from line {i + 1} (defaults to coder)"
+                            f"Removed unknown archetype tag '{old_tag}' from line {i + 1} (defaults to coder)"
                         ),
                     )
                 )
@@ -73,10 +72,7 @@ def _fix_archetype_tags_in_file(
                         rule="malformed-archetype-tag",
                         spec_name=spec_name,
                         file=str(tasks_path),
-                        description=(
-                            f"Removed duplicate archetype tags "
-                            f"on line {i + 1}, kept first"
-                        ),
+                        description=(f"Removed duplicate archetype tags on line {i + 1}, kept first"),
                     )
                 )
                 continue
@@ -99,10 +95,7 @@ def _fix_archetype_tags_in_file(
                             rule="malformed-archetype-tag",
                             spec_name=spec_name,
                             file=str(tasks_path),
-                            description=(
-                                f"Normalized '{bad_tag}' to "
-                                f"'{normalized}' on line {i + 1}"
-                            ),
+                            description=(f"Normalized '{bad_tag}' to '{normalized}' on line {i + 1}"),
                         )
                     )
 

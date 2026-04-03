@@ -87,10 +87,7 @@ class TableFormatter:
 
         # Memory line
         if report.memory_total > 0:
-            cat_parts = ", ".join(
-                f"{count} {cat}"
-                for cat, count in sorted(report.memory_by_category.items())
-            )
+            cat_parts = ", ".join(f"{count} {cat}" for cat, count in sorted(report.memory_by_category.items()))
             lines.append(f"Memory: {report.memory_total} facts ({cat_parts})")
         else:
             lines.append("Memory: 0 facts")
@@ -98,9 +95,7 @@ class TableFormatter:
         # Tokens line
         in_tok = format_tokens(report.input_tokens)
         out_tok = format_tokens(report.output_tokens)
-        lines.append(
-            f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}"
-        )
+        lines.append(f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}")
 
         # Active Tasks section (72-REQ-2.1 through 72-REQ-2.5)
         if report.in_progress_tasks:
@@ -118,9 +113,7 @@ class TableFormatter:
                         f"${ta.cost:.2f}"
                     )
                 else:
-                    lines.append(
-                        f"  {display_id} [{ta.archetype}]: {ta.current_status}"
-                    )
+                    lines.append(f"  {display_id} [{ta.archetype}]: {ta.current_status}")
 
         # Per-archetype cost breakdown (34-REQ-3.3)
         if report.cost_by_archetype:
@@ -195,9 +188,7 @@ class TableFormatter:
                         f"${ta.cost:.2f}"
                     )
                 else:
-                    lines.append(
-                        f"  {display_id} [{ta.archetype}]: {ta.current_status}"
-                    )
+                    lines.append(f"  {display_id} [{ta.archetype}]: {ta.current_status}")
         else:
             lines.append("  (no agent activity)")
         lines.append("")
@@ -241,13 +232,8 @@ class TableFormatter:
             lines.append("Heads Up \u2014 File Overlaps")
             for overlap in report.file_overlaps:
                 commit_shas = ", ".join(sha[:7] for sha in overlap.human_commits)
-                agent_ids = ", ".join(
-                    _display_node_id(tid) for tid in overlap.agent_task_ids
-                )
-                lines.append(
-                    f"  {overlap.path} \u2014 "
-                    f"commits: {commit_shas} | agents: {agent_ids}"
-                )
+                agent_ids = ", ".join(_display_node_id(tid) for tid in overlap.agent_task_ids)
+                lines.append(f"  {overlap.path} \u2014 commits: {commit_shas} | agents: {agent_ids}")
             lines.append("")
 
         # Total Cost line (15-REQ-6.1, 15-REQ-6.E1)

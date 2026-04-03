@@ -30,16 +30,10 @@ class TestDurationPresets:
         for archetype in archetypes:
             assert archetype in DURATION_PRESETS, f"Missing archetype: {archetype}"
             for tier in tiers:
-                assert tier in DURATION_PRESETS[archetype], (
-                    f"Missing tier {tier} for archetype {archetype}"
-                )
+                assert tier in DURATION_PRESETS[archetype], f"Missing tier {tier} for archetype {archetype}"
                 value = DURATION_PRESETS[archetype][tier]
-                assert isinstance(value, int), (
-                    f"Preset for {archetype}/{tier} is not int: {type(value)}"
-                )
-                assert value > 0, (
-                    f"Preset for {archetype}/{tier} must be positive: {value}"
-                )
+                assert isinstance(value, int), f"Preset for {archetype}/{tier} is not int: {type(value)}"
+                assert value > 0, f"Preset for {archetype}/{tier} must be positive: {value}"
 
     def test_default_duration_ms(self) -> None:
         """DEFAULT_DURATION_MS is 300,000 ms."""

@@ -174,9 +174,7 @@ class TestParseOrWarnInvariant:
     )
     def test_parse_or_warn_invariant(self, output: str, archetype: str) -> None:
         """TS-53-P1: Either inserts >= 1 record or emits review.parse_failure."""
-        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), (
-            "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
-        )
+        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
 
         db = _make_knowledge_db()
         try:
@@ -204,13 +202,10 @@ class TestParseOrWarnInvariant:
                 for table in _tables
             )
 
-            parse_failure_events = [
-                e for e in emitted if e.event_type == "review.parse_failure"
-            ]
+            parse_failure_events = [e for e in emitted if e.event_type == "review.parse_failure"]
 
             assert total_inserted > 0 or len(parse_failure_events) > 0, (
-                f"No findings persisted and no parse_failure event emitted "
-                f"for output={output!r}, archetype={archetype}"
+                f"No findings persisted and no parse_failure event emitted for output={output!r}, archetype={archetype}"
             )
         finally:
             db._conn.close()
@@ -269,12 +264,10 @@ class TestSupersessionConsistency:
             active_ids = {f.id for f in active}
 
             assert active_ids <= last_batch_ids, (
-                f"Active findings include IDs not in last batch: "
-                f"{active_ids - last_batch_ids}"
+                f"Active findings include IDs not in last batch: {active_ids - last_batch_ids}"
             )
             assert len(active_ids) == len(last_batch_ids), (
-                f"Not all last-batch findings are active: "
-                f"active={active_ids}, last={last_batch_ids}"
+                f"Not all last-batch findings are active: active={active_ids}, last={last_batch_ids}"
             )
         finally:
             db._conn.close()
@@ -326,9 +319,7 @@ class TestArchetypeRoutingCorrectness:
                 f"SELECT COUNT(*) FROM {table}"  # noqa: S608
             ).fetchone()[0]
 
-            assert count > 0, (
-                f"archetype={archetype} should have inserted into {table}, but count=0"
-            )
+            assert count > 0, f"archetype={archetype} should have inserted into {table}, but count=0"
 
             # Verify nothing was inserted into the wrong tables
             other_tables = {
@@ -341,8 +332,7 @@ class TestArchetypeRoutingCorrectness:
                     f"SELECT COUNT(*) FROM {other}"  # noqa: S608
                 ).fetchone()[0]
                 assert other_count == 0, (
-                    f"archetype={archetype} should not insert into {other}, "
-                    f"but count={other_count}"
+                    f"archetype={archetype} should not insert into {other}, but count={other_count}"
                 )
         finally:
             db._conn.close()
@@ -371,12 +361,8 @@ class TestJsonExtractionRobustness:
         """TS-53-P4: Any text containing a valid JSON array is extracted."""
         text, expected = wrapped
         result = extract_json_array(text)
-        assert result is not None, (
-            f"extract_json_array returned None for text containing valid JSON: {text!r}"
-        )
-        assert result == expected, (
-            f"Extracted array {result!r} does not match expected {expected!r}"
-        )
+        assert result is not None, f"extract_json_array returned None for text containing valid JSON: {text!r}"
+        assert result == expected, f"Extracted array {result!r} does not match expected {expected!r}"
 
     @given(
         prefix=st.text(
@@ -396,9 +382,7 @@ class TestJsonExtractionRobustness:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_extract_with_arbitrary_prose_wrapper(
-        self, prefix: str, array: list, suffix: str
-    ) -> None:
+    def test_extract_with_arbitrary_prose_wrapper(self, prefix: str, array: list, suffix: str) -> None:
         """TS-53-P4: extract_json_array handles arbitrary prose wrapping."""
         text = prefix + json.dumps(array) + suffix
         result = extract_json_array(text)
@@ -436,9 +420,7 @@ class TestReviewOnlyGraphCompleteness:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_correct_nodes_per_spec(
-        self, tmp_path: Path, spec_configs: list[dict]
-    ) -> None:
+    def test_correct_nodes_per_spec(self, tmp_path: Path, spec_configs: list[dict]) -> None:
         """TS-53-P5: Each spec gets Skeptic+Oracle iff source, Verifier iff reqs."""
         # Deduplicate spec names to avoid collisions in hypothesis
         seen: set[str] = set()
@@ -470,30 +452,18 @@ class TestReviewOnlyGraphCompleteness:
             if not cfg["has_source"] and not cfg["has_reqs"]:
                 continue  # Spec is not eligible; may or may not have nodes
 
-            archetypes = {
-                n.archetype for n in graph.nodes.values() if n.spec_name == cfg["name"]
-            }
+            archetypes = {n.archetype for n in graph.nodes.values() if n.spec_name == cfg["name"]}
 
             if cfg["has_source"]:
-                assert "skeptic" in archetypes, (
-                    f"Spec {cfg['name']} with source should have skeptic"
-                )
-                assert "oracle" in archetypes, (
-                    f"Spec {cfg['name']} with source should have oracle"
-                )
+                assert "skeptic" in archetypes, f"Spec {cfg['name']} with source should have skeptic"
+                assert "oracle" in archetypes, f"Spec {cfg['name']} with source should have oracle"
             else:
-                assert "skeptic" not in archetypes, (
-                    f"Spec {cfg['name']} without source should not have skeptic"
-                )
+                assert "skeptic" not in archetypes, f"Spec {cfg['name']} without source should not have skeptic"
 
             if cfg["has_reqs"]:
-                assert "verifier" in archetypes, (
-                    f"Spec {cfg['name']} with reqs should have verifier"
-                )
+                assert "verifier" in archetypes, f"Spec {cfg['name']} with reqs should have verifier"
             else:
-                assert "verifier" not in archetypes, (
-                    f"Spec {cfg['name']} without reqs should not have verifier"
-                )
+                assert "verifier" not in archetypes, f"Spec {cfg['name']} without reqs should not have verifier"
 
 
 # ---------------------------------------------------------------------------
@@ -526,10 +496,7 @@ class TestReviewOnlyReadOnlyEnforcement:
                 continue
             allowlist = set(entry.default_allowlist or [])
             forbidden = allowlist & WRITE_COMMANDS
-            assert not forbidden, (
-                f"Archetype {node.archetype} has write commands in allowlist: "
-                f"{forbidden}"
-            )
+            assert not forbidden, f"Archetype {node.archetype} has write commands in allowlist: {forbidden}"
 
 
 # ---------------------------------------------------------------------------
@@ -545,19 +512,13 @@ class TestRetryContextIncludesFindings:
     Validates: 53-REQ-5.1, 53-REQ-5.2
     """
 
-    @given(
-        finding_severities=st.lists(
-            st.sampled_from(VALID_SEVERITIES), min_size=0, max_size=10
-        )
-    )
+    @given(finding_severities=st.lists(st.sampled_from(VALID_SEVERITIES), min_size=0, max_size=10))
     @settings(
         max_examples=25,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_critical_major_in_context_minor_obs_not(
-        self, finding_severities: list[str]
-    ) -> None:
+    def test_critical_major_in_context_minor_obs_not(self, finding_severities: list[str]) -> None:
         """TS-53-P7: Critical/major findings appear in context; minor/obs do not."""
         db = _make_knowledge_db()
         try:
@@ -589,13 +550,11 @@ class TestRetryContextIncludesFindings:
             for f in findings_with_desc:
                 if f.severity in ("critical", "major"):
                     assert f.description in context, (
-                        f"Active {f.severity} finding should appear in context: "
-                        f"{f.description!r}"
+                        f"Active {f.severity} finding should appear in context: {f.description!r}"
                     )
                 else:
                     assert f.description not in context, (
-                        f"{f.severity} finding should NOT appear in context: "
-                        f"{f.description!r}"
+                        f"{f.severity} finding should NOT appear in context: {f.description!r}"
                     )
         finally:
             db._conn.close()

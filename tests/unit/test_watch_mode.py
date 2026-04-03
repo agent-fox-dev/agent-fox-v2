@@ -129,13 +129,9 @@ def _write_stalled_plan(plan_dir: Path) -> Path:
     return plan_path
 
 
-def _write_state_with_cost(
-    state_path: Path, plan_data: dict[str, Any], total_cost: float
-) -> None:
+def _write_state_with_cost(state_path: Path, plan_data: dict[str, Any], total_cost: float) -> None:
     """Pre-write a state.jsonl file with a given total_cost."""
-    plan_hash = hashlib.sha256(
-        json.dumps(plan_data, sort_keys=True).encode()
-    ).hexdigest()[:16]
+    plan_hash = hashlib.sha256(json.dumps(plan_data, sort_keys=True).encode()).hexdigest()[:16]
     state = {
         "plan_hash": plan_hash,
         "node_states": {},
@@ -169,9 +165,7 @@ def _make_orchestrator(
     sink_dispatcher.add(sink)  # type: ignore[arg-type]
 
     if config is None:
-        config = OrchestratorConfig(
-            parallel=1, inter_session_delay=0, hot_load=True
-        )
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=True)
 
     mock_outcome = MagicMock(
         status="completed",
@@ -189,9 +183,7 @@ def _make_orchestrator(
         config=config,
         plan_path=plan_path,
         state_path=state_path,
-        session_runner_factory=lambda nid, **kw: MagicMock(
-            execute=AsyncMock(return_value=mock_outcome)
-        ),
+        session_runner_factory=lambda nid, **kw: MagicMock(execute=AsyncMock(return_value=mock_outcome)),
         sink_dispatcher=sink_dispatcher,
     )
     return orch, sink
@@ -331,9 +323,7 @@ class TestWatchLoop:
     """
 
     @pytest.mark.asyncio
-    async def test_watch_loop_sleeps_for_configured_interval(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_watch_loop_sleeps_for_configured_interval(self, tmp_path: Path) -> None:
         """TS-70-4: Watch loop sleeps for watch_interval seconds."""
         config = OrchestratorConfig(
             parallel=1,
@@ -361,9 +351,7 @@ class TestWatchLoop:
         assert sleep_args[0] == 30  # noqa: PLR2004
 
     @pytest.mark.asyncio
-    async def test_watch_poll_calls_end_of_run_discovery(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_watch_poll_calls_end_of_run_discovery(self, tmp_path: Path) -> None:
         """TS-70-5: Each watch poll calls _try_end_of_run_discovery."""
         orch, _ = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
@@ -440,9 +428,7 @@ class TestWatchLoop:
         assert state.run_status == "interrupted"
 
     @pytest.mark.asyncio
-    async def test_watch_loop_checks_interruption_before_sleep(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_watch_loop_checks_interruption_before_sleep(self, tmp_path: Path) -> None:
         """TS-70-8: SIGINT before sleep prevents sleep from being called.
 
         The interrupt must be set via the discovery mock (not before run())
@@ -513,9 +499,7 @@ class TestConfigReload:
             poll_count += 1
             if poll_count == 2:  # noqa: PLR2004
                 # First watch poll — simulate config hot-reload
-                orch._config = orch._config.model_copy(
-                    update={"watch_interval": 20}
-                )
+                orch._config = orch._config.model_copy(update={"watch_interval": 20})
             return False
 
         with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
@@ -542,9 +526,7 @@ class TestTermination:
     """
 
     @pytest.mark.asyncio
-    async def test_stall_terminates_without_watch_poll(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_stall_terminates_without_watch_poll(self, tmp_path: Path) -> None:
         """TS-70-13: Stalled graph terminates with STALLED, no WATCH_POLL."""
         plan_dir = tmp_path / ".agent-fox"
         plan_path = _write_stalled_plan(plan_dir)
@@ -583,9 +565,7 @@ class TestTermination:
         assert len(events) == 0, "No WATCH_POLL events when cost limit fires"
 
     @pytest.mark.asyncio
-    async def test_sigint_during_watch_sleep_terminates_gracefully(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_sigint_during_watch_sleep_terminates_gracefully(self, tmp_path: Path) -> None:
         """TS-70-15: SIGINT during sleep causes graceful shutdown."""
         orch, _ = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
@@ -617,9 +597,7 @@ class TestAuditEvents:
     """
 
     @pytest.mark.asyncio
-    async def test_watch_poll_event_emitted_each_cycle(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_watch_poll_event_emitted_each_cycle(self, tmp_path: Path) -> None:
         """TS-70-16: Two WATCH_POLL events emitted for two poll cycles."""
         orch, sink = _make_orchestrator(tmp_path)
         orch._watch = True  # type: ignore[attr-defined]
@@ -692,9 +670,7 @@ class TestEdgeCases:
     """
 
     @pytest.mark.asyncio
-    async def test_missing_plan_file_errors_normally_with_watch(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_missing_plan_file_errors_normally_with_watch(self, tmp_path: Path) -> None:
         """TS-70-E1: Missing plan file raises PlanError even with watch=True."""
         from agent_fox.core.errors import PlanError
 
@@ -739,9 +715,7 @@ class TestEdgeCases:
         assert state.run_status == "interrupted"
 
     @pytest.mark.asyncio
-    async def test_barrier_exception_does_not_stop_watch_loop(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_barrier_exception_does_not_stop_watch_loop(self, tmp_path: Path) -> None:
         """TS-70-E3: Barrier exceptions are logged but watch loop continues.
 
         The exception must be raised on mock call 2 (first watch poll), not
@@ -774,9 +748,7 @@ class TestEdgeCases:
         assert len(events) == 3  # noqa: PLR2004
 
     @pytest.mark.asyncio
-    async def test_watch_interval_updated_via_hot_reload(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_watch_interval_updated_via_hot_reload(self, tmp_path: Path) -> None:
         """TS-70-E4: Config hot-reload updates interval used on next sleep.
 
         Config change must happen on mock call 2 (first watch poll), not
@@ -805,9 +777,7 @@ class TestEdgeCases:
             poll_count += 1
             if poll_count == 2:  # noqa: PLR2004
                 # First watch poll — simulate config hot-reload
-                orch._config = orch._config.model_copy(
-                    update={"watch_interval": 20}
-                )
+                orch._config = orch._config.model_copy(update={"watch_interval": 20})
             return False
 
         with patch.object(orch, _DISCOVERY_METHOD, side_effect=fake_discovery):
@@ -818,9 +788,7 @@ class TestEdgeCases:
         assert sleep_args[1] == 20  # noqa: PLR2004
 
     @pytest.mark.asyncio
-    async def test_circuit_breaker_before_watch_loop_entry(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_circuit_breaker_before_watch_loop_entry(self, tmp_path: Path) -> None:
         """TS-70-E6: Cost limit during dispatch prevents watch loop entry."""
         config = OrchestratorConfig(
             parallel=1,
@@ -830,9 +798,7 @@ class TestEdgeCases:
         )
         plan_dir = tmp_path / ".agent-fox"
         plan_path = _write_single_node_plan(plan_dir)
-        orch, sink = _make_orchestrator(
-            tmp_path, config=config, plan_path=plan_path
-        )
+        orch, sink = _make_orchestrator(tmp_path, config=config, plan_path=plan_path)
         orch._watch = True  # type: ignore[attr-defined]
 
         state_path = plan_dir / "state.jsonl"

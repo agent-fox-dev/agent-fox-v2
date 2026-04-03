@@ -68,9 +68,7 @@ class TestReviewPassedToCoder:
         # Create a spec dir with a review.md
         spec_dir = tmp_path / ".specs" / "test_spec"  # type: ignore[operator]
         spec_dir.mkdir(parents=True)
-        (spec_dir / "review.md").write_text(
-            "## Critical\n- Missing edge case handling\n"
-        )
+        (spec_dir / "review.md").write_text("## Critical\n- Missing edge case handling\n")
         # requirements.md needed for assemble_context
         (spec_dir / "requirements.md").write_text("# Requirements\nTest req\n")
 

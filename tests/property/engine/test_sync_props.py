@@ -141,8 +141,7 @@ class TestCascadeCompleteness:
         reachable = bfs_forward(blocked_node, edges, all_nodes)
         for node in reachable:
             assert sync.node_states[node] == "blocked", (
-                f"Node {node} reachable from {blocked_node} "
-                f"should be blocked but is {sync.node_states[node]}"
+                f"Node {node} reachable from {blocked_node} should be blocked but is {sync.node_states[node]}"
             )
 
 
@@ -173,8 +172,7 @@ class TestReadyTaskCorrectness:
             deps = edges.get(ready_node, [])
             for dep in deps:
                 assert sync.node_states[dep] == "completed", (
-                    f"Ready task {ready_node} has dependency {dep} "
-                    f"in state {sync.node_states[dep]}, expected completed"
+                    f"Ready task {ready_node} has dependency {dep} in state {sync.node_states[dep]}, expected completed"
                 )
 
     @given(data=random_dag_with_completed_set())
@@ -193,8 +191,7 @@ class TestReadyTaskCorrectness:
         ready = sync.ready_tasks()
         for ready_node in ready:
             assert sync.node_states[ready_node] == "pending", (
-                f"Ready task {ready_node} should be pending but is "
-                f"{sync.node_states[ready_node]}"
+                f"Ready task {ready_node} should be pending but is {sync.node_states[ready_node]}"
             )
 
 

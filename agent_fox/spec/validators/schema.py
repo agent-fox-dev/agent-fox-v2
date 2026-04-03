@@ -88,10 +88,7 @@ def check_design_completeness(
                 file="design.md",
                 rule="missing-error-table",
                 severity=SEVERITY_WARNING,
-                message=(
-                    "design.md is missing a '## Error Handling' section "
-                    "with a markdown table"
-                ),
+                message=("design.md is missing a '## Error Handling' section with a markdown table"),
                 line=None,
             )
         )
@@ -202,10 +199,7 @@ def check_section_schema(
                         file=filename,
                         rule="missing-section",
                         severity=SEVERITY_WARNING if required else SEVERITY_HINT,
-                        message=(
-                            f"{filename} is missing expected section "
-                            f"'## {section_name}'"
-                        ),
+                        message=(f"{filename} is missing expected section '## {section_name}'"),
                         line=None,
                     )
                 )

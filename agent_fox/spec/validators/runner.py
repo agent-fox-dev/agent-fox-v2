@@ -131,16 +131,12 @@ def validate_specs(
             findings.extend(check_missing_acceptance_criteria(spec.name, spec.path))
 
         # 4. Traceability check
-        if (spec.path / "requirements.md").is_file() and (
-            spec.path / "test_spec.md"
-        ).is_file():
+        if (spec.path / "requirements.md").is_file() and (spec.path / "test_spec.md").is_file():
             findings.extend(check_untraced_requirements(spec.name, spec.path))
 
         # 5. Dependency check
         if (spec.path / "prd.md").is_file():
-            findings.extend(
-                check_broken_dependencies(spec.name, spec.path, known_specs)
-            )
+            findings.extend(check_broken_dependencies(spec.name, spec.path, known_specs))
 
         # 6. Coarse dependency check
         if (spec.path / "prd.md").is_file():
@@ -169,33 +165,23 @@ def validate_specs(
 
         # -- Phase 3: Traceability chain checks --
         # 12. Test spec -> tasks traceability
-        if (spec.path / "test_spec.md").is_file() and (
-            spec.path / "tasks.md"
-        ).is_file():
+        if (spec.path / "test_spec.md").is_file() and (spec.path / "tasks.md").is_file():
             findings.extend(check_untraced_test_specs(spec.name, spec.path))
 
         # 13. Property -> test spec traceability
-        if (spec.path / "design.md").is_file() and (
-            spec.path / "test_spec.md"
-        ).is_file():
+        if (spec.path / "design.md").is_file() and (spec.path / "test_spec.md").is_file():
             findings.extend(check_untraced_properties(spec.name, spec.path))
 
         # 14. Error table -> requirements cross-reference
-        if (spec.path / "design.md").is_file() and (
-            spec.path / "requirements.md"
-        ).is_file():
+        if (spec.path / "design.md").is_file() and (spec.path / "requirements.md").is_file():
             findings.extend(check_orphan_error_refs(spec.name, spec.path))
 
         # 15. Coverage matrix completeness
-        if (spec.path / "requirements.md").is_file() and (
-            spec.path / "test_spec.md"
-        ).is_file():
+        if (spec.path / "requirements.md").is_file() and (spec.path / "test_spec.md").is_file():
             findings.extend(check_coverage_matrix_completeness(spec.name, spec.path))
 
         # 16. Traceability table completeness
-        if (spec.path / "requirements.md").is_file() and (
-            spec.path / "tasks.md"
-        ).is_file():
+        if (spec.path / "requirements.md").is_file() and (spec.path / "tasks.md").is_file():
             findings.extend(check_traceability_table_completeness(spec.name, spec.path))
 
         # -- Phase 4: Section schema validation --

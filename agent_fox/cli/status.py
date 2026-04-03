@@ -68,12 +68,8 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
             return
 
         # Build node status dict, edges (predecessors), and duration hints
-        nodes: dict[str, str] = {
-            nid: node.status.value for nid, node in graph.nodes.items()
-        }
-        edges: dict[str, list[str]] = {
-            nid: graph.predecessors(nid) for nid in graph.nodes
-        }
+        nodes: dict[str, str] = {nid: node.status.value for nid, node in graph.nodes.items()}
+        edges: dict[str, list[str]] = {nid: graph.predecessors(nid) for nid in graph.nodes}
 
         # Duration hints: use DuckDB if available, otherwise empty
         duration_hints: dict[str, int] = {}

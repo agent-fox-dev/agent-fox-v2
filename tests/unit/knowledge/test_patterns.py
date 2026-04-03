@@ -22,9 +22,7 @@ class TestDetectPatterns:
     Requirements: 13-REQ-5.1, 13-REQ-5.2
     """
 
-    def test_finds_recurring_path_change_failures(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_finds_recurring_path_change_failures(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Detects src/auth/ changes followed by test failures."""
         patterns = detect_patterns(causal_db, min_occurrences=2)
         assert len(patterns) >= 1
@@ -32,9 +30,7 @@ class TestDetectPatterns:
         assert all(p.occurrences >= 2 for p in patterns)
         assert all(isinstance(p.confidence, float) for p in patterns)
 
-    def test_pattern_has_required_fields(
-        self, causal_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_pattern_has_required_fields(self, causal_db: duckdb.DuckDBPyConnection) -> None:
         """Each pattern has trigger, effect, occurrences, last_seen, confidence."""
         patterns = detect_patterns(causal_db, min_occurrences=2)
         for p in patterns:

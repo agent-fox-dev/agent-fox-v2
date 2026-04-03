@@ -133,9 +133,7 @@ def _find_sole_blocker_dependents(
             continue
 
         # All non-reset predecessors must be completed
-        all_others_completed = all(
-            node_states.get(p, "pending") == "completed" for p in preds if p != task_id
-        )
+        all_others_completed = all(node_states.get(p, "pending") == "completed" for p in preds if p != task_id)
 
         if all_others_completed:
             unblockable.append(nid)
@@ -330,9 +328,7 @@ def reset_spec(
     plan = _load_plan_or_raise(plan_path)
 
     # Collect all node IDs belonging to the target spec
-    spec_node_ids = [
-        nid for nid, node in plan.nodes.items() if node.spec_name == spec_name
-    ]
+    spec_node_ids = [nid for nid, node in plan.nodes.items() if node.spec_name == spec_name]
 
     # Validate spec exists in plan (50-REQ-1.E1)
     if not spec_node_ids:
@@ -343,11 +339,7 @@ def reset_spec(
         )
 
     # Identify nodes that are not already pending (50-REQ-1.E4)
-    non_pending = [
-        nid
-        for nid in spec_node_ids
-        if state.node_states.get(nid, "pending") != "pending"
-    ]
+    non_pending = [nid for nid in spec_node_ids if state.node_states.get(nid, "pending") != "pending"]
 
     # Reset matching node_states to pending (50-REQ-1.1, 50-REQ-1.2)
     for nid in spec_node_ids:
@@ -358,9 +350,7 @@ def reset_spec(
     cleaned_worktrees: list[str] = []
     cleaned_branches: list[str] = []
     for nid in spec_node_ids:
-        collect_cleanup(
-            nid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches
-        )
+        collect_cleanup(nid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches)
 
     # Synchronize tasks.md checkboxes (50-REQ-1.5)
     specs_dir = repo_path / ".specs"
@@ -405,9 +395,7 @@ def _perform_hard_reset(
     cleaned_worktrees: list[str] = []
     cleaned_branches: list[str] = []
     for tid in affected_ids:
-        collect_cleanup(
-            tid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches
-        )
+        collect_cleanup(tid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches)
 
     # Compact knowledge base
     compaction_result = compact(db_conn, memory_path) if db_conn is not None else (0, 0)
@@ -494,11 +482,7 @@ def hard_reset_task(
     # Find commit_sha for target task from session history
     target_sha: str | None = None
     for record in state.session_history:
-        if (
-            record.node_id == task_id
-            and record.commit_sha
-            and record.status == "completed"
-        ):
+        if record.node_id == task_id and record.commit_sha and record.status == "completed":
             target_sha = record.commit_sha
             break
 
@@ -507,9 +491,7 @@ def hard_reset_task(
     affected_ids: list[str] = [task_id]
 
     if target_sha:
-        target = find_rollback_target(
-            state.session_history, repo_path, target_commit_sha=target_sha
-        )
+        target = find_rollback_target(state.session_history, repo_path, target_commit_sha=target_sha)
         if target is not None:
             try:
                 rollback_develop(repo_path, target)

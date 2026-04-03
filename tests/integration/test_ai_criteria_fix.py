@@ -37,9 +37,7 @@ def _setup_project_with_vague_criterion(project_dir: Path) -> None:
         "1. [01-REQ-1.1] THE system SHALL be fast.\n"
     )
     (spec / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 01-REQ-1.1\n")
-    (spec / "tasks.md").write_text(
-        "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n"
-    )
+    (spec / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n")
 
 
 # ==============================================================================
@@ -59,9 +57,7 @@ class TestNoRewriteWithoutAiFlag:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            with patch(
-                "agent_fox.spec.ai_validation.create_async_anthropic_client"
-            ) as mock_cls:
+            with patch("agent_fox.spec.ai_validation.create_async_anthropic_client") as mock_cls:
                 mock_client = AsyncMock()
                 mock_client.__aenter__.return_value = mock_client
                 mock_cls.return_value = mock_client
@@ -120,18 +116,14 @@ class TestNoReRewrite:
                     }
                 )
 
-                with patch(
-                    "agent_fox.spec.ai_validation.create_async_anthropic_client"
-                ) as mock_cls:
+                with patch("agent_fox.spec.ai_validation.create_async_anthropic_client") as mock_cls:
                     mock_client = AsyncMock()
 
                     # First call: AI analysis, returns vague finding
                     # Second call: rewrite, returns replacement
                     # Third call: re-validation AI analysis
                     mock_response_analysis = MagicMock()
-                    mock_response_analysis.content = [
-                        MagicMock(text=ai_analysis_response)
-                    ]
+                    mock_response_analysis.content = [MagicMock(text=ai_analysis_response)]
 
                     mock_response_rewrite = MagicMock()
                     mock_response_rewrite.content = [MagicMock(text=rewrite_response)]

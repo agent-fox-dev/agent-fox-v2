@@ -55,12 +55,9 @@ def _setup_project_with_coarse_dep(project_dir: Path) -> None:
         "|-----------|-----------|---------------|\n"
         "| 02_beta | 01_alpha | Core types |\n"
     )
-    (spec2 / "tasks.md").write_text(
-        "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n"
-    )
+    (spec2 / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n")
     (spec2 / "requirements.md").write_text(
-        "# Requirements\n\n### Requirement 1: Feature\n\n"
-        "1. [02-REQ-1.1] Must do feature.\n"
+        "# Requirements\n\n### Requirement 1: Feature\n\n1. [02-REQ-1.1] Must do feature.\n"
     )
     (spec2 / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 02-REQ-1.1\n")
 
@@ -76,9 +73,7 @@ class TestLintSpecFix:
         os.chdir(tmp_path)
         try:
             result = runner.invoke(main, ["lint-specs", "--fix"])
-            assert result.exit_code == 0, (
-                f"Exit code {result.exit_code}, output:\n{result.output}"
-            )
+            assert result.exit_code == 0, f"Exit code {result.exit_code}, output:\n{result.output}"
         finally:
             os.chdir(original_dir)
 
@@ -131,9 +126,7 @@ def _setup_project_with_mixed_ids(project_dir: Path) -> None:
     (spec / "prd.md").write_text("# PRD\n")
     (spec / "design.md").write_text("# Design\n")
     (spec / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 01-REQ-1.1\n")
-    (spec / "tasks.md").write_text(
-        "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n"
-    )
+    (spec / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify task group 1\n")
     (spec / "requirements.md").write_text(
         "# Requirements\n\n### Requirement 1: Feature\n\n"
         "1. [01-REQ-1.1] THE system SHALL do A.\n"
@@ -152,9 +145,7 @@ class TestLintSpecFixRobustness:
         os.chdir(tmp_path)
         try:
             runner.invoke(main, ["lint-specs", "--fix"])
-            req_text = (
-                tmp_path / ".specs" / "01_feature" / "requirements.md"
-            ).read_text()
+            req_text = (tmp_path / ".specs" / "01_feature" / "requirements.md").read_text()
             assert "[01-REQ-1.2]" in req_text
             assert "**01-REQ-1.2:**" not in req_text
         finally:

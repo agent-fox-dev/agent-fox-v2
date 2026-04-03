@@ -105,9 +105,7 @@ class TestPropertyTimeoutEnforcement:
         )
 
         with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(
-                cmd="some_command", timeout=timeout
-            )
+            mock_run.side_effect = subprocess.TimeoutExpired(cmd="some_command", timeout=timeout)
             result = run_quality_gate(config, project_root="/tmp/project")
 
         assert result is not None
@@ -138,9 +136,7 @@ class TestPropertyGateDoesNotBlock:
         config = OrchestratorConfig(quality_gate="cmd")
 
         with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args="cmd", returncode=exit_code, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args="cmd", returncode=exit_code, stdout="", stderr="")
             result = run_quality_gate(config, project_root="/tmp/project")
 
         # Function returns a result, never raises — engine can proceed
@@ -171,9 +167,7 @@ class TestPropertyFeatureVectorSerialization:
         file_count_estimate=st.integers(min_value=0, max_value=50),
         cross_spec_integration=st.booleans(),
         language_count=st.integers(min_value=1, max_value=13),
-        historical_median_duration_ms=st.one_of(
-            st.none(), st.integers(min_value=1, max_value=1000000)
-        ),
+        historical_median_duration_ms=st.one_of(st.none(), st.integers(min_value=1, max_value=1000000)),
     )
     @settings(max_examples=50)
     def test_p4_all_fields_in_json(
@@ -235,17 +229,11 @@ class TestPropertyFileCountAccuracy:
             HealthCheck.function_scoped_fixture,
         ],
     )
-    def test_p5_file_count_matches_distinct_paths(
-        self, paths: list[str], tmp_path: Path
-    ) -> None:
+    def test_p5_file_count_matches_distinct_paths(self, paths: list[str], tmp_path: Path) -> None:
         from agent_fox.routing.features import _count_file_paths
 
         # Build a tasks.md with those paths in task group 2
-        task_lines = (
-            ["- [ ] 2.1 Work on " + " and ".join(paths)]
-            if paths
-            else ["- [ ] 2.1 Do some work"]
-        )
+        task_lines = ["- [ ] 2.1 Work on " + " and ".join(paths)] if paths else ["- [ ] 2.1 Do some work"]
         tasks_md = "# Tasks\n\n## Task Group 2\n\n" + "\n".join(task_lines) + "\n"
         sd = tmp_path / ".specs" / "test"
         sd.mkdir(parents=True, exist_ok=True)
@@ -279,9 +267,7 @@ class TestPropertyCrossSpecDetection:
             HealthCheck.function_scoped_fixture,
         ],
     )
-    def test_p6_cross_spec_detection(
-        self, own_spec: str, other_specs: list[str], tmp_path: Path
-    ) -> None:
+    def test_p6_cross_spec_detection(self, own_spec: str, other_specs: list[str], tmp_path: Path) -> None:
         from agent_fox.routing.features import _detect_cross_spec
 
         all_specs = [own_spec] + other_specs
@@ -302,9 +288,7 @@ class TestPropertyCrossSpecDetection:
 # ---------------------------------------------------------------------------
 
 
-def _make_db_with_outcomes(
-    durations: list[int], spec_name: str = "test"
-) -> duckdb.DuckDBPyConnection:
+def _make_db_with_outcomes(durations: list[int], spec_name: str = "test") -> duckdb.DuckDBPyConnection:
     """Create a fresh in-memory DB and insert outcomes with given durations."""
     conn = duckdb.connect(":memory:")
     conn.execute("""

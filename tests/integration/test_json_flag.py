@@ -135,9 +135,7 @@ def tmp_project(tmp_path: Path) -> Path:
 class TestGlobalFlagAccepted:
     """TS-23-1: --json is accepted by the main group."""
 
-    def test_global_flag_accepted(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_global_flag_accepted(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """--json does not produce a Click usage error."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -154,9 +152,7 @@ class TestGlobalFlagAccepted:
 class TestDefaultModeUnchanged:
     """TS-23-2: Without --json, output is human-readable."""
 
-    def test_default_mode_is_not_json(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_default_mode_is_not_json(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """Output without --json is not valid JSON."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -173,9 +169,7 @@ class TestDefaultModeUnchanged:
 class TestBannerSuppressed:
     """TS-23-3: Banner does not appear in JSON mode."""
 
-    def test_banner_suppressed_json_mode(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_banner_suppressed_json_mode(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """stdout does not contain banner markers."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -192,9 +186,7 @@ class TestBannerSuppressed:
 class TestNoNonJsonStdout:
     """TS-23-4: All stdout content is valid JSON in JSON mode."""
 
-    def test_stdout_is_valid_json(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_stdout_is_valid_json(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """json.loads(stdout) succeeds."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -236,9 +228,7 @@ class TestStatusJson:
 class TestStandupJson:
     """TS-23-6: standup --json emits a JSON object."""
 
-    def test_standup_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_standup_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """standup with --json produces valid JSON."""
         with patch("agent_fox.cli.standup.generate_standup") as mock_gen:
             mock_gen.return_value = _make_standup_report()
@@ -255,9 +245,7 @@ class TestStandupJson:
 class TestLintSpecJson:
     """TS-23-7: lint-specs --json emits findings as JSON."""
 
-    def test_lint_spec_json_output(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_lint_spec_json_output(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """lint-specs with --json produces JSON with findings and summary."""
         # Create a minimal spec so lint-specs has something to process
         specs_dir = tmp_project / ".specs"
@@ -265,8 +253,7 @@ class TestLintSpecJson:
         spec_dir = specs_dir / "01_test_spec"
         spec_dir.mkdir()
         (spec_dir / "requirements.md").write_text(
-            "# Requirements\n\n## Requirement 1\n\n"
-            "1. [01-REQ-1.1] THE system SHALL do something.\n"
+            "# Requirements\n\n## Requirement 1\n\n1. [01-REQ-1.1] THE system SHALL do something.\n"
         )
         (spec_dir / "design.md").write_text("# Design\n\n## Overview\n")
         (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task one\n")
@@ -296,9 +283,7 @@ class TestPlanJson:
         (spec_dir / "requirements.md").write_text("# Requirements\n")
         (spec_dir / "design.md").write_text("# Design\n")
         (spec_dir / "test_spec.md").write_text("# Tests\n")
-        (spec_dir / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. First task\n  - [ ] 1.1 Subtask\n"
-        )
+        (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. First task\n  - [ ] 1.1 Subtask\n")
 
         result = cli_runner.invoke(main, ["--json", "plan"])
         data = json.loads(result.output)
@@ -420,9 +405,7 @@ class TestFixJsonl:
 class TestErrorEnvelope:
     """TS-23-17: Command failure in JSON mode produces error envelope."""
 
-    def test_error_envelope_on_failure(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_error_envelope_on_failure(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """Failure emits {"error": "..."}."""
         # plan with no .specs/ should fail
         result = cli_runner.invoke(main, ["--json", "plan"])
@@ -430,9 +413,7 @@ class TestErrorEnvelope:
         assert "error" in data
         assert isinstance(data["error"], str)
 
-    def test_no_unstructured_text_on_error(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_no_unstructured_text_on_error(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """No unstructured text mixed into error output."""
         result = cli_runner.invoke(main, ["--json", "plan"])
         # Every line should be valid JSON
@@ -449,9 +430,7 @@ class TestErrorEnvelope:
 class TestExitCodePreserved:
     """TS-23-18: Exit codes are the same with and without --json."""
 
-    def test_exit_code_preserved(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_exit_code_preserved(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """Same failing command has same exit code with and without --json."""
         result_text = cli_runner.invoke(main, ["plan"])
         result_json = cli_runner.invoke(main, ["--json", "plan"])
@@ -525,9 +504,7 @@ class TestJsonWithVerbose:
 class TestLogsToStderr:
     """TS-23-E2: Log messages go to stderr, not stdout."""
 
-    def test_logs_to_stderr_json_mode(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_logs_to_stderr_json_mode(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """stdout contains only JSON — no log lines."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
@@ -545,9 +522,7 @@ class TestLogsToStderr:
 class TestEmptyDataValidJson:
     """TS-23-E3: Command with no data emits valid JSON."""
 
-    def test_empty_data_valid_json(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_empty_data_valid_json(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """plan with empty specs still emits valid JSON."""
         # No .specs/ directory exists -> should produce error envelope or empty
         result = cli_runner.invoke(main, ["--json", "plan"])
@@ -563,9 +538,7 @@ class TestEmptyDataValidJson:
 class TestStreamingInterrupted:
     """TS-23-E4: Interrupted streaming emits final status object."""
 
-    def test_code_interrupted_emits_status(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_code_interrupted_emits_status(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """code --json interrupted by KeyboardInterrupt emits status."""
         with (
             patch("agent_fox.ui.progress.ProgressDisplay"),
@@ -581,9 +554,7 @@ class TestStreamingInterrupted:
             data = json.loads(last_line)
             assert data["status"] == "interrupted"
 
-    def test_fix_interrupted_emits_status(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_fix_interrupted_emits_status(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """fix --json interrupted by KeyboardInterrupt emits status."""
 
         def _close_coro_and_raise(coro, **kwargs):  # noqa: ARG001
@@ -612,9 +583,7 @@ class TestStreamingInterrupted:
 class TestUnhandledExceptionEnvelope:
     """TS-23-E5: Unhandled exceptions produce error envelope in JSON mode."""
 
-    def test_unhandled_exception_envelope(
-        self, cli_runner: CliRunner, tmp_project: Path
-    ) -> None:
+    def test_unhandled_exception_envelope(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """Unexpected exception produces {"error": "..."}."""
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.side_effect = RuntimeError("unexpected boom")

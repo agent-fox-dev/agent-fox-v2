@@ -172,9 +172,7 @@ class TestSpecIsolation:
         tmp_path = tmp_path_factory.mktemp("iso")
 
         original_states = dict(node_states)
-        state_path, plan_path, wt_dir, repo = _setup_for_property(
-            tmp_path, nodes, node_states
-        )
+        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
         reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
 
@@ -184,8 +182,7 @@ class TestSpecIsolation:
             spec = nodes[nid].get("spec_name", nid.split(":")[0])
             if spec != target_spec:
                 assert state.node_states[nid] == orig_status, (
-                    f"Node {nid} (spec={spec}) changed from {orig_status} "
-                    f"to {state.node_states[nid]}"
+                    f"Node {nid} (spec={spec}) changed from {orig_status} to {state.node_states[nid]}"
                 )
 
 
@@ -210,9 +207,7 @@ class TestCompleteSpecCoverage:
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("cov")
 
-        state_path, plan_path, wt_dir, repo = _setup_for_property(
-            tmp_path, nodes, node_states
-        )
+        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
         reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
 
@@ -222,8 +217,7 @@ class TestCompleteSpecCoverage:
             spec = props.get("spec_name", nid.split(":")[0])
             if spec == target_spec:
                 assert state.node_states[nid] == "pending", (
-                    f"Node {nid} (spec={spec}) should be pending "
-                    f"but is {state.node_states[nid]}"
+                    f"Node {nid} (spec={spec}) should be pending but is {state.node_states[nid]}"
                 )
 
 
@@ -308,9 +302,7 @@ class TestArtifactSynchronization:
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("sync")
 
-        state_path, plan_path, wt_dir, repo = _setup_for_property(
-            tmp_path, nodes, node_states
-        )
+        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
         reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
 
@@ -319,9 +311,7 @@ class TestArtifactSynchronization:
         for nid, props in nodes.items():
             spec = props.get("spec_name", nid.split(":")[0])
             if spec == target_spec and nid in plan_data["nodes"]:
-                assert plan_data["nodes"][nid]["status"] == "pending", (
-                    f"Plan node {nid} should be pending"
-                )
+                assert plan_data["nodes"][nid]["status"] == "pending", f"Plan node {nid} should be pending"
 
         # Check tasks.md - no [x] or [-] for reset spec
         tasks_md = tmp_path / ".specs" / target_spec / "tasks.md"

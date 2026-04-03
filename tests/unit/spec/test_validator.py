@@ -753,9 +753,7 @@ class TestCheckArchetypeTags:
 
     def test_valid_archetype_no_findings(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n- [ ] 1. Write tests [archetype: coder]\n  - [ ] 1.1 Subtask\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Write tests [archetype: coder]\n  - [ ] 1.1 Subtask\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 0
 
@@ -778,9 +776,7 @@ class TestCheckArchetypeTags:
 
     def test_duplicate_tags_error(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Do stuff [archetype: coder] [archetype: skeptic]\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 1
         assert findings[0].rule == "malformed-archetype-tag"
@@ -795,11 +791,7 @@ class TestCheckArchetypeTags:
     def test_subtask_lines_ignored(self, tmp_path: Path) -> None:
         """Archetype tags are only checked on group lines, not subtasks."""
         tasks = tmp_path / "tasks.md"
-        tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Write tests\n"
-            "  - [ ] 1.1 Subtask with [archetype: hacker] in title\n"
-        )
+        tasks.write_text("## Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Subtask with [archetype: hacker] in title\n")
         findings = check_archetype_tags("test_spec", tasks)
         assert len(findings) == 0
 
@@ -813,11 +805,7 @@ class TestCheckCheckboxStates:
     def test_valid_states_no_findings(self, tmp_path: Path) -> None:
         tasks = tmp_path / "tasks.md"
         tasks.write_text(
-            "## Tasks\n\n"
-            "- [ ] 1. Not started\n"
-            "- [x] 2. Completed\n"
-            "- [-] 3. In progress\n"
-            "- [~] 4. Queued\n"
+            "## Tasks\n\n- [ ] 1. Not started\n- [x] 2. Completed\n- [-] 3. In progress\n- [~] 4. Queued\n"
         )
         findings = check_checkbox_states("test_spec", tasks)
         assert len(findings) == 0

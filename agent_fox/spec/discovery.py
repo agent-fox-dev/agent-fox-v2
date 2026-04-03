@@ -92,9 +92,7 @@ def discover_specs(
         if not filtered:
             # 02-REQ-1.E2: filter matches nothing
             available = ", ".join(s.name for s in specs)
-            raise PlanError(
-                f"Spec '{filter_spec}' not found. Available specs: {available}"
-            )
+            raise PlanError(f"Spec '{filter_spec}' not found. Available specs: {available}")
         return filtered
 
     return specs

@@ -120,18 +120,15 @@ class TestPropertyMultiAutoPre:
         # Both connect to first coder group
         first_coder = "spec:1"
         for n in auto_pre_nodes:
-            assert any(
-                e.source == n.id and e.target == first_coder and e.kind == "intra_spec"
-                for e in graph.edges
-            ), f"Node {n.id} has no edge to {first_coder}"
+            assert any(e.source == n.id and e.target == first_coder and e.kind == "intra_spec" for e in graph.edges), (
+                f"Node {n.id} has no edge to {first_coder}"
+            )
 
         # No edges between them
         for a in auto_pre_nodes:
             for b in auto_pre_nodes:
                 if a.id != b.id:
-                    assert not any(
-                        e.source == a.id and e.target == b.id for e in graph.edges
-                    )
+                    assert not any(e.source == a.id and e.target == b.id for e in graph.edges)
 
 
 # ---------------------------------------------------------------------------

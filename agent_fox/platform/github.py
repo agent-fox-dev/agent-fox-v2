@@ -55,9 +55,7 @@ class GitHubPlatform:
                   28-REQ-3.*, 28-REQ-4.*
     """
 
-    def __init__(
-        self, owner: str, repo: str, token: str, url: str = "github.com"
-    ) -> None:
+    def __init__(self, owner: str, repo: str, token: str, url: str = "github.com") -> None:
         self._owner = owner
         self._repo = repo
         self._token = token
@@ -100,11 +98,7 @@ class GitHubPlatform:
         Requirements: 28-REQ-1.1, 28-REQ-1.2, 28-REQ-1.3, 28-REQ-1.E1, 28-REQ-1.E2
         """
         headers = self._auth_headers()
-        q = (
-            f"repo:{self._owner}/{self._repo} "
-            f"in:title {title_prefix} "
-            f"state:{state} type:issue"
-        )
+        q = f"repo:{self._owner}/{self._repo} in:title {title_prefix} state:{state} type:issue"
         url = f"{self._api_base}/search/issues"
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, params={"q": q}, headers=headers)
@@ -204,10 +198,7 @@ class GitHubPlatform:
         Requirements: 28-REQ-3.2, 28-REQ-3.E1
         """
         headers = self._auth_headers()
-        url = (
-            f"{self._api_base}/repos/{self._owner}/{self._repo}"
-            f"/issues/{issue_number}/comments"
-        )
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/comments"
         payload = {"body": comment}
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)
@@ -284,10 +275,7 @@ class GitHubPlatform:
         Requirements: 61-REQ-8.1
         """
         headers = self._auth_headers()
-        url = (
-            f"{self._api_base}/repos/{self._owner}/{self._repo}"
-            f"/issues/{issue_number}/labels"
-        )
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/labels"
         payload = {"labels": [label]}
         async with httpx.AsyncClient() as client:
             resp = await client.post(url, json=payload, headers=headers)

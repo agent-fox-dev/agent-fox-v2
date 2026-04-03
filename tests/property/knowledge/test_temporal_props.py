@@ -62,9 +62,7 @@ class TestTimelineProperties:
 
     @given(nodes=timeline_nodes())
     @settings(max_examples=50)
-    def test_sorted_timeline_preserves_timestamp_order(
-        self, nodes: list[TimelineNode]
-    ) -> None:
+    def test_sorted_timeline_preserves_timestamp_order(self, nodes: list[TimelineNode]) -> None:
         """After sorting by (timestamp, depth), timestamps are non-decreasing."""
         sorted_nodes = sorted(nodes, key=lambda n: (n.timestamp or "", n.depth))
         tl = Timeline(nodes=sorted_nodes, query="test")

@@ -133,12 +133,7 @@ def render_patterns(patterns: list[Pattern], *, use_color: bool = True) -> str:
         trigger = escape_markdown(p.trigger)
         effect = escape_markdown(p.effect)
         last_seen = escape_markdown(p.last_seen)
-        line = (
-            f"{trigger} -> {effect} "
-            f"({p.occurrences} occurrences, "
-            f"last seen {last_seen}, "
-            f"confidence {p.confidence})"
-        )
+        line = f"{trigger} -> {effect} ({p.occurrences} occurrences, last seen {last_seen}, confidence {p.confidence})"
         lines.append(line)
 
     return "\n".join(lines)

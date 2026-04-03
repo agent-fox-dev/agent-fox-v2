@@ -201,10 +201,7 @@ class TestFixMissingVerificationAppend:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "# Tasks\n\n"
-            "- [ ] 1. Write tests\n"
-            "  - [ ] 1.1 Create fixtures\n"
-            "  - [ ] 1.2 Write unit tests\n",
+            "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Create fixtures\n  - [ ] 1.2 Write unit tests\n",
         )
         results = fix_missing_verification("02_beta", tasks_path)
         assert len(results) == 1
@@ -213,10 +210,7 @@ class TestFixMissingVerificationAppend:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "# Tasks\n\n"
-            "- [ ] 1. Write tests\n"
-            "  - [ ] 1.1 Create fixtures\n"
-            "  - [ ] 1.2 Write unit tests\n",
+            "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Create fixtures\n  - [ ] 1.2 Write unit tests\n",
         )
         fix_missing_verification("02_beta", tasks_path)
         content = tasks_path.read_text()
@@ -236,10 +230,7 @@ class TestFixMissingVerificationSkipsExisting:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "# Tasks\n\n"
-            "- [ ] 1. Write tests\n"
-            "  - [ ] 1.1 Create fixtures\n"
-            "  - [ ] 1.V Verify task group 1\n",
+            "# Tasks\n\n- [ ] 1. Write tests\n  - [ ] 1.1 Create fixtures\n  - [ ] 1.V Verify task group 1\n",
         )
         results = fix_missing_verification("02_beta", tasks_path)
         assert len(results) == 0
@@ -299,9 +290,7 @@ class TestApplyFixesSkipsUnfixable:
             "|-----------|-----------|---------------|\n"
             "| 02_beta | 01_alpha | Core types |\n"
         )
-        (spec_dir / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n"
-        )
+        (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n")
 
         specs = [
             SpecInfo(
@@ -458,11 +447,7 @@ class TestFixInvalidCheckboxState:
         tasks_path = _write_file(
             tmp_path,
             "tasks.md",
-            "## Tasks\n\n"
-            "- [ ] 1. Not started\n"
-            "- [x] 2. Done\n"
-            "- [-] 3. In progress\n"
-            "- [~] 4. Queued\n",
+            "## Tasks\n\n- [ ] 1. Not started\n- [x] 2. Done\n- [-] 3. In progress\n- [~] 4. Queued\n",
         )
         results = fix_invalid_checkbox_state("test_spec", tasks_path)
         assert len(results) == 0
@@ -497,9 +482,7 @@ class TestFixTraceabilityTableMismatch:
             "|------------------|\n"
             "| 01-REQ-1.1 | TS-01-1 | 1.1 | test_foo.py |\n"
         )
-        results = fix_traceability_table_mismatch(
-            "01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"]
-        )
+        results = fix_traceability_table_mismatch("01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"])
         assert len(results) == 1
         assert "2 missing" in results[0].description
         content = (spec_dir / "tasks.md").read_text()
@@ -530,9 +513,7 @@ class TestFixCoverageMatrixMismatch:
             "|-------------|-----------------|------|\n"
             "| 01-REQ-1.1 | TS-01-1 | unit |\n"
         )
-        results = fix_coverage_matrix_mismatch(
-            "01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"]
-        )
+        results = fix_coverage_matrix_mismatch("01_test", spec_dir, ["01-REQ-1.E1", "01-REQ-2.1"])
         assert len(results) == 1
         assert "2 missing" in results[0].description
         content = (spec_dir / "test_spec.md").read_text()
@@ -563,11 +544,7 @@ class TestFixAiTestSpecEntries:
             "| 01-REQ-1.1 | TS-01-1 | unit |\n"
         )
         entries = {
-            "01-REQ-2.1": (
-                "### TS-01-10: Config validation\n\n"
-                "**Requirement:** 01-REQ-2.1\n"
-                "**Type:** unit\n"
-            ),
+            "01-REQ-2.1": ("### TS-01-10: Config validation\n\n**Requirement:** 01-REQ-2.1\n**Type:** unit\n"),
         }
         results = fix_ai_test_spec_entries("01_test", ts_path, entries)
         assert len(results) == 1

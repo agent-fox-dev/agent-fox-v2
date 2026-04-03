@@ -24,14 +24,10 @@ from agent_fox.engine.state import SessionRecord
 from agent_fox.reporting.status import extract_spec_name
 
 # Strategies
-model_ids = st.sampled_from(
-    ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6"]
-)
+model_ids = st.sampled_from(["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6"])
 token_counts = st.integers(min_value=0, max_value=1_000_000)
 price_values = st.floats(min_value=0.0, max_value=100.0, allow_nan=False)
-archetype_names = st.sampled_from(
-    ["coder", "skeptic", "verifier", "oracle", "librarian", "cartographer"]
-)
+archetype_names = st.sampled_from(["coder", "skeptic", "verifier", "oracle", "librarian", "cartographer"])
 
 
 class TestAccumulatorCompleteness:
@@ -150,16 +146,10 @@ class TestPricingDefaultsPresent:
         config = AgentFoxConfig()
 
         for model_id in MODEL_REGISTRY:
-            assert model_id in config.pricing.models, (
-                f"Model {model_id} missing from default pricing config"
-            )
+            assert model_id in config.pricing.models, f"Model {model_id} missing from default pricing config"
             pricing = config.pricing.models[model_id]
-            assert pricing.input_price_per_m > 0, (
-                f"Model {model_id} has non-positive input price"
-            )
-            assert pricing.output_price_per_m > 0, (
-                f"Model {model_id} has non-positive output price"
-            )
+            assert pricing.input_price_per_m > 0, f"Model {model_id} has non-positive input price"
+            assert pricing.output_price_per_m > 0, f"Model {model_id} has non-positive output price"
 
 
 class TestArchetypePreserved:

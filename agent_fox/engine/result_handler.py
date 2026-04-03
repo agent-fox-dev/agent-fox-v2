@@ -254,9 +254,7 @@ class SessionResultHandler:
         try:
             self._routing_pipeline.record_outcome(
                 assessment=assessment,
-                actual_tier=(
-                    ladder.current_tier if ladder else assessment.predicted_tier
-                ),
+                actual_tier=(ladder.current_tier if ladder else assessment.predicted_tier),
                 total_tokens=total_tokens,
                 total_cost=total_cost,
                 duration_ms=total_duration,
@@ -369,9 +367,7 @@ class SessionResultHandler:
         Requirements: 75-REQ-3.3, 75-REQ-3.E1
         """
         if node_id not in self._original_node_timeout:
-            self._original_node_timeout[node_id] = self._node_timeout.get(
-                node_id, self._original_session_timeout
-            )
+            self._original_node_timeout[node_id] = self._node_timeout.get(node_id, self._original_session_timeout)
         return self._original_node_timeout[node_id]
 
     def _extend_node_params(self, node_id: str) -> None:
@@ -430,8 +426,7 @@ class SessionResultHandler:
         if current_retries >= self._max_timeout_retries:
             # Exhausted timeout retries — fall through to escalation (75-REQ-2.4)
             logger.warning(
-                "Timeout retries exhausted for %s (%d/%d), "
-                "falling through to escalation ladder",
+                "Timeout retries exhausted for %s (%d/%d), falling through to escalation ladder",
                 node_id,
                 current_retries,
                 self._max_timeout_retries,
@@ -500,9 +495,7 @@ class SessionResultHandler:
 
         # Retry-predecessor: reset predecessor instead of failed node
         if archetype_entry.retry_predecessor and can_retry:
-            if self._try_retry_predecessor(
-                node_id, record, attempt, state, error_tracker
-            ):
+            if self._try_retry_predecessor(node_id, record, attempt, state, error_tracker):
                 return
 
         if exhausted:
@@ -549,8 +542,7 @@ class SessionResultHandler:
             self._block_task(
                 pred_id,
                 state,
-                f"Predecessor {pred_id} exhausted all tiers after "
-                f"reviewer {node_id} failures",
+                f"Predecessor {pred_id} exhausted all tiers after reviewer {node_id} failures",
             )
             self._check_block_budget(state)
             self._state_manager.save(state)

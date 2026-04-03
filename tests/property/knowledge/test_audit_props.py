@@ -145,17 +145,11 @@ class TestSeverityClassification:
         for event_type in AuditEventType:
             severity = default_severity_for(event_type)
             if event_type in error_types:
-                assert severity == AuditSeverity.ERROR, (
-                    f"{event_type} should be ERROR, got {severity}"
-                )
+                assert severity == AuditSeverity.ERROR, f"{event_type} should be ERROR, got {severity}"
             elif event_type in warning_types:
-                assert severity == AuditSeverity.WARNING, (
-                    f"{event_type} should be WARNING, got {severity}"
-                )
+                assert severity == AuditSeverity.WARNING, f"{event_type} should be WARNING, got {severity}"
             else:
-                assert severity == AuditSeverity.INFO, (
-                    f"{event_type} should be INFO, got {severity}"
-                )
+                assert severity == AuditSeverity.INFO, f"{event_type} should be INFO, got {severity}"
 
 
 # -- TS-40-P4: Dual-Write Consistency -----------------------------------------
@@ -211,9 +205,7 @@ class TestDualWriteConsistency:
             assert len(jsonl_lines) == n
 
             # Check ID consistency
-            db_ids = {
-                row[0] for row in conn.execute("SELECT id FROM audit_events").fetchall()
-            }
+            db_ids = {row[0] for row in conn.execute("SELECT id FROM audit_events").fetchall()}
             jsonl_ids = set()
             for line in jsonl_lines:
                 parsed = json.loads(line)
@@ -264,15 +256,11 @@ class TestRetentionBound:
                     [str(uuid4()), ts, run_id],
                 )
                 # Create JSONL file
-                (audit_dir / f"audit_{run_id}.jsonl").write_text(
-                    json.dumps({"run_id": run_id}) + "\n"
-                )
+                (audit_dir / f"audit_{run_id}.jsonl").write_text(json.dumps({"run_id": run_id}) + "\n")
 
             enforce_audit_retention(audit_dir, conn, max_runs=max_runs)
 
-            remaining = conn.execute(
-                "SELECT COUNT(DISTINCT run_id) FROM audit_events"
-            ).fetchone()[0]
+            remaining = conn.execute("SELECT COUNT(DISTINCT run_id) FROM audit_events").fetchone()[0]
             assert remaining <= max_runs
             assert remaining == min(n_runs, max_runs)
 
@@ -311,15 +299,9 @@ class TestEventCompleteness:
         run_id = "test_run"
         events = [AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_START)]
         for _ in range(n_sessions):
-            events.append(
-                AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_START)
-            )
-            events.append(
-                AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_COMPLETE)
-            )
+            events.append(AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_START))
+            events.append(AuditEvent(run_id=run_id, event_type=AuditEventType.SESSION_COMPLETE))
         events.append(AuditEvent(run_id=run_id, event_type=AuditEventType.RUN_COMPLETE))
 
-        session_starts = [
-            e for e in events if e.event_type == AuditEventType.SESSION_START
-        ]
+        session_starts = [e for e in events if e.event_type == AuditEventType.SESSION_START]
         assert len(session_starts) == n_sessions

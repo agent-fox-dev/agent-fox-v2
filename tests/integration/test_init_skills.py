@@ -21,11 +21,7 @@ _SKILLS_DIR = Path(agent_fox.__file__).parent / "_templates" / "skills"
 
 def _bundled_skill_names() -> set[str]:
     """Return the set of bundled skill template names."""
-    return {
-        f.name
-        for f in _SKILLS_DIR.iterdir()
-        if f.is_file() and not f.name.startswith(".")
-    }
+    return {f.name for f in _SKILLS_DIR.iterdir() if f.is_file() and not f.name.startswith(".")}
 
 
 # ---------------------------------------------------------------------------
@@ -39,9 +35,7 @@ class TestSkillsInstalledToCorrectPaths:
     Requirements: 47-REQ-2.1, 47-REQ-4.1
     """
 
-    def test_skills_installed_to_correct_paths(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_skills_installed_to_correct_paths(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Each bundled skill produces .claude/skills/{name}/SKILL.md."""
         result = cli_runner.invoke(main, ["init", "--skills"])
 
@@ -62,9 +56,7 @@ class TestNoSkillsWithoutFlag:
     Requirement: 47-REQ-2.2
     """
 
-    def test_no_skills_without_flag(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_no_skills_without_flag(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """No .claude/skills/ directory created without --skills."""
         result = cli_runner.invoke(main, ["init"])
 
@@ -84,9 +76,7 @@ class TestSkillsOverwriteOnRerun:
     Requirement: 47-REQ-2.4
     """
 
-    def test_skills_overwrite_on_rerun(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_skills_overwrite_on_rerun(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Modified skill file is overwritten with bundled version."""
         # First install
         cli_runner.invoke(main, ["init", "--skills"])
@@ -116,9 +106,7 @@ class TestOutputReportsSkillCount:
     Requirement: 47-REQ-2.5
     """
 
-    def test_output_reports_skill_count(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_output_reports_skill_count(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Output contains 'installed' and the skill count number."""
         result = cli_runner.invoke(main, ["init", "--skills"])
 
@@ -138,9 +126,7 @@ class TestJsonIncludesSkillsInstalled:
     Requirement: 47-REQ-3.1
     """
 
-    def test_json_includes_skills_installed(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_json_includes_skills_installed(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """JSON output has skills_installed integer matching bundled count."""
         result = cli_runner.invoke(main, ["--json", "init", "--skills"])
 
@@ -162,9 +148,7 @@ class TestJsonExcludesSkillsInstalled:
     Requirement: 47-REQ-3.2
     """
 
-    def test_json_excludes_skills_installed(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_json_excludes_skills_installed(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """JSON output has no skills_installed key without --skills."""
         result = cli_runner.invoke(main, ["--json", "init"])
 
@@ -184,9 +168,7 @@ class TestSkillsWorkOnReinit:
     Requirement: 47-REQ-4.2
     """
 
-    def test_skills_work_on_reinit(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_skills_work_on_reinit(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """Re-init with --skills installs skills and reports already initialized."""
         # First init without skills
         cli_runner.invoke(main, ["init"])

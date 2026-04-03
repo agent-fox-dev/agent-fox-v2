@@ -112,9 +112,7 @@ class VectorSearch:
     def has_embeddings(self) -> bool:
         """Check whether the knowledge store contains any embedded facts."""
         try:
-            row = self._conn.execute(
-                "SELECT COUNT(*) FROM memory_embeddings"
-            ).fetchone()
+            row = self._conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()
             return row is not None and row[0] > 0
         except duckdb.Error:
             logger.warning("Failed to check for embeddings", exc_info=True)

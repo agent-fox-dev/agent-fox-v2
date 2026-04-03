@@ -107,9 +107,7 @@ class TestIssueCreation:
         )
 
         mock_platform = AsyncMock()
-        mock_platform.create_issue = AsyncMock(
-            return_value=MagicMock(number=1, title="t", html_url="http://x")
-        )
+        mock_platform.create_issue = AsyncMock(return_value=MagicMock(number=1, title="t", html_url="http://x"))
 
         groups = [
             FindingGroup(
@@ -135,9 +133,7 @@ class TestPlatformAPIUnavailable:
     """Verify graceful handling of platform API failure."""
 
     @pytest.mark.asyncio
-    async def test_no_crash_on_api_failure(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_no_crash_on_api_failure(self, caplog: pytest.LogCaptureFixture) -> None:
         """Warning logged, no crash, on platform API failure."""
         import logging
         from unittest.mock import AsyncMock, MagicMock
@@ -151,9 +147,7 @@ class TestPlatformAPIUnavailable:
         config.orchestrator.max_sessions = None
 
         mock_platform = AsyncMock()
-        mock_platform.list_issues_by_label = AsyncMock(
-            side_effect=httpx.ConnectError("connection refused")
-        )
+        mock_platform.list_issues_by_label = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
 
         engine = NightShiftEngine(config=config, platform=mock_platform)
 
@@ -173,9 +167,7 @@ class TestCategoryFailureIsolation:
     """Verify that a failing category does not block others."""
 
     @pytest.mark.asyncio
-    async def test_other_categories_still_produce_findings(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_other_categories_still_produce_findings(self, caplog: pytest.LogCaptureFixture) -> None:
         """When category B fails, A and C still produce findings."""
         import logging
         from pathlib import Path
@@ -232,9 +224,7 @@ class TestIssueCreationFailure:
     """Verify that issue creation failure does not block other findings."""
 
     @pytest.mark.asyncio
-    async def test_first_fails_second_succeeds(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_first_fails_second_succeeds(self, caplog: pytest.LogCaptureFixture) -> None:
         """First group's issue creation fails, second succeeds."""
         import logging
         from unittest.mock import AsyncMock, MagicMock

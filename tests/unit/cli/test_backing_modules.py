@@ -411,22 +411,16 @@ class TestCliHandlersDelegateToBacking:
         from agent_fox.cli import export as export_mod
 
         source = inspect.getsource(export_mod)
-        assert "export_memory(" in source or "export_db(" in source, (
-            "export handler must delegate to backing functions"
-        )
+        assert "export_memory(" in source or "export_db(" in source, "export handler must delegate to backing functions"
         # Should not contain direct DB queries
-        assert "conn.execute" not in source, (
-            "export handler must not contain direct DB queries"
-        )
+        assert "conn.execute" not in source, "export handler must not contain direct DB queries"
 
     def test_lint_specs_handler_delegates(self) -> None:
         """lint-specs CLI handler calls run_lint_specs."""
         from agent_fox.cli import lint_specs as lint_mod
 
         source = inspect.getsource(lint_mod)
-        assert "run_lint_specs(" in source, (
-            "lint-specs handler must delegate to run_lint_specs"
-        )
+        assert "run_lint_specs(" in source, "lint-specs handler must delegate to run_lint_specs"
 
 
 class TestCliHandlersPassOptions:

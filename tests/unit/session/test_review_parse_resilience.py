@@ -16,9 +16,7 @@ from pathlib import Path
 import pytest
 
 # Path to prompt template files
-_TEMPLATE_DIR = (
-    Path(__file__).parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts"
-)
+_TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts"
 
 _REVIEW_TEMPLATES = [
     ("skeptic", _TEMPLATE_DIR / "skeptic.md"),
@@ -41,10 +39,9 @@ class TestSkepticPromptFormatInstructions:
     def test_contains_exact_field_names_instruction(self) -> None:
         """74-REQ-1.1: Skeptic template instructs use of exact field names."""
         content = (_TEMPLATE_DIR / "skeptic.md").read_text()
-        assert (
-            "exact field names" in content.lower()
-            or "exactly the field names" in content.lower()
-        ), "Skeptic template must instruct use of exact field names from the schema"
+        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
+            "Skeptic template must instruct use of exact field names from the schema"
+        )
 
 
 class TestVerifierPromptFormatInstructions:
@@ -60,10 +57,9 @@ class TestVerifierPromptFormatInstructions:
     def test_contains_exact_field_names_instruction(self) -> None:
         """74-REQ-1.2: Verifier template instructs use of exact field names."""
         content = (_TEMPLATE_DIR / "verifier.md").read_text()
-        assert (
-            "exact field names" in content.lower()
-            or "exactly the field names" in content.lower()
-        ), "Verifier template must instruct use of exact field names from the schema"
+        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
+            "Verifier template must instruct use of exact field names from the schema"
+        )
 
 
 class TestAuditorPromptFormatInstructions:
@@ -79,10 +75,9 @@ class TestAuditorPromptFormatInstructions:
     def test_contains_exact_field_names_instruction(self) -> None:
         """74-REQ-1.3: Auditor template instructs use of exact field names."""
         content = (_TEMPLATE_DIR / "auditor.md").read_text()
-        assert (
-            "exact field names" in content.lower()
-            or "exactly the field names" in content.lower()
-        ), "Auditor template must instruct use of exact field names from the schema"
+        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
+            "Auditor template must instruct use of exact field names from the schema"
+        )
 
 
 class TestOraclePromptFormatInstructions:
@@ -98,10 +93,9 @@ class TestOraclePromptFormatInstructions:
     def test_contains_exact_field_names_instruction(self) -> None:
         """74-REQ-1.4: Oracle template instructs use of exact field names."""
         content = (_TEMPLATE_DIR / "oracle.md").read_text()
-        assert (
-            "exact field names" in content.lower()
-            or "exactly the field names" in content.lower()
-        ), "Oracle template must instruct use of exact field names from the schema"
+        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
+            "Oracle template must instruct use of exact field names from the schema"
+        )
 
 
 class TestCriticalRemindersSection:
@@ -111,18 +105,13 @@ class TestCriticalRemindersSection:
     def test_contains_critical_section(self, name: str, path: Path) -> None:
         """74-REQ-1.5: Template contains a CRITICAL section."""
         content = path.read_text()
-        assert "CRITICAL" in content, (
-            f"{name} template must contain a CRITICAL section "
-            f"repeating format constraints"
-        )
+        assert "CRITICAL" in content, f"{name} template must contain a CRITICAL section repeating format constraints"
 
     @pytest.mark.parametrize("name,path", _REVIEW_TEMPLATES)
     def test_critical_section_after_output_format(self, name: str, path: Path) -> None:
         """74-REQ-1.5: CRITICAL section appears after the OUTPUT FORMAT section."""
         content = path.read_text()
-        assert "OUTPUT FORMAT" in content, (
-            f"{name} template must have an OUTPUT FORMAT section"
-        )
+        assert "OUTPUT FORMAT" in content, f"{name} template must have an OUTPUT FORMAT section"
         assert "CRITICAL" in content, f"{name} template must have a CRITICAL section"
         output_idx = content.index("OUTPUT FORMAT")
         critical_idx = content.index("CRITICAL")

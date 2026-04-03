@@ -61,10 +61,7 @@ class TestParseCausalLinks:
 
     def test_parses_valid_links(self) -> None:
         """Valid JSON causal links are parsed correctly."""
-        response = (
-            '[{"cause_id": "aaa", "effect_id": "bbb"}, '
-            '{"cause_id": "ccc", "effect_id": "ddd"}]'
-        )
+        response = '[{"cause_id": "aaa", "effect_id": "bbb"}, {"cause_id": "ccc", "effect_id": "ddd"}]'
         links = parse_causal_links(response)
         assert len(links) == 2
         assert links[0] == ("aaa", "bbb")
@@ -79,9 +76,7 @@ class TestParseCausalLinksMalformed:
 
     def test_skips_malformed_entries(self) -> None:
         """Malformed entries are silently skipped, valid ones returned."""
-        response = (
-            '[{"cause_id": "aaa", "effect_id": "bbb"}, {"bad": "entry"}, "not json"]'
-        )
+        response = '[{"cause_id": "aaa", "effect_id": "bbb"}, {"bad": "entry"}, "not json"]'
         links = parse_causal_links(response)
         assert len(links) == 1
         assert links[0] == ("aaa", "bbb")
@@ -132,9 +127,7 @@ class TestParseCausalLinksWithEchoedRefs:
 
     def test_parses_empty_array_after_echoed_refs(self) -> None:
         """Empty JSON array is parsed when LLM echoes [uuid] refs in prose."""
-        response = (
-            "Reviewing [fact-1] and [fact-2], no causal relationship found.\n\n[]"
-        )
+        response = "Reviewing [fact-1] and [fact-2], no causal relationship found.\n\n[]"
         links = parse_causal_links(response)
         assert len(links) == 0
 

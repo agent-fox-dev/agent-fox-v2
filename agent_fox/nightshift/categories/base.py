@@ -73,8 +73,7 @@ class BaseHuntCategory:
                 static_output = await self._run_static_tool(project_root)
             except Exception:
                 logger.warning(
-                    "Static tool failed for category '%s', "
-                    "proceeding with AI-only analysis",
+                    "Static tool failed for category '%s', proceeding with AI-only analysis",
                     self._name,
                     exc_info=True,
                 )
@@ -89,9 +88,7 @@ class BaseHuntCategory:
         """
         return ""
 
-    async def _run_ai_analysis(
-        self, project_root: Path, static_output: str
-    ) -> list[Finding]:
+    async def _run_ai_analysis(self, project_root: Path, static_output: str) -> list[Finding]:
         """Run AI analysis with optional static tool context.
 
         Override in subclasses.

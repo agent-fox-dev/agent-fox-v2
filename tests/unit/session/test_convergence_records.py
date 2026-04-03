@@ -64,9 +64,7 @@ class TestConvergeSkepticRecords:
             _make_finding(severity="minor", description="Issue C", session_id="s2"),
         ]
 
-        merged, blocked = converge_skeptic_records(
-            [instance_1, instance_2], block_threshold=0
-        )
+        merged, blocked = converge_skeptic_records([instance_1, instance_2], block_threshold=0)
 
         descriptions = [f.description for f in merged]
         assert "Issue A" in descriptions
@@ -79,31 +77,23 @@ class TestConvergeSkepticRecords:
     def test_non_majority_critical_not_blocking(self) -> None:
         """Critical finding in minority does not cause blocking."""
         instance_1 = [
-            _make_finding(
-                severity="critical", description="Only in one", session_id="s1"
-            ),
+            _make_finding(severity="critical", description="Only in one", session_id="s1"),
         ]
         instance_2 = [
             _make_finding(severity="minor", description="Minor thing", session_id="s2"),
         ]
         instance_3 = [
-            _make_finding(
-                severity="minor", description="Another minor", session_id="s3"
-            ),
+            _make_finding(severity="minor", description="Another minor", session_id="s3"),
         ]
 
-        merged, blocked = converge_skeptic_records(
-            [instance_1, instance_2, instance_3], block_threshold=0
-        )
+        merged, blocked = converge_skeptic_records([instance_1, instance_2, instance_3], block_threshold=0)
 
         assert blocked is False
 
     def test_convergence_writes_back(self) -> None:
         """Merged findings have a convergence session_id."""
         instance_1 = [_make_finding(session_id="s1")]
-        merged, _ = converge_skeptic_records(
-            [instance_1, instance_1], block_threshold=5
-        )
+        merged, _ = converge_skeptic_records([instance_1, instance_1], block_threshold=5)
         for f in merged:
             assert f.session_id.startswith("convergence-")
 

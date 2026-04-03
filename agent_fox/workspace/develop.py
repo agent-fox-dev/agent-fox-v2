@@ -124,8 +124,7 @@ async def _sync_develop_under_lock(repo_root: Path) -> None:
     if local_ahead > 0 and remote_ahead > 0:
         # Diverged — attempt rebase to reconcile
         logger.info(
-            "Local develop has diverged from origin/develop "
-            "(%d local, %d remote commits). Attempting rebase.",
+            "Local develop has diverged from origin/develop (%d local, %d remote commits). Attempting rebase.",
             local_ahead,
             remote_ahead,
         )
@@ -188,9 +187,7 @@ async def _sync_develop_under_lock(repo_root: Path) -> None:
                     "Merge commit failed; spawning merge agent to resolve conflicts.",
                 )
 
-                conflict_output = (
-                    stderr_merge.strip() or stdout_merge.strip() or "merge conflict"
-                )
+                conflict_output = stderr_merge.strip() or stdout_merge.strip() or "merge conflict"
                 resolved = await run_merge_agent(
                     worktree_path=repo_root,
                     conflict_output=conflict_output,

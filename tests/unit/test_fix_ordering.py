@@ -58,9 +58,7 @@ class TestBaseOrdering:
         mock_platform.list_issues_by_label.assert_called()
         # Check the FIRST call (the initial issue fetch) for ascending sort
         first_call = mock_platform.list_issues_by_label.call_args_list[0]
-        assert first_call.kwargs.get("direction") == "asc" or (
-            len(first_call.args) > 2 and first_call.args[2] == "asc"
-        )
+        assert first_call.kwargs.get("direction") == "asc" or (len(first_call.args) > 2 and first_call.args[2] == "asc")
 
     # -----------------------------------------------------------------------
     # TS-71-2: Default order is ascending issue number
@@ -127,14 +125,16 @@ class TestReferenceParsing:
         mock_platform = AsyncMock()
         # Mock platform to return timeline indicating #10 blocks #20
         mock_platform.get_issue_timeline = AsyncMock(
-            side_effect=lambda n: [
-                {
-                    "event": "cross-referenced",
-                    "source": {"issue": {"number": 10}},
-                }
-            ]
-            if n == 20
-            else []
+            side_effect=lambda n: (
+                [
+                    {
+                        "event": "cross-referenced",
+                        "source": {"issue": {"number": 10}},
+                    }
+                ]
+                if n == 20
+                else []
+            )
         )
 
         issue_10 = _make_issue(10)
@@ -159,8 +159,14 @@ class TestReferenceParsing:
         issue_d = _make_issue(13, body="Requires #4")
 
         all_issues = [
-            issue_1, issue_2, issue_3, issue_4,
-            issue_a, issue_b, issue_c, issue_d,
+            issue_1,
+            issue_2,
+            issue_3,
+            issue_4,
+            issue_a,
+            issue_b,
+            issue_c,
+            issue_d,
         ]
         edges = parse_text_references(all_issues)
 
@@ -328,9 +334,7 @@ class TestDepGraph:
 
         assert order == [10, 20, 30]
 
-    def test_ts_71_13_cycle_detected_and_broken(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_ts_71_13_cycle_detected_and_broken(self, caplog: pytest.LogCaptureFixture) -> None:
         """Cycles broken at edge pointing to oldest issue."""
         from agent_fox.nightshift.dep_graph import DependencyEdge, build_graph
 
@@ -379,9 +383,7 @@ class TestStaleness:
         ) as mock_staleness:
             from agent_fox.nightshift.staleness import StalenessResult
 
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[], rationale={}
-            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
             await engine._run_issue_check()
 
             assert mock_staleness.called
@@ -390,9 +392,7 @@ class TestStaleness:
             if len(first_call_args.args) > 1:
                 remaining = first_call_args.args[1]
             else:
-                remaining = first_call_args.kwargs.get(
-                    "remaining_issues"
-                )
+                remaining = first_call_args.kwargs.get("remaining_issues")
             remaining_numbers = [i.number for i in remaining]
             assert 20 in remaining_numbers
             assert 30 in remaining_numbers
@@ -413,9 +413,7 @@ class TestStaleness:
             "agent_fox.nightshift.staleness._run_ai_staleness",
             new_callable=AsyncMock,
         ) as mock_ai:
-            mock_ai.return_value = StalenessResult(
-                obsolete_issues=[20], rationale={20: "same root cause"}
-            )
+            mock_ai.return_value = StalenessResult(obsolete_issues=[20], rationale={20: "same root cause"})
             await check_staleness(
                 fixed_issue,
                 remaining,
@@ -425,10 +423,7 @@ class TestStaleness:
             )
 
             # Should have called platform to verify
-            assert (
-                mock_platform.list_issues_by_label.called
-                or mock_platform.method_calls
-            )
+            assert mock_platform.list_issues_by_label.called or mock_platform.method_calls
 
     @pytest.mark.asyncio
     async def test_ts_71_16_obsolete_issues_closed_with_comment(self) -> None:
@@ -453,25 +448,15 @@ class TestStaleness:
             from agent_fox.nightshift.staleness import StalenessResult
 
             # First fix (#10) makes #20 obsolete
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[20], rationale={20: "resolved by #10"}
-            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[20], rationale={20: "resolved by #10"})
             await engine._run_issue_check()
 
             # close_issue called for #20 with comment mentioning #10
             mock_platform.close_issue.assert_called()
             close_args = mock_platform.close_issue.call_args
-            issue_num = (
-                close_args.args[0]
-                if close_args.args
-                else close_args.kwargs.get("issue_number")
-            )
+            issue_num = close_args.args[0] if close_args.args else close_args.kwargs.get("issue_number")
             assert issue_num == 20
-            comment = (
-                close_args.args[1]
-                if len(close_args.args) > 1
-                else close_args.kwargs.get("comment", "")
-            )
+            comment = close_args.args[1] if len(close_args.args) > 1 else close_args.kwargs.get("comment", "")
             assert "#10" in str(comment)
 
     @pytest.mark.asyncio
@@ -504,9 +489,7 @@ class TestStaleness:
 
             call_count = 0
 
-            async def staleness_effect(
-                *args: object, **kwargs: object
-            ) -> StalenessResult:
+            async def staleness_effect(*args: object, **kwargs: object) -> StalenessResult:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
@@ -515,9 +498,7 @@ class TestStaleness:
                         obsolete_issues=[20],
                         rationale={20: "resolved"},
                     )
-                return StalenessResult(
-                    obsolete_issues=[], rationale={}
-                )
+                return StalenessResult(obsolete_issues=[], rationale={})
 
             mock_staleness.side_effect = staleness_effect
             await engine._run_issue_check()
@@ -536,9 +517,7 @@ class TestObservability:
     """Verify logging and audit event behavior."""
 
     @pytest.mark.asyncio
-    async def test_ts_71_18_resolved_order_logged_at_info(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_ts_71_18_resolved_order_logged_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
         """Processing order logged at INFO after triage."""
         from agent_fox.nightshift.engine import NightShiftEngine
 
@@ -567,12 +546,8 @@ class TestObservability:
             from agent_fox.nightshift.staleness import StalenessResult
             from agent_fox.nightshift.triage import TriageResult
 
-            mock_triage.return_value = TriageResult(
-                processing_order=[10, 20, 30], edges=[], supersession_pairs=[]
-            )
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[], rationale={}
-            )
+            mock_triage.return_value = TriageResult(processing_order=[10, 20, 30], edges=[], supersession_pairs=[])
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
             await engine._run_issue_check()
 
         assert any(
@@ -602,17 +577,13 @@ class TestObservability:
                 "agent_fox.nightshift.engine.check_staleness",
                 new_callable=AsyncMock,
             ) as mock_staleness,
-            patch(
-                "agent_fox.nightshift.engine._emit_audit_event"
-            ) as mock_audit,
+            patch("agent_fox.nightshift.engine._emit_audit_event") as mock_audit,
         ):
             from agent_fox.nightshift.staleness import StalenessResult
 
             call_count = 0
 
-            async def staleness_effect(
-                *args: object, **kwargs: object
-            ) -> StalenessResult:
+            async def staleness_effect(*args: object, **kwargs: object) -> StalenessResult:
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
@@ -620,32 +591,22 @@ class TestObservability:
                         obsolete_issues=[20],
                         rationale={20: "resolved"},
                     )
-                return StalenessResult(
-                    obsolete_issues=[], rationale={}
-                )
+                return StalenessResult(obsolete_issues=[], rationale={})
 
             mock_staleness.side_effect = staleness_effect
             await engine._run_issue_check()
 
             # Check audit event "night_shift.issue_obsolete"
-            audit_calls = [
-                c
-                for c in mock_audit.call_args_list
-                if c.args[0] == "night_shift.issue_obsolete"
-            ]
+            audit_calls = [c for c in mock_audit.call_args_list if c.args[0] == "night_shift.issue_obsolete"]
             assert len(audit_calls) >= 1
             if len(audit_calls[0].args) > 1:
                 payload = audit_calls[0].args[1]
             else:
-                payload = audit_calls[0].kwargs.get(
-                    "payload", {}
-                )
+                payload = audit_calls[0].kwargs.get("payload", {})
             assert payload["closed_issue"] == 20
             assert payload["fixed_by"] == 10
 
-    def test_ts_71_20_cycle_break_logged_at_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_ts_71_20_cycle_break_logged_at_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Cycle detection and break logged as WARNING."""
         from agent_fox.nightshift.dep_graph import DependencyEdge, build_graph
 
@@ -709,9 +670,7 @@ class TestEdgeCases:
     # -----------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_ts_71_e3_ai_triage_failure_fallback(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_ts_71_e3_ai_triage_failure_fallback(self, caplog: pytest.LogCaptureFixture) -> None:
         """Triage failure falls back to refs + number order."""
         from agent_fox.nightshift.engine import NightShiftEngine
 
@@ -746,9 +705,7 @@ class TestEdgeCases:
         ):
             from agent_fox.nightshift.staleness import StalenessResult
 
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[], rationale={}
-            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
             await engine._run_issue_check()
 
         assert processed == [10, 20, 30]
@@ -813,9 +770,7 @@ class TestEdgeCases:
             new_callable=AsyncMock,
             side_effect=RuntimeError("AI failed"),
         ):
-            result = await check_staleness(
-                fixed_issue, remaining, "diff", config, mock_platform
-            )
+            result = await check_staleness(fixed_issue, remaining, "diff", config, mock_platform)
 
         assert 20 in result.obsolete_issues
 
@@ -825,17 +780,13 @@ class TestEdgeCases:
     # -----------------------------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_ts_71_e7_github_refetch_failure(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_ts_71_e7_github_refetch_failure(self, caplog: pytest.LogCaptureFixture) -> None:
         """GitHub failure logs warning, continues without removal."""
         from agent_fox.core.errors import IntegrationError
         from agent_fox.nightshift.staleness import check_staleness
 
         mock_platform = AsyncMock()
-        mock_platform.list_issues_by_label = AsyncMock(
-            side_effect=IntegrationError("API down")
-        )
+        mock_platform.list_issues_by_label = AsyncMock(side_effect=IntegrationError("API down"))
         config = MagicMock()
 
         fixed_issue = _make_issue(10)
@@ -850,12 +801,8 @@ class TestEdgeCases:
         ):
             from agent_fox.nightshift.staleness import StalenessResult
 
-            mock_ai.return_value = StalenessResult(
-                obsolete_issues=[20], rationale={20: "obsolete"}
-            )
-            result = await check_staleness(
-                fixed_issue, remaining, "diff", config, mock_platform
-            )
+            mock_ai.return_value = StalenessResult(obsolete_issues=[20], rationale={20: "obsolete"})
+            result = await check_staleness(fixed_issue, remaining, "diff", config, mock_platform)
 
         assert result.obsolete_issues == []
         assert any(caplog.records)
@@ -898,9 +845,7 @@ class TestEdgeCases:
         ) as mock_staleness:
             from agent_fox.nightshift.staleness import StalenessResult
 
-            mock_staleness.return_value = StalenessResult(
-                obsolete_issues=[], rationale={}
-            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
             await engine._run_issue_check()
 
             # staleness should not be called after #10 failure

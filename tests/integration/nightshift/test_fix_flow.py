@@ -51,17 +51,13 @@ class TestArchetypePipeline:
 
         archetypes_used: list[str] = []
 
-        async def mock_execute(
-            archetype: str, *args: object, **kwargs: object
-        ) -> object:
+        async def mock_execute(archetype: str, *args: object, **kwargs: object) -> object:
             archetypes_used.append(archetype)
             return MagicMock(success=True)
 
         with patch.object(pipeline, "_run_session", side_effect=mock_execute):
             issue = _make_issue()
-            await pipeline.process_issue(
-                issue, issue_body="Remove unused imports in engine/"
-            )
+            await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")
 
         assert "skeptic" in archetypes_used
         assert "coder" in archetypes_used
@@ -131,9 +127,7 @@ class TestFixCompletionComment:
             issue = _make_issue(number=42, title="Fix unused imports")
             await pipeline.process_issue(issue, issue_body="Fix something")
 
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("fix/" in c for c in comments)
 
 
@@ -167,7 +161,5 @@ class TestFixSessionFailure:
             issue = _make_issue()
             await pipeline.process_issue(issue, issue_body="Fix something")
 
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("fail" in c.lower() for c in comments)

@@ -294,9 +294,7 @@ class TestLoopContinuation:
 
         # Mock graph_sync to return tasks after barrier
         mock_graph_sync = MagicMock()
-        mock_graph_sync.ready_tasks.return_value = [
-            MagicMock() for _ in range(task_count)
-        ]
+        mock_graph_sync.ready_tasks.return_value = [MagicMock() for _ in range(task_count)]
         orch._graph_sync = mock_graph_sync
 
         state = ExecutionState(plan_hash="test", node_states={})

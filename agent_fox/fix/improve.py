@@ -114,9 +114,7 @@ def parse_verifier_verdict(response: str) -> VerifierVerdict:
 
     missing = _REQUIRED_VERDICT_FIELDS - set(data.keys())
     if missing:
-        raise ValueError(
-            f"Verifier response missing required fields: {sorted(missing)}"
-        )
+        raise ValueError(f"Verifier response missing required fields: {sorted(missing)}")
 
     return VerifierVerdict(
         quality_gates=str(data["quality_gates"]),
@@ -145,10 +143,7 @@ def rollback_improvement_pass(project_root: Path) -> None:
         text=True,
     )
     if result.returncode != 0:
-        msg = (
-            f"git reset --hard HEAD~1 failed (exit {result.returncode}): "
-            f"{result.stderr}"
-        )
+        msg = f"git reset --hard HEAD~1 failed (exit {result.returncode}): {result.stderr}"
         logger.error(msg)
         raise RuntimeError(msg)
 
@@ -226,10 +221,7 @@ def _build_coder_prompt(improvements: list) -> tuple[str, str]:
 
     plan_lines: list[str] = []
     for imp in improvements:
-        plan_lines.append(
-            f"- [{imp.tier}] {imp.title}: {imp.description} "
-            f"(files: {', '.join(imp.files)})"
-        )
+        plan_lines.append(f"- [{imp.tier}] {imp.title}: {imp.description} (files: {', '.join(imp.files)})")
 
     task_prompt = (
         "Implement the following improvements:\n\n"
@@ -372,9 +364,7 @@ async def run_improve_loop(
             # Emit analyzer-start milestone (76-REQ-4.5)
             _emit("analyzer_start", pass_number=pass_number)
             try:
-                cost, response = await session_runner(
-                    sys_prompt, task_prompt, "STANDARD"
-                )
+                cost, response = await session_runner(sys_prompt, task_prompt, "STANDARD")
                 analyzer_cost = cost
                 total_cost += cost
                 sessions_consumed += 1
@@ -389,10 +379,7 @@ async def run_improve_loop(
             try:
                 analyzer_result = parse_analyzer_response(response)
             except ValueError:
-                logger.warning(
-                    "Analyzer response was not valid JSON; treating as zero "
-                    "improvements"
-                )
+                logger.warning("Analyzer response was not valid JSON; treating as zero improvements")
                 termination_reason = ImproveTermination.CONVERGED
                 _emit("converged", pass_number=pass_number)
                 break
@@ -412,9 +399,7 @@ async def run_improve_loop(
 
             # -- Coder (31-REQ-5.*) --
             # Check budget before coder session (31-REQ-8.3)
-            if remaining_budget is not None and (
-                remaining_budget - total_cost < max_session_cost
-            ):
+            if remaining_budget is not None and (remaining_budget - total_cost < max_session_cost):
                 termination_reason = ImproveTermination.COST_LIMIT
                 break
 
@@ -423,9 +408,7 @@ async def run_improve_loop(
             # Emit coder-start milestone (76-REQ-4.6)
             _emit("coder_start", pass_number=pass_number)
             try:
-                cost, _coder_response = await session_runner(
-                    coder_sys, coder_task, "ADVANCED"
-                )
+                cost, _coder_response = await session_runner(coder_sys, coder_task, "ADVANCED")
                 coder_cost = cost
                 total_cost += cost
                 sessions_consumed += 1
@@ -442,9 +425,7 @@ async def run_improve_loop(
 
             # -- Verifier (31-REQ-6.*) --
             # Check budget before verifier session (31-REQ-8.3)
-            if remaining_budget is not None and (
-                remaining_budget - total_cost < max_session_cost
-            ):
+            if remaining_budget is not None and (remaining_budget - total_cost < max_session_cost):
                 termination_reason = ImproveTermination.COST_LIMIT
                 break
 
@@ -453,9 +434,7 @@ async def run_improve_loop(
             # Emit verifier-start milestone (76-REQ-4.6)
             _emit("verifier_start", pass_number=pass_number)
             try:
-                cost, verifier_response = await session_runner(
-                    verifier_sys, verifier_task, "STANDARD"
-                )
+                cost, verifier_response = await session_runner(verifier_sys, verifier_task, "STANDARD")
                 verifier_cost = cost
                 total_cost += cost
                 sessions_consumed += 1
@@ -486,10 +465,7 @@ async def run_improve_loop(
                 verifier_pass_count += 1
                 total_improvements += len(actionable)
                 all_tiers.update(pass_tiers)
-                previous_pass_summary = (
-                    f"Pass {pass_number}: Applied {len(actionable)} improvements. "
-                    f"Verifier: PASS."
-                )
+                previous_pass_summary = f"Pass {pass_number}: Applied {len(actionable)} improvements. Verifier: PASS."
                 _emit("verifier_pass", pass_number=pass_number)
             else:
                 # FAIL: rollback (31-REQ-7.1, 31-REQ-7.2)

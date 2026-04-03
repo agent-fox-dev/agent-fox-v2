@@ -365,9 +365,7 @@ def converge_auditor(
                 existing_sev = _VERDICT_SEVERITY.get(existing.verdict, 0)
                 new_sev = _VERDICT_SEVERITY.get(entry.verdict, 0)
                 if new_sev > existing_sev:
-                    merged_funcs = list(
-                        dict.fromkeys(existing.test_functions + entry.test_functions)
-                    )
+                    merged_funcs = list(dict.fromkeys(existing.test_functions + entry.test_functions))
                     entry_map[entry.ts_entry] = AuditEntry(
                         ts_entry=entry.ts_entry,
                         test_functions=merged_funcs,
@@ -378,9 +376,7 @@ def converge_auditor(
     merged_entries = sorted(entry_map.values(), key=lambda e: e.ts_entry)
 
     # 46-REQ-6.3: Overall FAIL if any instance FAILs
-    overall = (
-        "FAIL" if any(r.overall_verdict == "FAIL" for r in instance_results) else "PASS"
-    )
+    overall = "FAIL" if any(r.overall_verdict == "FAIL" for r in instance_results) else "PASS"
 
     summaries = [r.summary for r in instance_results if r.summary]
     merged_summary = "; ".join(summaries) if summaries else ""

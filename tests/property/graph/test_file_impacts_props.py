@@ -110,6 +110,4 @@ class TestDispatchSafety:
                 files_i = impact_map.get(dispatched[i], set())
                 files_j = impact_map.get(dispatched[j], set())
                 overlap = files_i & files_j
-                assert overlap == set(), (
-                    f"Tasks {dispatched[i]} and {dispatched[j]} share files: {overlap}"
-                )
+                assert overlap == set(), f"Tasks {dispatched[i]} and {dispatched[j]} share files: {overlap}"

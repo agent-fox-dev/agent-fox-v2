@@ -63,9 +63,7 @@ class TestExtractionFromSummary:
     """
 
     @pytest.mark.asyncio
-    async def test_extraction_called_with_summary_text(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    async def test_extraction_called_with_summary_text(self, knowledge_db: KnowledgeDB) -> None:
         """extract_and_store_knowledge() should call extract_facts with the
         transcript and insert resulting facts into DuckDB."""
         fact = _make_fact()
@@ -123,9 +121,7 @@ class TestFallbackInput:
         runner = MagicMock(spec=NodeSessionRunner)
         runner._spec_name = "03_api_routes"
         runner._task_group = 2
-        runner._build_fallback_input = NodeSessionRunner._build_fallback_input.__get__(
-            runner, NodeSessionRunner
-        )
+        runner._build_fallback_input = NodeSessionRunner._build_fallback_input.__get__(runner, NodeSessionRunner)
 
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
@@ -198,9 +194,7 @@ class TestFallbackNoCommits:
         runner = MagicMock(spec=NodeSessionRunner)
         runner._spec_name = "05_store"
         runner._task_group = 1
-        runner._build_fallback_input = NodeSessionRunner._build_fallback_input.__get__(
-            runner, NodeSessionRunner
-        )
+        runner._build_fallback_input = NodeSessionRunner._build_fallback_input.__get__(runner, NodeSessionRunner)
 
         with patch("subprocess.run") as mock_run:
             # Simulate git diff failing (no commits)

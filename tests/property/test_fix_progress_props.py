@@ -125,9 +125,7 @@ class TestQuietSuppressionInvariant:
             )
         else:
             # ProgressDisplay was never created — that's a failure
-            pytest.fail(
-                "ProgressDisplay was not created; it must be created in fix_cmd"
-            )
+            pytest.fail("ProgressDisplay was not created; it must be created in fix_cmd")
 
     def test_progress_display_quiet_property(self) -> None:
         """ProgressDisplay._quiet reflects the quiet parameter.
@@ -165,9 +163,7 @@ class TestLifecycleCompleteness:
         ],
         ids=["normal", "runtime_error", "keyboard_interrupt"],
     )
-    def test_stop_always_called(
-        self, side_effect: BaseException | None, tmp_path: Path
-    ) -> None:
+    def test_stop_always_called(self, side_effect: BaseException | None, tmp_path: Path) -> None:
         """stop() is called exactly once regardless of execution outcome.
 
         Requirement: 76-REQ-2.2, 76-REQ-2.E1
@@ -225,9 +221,7 @@ class TestCallbackWiringInvariant:
         ids=["none_callback", "mock_callback"],
     )
     @pytest.mark.asyncio
-    async def test_fix_runner_wires_callback(
-        self, callback: MagicMock | None, tmp_path: Path
-    ) -> None:
+    async def test_fix_runner_wires_callback(self, callback: MagicMock | None, tmp_path: Path) -> None:
         """For any activity_callback (None or real), run_session receives it.
 
         Requirement: 76-REQ-3.1
@@ -242,13 +236,9 @@ class TestCallbackWiringInvariant:
         mock_fix_spec.cluster_label = "test"
         mock_fix_spec.task_prompt = "fix"
 
-        with patch(
-            "agent_fox.cli.fix.run_session", new_callable=AsyncMock
-        ) as mock_run_session:
+        with patch("agent_fox.cli.fix.run_session", new_callable=AsyncMock) as mock_run_session:
             mock_run_session.return_value = mock_outcome
-            runner = _build_fix_session_runner(
-                config, tmp_path, activity_callback=callback
-            )
+            runner = _build_fix_session_runner(config, tmp_path, activity_callback=callback)
             await runner(mock_fix_spec)
 
         call_kwargs = mock_run_session.call_args.kwargs
@@ -262,9 +252,7 @@ class TestCallbackWiringInvariant:
         ids=["none_callback", "mock_callback"],
     )
     @pytest.mark.asyncio
-    async def test_improve_runner_wires_callback(
-        self, callback: MagicMock | None, tmp_path: Path
-    ) -> None:
+    async def test_improve_runner_wires_callback(self, callback: MagicMock | None, tmp_path: Path) -> None:
         """For any activity_callback, improve runner passes it to run_session.
 
         Requirement: 76-REQ-3.2
@@ -275,13 +263,9 @@ class TestCallbackWiringInvariant:
         mock_outcome.output_tokens = 50
         mock_outcome.output = "{}"
 
-        with patch(
-            "agent_fox.cli.fix.run_session", new_callable=AsyncMock
-        ) as mock_run_session:
+        with patch("agent_fox.cli.fix.run_session", new_callable=AsyncMock) as mock_run_session:
             mock_run_session.return_value = mock_outcome
-            runner = _build_improve_session_runner(
-                config, tmp_path, activity_callback=callback
-            )
+            runner = _build_improve_session_runner(config, tmp_path, activity_callback=callback)
             await runner("sys", "task", "STANDARD")
 
         call_kwargs = mock_run_session.call_args.kwargs
@@ -308,9 +292,7 @@ class TestBackwardCompatibility:
         deadline=None,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_run_checks_none_callback_backward_compatible(
-        self, n_checks: int, tmp_path: Path
-    ) -> None:
+    def test_run_checks_none_callback_backward_compatible(self, n_checks: int, tmp_path: Path) -> None:
         """run_checks with check_callback=None returns valid tuple without errors.
 
         Requirement: 76-REQ-6.E2
@@ -327,9 +309,7 @@ class TestBackwardCompatibility:
         assert len(failures) + len(passed) == n_checks
 
     @pytest.mark.asyncio
-    async def test_run_fix_loop_none_callback_backward_compatible(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_run_fix_loop_none_callback_backward_compatible(self, tmp_path: Path) -> None:
         """run_fix_loop with no callbacks returns valid FixResult without errors.
 
         Requirement: 76-REQ-6.E1
@@ -364,9 +344,7 @@ class TestProgressEventCompleteness:
     Validates: 76-REQ-4.1, 76-REQ-4.2, 76-REQ-4.3
     """
 
-    _TERMINAL_STAGES = frozenset(
-        {"all_passed", "checks_done", "clusters_found", "cost_limit"}
-    )
+    _TERMINAL_STAGES = frozenset({"all_passed", "checks_done", "clusters_found", "cost_limit"})
 
     @given(max_passes=st.integers(min_value=1, max_value=4))
     @settings(
@@ -374,9 +352,7 @@ class TestProgressEventCompleteness:
         deadline=None,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_every_pass_has_start_and_terminal_event(
-        self, max_passes: int, tmp_path: Path
-    ) -> None:
+    def test_every_pass_has_start_and_terminal_event(self, max_passes: int, tmp_path: Path) -> None:
         """For any max_passes, every pass in the fix loop has a start + terminal event.
 
         Requirement: 76-REQ-4.1, 76-REQ-4.2, 76-REQ-4.3
@@ -405,12 +381,8 @@ class TestProgressEventCompleteness:
 
         for p in range(1, result.passes_completed + 1):
             pass_events = [e for e in events if e.pass_number == p]
-            assert any(e.stage == "checks_start" for e in pass_events), (
-                f"Pass {p} should have a checks_start event"
-            )
-            assert any(e.stage in self._TERMINAL_STAGES for e in pass_events), (
-                f"Pass {p} should have a terminal event"
-            )
+            assert any(e.stage == "checks_start" for e in pass_events), f"Pass {p} should have a checks_start event"
+            assert any(e.stage in self._TERMINAL_STAGES for e in pass_events), f"Pass {p} should have a terminal event"
 
 
 # ---------------------------------------------------------------------------
@@ -432,9 +404,7 @@ class TestCheckEventPairing:
         deadline=None,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_start_and_done_count_equals_check_count(
-        self, n_checks: int, tmp_path: Path
-    ) -> None:
+    def test_start_and_done_count_equals_check_count(self, n_checks: int, tmp_path: Path) -> None:
         """start_count == done_count == n_checks for any n_checks in 1..5.
 
         Requirement: 76-REQ-5.1, 76-REQ-5.2
@@ -450,12 +420,8 @@ class TestCheckEventPairing:
         starts = [e for e in events if e.stage == "start"]
         dones = [e for e in events if e.stage == "done"]
 
-        assert len(starts) == n_checks, (
-            f"Expected {n_checks} start events, got {len(starts)}"
-        )
-        assert len(dones) == n_checks, (
-            f"Expected {n_checks} done events, got {len(dones)}"
-        )
+        assert len(starts) == n_checks, f"Expected {n_checks} start events, got {len(starts)}"
+        assert len(dones) == n_checks, f"Expected {n_checks} done events, got {len(dones)}"
 
     def test_check_event_pairing_includes_timeout(self, tmp_path: Path) -> None:
         """A timed-out check still gets a done event with passed=False.
@@ -468,9 +434,7 @@ class TestCheckEventPairing:
         callback = MagicMock()
 
         with patch("agent_fox.fix.checks.subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(
-                cmd=["slow_check"], timeout=300
-            )
+            mock_run.side_effect = subprocess.TimeoutExpired(cmd=["slow_check"], timeout=300)
             run_checks(checks, tmp_path, check_callback=callback)
 
         events = [c.args[0] for c in callback.call_args_list]
@@ -479,6 +443,4 @@ class TestCheckEventPairing:
 
         assert len(starts) == 1, "Timed-out check should still have a start event"
         assert len(dones) == 1, "Timed-out check should still have a done event"
-        assert dones[0].passed is False, (
-            "Timed-out check done event should have passed=False"
-        )
+        assert dones[0].passed is False, "Timed-out check done event should have passed=False"

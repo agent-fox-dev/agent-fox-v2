@@ -34,9 +34,7 @@ class TestMutualExclusion:
         hold_ms=st.integers(min_value=0, max_value=50),
     )
     @settings(max_examples=10, deadline=30000)
-    async def test_mutual_exclusion(
-        self, n_tasks: int, hold_ms: int, tmp_path_factory: pytest.TempPathFactory
-    ) -> None:
+    async def test_mutual_exclusion(self, n_tasks: int, hold_ms: int, tmp_path_factory: pytest.TempPathFactory) -> None:
         """A shared counter never exceeds 1 during any lock-held period."""
         repo_root = tmp_path_factory.mktemp("mutex")
         lock = MergeLock(repo_root, timeout=30.0, poll_interval=0.01)

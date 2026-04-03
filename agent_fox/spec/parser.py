@@ -31,9 +31,7 @@ _DEP_TABLE_HEADER = re.compile(r"\|\s*This Spec\s*\|\s*Depends On\s*\|", re.IGNO
 
 # Alternative dependency table format with group-level granularity:
 #   | Spec | From Group | To Group | Relationship |
-_DEP_TABLE_HEADER_ALT = re.compile(
-    r"\|\s*Spec\s*\|\s*From Group\s*\|\s*To Group\s*\|", re.IGNORECASE
-)
+_DEP_TABLE_HEADER_ALT = re.compile(r"\|\s*Spec\s*\|\s*From Group\s*\|\s*To Group\s*\|", re.IGNORECASE)
 
 # Table separator row (e.g., |---|---|---|)
 _TABLE_SEP = re.compile(r"^\s*\|[\s\-|]+\|\s*$")
@@ -151,8 +149,7 @@ def parse_tasks(tasks_path: Path) -> list[TaskGroupDef]:
                 if arch_name not in _KNOWN_ARCHETYPES:
                     # 26-REQ-5.E2: unknown archetype tag
                     logger.warning(
-                        "Unknown archetype '%s' in tasks.md tag; "
-                        "will default to 'coder'",
+                        "Unknown archetype '%s' in tasks.md tag; will default to 'coder'",
                         arch_name,
                     )
                 current_archetype = arch_name
@@ -283,8 +280,7 @@ def parse_cross_deps(
         elif _DEP_TABLE_HEADER_ALT.search(line):
             if spec_name is None:
                 logger.warning(
-                    "Alternative dependency table found in '%s' but "
-                    "spec_name not provided; skipping.",
+                    "Alternative dependency table found in '%s' but spec_name not provided; skipping.",
                     prd_path,
                 )
                 continue

@@ -36,46 +36,31 @@ class TestBundledTemplatesHaveValidFrontmatter:
         """Each template starts with --- and has name + description fields."""
         assert _SKILLS_DIR.exists(), f"Skills dir not found: {_SKILLS_DIR}"
 
-        templates = [
-            f
-            for f in _SKILLS_DIR.iterdir()
-            if f.is_file() and not f.name.startswith(".")
-        ]
+        templates = [f for f in _SKILLS_DIR.iterdir() if f.is_file() and not f.name.startswith(".")]
         assert len(templates) > 0, "No bundled skill templates found"
 
         for template_path in templates:
             content = template_path.read_text(encoding="utf-8")
 
             # Must start with ---
-            assert content.startswith("---"), (
-                f"{template_path.name}: does not start with '---'"
-            )
+            assert content.startswith("---"), f"{template_path.name}: does not start with '---'"
 
             # Extract frontmatter between first and second ---
             parts = content.split("---", 2)
-            assert len(parts) >= 3, (
-                f"{template_path.name}: missing closing '---' delimiter"
-            )
+            assert len(parts) >= 3, f"{template_path.name}: missing closing '---' delimiter"
 
             frontmatter_text = parts[1].strip()
             frontmatter = yaml.safe_load(frontmatter_text)
-            assert isinstance(frontmatter, dict), (
-                f"{template_path.name}: frontmatter is not a YAML mapping"
-            )
+            assert isinstance(frontmatter, dict), f"{template_path.name}: frontmatter is not a YAML mapping"
 
             # name field must exist and match filename
-            assert "name" in frontmatter, (
-                f"{template_path.name}: missing 'name' field in frontmatter"
-            )
+            assert "name" in frontmatter, f"{template_path.name}: missing 'name' field in frontmatter"
             assert frontmatter["name"] == template_path.name, (
-                f"{template_path.name}: name field '{frontmatter['name']}' "
-                f"does not match filename"
+                f"{template_path.name}: name field '{frontmatter['name']}' does not match filename"
             )
 
             # description field must exist
-            assert "description" in frontmatter, (
-                f"{template_path.name}: missing 'description' field in frontmatter"
-            )
+            assert "description" in frontmatter, f"{template_path.name}: missing 'description' field in frontmatter"
 
 
 # ---------------------------------------------------------------------------
@@ -98,11 +83,7 @@ class TestInstallationBijection:
         count = _install_skills(project_root)
 
         skills_dir = project_root / ".claude" / "skills"
-        templates = {
-            f.name
-            for f in _SKILLS_DIR.iterdir()
-            if f.is_file() and not f.name.startswith(".")
-        }
+        templates = {f.name for f in _SKILLS_DIR.iterdir() if f.is_file() and not f.name.startswith(".")}
         installed = {d.name for d in skills_dir.iterdir() if d.is_dir()}
 
         assert installed == templates
@@ -111,9 +92,7 @@ class TestInstallationBijection:
         for name in templates:
             installed_content = (skills_dir / name / "SKILL.md").read_bytes()
             template_content = (_SKILLS_DIR / name).read_bytes()
-            assert installed_content == template_content, (
-                f"Installed {name}/SKILL.md differs from template"
-            )
+            assert installed_content == template_content, f"Installed {name}/SKILL.md differs from template"
 
 
 # ---------------------------------------------------------------------------

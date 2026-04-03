@@ -111,9 +111,7 @@ class TestDbDumpJson:
             td_path = Path(td)
             _create_db_file(td_path / ".agent-fox" / "knowledge.duckdb")
 
-            result = runner.invoke(
-                main, ["--json", "export", "--db"], catch_exceptions=False
-            )
+            result = runner.invoke(main, ["--json", "export", "--db"], catch_exceptions=False)
 
             assert result.exit_code == 0
             dump_json = td_path / ".agent-fox" / "knowledge_dump.json"

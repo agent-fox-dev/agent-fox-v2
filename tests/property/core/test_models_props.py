@@ -62,18 +62,13 @@ class TestCostNonNegativity:
         output_tokens=st.integers(min_value=0, max_value=100_000_000),
     )
     @settings(max_examples=100)
-    def test_cost_non_negative_for_all_models(
-        self, input_tokens: int, output_tokens: int
-    ) -> None:
+    def test_cost_non_negative_for_all_models(self, input_tokens: int, output_tokens: int) -> None:
         """Cost is never negative for any model and non-negative token counts."""
         pricing = PricingConfig()
         for model_entry in MODEL_REGISTRY.values():
-            cost = calculate_cost(
-                input_tokens, output_tokens, model_entry.model_id, pricing
-            )
+            cost = calculate_cost(input_tokens, output_tokens, model_entry.model_id, pricing)
             assert cost >= 0.0, (
-                f"Negative cost {cost} for {model_entry.model_id} "
-                f"with {input_tokens} input, {output_tokens} output"
+                f"Negative cost {cost} for {model_entry.model_id} with {input_tokens} input, {output_tokens} output"
             )
 
 
@@ -113,6 +108,4 @@ class TestErrorHierarchyCatches:
         except AgentFoxError:
             pass  # Expected — the catch worked
         except Exception:
-            pytest.fail(
-                f"{error_class.__name__} was not caught by except AgentFoxError"
-            )
+            pytest.fail(f"{error_class.__name__} was not caught by except AgentFoxError")

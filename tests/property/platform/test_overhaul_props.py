@@ -104,17 +104,13 @@ class TestNoPushInstructionsInTemplates:
     Validates: 19-REQ-2.1, 19-REQ-2.4, 19-REQ-2.E1
     """
 
-    _TEMPLATE_DIR = (
-        Path(__file__).resolve().parents[3] / "agent_fox" / "_templates" / "prompts"
-    )
+    _TEMPLATE_DIR = Path(__file__).resolve().parents[3] / "agent_fox" / "_templates" / "prompts"
 
     def test_no_push_in_any_template(self) -> None:
         """No template in _templates/prompts/ contains 'git push'."""
         for template_file in self._TEMPLATE_DIR.glob("*.md"):
             content = template_file.read_text()
-            assert "git push" not in content, (
-                f"{template_file.name} contains 'git push'"
-            )
+            assert "git push" not in content, f"{template_file.name} contains 'git push'"
 
 
 # ---------------------------------------------------------------------------

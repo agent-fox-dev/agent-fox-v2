@@ -42,9 +42,7 @@ def dag_strategy(
             preds = []
         edges[nid] = preds
 
-    durations = {
-        nid: draw(st.integers(min_value=0, max_value=1000)) for nid in node_ids
-    }
+    durations = {nid: draw(st.integers(min_value=0, max_value=1000)) for nid in node_ids}
 
     return nodes, edges, durations
 

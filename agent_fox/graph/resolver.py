@@ -76,10 +76,7 @@ def resolve_order(graph: TaskGraph) -> list[str]:
     # Cycle detection: if not all nodes are in the order, there's a cycle
     if len(order) != len(graph.nodes):
         cycle_nodes = [node_id for node_id in graph.nodes if node_id not in set(order)]
-        raise PlanError(
-            f"Dependency cycle detected involving nodes: "
-            f"{', '.join(sorted(cycle_nodes))}"
-        )
+        raise PlanError(f"Dependency cycle detected involving nodes: {', '.join(sorted(cycle_nodes))}")
 
     return order
 
@@ -152,9 +149,7 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
     edge_list = [Edge(source=s, target=t, kind=k) for s, t, k in new_edges]
 
     # Build the new graph; compute order using only non-optional nodes
-    order_nodes = {
-        nid: node for nid, node in new_nodes.items() if nid not in optional_ids
-    }
+    order_nodes = {nid: node for nid, node in new_nodes.items() if nid not in optional_ids}
     order_graph = TaskGraph(
         nodes=order_nodes,
         edges=edge_list,
@@ -316,9 +311,7 @@ def analyze_plan(graph: TaskGraph) -> PlanAnalysis:
     critical_path = _trace_critical_path(zero_float_nodes, es, successors, topo_order)
 
     # Detect alternative critical paths
-    has_alternatives = _has_alternative_paths(
-        zero_float_nodes, successors, critical_path, es
-    )
+    has_alternatives = _has_alternative_paths(zero_float_nodes, successors, critical_path, es)
 
     return PlanAnalysis(
         phases=phases,
@@ -445,8 +438,6 @@ def format_analysis(analysis: PlanAnalysis, graph: TaskGraph) -> str:
         float_parts = []
         for spec, floats in sorted(spec_float.items()):
             float_parts.append(f"{spec} has {len(floats)} groups of float")
-        lines.append(
-            f"  Nodes with float: {len(nodes_with_float)} ({', '.join(float_parts)})"
-        )
+        lines.append(f"  Nodes with float: {len(nodes_with_float)} ({', '.join(float_parts)})")
 
     return "\n".join(lines)

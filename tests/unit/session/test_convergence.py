@@ -64,9 +64,7 @@ class TestSkepticUnionDedup:
             Finding(severity="major", description="New concern"),
         ]
 
-        merged, blocked = converge_skeptic(
-            [instance_1, instance_2, instance_3], block_threshold=3
-        )
+        merged, blocked = converge_skeptic([instance_1, instance_2, instance_3], block_threshold=3)
 
         # After dedup: 1 critical + 2 major + 1 minor = 4 unique
         from agent_fox.session.convergence import normalize_finding
@@ -99,9 +97,7 @@ class TestSkepticMajorityGating:
         instance_2: list = []
         instance_3: list = []
 
-        merged, blocked = converge_skeptic(
-            [instance_1, instance_2, instance_3], block_threshold=3
-        )
+        merged, blocked = converge_skeptic([instance_1, instance_2, instance_3], block_threshold=3)
         assert blocked is False
 
     def test_majority_critical_counted(self) -> None:
@@ -113,9 +109,7 @@ class TestSkepticMajorityGating:
         instance_3: list = []
 
         # 1 majority-agreed critical, threshold=0 → blocked
-        merged, blocked = converge_skeptic(
-            [instance_1, instance_2, instance_3], block_threshold=0
-        )
+        merged, blocked = converge_skeptic([instance_1, instance_2, instance_3], block_threshold=0)
         assert blocked is True
 
 
@@ -283,10 +277,7 @@ class TestPropertyBlockingThreshold:
 
         # Create instances where all criticals appear in all instances
         # (so they all pass majority gate)
-        findings = [
-            Finding(severity="critical", description=f"Issue {i}")
-            for i in range(n_criticals)
-        ]
+        findings = [Finding(severity="critical", description=f"Issue {i}") for i in range(n_criticals)]
         # Use 1 instance so all findings pass majority gate (1/1 >= ceil(1/2))
         _, blocked = converge_skeptic([findings], block_threshold=threshold)
         assert blocked == (n_criticals > threshold)

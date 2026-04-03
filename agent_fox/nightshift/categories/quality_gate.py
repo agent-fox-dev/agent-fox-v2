@@ -59,11 +59,7 @@ def _format_failures(
     sections: list[str] = []
     for check, output, exit_code in failures:
         truncated = output[:MAX_OUTPUT_CHARS]
-        section = (
-            f"=== {check.name} ({check.category}) ===\n"
-            f"Exit code: {exit_code}\n"
-            f"Output:\n{truncated}"
-        )
+        section = f"=== {check.name} ({check.category}) ===\nExit code: {exit_code}\nOutput:\n{truncated}"
         sections.append(section)
     return "\n\n".join(sections)
 
@@ -102,9 +98,7 @@ class QualityGateCategory(BaseHuntCategory):
 
         Requirements: 67-REQ-1.E1
         """
-        timeout = getattr(
-            getattr(config, "night_shift", None), "quality_gate_timeout", 600
-        )
+        timeout = getattr(getattr(config, "night_shift", None), "quality_gate_timeout", 600)
         self._timeout = timeout
         self._failures = []
         try:
@@ -157,9 +151,7 @@ class QualityGateCategory(BaseHuntCategory):
                     check.name,
                     timeout,
                 )
-                timeout_msg = (
-                    f"timeout: check '{check.name}' timed out after {timeout}s"
-                )
+                timeout_msg = f"timeout: check '{check.name}' timed out after {timeout}s"
                 failures.append((check, timeout_msg, -1))
 
         self._failures = failures
@@ -169,9 +161,7 @@ class QualityGateCategory(BaseHuntCategory):
 
         return _format_failures(failures)
 
-    async def _run_ai_analysis(
-        self, project_root: Path, static_output: str
-    ) -> list[Finding]:
+    async def _run_ai_analysis(self, project_root: Path, static_output: str) -> list[Finding]:
         """Analyse failure output with AI, returning one Finding per check.
 
         Requirements: 67-REQ-3.1, 67-REQ-3.2, 67-REQ-3.3, 67-REQ-3.4, 67-REQ-3.E1
@@ -181,8 +171,7 @@ class QualityGateCategory(BaseHuntCategory):
 
         # Build lookup for raw output by check name
         failure_by_name: dict[str, tuple[CheckDescriptor, str, int]] = {
-            check.name: (check, output, exit_code)
-            for check, output, exit_code in self._failures
+            check.name: (check, output, exit_code) for check, output, exit_code in self._failures
         }
 
         try:
@@ -239,7 +228,4 @@ class QualityGateCategory(BaseHuntCategory):
                 exc_info=True,
             )
             # Mechanical fallback: one Finding per failure
-            return [
-                _mechanical_finding(check, output)
-                for check, output, _ in self._failures
-            ]
+            return [_mechanical_finding(check, output) for check, output, _ in self._failures]

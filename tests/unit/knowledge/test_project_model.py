@@ -456,9 +456,7 @@ class TestProjectModelEdgeCases:
         assert model.archetype_effectiveness == {}
         assert model.active_drift_areas == []
 
-    def test_findings_without_outcomes(
-        self, model_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_findings_without_outcomes(self, model_db: duckdb.DuckDBPyConnection) -> None:
         """TS-43-E2: Findings without outcomes uses density = findings / 1.
 
         Requirement: 43-REQ-1.E2

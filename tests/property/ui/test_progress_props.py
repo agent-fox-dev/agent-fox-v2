@@ -27,17 +27,13 @@ from agent_fox.ui.progress import (
 _STYLE_ROLES = ("header", "success", "error", "warning", "info", "tool", "muted")
 
 
-def _make_theme(
-    *, force_terminal: bool = True, width: int = 120
-) -> tuple[AppTheme, StringIO]:
+def _make_theme(*, force_terminal: bool = True, width: int = 120) -> tuple[AppTheme, StringIO]:
     """Create an AppTheme with a StringIO-backed console for testing."""
     config = ThemeConfig()
     theme = create_theme(config)
     buf = StringIO()
     rich_theme = Theme({role: getattr(config, role) for role in _STYLE_ROLES})
-    theme.console = Console(
-        file=buf, theme=rich_theme, width=width, force_terminal=force_terminal
-    )
+    theme.console = Console(file=buf, theme=rich_theme, width=width, force_terminal=force_terminal)
     return theme, buf
 
 
@@ -54,9 +50,7 @@ class TestSpinnerLineWidth:
         tokens=st.one_of(st.none(), st.integers(min_value=0, max_value=10_000_000)),
     )
     @settings(max_examples=100)
-    def test_spinner_line_fits_terminal(
-        self, text: str, width: int, turn: int, tokens: int | None
-    ) -> None:
+    def test_spinner_line_fits_terminal(self, text: str, width: int, turn: int, tokens: int | None) -> None:
         """Every line of the spinner text fits within terminal width."""
         theme, _buf = _make_theme(width=width)
         display = ProgressDisplay(theme, quiet=False)
@@ -73,9 +67,7 @@ class TestSpinnerLineWidth:
         full_text = display._get_spinner_text()
         display.stop()
         for line in full_text.split("\n"):
-            assert len(line) <= width, (
-                f"Line length {len(line)} exceeds width {width}: {line!r}"
-            )
+            assert len(line) <= width, f"Line length {len(line)} exceeds width {width}: {line!r}"
 
 
 class TestAbbreviationIdempotence:
@@ -90,9 +82,7 @@ class TestAbbreviationIdempotence:
         """abbreviate_arg(abbreviate_arg(s)) == abbreviate_arg(s)."""
         once = abbreviate_arg(s)
         twice = abbreviate_arg(once)
-        assert twice == once, (
-            f"Not idempotent for input {s!r}: first={once!r}, second={twice!r}"
-        )
+        assert twice == once, f"Not idempotent for input {s!r}: first={once!r}, second={twice!r}"
 
 
 class TestQuietNoOutput:
@@ -129,9 +119,7 @@ class TestQuietNoOutput:
             nid = node_ids[i % len(node_ids)]
             display.on_task_event(TaskEvent(node_id=nid, status=status, duration_s=1.0))
         display.stop()
-        assert buf.getvalue() == "", (
-            f"Expected no output in quiet mode, got: {buf.getvalue()!r}"
-        )
+        assert buf.getvalue() == "", f"Expected no output in quiet mode, got: {buf.getvalue()!r}"
 
 
 class TestAbbreviatedPathFitsMaxLen:
@@ -152,8 +140,7 @@ class TestAbbreviatedPathFitsMaxLen:
         """abbreviate_arg(path, max_len) length never exceeds max_len."""
         result = abbreviate_arg(path, max_len)
         assert len(result) <= max_len, (
-            f"Result length {len(result)} exceeds max_len {max_len} "
-            f"for path {path!r}: {result!r}"
+            f"Result length {len(result)} exceeds max_len {max_len} for path {path!r}: {result!r}"
         )
 
 

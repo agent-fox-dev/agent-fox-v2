@@ -163,10 +163,7 @@ class TestHookWarnMode:
         with caplog.at_level(logging.WARNING, logger="agent_fox.hooks.runner"):
             run_hook(script, hook_context, mode="warn")
 
-        assert any(
-            "warn" in record.message.lower() or "fail" in record.message.lower()
-            for record in caplog.records
-        )
+        assert any("warn" in record.message.lower() or "fail" in record.message.lower() for record in caplog.records)
 
 
 class TestHookTimeout:

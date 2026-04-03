@@ -283,9 +283,7 @@ class TestPartialHardResetRollback:
             session_history=history,
         )
 
-        result = hard_reset_task(
-            "s:2", state_path, plan_path, worktrees_dir, repo, memory_path
-        )
+        result = hard_reset_task("s:2", state_path, plan_path, worktrees_dir, repo, memory_path)
 
         # Develop should be at sha1 (predecessor of task 2's commit)
         new_head = _get_head(repo, "develop")

@@ -130,9 +130,7 @@ class TestBlockingHistory:
         assert isinstance(threshold, int)
         assert threshold > 0
 
-    def test_insufficient_decisions_returns_none(
-        self, blocking_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_insufficient_decisions_returns_none(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """Returns None when fewer than min_decisions exist."""
         from agent_fox.knowledge.blocking_history import compute_optimal_threshold
 
@@ -148,9 +146,7 @@ class TestBlockingHistory:
             """INSERT INTO learned_thresholds
                VALUES ('skeptic', 3, 0.85, 25, current_timestamp)"""
         )
-        rows = blocking_db.execute(
-            "SELECT * FROM learned_thresholds WHERE archetype='skeptic'"
-        ).fetchall()
+        rows = blocking_db.execute("SELECT * FROM learned_thresholds WHERE archetype='skeptic'").fetchall()
         assert len(rows) == 1
         # threshold is at index 1
         assert rows[0][1] == 3

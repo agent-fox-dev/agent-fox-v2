@@ -61,9 +61,7 @@ class TaskGraph:
     nodes: dict[str, Node]  # node_id -> Node
     edges: list[Edge]  # all dependency edges
     order: list[str]  # topologically sorted node IDs
-    metadata: PlanMetadata = field(
-        default_factory=lambda: PlanMetadata(created_at=datetime.now().isoformat())
-    )
+    metadata: PlanMetadata = field(default_factory=lambda: PlanMetadata(created_at=datetime.now().isoformat()))
 
     def predecessors(self, node_id: str) -> list[str]:
         """Return IDs of all direct predecessors of a node."""

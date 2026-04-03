@@ -67,10 +67,7 @@ def merge_config(
 
     # Scan raw text for already-present commented sections and fields.
     # This prevents adding duplicates on re-merge (idempotency).
-    commented_sections = set(
-        m.group(1)
-        for m in re.finditer(r"^#\s*\[([^\]]+)\]", existing_content, re.MULTILINE)
-    )
+    commented_sections = set(m.group(1) for m in re.finditer(r"^#\s*\[([^\]]+)\]", existing_content, re.MULTILINE))
     commented_fields: dict[str, set[str]] = {}
     _scan_commented_fields(existing_content, commented_fields)
 
@@ -111,10 +108,7 @@ def merge_config(
             section_commented = commented_fields.get(section.path, set())
             missing_fields = []
             for field_name, field_spec in section_known.items():
-                if (
-                    field_name not in section_active
-                    and field_name not in section_commented
-                ):
+                if field_name not in section_active and field_name not in section_commented:
                     missing_fields.append(field_spec)
                     added_count += 1
             if missing_fields:
@@ -137,10 +131,7 @@ def merge_config(
     for section in schema:
         if section.path not in _VISIBLE_SECTIONS:
             continue
-        if (
-            section.path not in active_sections
-            and section.path not in commented_sections
-        ):
+        if section.path not in active_sections and section.path not in commented_sections:
             new_lines = [""] + _render_section_comments(section)
             # Also add subsections (visible only)
             for sub in section.subsections:
@@ -240,9 +231,7 @@ def _collect_active_fields(
     known_fields = schema_lookup.get(section_path, {})
 
     for key in list(section_data.keys()):
-        if isinstance(section_data[key], dict) and not isinstance(
-            section_data[key], InlineTable
-        ):
+        if isinstance(section_data[key], dict) and not isinstance(section_data[key], InlineTable):
             # Nested table — recurse
             sub_path = f"{section_path}.{key}"
             if sub_path in schema_lookup:
@@ -265,9 +254,7 @@ def _collect_active_fields(
             deprecated_entries.append((section_path, key, value_str))
 
 
-def _apply_deprecation(
-    lines: list[str], section_path: str, key: str, value_str: str
-) -> None:
+def _apply_deprecation(lines: list[str], section_path: str, key: str, value_str: str) -> None:
     """Replace an active deprecated field line with a DEPRECATED comment.
 
     Requirements: 33-REQ-2.4

@@ -26,10 +26,7 @@ def create_platform(config: object, project_root: Path) -> GitHubPlatform:
     platform_type = getattr(platform_cfg, "type", "none")
 
     if platform_type == "none":
-        logger.error(
-            "Night-shift requires a configured platform. "
-            "Set [platform] type = 'github' in your config."
-        )
+        logger.error("Night-shift requires a configured platform. Set [platform] type = 'github' in your config.")
         sys.exit(1)
 
     if platform_type not in _SUPPORTED_PLATFORMS:

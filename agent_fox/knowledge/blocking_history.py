@@ -243,9 +243,6 @@ def format_learned_thresholds(conn: duckdb.DuckDBPyConnection) -> str:
         lines.append("(no learned thresholds)")
     else:
         for archetype, threshold, confidence, sample_count in rows:
-            lines.append(
-                f"  {archetype}: threshold={threshold}, "
-                f"confidence={confidence:.2f}, samples={sample_count}"
-            )
+            lines.append(f"  {archetype}: threshold={threshold}, confidence={confidence:.2f}, samples={sample_count}")
 
     return "\n".join(lines)

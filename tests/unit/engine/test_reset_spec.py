@@ -269,9 +269,7 @@ class TestWorktreesAndBranchesCleaned:
 
         # Mock git branch -D to simulate branch deletion
         with patch("agent_fox.engine.reset_artifacts.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(
-                args=[], returncode=0, stdout="", stderr=""
-            )
+            mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
             result = reset_spec("alpha", state_path, plan_path, wt_dir, repo)
 
         assert len(result.cleaned_branches) >= 1
@@ -301,11 +299,7 @@ class TestTasksMdCheckboxesReset:
         alpha_dir.mkdir(parents=True)
         tasks_md = alpha_dir / "tasks.md"
         tasks_md.write_text(
-            "# Tasks\n\n"
-            "- [x] 1. Task One\n"
-            "  - [x] 1.1 Subtask\n"
-            "- [x] 2. Task Two\n"
-            "  - [-] 2.1 Subtask\n"
+            "# Tasks\n\n- [x] 1. Task One\n  - [x] 1.1 Subtask\n- [x] 2. Task Two\n  - [-] 2.1 Subtask\n"
         )
 
         reset_spec("alpha", state_path, plan_path, wt_dir, repo)

@@ -58,12 +58,8 @@ def fix_ai_criteria(
         found = False
         for i, line in enumerate(lines):
             # Check bracket format: [99-REQ-1.1]
-            bracket_pattern = re.compile(
-                rf"^(\s*\d+\.\s*)\[({re.escape(criterion_id)})\]\s*(.*)$"
-            )
-            bold_pattern = re.compile(
-                rf"^(\s*\d+\.\s*)\*\*({re.escape(criterion_id)}):\*\*\s*(.*)$"
-            )
+            bracket_pattern = re.compile(rf"^(\s*\d+\.\s*)\[({re.escape(criterion_id)})\]\s*(.*)$")
+            bold_pattern = re.compile(rf"^(\s*\d+\.\s*)\*\*({re.escape(criterion_id)}):\*\*\s*(.*)$")
 
             bracket_match = bracket_pattern.match(line)
             bold_match = bold_pattern.match(line)

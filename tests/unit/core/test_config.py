@@ -62,14 +62,7 @@ class TestConfigOverrides:
     def test_multiple_overrides(self, tmp_path: Path) -> None:
         """Multiple overrides are all applied."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[orchestrator]\n"
-            "parallel = 4\n"
-            "sync_interval = 10\n"
-            "\n"
-            "[theme]\n"
-            "playful = false\n"
-        )
+        config_file.write_text("[orchestrator]\nparallel = 4\nsync_interval = 10\n\n[theme]\nplayful = false\n")
 
         config = load_config(path=config_file)
 
@@ -132,9 +125,7 @@ class TestConfigUnrecognizedKeys:
     def test_unknown_field_in_known_section_ignored(self, tmp_path: Path) -> None:
         """Unknown fields within known sections are silently ignored."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[orchestrator]\nparallel = 2\ntotally_unknown_field = 42\n"
-        )
+        config_file.write_text("[orchestrator]\nparallel = 2\ntotally_unknown_field = 42\n")
 
         config = load_config(path=config_file)
 

@@ -162,44 +162,26 @@ def apply_fixes(
                 prd_path = spec.path / "prd.md"
                 if prd_path.is_file():
                     current_groups = known_specs.get(spec_name, [])
-                    all_results.extend(
-                        fix_coarse_dependency(
-                            spec_name, prd_path, known_specs, current_groups
-                        )
-                    )
+                    all_results.extend(fix_coarse_dependency(spec_name, prd_path, known_specs, current_groups))
 
             elif rule == "stale-dependency":
                 prd_path = spec.path / "prd.md"
                 if prd_path.is_file():
-                    id_fixes = _parse_stale_dep_fixes(
-                        stale_dep_findings.get(spec_name, [])
-                    )
+                    id_fixes = _parse_stale_dep_fixes(stale_dep_findings.get(spec_name, []))
                     if id_fixes:
-                        all_results.extend(
-                            fix_stale_dependency(spec_name, prd_path, id_fixes)
-                        )
+                        all_results.extend(fix_stale_dependency(spec_name, prd_path, id_fixes))
 
             elif rule == "traceability-table-mismatch":
                 key = (spec_name, rule)
-                missing_ids = _extract_req_ids_from_findings(
-                    mismatch_findings.get(key, [])
-                )
+                missing_ids = _extract_req_ids_from_findings(mismatch_findings.get(key, []))
                 if missing_ids:
-                    all_results.extend(
-                        fix_traceability_table_mismatch(
-                            spec_name, spec.path, missing_ids
-                        )
-                    )
+                    all_results.extend(fix_traceability_table_mismatch(spec_name, spec.path, missing_ids))
 
             elif rule == "coverage-matrix-mismatch":
                 key = (spec_name, rule)
-                missing_ids = _extract_req_ids_from_findings(
-                    mismatch_findings.get(key, [])
-                )
+                missing_ids = _extract_req_ids_from_findings(mismatch_findings.get(key, []))
                 if missing_ids:
-                    all_results.extend(
-                        fix_coverage_matrix_mismatch(spec_name, spec.path, missing_ids)
-                    )
+                    all_results.extend(fix_coverage_matrix_mismatch(spec_name, spec.path, missing_ids))
 
         except OSError as exc:
             logger.warning(

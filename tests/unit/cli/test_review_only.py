@@ -104,15 +104,9 @@ class TestReviewOnlyGraphPerSpecNodes:
 
         graph = build_review_only_graph(specs_dir, archetypes_config=None)
 
-        spec_a_archetypes = {
-            n.archetype for n in graph.nodes.values() if n.spec_name == "spec_a"
-        }
-        spec_b_archetypes = {
-            n.archetype for n in graph.nodes.values() if n.spec_name == "spec_b"
-        }
-        spec_c_archetypes = {
-            n.archetype for n in graph.nodes.values() if n.spec_name == "spec_c"
-        }
+        spec_a_archetypes = {n.archetype for n in graph.nodes.values() if n.spec_name == "spec_a"}
+        spec_b_archetypes = {n.archetype for n in graph.nodes.values() if n.spec_name == "spec_b"}
+        spec_c_archetypes = {n.archetype for n in graph.nodes.values() if n.spec_name == "spec_c"}
 
         assert {"skeptic", "oracle", "verifier"} <= spec_a_archetypes
         assert {"skeptic", "oracle"} <= spec_b_archetypes
@@ -196,9 +190,7 @@ class TestNoEligibleSpecs:
         graph = build_review_only_graph(specs_dir, archetypes_config=None)
         assert len(graph.nodes) == 0
 
-    def test_no_eligible_specs_message(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture
-    ) -> None:
+    def test_no_eligible_specs_message(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
         """TS-53-E1: 'No specs eligible for review' is printed when no specs found."""
         from agent_fox.graph.injection import build_review_only_graph  # noqa: PLC0415
 
@@ -216,9 +208,7 @@ class TestNoEligibleSpecs:
             # The actual message may be printed by the CLI handler
             pass
 
-    def test_cli_review_only_no_specs_exits_zero(
-        self, tmp_path: Path, cli_runner: object
-    ) -> None:
+    def test_cli_review_only_no_specs_exits_zero(self, tmp_path: Path, cli_runner: object) -> None:
         """TS-53-E1: --review-only with no eligible specs exits with code 0."""
         from click.testing import CliRunner  # noqa: PLC0415
 

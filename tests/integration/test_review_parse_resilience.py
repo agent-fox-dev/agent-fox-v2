@@ -94,9 +94,7 @@ class TestFormatRetryTriggeredOnParseFailure:
         # Session handle: alive, returns valid JSON on retry
         mock_session = MagicMock()
         mock_session.is_alive = True
-        mock_session.append_user_message = MagicMock(
-            return_value=_valid_skeptic_transcript()
-        )
+        mock_session.append_user_message = MagicMock(return_value=_valid_skeptic_transcript())
 
         extract_calls: list[str] = []
 
@@ -107,9 +105,7 @@ class TestFormatRetryTriggeredOnParseFailure:
             # Second call: valid JSON (findings array)
             return json.loads(_valid_skeptic_transcript())["findings"]
 
-        with patch(
-            "agent_fox.engine.review_persistence.extract_json_array", mock_extract
-        ):
+        with patch("agent_fox.engine.review_persistence.extract_json_array", mock_extract):
             persist_review_findings(
                 transcript=_invalid_transcript(),
                 node_id="test-node",
@@ -124,13 +120,9 @@ class TestFormatRetryTriggeredOnParseFailure:
             )
 
         # Retry message must have been sent
-        assert mock_session.append_user_message.called, (
-            "Backend must receive a retry message when initial parse fails"
-        )
+        assert mock_session.append_user_message.called, "Backend must receive a retry message when initial parse fails"
         # Total extraction attempts: 2 (initial + retry)
-        assert len(extract_calls) == 2, (
-            f"Expected exactly 2 extraction attempts, got {len(extract_calls)}"
-        )
+        assert len(extract_calls) == 2, f"Expected exactly 2 extraction attempts, got {len(extract_calls)}"
 
 
 # ---------------------------------------------------------------------------
@@ -144,17 +136,13 @@ class TestSuccessfulRetrySuppressesParseFailure:
     Requirements: 74-REQ-3.4, 74-REQ-5.1
     """
 
-    def test_no_parse_failure_event_when_retry_succeeds(
-        self, knowledge_db: object
-    ) -> None:
+    def test_no_parse_failure_event_when_retry_succeeds(self, knowledge_db: object) -> None:
         """REVIEW_PARSE_FAILURE must NOT be emitted when retry succeeds."""
         sink = _EventCaptureSink()
 
         mock_session = MagicMock()
         mock_session.is_alive = True
-        mock_session.append_user_message = MagicMock(
-            return_value=_valid_skeptic_transcript()
-        )
+        mock_session.append_user_message = MagicMock(return_value=_valid_skeptic_transcript())
 
         call_count = [0]
 
@@ -165,9 +153,7 @@ class TestSuccessfulRetrySuppressesParseFailure:
             # Second call: success — return the findings array
             return json.loads(_valid_skeptic_transcript())["findings"]
 
-        with patch(
-            "agent_fox.engine.review_persistence.extract_json_array", mock_extract
-        ):
+        with patch("agent_fox.engine.review_persistence.extract_json_array", mock_extract):
             persist_review_findings(
                 transcript=_invalid_transcript(),
                 node_id="test-node",
@@ -185,17 +171,13 @@ class TestSuccessfulRetrySuppressesParseFailure:
             "REVIEW_PARSE_FAILURE must not be emitted when retry succeeds"
         )
 
-    def test_retry_success_event_emitted_when_retry_succeeds(
-        self, knowledge_db: object
-    ) -> None:
+    def test_retry_success_event_emitted_when_retry_succeeds(self, knowledge_db: object) -> None:
         """REVIEW_PARSE_RETRY_SUCCESS event emitted when retry produces output."""
         sink = _EventCaptureSink()
 
         mock_session = MagicMock()
         mock_session.is_alive = True
-        mock_session.append_user_message = MagicMock(
-            return_value=_valid_skeptic_transcript()
-        )
+        mock_session.append_user_message = MagicMock(return_value=_valid_skeptic_transcript())
 
         call_count = [0]
 
@@ -205,9 +187,7 @@ class TestSuccessfulRetrySuppressesParseFailure:
                 return None
             return json.loads(_valid_skeptic_transcript())["findings"]
 
-        with patch(
-            "agent_fox.engine.review_persistence.extract_json_array", mock_extract
-        ):
+        with patch("agent_fox.engine.review_persistence.extract_json_array", mock_extract):
             persist_review_findings(
                 transcript=_invalid_transcript(),
                 node_id="test-node",
@@ -225,14 +205,12 @@ class TestSuccessfulRetrySuppressesParseFailure:
             "REVIEW_PARSE_RETRY_SUCCESS event must be emitted when retry succeeds"
         )
 
-        retry_events = sink.get_events_of_type(
-            AuditEventType.REVIEW_PARSE_RETRY_SUCCESS
-        )
+        retry_events = sink.get_events_of_type(AuditEventType.REVIEW_PARSE_RETRY_SUCCESS)
         assert len(retry_events) > 0
         event = retry_events[0]
-        assert getattr(event, "archetype", None) == "skeptic" or (
-            "archetype" in getattr(event, "payload", {})
-        ), "REVIEW_PARSE_RETRY_SUCCESS must include archetype information"
+        assert getattr(event, "archetype", None) == "skeptic" or ("archetype" in getattr(event, "payload", {})), (
+            "REVIEW_PARSE_RETRY_SUCCESS must include archetype information"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -246,9 +224,7 @@ class TestFailedRetryEmitsParseFailure:
     Requirements: 74-REQ-3.E1, 74-REQ-5.2
     """
 
-    def test_parse_failure_event_emitted_when_retry_fails(
-        self, knowledge_db: object
-    ) -> None:
+    def test_parse_failure_event_emitted_when_retry_fails(self, knowledge_db: object) -> None:
         """REVIEW_PARSE_FAILURE emitted when both initial parse and retry fail."""
         sink = _EventCaptureSink()
 
@@ -277,9 +253,7 @@ class TestFailedRetryEmitsParseFailure:
             "REVIEW_PARSE_FAILURE must be emitted when both parses fail"
         )
 
-    def test_parse_failure_payload_includes_retry_attempted_true(
-        self, knowledge_db: object
-    ) -> None:
+    def test_parse_failure_payload_includes_retry_attempted_true(self, knowledge_db: object) -> None:
         """REVIEW_PARSE_FAILURE payload has retry_attempted=True when retried."""
         sink = _EventCaptureSink()
 
@@ -308,16 +282,10 @@ class TestFailedRetryEmitsParseFailure:
         assert len(failure_events) > 0
 
         payload = getattr(failure_events[0], "payload", {})
-        assert "retry_attempted" in payload, (
-            "REVIEW_PARSE_FAILURE payload must include 'retry_attempted' field"
-        )
-        assert payload["retry_attempted"] is True, (
-            "retry_attempted must be True when retry was attempted"
-        )
+        assert "retry_attempted" in payload, "REVIEW_PARSE_FAILURE payload must include 'retry_attempted' field"
+        assert payload["retry_attempted"] is True, "retry_attempted must be True when retry was attempted"
 
-    def test_parse_failure_payload_includes_strategy_field(
-        self, knowledge_db: object
-    ) -> None:
+    def test_parse_failure_payload_includes_strategy_field(self, knowledge_db: object) -> None:
         """REVIEW_PARSE_FAILURE payload has strategy field when retry attempted."""
         sink = _EventCaptureSink()
 
@@ -346,9 +314,5 @@ class TestFailedRetryEmitsParseFailure:
         assert len(failure_events) > 0
 
         payload = getattr(failure_events[0], "payload", {})
-        assert "strategy" in payload, (
-            "REVIEW_PARSE_FAILURE payload must include 'strategy' field"
-        )
-        assert "retry" in payload["strategy"], (
-            "Strategy field must mention 'retry' when retry was attempted"
-        )
+        assert "strategy" in payload, "REVIEW_PARSE_FAILURE payload must include 'strategy' field"
+        assert "retry" in payload["strategy"], "Strategy field must mention 'retry' when retry was attempted"

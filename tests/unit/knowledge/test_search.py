@@ -208,9 +208,7 @@ class TestVectorSearchExcludesSuperseded:
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
-        results = searcher.search(
-            MOCK_QUERY_EMBEDDING, top_k=10, exclude_superseded=True
-        )
+        results = searcher.search(MOCK_QUERY_EMBEDDING, top_k=10, exclude_superseded=True)
 
         fact_ids = {r.fact_id for r in results}
         assert FACT_AAA not in fact_ids  # superseded
@@ -235,9 +233,7 @@ class TestVectorSearchExcludesSuperseded:
         )
 
         searcher = VectorSearch(schema_conn, knowledge_config)
-        results = searcher.search(
-            MOCK_QUERY_EMBEDDING, top_k=10, exclude_superseded=False
-        )
+        results = searcher.search(MOCK_QUERY_EMBEDDING, top_k=10, exclude_superseded=False)
 
         fact_ids = {r.fact_id for r in results}
         assert FACT_AAA in fact_ids  # should be included

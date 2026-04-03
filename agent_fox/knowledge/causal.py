@@ -56,8 +56,7 @@ def store_causal_links(
             existing = {
                 row[0]
                 for row in conn.execute(
-                    "SELECT id::VARCHAR FROM memory_facts "
-                    "WHERE id IN (?::UUID, ?::UUID)",
+                    "SELECT id::VARCHAR FROM memory_facts WHERE id IN (?::UUID, ?::UUID)",
                     [cause_id, effect_id],
                 ).fetchall()
             }
@@ -75,8 +74,7 @@ def store_causal_links(
                 )
                 continue
             conn.execute(
-                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) "
-                "VALUES (?::UUID, ?::UUID)",
+                "INSERT OR IGNORE INTO fact_causes (cause_id, effect_id) VALUES (?::UUID, ?::UUID)",
                 [cause_id, effect_id],
             )
             inserted += 1
@@ -96,8 +94,7 @@ def _fetch_fact(
 ) -> dict[str, str | None] | None:
     """Fetch a single fact's content and provenance from memory_facts."""
     row = conn.execute(
-        "SELECT id, content, spec_name, session_id, commit_sha, created_at "
-        "FROM memory_facts WHERE id = ?",
+        "SELECT id, content, spec_name, session_id, commit_sha, created_at FROM memory_facts WHERE id = ?",
         [fact_id],
     ).fetchone()
     if row is None:

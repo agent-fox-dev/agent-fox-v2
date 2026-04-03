@@ -226,9 +226,7 @@ class TestKnowledgeInjectionIntoContext:
                 new_callable=AsyncMock,
             ),
             patch("agent_fox.engine.session_lifecycle.assemble_context", mock_assemble),
-            patch(
-                "agent_fox.engine.context_assembly.load_all_facts", return_value=facts
-            ),
+            patch("agent_fox.engine.context_assembly.load_all_facts", return_value=facts),
             patch(
                 "agent_fox.engine.context_assembly.select_relevant_facts",
                 return_value=facts,

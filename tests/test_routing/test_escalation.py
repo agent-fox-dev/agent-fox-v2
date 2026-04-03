@@ -22,9 +22,7 @@ def _tier_index(tier: ModelTier) -> int:
 
 
 # Strategy for valid tier pairs (starting <= ceiling)
-tier_strategy = st.sampled_from(
-    [ModelTier.SIMPLE, ModelTier.STANDARD, ModelTier.ADVANCED]
-)
+tier_strategy = st.sampled_from([ModelTier.SIMPLE, ModelTier.STANDARD, ModelTier.ADVANCED])
 
 
 class TestSameTierRetry:
@@ -35,9 +33,7 @@ class TestSameTierRetry:
 
         Requirement: 30-REQ-2.1
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
         assert ladder.current_tier == ModelTier.SIMPLE
 
         ladder.record_failure()
@@ -54,9 +50,7 @@ class TestEscalationToNext:
 
         Requirement: 30-REQ-2.2
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
         ladder.record_failure()  # retry at SIMPLE
         ladder.record_failure()  # exhausted SIMPLE, escalate
 
@@ -73,9 +67,7 @@ class TestExhaustion:
 
         Requirement: 30-REQ-2.3
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
         for _ in range(6):
             ladder.record_failure()
 
@@ -92,9 +84,7 @@ class TestCeilingEnforcement:
 
         Requirement: 30-REQ-2.4
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.STANDARD, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.STANDARD, retries_before_escalation=1)
         tiers_seen = [ladder.current_tier]
         for _ in range(4):
             ladder.record_failure()
@@ -113,9 +103,7 @@ class TestActualTierReflectsEscalation:
 
         Requirement: 30-REQ-3.3
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.ADVANCED, retries_before_escalation=1)
         ladder.record_failure()
         ladder.record_failure()  # escalate to STANDARD
         assert ladder.current_tier == ModelTier.STANDARD
@@ -129,9 +117,7 @@ class TestNoEscalationFromAdvanced:
 
         Requirement: 30-REQ-2.E1
         """
-        ladder = EscalationLadder(
-            ModelTier.ADVANCED, ModelTier.ADVANCED, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.ADVANCED, ModelTier.ADVANCED, retries_before_escalation=1)
         ladder.record_failure()
         assert ladder.current_tier == ModelTier.ADVANCED
         ladder.record_failure()
@@ -147,9 +133,7 @@ class TestNoEscalationCeilingSimple:
 
         Requirement: 30-REQ-2.E2
         """
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ModelTier.SIMPLE, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ModelTier.SIMPLE, retries_before_escalation=1)
         ladder.record_failure()
         ladder.record_failure()
         assert ladder.is_exhausted is True
@@ -169,9 +153,7 @@ class TestP1OrderPreservation:
         retries=st.integers(min_value=0, max_value=3),
     )
     @settings(max_examples=50)
-    def test_p1_order_preservation(
-        self, starting: ModelTier, ceiling: ModelTier, retries: int
-    ) -> None:
+    def test_p1_order_preservation(self, starting: ModelTier, ceiling: ModelTier, retries: int) -> None:
         """TS-30-P1: Tiers are always non-decreasing.
 
         Requirement: 30-REQ-2.1, 30-REQ-2.2
@@ -199,9 +181,7 @@ class TestP2CeilingEnforcement:
         retries=st.integers(min_value=0, max_value=3),
     )
     @settings(max_examples=50)
-    def test_p2_ceiling_enforcement(
-        self, starting: ModelTier, ceiling: ModelTier, retries: int
-    ) -> None:
+    def test_p2_ceiling_enforcement(self, starting: ModelTier, ceiling: ModelTier, retries: int) -> None:
         """TS-30-P2: No tier exceeds the ceiling.
 
         Requirement: 30-REQ-2.4, 30-REQ-5.3
@@ -226,9 +206,7 @@ class TestP3RetryBudget:
         retries=st.integers(min_value=0, max_value=3),
     )
     @settings(max_examples=50)
-    def test_p3_retry_budget(
-        self, starting: ModelTier, ceiling: ModelTier, retries: int
-    ) -> None:
+    def test_p3_retry_budget(self, starting: ModelTier, ceiling: ModelTier, retries: int) -> None:
         """TS-30-P3: Total attempts = (retries+1) * tiers_traversed + 1.
 
         Requirement: 30-REQ-2.1, 30-REQ-2.2, 30-REQ-2.3

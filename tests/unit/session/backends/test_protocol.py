@@ -290,9 +290,7 @@ class TestBackendExceptionHandling:
 
         # The execute() should raise when called
         with pytest.raises(RuntimeError, match="SDK crash"):
-            async for _ in backend.execute(
-                "prompt", system_prompt="sp", model="m", cwd="/tmp"
-            ):
+            async for _ in backend.execute("prompt", system_prompt="sp", model="m", cwd="/tmp"):
                 pass  # pragma: no cover
 
 
@@ -310,15 +308,11 @@ class TestPropertyProtocolIsolation:
         import glob
         import os
 
-        agent_fox_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "..", "agent_fox"
-        )
+        agent_fox_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "agent_fox")
         agent_fox_dir = os.path.normpath(agent_fox_dir)
 
         # The only file allowed to import claude_agent_sdk
-        allowed = os.path.normpath(
-            os.path.join(agent_fox_dir, "session", "backends", "claude.py")
-        )
+        allowed = os.path.normpath(os.path.join(agent_fox_dir, "session", "backends", "claude.py"))
 
         py_files = glob.glob(os.path.join(agent_fox_dir, "**", "*.py"), recursive=True)
 
@@ -332,6 +326,4 @@ class TestPropertyProtocolIsolation:
             if "claude_agent_sdk" in content:
                 violations.append(os.path.relpath(py_file, agent_fox_dir))
 
-        assert violations == [], (
-            f"Files outside backends/claude.py import claude_agent_sdk: {violations}"
-        )
+        assert violations == [], f"Files outside backends/claude.py import claude_agent_sdk: {violations}"

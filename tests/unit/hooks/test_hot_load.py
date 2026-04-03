@@ -18,13 +18,7 @@ from agent_fox.graph.types import Node, NodeStatus, PlanMetadata, TaskGraph
 
 def _make_minimal_tasks_md() -> str:
     """Create minimal tasks.md content for a new spec."""
-    return (
-        "# Tasks\n"
-        "\n"
-        "- [ ] 1. Test task group\n"
-        "  - [ ] 1.1 Subtask one\n"
-        "  - [ ] 1.2 Subtask two\n"
-    )
+    return "# Tasks\n\n- [ ] 1. Test task group\n  - [ ] 1.1 Subtask one\n  - [ ] 1.2 Subtask two\n"
 
 
 def _make_minimal_prd_md(*, deps: list[str] | None = None) -> str:
@@ -92,9 +86,7 @@ class TestHotLoadDiscoversNewSpecs:
         updated_graph, new_specs = hot_load_specs(graph, tmp_specs_dir)
 
         assert "07_new_feature" in new_specs
-        assert any(
-            n.spec_name == "07_new_feature" for n in updated_graph.nodes.values()
-        )
+        assert any(n.spec_name == "07_new_feature" for n in updated_graph.nodes.values())
 
     def test_updated_graph_has_more_nodes(
         self,
@@ -187,13 +179,9 @@ class TestDiscoverNewSpecs:
     def test_finds_unknown_specs(self, tmp_specs_dir: Path) -> None:
         """Specs not in known_specs are returned."""
         (tmp_specs_dir / "01_existing").mkdir()
-        (tmp_specs_dir / "01_existing" / "tasks.md").write_text(
-            _make_minimal_tasks_md()
-        )
+        (tmp_specs_dir / "01_existing" / "tasks.md").write_text(_make_minimal_tasks_md())
         (tmp_specs_dir / "07_new_feature").mkdir()
-        (tmp_specs_dir / "07_new_feature" / "tasks.md").write_text(
-            _make_minimal_tasks_md()
-        )
+        (tmp_specs_dir / "07_new_feature" / "tasks.md").write_text(_make_minimal_tasks_md())
 
         new_specs = discover_new_specs(tmp_specs_dir, known_specs={"01_existing"})
 
@@ -203,9 +191,7 @@ class TestDiscoverNewSpecs:
     def test_returns_empty_when_all_known(self, tmp_specs_dir: Path) -> None:
         """Returns empty list when all specs are already known."""
         (tmp_specs_dir / "01_existing").mkdir()
-        (tmp_specs_dir / "01_existing" / "tasks.md").write_text(
-            _make_minimal_tasks_md()
-        )
+        (tmp_specs_dir / "01_existing" / "tasks.md").write_text(_make_minimal_tasks_md())
 
         new_specs = discover_new_specs(tmp_specs_dir, known_specs={"01_existing"})
 
@@ -285,12 +271,9 @@ class TestSyncIntervalZero:
         """sync_interval=0 means no sync barriers are triggered."""
         sync_interval = 0
         for completed in range(1, 101):
-            triggered = (
-                sync_interval > 0 and completed > 0 and completed % sync_interval == 0
-            )
+            triggered = sync_interval > 0 and completed > 0 and completed % sync_interval == 0
             assert triggered is False, (
-                f"Barrier should never trigger with interval=0, "
-                f"but triggered at completed={completed}"
+                f"Barrier should never trigger with interval=0, but triggered at completed={completed}"
             )
 
     def test_nonzero_interval_triggers(self) -> None:
@@ -298,9 +281,7 @@ class TestSyncIntervalZero:
         sync_interval = 5
         triggered_at = []
         for completed in range(1, 21):
-            triggered = (
-                sync_interval > 0 and completed > 0 and completed % sync_interval == 0
-            )
+            triggered = sync_interval > 0 and completed > 0 and completed % sync_interval == 0
             if triggered:
                 triggered_at.append(completed)
 

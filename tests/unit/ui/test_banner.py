@@ -77,9 +77,7 @@ class TestBannerFoxArt:
         output = _capture_banner(ThemeConfig(), ModelConfig())
 
         for line in EXPECTED_FOX_ART.splitlines():
-            assert line in output, (
-                f"Expected fox art line {line!r} in banner output, got:\n{output}"
-            )
+            assert line in output, f"Expected fox art line {line!r} in banner output, got:\n{output}"
 
     def test_fox_art_constant_exists(self) -> None:
         """FOX_ART constant is exported from banner module."""
@@ -103,9 +101,7 @@ class TestBannerFoxArtStyling:
         # The header style for default theme is "bold #ff8c00" (bold orange).
         # When rendered with force_terminal, Rich embeds ANSI bold + color codes.
         first_art_line = EXPECTED_FOX_ART.splitlines()[0]
-        assert first_art_line in output, (
-            f"Expected fox art in styled output, got:\n{output!r}"
-        )
+        assert first_art_line in output, f"Expected fox art in styled output, got:\n{output!r}"
         # Verify ANSI codes are present (header style applies bold + color)
         assert "\x1b[" in output, "Expected ANSI escape codes for header styling"
 
@@ -122,9 +118,7 @@ class TestBannerVersionModel:
             output = _capture_banner(ThemeConfig(), ModelConfig())
 
         expected = f"agent-fox v{__version__} (abc1234).  model: claude-opus-4-6"
-        assert expected in output, (
-            f"Expected {expected!r} in banner output, got:\n{output}"
-        )
+        assert expected in output, f"Expected {expected!r} in banner output, got:\n{output}"
 
     def test_version_and_model_line_without_revision(self) -> None:
         """Banner omits revision gracefully when git is unavailable."""
@@ -132,9 +126,7 @@ class TestBannerVersionModel:
             output = _capture_banner(ThemeConfig(), ModelConfig())
 
         expected = f"agent-fox v{__version__}  model: claude-opus-4-6"
-        assert expected in output, (
-            f"Expected {expected!r} in banner output, got:\n{output}"
-        )
+        assert expected in output, f"Expected {expected!r} in banner output, got:\n{output}"
 
     def test_version_contains_semver(self) -> None:
         """Version in banner matches __version__."""
@@ -151,15 +143,11 @@ class TestBannerWorkingDirectory:
 
     def test_cwd_appears_in_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Working directory appears in the banner output."""
-        monkeypatch.setattr(
-            Path, "cwd", staticmethod(lambda: Path("/tmp/test-project"))
-        )
+        monkeypatch.setattr(Path, "cwd", staticmethod(lambda: Path("/tmp/test-project")))
 
         output = _capture_banner(ThemeConfig(), ModelConfig())
 
-        assert "/tmp/test-project" in output, (
-            f"Expected cwd '/tmp/test-project' in banner output, got:\n{output}"
-        )
+        assert "/tmp/test-project" in output, f"Expected cwd '/tmp/test-project' in banner output, got:\n{output}"
 
 
 class TestBannerVersionModelStyling:
@@ -196,9 +184,7 @@ class TestBannerCwdStyling:
         assert "/tmp/styled-cwd" in output
 
         # The muted style ("dim") produces ESC[2m in ANSI.
-        assert "\x1b[2m" in output, (
-            "Expected dim (muted) ANSI escape code in output for cwd line"
-        )
+        assert "\x1b[2m" in output, "Expected dim (muted) ANSI escape code in output for cwd line"
 
 
 # --- Edge Case Tests ---
@@ -214,9 +200,7 @@ class TestBannerModelFallback:
         """Invalid model name falls back to raw config value in output."""
         output = _capture_banner(ThemeConfig(), ModelConfig(coding="NONEXISTENT"))
 
-        assert "model: NONEXISTENT" in output, (
-            f"Expected 'model: NONEXISTENT' in banner output, got:\n{output}"
-        )
+        assert "model: NONEXISTENT" in output, f"Expected 'model: NONEXISTENT' in banner output, got:\n{output}"
 
     def test_invalid_model_no_exception(self) -> None:
         """No exception is raised for an invalid model name."""
@@ -240,9 +224,7 @@ class TestBannerCwdOSError:
 
         output = _capture_banner(ThemeConfig(), ModelConfig())
 
-        assert "(unknown)" in output, (
-            f"Expected '(unknown)' in banner output, got:\n{output}"
-        )
+        assert "(unknown)" in output, f"Expected '(unknown)' in banner output, got:\n{output}"
 
     def test_cwd_oserror_no_exception(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No exception propagates when Path.cwd() raises OSError."""

@@ -123,13 +123,9 @@ class TestAllStrategiesFailWarning:
     """
 
     @pytest.mark.asyncio
-    async def test_all_strategies_fail_logs_warning(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_all_strategies_fail_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """All strategies fail -> warning logged, no exception."""
-        mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=True, merge_fails=True, ours_fails=True
-        )
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=True, merge_fails=True, ours_fails=True)
 
         with (
             patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
@@ -143,20 +139,14 @@ class TestAllStrategiesFailWarning:
                 await _sync_develop_with_remote(tmp_path)
 
         # Should warn about using local as-is
-        assert any(
-            "as-is" in r.message.lower() or "using local" in r.message.lower()
-            for r in caplog.records
-        ), (
-            "Expected 'using local as-is' warning, got: "
-            f"{[r.message for r in caplog.records]}"
+        assert any("as-is" in r.message.lower() or "using local" in r.message.lower() for r in caplog.records), (
+            f"Expected 'using local as-is' warning, got: {[r.message for r in caplog.records]}"
         )
 
     @pytest.mark.asyncio
     async def test_all_strategies_fail_no_exception(self, tmp_path: Path) -> None:
         """All strategies fail -> no exception raised."""
-        mock_run_git, _ = _make_diverged_mock(
-            rebase_fails=True, merge_fails=True, ours_fails=True
-        )
+        mock_run_git, _ = _make_diverged_mock(rebase_fails=True, merge_fails=True, ours_fails=True)
 
         with (
             patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
@@ -191,9 +181,7 @@ class TestInSyncNoOp:
             await _sync_develop_with_remote(tmp_path)
 
         all_cmds = [" ".join(c) for c in calls]
-        assert not any("merge" in cmd for cmd in all_cmds), (
-            f"merge should not be called when in sync, got: {all_cmds}"
-        )
+        assert not any("merge" in cmd for cmd in all_cmds), f"merge should not be called when in sync, got: {all_cmds}"
         assert not any("rebase" in cmd for cmd in all_cmds), (
             f"rebase should not be called when in sync, got: {all_cmds}"
         )
@@ -237,9 +225,7 @@ class TestCheckoutDevelopFails:
     """
 
     @pytest.mark.asyncio
-    async def test_checkout_fail_skips_reconciliation(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_checkout_fail_skips_reconciliation(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Checkout failure -> warning logged, no merge/rebase attempted."""
         mock_run_git, calls = _make_diverged_mock(checkout_fails=True)
 
@@ -248,12 +234,8 @@ class TestCheckoutDevelopFails:
                 await _sync_develop_with_remote(tmp_path)
 
         # Warning should mention checkout failure
-        assert any(
-            "checkout" in r.message.lower() or "could not" in r.message.lower()
-            for r in caplog.records
-        ), (
-            "Expected checkout failure warning, got: "
-            f"{[r.message for r in caplog.records]}"
+        assert any("checkout" in r.message.lower() or "could not" in r.message.lower() for r in caplog.records), (
+            f"Expected checkout failure warning, got: {[r.message for r in caplog.records]}"
         )
 
         # No merge/rebase should have been attempted
@@ -381,10 +363,9 @@ class TestPushFailsAfterReconciliation:
                 await _push_develop_if_pushable(tmp_path)
 
         # Should warn about push failure
-        assert any(
-            "push" in r.message.lower() and "fail" in r.message.lower()
-            for r in caplog.records
-        ), f"Expected push failure warning, got: {[r.message for r in caplog.records]}"
+        assert any("push" in r.message.lower() and "fail" in r.message.lower() for r in caplog.records), (
+            f"Expected push failure warning, got: {[r.message for r in caplog.records]}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -403,9 +384,7 @@ class TestFallbackChainOrdering:
     @pytest.mark.asyncio
     async def test_rebase_only_when_rebase_succeeds(self, tmp_path: Path) -> None:
         """When rebase succeeds, no merge is attempted."""
-        mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=False, merge_fails=False, ours_fails=False
-        )
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=False, merge_fails=False, ours_fails=False)
 
         with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
@@ -417,9 +396,7 @@ class TestFallbackChainOrdering:
     @pytest.mark.asyncio
     async def test_rebase_then_merge_when_rebase_fails(self, tmp_path: Path) -> None:
         """When rebase fails but merge succeeds, merge is called after rebase."""
-        mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=True, merge_fails=False, ours_fails=False
-        )
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=True, merge_fails=False, ours_fails=False)
 
         with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)
@@ -427,10 +404,7 @@ class TestFallbackChainOrdering:
         all_cmds = [" ".join(c) for c in calls]
         # Both rebase and merge attempted
         assert any("rebase" in cmd and "origin/develop" in cmd for cmd in all_cmds)
-        assert any(
-            "merge" in cmd and "--no-edit" in cmd and "-X" not in cmd
-            for cmd in all_cmds
-        )
+        assert any("merge" in cmd and "--no-edit" in cmd and "-X" not in cmd for cmd in all_cmds)
         # No -X ours needed (merge succeeded)
         assert not any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
 
@@ -441,9 +415,7 @@ class TestFallbackChainOrdering:
         Previously tested -X ours fallback; now verifies agent fallback
         per 45-REQ-6.2 (removal of blind -X ours strategy).
         """
-        mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=True, merge_fails=True, ours_fails=True
-        )
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=True, merge_fails=True, ours_fails=True)
 
         with (
             patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
@@ -457,26 +429,19 @@ class TestFallbackChainOrdering:
 
         all_cmds = [" ".join(c) for c in calls]
         assert any("rebase" in cmd and "origin/develop" in cmd for cmd in all_cmds)
-        assert any(
-            "merge" in cmd and "--no-edit" in cmd and "-X" not in cmd
-            for cmd in all_cmds
-        )
+        assert any("merge" in cmd and "--no-edit" in cmd and "-X" not in cmd for cmd in all_cmds)
         # No -X ours (45-REQ-6.2); merge agent called instead (45-REQ-5.1)
         assert not any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
         mock_agent.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_all_fail_warns(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_all_fail_warns(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """When all strategies and merge agent fail, warning is logged.
 
         Previously tested all strategies including -X ours; now verifies
         agent fallback per 45-REQ-5.E1 and 45-REQ-6.2.
         """
-        mock_run_git, calls = _make_diverged_mock(
-            rebase_fails=True, merge_fails=True, ours_fails=True
-        )
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=True, merge_fails=True, ours_fails=True)
 
         with (
             patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
@@ -491,10 +456,7 @@ class TestFallbackChainOrdering:
 
         all_cmds = [" ".join(c) for c in calls]
         assert any("rebase" in cmd and "origin/develop" in cmd for cmd in all_cmds)
-        assert any(
-            "merge" in cmd and "--no-edit" in cmd and "-X" not in cmd
-            for cmd in all_cmds
-        )
+        assert any("merge" in cmd and "--no-edit" in cmd and "-X" not in cmd for cmd in all_cmds)
         # No -X ours (45-REQ-6.2)
         assert not any("-X" in cmd and "ours" in cmd for cmd in all_cmds)
 
@@ -529,9 +491,7 @@ class TestNoOpIdempotency:
         label: str,
     ) -> None:
         """No merge/rebase/branch-force when remote is not ahead."""
-        mock_run_git, calls = _make_synced_mock(
-            local_ahead=local_ahead, remote_ahead=remote_ahead
-        )
+        mock_run_git, calls = _make_synced_mock(local_ahead=local_ahead, remote_ahead=remote_ahead)
 
         with patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git):
             await _sync_develop_with_remote(tmp_path)

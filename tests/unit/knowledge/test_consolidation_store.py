@@ -77,17 +77,13 @@ def tmp_jsonl(tmp_path: Path) -> Path:
 class TestDuckDBLoadAllFacts:
     """TS-39-4: load_all_facts reads from DuckDB, excludes superseded."""
 
-    def test_empty_table_returns_empty_list(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_empty_table_returns_empty_list(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.store import load_all_facts
 
         result = load_all_facts(knowledge_conn)
         assert result == []
 
-    def test_returns_all_non_superseded_facts(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_returns_all_non_superseded_facts(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.store import load_all_facts
 
         for i in range(3):
@@ -99,9 +95,7 @@ class TestDuckDBLoadAllFacts:
         result = load_all_facts(knowledge_conn)
         assert len(result) == 3
 
-    def test_excludes_superseded_facts(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_excludes_superseded_facts(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.store import load_all_facts
 
         superseder_id = str(uuid.uuid4())
@@ -122,9 +116,7 @@ class TestDuckDBLoadAllFacts:
 class TestDuckDBLoadBySpec:
     """TS-39-5: load_facts_by_spec filters by spec_name in DuckDB."""
 
-    def test_returns_only_matching_spec(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_returns_only_matching_spec(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.store import load_facts_by_spec
 
         _insert_fact(knowledge_conn, _make_fact_row(spec_name="alpha", content="A"))
@@ -135,9 +127,7 @@ class TestDuckDBLoadBySpec:
         assert len(result) == 2
         assert all(f.spec_name == "alpha" for f in result)
 
-    def test_returns_empty_for_unknown_spec(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_returns_empty_for_unknown_spec(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.knowledge.store import load_facts_by_spec
 
         _insert_fact(knowledge_conn, _make_fact_row(spec_name="alpha"))
@@ -278,9 +268,7 @@ class TestCompactionViaDuckDB:
         assert surviving == 3
 
         # DuckDB should have exactly 3 non-superseded facts
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()
         assert rows is not None
         assert rows[0] >= surviving
 

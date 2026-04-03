@@ -368,8 +368,7 @@ class TestMaximumOneRetry:
         sig = inspect.signature(persist_review_findings)
         params = sig.parameters
         assert "session_handle" in params or "backend" in params, (
-            "persist_review_findings must accept session_handle or backend "
-            "to support format retry"
+            "persist_review_findings must accept session_handle or backend to support format retry"
         )
 
     def test_persist_review_findings_retry_count_bounded(self) -> None:
@@ -386,9 +385,7 @@ class TestMaximumOneRetry:
         mock_session.is_alive = True
         mock_session.append_user_message = MagicMock(return_value="still bad json")
 
-        with patch(
-            "agent_fox.engine.review_persistence.extract_json_array", mock_extract
-        ):
+        with patch("agent_fox.engine.review_persistence.extract_json_array", mock_extract):
             persist_review_findings(
                 transcript="no json here",
                 node_id="test-node",
@@ -403,9 +400,7 @@ class TestMaximumOneRetry:
             )
 
         # At most 2 calls: initial parse + 1 retry
-        assert len(call_count) <= 2, (
-            f"Expected at most 2 extraction attempts, got {len(call_count)}"
-        )
+        assert len(call_count) <= 2, f"Expected at most 2 extraction attempts, got {len(call_count)}"
 
 
 # ---------------------------------------------------------------------------
@@ -453,9 +448,7 @@ class TestNoRetryOnTerminatedSession:
                 session_handle=mock_session,
             )
 
-        assert len(retry_called) == 0, (
-            "Format retry must not be attempted when session is terminated"
-        )
+        assert len(retry_called) == 0, "Format retry must not be attempted when session is terminated"
 
 
 # ---------------------------------------------------------------------------
@@ -535,12 +528,8 @@ class TestPartialConvergenceAuditor:
 
     def test_none_instance_filtered_before_convergence(self) -> None:
         """Auditor convergence receives only non-None AuditResult instances."""
-        entry = AuditEntry(
-            ts_entry="TS-74-1", test_functions=["test_foo"], verdict="PASS"
-        )
-        audit_result = AuditResult(
-            entries=[entry], overall_verdict="PASS", summary="ok"
-        )
+        entry = AuditEntry(ts_entry="TS-74-1", test_functions=["test_foo"], verdict="PASS")
+        audit_result = AuditResult(entries=[entry], overall_verdict="PASS", summary="ok")
 
         raw_results: list[AuditResult | None] = [audit_result, None]
         filtered: list[AuditResult] = [r for r in raw_results if r is not None]
@@ -584,9 +573,7 @@ class TestWarningLoggedForFailedInstances:
     Requirements: 74-REQ-4.5
     """
 
-    def test_warning_logged_for_failed_instance(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_warning_logged_for_failed_instance(self, caplog: pytest.LogCaptureFixture) -> None:
         """Warning log identifies the instance that failed to parse."""
         # This function will be implemented in task group 4.
         from agent_fox.engine.review_persistence import warn_failed_parse_instances
@@ -597,10 +584,9 @@ class TestWarningLoggedForFailedInstances:
         with caplog.at_level(logging.WARNING):
             warn_failed_parse_instances(raw_results, archetype="skeptic", run_id="run1")
 
-        assert any(
-            "instance" in r.message.lower() and "failed" in r.message.lower()
-            for r in caplog.records
-        ), "Expected a warning about failed parse instances"
+        assert any("instance" in r.message.lower() and "failed" in r.message.lower() for r in caplog.records), (
+            "Expected a warning about failed parse instances"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -665,9 +651,7 @@ class TestRetrySuccessAuditEvent:
     def test_retry_success_event_value(self) -> None:
         """REVIEW_PARSE_RETRY_SUCCESS has the expected string value."""
         retry_success = AuditEventType.REVIEW_PARSE_RETRY_SUCCESS
-        assert "retry" in str(retry_success).lower(), (
-            "REVIEW_PARSE_RETRY_SUCCESS event type value must contain 'retry'"
-        )
+        assert "retry" in str(retry_success).lower(), "REVIEW_PARSE_RETRY_SUCCESS event type value must contain 'retry'"
 
 
 # ---------------------------------------------------------------------------
@@ -723,19 +707,13 @@ class TestParseFailurePayloadStrategyField:
             )
 
         failure_events = [
-            e
-            for e in sink.events
-            if getattr(e, "event_type", None) == AuditEventType.REVIEW_PARSE_FAILURE
+            e for e in sink.events if getattr(e, "event_type", None) == AuditEventType.REVIEW_PARSE_FAILURE
         ]
         assert len(failure_events) > 0, "REVIEW_PARSE_FAILURE event must be emitted"
 
         payload = failure_events[0].payload
-        assert "strategy" in payload, (
-            "REVIEW_PARSE_FAILURE payload must include 'strategy' field"
-        )
-        assert "bracket_scan" in payload["strategy"], (
-            "Strategy field must include 'bracket_scan' strategy name"
-        )
+        assert "strategy" in payload, "REVIEW_PARSE_FAILURE payload must include 'strategy' field"
+        assert "bracket_scan" in payload["strategy"], "Strategy field must include 'bracket_scan' strategy name"
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +755,7 @@ class TestUnknownWrapperKey:
         items = _unwrap_items(response, "findings", ("severity",), "Skeptic")
         # "results_data" is not a registered variant of "findings"
         # The outer dict doesn't have "severity" as a direct key (it's nested)
-        assert items == [], (
-            "Items from unrecognized wrapper key 'results_data' should not be returned"
-        )
+        assert items == [], "Items from unrecognized wrapper key 'results_data' should not be returned"
 
 
 # ---------------------------------------------------------------------------

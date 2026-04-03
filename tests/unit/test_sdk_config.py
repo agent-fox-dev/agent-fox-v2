@@ -64,8 +64,7 @@ class TestMaxTurnsDefaults:
         for archetype, turns in expected.items():
             entry = ARCHETYPE_REGISTRY[archetype]
             assert entry.default_max_turns == turns, (
-                f"{archetype}: expected default_max_turns={turns}, "
-                f"got {entry.default_max_turns}"
+                f"{archetype}: expected default_max_turns={turns}, got {entry.default_max_turns}"
             )
 
 
@@ -145,9 +144,7 @@ class TestThinkingParsing:
     def test_thinking_parsed_from_toml(self, tmp_path: Path) -> None:
         """TS-56-12: Thinking config per archetype is parsed from TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            '[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 20000\n'
-        )
+        config_file.write_text('[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 20000\n')
         config = load_config(path=config_file)
         assert config.archetypes.thinking["coder"].mode == "enabled"
         assert config.archetypes.thinking["coder"].budget_tokens == 20000
@@ -189,8 +186,7 @@ class TestThinkingDefaults:
         ):
             entry = ARCHETYPE_REGISTRY[name]
             assert entry.default_thinking_mode == "disabled", (
-                f"{name}: expected default_thinking_mode='disabled', "
-                f"got {entry.default_thinking_mode}"
+                f"{name}: expected default_thinking_mode='disabled', got {entry.default_thinking_mode}"
             )
 
 
@@ -247,9 +243,7 @@ class TestInvalidThinkingModeRejected:
     def test_invalid_thinking_mode_raises(self, tmp_path: Path) -> None:
         """TS-56-E5: Invalid thinking mode raises ValidationError."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            '[archetypes.thinking.coder]\nmode = "turbo"\nbudget_tokens = 10000\n'
-        )
+        config_file.write_text('[archetypes.thinking.coder]\nmode = "turbo"\nbudget_tokens = 10000\n')
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)
 
@@ -266,8 +260,6 @@ class TestZeroBudgetTokensEnabledRejected:
     def test_zero_budget_tokens_enabled_raises(self, tmp_path: Path) -> None:
         """TS-56-E6: budget_tokens=0 with mode=enabled raises error."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            '[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 0\n'
-        )
+        config_file.write_text('[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 0\n')
         with pytest.raises((ValidationError, ValueError, Exception)):
             load_config(path=config_file)

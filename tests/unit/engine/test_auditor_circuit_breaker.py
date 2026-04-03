@@ -60,10 +60,7 @@ def _make_auditor_orchestrator(
         )
         for nid, n in plan_nodes.items()
     }
-    typed_edges = [
-        Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec"))
-        for e in edges_list
-    ]
+    typed_edges = [Edge(source=e["source"], target=e["target"], kind=e.get("kind", "intra_spec")) for e in edges_list]
     orch._graph = TaskGraph(
         nodes=typed_nodes,
         edges=typed_edges,
@@ -143,9 +140,7 @@ class TestRetryOnFail:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
 
         failed_record = SessionRecord(
             node_id="spec:1.5",
@@ -203,9 +198,7 @@ class TestAuditorReruns:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
 
         failed_record = SessionRecord(
             node_id="spec:1.5",
@@ -410,9 +403,7 @@ class TestPassNoRetry:
             "spec:1.5": "in_progress",
         }
 
-        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(
-            plan_nodes, edges_list, node_states
-        )
+        orch, state, attempt_tracker, error_tracker = _make_auditor_orchestrator(plan_nodes, edges_list, node_states)
 
         pass_record = SessionRecord(
             node_id="spec:1.5",

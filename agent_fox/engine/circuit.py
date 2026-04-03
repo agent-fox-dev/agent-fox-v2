@@ -41,10 +41,7 @@ class CircuitBreaker:
         Returns a denied LaunchDecision if a limit is hit, or None if
         both checks pass.
         """
-        if (
-            self._config.max_cost is not None
-            and state.total_cost >= self._config.max_cost
-        ):
+        if self._config.max_cost is not None and state.total_cost >= self._config.max_cost:
             return LaunchDecision(
                 allowed=False,
                 reason=(
@@ -54,10 +51,7 @@ class CircuitBreaker:
                 ),
             )
 
-        if (
-            self._config.max_sessions is not None
-            and state.total_sessions >= self._config.max_sessions
-        ):
+        if self._config.max_sessions is not None and state.total_sessions >= self._config.max_sessions:
             return LaunchDecision(
                 allowed=False,
                 reason=(
@@ -98,11 +92,7 @@ class CircuitBreaker:
         if attempt > max_attempts:
             return LaunchDecision(
                 allowed=False,
-                reason=(
-                    f"Retry limit exceeded for {node_id}: "
-                    f"attempt {attempt} > max_retries + 1 "
-                    f"({max_attempts})"
-                ),
+                reason=(f"Retry limit exceeded for {node_id}: attempt {attempt} > max_retries + 1 ({max_attempts})"),
             )
 
         return LaunchDecision(allowed=True)

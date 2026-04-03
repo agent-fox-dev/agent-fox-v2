@@ -973,10 +973,7 @@ class TestSyncBarrierTriggering:
         """Sync barrier fires at each interval crossing."""
         # 6 tasks, sync_interval=3 => barrier fires at task 3 and 6
         nodes = {f"spec:{i}": {"title": f"Task {i}"} for i in range(1, 7)}
-        edges = [
-            {"source": f"spec:{i}", "target": f"spec:{i + 1}", "kind": "intra_spec"}
-            for i in range(1, 6)
-        ]
+        edges = [{"source": f"spec:{i}", "target": f"spec:{i + 1}", "kind": "intra_spec"} for i in range(1, 6)]
         plan_path = write_plan_file(
             tmp_plan_dir,
             nodes=nodes,
@@ -1204,11 +1201,7 @@ class TestInProgressStatePersistence:
         # state.jsonl should have at least 2 lines:
         # 1. in_progress snapshot (before session)
         # 2. completed snapshot (after session)
-        lines = [
-            line.strip()
-            for line in tmp_state_path.read_text().strip().split("\n")
-            if line.strip()
-        ]
+        lines = [line.strip() for line in tmp_state_path.read_text().strip().split("\n") if line.strip()]
         assert len(lines) >= 2, f"Expected at least 2 state snapshots, got {len(lines)}"
 
         # First line should show in_progress for spec:1

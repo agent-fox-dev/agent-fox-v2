@@ -92,16 +92,13 @@ async def consolidate_findings(
         groups, decisions = _parse_critic_response(response_text, findings)
     except ValueError as exc:
         logger.warning(
-            "Critic returned malformed response; falling back to mechanical grouping:"
-            " %s",
+            "Critic returned malformed response; falling back to mechanical grouping: %s",
             exc,
         )
         return _mechanical_grouping(findings)
 
     # Compute summary statistics.
-    dropped_count = sum(
-        len(d.finding_indices) for d in decisions if d.action == "dropped"
-    )
+    dropped_count = sum(len(d.finding_indices) for d in decisions if d.action == "dropped")
     # "merged" findings are those that appear in groups with more than one finding.
     merged_count = sum(len(g.findings) for g in groups if len(g.findings) > 1)
     summary = CriticSummary(

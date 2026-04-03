@@ -122,9 +122,7 @@ class TestHuntScanOverlap:
     """Verify that overlapping hunt scans are skipped."""
 
     @pytest.mark.asyncio
-    async def test_skip_overlapping_scan(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_skip_overlapping_scan(self, caplog: pytest.LogCaptureFixture) -> None:
         """When a hunt scan is already in progress, the next is skipped."""
         import logging
 

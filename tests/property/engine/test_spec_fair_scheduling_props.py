@@ -172,9 +172,7 @@ class TestFairnessGuarantee:
         n = len(specs)
 
         for spec in specs:
-            first_index = next(
-                i for i, nid in enumerate(result) if _spec_name(nid) == spec
-            )
+            first_index = next(i for i, nid in enumerate(result) if _spec_name(nid) == spec)
             assert first_index < n, (
                 f"Spec '{spec}' first appears at index {first_index}, "
                 f"but should appear within first {n} positions. "
@@ -200,9 +198,7 @@ class TestSingleSpecIdentity:
     def test_single_spec_identity(self, ready: list[str]) -> None:
         """When all tasks belong to one spec, result equals sorted(input)."""
         result = _interleave_by_spec(ready)
-        assert result == sorted(ready), (
-            f"Single-spec result {result} != sorted input {sorted(ready)}"
-        )
+        assert result == sorted(ready), f"Single-spec result {result} != sorted input {sorted(ready)}"
 
 
 # ---------------------------------------------------------------------------
@@ -220,9 +216,7 @@ class TestDurationPreservesWithinSpecOrder:
 
     @given(spec_list_with_hints())
     @settings(max_examples=200)
-    def test_duration_preserves_within_spec_order(
-        self, args: tuple[list[str], dict[str, int]]
-    ) -> None:
+    def test_duration_preserves_within_spec_order(self, args: tuple[list[str], dict[str, int]]) -> None:
         """Within each spec, tasks are ordered by duration descending in result."""
         ready, hints = args
         if not ready:
@@ -242,12 +236,8 @@ class TestDurationPreservesWithinSpecOrder:
             )
 
             # All hinted tasks should appear before unhinted tasks
-            unhinted_indices = [
-                i for i, nid in enumerate(spec_tasks_in_result) if nid not in hints
-            ]
-            hinted_indices = [
-                i for i, nid in enumerate(spec_tasks_in_result) if nid in hints
-            ]
+            unhinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid not in hints]
+            hinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid in hints]
             if hinted_indices and unhinted_indices:
                 assert max(hinted_indices) < min(unhinted_indices), (
                     f"Spec '{spec}': hinted tasks don't all precede unhinted tasks. "
@@ -286,9 +276,7 @@ class TestCompleteness:
     def test_completeness(self, ready: list[str]) -> None:
         """The interleaved result contains exactly the same elements as input."""
         result = _interleave_by_spec(ready)
-        assert sorted(result) == sorted(ready), (
-            f"Result {result} is not a permutation of input {ready}"
-        )
+        assert sorted(result) == sorted(ready), f"Result {result} is not a permutation of input {ready}"
 
 
 # ---------------------------------------------------------------------------
@@ -314,9 +302,7 @@ class TestSpecOrderConsistency:
 
         first_indices: dict[str, int] = {}
         for spec in specs_sorted:
-            first_indices[spec] = next(
-                i for i, nid in enumerate(result) if _spec_name(nid) == spec
-            )
+            first_indices[spec] = next(i for i, nid in enumerate(result) if _spec_name(nid) == spec)
 
         for i in range(len(specs_sorted)):
             for j in range(i + 1, len(specs_sorted)):

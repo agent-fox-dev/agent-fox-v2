@@ -113,9 +113,7 @@ def _build_clustering_prompt(failures: list[FailureRecord]) -> str:
     for i, failure in enumerate(failures):
         # Truncate output to _MAX_OUTPUT_CHARS
         output = failure.output[:_MAX_OUTPUT_CHARS]
-        lines.append(
-            f"[{i}] Check: {failure.check.name} | Exit code: {failure.exit_code}"
-        )
+        lines.append(f"[{i}] Check: {failure.check.name} | Exit code: {failure.exit_code}")
         lines.append(f"Output: {output}")
         lines.append("")
 
@@ -187,10 +185,7 @@ def _parse_ai_response(
 
     # Verify all failures are accounted for
     if seen_indices != set(range(len(failures))):
-        raise ValueError(
-            f"Not all failures covered: expected {set(range(len(failures)))}, "
-            f"got {seen_indices}"
-        )
+        raise ValueError(f"Not all failures covered: expected {set(range(len(failures)))}, got {seen_indices}")
 
     return clusters
 
@@ -198,9 +193,7 @@ def _parse_ai_response(
 # -- Generic category descriptions for fallback clustering --------------------
 
 _CATEGORY_APPROACHES: dict[str, str] = {
-    "test": (
-        "Investigate test failures, fix the failing test cases or the code under test."
-    ),
+    "test": ("Investigate test failures, fix the failing test cases or the code under test."),
     "lint": "Fix linting violations reported by the checker.",
     "type": ("Add or fix type annotations to resolve type-checking errors."),
     "build": ("Resolve build errors by fixing compilation or packaging issues."),

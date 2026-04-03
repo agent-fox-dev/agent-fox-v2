@@ -70,9 +70,7 @@ class TestAIUnavailableGracefulFallback:
             assert len(findings) == 0
 
     @pytest.mark.asyncio
-    async def test_auth_error_logs_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_auth_error_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Authentication error produces a log warning."""
         specs = [_make_spec_info()]
         with patch(_MOCK_CLIENT) as mock_cls:
@@ -85,9 +83,7 @@ class TestAIUnavailableGracefulFallback:
                 await run_ai_validation(specs, "STANDARD")
 
             assert any(
-                "warning" in record.levelname.lower()
-                or record.levelno == logging.WARNING
-                for record in caplog.records
+                "warning" in record.levelname.lower() or record.levelno == logging.WARNING for record in caplog.records
             )
 
 

@@ -56,11 +56,7 @@ def select_relevant_facts(
         return []
 
     # 39-REQ-4.3: Filter by confidence BEFORE keyword scoring
-    confident_facts = [
-        fact
-        for fact in all_facts
-        if parse_confidence(fact.confidence) >= confidence_threshold
-    ]
+    confident_facts = [fact for fact in all_facts if parse_confidence(fact.confidence) >= confidence_threshold]
 
     if not confident_facts:
         return []
@@ -94,9 +90,7 @@ def select_relevant_facts(
     # Score and sort.
     scored: list[tuple[float, int, Fact]] = []
     for idx, fact in enumerate(relevant):
-        score = _compute_relevance_score(
-            fact, spec_name, task_keywords_lower, now, oldest
-        )
+        score = _compute_relevance_score(fact, spec_name, task_keywords_lower, now, oldest)
         # Use negative index as tie-breaker to maintain stable ordering.
         scored.append((score, -idx, fact))
 

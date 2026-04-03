@@ -194,20 +194,14 @@ class TestPerTaskActivityLines:
         """First task line matches expected format."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = (
-            "  s_a/1 [coder]: completed. 1/1 sessions. "
-            "tokens 12.9k in / 29.5k out. $0.80"
-        )
+        expected = "  s_a/1 [coder]: completed. 1/1 sessions. tokens 12.9k in / 29.5k out. $0.80"
         assert expected in output
 
     def test_per_task_line_format_second_task(self) -> None:
         """Second task line matches expected format."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = (
-            "  s_a/2 [coder]: completed. 1/2 sessions. "
-            "tokens 14.5k in / 9.3k out. $0.31"
-        )
+        expected = "  s_a/2 [coder]: completed. 1/2 sessions. tokens 14.5k in / 9.3k out. $0.31"
         assert expected in output
 
 
@@ -287,10 +281,7 @@ class TestQueueStatusLine:
         """Summary line shows all counts."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = (
-            "  76 total: 73 done | 0 in progress | "
-            "3 pending | 2 ready | 0 blocked | 0 failed"
-        )
+        expected = "  76 total: 73 done | 0 in progress | 3 pending | 2 ready | 0 blocked | 0 failed"
         assert expected in output
 
     def test_ready_task_ids_line(self) -> None:
@@ -319,10 +310,7 @@ class TestFileOverlapsSection:
         """Overlap line shows path, truncated SHAs, display task IDs."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = (
-            "  .agent-fox/state.jsonl — "
-            "commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
-        )
+        expected = "  .agent-fox/state.jsonl — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
         assert expected in output
 
 

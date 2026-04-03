@@ -174,9 +174,7 @@ def graph_with_optional() -> TaskGraph:
             title="Task A",
             optional=False,
         ),
-        Node(
-            id="spec:2", spec_name="spec", group_number=2, title="Task B", optional=True
-        ),
+        Node(id="spec:2", spec_name="spec", group_number=2, title="Task B", optional=True),
         Node(
             id="spec:3",
             spec_name="spec",

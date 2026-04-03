@@ -157,10 +157,7 @@ def _detect_property_tests(spec_dir: Path) -> bool:
         return False
 
     # Look for property test indicators
-    return bool(
-        re.search(r"(?i)\bproperty\s+test", content)
-        or re.search(r"\*\*Type:\*\*\s*property", content)
-    )
+    return bool(re.search(r"(?i)\bproperty\s+test", content) or re.search(r"\*\*Type:\*\*\s*property", content))
 
 
 def _count_edge_cases(spec_dir: Path) -> int:

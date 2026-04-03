@@ -145,9 +145,7 @@ class TestTimeoutThenSuccess:
         session 2 succeeds.
         """
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(node_id)
-        )
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(node_id)
 
         # Currently FAILS: timeout-aware routing doesn't exist.
         handler._max_timeout_retries = 2  # noqa: SLF001
@@ -188,9 +186,7 @@ class TestTimeoutThenSuccess:
         event_type = AuditEventType.SESSION_TIMEOUT_RETRY
 
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(node_id)
-        )
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(node_id)
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
         handler._max_timeout_retries = 2
@@ -211,12 +207,10 @@ class TestTimeoutThenSuccess:
     def test_timeout_extends_session_parameters(self) -> None:
         """TS-75-E1: Extended session timeout is recorded after timeout retry."""
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(
-                node_id,
-                timeout_multiplier=1.5,
-                original_timeout=30,
-            )
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(
+            node_id,
+            timeout_multiplier=1.5,
+            original_timeout=30,
         )
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
@@ -251,8 +245,8 @@ class TestTimeoutExhaustionThenEscalation:
         Simulates: 2 timeouts (max_timeout_retries=1) → fall through to ladder.
         """
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(node_id, max_timeout_retries=1)
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(
+            node_id, max_timeout_retries=1
         )
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
@@ -291,8 +285,8 @@ class TestTimeoutExhaustionThenEscalation:
         import logging
 
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(node_id, max_timeout_retries=1)
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(
+            node_id, max_timeout_retries=1
         )
 
         # Currently FAILS: _max_timeout_retries / _timeout_retries don't exist.
@@ -328,8 +322,8 @@ class TestTimeoutExhaustionThenEscalation:
         success should complete the node.
         """
         node_id = "spec:1"
-        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = (
-            _make_handler_with_sink(node_id, max_timeout_retries=1)
+        handler, mock_ladder, state, sink, attempt_tracker, error_tracker = _make_handler_with_sink(
+            node_id, max_timeout_retries=1
         )
 
         # Currently FAILS: _max_timeout_retries doesn't exist.
@@ -361,9 +355,7 @@ class TestTimeoutExhaustionThenEscalation:
         # Session 3: success at escalated tier.
         state.node_states[node_id] = "in_progress"
         handler.process(
-            _make_session_record(
-                node_id, "completed", attempt=3, model="claude-opus-4-6"
-            ),
+            _make_session_record(node_id, "completed", attempt=3, model="claude-opus-4-6"),
             attempt=3,
             state=state,
             attempt_tracker=attempt_tracker,

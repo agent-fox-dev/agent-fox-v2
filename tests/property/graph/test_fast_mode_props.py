@@ -119,9 +119,7 @@ class TestFastModeDependencyPreservation:
         result = apply_fast_mode(graph)
 
         for pred, succ in pred_succ_pairs:
-            assert _is_reachable(result, pred, succ), (
-                f"After fast mode, {succ} should be reachable from {pred}"
-            )
+            assert _is_reachable(result, pred, succ), f"After fast mode, {succ} should be reachable from {pred}"
 
 
 class TestNodeIdUniqueness:
@@ -189,9 +187,7 @@ class TestFastModeSkippedCount:
 
         result = apply_fast_mode(graph)
 
-        skipped_count = sum(
-            1 for n in result.nodes.values() if n.status == NodeStatus.SKIPPED
-        )
+        skipped_count = sum(1 for n in result.nodes.values() if n.status == NodeStatus.SKIPPED)
         assert skipped_count == optional_count
 
     @given(graph=graphs_with_optional_nodes())

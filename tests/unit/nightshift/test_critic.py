@@ -206,9 +206,7 @@ class TestAffectedFilesUnion:
 class TestInvalidFindingIndices:
     """Out-of-bounds indices in AI response are ignored with a warning."""
 
-    def test_out_of_bounds_index_ignored(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_out_of_bounds_index_ignored(self, caplog: pytest.LogCaptureFixture) -> None:
         """Index 99 is ignored; group is built only from valid indices 0 and 1."""
         from agent_fox.nightshift.critic import _parse_critic_response
 
@@ -232,18 +230,13 @@ class TestInvalidFindingIndices:
         )
 
         with caplog.at_level(logging.WARNING):
-            groups, _ = _parse_critic_response(
-                response, [finding_a, finding_b, finding_c]
-            )
+            groups, _ = _parse_critic_response(response, [finding_a, finding_b, finding_c])
 
         # Only valid-indexed findings are included; index 99 is skipped
         all_grouped_findings = [f for g in groups for f in g.findings]
         assert all(f in [finding_a, finding_b] for f in all_grouped_findings)
         # Warning must be logged about the out-of-bounds index
-        assert any(
-            "out of bounds" in r.message.lower() or "invalid" in r.message.lower()
-            for r in caplog.records
-        )
+        assert any("out of bounds" in r.message.lower() or "invalid" in r.message.lower() for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -255,9 +248,7 @@ class TestInvalidFindingIndices:
 class TestDropLogged:
     """Dropped findings are logged with action and reason at INFO level."""
 
-    def test_drop_decision_logged_at_info(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_drop_decision_logged_at_info(self, caplog: pytest.LogCaptureFixture) -> None:
         """A 'dropped' decision is logged at INFO with its reason."""
         from agent_fox.nightshift.critic import (
             CriticDecision,
@@ -298,9 +289,7 @@ class TestDropLogged:
 class TestSeverityChangeLogged:
     """Severity changes are logged with original and new severity at INFO."""
 
-    def test_severity_change_logged_with_values(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_severity_change_logged_with_values(self, caplog: pytest.LogCaptureFixture) -> None:
         """A 'severity_changed' decision logs original and new severity."""
         from agent_fox.nightshift.critic import (
             CriticDecision,
@@ -326,9 +315,7 @@ class TestSeverityChangeLogged:
             _log_decisions([decision], summary)
 
         assert any(
-            "minor" in r.message and "critical" in r.message
-            for r in caplog.records
-            if r.levelno == logging.INFO
+            "minor" in r.message and "critical" in r.message for r in caplog.records if r.levelno == logging.INFO
         )
 
 
@@ -355,15 +342,9 @@ class TestSummaryLog:
         with caplog.at_level(logging.INFO, logger="agent_fox"):
             _log_decisions([], summary)
 
-        assert any(
-            "5" in r.message and "dropped" in r.message
-            for r in caplog.records
-            if r.levelno == logging.INFO
-        )
+        assert any("5" in r.message and "dropped" in r.message for r in caplog.records if r.levelno == logging.INFO)
 
-    def test_summary_contains_groups_produced(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_summary_contains_groups_produced(self, caplog: pytest.LogCaptureFixture) -> None:
         """Summary log mentions the number of groups produced."""
         from agent_fox.nightshift.critic import CriticSummary, _log_decisions
 
@@ -378,9 +359,7 @@ class TestSummaryLog:
             _log_decisions([], summary)
 
         # All four summary values should appear somewhere in the INFO logs
-        info_messages = " ".join(
-            r.message for r in caplog.records if r.levelno == logging.INFO
-        )
+        info_messages = " ".join(r.message for r in caplog.records if r.levelno == logging.INFO)
         assert "5" in info_messages  # total_received
         assert "1" in info_messages  # total_dropped
         assert "2" in info_messages  # groups_produced

@@ -115,9 +115,7 @@ class TestNoStaleImports:
             capture_output=True,
             text=True,
         )
-        assert result.stdout.strip() == "", (
-            f"Found stale imports from agent_fox.memory:\n{result.stdout}"
-        )
+        assert result.stdout.strip() == "", f"Found stale imports from agent_fox.memory:\n{result.stdout}"
 
     def test_no_stale_imports_in_tests(self) -> None:
         """grep for 'from agent_fox.memory' in tests/ returns nothing."""
@@ -133,6 +131,4 @@ class TestNoStaleImports:
             capture_output=True,
             text=True,
         )
-        assert result.stdout.strip() == "", (
-            f"Found stale imports from agent_fox.memory:\n{result.stdout}"
-        )
+        assert result.stdout.strip() == "", f"Found stale imports from agent_fox.memory:\n{result.stdout}"

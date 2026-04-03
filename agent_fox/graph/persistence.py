@@ -104,10 +104,7 @@ def load_plan(plan_path: Path) -> TaskGraph | None:
 
     try:
         metadata = _metadata_from_dict(data.get("metadata", {}))
-        nodes = {
-            nid: _node_from_dict(node_data)
-            for nid, node_data in data.get("nodes", {}).items()
-        }
+        nodes = {nid: _node_from_dict(node_data) for nid, node_data in data.get("nodes", {}).items()}
         edges = [Edge(**e) for e in data.get("edges", [])]
         order = data.get("order", [])
 

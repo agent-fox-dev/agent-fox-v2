@@ -34,9 +34,7 @@ class TestCLIVersion:
         """--version output contains a version string."""
         result = cli_runner.invoke(main, ["--version"])
         # Should contain something like "0.1.0" or a semver pattern
-        assert re.search(r"\d+\.\d+\.\d+", result.output), (
-            f"Expected version string in output, got: {result.output!r}"
-        )
+        assert re.search(r"\d+\.\d+\.\d+", result.output), f"Expected version string in output, got: {result.output!r}"
 
 
 class TestCLIHelp:
@@ -50,9 +48,7 @@ class TestCLIHelp:
     def test_help_lists_init_command(self, cli_runner: CliRunner) -> None:
         """--help output lists the 'init' subcommand."""
         result = cli_runner.invoke(main, ["--help"])
-        assert "init" in result.output, (
-            f"Expected 'init' in help output, got: {result.output!r}"
-        )
+        assert "init" in result.output, f"Expected 'init' in help output, got: {result.output!r}"
 
 
 class TestCLIUnknownSubcommand:
@@ -68,9 +64,7 @@ class TestCLIUnknownSubcommand:
         result = cli_runner.invoke(main, ["nonexistent"])
         # Click typically says "No such command" or similar
         combined = result.output + (result.stderr or "")
-        has_error_msg = (
-            "no such command" in combined.lower() or "nonexistent" in combined.lower()
-        )
+        has_error_msg = "no such command" in combined.lower() or "nonexistent" in combined.lower()
         assert has_error_msg, f"Expected error about unknown command, got: {combined!r}"
 
 
@@ -84,23 +78,15 @@ class TestBannerOnSubcommand:
         """Banner (fox art + version line) appears when a subcommand is invoked."""
         result = cli_runner.invoke(main, ["status"])
 
-        assert "agent-fox v" in result.output, (
-            f"Expected version line in subcommand output, got:\n{result.output!r}"
-        )
-        assert "/\\_/\\" in result.output, (
-            f"Expected fox art in subcommand output, got:\n{result.output!r}"
-        )
+        assert "agent-fox v" in result.output, f"Expected version line in subcommand output, got:\n{result.output!r}"
+        assert "/\\_/\\" in result.output, f"Expected fox art in subcommand output, got:\n{result.output!r}"
 
     def test_banner_appears_without_subcommand(self, cli_runner: CliRunner) -> None:
         """Banner also appears when invoked with no subcommand."""
         result = cli_runner.invoke(main, [])
 
-        assert "agent-fox v" in result.output, (
-            f"Expected version line in bare invocation, got:\n{result.output!r}"
-        )
-        assert "/\\_/\\" in result.output, (
-            f"Expected fox art in bare invocation, got:\n{result.output!r}"
-        )
+        assert "agent-fox v" in result.output, f"Expected version line in bare invocation, got:\n{result.output!r}"
+        assert "/\\_/\\" in result.output, f"Expected fox art in bare invocation, got:\n{result.output!r}"
 
 
 class TestBannerQuietSuppression:
@@ -116,19 +102,13 @@ class TestBannerQuietSuppression:
         assert "agent-fox v" not in result.output, (
             f"Version line should not appear with --quiet, got:\n{result.output!r}"
         )
-        assert "/\\_/\\" not in result.output, (
-            f"Fox art should not appear with --quiet, got:\n{result.output!r}"
-        )
+        assert "/\\_/\\" not in result.output, f"Fox art should not appear with --quiet, got:\n{result.output!r}"
 
-    def test_quiet_with_subcommand_suppresses_banner(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_quiet_with_subcommand_suppresses_banner(self, cli_runner: CliRunner) -> None:
         """--quiet also suppresses banner when used with a subcommand."""
         result = cli_runner.invoke(main, ["--quiet", "status"])
 
-        assert "/\\_/\\" not in result.output, (
-            f"Fox art should not appear with --quiet, got:\n{result.output!r}"
-        )
+        assert "/\\_/\\" not in result.output, f"Fox art should not appear with --quiet, got:\n{result.output!r}"
 
 
 class TestVersionFlagSkipsBanner:
@@ -141,12 +121,8 @@ class TestVersionFlagSkipsBanner:
         """--version output contains version string but no fox art."""
         result = cli_runner.invoke(main, ["--version"])
 
-        assert __version__ in result.output, (
-            f"Expected version string in output, got:\n{result.output!r}"
-        )
-        assert "/\\_/\\" not in result.output, (
-            f"Fox art should not appear with --version, got:\n{result.output!r}"
-        )
+        assert __version__ in result.output, f"Expected version string in output, got:\n{result.output!r}"
+        assert "/\\_/\\" not in result.output, f"Fox art should not appear with --version, got:\n{result.output!r}"
 
 
 class TestConfigAutoDiscovery:
@@ -196,9 +172,7 @@ class TestTopLevelExceptionHandler:
         finally:
             main.commands.pop("boom", None)
 
-    def test_unexpected_exception_shows_friendly_message(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_unexpected_exception_shows_friendly_message(self, cli_runner: CliRunner) -> None:
         """Unexpected exception prints a user-friendly error, not a traceback."""
         cmd = _make_failing_subcommand(RuntimeError("kaboom"))
         main.add_command(cmd, name="boom")
@@ -211,9 +185,7 @@ class TestTopLevelExceptionHandler:
         finally:
             main.commands.pop("boom", None)
 
-    def test_unexpected_exception_logs_traceback_at_debug(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_unexpected_exception_logs_traceback_at_debug(self, cli_runner: CliRunner) -> None:
         """Unexpected exception logs full traceback at DEBUG level."""
         cmd = _make_failing_subcommand(RuntimeError("kaboom"))
         main.add_command(cmd, name="boom")
@@ -265,9 +237,7 @@ class TestTopLevelExceptionHandler:
         finally:
             main.commands.pop("boom", None)
 
-    def test_click_exception_json_mode_emits_error_message(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_click_exception_json_mode_emits_error_message(self, cli_runner: CliRunner) -> None:
         """ClickException in JSON mode emits the error message."""
         import json
 

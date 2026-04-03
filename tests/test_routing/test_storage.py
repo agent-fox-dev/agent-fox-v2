@@ -73,9 +73,7 @@ class TestAssessmentTableSchema:
     """TS-30-23: Verify complexity_assessments table schema."""
 
     @pytest.mark.integration
-    def test_assessment_table_schema(
-        self, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_assessment_table_schema(self, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-23: Table exists with all 10 columns, correct types.
 
         Requirement: 30-REQ-6.1

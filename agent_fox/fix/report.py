@@ -35,9 +35,7 @@ def render_fix_report(result: FixResult, console: Console) -> None:
     console.print(f"Clusters resolved: {result.clusters_resolved}")
     console.print(f"Clusters remaining: {result.clusters_remaining}")
     console.print(f"Sessions consumed: {result.sessions_consumed}")
-    console.print(
-        f"Termination reason: [{reason_style}]{reason_label}[/{reason_style}]"
-    )
+    console.print(f"Termination reason: [{reason_style}]{reason_label}[/{reason_style}]")
 
     # Remaining failures detail
     if result.remaining_failures:
@@ -45,7 +43,4 @@ def render_fix_report(result: FixResult, console: Console) -> None:
         console.print("[bold]Remaining failures:[/bold]")
         for failure in result.remaining_failures:
             summary = failure.output[:200].strip()
-            console.print(
-                f"  - [bold]{failure.check.name}[/bold] "
-                f"(exit {failure.exit_code}): {summary}"
-            )
+            console.print(f"  - [bold]{failure.check.name}[/bold] (exit {failure.exit_code}): {summary}")

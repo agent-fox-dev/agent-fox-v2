@@ -519,10 +519,7 @@ class Orchestrator:
                 # Check circuit breaker: cost/session limits (04-REQ-5.*)
                 stop_decision = self._circuit.should_stop(state)
                 if not stop_decision.allowed:
-                    if (
-                        self._config.max_cost is not None
-                        and state.total_cost >= self._config.max_cost
-                    ):
+                    if self._config.max_cost is not None and state.total_cost >= self._config.max_cost:
                         state.run_status = RunStatus.COST_LIMIT
                         limit_type = "cost"
                         limit_value: float = float(self._config.max_cost)
@@ -553,11 +550,7 @@ class Orchestrator:
                 ready = self._graph_sync.ready_tasks(duration_hints=duration_hints)
 
                 # 39-REQ-9.3: Filter conflicting tasks when enabled
-                if (
-                    self._planning_config.file_conflict_detection
-                    and self._is_parallel
-                    and len(ready) > 1
-                ):
+                if self._planning_config.file_conflict_detection and self._is_parallel and len(ready) > 1:
                     ready = self._filter_file_conflicts(ready)
 
                 if not ready:
@@ -622,9 +615,7 @@ class Orchestrator:
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
             # 40-REQ-9.2: Emit run.complete at end of execute()
-            run_duration_ms = int(
-                (datetime.now(UTC) - run_start_time).total_seconds() * 1000
-            )
+            run_duration_ms = int((datetime.now(UTC) - run_start_time).total_seconds() * 1000)
             emit_audit_event(
                 self._sink,
                 self._run_id,
@@ -687,10 +678,7 @@ class Orchestrator:
             # ── Step 4: Check circuit breaker (70-REQ-4.2) ──
             stop_decision = self._circuit.should_stop(state)
             if not stop_decision.allowed:
-                if (
-                    self._config.max_cost is not None
-                    and state.total_cost >= self._config.max_cost
-                ):
+                if self._config.max_cost is not None and state.total_cost >= self._config.max_cost:
                     state.run_status = RunStatus.COST_LIMIT
                 else:
                     state.run_status = RunStatus.SESSION_LIMIT
@@ -843,13 +831,11 @@ class Orchestrator:
         if graph is None:
             if not self._plan_path.exists():
                 raise PlanError(
-                    f"Plan file not found: {self._plan_path}. "
-                    f"Run `agent-fox plan` first to generate a plan.",
+                    f"Plan file not found: {self._plan_path}. Run `agent-fox plan` first to generate a plan.",
                     path=str(self._plan_path),
                 )
             raise PlanError(
-                f"Corrupted plan file {self._plan_path}. "
-                f"Run `agent-fox plan` to regenerate.",
+                f"Corrupted plan file {self._plan_path}. Run `agent-fox plan` to regenerate.",
                 path=str(self._plan_path),
             )
         return graph
@@ -876,10 +862,7 @@ class Orchestrator:
         if decision.allowed:
             return "allowed"
 
-        if (
-            self._config.max_retries is not None
-            and attempt > self._config.max_retries + 1
-        ):
+        if self._config.max_retries is not None and attempt > self._config.max_retries + 1:
             attempt_tracker[node_id] = attempt
             last_error = error_tracker.get(node_id) if error_tracker else None
             reason = f"Retry limit exceeded for {node_id}"
@@ -1064,9 +1047,7 @@ class Orchestrator:
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
-                new_ready = graph_sync.ready_tasks(
-                    duration_hints=self._compute_duration_hints()
-                )
+                new_ready = graph_sync.ready_tasks(duration_hints=self._compute_duration_hints())
                 await self._fill_parallel_pool(
                     pool,
                     new_ready,
@@ -1162,9 +1143,7 @@ class Orchestrator:
             # 06-REQ-6.1: Check sync barrier after task completion
             if record.status == "completed":
                 # 30-REQ-7.4: Record outcome on success
-                self._result_handler.record_node_outcome(
-                    record.node_id, state, "completed"
-                )
+                self._result_handler.record_node_outcome(record.node_id, state, "completed")
                 if self._should_trigger_barrier(state):
                     barrier_needed = True
 
@@ -1297,18 +1276,14 @@ class Orchestrator:
         # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
         repo_root = self._plan_path.parent
         known_specs = {n.spec_name for n in self._graph.nodes.values()}
-        gated_specs = await discover_new_specs_gated(
-            self._specs_dir, known_specs, repo_root
-        )
+        gated_specs = await discover_new_specs_gated(self._specs_dir, known_specs, repo_root)
 
         if not gated_specs:
             return
 
         # Validate, parse tasks/deps, and build nodes/edges directly
         all_spec_names = known_specs | {s.name for s in gated_specs}
-        valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(
-            gated_specs, all_spec_names
-        )
+        valid_specs, spec_task_groups, spec_deps = _validate_and_parse_specs(gated_specs, all_spec_names)
 
         if not valid_specs:
             return
@@ -1408,8 +1383,7 @@ class Orchestrator:
         if fraction >= max_fraction:
             state.run_status = RunStatus.BLOCK_LIMIT
             logger.warning(
-                "Block budget exceeded: %.0f%% of tasks blocked "
-                "(limit: %.0f%%). Stopping run.",
+                "Block budget exceeded: %.0f%% of tasks blocked (limit: %.0f%%). Stopping run.",
                 fraction * 100,
                 max_fraction * 100,
             )
@@ -1506,8 +1480,7 @@ class Orchestrator:
         remaining = total - completed
 
         logger.info(
-            "Execution interrupted. %d/%d tasks completed, "
-            "%d remaining. Resume with: agent-fox code",
+            "Execution interrupted. %d/%d tasks completed, %d remaining. Resume with: agent-fox code",
             completed,
             total,
             remaining,

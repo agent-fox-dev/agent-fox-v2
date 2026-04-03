@@ -164,9 +164,7 @@ def _extract_keywords(content: str) -> list[str]:
         "it",
     }
     return [
-        w.strip(".,;:!?()[]{}\"'")
-        for w in words
-        if len(w) > 2 and w.lower().strip(".,;:!?()[]{}\"'") not in stop_words
+        w.strip(".,;:!?()[]{}\"'") for w in words if len(w) > 2 and w.lower().strip(".,;:!?()[]{}\"'") not in stop_words
     ]
 
 

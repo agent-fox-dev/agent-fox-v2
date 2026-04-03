@@ -178,9 +178,7 @@ def partition_commits(
         return [], []
 
     if result.returncode != 0:
-        _git_activity_logger.warning(
-            "git log returned non-zero: %s", result.stderr.strip()
-        )
+        _git_activity_logger.warning("git log returned non-zero: %s", result.stderr.strip())
         return [], []
 
     all_commits = parse_git_log_output(result.stdout)
@@ -435,12 +433,8 @@ def generate_standup(
     node_states: dict[str, str] = {}
     if state is not None:
         node_states = dict(state.node_states)
-    node_archetypes = {
-        nid: node.archetype for nid, node in graph.nodes.items()
-    } if graph else None
-    task_activities = _compute_task_activities(
-        all_sessions, node_states, node_archetypes
-    )
+    node_archetypes = {nid: node.archetype for nid, node in graph.nodes.items()} if graph else None
+    task_activities = _compute_task_activities(all_sessions, node_states, node_archetypes)
 
     # Partition git commits into human and agent
     human_commits, agent_commits = partition_commits(

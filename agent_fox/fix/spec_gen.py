@@ -55,9 +55,7 @@ def _build_requirements_md(cluster: FailureCluster) -> str:
     ]
 
     for i, failure in enumerate(cluster.failures):
-        lines.append(
-            f"### Failure {i + 1}: {failure.check.name} (exit code {failure.exit_code})"
-        )
+        lines.append(f"### Failure {i + 1}: {failure.check.name} (exit code {failure.exit_code})")
         lines.append("")
         lines.append("```")
         lines.append(failure.output)
@@ -162,9 +160,7 @@ def generate_fix_spec(
     spec_dir.mkdir(parents=True, exist_ok=True)
 
     # Write specification files
-    (spec_dir / "requirements.md").write_text(
-        _build_requirements_md(cluster), encoding="utf-8"
-    )
+    (spec_dir / "requirements.md").write_text(_build_requirements_md(cluster), encoding="utf-8")
     (spec_dir / "design.md").write_text(_build_design_md(cluster), encoding="utf-8")
     (spec_dir / "tasks.md").write_text(_build_tasks_md(cluster), encoding="utf-8")
 

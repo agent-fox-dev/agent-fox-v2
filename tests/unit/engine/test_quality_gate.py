@@ -240,12 +240,8 @@ class TestQualityGateStatus:
             gate_session_status,
         )
 
-        passing = QualityGateResult(
-            exit_code=0, stdout_tail="", stderr_tail="", duration_ms=0, passed=True
-        )
-        failing = QualityGateResult(
-            exit_code=1, stdout_tail="", stderr_tail="", duration_ms=0, passed=False
-        )
+        passing = QualityGateResult(exit_code=0, stdout_tail="", stderr_tail="", duration_ms=0, passed=True)
+        failing = QualityGateResult(exit_code=1, stdout_tail="", stderr_tail="", duration_ms=0, passed=False)
 
         assert gate_session_status(passing) == "completed"
         assert gate_session_status(failing) == "completed_with_gate_failure"

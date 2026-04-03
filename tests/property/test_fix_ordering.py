@@ -60,9 +60,7 @@ def acyclic_graph_strategy(draw: st.DrawFn) -> tuple[list[int], list[tuple[int, 
 
     # Generate edges from lower-indexed to higher-indexed (acyclic by construction)
     possible_edges = [
-        (sorted_nums[i], sorted_nums[j])
-        for i in range(len(sorted_nums))
-        for j in range(i + 1, len(sorted_nums))
+        (sorted_nums[i], sorted_nums[j]) for i in range(len(sorted_nums)) for j in range(i + 1, len(sorted_nums))
     ]
 
     if not possible_edges:
@@ -140,24 +138,17 @@ class TestDependencyRespectProperty:
 
     @given(data=acyclic_graph_strategy())
     @settings(max_examples=50)
-    def test_ts_71_p2_edges_respected(
-        self, data: tuple[list[int], list[tuple[int, int]]]
-    ) -> None:
+    def test_ts_71_p2_edges_respected(self, data: tuple[list[int], list[tuple[int, int]]]) -> None:
         from agent_fox.nightshift.dep_graph import DependencyEdge, build_graph
 
         nums, edge_tuples = data
         issues = [_make_issue(n) for n in nums]
-        edges = [
-            DependencyEdge(a, b, "explicit", f"{a} before {b}")
-            for a, b in edge_tuples
-        ]
+        edges = [DependencyEdge(a, b, "explicit", f"{a} before {b}") for a, b in edge_tuples]
 
         order = build_graph(issues, edges)
 
         for a, b in edge_tuples:
-            assert order.index(a) < order.index(b), (
-                f"Edge {a}->{b} violated: {order}"
-            )
+            assert order.index(a) < order.index(b), f"Edge {a}->{b} violated: {order}"
 
 
 # ---------------------------------------------------------------------------
@@ -187,12 +178,10 @@ class TestExplicitEdgePrecedenceProperty:
 
         merged = merge_edges(explicit, ai)
 
-        assert any(
-            e.from_issue == a and e.to_issue == b for e in merged
-        ), f"Expected edge {a}->{b} in merged: {merged}"
-        assert not any(
-            e.from_issue == b and e.to_issue == a for e in merged
-        ), f"Unexpected edge {b}->{a} in merged: {merged}"
+        assert any(e.from_issue == a and e.to_issue == b for e in merged), f"Expected edge {a}->{b} in merged: {merged}"
+        assert not any(e.from_issue == b and e.to_issue == a for e in merged), (
+            f"Unexpected edge {b}->{a} in merged: {merged}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,25 +196,17 @@ class TestCycleResolutionProperty:
 
     @given(data=graph_with_possible_cycles_strategy())
     @settings(max_examples=50)
-    def test_ts_71_p4_cycles_produce_valid_order(
-        self, data: tuple[list[int], list[tuple[int, int]]]
-    ) -> None:
+    def test_ts_71_p4_cycles_produce_valid_order(self, data: tuple[list[int], list[tuple[int, int]]]) -> None:
         from agent_fox.nightshift.dep_graph import DependencyEdge, build_graph
 
         nums, edge_tuples = data
         issues = [_make_issue(n) for n in nums]
-        edges = [
-            DependencyEdge(a, b, "explicit", "") for a, b in edge_tuples
-        ]
+        edges = [DependencyEdge(a, b, "explicit", "") for a, b in edge_tuples]
 
         order = build_graph(issues, edges)
 
-        assert set(order) == set(nums), (
-            f"Order {order} does not contain all issues {nums}"
-        )
-        assert len(order) == len(nums), (
-            f"Order has wrong length: {len(order)} vs {len(nums)}"
-        )
+        assert set(order) == set(nums), f"Order {order} does not contain all issues {nums}"
+        assert len(order) == len(nums), f"Order has wrong length: {len(order)} vs {len(nums)}"
 
 
 # ---------------------------------------------------------------------------
@@ -278,9 +259,7 @@ class TestStalenessRemovalProperty:
         data=st.data(),
     )
     @settings(max_examples=30)
-    def test_ts_71_p6_obsolete_removed(
-        self, issue_nums: list[int], data: st.DataObject
-    ) -> None:
+    def test_ts_71_p6_obsolete_removed(self, issue_nums: list[int], data: st.DataObject) -> None:
         # Pick a subset to mark as obsolete
         obsolete_set = set(
             data.draw(
@@ -323,6 +302,4 @@ class TestBatchSizeGateProperty:
         batch_size = len(issue_nums)
         should_triage = batch_size >= 3
 
-        assert not should_triage, (
-            f"Batch of size {batch_size} should not trigger triage"
-        )
+        assert not should_triage, f"Batch of size {batch_size} should not trigger triage"

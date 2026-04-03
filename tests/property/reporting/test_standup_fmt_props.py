@@ -273,12 +273,7 @@ class TestQueueTotalEqualsComponentSum:
             ready_task_ids=ready_ids,
         )
         assert queue.total == (
-            queue.ready
-            + queue.pending
-            + queue.in_progress
-            + queue.blocked
-            + queue.failed
-            + queue.completed
+            queue.ready + queue.pending + queue.in_progress + queue.blocked + queue.failed + queue.completed
         )
         assert len(queue.ready_task_ids) == queue.ready
 

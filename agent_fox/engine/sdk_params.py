@@ -71,8 +71,7 @@ def resolve_fallback_model(config: AgentFoxConfig) -> str | None:
         return None
     if model not in MODEL_REGISTRY:
         logger.warning(
-            "Fallback model '%s' is not in the model registry; "
-            "passing to SDK anyway (56-REQ-3.E1)",
+            "Fallback model '%s' is not in the model registry; passing to SDK anyway (56-REQ-3.E1)",
             model,
         )
     return model
@@ -100,8 +99,7 @@ def clamp_instances(archetype: str, instances: int) -> int:
     """
     if archetype == "coder" and instances > 1:
         logger.warning(
-            "Coder archetype does not support multi-instance; "
-            "clamped instances from %d to 1",
+            "Coder archetype does not support multi-instance; clamped instances from %d to 1",
             instances,
         )
         return 1

@@ -74,9 +74,7 @@ class TestArchetypeCeiling:
         # Verify the escalation ladder respects this ceiling
         from agent_fox.routing.escalation import EscalationLadder
 
-        ladder = EscalationLadder(
-            ModelTier.SIMPLE, ceiling, retries_before_escalation=1
-        )
+        ladder = EscalationLadder(ModelTier.SIMPLE, ceiling, retries_before_escalation=1)
         ladder.record_failure()
         ladder.record_failure()  # escalate to STANDARD
         assert ladder.current_tier == ModelTier.STANDARD

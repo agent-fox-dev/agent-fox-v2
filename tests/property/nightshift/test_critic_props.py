@@ -57,17 +57,11 @@ _finding_strategy = st.builds(
     _build_finding,
     category=st.text(min_size=1, max_size=30, alphabet="abcdefghijklmnopqrstuvwxyz_"),
     title=st.text(min_size=1, max_size=80, alphabet="abcdefghijklmnopqrstuvwxyz _"),
-    description=st.text(
-        min_size=1, max_size=150, alphabet="abcdefghijklmnopqrstuvwxyz _."
-    ),
+    description=st.text(min_size=1, max_size=150, alphabet="abcdefghijklmnopqrstuvwxyz _."),
     severity=st.sampled_from(_SEVERITIES),
     affected_files=st.lists(_file_path_strategy, min_size=0, max_size=5),
-    suggested_fix=st.text(
-        min_size=1, max_size=100, alphabet="abcdefghijklmnopqrstuvwxyz _."
-    ),
-    evidence=st.text(
-        min_size=1, max_size=100, alphabet="abcdefghijklmnopqrstuvwxyz _.:"
-    ),
+    suggested_fix=st.text(min_size=1, max_size=100, alphabet="abcdefghijklmnopqrstuvwxyz _."),
+    evidence=st.text(min_size=1, max_size=100, alphabet="abcdefghijklmnopqrstuvwxyz _.:"),
     group_key=st.text(min_size=1, max_size=30, alphabet="abcdefghijklmnopqrstuvwxyz-"),
 )
 
@@ -95,9 +89,7 @@ class TestMechanicalGroupingBijection:
 
     @given(findings=st.lists(_finding_strategy, min_size=1, max_size=2))
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
-    def test_mechanical_bijection_preserves_findings(
-        self, findings: list[object]
-    ) -> None:
+    def test_mechanical_bijection_preserves_findings(self, findings: list[object]) -> None:
         """Each finding appears in exactly one group from _mechanical_grouping."""
         from agent_fox.nightshift.critic import _mechanical_grouping
 
@@ -118,9 +110,7 @@ class TestAffectedFilesUnionProperty:
 
     @given(findings=st.lists(_finding_strategy, min_size=1, max_size=2))
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
-    def test_mechanical_affected_files_match_finding(
-        self, findings: list[object]
-    ) -> None:
+    def test_mechanical_affected_files_match_finding(self, findings: list[object]) -> None:
         """Each mechanical group's affected_files matches its single finding's files."""
         from agent_fox.nightshift.critic import _mechanical_grouping
         from agent_fox.nightshift.finding import Finding
@@ -281,9 +271,7 @@ def _make_complete_response(n: int, groups: list[list[int]], dropped: list[int])
         }
         for indices in groups
     ]
-    dropped_entries = [
-        {"finding_index": idx, "reason": "Dropped for testing"} for idx in dropped
-    ]
+    dropped_entries = [{"finding_index": idx, "reason": "Dropped for testing"} for idx in dropped]
     return json.dumps({"groups": group_entries, "dropped": dropped_entries})
 
 
@@ -295,15 +283,7 @@ def _complete_partition_strategy(draw: st.DrawFn) -> tuple[int, str]:
 
     # Decide how many to drop (0 to n//2)
     n_drop = draw(st.integers(min_value=0, max_value=n // 2))
-    dropped = (
-        draw(
-            st.lists(
-                st.sampled_from(indices), min_size=n_drop, max_size=n_drop, unique=True
-            )
-        )
-        if n > 0
-        else []
-    )
+    dropped = draw(st.lists(st.sampled_from(indices), min_size=n_drop, max_size=n_drop, unique=True)) if n > 0 else []
 
     remaining = [i for i in indices if i not in dropped]
 
@@ -348,9 +328,7 @@ class TestDecisionCompleteness:
 
         # All findings accounted for: in a group's findings OR in dropped decisions
         grouped_ids = {id(f) for g in groups for f in g.findings}
-        dropped_indices = {
-            idx for d in decisions if d.action == "dropped" for idx in d.finding_indices
-        }
+        dropped_indices = {idx for d in decisions if d.action == "dropped" for idx in d.finding_indices}
         dropped_ids = {id(findings[i]) for i in dropped_indices if i < n}
 
         accounted_ids = grouped_ids | dropped_ids

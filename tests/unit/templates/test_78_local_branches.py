@@ -101,8 +101,4 @@ class TestAfSpecNoFeatureBranchPushInGitFlow:
         content = _AF_SPEC_TEMPLATE.read_text()
         for line in content.splitlines():
             if "git-flow" in line.lower() or "feature branch from develop" in line:
-                assert "-> push" not in line, (
-                    f"git-flow line still contains '-> push': {line!r}"
-                )
-
-
+                assert "-> push" not in line, f"git-flow line still contains '-> push': {line!r}"

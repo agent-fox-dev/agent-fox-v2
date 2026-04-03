@@ -94,9 +94,7 @@ class TestParseOptionalMarker:
         non_optional = [g for g in groups if g.number != 3]
         assert all(not g.optional for g in non_optional)
 
-    def test_total_group_count_with_optional(
-        self, tasks_md_with_optional: Path
-    ) -> None:
+    def test_total_group_count_with_optional(self, tasks_md_with_optional: Path) -> None:
         """All groups including optional are parsed."""
         groups = parse_tasks(tasks_md_with_optional)
 
@@ -122,9 +120,7 @@ class TestEmptyTasksMd:
 class TestNonContiguousGroupNumbers:
     """TS-02-E8: Parser accepts non-contiguous group numbers."""
 
-    def test_non_contiguous_numbers_accepted(
-        self, tasks_md_non_contiguous: Path
-    ) -> None:
+    def test_non_contiguous_numbers_accepted(self, tasks_md_non_contiguous: Path) -> None:
         """Groups numbered 1, 3, 5 are parsed correctly."""
         groups = parse_tasks(tasks_md_non_contiguous)
 
@@ -190,9 +186,7 @@ class TestUnknownSubtaskSuffixIgnored:
     Requirements: F3-REQ-1.E1
     """
 
-    def test_unknown_suffix_not_parsed(
-        self, tasks_md_with_unknown_suffix: Path
-    ) -> None:
+    def test_unknown_suffix_not_parsed(self, tasks_md_with_unknown_suffix: Path) -> None:
         """1.X is NOT included in parsed subtasks."""
         groups = parse_tasks(tasks_md_with_unknown_suffix)
 

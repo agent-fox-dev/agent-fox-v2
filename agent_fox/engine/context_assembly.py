@@ -55,8 +55,7 @@ def load_relevant_facts(
                 return cached
             # 42-REQ-3.3: Cache is stale or missing — fall through to live
             logger.debug(
-                "Cache miss for %s (count mismatch or absent); "
-                "falling back to live computation",
+                "Cache miss for %s (count mismatch or absent); falling back to live computation",
                 spec_name,
             )
         except Exception:
@@ -138,9 +137,7 @@ def build_retry_context(
         ]
         for finding in critical_major:
             ref_str = f" [{finding.requirement_ref}]" if finding.requirement_ref else ""
-            lines.append(
-                f"- **{finding.severity.upper()}**{ref_str}: {finding.description}"
-            )
+            lines.append(f"- **{finding.severity.upper()}**{ref_str}: {finding.description}")
         return "\n".join(lines)
 
     except Exception:

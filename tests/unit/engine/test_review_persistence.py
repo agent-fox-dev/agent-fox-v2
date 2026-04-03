@@ -64,9 +64,7 @@ class TestSkepticOutputParsedAndPersisted:
 
         mock_extract.assert_called_once_with(output)
 
-    def test_skeptic_end_to_end_finding_persisted(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_skeptic_end_to_end_finding_persisted(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-1: Skeptic output persisted to DuckDB (bare JSON array format)."""
         output = json.dumps(
             [
@@ -97,9 +95,7 @@ class TestSkepticOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:2:1", 1)
 
-        rows = knowledge_db._conn.execute(
-            "SELECT severity, description FROM review_findings"
-        ).fetchall()
+        rows = knowledge_db._conn.execute("SELECT severity, description FROM review_findings").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "major"
         assert rows[0][1] == "Missing null check"
@@ -137,9 +133,7 @@ class TestVerifierOutputParsedAndPersisted:
 
         mock_extract.assert_called_once_with(output)
 
-    def test_verifier_end_to_end_verdict_persisted(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_verifier_end_to_end_verdict_persisted(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-2: Verifier output persisted to DuckDB."""
         _verdict_item = {
             "requirement_id": "03-REQ-1.1",
@@ -160,9 +154,7 @@ class TestVerifierOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:2:1", 1)
 
-        rows = knowledge_db._conn.execute(
-            "SELECT requirement_id, verdict FROM verification_results"
-        ).fetchall()
+        rows = knowledge_db._conn.execute("SELECT requirement_id, verdict FROM verification_results").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "03-REQ-1.1"
         assert rows[0][1] == "PASS"
@@ -243,9 +235,7 @@ class TestOracleOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:0:1", 1)
 
-        rows = knowledge_db._conn.execute(
-            "SELECT severity, description FROM drift_findings"
-        ).fetchall()
+        rows = knowledge_db._conn.execute("SELECT severity, description FROM drift_findings").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "critical"
 
@@ -265,16 +255,13 @@ class TestParseFailureEmitsAuditEvent:
         AuditEventType.
         """
         assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), (
-            "AuditEventType.REVIEW_PARSE_FAILURE is not defined. "
-            "Add it to audit.py in Task Group 2."
+            "AuditEventType.REVIEW_PARSE_FAILURE is not defined. Add it to audit.py in Task Group 2."
         )
         assert AuditEventType.REVIEW_PARSE_FAILURE == "review.parse_failure"
 
     def test_parse_failure_emits_warning_event(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-5: review.parse_failure event is emitted on unparseable output."""
-        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), (
-            "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
-        )
+        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
 
         emitted_events = []
         mock_sink = MagicMock()
@@ -289,22 +276,15 @@ class TestParseFailureEmitsAuditEvent:
             run_id="test_run_001",
         )
 
-        runner._persist_review_findings(
-            "This is just prose with no JSON", "03_api:2", 1
-        )
+        runner._persist_review_findings("This is just prose with no JSON", "03_api:2", 1)
 
-        failure_events = [
-            e for e in emitted_events if e.event_type == "review.parse_failure"
-        ]
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
         assert len(failure_events) == 1, (
-            f"Expected 1 review.parse_failure event, "
-            f"got {len(failure_events)}: {emitted_events}"
+            f"Expected 1 review.parse_failure event, got {len(failure_events)}: {emitted_events}"
         )
         assert failure_events[0].severity == AuditSeverity.WARNING
 
-    def test_parse_failure_payload_contains_raw_output(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_parse_failure_payload_contains_raw_output(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-5: review.parse_failure payload contains the raw output."""
         assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE")
 
@@ -324,16 +304,12 @@ class TestParseFailureEmitsAuditEvent:
         prose = "no json here"
         runner._persist_review_findings(prose, "03_api:2", 1)
 
-        failure_events = [
-            e for e in emitted_events if e.event_type == "review.parse_failure"
-        ]
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
         assert len(failure_events) == 1
         raw = failure_events[0].payload.get("raw_output", "")
         assert prose in raw, f"Expected raw_output to contain the prose, got: {raw!r}"
 
-    def test_parse_failure_truncates_long_output(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_parse_failure_truncates_long_output(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-5: Raw output in the audit payload is truncated to 2000 characters."""
         assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE")
 
@@ -353,23 +329,17 @@ class TestParseFailureEmitsAuditEvent:
         long_output = "x" * 5000  # 5000 chars, not valid JSON
         runner._persist_review_findings(long_output, "03_api:2", 1)
 
-        failure_events = [
-            e for e in emitted_events if e.event_type == "review.parse_failure"
-        ]
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
         assert len(failure_events) == 1
         raw = failure_events[0].payload.get("raw_output", "")
-        assert len(raw) <= 2000, (
-            f"raw_output should be truncated to 2000 chars, got {len(raw)}"
-        )
+        assert len(raw) <= 2000, f"raw_output should be truncated to 2000 chars, got {len(raw)}"
 
     def test_parse_failure_does_not_raise(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-5: Parse failures must not raise exceptions (run must not block).
 
         Also verifies that a review.parse_failure event is emitted (not just a log).
         """
-        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), (
-            "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
-        )
+        assert hasattr(AuditEventType, "REVIEW_PARSE_FAILURE"), "AuditEventType.REVIEW_PARSE_FAILURE not yet defined"
         emitted_events: list = []
         mock_sink = MagicMock()
         mock_sink.emit_audit_event.side_effect = lambda e: emitted_events.append(e)
@@ -386,9 +356,7 @@ class TestParseFailureEmitsAuditEvent:
         runner._persist_review_findings("no json here at all", "03_api:2", 1)
 
         # Should emit a failure event
-        failure_events = [
-            e for e in emitted_events if e.event_type == "review.parse_failure"
-        ]
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
         assert len(failure_events) == 1
 
 
@@ -412,8 +380,7 @@ class TestRetryContextIncludesActiveFindings:
             knowledge_db=knowledge_db,
         )
         assert hasattr(runner, "_build_retry_context"), (
-            "NodeSessionRunner._build_retry_context is not defined. "
-            "Add it in Task Group 3."
+            "NodeSessionRunner._build_retry_context is not defined. Add it in Task Group 3."
         )
 
     def test_critical_finding_in_context(self, knowledge_db: KnowledgeDB) -> None:
@@ -466,9 +433,7 @@ class TestRetryContextIncludesActiveFindings:
         assert "Missing error handling" in context
         assert "major" in context.lower()
 
-    def test_context_contains_spec_name_or_req_ref(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_context_contains_spec_name_or_req_ref(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-8: Context block is structured and contains spec name."""
         finding = ReviewFinding(
             id=str(uuid.uuid4()),
@@ -536,9 +501,7 @@ class TestRetryContextEmptyWhenNoFindings:
 
         assert "Minor formatting issue" not in context
 
-    def test_empty_context_only_observation_findings(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_empty_context_only_observation_findings(self, knowledge_db: KnowledgeDB) -> None:
         """TS-53-9: Observation-level findings are excluded from retry context."""
         obs_finding = ReviewFinding(
             id=str(uuid.uuid4()),

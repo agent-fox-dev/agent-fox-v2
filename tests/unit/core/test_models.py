@@ -102,6 +102,4 @@ class TestUnknownModelID:
             resolve_model("nonexistent-model")
 
         error_msg = str(exc_info.value)
-        assert "claude" in error_msg.lower(), (
-            f"Expected valid model IDs in error, got: {error_msg!r}"
-        )
+        assert "claude" in error_msg.lower(), f"Expected valid model IDs in error, got: {error_msg!r}"

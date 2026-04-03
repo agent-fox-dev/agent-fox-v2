@@ -74,9 +74,7 @@ async def extract_facts(
         Returns an empty list if extraction fails or yields no facts.
     """
     model_entry = resolve_model(model_name)
-    safe_transcript = sanitize_prompt_content(
-        transcript, label="transcript", max_chars=100_000
-    )
+    safe_transcript = sanitize_prompt_content(transcript, label="transcript", max_chars=100_000)
     prompt = EXTRACTION_PROMPT.format(transcript=safe_transcript)
 
     async def _call() -> object:
@@ -151,16 +149,11 @@ def enrich_extraction_with_causal(
     extraction addendum to the prompt.
     """
     if prior_facts:
-        facts_text = "\n".join(
-            f"- [{fact.get('id', 'unknown')}] {fact.get('content', '')}"
-            for fact in prior_facts
-        )
+        facts_text = "\n".join(f"- [{fact.get('id', 'unknown')}] {fact.get('content', '')}" for fact in prior_facts)
     else:
         facts_text = "(no prior facts available)"
 
-    safe_facts = sanitize_prompt_content(
-        facts_text, label="prior-facts", max_chars=50_000
-    )
+    safe_facts = sanitize_prompt_content(facts_text, label="prior-facts", max_chars=50_000)
     addendum = CAUSAL_EXTRACTION_ADDENDUM.format(prior_facts=safe_facts)
     return base_prompt + addendum
 
@@ -174,8 +167,7 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     data = extract_json_array(extraction_response, repair_truncated=True)
     if data is None:
         logger.warning(
-            "Failed to parse causal links JSON, returning empty list. "
-            "Response (first 300 chars): %s",
+            "Failed to parse causal links JSON, returning empty list. Response (first 300 chars): %s",
             extraction_response[:300],
         )
         return []
@@ -240,9 +232,7 @@ def _parse_extraction_response(
             continue
 
         # Field-level validation (issue #186)
-        content = truncate_field(
-            content, max_length=MAX_CONTENT_LENGTH, field_name="fact.content"
-        )
+        content = truncate_field(content, max_length=MAX_CONTENT_LENGTH, field_name="fact.content")
 
         # Validate category -- default to gotcha for unknown values
         category = item.get("category", "gotcha")

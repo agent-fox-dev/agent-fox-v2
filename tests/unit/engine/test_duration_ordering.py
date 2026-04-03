@@ -96,9 +96,7 @@ class TestReadyTasksOrdering:
             },
             {},
         )
-        result = gs.ready_tasks(
-            duration_hints={"41_spec:a": 500, "41_spec:b": 100, "41_spec:c": 300}
-        )
+        result = gs.ready_tasks(duration_hints={"41_spec:a": 500, "41_spec:b": 100, "41_spec:c": 300})
         assert result == ["41_spec:a", "41_spec:c", "41_spec:b"]
 
     def test_empty_hints_dict_treated_as_none(self) -> None:

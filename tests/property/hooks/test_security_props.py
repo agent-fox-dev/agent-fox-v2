@@ -132,8 +132,7 @@ class TestDefaultAllowlistStability:
         config = SecurityConfig(bash_allowlist_extend=extend)
         result = build_effective_allowlist(config)
         assert DEFAULT_ALLOWLIST.issubset(result), (
-            f"Expected DEFAULT_ALLOWLIST ⊂ result, "
-            f"but missing: {DEFAULT_ALLOWLIST - result}"
+            f"Expected DEFAULT_ALLOWLIST ⊂ result, but missing: {DEFAULT_ALLOWLIST - result}"
         )
 
     @given(
@@ -155,6 +154,4 @@ class TestDefaultAllowlistStability:
         """bash_allowlist replaces defaults exactly."""
         config = SecurityConfig(bash_allowlist=replacement)
         result = build_effective_allowlist(config)
-        assert result == frozenset(replacement), (
-            f"Expected {frozenset(replacement)}, got {result}"
-        )
+        assert result == frozenset(replacement), f"Expected {frozenset(replacement)}, got {result}"

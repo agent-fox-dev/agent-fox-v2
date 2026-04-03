@@ -92,15 +92,11 @@ class TestGatePipelineMonotonicFiltering:
                     )
                 )
 
-            async def mock_is_tracked(
-                repo_root: Path, spec_name: str, **kwargs: object
-            ) -> bool:
+            async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
                 idx = int(spec_name.split("_")[0])
                 return spec_states[idx]["tracked"]
 
-            def mock_lint_gate(
-                spec_name: str, spec_path: Path
-            ) -> tuple[bool, list[str]]:
+            def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
                 idx = int(spec_name.split("_")[0])
                 if spec_states[idx]["lint_clean"]:
                     return (True, [])
@@ -120,9 +116,7 @@ class TestGatePipelineMonotonicFiltering:
                     side_effect=mock_lint_gate,
                 ),
             ):
-                result = await discover_new_specs_gated(
-                    specs_dir, known_specs=set(), repo_root=tmp_path
-                )
+                result = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
 
             # Output is a subset
             assert len(result) <= len(spec_states)
@@ -368,9 +362,7 @@ class TestStatelessReEvaluation:
             )
 
             async def make_is_tracked(state: dict[str, bool]):  # noqa: ANN202
-                async def _fn(
-                    repo_root: Path, spec_name: str, **kwargs: object
-                ) -> bool:
+                async def _fn(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
                     return state["tracked"]
 
                 return _fn
@@ -399,9 +391,7 @@ class TestStatelessReEvaluation:
                     side_effect=make_lint_gate(state_1),
                 ),
             ):
-                await discover_new_specs_gated(
-                    specs_dir, known_specs=set(), repo_root=tmp_path
-                )
+                await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
 
             # Eval 2 with state_2
             setup_spec(state_2)
@@ -419,9 +409,7 @@ class TestStatelessReEvaluation:
                     side_effect=make_lint_gate(state_2),
                 ),
             ):
-                result_2 = await discover_new_specs_gated(
-                    specs_dir, known_specs=set(), repo_root=tmp_path
-                )
+                result_2 = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
 
             # Fresh eval with state_2 (verify same result)
             setup_spec(state_2)
@@ -439,9 +427,7 @@ class TestStatelessReEvaluation:
                     side_effect=make_lint_gate(state_2),
                 ),
             ):
-                result_fresh = await discover_new_specs_gated(
-                    specs_dir, known_specs=set(), repo_root=tmp_path
-                )
+                result_fresh = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
 
             # Results from eval_2 and fresh must match
             assert len(result_2) == len(result_fresh)

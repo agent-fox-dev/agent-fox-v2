@@ -44,8 +44,7 @@ def export_cmd(ctx: click.Context, memory: bool, db: bool) -> None:
 
     if not DEFAULT_DB_PATH.exists():
         click.echo(
-            f"Error: knowledge store not found at {DEFAULT_DB_PATH}. "
-            "Run 'agent-fox code' first.",
+            f"Error: knowledge store not found at {DEFAULT_DB_PATH}. Run 'agent-fox code' first.",
             err=True,
         )
         ctx.exit(1)
@@ -55,14 +54,11 @@ def export_cmd(ctx: click.Context, memory: bool, db: bool) -> None:
 
     try:
         if memory:
-            output_path = (
-                Path("docs/memory.json") if json_mode else Path("docs/memory.md")
-            )
+            output_path = Path("docs/memory.json") if json_mode else Path("docs/memory.md")
             result = export_memory(conn, output_path, json_mode=json_mode)
             if result.count == 0:
                 click.echo(
-                    "Warning: no facts found. "
-                    f"Wrote empty output to {result.output_path}",
+                    f"Warning: no facts found. Wrote empty output to {result.output_path}",
                     err=True,
                 )
             else:
@@ -71,11 +67,7 @@ def export_cmd(ctx: click.Context, memory: bool, db: bool) -> None:
                     err=True,
                 )
         elif db:
-            output_path = (
-                Path(".agent-fox/knowledge_dump.json")
-                if json_mode
-                else Path(".agent-fox/knowledge_dump.md")
-            )
+            output_path = Path(".agent-fox/knowledge_dump.json") if json_mode else Path(".agent-fox/knowledge_dump.md")
             result = export_db(conn, output_path, json_mode=json_mode)
             if result.count == 0:
                 click.echo(

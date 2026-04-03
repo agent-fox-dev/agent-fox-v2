@@ -368,9 +368,7 @@ def assemble_context(
 
     # 03-REQ-4.2: Include memory facts (strip control chars from stored facts)
     if memory_facts:
-        facts_text = "\n".join(
-            f"- {strip_control_chars(fact)}" for fact in memory_facts
-        )
+        facts_text = "\n".join(f"- {strip_control_chars(fact)}" for fact in memory_facts)
         sections.append(f"## Memory Facts\n\n{facts_text}")
 
     # 39-REQ-6.1, 39-REQ-6.2: Include prior group findings
@@ -429,8 +427,7 @@ def get_prior_group_findings(
     def _query_findings_table(
         table: str,
         finding_type: str,
-        columns: str = "CAST(id AS VARCHAR), severity, description, "
-        "task_group, CAST(created_at AS VARCHAR)",
+        columns: str = "CAST(id AS VARCHAR), severity, description, task_group, CAST(created_at AS VARCHAR)",
         *,
         row_mapper: None | (callable) = None,
     ) -> None:
@@ -481,8 +478,7 @@ def get_prior_group_findings(
     _query_findings_table(
         "verification_results",
         "verification",
-        columns="CAST(id AS VARCHAR), verdict, requirement_id, evidence, "
-        "task_group, CAST(created_at AS VARCHAR)",
+        columns="CAST(id AS VARCHAR), verdict, requirement_id, evidence, task_group, CAST(created_at AS VARCHAR)",
         row_mapper=_map_verification_row,
     )
 

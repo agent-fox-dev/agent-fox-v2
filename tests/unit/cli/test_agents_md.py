@@ -37,9 +37,7 @@ class TestTemplateBundled:
 
     def test_template_file_exists(self) -> None:
         """44-REQ-1.1: Template exists at expected package path."""
-        assert _AGENTS_MD_TEMPLATE.exists(), (
-            f"Template not found at {_AGENTS_MD_TEMPLATE}"
-        )
+        assert _AGENTS_MD_TEMPLATE.exists(), f"Template not found at {_AGENTS_MD_TEMPLATE}"
 
     def test_template_is_nonempty(self) -> None:
         """44-REQ-1.1: Template is non-empty."""
@@ -159,9 +157,7 @@ class TestClaudeMdIndependence:
 class TestMissingTemplate:
     """TS-44-E1: Clear error when template is missing."""
 
-    def test_missing_template_raises_error(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_template_raises_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """44-REQ-1.E1: FileNotFoundError raised when template is missing."""
         import agent_fox.workspace.init_project as init_mod
 
@@ -202,9 +198,7 @@ class TestEmptyAgentsMd:
 class TestInitDisplaysMessage:
     """TS-44-5: init_cmd displays 'Created AGENTS.md.' when file is created."""
 
-    def test_init_creates_agents_md_message(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_creates_agents_md_message(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """44-REQ-2.2: stdout contains 'Created AGENTS.md.' on fresh init."""
         from agent_fox.cli.app import main
 
@@ -222,9 +216,7 @@ class TestInitDisplaysMessage:
 class TestInitJsonCreated:
     """TS-44-6: JSON output includes agents_md: created on fresh init."""
 
-    def test_init_json_agents_md_created(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_json_agents_md_created(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """44-REQ-2.3: JSON output contains agents_md=created."""
         from agent_fox.cli.app import main
 
@@ -263,9 +255,7 @@ class TestInitSilentSkip:
 class TestInitJsonSkipped:
     """TS-44-9: JSON output includes agents_md: skipped on re-init."""
 
-    def test_init_json_agents_md_skipped(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_init_json_agents_md_skipped(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """44-REQ-3.3: JSON output contains agents_md=skipped."""
         from agent_fox.cli.app import main
 
@@ -286,9 +276,7 @@ class TestInitJsonSkipped:
 class TestAgentsMdNotInGitignore:
     """TS-44-12: init does not add AGENTS.md to .gitignore."""
 
-    def test_agents_md_not_in_gitignore(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_agents_md_not_in_gitignore(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """44-REQ-5.1: .gitignore does not contain AGENTS.md."""
         from agent_fox.cli.app import main
 

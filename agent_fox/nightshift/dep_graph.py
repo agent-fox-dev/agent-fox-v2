@@ -42,11 +42,7 @@ def build_graph(
     issue_numbers = {i.number for i in issues}
 
     # Filter edges to only include those between issues in the batch
-    valid_edges = [
-        e
-        for e in edges
-        if e.from_issue in issue_numbers and e.to_issue in issue_numbers
-    ]
+    valid_edges = [e for e in edges if e.from_issue in issue_numbers and e.to_issue in issue_numbers]
 
     # Break cycles before running topological sort
     valid_edges = _break_all_cycles(valid_edges, issue_numbers)
@@ -129,8 +125,7 @@ def _break_all_cycles(
 
             if edge_to_remove is not None:
                 logger.warning(
-                    "Dependency cycle detected among issues %s; "
-                    "breaking cycle by removing edge #%d -> #%d",
+                    "Dependency cycle detected among issues %s; breaking cycle by removing edge #%d -> #%d",
                     cycle,
                     edge_to_remove.from_issue,
                     edge_to_remove.to_issue,

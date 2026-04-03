@@ -55,9 +55,7 @@ class TestWatchCLIFlag:
     Requirements: 70-REQ-1.3
     """
 
-    def test_watch_flag_is_accepted_without_usage_error(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_watch_flag_is_accepted_without_usage_error(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """TS-70-3: --watch is accepted by the CLI (exit_code != 2)."""
         _setup_minimal_project(tmp_git_repo)
 
@@ -66,24 +64,16 @@ class TestWatchCLIFlag:
         # Exit code 2 means CLI usage error (unrecognized option).
         # The command may fail for other reasons (e.g. no sessions to run),
         # but must not fail with a usage error.
-        assert result.exit_code != 2, (
-            f"--watch caused a usage error (exit_code={result.exit_code})"
-        )
+        assert result.exit_code != 2, f"--watch caused a usage error (exit_code={result.exit_code})"
 
-    def test_watch_flag_in_help_output(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_watch_flag_in_help_output(self, cli_runner: CliRunner) -> None:
         """TS-70-3: --watch appears in code command help text."""
         result = cli_runner.invoke(main, ["code", "--help"])
 
         assert result.exit_code == 0
-        assert "--watch" in result.output, (
-            "--watch should appear in the help output"
-        )
+        assert "--watch" in result.output, "--watch should appear in the help output"
 
-    def test_without_watch_flag_does_not_activate_watch_mode(
-        self, cli_runner: CliRunner, tmp_git_repo: Path
-    ) -> None:
+    def test_without_watch_flag_does_not_activate_watch_mode(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """TS-70-3: Without --watch, watch mode is not activated."""
         _setup_minimal_project(tmp_git_repo)
 
@@ -91,9 +81,7 @@ class TestWatchCLIFlag:
 
         # Without --watch, should not loop indefinitely.
         # The command may complete or fail, but it should exit.
-        assert result.exit_code != 2, (
-            f"Unexpected CLI usage error: {result.output}"
-        )
+        assert result.exit_code != 2, f"Unexpected CLI usage error: {result.output}"
 
 
 # ---------------------------------------------------------------------------
@@ -122,13 +110,9 @@ class TestWatchIntervalCLIOption:
             f"Output: {result.output}"
         )
 
-    def test_watch_interval_in_help_output(
-        self, cli_runner: CliRunner
-    ) -> None:
+    def test_watch_interval_in_help_output(self, cli_runner: CliRunner) -> None:
         """TS-70-11: --watch-interval appears in code command help text."""
         result = cli_runner.invoke(main, ["code", "--help"])
 
         assert result.exit_code == 0
-        assert "--watch-interval" in result.output, (
-            "--watch-interval should appear in the help output"
-        )
+        assert "--watch-interval" in result.output, "--watch-interval should appear in the help output"

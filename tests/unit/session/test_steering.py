@@ -40,9 +40,7 @@ class TestLoadSteeringReturnsContentForRealDirectives:
 
         specs_dir = tmp_path / ".specs"
         specs_dir.mkdir()
-        (specs_dir / "steering.md").write_text(
-            "Never modify legacy/ without approval.\n"
-        )
+        (specs_dir / "steering.md").write_text("Never modify legacy/ without approval.\n")
 
         result = load_steering(tmp_path)
         assert result is not None
@@ -149,9 +147,7 @@ class TestLoadSteeringReturnNoneForPlaceholderOnly:
 class TestLoadSteeringHandlesUnreadableFile:
     """TS-64-E2: load_steering() returns None and logs warning for unreadable file."""
 
-    def test_returns_none_on_permission_error(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_returns_none_on_permission_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """load_steering() returns None when read_text raises PermissionError."""
         from agent_fox.session.prompt import load_steering
 
@@ -197,6 +193,4 @@ class TestLoadSteeringHandlesUnreadableFile:
         with caplog.at_level(logging.WARNING):
             load_steering(tmp_path)
 
-        assert any(record.levelno >= logging.WARNING for record in caplog.records), (
-            "Expected a warning to be logged"
-        )
+        assert any(record.levelno >= logging.WARNING for record in caplog.records), "Expected a warning to be logged"

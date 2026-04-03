@@ -132,9 +132,7 @@ class TestNoSpecsDirectory:
         finally:
             os.chdir(original_dir)
 
-    def test_output_indicates_no_specs(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_output_indicates_no_specs(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """lint-specs output mentions no specifications found."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir()
@@ -200,9 +198,7 @@ class TestJsonOutputFormat:
         finally:
             os.chdir(original_dir)
 
-    def test_json_summary_counts_match(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_json_summary_counts_match(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """JSON summary total matches number of findings."""
         _setup_project_with_specs(tmp_path, ["incomplete_spec"])
 
@@ -226,9 +222,7 @@ class TestTableOutputSummary:
     Verify table output includes summary with severity counts.
     """
 
-    def test_table_output_contains_error_text(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_table_output_contains_error_text(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Table output contains 'error' severity text."""
         _setup_project_with_specs(tmp_path, ["incomplete_spec"])
 
@@ -251,9 +245,7 @@ class TestExitCodeZeroWarningsOnly:
     Verify exit code is 0 when only Warning/Hint findings exist.
     """
 
-    def test_warnings_only_exits_zero(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_warnings_only_exits_zero(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """lint-specs exits with code 0 when only warnings are present."""
         _setup_project_with_specs(tmp_path, ["warnings_only_spec"])
 
@@ -276,9 +268,7 @@ class TestValidDependenciesIntegration:
     Verify valid dependency references don't produce error findings.
     """
 
-    def test_valid_deps_no_error_findings(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_valid_deps_no_error_findings(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Valid dependency references produce no broken-dependency findings."""
         # Create a project with two specs: one that depends on the other
         agent_fox_dir = tmp_path / ".agent-fox"
@@ -299,16 +289,11 @@ class TestValidDependenciesIntegration:
             "tasks.md",
         ]:
             (target / filename).write_text(f"# {filename}\n")
-        (target / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n"
-        )
+        (target / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n")
         (target / "requirements.md").write_text(
-            "# Requirements\n\n### Requirement 1: Thing\n\n"
-            "1. [01-REQ-1.1] Must do thing.\n"
+            "# Requirements\n\n### Requirement 1: Thing\n\n1. [01-REQ-1.1] Must do thing.\n"
         )
-        (target / "test_spec.md").write_text(
-            "# Test Spec\n\n**Requirement:** 01-REQ-1.1\n"
-        )
+        (target / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 01-REQ-1.1\n")
 
         # Create referencing spec (02_dependent) with valid dep
         referencing = specs_dir / "02_dependent"
@@ -321,25 +306,18 @@ class TestValidDependenciesIntegration:
             "|-----------|-----------|---------------|\n"
             "| 02_dependent | 01_core_foundation | Types |\n"
         )
-        (referencing / "tasks.md").write_text(
-            "# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n"
-        )
+        (referencing / "tasks.md").write_text("# Tasks\n\n- [ ] 1. Task\n  - [ ] 1.1 Sub\n  - [ ] 1.V Verify\n")
         (referencing / "requirements.md").write_text(
-            "# Requirements\n\n### Requirement 1: Feature\n\n"
-            "1. [02-REQ-1.1] Must do feature.\n"
+            "# Requirements\n\n### Requirement 1: Feature\n\n1. [02-REQ-1.1] Must do feature.\n"
         )
-        (referencing / "test_spec.md").write_text(
-            "# Test Spec\n\n**Requirement:** 02-REQ-1.1\n"
-        )
+        (referencing / "test_spec.md").write_text("# Test Spec\n\n**Requirement:** 02-REQ-1.1\n")
 
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
             result = cli_runner.invoke(main, ["--json", "lint-specs"])
             data = json.loads(result.output)
-            broken_deps = [
-                f for f in data["findings"] if f["rule"] == "broken-dependency"
-            ]
+            broken_deps = [f for f in data["findings"] if f["rule"] == "broken-dependency"]
             assert len(broken_deps) == 0
         finally:
             os.chdir(original_dir)
@@ -365,9 +343,7 @@ class TestAllFlagDefaultSkipsImplemented:
         _create_spec_with_tasks(specs_dir, "01_done_spec", all_completed=True)
         _create_spec_with_tasks(specs_dir, "02_wip_spec", all_completed=False)
 
-    def test_default_skips_implemented_spec(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_default_skips_implemented_spec(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Default lint-specs does not report findings for completed specs."""
         self._setup_mixed_project(tmp_path)
         original_dir = os.getcwd()
@@ -381,9 +357,7 @@ class TestAllFlagDefaultSkipsImplemented:
         finally:
             os.chdir(original_dir)
 
-    def test_all_flag_includes_implemented_spec(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_all_flag_includes_implemented_spec(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """--all includes findings for completed specs."""
         self._setup_mixed_project(tmp_path)
         original_dir = os.getcwd()
@@ -397,9 +371,7 @@ class TestAllFlagDefaultSkipsImplemented:
         finally:
             os.chdir(original_dir)
 
-    def test_all_specs_implemented_shows_no_findings(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_all_specs_implemented_shows_no_findings(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """When all specs are implemented, default lint reports no findings."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir(exist_ok=True)
@@ -416,9 +388,7 @@ class TestAllFlagDefaultSkipsImplemented:
         finally:
             os.chdir(original_dir)
 
-    def test_spec_without_tasks_md_is_linted(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_spec_without_tasks_md_is_linted(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """A spec without tasks.md is considered not implemented and is linted."""
         agent_fox_dir = tmp_path / ".agent-fox"
         agent_fox_dir.mkdir(exist_ok=True)

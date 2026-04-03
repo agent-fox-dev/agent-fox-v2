@@ -34,9 +34,7 @@ from agent_fox.spec.validator import (
 _ai_logger = logging.getLogger(__name__)
 
 # Template directory for AI validation prompts
-_AI_TEMPLATE_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "_templates" / "ai_validation"
-)
+_AI_TEMPLATE_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "ai_validation"
 
 
 def _load_ai_template(name: str) -> str:
@@ -266,16 +264,12 @@ async def validate_dependency_interfaces(
             messages=[{"role": "user", "content": prompt}],
         )
 
-    response = await retry_api_call_async(
-        _call, context=f"stale-dep check on '{upstream_spec}'"
-    )
+    response = await retry_api_call_async(_call, context=f"stale-dep check on '{upstream_spec}'")
 
     track_response_usage(response, model, "stale-dep check")
 
     # Extract text from response
-    response_text = _extract_response_text(
-        response, f"stale-dep check on '{upstream_spec}'"
-    )
+    response_text = _extract_response_text(response, f"stale-dep check on '{upstream_spec}'")
     if response_text is None:
         return []
 
@@ -320,10 +314,7 @@ async def validate_dependency_interfaces(
         declaring_spec = matched_ref.declaring_spec if matched_ref else "unknown"
 
         suggestion_text = suggestion if suggestion else ""
-        message = (
-            f"Dependency on {upstream_spec}: identifier `{identifier}` "
-            f"not found in design.md. {explanation}."
-        )
+        message = f"Dependency on {upstream_spec}: identifier `{identifier}` not found in design.md. {explanation}."
         if suggestion_text:
             message += f" Suggestion: {suggestion_text}"
 
@@ -390,9 +381,7 @@ async def run_stale_dependency_validation(
         design_content = design_path.read_text(encoding="utf-8")
 
         try:
-            upstream_findings = await validate_dependency_interfaces(
-                upstream_name, design_content, refs, model
-            )
+            upstream_findings = await validate_dependency_interfaces(upstream_name, design_content, refs, model)
             findings.extend(upstream_findings)
         except Exception as exc:
             _ai_logger.warning(
@@ -571,8 +560,7 @@ async def rewrite_criteria(
     flagged_lines: list[str] = []
     for finding in findings:
         flagged_lines.append(
-            f"- Criterion {finding.message.split(']')[0].lstrip('[')}]: "
-            f"Issue type: {finding.rule}. {finding.message}"
+            f"- Criterion {finding.message.split(']')[0].lstrip('[')}]: Issue type: {finding.rule}. {finding.message}"
         )
 
     flagged_criteria = "\n".join(flagged_lines)
@@ -628,9 +616,7 @@ async def run_ai_validation(
             continue
 
         try:
-            spec_findings = await analyze_acceptance_criteria(
-                spec.name, spec.path, model
-            )
+            spec_findings = await analyze_acceptance_criteria(spec.name, spec.path, model)
             findings.extend(spec_findings)
         except Exception as exc:
             _ai_logger.warning(
@@ -643,9 +629,7 @@ async def run_ai_validation(
     # NEW: stale-dependency validation (21-REQ-4.1)
     if specs_dir is not None:
         try:
-            stale_findings = await run_stale_dependency_validation(
-                discovered_specs, specs_dir, model
-            )
+            stale_findings = await run_stale_dependency_validation(discovered_specs, specs_dir, model)
             findings.extend(stale_findings)
         except Exception as exc:
             _ai_logger.warning(

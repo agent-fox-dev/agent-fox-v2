@@ -79,9 +79,7 @@ class TestSyncFactsToDuckDB:
         )
         assert inserted == 1
 
-    def test_prior_facts_synced_for_causal_links(
-        self, knowledge_db: KnowledgeDB
-    ) -> None:
+    def test_prior_facts_synced_for_causal_links(self, knowledge_db: KnowledgeDB) -> None:
         """Regression: prior facts from JSONL must be synced to DuckDB so
         causal links referencing them pass the referential integrity check.
 

@@ -295,8 +295,7 @@ def _validate_and_parse_specs(
         invalid_deps = [d for d in dep_names if d not in all_spec_names]
         if invalid_deps:
             logger.warning(
-                "Spec '%s' declares dependency on non-existent spec(s): %s. "
-                "Skipping this spec.",
+                "Spec '%s' declares dependency on non-existent spec(s): %s. Skipping this spec.",
                 spec_info.name,
                 ", ".join(invalid_deps),
             )
@@ -359,11 +358,7 @@ def _build_nodes_and_edges(
             target_id = f"{spec_info.name}:{first_group}"
 
             for dep_name in dep_names:
-                dep_groups = [
-                    n.group_number
-                    for n in new_nodes.values()
-                    if n.spec_name == dep_name
-                ]
+                dep_groups = [n.group_number for n in new_nodes.values() if n.spec_name == dep_name]
                 if dep_groups:
                     source_id = f"{dep_name}:{max(dep_groups)}"
                     new_edges.append(
@@ -452,8 +447,4 @@ def should_trigger_barrier(
     Returns:
         True if a sync barrier should be triggered, False otherwise.
     """
-    return (
-        sync_interval > 0
-        and completed_count > 0
-        and completed_count % sync_interval == 0
-    )
+    return sync_interval > 0 and completed_count > 0 and completed_count % sync_interval == 0
