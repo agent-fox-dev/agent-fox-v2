@@ -27,21 +27,21 @@ verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/nightshift/test_dedup.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/nightshift/test_dedup.py`
     - Test `compute_fingerprint()` — TS-79-1, TS-79-2, TS-79-3, TS-79-4, TS-79-14, TS-79-15
     - Test `embed_fingerprint()` — TS-79-5
     - Test `extract_fingerprint()` — TS-79-6, TS-79-7, TS-79-8
     - _Test Spec: TS-79-1 through TS-79-8, TS-79-14, TS-79-15_
 
-  - [ ] 1.2 Create integration test file `tests/integration/nightshift/test_dedup.py`
+  - [x] 1.2 Create integration test file `tests/integration/nightshift/test_dedup.py`
     - Test `filter_known_duplicates()` — TS-79-9, TS-79-10
     - Test issue creation with label — TS-79-11, TS-79-12, TS-79-13
     - Test edge cases — TS-79-E1, TS-79-E2, TS-79-E3, TS-79-E4
     - Test smoke tests — TS-79-SMOKE-1, TS-79-SMOKE-2
     - _Test Spec: TS-79-9 through TS-79-13, TS-79-E1 through TS-79-E4, TS-79-SMOKE-1, TS-79-SMOKE-2_
 
-  - [ ] 1.3 Create property test file `tests/property/nightshift/test_dedup_props.py`
+  - [x] 1.3 Create property test file `tests/property/nightshift/test_dedup_props.py`
     - Fingerprint determinism — TS-79-P1
     - Fingerprint uniqueness — TS-79-P2
     - Embed-extract round-trip — TS-79-P3
@@ -50,10 +50,10 @@ verification.
     - Empty files stability — TS-79-P6
     - _Test Spec: TS-79-P1 through TS-79-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
 - [ ] 2. Implement dedup module (pure functions)
   - [ ] 2.1 Create `agent_fox/nightshift/dedup.py` with module docstring
