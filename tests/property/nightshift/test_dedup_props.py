@@ -53,7 +53,6 @@ def _make_group(category: str, affected_files: list[str]) -> object:
 def _make_issue_result_with_fp(number: int, fp: str) -> object:
     """Build an IssueResult whose body embeds the given fingerprint."""
     from agent_fox.nightshift.dedup import embed_fingerprint
-
     from agent_fox.platform.github import IssueResult
 
     body = embed_fingerprint("Existing issue body", fp)
@@ -123,8 +122,9 @@ class TestFingerprintUniqueness:
     @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
     def test_different_categories_different_fingerprints(self, cat_a: str, cat_b: str, files: list[str]) -> None:
         """TS-79-P2: Different categories with same files produce different fingerprints."""
-        from agent_fox.nightshift.dedup import compute_fingerprint
         from hypothesis import assume
+
+        from agent_fox.nightshift.dedup import compute_fingerprint
 
         assume(cat_a != cat_b)
 
@@ -143,8 +143,9 @@ class TestFingerprintUniqueness:
         self, category: str, files_a: list[str], files_b: list[str]
     ) -> None:
         """TS-79-P2: Different deduplicated-sorted files with same category produce different fingerprints."""
-        from agent_fox.nightshift.dedup import compute_fingerprint
         from hypothesis import assume
+
+        from agent_fox.nightshift.dedup import compute_fingerprint
 
         # Only test when sorted-deduped sets differ
         assume(sorted(set(files_a)) != sorted(set(files_b)))

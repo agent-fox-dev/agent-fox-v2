@@ -113,36 +113,37 @@ verification.
     - [x] Requirements 79-REQ-3.* met
     - [x] Full pipeline: `make check`
 
-- [ ] 4. Wiring verification
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+- [x] 4. Wiring verification
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - `filter_known_duplicates` returns `list[FindingGroup]` consumed by `create_issues_from_groups`
     - `compute_fingerprint` return value is used by both `filter_known_duplicates` and `create_issues_from_groups`
     - `extract_fingerprint` return value is used by `filter_known_duplicates`
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - All `TS-79-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-79-SMOKE-1, TS-79-SMOKE-2_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be either justified or replaced with real implementation
-    - Document any intentional stubs here with rationale
+    - Only `return None` in `extract_fingerprint` is intentional — correct
+      per `str | None` return type; no unjustified stubs found.
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

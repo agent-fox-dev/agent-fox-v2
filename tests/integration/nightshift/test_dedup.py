@@ -217,7 +217,6 @@ class TestCreateIssuesWithLabel:
     async def test_issue_body_contains_fingerprint_marker(self) -> None:
         """TS-79-12: The body passed to create_issue includes a fingerprint marker."""
         from agent_fox.nightshift.dedup import compute_fingerprint, extract_fingerprint
-
         from agent_fox.nightshift.finding import create_issues_from_groups
 
         group = _make_group(
@@ -300,9 +299,8 @@ class TestDedupEdgeCases:
     @pytest.mark.asyncio
     async def test_fail_open_on_platform_error(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-79-E1: Platform failure returns all groups unfiltered, warning logged."""
-        from agent_fox.nightshift.dedup import filter_known_duplicates
-
         from agent_fox.core.errors import IntegrationError
+        from agent_fox.nightshift.dedup import filter_known_duplicates
 
         group_a = _make_group(category="linter_debt", affected_files=["a.py"])
         group_b = _make_group(category="dead_code", affected_files=["b.py"])
@@ -415,7 +413,6 @@ class TestHuntScanSmokeTests:
         Must NOT satisfy with: mocking dedup or fingerprint functions.
         """
         from agent_fox.nightshift.dedup import extract_fingerprint
-
         from agent_fox.nightshift.engine import NightShiftEngine
 
         config = MagicMock()
