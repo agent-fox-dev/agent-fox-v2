@@ -12,8 +12,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from typing import TYPE_CHECKING
 
-from agent_fox.nightshift.finding import FindingGroup
+if TYPE_CHECKING:
+    from agent_fox.nightshift.finding import FindingGroup
 
 logger = logging.getLogger(__name__)
 

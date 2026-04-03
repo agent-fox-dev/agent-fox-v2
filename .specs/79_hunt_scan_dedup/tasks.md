@@ -88,30 +88,30 @@ verification.
     - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 79-REQ-1.*, 79-REQ-2.*, 79-REQ-4.*, 79-REQ-5.* met
 
-- [ ] 3. Pipeline integration
-  - [ ] 3.1 Modify `create_issues_from_groups()` in `finding.py`
+- [x] 3. Pipeline integration
+  - [x] 3.1 Modify `create_issues_from_groups()` in `finding.py`
     - Import `compute_fingerprint`, `embed_fingerprint`, `FINGERPRINT_LABEL` from dedup
     - Before calling `platform.create_issue()`, compute fingerprint and embed in body
     - Pass `labels=[FINGERPRINT_LABEL]` to `platform.create_issue()`
     - _Requirements: 79-REQ-2.1, 79-REQ-3.1, 79-REQ-3.2_
 
-  - [ ] 3.2 Modify `_run_hunt_scan()` in `engine.py`
+  - [x] 3.2 Modify `_run_hunt_scan()` in `engine.py`
     - Import `filter_known_duplicates` from dedup
     - Insert dedup gate call between `consolidate_findings()` and `create_issues_from_groups()`
     - _Requirements: 79-REQ-4.1, 79-REQ-4.2_
 
-  - [ ] 3.3 Verify af:fix label coexistence
+  - [x] 3.3 Verify af:fix label coexistence
     - Ensure `--auto` mode assigns `af:fix` after creation (existing behavior)
     - Issues should have both `af:hunt` (from creation) and `af:fix` (from assign_label)
     - _Requirements: 79-REQ-3.2, 79-REQ-3.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All integration tests pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py -k "smoke"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 79-REQ-3.* met
-    - [ ] Full pipeline: `make check`
+  - [x] 3.V Verify task group 3
+    - [x] All integration tests pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/nightshift/test_dedup.py -k "smoke"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 79-REQ-3.* met
+    - [x] Full pipeline: `make check`
 
 - [ ] 4. Wiring verification
   - [ ] 4.1 Trace every execution path from design.md end-to-end

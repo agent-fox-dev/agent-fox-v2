@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.nightshift.critic import consolidate_findings
+from agent_fox.nightshift.dedup import filter_known_duplicates
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
 from agent_fox.nightshift.finding import (
     create_issues_from_groups,
@@ -297,6 +298,11 @@ class NightShiftEngine:
             return
 
         groups = await consolidate_findings(findings)  # type: ignore[arg-type]
+
+        # Dedup gate: skip groups whose fingerprint matches an existing open
+        # af:hunt issue. Fails open if the platform API is unavailable.
+        # Requirements: 79-REQ-4.1, 79-REQ-4.2
+        groups = await filter_known_duplicates(groups, self._platform)
 
         # create_issues_from_groups returns the created IssueResults so we
         # can assign labels without creating duplicate issues (61-REQ-5.4).

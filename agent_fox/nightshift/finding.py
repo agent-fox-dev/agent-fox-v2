@@ -10,6 +10,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from agent_fox.nightshift.dedup import (
+    FINGERPRINT_LABEL,
+    compute_fingerprint,
+    embed_fingerprint,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +110,13 @@ async def create_issues_from_groups(
     for group in groups:
         try:
             body = build_issue_body(group)
-            result = await platform.create_issue(group.title, body)  # type: ignore[union-attr]
+            fingerprint = compute_fingerprint(group)
+            body = embed_fingerprint(body, fingerprint)
+            result = await platform.create_issue(  # type: ignore[union-attr]
+                group.title,
+                body,
+                labels=[FINGERPRINT_LABEL],
+            )
             created.append(result)
         except Exception:
             logger.warning(
