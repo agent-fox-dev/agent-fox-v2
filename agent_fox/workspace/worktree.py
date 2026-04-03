@@ -56,7 +56,7 @@ async def create_worktree(
         )
         # If git worktree remove didn't fully clean up, remove manually
         if worktree_path.exists():
-            shutil.rmtree(worktree_path)
+            shutil.rmtree(worktree_path, ignore_errors=True)
 
     # Prune worktree registry to clean up any stale entries
     await run_git(["worktree", "prune"], cwd=repo_root, check=False)
