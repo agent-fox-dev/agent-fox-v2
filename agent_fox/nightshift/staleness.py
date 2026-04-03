@@ -35,9 +35,7 @@ def _build_staleness_prompt(
     remaining_descriptions = []
     for issue in remaining_issues:
         body_preview = (issue.body or "")[:500]
-        remaining_descriptions.append(
-            f"- #{issue.number}: {issue.title}\n  Body: {body_preview}"
-        )
+        remaining_descriptions.append(f"- #{issue.number}: {issue.title}\n  Body: {body_preview}")
 
     diff_preview = fix_diff[:3000] if fix_diff else "(no diff available)"
 
@@ -162,9 +160,7 @@ async def check_staleness(
     # Step 1: Try AI staleness evaluation
     ai_rationale: dict[int, str] = {}
     try:
-        ai_result = await _run_ai_staleness(
-            fixed_issue, remaining_issues, fix_diff, config
-        )
+        ai_result = await _run_ai_staleness(fixed_issue, remaining_issues, fix_diff, config)
         ai_rationale = ai_result.rationale
     except Exception:
         logger.warning(
@@ -182,20 +178,20 @@ async def check_staleness(
         still_open_numbers = {i.number for i in still_open}
     except Exception:
         logger.warning(
-            "GitHub re-fetch failed during staleness check for fix #%d, "
-            "continuing without removing any issues",
+            "GitHub re-fetch failed during staleness check for fix #%d, continuing without removing any issues",
             fixed_issue.number,
             exc_info=True,
         )
         return StalenessResult(obsolete_issues=[], rationale={})
 
-    # Step 3: An issue is obsolete if it was in our remaining list but
-    # is no longer open on GitHub (closed or label removed).
+    # Step 3: An issue is obsolete when the AI says it is resolved AND
+    # GitHub confirms it is still open (so our close_issue() call is
+    # meaningful).  Issues already closed externally are not our concern.
     obsolete_issues: list[int] = []
     rationale: dict[int, str] = {}
     for num in remaining_numbers:
-        if num not in still_open_numbers:
+        if num in ai_rationale and num in still_open_numbers:
             obsolete_issues.append(num)
-            rationale[num] = ai_rationale.get(num, "Issue no longer open on GitHub")
+            rationale[num] = ai_rationale[num]
 
     return StalenessResult(obsolete_issues=obsolete_issues, rationale=rationale)

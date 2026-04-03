@@ -9,12 +9,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from pathlib import Path
 from typing import Any
 
 from agent_fox.nightshift.critic import consolidate_findings
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
 from agent_fox.nightshift.finding import (
-    build_issue_body,
     create_issues_from_groups,
 )
 from agent_fox.nightshift.reference_parser import (
@@ -65,10 +65,7 @@ def validate_night_shift_prerequisites(config: object) -> None:
     """
     platform_type = getattr(getattr(config, "platform", None), "type", "none")
     if platform_type == "none":
-        logger.error(
-            "Night-shift requires a configured platform. "
-            "Set [platform] type = 'github' in your config."
-        )
+        logger.error("Night-shift requires a configured platform. Set [platform] type = 'github' in your config.")
         sys.exit(1)
 
 
@@ -106,9 +103,7 @@ class NightShiftEngine:
 
         Requirements: 61-REQ-1.E2, 61-REQ-9.3
         """
-        max_cost = getattr(
-            getattr(self._config, "orchestrator", None), "max_cost", None
-        )
+        max_cost = getattr(getattr(self._config, "orchestrator", None), "max_cost", None)
         if max_cost is None:
             return False
         # Stop when remaining budget is less than 50% of max.
@@ -167,10 +162,12 @@ class NightShiftEngine:
         all_edges = explicit_edges + github_edges
 
         # AI triage for batches >= 3 (71-REQ-3.1, 71-REQ-3.5)
+        supersession_pairs: list[tuple[int, int]] = []
         if len(issues) >= 3:
             try:
                 triage = await run_batch_triage(issues, all_edges, self._config)
                 all_edges = merge_edges(all_edges, triage.edges)
+                supersession_pairs = triage.supersession_pairs
             except Exception:
                 logger.warning(
                     "AI triage failed, using explicit refs only",
@@ -183,6 +180,27 @@ class NightShiftEngine:
 
         issue_map = {i.number: i for i in issues}
         closed: set[int] = set()
+
+        # Close AI-identified superseded issues before processing (71-REQ-3.5)
+        for _keep, obsolete in supersession_pairs:
+            if obsolete not in issue_map or obsolete in closed:
+                continue
+            try:
+                await self._platform.close_issue(  # type: ignore[union-attr]
+                    obsolete,
+                    f"Superseded by #{_keep} (AI triage).",
+                )
+                closed.add(obsolete)
+                _emit_audit_event(
+                    "night_shift.issue_superseded",
+                    {"closed_issue": obsolete, "superseded_by": _keep},
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to close superseded issue #%d",
+                    obsolete,
+                    exc_info=True,
+                )
 
         for issue_num in processing_order:
             if issue_num in closed:
@@ -207,11 +225,7 @@ class NightShiftEngine:
 
             # Post-fix staleness check (71-REQ-5.1, 71-REQ-5.E3)
             if fix_succeeded:
-                remaining = [
-                    issue_map[n]
-                    for n in processing_order
-                    if n != issue_num and n not in closed
-                ]
+                remaining = [issue_map[n] for n in processing_order if n != issue_num and n not in closed]
                 if remaining:
                     try:
                         staleness = await check_staleness(
@@ -235,9 +249,7 @@ class NightShiftEngine:
                                 {
                                     "closed_issue": obsolete_num,
                                     "fixed_by": issue_num,
-                                    "rationale": staleness.rationale.get(
-                                        obsolete_num, ""
-                                    ),
+                                    "rationale": staleness.rationale.get(obsolete_num, ""),
                                 },
                             )
                     except Exception:
@@ -248,11 +260,15 @@ class NightShiftEngine:
                         )
 
     async def _run_hunt_scan_inner(self) -> list[object]:
-        """Execute the hunt scan and return findings.
+        """Execute the hunt scan using all enabled hunt categories.
 
-        Override point for testing.
+        Requirements: 61-REQ-3.1, 61-REQ-3.2, 61-REQ-3.4
         """
-        return []
+        from agent_fox.nightshift.hunt import HuntCategoryRegistry, HuntScanner
+
+        registry = HuntCategoryRegistry()
+        scanner = HuntScanner(registry, self._config)
+        return await scanner.run(Path.cwd())  # type: ignore[return-value]
 
     async def _run_hunt_scan(self) -> None:
         """Execute a full hunt scan and create issues from findings.
@@ -282,18 +298,18 @@ class NightShiftEngine:
 
         groups = await consolidate_findings(findings)  # type: ignore[arg-type]
 
-        await create_issues_from_groups(groups, self._platform)
+        # create_issues_from_groups returns the created IssueResults so we
+        # can assign labels without creating duplicate issues (61-REQ-5.4).
+        created = await create_issues_from_groups(groups, self._platform)
 
         if self._auto_fix:
-            # Assign af:fix label to all created issues
-            for group in groups:
+            # Assign af:fix label to the issues already created above.
+            for result in created:
                 try:
-                    body = build_issue_body(group)
-                    result = await self._platform.create_issue(group.title, body)  # type: ignore[union-attr]
                     await self._platform.assign_label(result.number, "af:fix")  # type: ignore[union-attr]
                     _emit_audit_event(
                         "night_shift.issue_created",
-                        {"issue_number": result.number, "title": group.title},
+                        {"issue_number": result.number},
                     )
                 except Exception:
                     logger.warning(
