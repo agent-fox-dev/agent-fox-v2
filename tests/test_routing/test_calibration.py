@@ -3,10 +3,12 @@
 Test Spec: TS-30-15, TS-30-16, TS-30-17, TS-30-18, TS-30-19,
            TS-30-E7, TS-30-E8
 Requirements: 30-REQ-4.1 through 30-REQ-4.5, 30-REQ-4.E1, 30-REQ-4.E2
+Issue: #206 — enriched feature vector fields
 """
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import patch
@@ -75,6 +77,10 @@ def _populate_outcomes(
                 "edge_case_count": rng.randint(0, 5) if not consistent else i % 3,
                 "dependency_count": deps,
                 "archetype": "coder",
+                "file_count_estimate": rng.randint(1, 10) if not consistent else i % 3 + 1,
+                "cross_spec_integration": rng.choice([True, False]) if not consistent else (i % 3 == 2),
+                "language_count": rng.randint(1, 3) if not consistent else 1,
+                "historical_median_duration_ms": rng.randint(1000, 30000) if not consistent else None,
             }
         )
 
@@ -189,9 +195,7 @@ class TestHybridDivergence:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_hybrid_divergence(
-        self, spec_dir, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_hybrid_divergence(self, spec_dir, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-18: Hybrid mode uses higher-accuracy method on divergence.
 
         Requirement: 30-REQ-4.4
@@ -231,9 +235,7 @@ class TestRetrainingTrigger:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_retraining_trigger(
-        self, spec_dir, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_retraining_trigger(self, spec_dir, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-19: Verify retraining after N new outcomes.
 
         Requirement: 30-REQ-4.5
@@ -354,9 +356,7 @@ class TestAccuracyDegradation:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_accuracy_degradation(
-        self, spec_dir, routing_db: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_accuracy_degradation(self, spec_dir, routing_db: duckdb.DuckDBPyConnection) -> None:
         """TS-30-E8: Accuracy drop triggers revert to hybrid.
 
         Requirement: 30-REQ-4.E2
@@ -398,3 +398,138 @@ class TestAccuracyDegradation:
         )
         # After degradation, should revert to hybrid
         assert result2.assessment_method in ["hybrid", "heuristic"]
+
+
+class TestEnrichedFeatureVector:
+    """Issue #206: Verify enriched feature vector fields are used."""
+
+    def test_feature_vector_to_array_includes_enriched_fields(self) -> None:
+        """_feature_vector_to_array returns 9 elements including enriched fields."""
+        from agent_fox.routing.calibration import _feature_vector_to_array
+
+        fv_json = json.dumps(
+            {
+                "subtask_count": 3,
+                "spec_word_count": 500,
+                "has_property_tests": True,
+                "edge_case_count": 2,
+                "dependency_count": 1,
+                "archetype": "coder",
+                "file_count_estimate": 7,
+                "cross_spec_integration": True,
+                "language_count": 2,
+                "historical_median_duration_ms": 15000,
+            }
+        )
+        result = _feature_vector_to_array(fv_json)
+        assert len(result) == 9
+        assert result == [3.0, 500.0, 1.0, 2.0, 1.0, 7.0, 1.0, 2.0, 15000.0]
+
+    def test_feature_vector_to_array_defaults_for_missing_enriched(self) -> None:
+        """_feature_vector_to_array uses sensible defaults for missing enriched fields."""
+        from agent_fox.routing.calibration import _feature_vector_to_array
+
+        fv_json = json.dumps(
+            {
+                "subtask_count": 3,
+                "spec_word_count": 500,
+                "has_property_tests": False,
+                "edge_case_count": 2,
+                "dependency_count": 1,
+            }
+        )
+        result = _feature_vector_to_array(fv_json)
+        assert len(result) == 9
+        # Enriched defaults: file_count_estimate=0, cross_spec_integration=False(0),
+        # language_count=1, historical_median_duration_ms=0
+        assert result[5:] == [0.0, 0.0, 1.0, 0.0]
+
+    def test_feature_vector_to_array_none_duration(self) -> None:
+        """_feature_vector_to_array handles None historical_median_duration_ms."""
+        from agent_fox.routing.calibration import _feature_vector_to_array
+
+        fv_json = json.dumps(
+            {
+                "subtask_count": 1,
+                "spec_word_count": 100,
+                "has_property_tests": False,
+                "edge_case_count": 0,
+                "dependency_count": 0,
+                "historical_median_duration_ms": None,
+            }
+        )
+        result = _feature_vector_to_array(fv_json)
+        assert result[8] == 0.0
+
+    def test_dataclass_to_array_includes_enriched_fields(self) -> None:
+        """_dataclass_to_array returns 9 elements including enriched fields."""
+        from agent_fox.routing.calibration import _dataclass_to_array
+
+        fv = FeatureVector(
+            subtask_count=3,
+            spec_word_count=500,
+            has_property_tests=True,
+            edge_case_count=2,
+            dependency_count=1,
+            archetype="coder",
+            file_count_estimate=7,
+            cross_spec_integration=True,
+            language_count=2,
+            historical_median_duration_ms=15000,
+        )
+        result = _dataclass_to_array(fv)
+        assert len(result) == 9
+        assert result == [3.0, 500.0, 1.0, 2.0, 1.0, 7.0, 1.0, 2.0, 15000.0]
+
+    def test_dataclass_to_array_none_duration(self) -> None:
+        """_dataclass_to_array handles None historical_median_duration_ms."""
+        from agent_fox.routing.calibration import _dataclass_to_array
+
+        fv = FeatureVector(
+            subtask_count=1,
+            spec_word_count=100,
+            has_property_tests=False,
+            edge_case_count=0,
+            dependency_count=0,
+            archetype="coder",
+            historical_median_duration_ms=None,
+        )
+        result = _dataclass_to_array(fv)
+        assert result[8] == 0.0
+
+    def test_both_converters_produce_same_length(self) -> None:
+        """Both conversion functions produce arrays of the same length."""
+        from agent_fox.routing.calibration import (
+            _dataclass_to_array,
+            _feature_vector_to_array,
+        )
+
+        fv_dc = FeatureVector(
+            subtask_count=3,
+            spec_word_count=500,
+            has_property_tests=True,
+            edge_case_count=2,
+            dependency_count=1,
+            archetype="coder",
+            file_count_estimate=5,
+            cross_spec_integration=False,
+            language_count=2,
+            historical_median_duration_ms=10000,
+        )
+        fv_json = json.dumps(
+            {
+                "subtask_count": 3,
+                "spec_word_count": 500,
+                "has_property_tests": True,
+                "edge_case_count": 2,
+                "dependency_count": 1,
+                "file_count_estimate": 5,
+                "cross_spec_integration": False,
+                "language_count": 2,
+                "historical_median_duration_ms": 10000,
+            }
+        )
+        dc_result = _dataclass_to_array(fv_dc)
+        json_result = _feature_vector_to_array(fv_json)
+        assert len(dc_result) == len(json_result)
+        assert dc_result == json_result

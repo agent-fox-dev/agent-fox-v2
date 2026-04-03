@@ -37,9 +37,7 @@ class TestAutoFixLabel:
         config.night_shift.categories.documentation_drift = False
 
         mock_platform = AsyncMock()
-        mock_platform.create_issue = AsyncMock(
-            return_value=MagicMock(number=1, title="test", html_url="http://test")
-        )
+        mock_platform.create_issue = AsyncMock(return_value=MagicMock(number=1, title="test", html_url="http://test"))
         mock_platform.assign_label = AsyncMock()
 
         engine = NightShiftEngine(config=config, platform=mock_platform, auto_fix=True)
@@ -202,6 +200,71 @@ class TestCostLimitReached:
 
 
 # ---------------------------------------------------------------------------
+# Harvest and close: successful fix merges branch and closes issue
+# ---------------------------------------------------------------------------
+
+
+class TestSuccessfulFixHarvestsAndCloses:
+    """Verify that a successful fix triggers harvest + push and closes the issue."""
+
+    @pytest.mark.asyncio
+    async def test_harvest_and_close_called_on_success(self) -> None:
+        """After all sessions succeed, harvest/push runs and the issue is closed."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+
+        # Stub out the archetype sessions so they succeed without real work
+        pipeline._run_session = AsyncMock(return_value=None)  # type: ignore[method-assign]
+
+        issue = IssueResult(
+            number=7,
+            title="Fix broken login",
+            html_url="https://github.com/test/repo/issues/7",
+        )
+
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock()) as mock_harvest:
+            await pipeline.process_issue(issue, issue_body="Login is broken.")
+
+        mock_harvest.assert_awaited_once()
+        mock_platform.close_issue.assert_awaited_once()
+        closed_num = mock_platform.close_issue.call_args[0][0]
+        assert closed_num == 7
+
+    @pytest.mark.asyncio
+    async def test_issue_not_closed_on_session_failure(self) -> None:
+        """When a session raises, the issue is NOT closed."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
+            side_effect=RuntimeError("session boom")
+        )
+
+        issue = IssueResult(
+            number=8,
+            title="Fix something",
+            html_url="https://github.com/test/repo/issues/8",
+        )
+
+        await pipeline.process_issue(issue, issue_body="Something is broken.")
+
+        mock_platform.close_issue.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
 # TS-61-E9: Empty issue body
 # Requirement: 61-REQ-6.E2
 # ---------------------------------------------------------------------------
@@ -232,9 +295,5 @@ class TestEmptyIssueBody:
         # Issue body is empty
         await pipeline.process_issue(issue, issue_body="")
 
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
-        assert any(
-            "detail" in c.lower() or "insufficient" in c.lower() for c in comments
-        )
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+        assert any("detail" in c.lower() or "insufficient" in c.lower() for c in comments)
