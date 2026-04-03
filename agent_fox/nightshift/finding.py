@@ -91,21 +91,25 @@ def build_issue_body(group: FindingGroup) -> str:
 async def create_issues_from_groups(
     groups: list[FindingGroup],
     platform: object,
-) -> None:
+) -> list[object]:
     """Create one platform issue per FindingGroup.
 
+    Returns the list of created issue objects so callers can act on them
+    (e.g. assign labels) without creating duplicate issues.
     Continues on individual failures, logging errors.
 
-    Requirements: 61-REQ-5.2, 61-REQ-5.E1
+    Requirements: 61-REQ-5.2, 61-REQ-5.4, 61-REQ-5.E1
     """
+    created: list[object] = []
     for group in groups:
         try:
             body = build_issue_body(group)
-            await platform.create_issue(group.title, body)  # type: ignore[union-attr]
+            result = await platform.create_issue(group.title, body)  # type: ignore[union-attr]
+            created.append(result)
         except Exception:
             logger.warning(
-                "Failed to create issue for group '%s': %s",
+                "Failed to create issue for group '%s'",
                 group.title,
-                "fail",
                 exc_info=True,
             )
+    return created

@@ -6,6 +6,8 @@ Requirements: 61-REQ-3.3, 61-REQ-5.1, 61-REQ-5.3
 
 from __future__ import annotations
 
+import pytest
+
 
 def _make_finding(**overrides: object) -> object:
     """Create a Finding with sensible defaults, overridden as needed."""
@@ -119,3 +121,64 @@ class TestIssueBody:
         body = build_issue_body(group)
         lower = body.lower()
         assert "suggested" in lower or "remediation" in lower or "fix" in lower
+
+
+# ---------------------------------------------------------------------------
+# Issue #227: create_issues_from_groups must return created issue objects
+# so callers can label them without creating duplicates.
+# ---------------------------------------------------------------------------
+
+
+class TestCreateIssuesFromGroupsReturnsResults:
+    """create_issues_from_groups returns the created IssueResult objects."""
+
+    @pytest.mark.asyncio
+    async def test_returns_created_issue_list(self) -> None:
+        """Returns one entry per successfully created issue."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.finding import FindingGroup, create_issues_from_groups
+
+        group = FindingGroup(
+            findings=[_make_finding()],
+            title="Test finding",
+            body="",
+            category="linter_debt",
+        )
+        mock_result = MagicMock(number=42)
+        mock_platform = AsyncMock()
+        mock_platform.create_issue = AsyncMock(return_value=mock_result)
+
+        results = await create_issues_from_groups([group], mock_platform)
+
+        assert len(results) == 1
+        assert results[0].number == 42
+
+    @pytest.mark.asyncio
+    async def test_failed_creation_excluded_from_results(self) -> None:
+        """Issues that fail to create are not included in the return list."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.finding import FindingGroup, create_issues_from_groups
+
+        good_group = FindingGroup(
+            findings=[_make_finding(title="Good")],
+            title="Good",
+            body="",
+            category="linter_debt",
+        )
+        bad_group = FindingGroup(
+            findings=[_make_finding(title="Bad")],
+            title="Bad",
+            body="",
+            category="linter_debt",
+        )
+
+        good_result = MagicMock(number=1)
+        mock_platform = AsyncMock()
+        mock_platform.create_issue = AsyncMock(side_effect=[good_result, RuntimeError("API error")])
+
+        results = await create_issues_from_groups([good_group, bad_group], mock_platform)
+
+        assert len(results) == 1
+        assert results[0].number == 1

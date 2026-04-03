@@ -297,3 +297,191 @@ class TestEmptyIssueBody:
 
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("detail" in c.lower() or "insufficient" in c.lower() for c in comments)
+
+
+# ---------------------------------------------------------------------------
+# Issue #226: HuntScanner wired to _run_hunt_scan_inner
+# Issue #227: auto_fix uses returned issue list, never calls create_issue twice
+# Issue #229: supersession_pairs acted on before processing loop
+# ---------------------------------------------------------------------------
+
+
+class TestHuntScanWiring:
+    """_run_hunt_scan_inner delegates to HuntScanner, not a stub."""
+
+    @pytest.mark.asyncio
+    async def test_run_hunt_scan_inner_calls_hunt_scanner(self) -> None:
+        """_run_hunt_scan_inner uses HuntScanner.run, not a hard-coded []."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.night_shift.categories = MagicMock()
+
+        engine = NightShiftEngine(config=config, platform=AsyncMock())
+
+        with patch("agent_fox.nightshift.hunt.HuntScanner") as MockScanner:
+            mock_scanner_instance = MagicMock()
+            mock_scanner_instance.run = AsyncMock(return_value=[])
+            MockScanner.return_value = mock_scanner_instance
+
+            await engine._run_hunt_scan_inner()
+
+        mock_scanner_instance.run.assert_awaited_once()
+
+
+class TestAutoFixNoDoubleCreate:
+    """--auto labels already-created issues; never calls create_issue twice."""
+
+    @pytest.mark.asyncio
+    async def test_auto_fix_calls_create_issue_once_per_group(self) -> None:
+        """With auto_fix=True, create_issue is called exactly once per group."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.nightshift.finding import Finding, FindingGroup
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        mock_platform = AsyncMock()
+        created_issue = MagicMock(number=99)
+        mock_platform.create_issue = AsyncMock(return_value=created_issue)
+        mock_platform.assign_label = AsyncMock()
+
+        engine = NightShiftEngine(config=config, platform=mock_platform, auto_fix=True)
+
+        finding = Finding(
+            category="linter_debt",
+            title="Test",
+            description="desc",
+            severity="minor",
+            affected_files=[],
+            suggested_fix="fix it",
+            evidence="ev",
+            group_key="key",
+        )
+        group = FindingGroup(findings=[finding], title="Test group", body="", category="linter_debt")
+
+        with (
+            patch.object(engine, "_run_hunt_scan_inner", AsyncMock(return_value=[finding])),
+            patch(
+                "agent_fox.nightshift.engine.consolidate_findings",
+                AsyncMock(return_value=[group]),
+            ),
+        ):
+            await engine._run_hunt_scan()
+
+        # create_issue called exactly once (not twice)
+        assert mock_platform.create_issue.await_count == 1
+        # assign_label called with the issue number from that single create
+        mock_platform.assign_label.assert_awaited_once_with(99, "af:fix")
+
+
+class TestSupersessionPairsActedOn:
+    """Engine closes AI-identified superseded issues before processing."""
+
+    @pytest.mark.asyncio
+    async def test_superseded_issue_closed_before_processing(self) -> None:
+        """When triage returns supersession_pairs, the obsolete issue is closed."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.nightshift.triage import TriageResult
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        mock_platform = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        issues = [
+            IssueResult(number=10, title="Keep", html_url="", body="detail"),
+            IssueResult(number=20, title="Superseded", html_url="", body="detail"),
+            IssueResult(number=30, title="Third", html_url="", body="detail"),
+        ]
+        mock_platform.list_issues_by_label = AsyncMock(return_value=issues)
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        engine._process_fix = AsyncMock()  # type: ignore[assignment]
+
+        triage_result = TriageResult(
+            processing_order=[10, 30],
+            edges=[],
+            supersession_pairs=[(10, 20)],  # 20 superseded by 10
+        )
+
+        with (
+            patch(
+                "agent_fox.nightshift.engine.run_batch_triage",
+                AsyncMock(return_value=triage_result),
+            ),
+            patch(
+                "agent_fox.nightshift.engine.check_staleness",
+                AsyncMock(return_value=MagicMock(obsolete_issues=[], rationale={})),
+            ),
+            patch(
+                "agent_fox.nightshift.engine.fetch_github_relationships",
+                AsyncMock(return_value=[]),
+            ),
+        ):
+            await engine._run_issue_check()
+
+        # Issue 20 must be closed as superseded
+        closed_numbers = [call.args[0] for call in mock_platform.close_issue.call_args_list]
+        assert 20 in closed_numbers
+
+    @pytest.mark.asyncio
+    async def test_superseded_issue_not_processed(self) -> None:
+        """A superseded issue is skipped by the processing loop."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.nightshift.triage import TriageResult
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        mock_platform = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        issues = [
+            IssueResult(number=10, title="Keep", html_url="", body="detail"),
+            IssueResult(number=20, title="Superseded", html_url="", body="detail"),
+            IssueResult(number=30, title="Third", html_url="", body="detail"),
+        ]
+        mock_platform.list_issues_by_label = AsyncMock(return_value=issues)
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        process_fix = AsyncMock()
+        engine._process_fix = process_fix  # type: ignore[assignment]
+
+        triage_result = TriageResult(
+            processing_order=[10, 30],
+            edges=[],
+            supersession_pairs=[(10, 20)],
+        )
+
+        with (
+            patch(
+                "agent_fox.nightshift.engine.run_batch_triage",
+                AsyncMock(return_value=triage_result),
+            ),
+            patch(
+                "agent_fox.nightshift.engine.check_staleness",
+                AsyncMock(return_value=MagicMock(obsolete_issues=[], rationale={})),
+            ),
+            patch(
+                "agent_fox.nightshift.engine.fetch_github_relationships",
+                AsyncMock(return_value=[]),
+            ),
+        ):
+            await engine._run_issue_check()
+
+        # _process_fix must never be called for the superseded issue 20
+        processed_numbers = [call.args[0].number for call in process_fix.call_args_list]
+        assert 20 not in processed_numbers
