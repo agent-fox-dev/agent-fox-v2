@@ -259,12 +259,12 @@ class TestArchetypeTogglesPromoted:
 class TestBudgetAndModelPromoted:
     """TS-68-8: max_budget_usd and models.coding are promoted with correct values."""
 
-    def test_max_budget_usd_promoted_as_5(self):
-        """orchestrator.max_budget_usd == 5.0 in parsed template."""
+    def test_max_budget_usd_promoted_as_8(self):
+        """orchestrator.max_budget_usd == 8.0 in parsed template."""
         template = generate_default_config()
         parsed = tomllib.loads(template)
         actual = parsed["orchestrator"]["max_budget_usd"]
-        assert actual == 5.0, f"max_budget_usd is {actual}, expected 5.0"
+        assert actual == 8.0, f"max_budget_usd is {actual}, expected 8.0"
 
     def test_models_coding_promoted_as_advanced(self):
         """models.coding == 'ADVANCED' in parsed template."""
@@ -274,13 +274,13 @@ class TestBudgetAndModelPromoted:
         assert actual == "ADVANCED", f"models.coding is {actual!r}, expected 'ADVANCED'"
 
     def test_max_budget_line_not_commented(self):
-        """max_budget_usd = 5.0 appears as an active line."""
+        """max_budget_usd = 8.0 appears as an active line."""
         template = generate_default_config()
-        assert "max_budget_usd = 5.0" in template, (
-            "max_budget_usd = 5.0 not found as active line"
+        assert "max_budget_usd = 8.0" in template, (
+            "max_budget_usd = 8.0 not found as active line"
         )
         for line in template.split("\n"):
-            if "max_budget_usd = 5.0" in line:
+            if "max_budget_usd = 8.0" in line:
                 assert not line.strip().startswith("#"), (
                     f"max_budget_usd line is commented: {line!r}"
                 )

@@ -157,7 +157,7 @@ class OrchestratorConfig(BaseModel):
     )
 
     max_budget_usd: float = Field(
-        default=2.0,
+        default=8.0,
         ge=0.0,
         description="Maximum USD spend per session, 0 = unlimited",
     )

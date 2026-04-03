@@ -53,13 +53,13 @@ class TestMaxTurnsDefaults:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         expected = {
-            "coder": 200,
-            "oracle": 50,
-            "skeptic": 50,
-            "verifier": 75,
-            "auditor": 50,
-            "librarian": 100,
-            "cartographer": 100,
+            "coder": 300,
+            "oracle": 80,
+            "skeptic": 80,
+            "verifier": 120,
+            "auditor": 80,
+            "librarian": 150,
+            "cartographer": 150,
         }
         for archetype, turns in expected.items():
             entry = ARCHETYPE_REGISTRY[archetype]
@@ -93,12 +93,12 @@ class TestBudgetParsing:
 
 
 class TestBudgetDefault:
-    """Verify default max_budget_usd is 2.0."""
+    """Verify default max_budget_usd is 8.0."""
 
     def test_default_budget(self) -> None:
-        """TS-56-7: Default max_budget_usd is 2.0."""
+        """TS-56-7: Default max_budget_usd is 8.0."""
         config = AgentFoxConfig()
-        assert config.orchestrator.max_budget_usd == 2.0
+        assert config.orchestrator.max_budget_usd == 8.0
 
 
 # ---------------------------------------------------------------------------
@@ -168,12 +168,12 @@ class TestThinkingDefaults:
     """Verify coder defaults to adaptive thinking, others disabled."""
 
     def test_coder_default_thinking_adaptive(self) -> None:
-        """TS-56-14: Coder defaults to adaptive thinking with 10000 budget."""
+        """TS-56-14: Coder defaults to adaptive thinking with 64000 budget."""
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         coder = ARCHETYPE_REGISTRY["coder"]
         assert coder.default_thinking_mode == "adaptive"
-        assert coder.default_thinking_budget == 10000
+        assert coder.default_thinking_budget == 64000
 
     def test_other_archetypes_default_thinking_disabled(self) -> None:
         """TS-56-14: Non-coder archetypes default to disabled thinking."""

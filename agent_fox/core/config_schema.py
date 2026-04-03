@@ -89,7 +89,7 @@ _PROMOTED_DEFAULTS: set[tuple[str, str]] = {
 # Requirements: 68-REQ-2.1, 68-REQ-2.2, 68-REQ-2.4, 68-REQ-2.5
 _PROMOTED_DEFAULTS_OVERRIDES: dict[tuple[str, str], object] = {
     ("orchestrator", "quality_gate"): "make check",
-    ("orchestrator", "max_budget_usd"): 5.0,
+    ("orchestrator", "max_budget_usd"): 8.0,
 }
 
 # Default descriptions for fields that lack description metadata.
