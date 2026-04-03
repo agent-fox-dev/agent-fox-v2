@@ -368,12 +368,25 @@ class NightShiftEngine:
         """Run the daemon loop until interrupted.
 
         Executes an initial issue check and hunt scan immediately on startup,
-        then continues until the engine is asked to shut down.
+        then repeats them at configured intervals until the engine is asked
+        to shut down.
 
-        Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.3
+        Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.1, 61-REQ-2.2,
+                      61-REQ-2.3
         """
         logger.info("Night-shift engine starting")
         _emit_audit_event("night_shift.start")
+
+        issue_interval = getattr(
+            getattr(self._config, "night_shift", None),
+            "issue_check_interval",
+            900,
+        )
+        hunt_interval = getattr(
+            getattr(self._config, "night_shift", None),
+            "hunt_scan_interval",
+            14400,
+        )
 
         # Initial run (61-REQ-2.3)
         if not self.state.is_shutting_down:
@@ -381,13 +394,28 @@ class NightShiftEngine:
         if not self.state.is_shutting_down:
             await self._run_hunt_scan()
 
-        # Timed loop — wait for shutdown, checking cost limit each iteration
+        # Timed loop — repeat checks at configured intervals
+        issue_elapsed = 0.0
+        hunt_elapsed = 0.0
+        tick = 1.0  # seconds per tick
+
         while not self.state.is_shutting_down:
             if self._check_cost_limit():
                 logger.info("Cost limit reached, shutting down")
                 self.state.is_shutting_down = True
                 break
-            await asyncio.sleep(0.05)
+
+            await asyncio.sleep(tick)
+            issue_elapsed += tick
+            hunt_elapsed += tick
+
+            if issue_elapsed >= issue_interval:
+                issue_elapsed = 0.0
+                await self._run_issue_check()
+
+            if hunt_elapsed >= hunt_interval:
+                hunt_elapsed = 0.0
+                await self._run_hunt_scan()
 
         logger.info("Night-shift engine stopped")
         return self.state
