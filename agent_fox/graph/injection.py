@@ -394,48 +394,6 @@ def build_review_only_graph(
     return TaskGraph(nodes=nodes, edges=edges, order=order, metadata=metadata)
 
 
-def run_review_only(
-    specs_dir: Path,
-    archetypes_config: Any | None,
-    sink: Any | None = None,
-) -> None:
-    """Emit run.start and run.complete audit events for a review-only run.
-
-    This function emits the required audit events and is intended as a
-    thin wrapper for orchestrating review-only sessions.  The actual
-    archetype session execution is handled by the CLI or engine layer.
-
-    Requirements: 53-REQ-6.3
-    """
-    from agent_fox.knowledge.audit import AuditEvent, AuditEventType, generate_run_id
-
-    run_id = generate_run_id()
-    mode_payload = {"mode": "review_only"}
-
-    start_event = AuditEvent(
-        run_id=run_id,
-        event_type=AuditEventType.RUN_START,
-        payload=mode_payload,
-    )
-    if sink is not None:
-        sink.emit_audit_event(start_event)
-    logger.info("Review-only run started (run_id=%s)", run_id)
-
-    # Build the graph so callers can introspect it
-    graph = build_review_only_graph(specs_dir, archetypes_config)
-
-    complete_event = AuditEvent(
-        run_id=run_id,
-        event_type=AuditEventType.RUN_COMPLETE,
-        payload=mode_payload,
-    )
-    if sink is not None:
-        sink.emit_audit_event(complete_event)
-    logger.info("Review-only run complete (run_id=%s)", run_id)
-
-    return graph
-
-
 def print_review_only_summary(conn: Any) -> None:
     """Print a summary of active review findings, verdicts, and drift findings.
 

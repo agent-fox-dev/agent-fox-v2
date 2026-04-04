@@ -38,6 +38,10 @@ _REMOTE_SUBCOMMANDS = frozenset(
 # backslashes, @{ sequences, and other characters unsafe in git refs.
 _REF_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_./@-]*$")
 
+# Pattern to extract the worktree path from a "used by worktree" error message.
+# Example: "error: Cannot delete branch 'x' used by worktree at '/path'"
+_WORKTREE_IN_USE_RE = re.compile(r"used by worktree at '([^']+)'")
+
 
 def validate_ref_name(name: str) -> str:
     """Validate a git ref name to prevent argument injection.
@@ -134,6 +138,36 @@ async def create_branch(
     await run_git(["branch", "--", branch_name, start_point], cwd=repo_path)
 
 
+async def branch_used_by_worktree(
+    repo_root: Path,
+    branch: str,
+) -> bool:
+    """Check if a branch is referenced by any git worktree.
+
+    Parses ``git worktree list --porcelain`` output. Returns ``True`` if
+    the branch appears in any worktree's ``branch`` line, ``False`` if not
+    found. Returns ``False`` (optimistic fallback) if the command fails.
+
+    Requirements: 80-REQ-1.3, 80-REQ-1.E2
+    """
+    try:
+        _rc, stdout, _stderr = await run_git(
+            ["worktree", "list", "--porcelain"],
+            cwd=repo_root,
+            check=False,
+        )
+    except Exception:
+        logger.warning("git worktree list --porcelain failed; proceeding optimistically")
+        return False
+
+    target = f"refs/heads/{branch}"
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("branch ") and stripped[len("branch ") :] == target:
+            return True
+    return False
+
+
 async def delete_branch(
     repo_path: Path,
     branch_name: str,
@@ -143,9 +177,15 @@ async def delete_branch(
 
     Logs a warning and returns if the branch does not exist.
 
+    MODIFIED (80-REQ-2.1, 80-REQ-2.2, 80-REQ-2.E1): If deletion fails with
+    "used by worktree", extracts the worktree path from the error message.
+    - If the path exists on the filesystem (live worktree), raises WorkspaceError.
+    - If the path does not exist (stale entry), prunes and retries once.
+    - If the retry also fails, logs a warning and returns without raising.
+
     Raises:
-        WorkspaceError: If deletion fails for reasons other than
-            the branch not existing.
+        WorkspaceError: If deletion fails for reasons other than the branch
+            not existing, or if the branch is used by a live (existing) worktree.
     """
     validate_ref_name(branch_name)
     flag = "-D" if force else "-d"
@@ -162,6 +202,41 @@ async def delete_branch(
                 branch_name,
             )
             return
+
+        # Check if deletion is blocked by a worktree reference
+        if "used by worktree" in stderr:
+            match = _WORKTREE_IN_USE_RE.search(stderr)
+            worktree_path = Path(match.group(1)) if match else None
+
+            # If the referenced worktree directory actually exists, the branch is
+            # legitimately in use — raise so the caller knows it's not stale.
+            if worktree_path is not None and worktree_path.exists():
+                raise WorkspaceError(
+                    f"Branch '{branch_name}' is in use by a live worktree at {worktree_path}; cannot delete",
+                    branch=branch_name,
+                )
+
+            # Stale registry entry: prune and retry once (80-REQ-2.1)
+            logger.debug(
+                "Branch '%s' is locked by a stale worktree entry; pruning and retrying",
+                branch_name,
+            )
+            await run_git(["worktree", "prune"], cwd=repo_path, check=False)
+            rc2, _stdout2, stderr2 = await run_git(
+                ["branch", flag, "--", branch_name],
+                cwd=repo_path,
+                check=False,
+            )
+            if rc2 != 0:
+                # Retry also failed — non-fatal, log warning and return (80-REQ-2.2)
+                logger.warning(
+                    "Failed to delete branch '%s' after pruning stale worktrees: %s",
+                    branch_name,
+                    stderr2.strip() or stderr.strip(),
+                )
+                return
+            return
+
         # Some other failure
         raise WorkspaceError(
             f"Failed to delete branch '{branch_name}': {stderr.strip()}",

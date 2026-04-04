@@ -41,8 +41,8 @@ class InterruptedResult:
 def _apply_overrides(
     config: OrchestratorConfig,
     parallel: int | None,
-    max_cost: float | None,
-    max_sessions: int | None,
+    max_cost: float | None = None,
+    max_sessions: int | None = None,
     watch_interval: int | None = None,
 ) -> OrchestratorConfig:
     """Return a new OrchestratorConfig with CLI overrides applied.
@@ -218,8 +218,6 @@ async def run_code(
         config: Loaded AgentFoxConfig.
         parallel: Override parallelism (1-8).
         no_hooks: Skip all hook scripts.
-        max_cost: Cost ceiling in USD.
-        max_sessions: Session count limit.
         debug: Enable debug audit trail.
         watch: Keep running and poll for new specs.
         watch_interval: Seconds between watch polls.
@@ -239,8 +237,8 @@ async def run_code(
         orch_config = _apply_overrides(
             config.orchestrator,
             parallel,
-            max_cost,
-            max_sessions,
+            max_cost=max_cost,
+            max_sessions=max_sessions,
             watch_interval=watch_interval,
         )
     except Exception:

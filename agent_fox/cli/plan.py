@@ -22,13 +22,11 @@ from agent_fox.spec.discovery import discover_specs
 @click.command("plan")
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
-@click.option("--analyze", is_flag=True, help="Show parallelism analysis")
 @click.pass_context
 def plan_cmd(
     ctx: click.Context,
     fast: bool,
     filter_spec: str | None,
-    analyze: bool,
 ) -> None:
     """Build an execution plan from specifications."""
     # Determine project paths
@@ -89,11 +87,3 @@ def plan_cmd(
         return
 
     click.echo(format_plan_summary(graph, specs))
-
-    # 20-REQ-1.1: Show parallelism analysis when --analyze is passed
-    if analyze:
-        from agent_fox.graph.resolver import analyze_plan, format_analysis
-
-        analysis = analyze_plan(graph)
-        click.echo()
-        click.echo(format_analysis(analysis, graph))

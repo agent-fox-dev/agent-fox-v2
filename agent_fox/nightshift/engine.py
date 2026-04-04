@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.nightshift.critic import consolidate_findings
+from agent_fox.nightshift.dedup import filter_known_duplicates
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
 from agent_fox.nightshift.finding import (
     create_issues_from_groups,
@@ -98,19 +99,30 @@ class NightShiftEngine:
     def _check_cost_limit(self) -> bool:
         """Check whether the cost limit has been reached.
 
-        Returns True when the remaining budget is insufficient for
-        another operation (less than 10% of max_cost remaining).
+        Returns True when the remaining budget is less than 50% of
+        max_cost.  This conservative threshold prevents overspending
+        when individual operations may cost a significant fraction of
+        the total budget.
 
         Requirements: 61-REQ-1.E2, 61-REQ-9.3
         """
         max_cost = getattr(getattr(self._config, "orchestrator", None), "max_cost", None)
         if max_cost is None:
             return False
-        # Stop when remaining budget is less than 50% of max.
-        # This conservative threshold prevents overspending when individual
-        # operations may cost a significant fraction of the total budget.
         remaining = max_cost - self.state.total_cost
         return remaining < max_cost * 0.5
+
+    def _check_session_limit(self) -> bool:
+        """Check whether the session limit has been reached.
+
+        Returns True when total_sessions >= max_sessions.
+
+        Requirements: 61-REQ-9.3
+        """
+        max_sessions = getattr(getattr(self._config, "orchestrator", None), "max_sessions", None)
+        if not isinstance(max_sessions, (int, float)):
+            return False
+        return self.state.total_sessions >= max_sessions
 
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.
@@ -210,6 +222,9 @@ class NightShiftEngine:
             if self._check_cost_limit():
                 logger.info("Cost limit reached, stopping issue processing")
                 break
+            if self._check_session_limit():
+                logger.info("Session limit reached, stopping issue processing")
+                break
 
             issue = issue_map[issue_num]
             fix_succeeded = False
@@ -298,9 +313,15 @@ class NightShiftEngine:
 
         groups = await consolidate_findings(findings)  # type: ignore[arg-type]
 
+        # Dedup gate: skip groups whose fingerprint matches an existing open
+        # af:hunt issue. Fails open if the platform API is unavailable.
+        # Requirements: 79-REQ-4.1, 79-REQ-4.2
+        groups = await filter_known_duplicates(groups, self._platform)
+
         # create_issues_from_groups returns the created IssueResults so we
         # can assign labels without creating duplicate issues (61-REQ-5.4).
         created = await create_issues_from_groups(groups, self._platform)
+        self.state.issues_created += len(created)
 
         if self._auto_fix:
             # Assign af:fix label to the issues already created above.
@@ -319,13 +340,31 @@ class NightShiftEngine:
 
         self.state.hunt_scans_completed += 1
 
+    def _calculate_fix_cost(self, metrics: object) -> float:
+        """Calculate USD cost from FixMetrics token counts."""
+        from agent_fox.core.config import PricingConfig
+        from agent_fox.core.models import calculate_cost, resolve_model
+
+        model_entry = resolve_model("ADVANCED")
+        pricing = getattr(self._config, "pricing", PricingConfig())
+        return calculate_cost(
+            getattr(metrics, "input_tokens", 0),
+            getattr(metrics, "output_tokens", 0),
+            model_entry.model_id,
+            pricing,
+            cache_read_input_tokens=getattr(metrics, "cache_read_input_tokens", 0),
+            cache_creation_input_tokens=getattr(metrics, "cache_creation_input_tokens", 0),
+        )
+
     async def _process_fix(self, issue: object) -> None:
         """Process a single af:fix issue through the fix pipeline.
 
         Builds an in-memory spec from the issue, runs the full archetype
-        pipeline, creates a PR, and updates the engine state.
+        pipeline, harvests the branch, and updates the engine state
+        including cost and session counters.
 
-        Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4
+        Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
+                      61-REQ-9.3
         """
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.platform.github import IssueResult
@@ -341,7 +380,9 @@ class NightShiftEngine:
         pipeline = FixPipeline(config=self._config, platform=self._platform)
 
         try:
-            await pipeline.process_issue(issue, issue_body=issue.body)
+            metrics = await pipeline.process_issue(issue, issue_body=issue.body)
+            self.state.total_sessions += getattr(metrics, "sessions_run", 0)
+            self.state.total_cost += self._calculate_fix_cost(metrics)
             self.state.issues_fixed += 1
             _emit_audit_event(
                 "night_shift.fix_complete",
@@ -362,12 +403,25 @@ class NightShiftEngine:
         """Run the daemon loop until interrupted.
 
         Executes an initial issue check and hunt scan immediately on startup,
-        then continues until the engine is asked to shut down.
+        then repeats them at configured intervals until the engine is asked
+        to shut down.
 
-        Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.3
+        Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.1, 61-REQ-2.2,
+                      61-REQ-2.3
         """
         logger.info("Night-shift engine starting")
         _emit_audit_event("night_shift.start")
+
+        issue_interval = getattr(
+            getattr(self._config, "night_shift", None),
+            "issue_check_interval",
+            900,
+        )
+        hunt_interval = getattr(
+            getattr(self._config, "night_shift", None),
+            "hunt_scan_interval",
+            14400,
+        )
 
         # Initial run (61-REQ-2.3)
         if not self.state.is_shutting_down:
@@ -375,13 +429,32 @@ class NightShiftEngine:
         if not self.state.is_shutting_down:
             await self._run_hunt_scan()
 
-        # Timed loop — wait for shutdown, checking cost limit each iteration
+        # Timed loop — repeat checks at configured intervals
+        issue_elapsed = 0.0
+        hunt_elapsed = 0.0
+        tick = 1.0  # seconds per tick
+
         while not self.state.is_shutting_down:
             if self._check_cost_limit():
                 logger.info("Cost limit reached, shutting down")
                 self.state.is_shutting_down = True
                 break
-            await asyncio.sleep(0.05)
+            if self._check_session_limit():
+                logger.info("Session limit reached, shutting down")
+                self.state.is_shutting_down = True
+                break
+
+            await asyncio.sleep(tick)
+            issue_elapsed += tick
+            hunt_elapsed += tick
+
+            if issue_elapsed >= issue_interval:
+                issue_elapsed = 0.0
+                await self._run_issue_check()
+
+            if hunt_elapsed >= hunt_interval:
+                hunt_elapsed = 0.0
+                await self._run_hunt_scan()
 
         logger.info("Night-shift engine stopped")
         return self.state

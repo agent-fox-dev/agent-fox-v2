@@ -174,50 +174,6 @@ class TestParallelOverride:
         assert updated.parallel == 1
 
 
-class TestMaxCostOverride:
-    """TS-16-4: Max-cost override applied.
-
-    Requirements: 16-REQ-2.3, 16-REQ-2.5
-    """
-
-    def test_max_cost_override_applied(self, cli_runner: CliRunner) -> None:
-        """The --max-cost option is passed to run_code."""
-        state = _make_execution_state()
-        mock_rc = _mock_run_code(state)
-
-        with (
-            patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-        ):
-            mock_plan_path.exists.return_value = True
-            cli_runner.invoke(main, ["code", "--max-cost", "10.00"])
-
-        mock_rc.assert_called_once()
-        assert mock_rc.call_args.kwargs["max_cost"] == 10.0
-
-
-class TestMaxSessionsOverride:
-    """TS-16-5: Max-sessions override applied.
-
-    Requirements: 16-REQ-2.4, 16-REQ-2.5
-    """
-
-    def test_max_sessions_override_applied(self, cli_runner: CliRunner) -> None:
-        """The --max-sessions option is passed to run_code."""
-        state = _make_execution_state()
-        mock_rc = _mock_run_code(state)
-
-        with (
-            patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
-        ):
-            mock_plan_path.exists.return_value = True
-            cli_runner.invoke(main, ["code", "--max-sessions", "20"])
-
-        mock_rc.assert_called_once()
-        assert mock_rc.call_args.kwargs["max_sessions"] == 20
-
-
 class TestStalledExitCode:
     """TS-16-6: Stalled execution exits with code 2.
 
