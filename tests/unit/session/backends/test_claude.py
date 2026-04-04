@@ -6,8 +6,9 @@ Requirements: 26-REQ-2.1, 26-REQ-2.2, 26-REQ-2.3, 26-REQ-2.4, 26-REQ-2.E1
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -315,3 +316,158 @@ class TestCoerceInt:
 
     def test_float_truncates(self) -> None:
         assert _coerce_int(3.7) == 3
+
+
+# ---------------------------------------------------------------------------
+# Issue #215: _stream_messages explicitly closes response stream before
+# __aexit__ to prevent unhandled ProcessError during teardown.
+# ---------------------------------------------------------------------------
+
+
+class _TrackableAsyncIterator:
+    """Async iterator wrapper that tracks aclose() calls.
+
+    Wraps a real async generator but exposes aclose as a trackable method
+    (async generators have read-only aclose attributes).
+    """
+
+    def __init__(self, async_gen, event: asyncio.Event) -> None:
+        self._gen = async_gen
+        self._event = event
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        return await self._gen.__anext__()
+
+    async def aclose(self):
+        self._event.set()
+        await self._gen.aclose()
+
+
+class TestStreamTeardownClosesResponseStream:
+    """Verify _stream_messages calls aclose() on the response stream.
+
+    When the async generator is consumed (fully or partially), the
+    response stream must be explicitly closed before the ClaudeSDKClient
+    context manager exits.  This prevents the SDK's internal read loop
+    from raising ProcessError(exit code 143) when the subprocess receives
+    SIGTERM during teardown.
+    """
+
+    @pytest.mark.asyncio
+    async def test_aclose_called_on_normal_completion(self) -> None:
+        """Response stream aclose() is called after full iteration."""
+        from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+        sdk_result = SDKResultMessage(
+            subtype="success",
+            is_error=False,
+            result="done",
+            duration_ms=100,
+            duration_api_ms=50,
+            num_turns=1,
+            session_id="test",
+            total_cost_usd=0.01,
+            usage={"input_tokens": 10, "output_tokens": 5},
+        )
+
+        aclose_called = asyncio.Event()
+
+        async def _mock_response_gen():
+            yield sdk_result
+
+        stream = _TrackableAsyncIterator(_mock_response_gen(), aclose_called)
+
+        mock_client = AsyncMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=stream)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        backend = ClaudeBackend()
+        messages = []
+        with patch("agent_fox.session.backends.claude.ClaudeSDKClient", return_value=mock_client):
+            async for msg in backend._stream_messages(
+                prompt="test",
+                options=MagicMock(),
+            ):
+                messages.append(msg)
+
+        assert len(messages) == 1
+        assert isinstance(messages[0], ResultMessage)
+        assert aclose_called.is_set(), "aclose() must be called on the response stream"
+
+    @pytest.mark.asyncio
+    async def test_aclose_called_on_early_break(self) -> None:
+        """Response stream aclose() is called when the generator is explicitly closed.
+
+        When a consumer breaks early, the outer generator's aclose() is
+        eventually called (by GC or explicit close).  We simulate this by
+        explicitly calling aclose() on the _stream_messages generator.
+        """
+        from claude_agent_sdk.types import AssistantMessage as SDKAssistantMessage
+        from claude_agent_sdk.types import TextBlock
+
+        sdk_msg1 = SDKAssistantMessage(
+            content=[TextBlock(text="hello")],
+            model="claude-sonnet-4-6",
+        )
+        sdk_msg2 = SDKAssistantMessage(
+            content=[TextBlock(text="world")],
+            model="claude-sonnet-4-6",
+        )
+
+        aclose_called = asyncio.Event()
+
+        async def _mock_response_gen():
+            yield sdk_msg1
+            yield sdk_msg2
+
+        stream = _TrackableAsyncIterator(_mock_response_gen(), aclose_called)
+
+        mock_client = AsyncMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=stream)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        backend = ClaudeBackend()
+        messages = []
+        with patch("agent_fox.session.backends.claude.ClaudeSDKClient", return_value=mock_client):
+            gen = backend._stream_messages(prompt="test", options=MagicMock())
+            # Consume one message, then explicitly close the generator
+            messages.append(await gen.__anext__())
+            await gen.aclose()
+
+        assert len(messages) == 1
+        assert aclose_called.is_set(), "aclose() must be called even on early close"
+
+    @pytest.mark.asyncio
+    async def test_aclose_called_on_stream_error(self) -> None:
+        """Response stream aclose() is called even when iteration raises."""
+        aclose_called = asyncio.Event()
+
+        async def _mock_response_gen():
+            raise RuntimeError("stream error")
+            yield  # noqa: RET503
+
+        stream = _TrackableAsyncIterator(_mock_response_gen(), aclose_called)
+
+        mock_client = AsyncMock()
+        mock_client.query = AsyncMock()
+        mock_client.receive_response = MagicMock(return_value=stream)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        backend = ClaudeBackend()
+        with pytest.raises(RuntimeError, match="stream error"):
+            with patch("agent_fox.session.backends.claude.ClaudeSDKClient", return_value=mock_client):
+                async for _ in backend._stream_messages(
+                    prompt="test",
+                    options=MagicMock(),
+                ):
+                    pass
+
+        assert aclose_called.is_set(), "aclose() must be called even on stream error"

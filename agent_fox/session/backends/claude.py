@@ -170,12 +170,29 @@ class ClaudeBackend:
 
         This is separated from ``execute()`` so that the outer method can
         catch streaming exceptions and yield a failed ``ResultMessage``.
+
+        The response stream is explicitly closed before the client context
+        manager exits. Without this, the SDK's internal read loop may still
+        be active when ``__aexit__`` sends SIGTERM to the subprocess,
+        causing an unhandled ``ProcessError`` (exit code 143) that surfaces
+        as an asyncio "Task exception was never retrieved" warning.
+
+        See: https://github.com/nicholasgasior/agent-fox/issues/215
         """
         async with ClaudeSDKClient(options=options) as client:
             await client.query(prompt)
-            async for message in client.receive_response():
-                for canonical in self._map_message(message):
-                    yield canonical
+            response_stream = client.receive_response()
+            try:
+                async for message in response_stream:
+                    for canonical in self._map_message(message):
+                        yield canonical
+            finally:
+                # Ensure the SDK's message stream is closed before __aexit__
+                # terminates the subprocess.  Without this,
+                # _read_messages_impl may still be reading when SIGTERM
+                # arrives, producing an unhandled ProcessError(exit code
+                # 143).
+                await response_stream.aclose()
 
     @staticmethod
     def _map_message(message: Any) -> list[AgentMessage]:
