@@ -19,9 +19,9 @@ from hypothesis import settings
 settings.register_profile("ci", deadline=None)
 settings.load_profile("ci")
 
-from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.migrations import apply_pending_migrations
-from tests.unit.knowledge.conftest import SCHEMA_DDL
+from agent_fox.knowledge.db import KnowledgeDB  # noqa: E402
+from agent_fox.knowledge.migrations import apply_pending_migrations  # noqa: E402
+from tests.unit.knowledge.conftest import SCHEMA_DDL  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

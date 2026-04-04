@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent_fox.nightshift.finding import FindingGroup
+    from agent_fox.platform.protocol import PlatformProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def extract_fingerprint(body: str) -> str | None:
 
 async def filter_known_duplicates(
     groups: list[FindingGroup],
-    platform: object,
+    platform: PlatformProtocol,
 ) -> list[FindingGroup]:
     """Fetch open af:hunt issues, extract fingerprints, return novel groups.
 
@@ -90,7 +91,7 @@ async def filter_known_duplicates(
     """
     # Fetch all open af:hunt issues in a single API call (79-REQ-4.1).
     try:
-        existing_issues = await platform.list_issues_by_label(  # type: ignore[union-attr]
+        existing_issues = await platform.list_issues_by_label(
             FINGERPRINT_LABEL,
             state="open",
         )

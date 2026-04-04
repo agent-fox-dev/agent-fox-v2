@@ -26,6 +26,7 @@ class TestOracleRegistryEntry:
         assert entry.task_assignable is True
         assert entry.default_model_tier == "ADVANCED"
         assert "oracle.md" in entry.templates
+        assert entry.default_allowlist is not None
         assert set(entry.default_allowlist) == {
             "ls",
             "cat",

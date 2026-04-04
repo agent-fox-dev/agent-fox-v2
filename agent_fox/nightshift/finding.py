@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_fox.platform.protocol import PlatformProtocol
 
 from agent_fox.nightshift.dedup import (
     FINGERPRINT_LABEL,
@@ -96,7 +100,7 @@ def build_issue_body(group: FindingGroup) -> str:
 
 async def create_issues_from_groups(
     groups: list[FindingGroup],
-    platform: object,
+    platform: PlatformProtocol,
 ) -> list[object]:
     """Create one platform issue per FindingGroup.
 
@@ -112,7 +116,7 @@ async def create_issues_from_groups(
             body = build_issue_body(group)
             fingerprint = compute_fingerprint(group)
             body = embed_fingerprint(body, fingerprint)
-            result = await platform.create_issue(  # type: ignore[union-attr]
+            result = await platform.create_issue(
                 group.title,
                 body,
                 labels=[FINGERPRINT_LABEL],

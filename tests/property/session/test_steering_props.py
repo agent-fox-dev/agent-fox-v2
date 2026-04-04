@@ -107,8 +107,8 @@ class TestPlaceholderDetectionAccuracy:
     @settings(max_examples=50)
     def test_directive_appended_to_placeholder_is_detected(self, directive: str) -> None:
         """File with placeholder plus directive text returns non-None."""
-        from agent_fox.workspace.init_project import _STEERING_PLACEHOLDER
         from agent_fox.session.prompt import load_steering
+        from agent_fox.workspace.init_project import _STEERING_PLACEHOLDER
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

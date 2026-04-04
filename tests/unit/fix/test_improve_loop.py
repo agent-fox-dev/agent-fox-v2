@@ -245,12 +245,14 @@ class TestImproveLoopTermination:
     @pytest.mark.asyncio
     async def test_cost_limit_terminates(self, tmp_path: Path, mock_config: AgentFoxConfig) -> None:
         """TS-31-23: Loop stops when cost budget is exhausted."""
-        result = await run_improve_loop(
-            project_root=tmp_path,
-            config=mock_config,
-            max_passes=3,
-            remaining_budget=0.01,
-        )
+        with patch("agent_fox.fix.improve.query_oracle_context", return_value=""), \
+             patch("agent_fox.fix.improve.load_review_context", return_value=""):
+            result = await run_improve_loop(
+                project_root=tmp_path,
+                config=mock_config,
+                max_passes=3,
+                remaining_budget=0.01,
+            )
 
         assert result.termination_reason == ImproveTermination.COST_LIMIT
         assert result.passes_completed == 0

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def _serialize(obj: object) -> dict[str, Any]:
     """Convert a dataclass to a JSON-safe dict (stringifies enums)."""
-    raw = asdict(obj)  # type: ignore[arg-type]
+    raw = asdict(obj)  # type: ignore[call-overload]
 
     def _fixup(value: object) -> object:
         if isinstance(value, Enum):

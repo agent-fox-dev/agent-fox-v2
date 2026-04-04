@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from agent_fox.spec.parser import TaskGroupDef
 
 
-def _tgd(number: int, title: str = "Task", **kw):
+def _tgd(number: int, title: str = "Task", **kw: Any) -> TaskGroupDef:
     """Build a TaskGroupDef with short defaults."""
     from agent_fox.spec.parser import TaskGroupDef
 
-    defaults = dict(optional=False, completed=False, subtasks=(), body="")
+    defaults: dict[str, Any] = dict(optional=False, completed=False, subtasks=(), body="")
     defaults.update(kw)
     return TaskGroupDef(number=number, title=title, **defaults)
 

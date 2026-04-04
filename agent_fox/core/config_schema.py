@@ -9,7 +9,7 @@ Requirements: 33-REQ-4.1, 33-REQ-4.2, 33-REQ-4.E1
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -213,7 +213,7 @@ def _resolve_default(field_info: FieldInfo) -> Any:
     from pydantic_core import PydanticUndefined
 
     if field_info.default_factory is not None:
-        return field_info.default_factory()
+        return field_info.default_factory()  # type: ignore[call-arg]
     if field_info.default is not PydanticUndefined and field_info.default is not None:
         return field_info.default
     if field_info.default is PydanticUndefined:
@@ -303,7 +303,8 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
             for field_name, field_info in model.model_fields.items():
                 annotation = field_info.annotation
                 if _is_nested_model(annotation):
-                    section = _extract_section(annotation, field_name, model_class=annotation)
+                    model_cls = cast(type[BaseModel], annotation)
+                    section = _extract_section(model_cls, field_name, model_class=model_cls)
                     sections.append(section)
             return sections
         elif has_nested and has_scalar:
@@ -312,7 +313,8 @@ def extract_schema(model: type[BaseModel], prefix: str = "") -> list[SectionSpec
             for field_name, field_info in model.model_fields.items():
                 annotation = field_info.annotation
                 if _is_nested_model(annotation):
-                    section = _extract_section(annotation, field_name, model_class=annotation)
+                    model_cls = cast(type[BaseModel], annotation)
+                    section = _extract_section(model_cls, field_name, model_class=model_cls)
                     sections.append(section)
             return sections
         else:
@@ -350,7 +352,8 @@ def _extract_section(model: type[BaseModel], path: str, model_class: type[BaseMo
 
         if is_nested:
             sub_path = f"{path}.{toml_key}"
-            sub_section = _extract_section(annotation, sub_path, model_class=annotation)
+            nested_cls = cast(type[BaseModel], annotation)
+            sub_section = _extract_section(nested_cls, sub_path, model_class=nested_cls)
             section.subsections.append(sub_section)
 
     return section

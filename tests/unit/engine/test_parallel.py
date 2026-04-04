@@ -88,7 +88,7 @@ class TestConcurrentDispatch:
             inter_session_delay=0,
         )
 
-        tasks = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
 
         async def on_complete(record: SessionRecord) -> None:
             pass  # No-op callback
@@ -108,7 +108,7 @@ class TestConcurrentDispatch:
             inter_session_delay=0,
         )
 
-        tasks = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
 
         async def on_complete(record: SessionRecord) -> None:
             pass
@@ -144,7 +144,7 @@ class TestRespectsDepencies:
 
         # Only A and B are ready (C and D have dependencies, handled by
         # the orchestrator)
-        tasks = [("A", 1, None), ("B", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None)]
 
         async def on_complete(record: SessionRecord) -> None:
             pass
@@ -180,7 +180,7 @@ class TestSerializedStateWrites:
         async def on_complete(record: SessionRecord) -> None:
             completed_nodes.append(record.node_id)
 
-        tasks = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
         await runner.execute_batch(tasks, on_complete)
 
         assert set(completed_nodes) == {"A", "B", "C", "D"}
@@ -209,7 +209,7 @@ class TestSerializedStateWrites:
             await asyncio.sleep(0.02)  # Simulate state write work
             concurrent_callbacks -= 1
 
-        tasks = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None), ("C", 1, None), ("D", 1, None)]
         await runner.execute_batch(tasks, on_complete)
 
         assert max_concurrent_callbacks == 1
@@ -269,7 +269,7 @@ class TestFewerTasksThanParallelism:
             inter_session_delay=0,
         )
 
-        tasks = [("A", 1, None), ("B", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None), ("B", 1, None)]
 
         async def on_complete(record: SessionRecord) -> None:
             pass
@@ -288,7 +288,7 @@ class TestFewerTasksThanParallelism:
             inter_session_delay=0,
         )
 
-        tasks = [("A", 1, None)]
+        tasks: list[tuple[str, int, str | None]] = [("A", 1, None)]
 
         async def on_complete(record: SessionRecord) -> None:
             pass

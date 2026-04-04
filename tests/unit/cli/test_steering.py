@@ -108,8 +108,8 @@ class TestPlaceholderContainsSentinelAndComments:
 
     def test_placeholder_treated_as_no_directives(self, tmp_path: Path) -> None:
         """load_steering() returns None for the placeholder file."""
-        from agent_fox.workspace.init_project import _ensure_steering_md
         from agent_fox.session.prompt import load_steering
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         result = load_steering(tmp_path)

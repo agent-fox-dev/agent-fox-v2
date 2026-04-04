@@ -6,14 +6,16 @@ Requirements: 61-REQ-3.3, 61-REQ-5.1, 61-REQ-5.3
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
+from agent_fox.nightshift.finding import Finding
 
-def _make_finding(**overrides: object) -> object:
+
+def _make_finding(**overrides: Any) -> Finding:
     """Create a Finding with sensible defaults, overridden as needed."""
-    from agent_fox.nightshift.finding import Finding
-
-    defaults = {
+    defaults: dict[str, Any] = {
         "category": "linter_debt",
         "title": "Unused imports in engine/",
         "description": "5 files contain unused imports.",
@@ -24,7 +26,7 @@ def _make_finding(**overrides: object) -> object:
         "group_key": "unused-imports-engine",
     }
     defaults.update(overrides)
-    return Finding(**defaults)  # type: ignore[arg-type]
+    return Finding(**defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +40,6 @@ class TestFindingContract:
 
     def test_finding_has_required_fields(self) -> None:
         """Every Finding must have all required fields populated."""
-        from agent_fox.nightshift.finding import Finding
-
         f = _make_finding()
         assert isinstance(f, Finding)
         assert f.category != ""
@@ -152,7 +152,7 @@ class TestCreateIssuesFromGroupsReturnsResults:
         results = await create_issues_from_groups([group], mock_platform)
 
         assert len(results) == 1
-        assert results[0].number == 42
+        assert getattr(results[0], "number") == 42
 
     @pytest.mark.asyncio
     async def test_failed_creation_excluded_from_results(self) -> None:
@@ -181,4 +181,4 @@ class TestCreateIssuesFromGroupsReturnsResults:
         results = await create_issues_from_groups([good_group, bad_group], mock_platform)
 
         assert len(results) == 1
-        assert results[0].number == 1
+        assert getattr(results[0], "number") == 1
