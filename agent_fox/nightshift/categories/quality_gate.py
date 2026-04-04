@@ -179,9 +179,9 @@ class QualityGateCategory(BaseHuntCategory):
 
             backend = self._backend
             if backend is None:
-                from agent_fox.core.client import get_client
+                from agent_fox.core.client import create_async_anthropic_client
 
-                backend = get_client()
+                backend = create_async_anthropic_client()
 
             prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
             response = await backend.messages.create(

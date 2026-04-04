@@ -58,20 +58,20 @@ def _clamped_validator(
     ge: int | float | None = None,
     le: int | float | None = None,
     cast: type | None = None,
-) -> classmethod:
+) -> Any:
     """Factory for field_validator methods that clamp numeric values.
 
     Returns a pydantic field_validator classmethod. If *cast* is given the
     result is cast (e.g. ``int``).
     """
 
-    @field_validator(*fields)
+    @field_validator(*fields)  # type: ignore[misc]
     @classmethod
     def _validate(cls: Any, v: Any, info: Any) -> Any:
         result = _clamp(v, ge=ge, le=le, field_name=info.field_name)
         return cast(result) if cast else result
 
-    return _validate
+    return _validate  # type: ignore[return-value]
 
 
 class RoutingConfig(BaseModel):

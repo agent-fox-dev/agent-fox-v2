@@ -9,6 +9,7 @@ Requirements: 32-REQ-2.1, 32-REQ-2.2, 32-REQ-2.E1,
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import TaskGroupDef
@@ -25,9 +26,9 @@ def _spec(name: str = "spec") -> SpecInfo:
     )
 
 
-def _tgd(number: int, title: str = "T", **kw) -> TaskGroupDef:
+def _tgd(number: int, title: str = "T", **kw: Any) -> TaskGroupDef:
     """Build a TaskGroupDef with short defaults."""
-    defaults = dict(optional=False, completed=False, subtasks=(), body="")
+    defaults: dict[str, Any] = dict(optional=False, completed=False, subtasks=(), body="")
     defaults.update(kw)
     return TaskGroupDef(number=number, title=title, **defaults)
 

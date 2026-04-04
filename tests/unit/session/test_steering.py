@@ -101,8 +101,8 @@ class TestLoadSteeringReturnNoneForPlaceholderOnly:
 
     def test_returns_none_for_placeholder(self, tmp_path: Path) -> None:
         """load_steering() returns None when file contains only the placeholder."""
-        from agent_fox.workspace.init_project import _ensure_steering_md
         from agent_fox.session.prompt import load_steering
+        from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
         result = load_steering(tmp_path)

@@ -101,8 +101,12 @@ class TestSanitizePromptContent:
     def test_nonces_are_unique(self) -> None:
         r1 = sanitize_prompt_content("a", label="test")
         r2 = sanitize_prompt_content("b", label="test")
-        nonce1 = re.search(r"<untrusted-test-([a-f0-9]+)>", r1).group(1)
-        nonce2 = re.search(r"<untrusted-test-([a-f0-9]+)>", r2).group(1)
+        m1 = re.search(r"<untrusted-test-([a-f0-9]+)>", r1)
+        m2 = re.search(r"<untrusted-test-([a-f0-9]+)>", r2)
+        assert m1 is not None
+        assert m2 is not None
+        nonce1 = m1.group(1)
+        nonce2 = m2.group(1)
         assert nonce1 != nonce2
 
     def test_empty_content(self) -> None:
@@ -116,6 +120,7 @@ class TestSanitizePromptContent:
         result = sanitize_prompt_content(malicious, label="test")
         # The real closing tag uses a different nonce
         match = re.search(r"<untrusted-test-([a-f0-9]+)>", result)
+        assert match is not None
         nonce = match.group(1)
         # Malicious content is inside the real boundary
         assert f"</untrusted-test-{nonce}>" in result

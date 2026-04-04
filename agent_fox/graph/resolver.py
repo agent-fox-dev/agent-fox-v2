@@ -9,6 +9,7 @@ import copy
 import heapq
 import logging
 from collections import defaultdict
+
 from agent_fox.core.errors import PlanError
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.graph.types import Edge, NodeStatus, PlanMetadata, TaskGraph
@@ -167,4 +168,3 @@ def apply_fast_mode(graph: TaskGraph) -> TaskGraph:
         order=computed_order,
         metadata=order_graph.metadata,
     )
-

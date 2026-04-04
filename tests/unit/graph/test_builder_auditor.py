@@ -9,8 +9,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
+if TYPE_CHECKING:
+    from agent_fox.spec.parser import TaskGroupDef
 
 try:
     from hypothesis import assume, given, settings
@@ -21,11 +25,11 @@ except ImportError:
     HAS_HYPOTHESIS = False
 
 
-def _tgd(number: int, title: str = "T", **kw):
+def _tgd(number: int, title: str = "T", **kw: Any) -> TaskGroupDef:
     """Build a TaskGroupDef with short defaults."""
     from agent_fox.spec.parser import TaskGroupDef
 
-    defaults = dict(optional=False, completed=False, subtasks=(), body="")
+    defaults: dict[str, Any] = dict(optional=False, completed=False, subtasks=(), body="")
     defaults.update(kw)
     return TaskGroupDef(number=number, title=title, **defaults)
 
@@ -463,7 +467,7 @@ class TestPropertyDetectionSpecificity:
     )
     @given(
         title=st.text(
-            alphabet=st.characters(whitelist_categories=("L",)),
+            alphabet=st.characters(whitelist_categories=("L",)),  # type: ignore[arg-type]
             max_size=50,
         ),
     )
