@@ -6,11 +6,11 @@ Requirements: 18-REQ-2.E2, 18-REQ-2.E3
 
 from __future__ import annotations
 
+from agent_fox.reporting.formatters import format_tokens
 from agent_fox.ui.progress import (
     ActivityEvent,
     TaskEvent,
     abbreviate_arg,
-    format_tokens,
     verbify_tool,
 )
 
@@ -148,8 +148,11 @@ class TestFormatTokens:
     def test_thousands(self) -> None:
         """Thousands formatted as X.Yk."""
         assert format_tokens(1200) == "1.2k"
-        assert format_tokens(500) == "0.5k"
-        assert format_tokens(0) == "0.0k"
+
+    def test_below_thousand(self) -> None:
+        """Values below 1000 formatted as plain integers."""
+        assert format_tokens(500) == "500"
+        assert format_tokens(0) == "0"
 
     def test_millions(self) -> None:
         """Millions formatted as X.YM."""

@@ -13,6 +13,7 @@ import json
 import logging
 from dataclasses import dataclass
 
+from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.nightshift.finding import Finding, FindingGroup
 
 logger = logging.getLogger(__name__)
@@ -193,7 +194,7 @@ def _parse_critic_response(
 
     Requirements: 73-REQ-1.2, 73-REQ-1.3, 73-REQ-5.2, 73-REQ-5.3, 73-REQ-5.E2
     """
-    data = _parse_json(response_text)
+    data = extract_json_object(response_text)
 
     raw_groups: list[dict] = data.get("groups", [])
     raw_dropped: list[dict] = data.get("dropped", [])
@@ -399,40 +400,3 @@ def _build_body(description: str, severity: str, affected_files: list[str]) -> s
         files_str = ", ".join(f"`{f}`" for f in affected_files)
         lines += ["", f"**Affected files:** {files_str}"]
     return "\n".join(lines)
-
-
-def _parse_json(text: str) -> dict:
-    """Extract a JSON object from *text*, handling markdown code fences.
-
-    Raises ValueError on failure.
-
-    Per memory.md: use raw_decode() rather than bracket-depth scanning to
-    avoid false positives from brackets inside JSON string values.
-    """
-    stripped = text.strip()
-
-    # Try direct parse first (most common case).
-    try:
-        return json.loads(stripped)
-    except json.JSONDecodeError:
-        pass
-
-    # Strip markdown code fences (```json ... ``` or ``` ... ```).
-    if stripped.startswith("```"):
-        # Remove the opening fence line.
-        first_newline = stripped.find("\n")
-        if first_newline != -1:
-            stripped = stripped[first_newline + 1 :]
-        # Remove the closing fence.
-        if stripped.endswith("```"):
-            stripped = stripped[: stripped.rfind("```")]
-        stripped = stripped.strip()
-
-    # Attempt raw_decode on the (possibly fence-stripped) text.
-    try:
-        obj, _ = json.JSONDecoder().raw_decode(stripped)
-        if isinstance(obj, dict):
-            return obj
-        raise ValueError(f"Expected a JSON object, got {type(obj).__name__}")
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Malformed JSON in critic response: {exc}") from exc

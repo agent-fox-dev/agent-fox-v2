@@ -24,6 +24,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
 
+from agent_fox.reporting.formatters import format_tokens
 from agent_fox.ui.display import AppTheme
 
 # ---------------------------------------------------------------------------
@@ -161,18 +162,6 @@ def abbreviate_arg(raw: str, max_len: int = 60) -> str:
         return raw[: max_len - 3] + "..."
 
     return raw
-
-
-def format_tokens(tokens: int | None) -> str:
-    """Format token count for compact display.
-
-    Returns "?k" if None, "X.YM" for millions, "X.Yk" for thousands.
-    """
-    if tokens is None:
-        return "?k"
-    if tokens >= 1_000_000:
-        return f"{tokens / 1_000_000:.1f}M"
-    return f"{tokens / 1_000:.1f}k"
 
 
 def format_duration(seconds: float) -> str:

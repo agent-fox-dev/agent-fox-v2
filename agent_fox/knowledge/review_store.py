@@ -10,7 +10,6 @@ Requirements: 27-REQ-1.1, 27-REQ-2.1, 27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3,
 from __future__ import annotations
 
 import logging
-import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -109,11 +108,6 @@ class DriftFinding:
     session_id: str
     superseded_by: str | None = None
     created_at: datetime | None = None
-
-
-def _new_id() -> str:
-    """Generate a new UUID string."""
-    return str(uuid.uuid4())
 
 
 # ---------------------------------------------------------------------------
@@ -274,51 +268,27 @@ def insert_drift_findings(
 
     Requirements: 32-REQ-7.1, 32-REQ-7.3, 32-REQ-7.E1
     """
-    if not findings:
-        return 0
-
-    spec_name = findings[0].spec_name
-    task_group = findings[0].task_group
-
     try:
-        # Supersede existing active records (32-REQ-7.3)
-        # Use the first new finding's ID as the supersession marker.
-        supersession_id = findings[0].id
-        conn.execute(
-            "UPDATE drift_findings SET superseded_by = ?::UUID "
-            "WHERE spec_name = ? AND task_group = ? AND superseded_by IS NULL",
-            [supersession_id, spec_name, task_group],
+        return _insert_with_supersession(
+            conn,
+            table="drift_findings",
+            columns=("id, severity, description, spec_ref, artifact_ref, spec_name, task_group, session_id"),
+            records=findings,
+            value_extractor=lambda f: [
+                f.id,
+                f.severity,
+                f.description,
+                f.spec_ref,
+                f.artifact_ref,
+                f.spec_name,
+                f.task_group,
+                f.session_id,
+            ],
+            record_type_label="drift findings",
         )
-
-        # Insert new records
-        for f in findings:
-            conn.execute(
-                "INSERT INTO drift_findings "
-                "(id, severity, description, spec_ref, artifact_ref, spec_name, "
-                "task_group, session_id, created_at) "
-                "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                [
-                    f.id,
-                    f.severity,
-                    f.description,
-                    f.spec_ref,
-                    f.artifact_ref,
-                    f.spec_name,
-                    f.task_group,
-                    f.session_id,
-                ],
-            )
     except Exception as exc:
         logger.warning("Failed to insert drift findings: %s", exc)
         return 0
-
-    logger.info(
-        "Inserted %d drift findings for %s/%s",
-        len(findings),
-        spec_name,
-        task_group,
-    )
-    return len(findings)
 
 
 # ---------------------------------------------------------------------------

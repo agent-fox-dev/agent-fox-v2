@@ -9,7 +9,6 @@ Requirements: 31-REQ-3.*, 31-REQ-4.*
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.knowledge.facts import parse_confidence
 
 logger = logging.getLogger(__name__)
@@ -194,16 +194,10 @@ def parse_analyzer_response(response: str) -> AnalyzerResult:
 
     Requirements: 31-REQ-3.3, 31-REQ-3.E1
     """
-    # Extract JSON from potential markdown code fences
-    cleaned = _extract_json(response)
-
     try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
+        data = extract_json_object(response)
+    except ValueError as exc:
         raise ValueError(f"Invalid JSON in analyzer response: {exc}") from exc
-
-    if not isinstance(data, dict):
-        raise ValueError("Analyzer response must be a JSON object")
 
     # Validate required top-level fields
     missing = _REQUIRED_RESPONSE_FIELDS - set(data.keys())
@@ -391,23 +385,6 @@ def _build_file_tree(project_root: Path) -> str:
     if len(parts) > 200:
         return "\n".join(parts[:200]) + f"\n... ({len(parts)} files total)"
     return "\n".join(parts) if parts else "(empty project)"
-
-
-def _extract_json(text: str) -> str:
-    """Extract JSON from text that may be wrapped in markdown code fences."""
-    stripped = text.strip()
-
-    # Try to extract from ```json ... ``` or ``` ... ```
-    if stripped.startswith("```"):
-        lines = stripped.split("\n")
-        # Remove first line (```json or ```)
-        lines = lines[1:]
-        # Remove last line if it's ```
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        return "\n".join(lines)
-
-    return stripped
 
 
 def _parse_improvement(data: Any, *, index: int) -> Improvement:

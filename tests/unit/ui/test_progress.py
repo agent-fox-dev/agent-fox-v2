@@ -95,7 +95,7 @@ class TestProgressDisplayActivity:
         display.stop()
         lines = text.split("\n")
         assert len(lines) == 2
-        assert "[turn 1 | 0.5k tokens]" in lines[0]
+        assert "[turn 1 | 500 tokens]" in lines[0]
         assert "Editing\u2026" in lines[0]
         assert "\u23bf  foo.py" in lines[1]
 
