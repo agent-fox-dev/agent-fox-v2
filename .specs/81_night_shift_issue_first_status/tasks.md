@@ -126,26 +126,26 @@ before and after implementation.
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 81-REQ-5.1 through 81-REQ-5.3, 81-REQ-5.E1 met
 
-- [ ] 4. Integrate ProgressDisplay in CLI and add phase/idle display
-  - [ ] 4.1 Add `print_status` method to ProgressDisplay
+- [x] 4. Integrate ProgressDisplay in CLI and add phase/idle display
+  - [x] 4.1 Add `print_status` method to ProgressDisplay
     - Add `print_status(text: str, style: str = "bold cyan")` method
     - Respects quiet mode and non-TTY mode
     - _Requirements: 81-REQ-3.1 (enables phase line rendering)_
 
-  - [ ] 4.2 Create and wire ProgressDisplay in `night_shift_cmd`
+  - [x] 4.2 Create and wire ProgressDisplay in `night_shift_cmd`
     - Create `ProgressDisplay` with `AppTheme` from config
     - Start before engine run, stop in finally block
     - Pass `activity_callback`, `task_callback`, and `status_callback`
       (mapped to `print_status`) to `NightShiftEngine`
     - _Requirements: 81-REQ-2.1, 81-REQ-2.2_
 
-  - [ ] 4.3 Emit phase lines from engine methods
+  - [x] 4.3 Emit phase lines from engine methods
     - `_run_issue_check`: emit "Checking for af:fix issues…" on entry
     - `_run_hunt_scan`: emit "Starting hunt scan…" on entry, summary on exit
     - `_process_fix`: emit issue number/title on entry, result on exit
     - _Requirements: 81-REQ-3.1, 81-REQ-3.2, 81-REQ-3.3, 81-REQ-3.4, 81-REQ-3.5_
 
-  - [ ] 4.4 Implement idle spinner updates in event loop
+  - [x] 4.4 Implement idle spinner updates in event loop
     - After each tick, calculate next action time from remaining intervals
     - Format time in local timezone using `datetime.now().astimezone()`
     - Update spinner via `activity_callback` with a synthetic ActivityEvent
@@ -153,16 +153,16 @@ before and after implementation.
     - Show earlier of the two timers per 81-REQ-4.E1
     - _Requirements: 81-REQ-4.1, 81-REQ-4.2, 81-REQ-4.E1_
 
-  - [ ] 4.5 Update exit summary to match code command format
+  - [x] 4.5 Update exit summary to match code command format
     - Ensure summary includes scans, issues fixed, cost
     - Keep existing format (already matches requirement)
     - _Requirements: 81-REQ-2.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_nightshift_display.py tests/unit/ui/test_progress.py -k "test_81 or test_print_status"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 81-REQ-2.1 through 81-REQ-2.4, 81-REQ-3.1 through 81-REQ-3.5, 81-REQ-4.1, 81-REQ-4.2, 81-REQ-2.E1, 81-REQ-2.E2, 81-REQ-3.E1, 81-REQ-4.E1 met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_nightshift_display.py tests/unit/ui/test_progress.py -k "test_81 or test_print_status"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 81-REQ-2.1 through 81-REQ-2.4, 81-REQ-3.1 through 81-REQ-3.5, 81-REQ-4.1, 81-REQ-4.2, 81-REQ-2.E1, 81-REQ-2.E2, 81-REQ-3.E1, 81-REQ-4.E1 met
 
 - [ ] 5. Wiring verification
 

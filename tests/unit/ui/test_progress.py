@@ -210,6 +210,65 @@ class TestProgressDisplayDefaultWidth:
             assert len(line) <= 80
 
 
+class TestPrintStatus:
+    """TS-81-E4/E5: ProgressDisplay.print_status in TTY, non-TTY, and quiet modes."""
+
+    def test_81_print_status_tty(self) -> None:
+        """print_status prints a permanent line in TTY mode."""
+        theme, buf = _make_theme(force_terminal=True)
+        display = ProgressDisplay(theme, quiet=False)
+        display.start()
+        display.print_status("Checking for af:fix issues\u2026", "bold cyan")
+        display.stop()
+        output = buf.getvalue()
+        assert "af:fix" in output
+
+    def test_81_print_status_non_tty(self) -> None:
+        """print_status prints a plain line in non-TTY mode."""
+        theme, buf = _make_theme(force_terminal=False)
+        display = ProgressDisplay(theme, quiet=False)
+        display.start()
+        display.print_status("Starting hunt scan\u2026", "bold cyan")
+        display.stop()
+        output = buf.getvalue()
+        assert "hunt scan" in output
+        # No ANSI escape codes in non-TTY
+        assert "\x1b[" not in output
+
+    def test_81_print_status_quiet(self) -> None:
+        """print_status produces no output in quiet mode."""
+        theme, buf = _make_theme()
+        display = ProgressDisplay(theme, quiet=True)
+        display.start()
+        display.print_status("Should not appear", "bold cyan")
+        display.stop()
+        assert buf.getvalue() == ""
+
+
+class TestUpdateSpinnerText:
+    """ProgressDisplay.update_spinner_text tests."""
+
+    def test_81_update_spinner_text(self) -> None:
+        """update_spinner_text updates the internal spinner text."""
+        theme, buf = _make_theme()
+        display = ProgressDisplay(theme, quiet=False)
+        display.start()
+        display.update_spinner_text("Waiting until 03:42 for next issue check")
+        text = display._get_spinner_text()
+        display.stop()
+        assert "03:42" in text
+
+    def test_81_update_spinner_text_quiet(self) -> None:
+        """update_spinner_text is no-op in quiet mode."""
+        theme, buf = _make_theme()
+        display = ProgressDisplay(theme, quiet=True)
+        display.start()
+        display.update_spinner_text("Should not appear")
+        text = display._get_spinner_text()
+        display.stop()
+        assert text == ""
+
+
 class TestPlanSpinner:
     """PlanSpinner lifecycle tests."""
 

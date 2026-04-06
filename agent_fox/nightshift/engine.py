@@ -103,6 +103,7 @@ class NightShiftEngine:
         self._status_callback = status_callback
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
+        self._idle_text = ""
 
     def request_shutdown(self) -> None:
         """Request graceful shutdown of the engine."""
@@ -136,6 +137,62 @@ class NightShiftEngine:
             return False
         return self.state.total_sessions >= max_sessions
 
+    def _emit_status(self, text: str, style: str = "bold cyan") -> None:
+        """Emit a permanent status line via the status_callback.
+
+        If no callback is set, this is a no-op.
+
+        Requirements: 81-REQ-3.1, 81-REQ-3.2, 81-REQ-3.3, 81-REQ-3.4, 81-REQ-3.5
+        """
+        if self._status_callback is not None:
+            try:
+                self._status_callback(text, style)
+            except Exception:
+                logger.debug("Status callback failed", exc_info=True)
+
+    def _update_idle_spinner(self, issue_remaining: float, hunt_remaining: float) -> None:
+        """Update the spinner with the next scheduled action time.
+
+        Displays the earlier of the two timers in the user's local timezone.
+
+        Requirements: 81-REQ-4.1, 81-REQ-4.E1
+        """
+        if self._activity_callback is None:
+            return
+
+        from datetime import datetime, timedelta
+
+        now = datetime.now().astimezone()
+        if issue_remaining <= hunt_remaining:
+            next_time = now + timedelta(seconds=issue_remaining)
+            action = "issue check"
+        else:
+            next_time = now + timedelta(seconds=hunt_remaining)
+            action = "hunt scan"
+
+        time_str = next_time.strftime("%H:%M")
+        self._idle_text = f"Waiting until {time_str} for next {action}"
+
+        from agent_fox.ui.progress import ActivityEvent
+
+        self._activity_callback(
+            ActivityEvent(
+                node_id="night-shift",
+                tool_name="thinking...",
+                argument="",
+                turn=0,
+                tokens=None,
+                archetype=None,
+            )
+        )
+
+    def _clear_idle(self) -> None:
+        """Clear the idle message when a phase starts.
+
+        Requirements: 81-REQ-4.2
+        """
+        self._idle_text = ""
+
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.
 
@@ -152,6 +209,8 @@ class NightShiftEngine:
         Requirements: 61-REQ-2.1, 71-REQ-1.1, 71-REQ-1.2, 71-REQ-1.E1,
                       71-REQ-3.1, 71-REQ-3.5, 71-REQ-5.1, 71-REQ-5.E3
         """
+        self._clear_idle()
+        self._emit_status("Checking for af:fix issues\u2026")
         try:
             issues = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
                 "af:fix",
@@ -304,6 +363,9 @@ class NightShiftEngine:
 
         Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2
         """
+        self._clear_idle()
+        self._emit_status("Starting hunt scan\u2026")
+
         if self._hunt_scan_in_progress:
             logger.info("Hunt scan already in progress, skipping overlapping scan")
             return
@@ -321,6 +383,7 @@ class NightShiftEngine:
 
         if not findings:
             self.state.hunt_scans_completed += 1
+            self._emit_status("Hunt scan complete: 0 issues created from 0 findings", "bold green")
             return
 
         groups = await consolidate_findings(findings)  # type: ignore[arg-type]
@@ -351,6 +414,10 @@ class NightShiftEngine:
                     )
 
         self.state.hunt_scans_completed += 1
+        self._emit_status(
+            f"Hunt scan complete: {len(created)} issues created from {len(findings)} findings",
+            "bold green",
+        )
 
     def _calculate_fix_cost(self, metrics: object) -> float:
         """Calculate USD cost from FixMetrics token counts."""
@@ -384,6 +451,11 @@ class NightShiftEngine:
         if not isinstance(issue, IssueResult):
             return
 
+        import time
+
+        fix_start = time.monotonic()
+        self._emit_status(f"Fixing issue #{issue.number}: {issue.title}")
+
         _emit_audit_event(
             "night_shift.fix_start",
             {"issue_number": issue.number, "title": issue.title},
@@ -401,11 +473,28 @@ class NightShiftEngine:
             self.state.total_sessions += getattr(metrics, "sessions_run", 0)
             self.state.total_cost += self._calculate_fix_cost(metrics)
             self.state.issues_fixed += 1
+
+            from agent_fox.ui.progress import format_duration
+
+            duration_str = format_duration(time.monotonic() - fix_start)
+            self._emit_status(
+                f"\u2714 Issue #{issue.number} fixed ({duration_str})",
+                "bold green",
+            )
+
             _emit_audit_event(
                 "night_shift.fix_complete",
                 {"issue_number": issue.number},
             )
         except Exception:
+            from agent_fox.ui.progress import format_duration
+
+            duration_str = format_duration(time.monotonic() - fix_start)
+            self._emit_status(
+                f"\u2718 Issue #{issue.number} failed ({duration_str})",
+                "bold red",
+            )
+
             logger.warning(
                 "Fix pipeline raised unexpectedly for issue #%d",
                 issue.number,
@@ -564,6 +653,11 @@ class NightShiftEngine:
                                 "Post-hunt issue drain failed",
                                 exc_info=True,
                             )
+
+            # Update idle spinner with next action time (81-REQ-4.1)
+            issue_remaining = max(0.0, issue_interval - issue_elapsed)
+            hunt_remaining = max(0.0, hunt_interval - hunt_elapsed)
+            self._update_idle_spinner(issue_remaining, hunt_remaining)
 
         logger.info("Night-shift engine stopped")
         return self.state
