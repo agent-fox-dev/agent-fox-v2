@@ -95,36 +95,36 @@ before and after implementation.
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 81-REQ-1.1 through 81-REQ-1.5, 81-REQ-1.E1 through 81-REQ-1.E3 met
 
-- [ ] 3. Add callback plumbing to engine and fix pipeline
-  - [ ] 3.1 Add callback parameters to NightShiftEngine constructor
+- [x] 3. Add callback plumbing to engine and fix pipeline
+  - [x] 3.1 Add callback parameters to NightShiftEngine constructor
     - Add `activity_callback`, `task_callback`, `status_callback` parameters
     - Store as private attributes, default to None
     - _Requirements: 81-REQ-5.1_
 
-  - [ ] 3.2 Add callback parameters to FixPipeline constructor
+  - [x] 3.2 Add callback parameters to FixPipeline constructor
     - Add `activity_callback`, `task_callback` parameters
     - Store as private attributes, default to None
     - _Requirements: 81-REQ-5.2_
 
-  - [ ] 3.3 Pass activity_callback from FixPipeline to run_session
+  - [x] 3.3 Pass activity_callback from FixPipeline to run_session
     - In `_run_session`, pass `activity_callback` kwarg to `run_session()`
     - _Requirements: 81-REQ-5.2_
 
-  - [ ] 3.4 Emit TaskEvent from FixPipeline per archetype
+  - [x] 3.4 Emit TaskEvent from FixPipeline per archetype
     - Wrap each archetype call in `process_issue` with timing
     - On completion: emit TaskEvent(status="completed", archetype=..., duration_s=...)
     - On failure: emit TaskEvent(status="failed", archetype=..., ...)
     - _Requirements: 81-REQ-5.3_
 
-  - [ ] 3.5 Pass callbacks from engine to FixPipeline in `_process_fix`
+  - [x] 3.5 Pass callbacks from engine to FixPipeline in `_process_fix`
     - When constructing FixPipeline, pass through the stored callbacks
     - _Requirements: 81-REQ-5.1, 81-REQ-5.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_nightshift_callbacks.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 81-REQ-5.1 through 81-REQ-5.3, 81-REQ-5.E1 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_nightshift_callbacks.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 81-REQ-5.1 through 81-REQ-5.3, 81-REQ-5.E1 met
 
 - [ ] 4. Integrate ProgressDisplay in CLI and add phase/idle display
   - [ ] 4.1 Add `print_status` method to ProgressDisplay

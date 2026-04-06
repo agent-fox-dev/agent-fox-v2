@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from agent_fox.nightshift.reference_parser import (
 from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
+from agent_fox.ui.progress import ActivityCallback, TaskCallback
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +91,16 @@ class NightShiftEngine:
         platform: object,
         *,
         auto_fix: bool = False,
+        activity_callback: ActivityCallback | None = None,
+        task_callback: TaskCallback | None = None,
+        status_callback: Callable[[str, str], None] | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._auto_fix = auto_fix
+        self._activity_callback = activity_callback
+        self._task_callback = task_callback
+        self._status_callback = status_callback
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
 
@@ -381,7 +389,12 @@ class NightShiftEngine:
             {"issue_number": issue.number, "title": issue.title},
         )
 
-        pipeline = FixPipeline(config=self._config, platform=self._platform)
+        pipeline = FixPipeline(
+            config=self._config,
+            platform=self._platform,
+            activity_callback=self._activity_callback,
+            task_callback=self._task_callback,
+        )
 
         try:
             metrics = await pipeline.process_issue(issue, issue_body=issue.body)
