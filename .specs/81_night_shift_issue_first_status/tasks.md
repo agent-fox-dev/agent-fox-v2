@@ -164,38 +164,43 @@ before and after implementation.
     - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
     - [x] Requirements 81-REQ-2.1 through 81-REQ-2.4, 81-REQ-3.1 through 81-REQ-3.5, 81-REQ-4.1, 81-REQ-4.2, 81-REQ-2.E1, 81-REQ-2.E2, 81-REQ-3.E1, 81-REQ-4.E1 met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-81-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-81-SMOKE-1, TS-81-SMOKE-2, TS-81-SMOKE-3_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Audit results: all `return []` in hunt.py/critic.py/categories/ are error-path
+      fallbacks returning empty finding lists (intentional). `pass` in
+      cli/nightshift.py:122 and ui/progress.py:233 are exception-suppression in
+      cleanup code (intentional). `return None` in dedup.py:76 is Optional return
+      (intentional). No stubs, TODOs, or NotImplementedError found in touched files.
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
