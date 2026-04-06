@@ -79,6 +79,10 @@ class NightShiftEngine:
     Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-1.4, 61-REQ-1.E2
     """
 
+    # Maximum drain iterations to prevent infinite loops if issues are
+    # created faster than they are fixed.
+    _MAX_DRAIN_ITERATIONS: int = 50
+
     def __init__(
         self,
         config: object,
@@ -399,15 +403,67 @@ class NightShiftEngine:
                 {"issue_number": issue.number},
             )
 
+    async def _drain_issues(self) -> bool:
+        """Run issue checks until no open af:fix issues remain.
+
+        Loops calling ``_run_issue_check`` and re-polling the platform until
+        zero ``af:fix`` issues are reported.  Respects shutdown, cost, and
+        session limits between iterations, and enforces a safety-valve
+        maximum iteration count to prevent infinite loops.
+
+        Returns True when no ``af:fix`` issues remain (drain succeeded),
+        False when issues may still exist (limit hit, shutdown, or error).
+
+        Requirements: 81-REQ-1.1, 81-REQ-1.4
+        """
+        for _ in range(self._MAX_DRAIN_ITERATIONS):
+            if self.state.is_shutting_down:
+                return False
+            if self._check_cost_limit():
+                logger.info("Cost limit reached during issue drain")
+                return False
+            if self._check_session_limit():
+                logger.info("Session limit reached during issue drain")
+                return False
+
+            await self._run_issue_check()
+
+            # Re-poll to see if any af:fix issues remain
+            try:
+                remaining = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
+                    "af:fix",
+                    sort="created",
+                    direction="asc",
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to re-poll issues during drain",
+                    exc_info=True,
+                )
+                # Fail-open: if we can't check, assume clear (81-REQ-1.E1)
+                return True
+
+            if not remaining:
+                return True
+
+        logger.warning("Issue drain safety valve reached after %d iterations", self._MAX_DRAIN_ITERATIONS)
+        return False
+
     async def run(self) -> NightShiftState:
         """Run the daemon loop until interrupted.
 
-        Executes an initial issue check and hunt scan immediately on startup,
-        then repeats them at configured intervals until the engine is asked
-        to shut down.
+        Executes an initial issue drain (processing all af:fix issues) and
+        hunt scan on startup, then repeats them at configured intervals
+        until the engine is asked to shut down.
+
+        Issue-first gate: hunt scans are suppressed while open af:fix
+        issues exist.  After every hunt scan, an immediate issue drain
+        processes any newly created issues before the next hunt scan
+        can fire.
 
         Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.1, 61-REQ-2.2,
-                      61-REQ-2.3
+                      61-REQ-2.3, 81-REQ-1.1, 81-REQ-1.2, 81-REQ-1.3,
+                      81-REQ-1.4, 81-REQ-1.5
         """
         logger.info("Night-shift engine starting")
         _emit_audit_event("night_shift.start")
@@ -423,11 +479,30 @@ class NightShiftEngine:
             14400,
         )
 
-        # Initial run (61-REQ-2.3)
+        # Initial run — issue-first gate (81-REQ-1.2)
+        # Drain all af:fix issues before the first hunt scan.
+        issues_clear = True
         if not self.state.is_shutting_down:
-            await self._run_issue_check()
-        if not self.state.is_shutting_down:
+            try:
+                issues_clear = await self._drain_issues()
+            except Exception:
+                logger.warning(
+                    "Pre-hunt issue drain failed, proceeding with hunt scan",
+                    exc_info=True,
+                )
+                issues_clear = True  # fail-open (81-REQ-1.E1)
+        # Only run hunt scan if issues were drained (81-REQ-1.1)
+        if not self.state.is_shutting_down and issues_clear:
             await self._run_hunt_scan()
+            # Post-hunt drain (81-REQ-1.3)
+            if not self.state.is_shutting_down:
+                try:
+                    await self._drain_issues()
+                except Exception:
+                    logger.warning(
+                        "Post-hunt issue drain failed",
+                        exc_info=True,
+                    )
 
         # Timed loop — repeat checks at configured intervals
         issue_elapsed = 0.0
@@ -454,7 +529,28 @@ class NightShiftEngine:
 
             if hunt_elapsed >= hunt_interval:
                 hunt_elapsed = 0.0
-                await self._run_hunt_scan()
+                # Issue-first gate (81-REQ-1.4): drain issues before hunt
+                can_hunt = True
+                try:
+                    can_hunt = await self._drain_issues()
+                except Exception:
+                    logger.warning(
+                        "Pre-hunt issue drain failed, proceeding with hunt scan",
+                        exc_info=True,
+                    )
+                    can_hunt = True  # fail-open (81-REQ-1.E1)
+                # Only hunt if issues are clear (81-REQ-1.1)
+                if not self.state.is_shutting_down and can_hunt:
+                    await self._run_hunt_scan()
+                    # Post-hunt drain (81-REQ-1.3)
+                    if not self.state.is_shutting_down:
+                        try:
+                            await self._drain_issues()
+                        except Exception:
+                            logger.warning(
+                                "Post-hunt issue drain failed",
+                                exc_info=True,
+                            )
 
         logger.info("Night-shift engine stopped")
         return self.state

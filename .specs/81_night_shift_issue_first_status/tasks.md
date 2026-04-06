@@ -67,33 +67,33 @@ before and after implementation.
     - [ ] All spec tests FAIL (red) — no implementation yet
     - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
 
-- [ ] 2. Implement issue-first gate in engine
-  - [ ] 2.1 Add `_drain_issues` method to NightShiftEngine
+- [x] 2. Implement issue-first gate in engine
+  - [x] 2.1 Add `_drain_issues` method to NightShiftEngine
     - Calls `_run_issue_check` and loops until no `af:fix` issues remain
     - Respects shutdown flag and cost/session limits between iterations
     - _Requirements: 81-REQ-1.1, 81-REQ-1.4_
 
-  - [ ] 2.2 Modify startup sequence in `run()`
+  - [x] 2.2 Modify startup sequence in `run()`
     - Replace direct `_run_issue_check` + `_run_hunt_scan` with
       `_drain_issues` → `_run_hunt_scan` → `_drain_issues`
     - _Requirements: 81-REQ-1.2, 81-REQ-1.3_
 
-  - [ ] 2.3 Modify timed loop in `run()`
+  - [x] 2.3 Modify timed loop in `run()`
     - When hunt timer fires: call `_drain_issues` first, then
       `_run_hunt_scan`, then `_drain_issues` again
     - When only issue timer fires: call `_run_issue_check` as before
     - _Requirements: 81-REQ-1.4, 81-REQ-1.5_
 
-  - [ ] 2.4 Handle pre-hunt drain failure (fail-open)
+  - [x] 2.4 Handle pre-hunt drain failure (fail-open)
     - If `_drain_issues` raises (platform API failure), log warning
       and proceed with hunt scan
     - _Requirements: 81-REQ-1.E1, 81-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_issue_first_gate.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
-    - [ ] Requirements 81-REQ-1.1 through 81-REQ-1.5, 81-REQ-1.E1 through 81-REQ-1.E3 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_issue_first_gate.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check && uv run ruff format --check`
+    - [x] Requirements 81-REQ-1.1 through 81-REQ-1.5, 81-REQ-1.E1 through 81-REQ-1.E3 met
 
 - [ ] 3. Add callback plumbing to engine and fix pipeline
   - [ ] 3.1 Add callback parameters to NightShiftEngine constructor
