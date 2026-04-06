@@ -37,17 +37,10 @@ class TestBranchUsedByWorktree:
         "\n"
     )
 
-    _PORCELAIN_DEVELOP_ONLY = (
-        "worktree /repo\n"
-        "HEAD abc123\n"
-        "branch refs/heads/develop\n"
-        "\n"
-    )
+    _PORCELAIN_DEVELOP_ONLY = "worktree /repo\nHEAD abc123\nbranch refs/heads/develop\n\n"
 
     @pytest.mark.asyncio
-    async def test_returns_true_when_branch_referenced(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_returns_true_when_branch_referenced(self, tmp_path: Path) -> None:
         """TS-80-1: Returns True when branch appears in porcelain branch line."""
         from agent_fox.workspace.git import branch_used_by_worktree
 
@@ -61,9 +54,7 @@ class TestBranchUsedByWorktree:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_returns_false_when_branch_not_referenced(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_returns_false_when_branch_not_referenced(self, tmp_path: Path) -> None:
         """TS-80-2: Returns False when branch not in porcelain output."""
         from agent_fox.workspace.git import branch_used_by_worktree
 
@@ -77,9 +68,7 @@ class TestBranchUsedByWorktree:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_returns_false_when_porcelain_command_fails(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_returns_false_when_porcelain_command_fails(self, tmp_path: Path) -> None:
         """TS-80-10: Optimistic fallback: returns False on command failure."""
         from agent_fox.workspace.git import branch_used_by_worktree
 
@@ -94,9 +83,7 @@ class TestBranchUsedByWorktree:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_returns_false_for_detached_head_worktrees(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_returns_false_for_detached_head_worktrees(self, tmp_path: Path) -> None:
         """Detached HEAD worktrees have no branch line — should not match."""
         from agent_fox.workspace.git import branch_used_by_worktree
 
@@ -120,9 +107,7 @@ class TestBranchUsedByWorktree:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_does_not_match_partial_branch_names(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_does_not_match_partial_branch_names(self, tmp_path: Path) -> None:
         """Branch name must match fully — not as a substring."""
         from agent_fox.workspace.git import branch_used_by_worktree
 
@@ -147,15 +132,10 @@ class TestDeleteBranchSelfHealing:
     """TS-80-5, TS-80-6: delete_branch prunes and retries on stale worktree error."""
 
     # Error message git emits when a branch is locked by a worktree
-    _USED_BY_WORKTREE_STDERR = (
-        "error: Cannot delete branch 'feature/spec/0' "
-        "used by worktree at '/nonexistent/path'\n"
-    )
+    _USED_BY_WORKTREE_STDERR = "error: Cannot delete branch 'feature/spec/0' used by worktree at '/nonexistent/path'\n"
 
     @pytest.mark.asyncio
-    async def test_prunes_and_retries_on_stale_worktree_error(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_prunes_and_retries_on_stale_worktree_error(self, tmp_path: Path) -> None:
         """TS-80-5: Prune + retry when 'used by worktree' path doesn't exist."""
         from agent_fox.workspace.git import delete_branch
 
@@ -175,14 +155,10 @@ class TestDeleteBranchSelfHealing:
 
         # Verify prune was called between the two delete attempts
         calls = mock_run_git.call_args_list
-        assert any(
-            "prune" in str(c) for c in calls
-        ), "git worktree prune should have been called"
+        assert any("prune" in str(c) for c in calls), "git worktree prune should have been called"
 
     @pytest.mark.asyncio
-    async def test_retry_failure_is_non_fatal_when_path_missing(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_retry_failure_is_non_fatal_when_path_missing(self, tmp_path: Path) -> None:
         """TS-80-6: Non-fatal when retry also fails and worktree path is absent."""
         from agent_fox.workspace.git import delete_branch
 
@@ -199,9 +175,7 @@ class TestDeleteBranchSelfHealing:
             await delete_branch(tmp_path, "feature/spec/0", force=True)
 
     @pytest.mark.asyncio
-    async def test_retry_failure_logs_warning(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_retry_failure_logs_warning(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """TS-80-6: Warning is logged when retry also fails."""
         from agent_fox.workspace.git import delete_branch
 
@@ -263,9 +237,7 @@ class TestCleanupEmptyAncestors:
         # The target leaf itself should be gone
         assert not target.exists(), "Empty 0/ should be removed"
 
-    def test_cleanup_failure_is_non_fatal(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_cleanup_failure_is_non_fatal(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """TS-80-E3: PermissionError during cleanup is swallowed."""
         from agent_fox.workspace.worktree import _cleanup_empty_ancestors
 
@@ -300,9 +272,7 @@ class TestDestroyWorktreePostPruneRetry:
     """TS-80-9, TS-80-E4: Post-prune verification with retry logic in destroy_worktree."""
 
     @pytest.mark.asyncio
-    async def test_second_prune_called_when_first_verify_still_referenced(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_second_prune_called_when_first_verify_still_referenced(self, tmp_path: Path) -> None:
         """TS-80-9: Two prunes made when branch still referenced after first."""
         from agent_fox.workspace.git import branch_used_by_worktree  # noqa: F401
         from agent_fox.workspace.worktree import destroy_worktree

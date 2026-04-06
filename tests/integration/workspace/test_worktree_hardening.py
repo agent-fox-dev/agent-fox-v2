@@ -75,23 +75,17 @@ class TestDestroyWorktreeVerifiesBeforeDeletion:
     """TS-80-3: destroy_worktree succeeds and deletes branch via clean flow."""
 
     @pytest.mark.asyncio
-    async def test_destroy_deletes_branch_successfully(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_destroy_deletes_branch_successfully(self, tmp_path: Path) -> None:
         """TS-80-3: Branch is deleted after destroy_worktree completes."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
 
         await destroy_worktree(repo, ws)
 
-        assert not _branch_exists(repo, ws.branch), (
-            f"Branch {ws.branch!r} should be deleted after destroy_worktree"
-        )
+        assert not _branch_exists(repo, ws.branch), f"Branch {ws.branch!r} should be deleted after destroy_worktree"
 
     @pytest.mark.asyncio
-    async def test_destroy_raises_no_workspace_error(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_destroy_raises_no_workspace_error(self, tmp_path: Path) -> None:
         """TS-80-3: No WorkspaceError raised during normal destroy."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -110,9 +104,7 @@ class TestCreateWorktreeHandlesStaleState:
     """TS-80-4: create_worktree recovers from stale worktree registry entries."""
 
     @pytest.mark.asyncio
-    async def test_creates_worktree_despite_stale_registry(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_creates_worktree_despite_stale_registry(self, tmp_path: Path) -> None:
         """TS-80-4: New worktree created when stale registry entry exists."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -128,9 +120,7 @@ class TestCreateWorktreeHandlesStaleState:
         assert ws2.path.exists(), "New worktree directory must exist"
 
     @pytest.mark.asyncio
-    async def test_stale_worktree_replaced_with_valid_worktree(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_stale_worktree_replaced_with_valid_worktree(self, tmp_path: Path) -> None:
         """TS-80-4: Resulting worktree is a valid git worktree."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -154,9 +144,7 @@ class TestCreateWorktreeCleansOrphans:
     """TS-80-8: Stale empty directories are cleaned during create_worktree."""
 
     @pytest.mark.asyncio
-    async def test_new_worktree_succeeds_with_stale_sibling_dir(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_new_worktree_succeeds_with_stale_sibling_dir(self, tmp_path: Path) -> None:
         """TS-80-8: create_worktree succeeds even with stale empty ancestor dirs."""
         repo = _make_repo(tmp_path)
         # Pre-create an empty stale directory
@@ -169,9 +157,7 @@ class TestCreateWorktreeCleansOrphans:
         assert ws.path.exists(), "New worktree must be created"
 
     @pytest.mark.asyncio
-    async def test_orphan_dir_removed_after_create(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_orphan_dir_removed_after_create(self, tmp_path: Path) -> None:
         """TS-80-8: After create_worktree, the stale empty 99/ dir is gone."""
         repo = _make_repo(tmp_path)
         stale_dir = repo / ".agent-fox" / "worktrees" / "spec" / "99"
@@ -183,9 +169,7 @@ class TestCreateWorktreeCleansOrphans:
         # The stale directory should have been cleaned up
         # (it's an orphaned empty directory under the same spec)
         # NOTE: This asserts the NEW behavior — tests will fail until implemented
-        assert not stale_dir.exists(), (
-            "Stale empty directory 99/ should be cleaned up during create_worktree"
-        )
+        assert not stale_dir.exists(), "Stale empty directory 99/ should be cleaned up during create_worktree"
 
 
 # ---------------------------------------------------------------------------
@@ -198,9 +182,7 @@ class TestDeleteBranchLiveWorktreeRaises:
     """TS-80-E1: WorkspaceError raised when worktree directory actually exists."""
 
     @pytest.mark.asyncio
-    async def test_raises_when_worktree_directory_exists(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_raises_when_worktree_directory_exists(self, tmp_path: Path) -> None:
         """TS-80-E1: Legitimate in-use worktree causes WorkspaceError."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -221,9 +203,7 @@ class TestSmokeDestroyWorktreeWithStaleState:
     """TS-80-SMOKE-1: End-to-end destroy_worktree with stale registry entry."""
 
     @pytest.mark.asyncio
-    async def test_destroy_succeeds_with_stale_registry(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_destroy_succeeds_with_stale_registry(self, tmp_path: Path) -> None:
         """TS-80-SMOKE-1: destroy_worktree succeeds when registry is stale."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -235,9 +215,7 @@ class TestSmokeDestroyWorktreeWithStaleState:
         await destroy_worktree(repo, ws)
 
     @pytest.mark.asyncio
-    async def test_no_empty_dirs_left_after_destroy_stale(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_no_empty_dirs_left_after_destroy_stale(self, tmp_path: Path) -> None:
         """TS-80-SMOKE-1: No empty worktree dirs remain after destroy_worktree."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -248,9 +226,7 @@ class TestSmokeDestroyWorktreeWithStaleState:
         worktrees_root = repo / ".agent-fox" / "worktrees"
         if worktrees_root.exists():
             leftover = [d for d in worktrees_root.glob("spec/*") if d.exists()]
-            assert not leftover, (
-                f"Empty worktree dirs remain after destroy: {leftover}"
-            )
+            assert not leftover, f"Empty worktree dirs remain after destroy: {leftover}"
 
 
 # ---------------------------------------------------------------------------
@@ -263,9 +239,7 @@ class TestSmokeCreateWorktreeWithStalePredecessor:
     """TS-80-SMOKE-2: End-to-end create_worktree with stale predecessor."""
 
     @pytest.mark.asyncio
-    async def test_create_succeeds_after_simulated_crash(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_create_succeeds_after_simulated_crash(self, tmp_path: Path) -> None:
         """TS-80-SMOKE-2: create_worktree recovers from stale predecessor."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
@@ -280,9 +254,7 @@ class TestSmokeCreateWorktreeWithStalePredecessor:
         assert ws2.path.exists(), "Worktree must be created"
 
     @pytest.mark.asyncio
-    async def test_new_worktree_is_valid_after_stale_recovery(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_new_worktree_is_valid_after_stale_recovery(self, tmp_path: Path) -> None:
         """TS-80-SMOKE-2: WorkspaceInfo has correct path and branch after recovery."""
         repo = _make_repo(tmp_path)
         ws = await create_worktree(repo, "spec", 0)
