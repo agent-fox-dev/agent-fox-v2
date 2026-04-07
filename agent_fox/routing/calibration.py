@@ -15,10 +15,11 @@ import warnings
 
 import duckdb
 import numpy as np
-from sklearn.exceptions import FitFailedWarning  # type: ignore[import-untyped]
+from sklearn.exceptions import ConvergenceWarning, FitFailedWarning  # type: ignore[import-untyped]
 from sklearn.linear_model import LogisticRegression  # type: ignore[import-untyped]
 from sklearn.model_selection import cross_val_score  # type: ignore[import-untyped]
-from sklearn.preprocessing import LabelEncoder  # type: ignore[import-untyped]
+from sklearn.pipeline import make_pipeline  # type: ignore[import-untyped]
+from sklearn.preprocessing import LabelEncoder, StandardScaler  # type: ignore[import-untyped]
 
 from agent_fox.core.models import ModelTier
 from agent_fox.routing.core import FeatureVector, count_outcomes, query_outcomes
@@ -73,7 +74,7 @@ class StatisticalAssessor:
 
     def __init__(self, db: duckdb.DuckDBPyConnection) -> None:
         self._db = db
-        self._model: LogisticRegression | None = None
+        self._model: LogisticRegression | None = None  # Pipeline after training
         self._label_encoder: LabelEncoder | None = None
         self._accuracy: float = 0.0
         self._last_training_count: int = 0
@@ -119,8 +120,13 @@ class StatisticalAssessor:
                 self._last_training_count = count_outcomes(self._db)
                 return self._accuracy
 
-            # Train with cross-validation
-            self._model = LogisticRegression(max_iter=1000)
+            # Train with cross-validation using a pipeline that scales
+            # features before logistic regression.  Feature scaling helps
+            # the LBFGS solver converge reliably (see issue #255).
+            self._model = make_pipeline(
+                StandardScaler(),
+                LogisticRegression(max_iter=5000),
+            )
 
             # Use min(5, n_samples_per_class) for CV folds
             min_class_count = min(np.bincount(y))
@@ -133,6 +139,7 @@ class StatisticalAssessor:
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
                 warnings.filterwarnings("ignore", category=FitFailedWarning)
+                warnings.filterwarnings("ignore", category=ConvergenceWarning)
                 scores = cross_val_score(self._model, X, y, cv=cv_folds, error_score=0.0)
             valid_scores = scores[~np.isnan(scores)]
             if len(valid_scores) == 0:
@@ -145,8 +152,11 @@ class StatisticalAssessor:
             else:
                 self._accuracy = float(np.mean(valid_scores))
 
-            # Fit final model on all data
-            self._model.fit(X, y)
+            # Fit final model on all data (also suppress convergence
+            # warnings for the final fit on sparse edge-case data).
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=ConvergenceWarning)
+                self._model.fit(X, y)
             self._last_training_count = count_outcomes(self._db)
 
             logger.info(
