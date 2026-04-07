@@ -97,6 +97,10 @@
 - Hypothesis property tests should use `suppress_health_check=[HealthCheck.function_scoped_fixture]` when mocking with async functions, and `assume()` to skip invalid generated inputs (e.g., branch names starting with `-`). _(spec: 80_worktree_cleanup_hardening, confidence: 0.60)_
 - All execution paths from the design document (startup with issue-first gate, fix session with activity display, idle state with timer display) must be fully traceable in code with no stubs; use a stub/dead-code audit (searching for `return []`, `pass`, `NotImplementedError`, etc.) to verify completeness. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Review parsers (skeptic, verifier, oracle) depend on receiving the agent's actual JSON output rather than the session transcript, which is only metadata. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Response truncation at 100,000 characters should preserve exact equality for strings at or below the limit and append '[truncated]' marker only when exceeding it. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Blocking reason with critical findings should cap finding IDs at 3 and include 'and N more' text when total exceeds 3. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Test helpers must include all required fields of data structures (e.g., all SessionRecord fields) even if not directly tested, to avoid runtime errors. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- SessionRecord requires all fields to be populated in integration tests, not just a subset, or the smoke test will fail. _(spec: 84_review_output_visibility, confidence: 0.90)_
 
 ## Patterns
 
@@ -643,6 +647,32 @@
 - Verify return values propagate correctly through execution chains by tracing dataflow from parse functions through consuming functions and confirming no callers discard returns. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 - Run integration smoke tests using real (non-stubbed) pipeline code to validate end-to-end functionality before marking wiring verification complete. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 - Comprehensive wiring verification requires checking: execution path traceability, return value propagation, smoke test passage, and stub/dead-code absence across all touched files. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Review archetype responses should be persisted to JSONL records with a 100k character truncation limit and [truncated] marker to prevent unbounded disk growth. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Emit separate audit events for each review persistence type: review.findings_persisted (skeptic), review.verdicts_persisted (verifier), and review.drift_persisted (oracle), each with appropriate payloads. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Wrap audit event emission in try/except to satisfy resilience requirements; log warnings but do not propagate exceptions if audit event emission fails. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Enrich blocking reason strings with finding IDs and descriptions, capping display at 3 IDs with 'and N more' for additional findings to keep messages concise. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- CLI findings command should support multiple filter dimensions (spec, severity, archetype, run_id) with an optional active_only flag; severity filtering follows monotonic ordering (critical > major > minor > observation). _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Gracefully handle missing knowledge database in CLI commands by printing a message and exiting with code 0, rather than raising an error. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Use dataclass with frozen=True for FindingRow and FindingsSummary to ensure immutability and hashability when passing structured findings data between modules. _(spec: 84_review_output_visibility, confidence: 0.60)_
+- Query findings from multiple DuckDB tables (review_findings, verification_results, drift_findings) and unify results into a common FindingRow structure with an archetype discriminator field. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Create stub modules early to enable test collection when implementing test-first workflows, even if the modules lack implementation details. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Comprehensive test coverage for output visibility should span multiple concerns: response logging formats (JSONL), audit trails, enriched contextual data, CLI presentation, invariant properties, and end-to-end integration scenarios. _(spec: 84_review_output_visibility, confidence: 0.60)_
+- Use Click's CliRunner for unit testing CLI commands, with proper patching of module-level constants like DEFAULT_DB_PATH for isolated testing. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Stub modules with NotImplementedError during early test-driven development, allowing tests to exist and fail before implementation in later task groups. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- When audit event emission fails, catch exceptions to prevent propagation while still persisting data to the knowledge base. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Use property-based testing with hypothesis to verify invariants like truncation correctness, filter monotonicity, and ID caps across many generated inputs. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Create separate audit event types for different review archetypes: REVIEW_FINDINGS_PERSISTED (skeptic), REVIEW_VERDICTS_PERSISTED (verifier), REVIEW_DRIFT_PERSISTED (oracle). _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Severity filter should enforce monotonicity: querying for 'major' returns only findings at severity 'critical' or 'major', not 'minor' or 'observation'. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Use conftest fixtures like knowledge_conn to provide DuckDB connections with pre-initialized schema across multiple test modules. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- When logging large response objects to JSONL, implement truncation (e.g., 100k character limit) to prevent unbounded log file growth and performance issues. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Create dedicated audit event types for different persistence operations (e.g., REVIEW_FINDINGS_PERSISTED, REVIEW_VERDICTS_PERSISTED, REVIEW_DRIFT_PERSISTED) rather than using a single generic type, to enable fine-grained audit trails. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Emit persistence audit events in a helper function (_emit_persistence_event) after successful data insertion, not before, to ensure the event accurately reflects completed operations. _(spec: 84_review_output_visibility, confidence: 0.60)_
+- When formatting enriched blocking reasons with multiple finding IDs, cap the displayed IDs at 3 with an 'and N more' suffix for overflow to keep output concise. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- When testing findings insertion with supersession, use direct SQL insertion in test helpers instead of the insert_findings function to bypass auto-supersession logic and control test data precisely. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Wiring verification requires tracing every execution path from design.md end-to-end, verifying that no function in any chain is a stub, and confirming all return values propagate correctly to their consumers. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Integration smoke tests (TS-84-SMOKE-*) must pass using real components rather than stubbed implementations to verify end-to-end functionality. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- A stub and dead-code audit should search for patterns like `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, and `NotImplementedError` to identify and eliminate incomplete implementations. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Return value verification requires grepping for all callers of functions and confirming that no caller discards the return value; return values must propagate through the entire call chain to their final consumers. _(spec: 84_review_output_visibility, confidence: 0.90)_
 
 ## Decisions
 
@@ -712,6 +742,10 @@
 - Idle spinner should display the next scheduled action time in local timezone rather than UTC to improve user experience. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - The SessionOutcome and _QueryExecutionState objects need to track the last assistant response separately from other session metadata to support review finding extraction. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 - When verdicts have both per-criterion and overall verdicts, the overall verdict should be automatically downgraded to FAIL if any criterion is FAIL, rather than trusting the provided value. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Status report findings summary should only be included when at least one spec has active critical or major findings; omit the section entirely when no findings exist at those severity levels. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- All changes to this feature are additive with no modifications to existing behavior; backward compatibility is maintained for JSONL readers that ignore unknown fields. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Blocking reasons should be enriched with additional context beyond basic rejection criteria to provide meaningful audit and reporting information. _(spec: 84_review_output_visibility, confidence: 0.60)_
+- Status summary queries should only include specs with critical > 0 or major > 0 findings, omitting specs with only minor/observation severity. _(spec: 84_review_output_visibility, confidence: 0.90)_
 
 ## Conventions
 
@@ -863,6 +897,9 @@
 - Test specs should be organized into numbered files corresponding to spec areas (parser tests, archetype registry tests, pipeline behavior tests, property tests, smoke tests) to maintain clarity as requirements grow. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
 - Defining dedicated data types (e.g., AcceptanceCriterion, TriageResult, FixReviewVerdict) for parsed results provides type safety and clarity in multi-stage pipeline processing. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 - Prompt templates should be organized in a dedicated directory structure (e.g., agent_fox/_templates/prompts/) and use consistent naming conventions tied to their registry entries. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Finding IDs in enriched blocking reason strings should be prefixed with 'F-' and use truncated UUIDs rather than full identifiers. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Description strings in enriched blocking reasons should be truncated to 60 characters to maintain output readability. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Reporting queries (query_findings, query_findings_summary) and CLI commands should be split across separate modules: reporting/ for data access and cli/ for command interface. _(spec: 84_review_output_visibility, confidence: 0.60)_
 
 ## Anti-Patterns
 
