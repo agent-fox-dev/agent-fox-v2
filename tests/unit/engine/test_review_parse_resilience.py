@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -607,9 +608,9 @@ class TestAllInstancesFailEmitsParseFailure:
         )
 
         mock_sink = MagicMock()
-        emitted_events: list[object] = []
+        emitted_events: list[Any] = []
 
-        def capture_emit(event: object) -> None:
+        def capture_emit(event: Any) -> None:
             emitted_events.append(event)
 
         mock_sink.emit_audit_event = capture_emit
@@ -671,18 +672,18 @@ class TestParseFailurePayloadStrategyField:
 
         class CaptureSink:
             def __init__(self) -> None:
-                self.events: list[object] = []
+                self.events: list[Any] = []
 
-            def emit_audit_event(self, event: object) -> None:
+            def emit_audit_event(self, event: Any) -> None:
                 self.events.append(event)
 
-            def record_session_outcome(self, outcome: object) -> None:
+            def record_session_outcome(self, outcome: Any) -> None:
                 pass
 
-            def record_tool_call(self, tool_call: object) -> None:
+            def record_tool_call(self, tool_call: Any) -> None:
                 pass
 
-            def record_tool_error(self, error: object) -> None:
+            def record_tool_error(self, error: Any) -> None:
                 pass
 
             def close(self) -> None:
