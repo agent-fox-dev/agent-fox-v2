@@ -102,8 +102,8 @@ introspection), (5) wiring verification.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 84-REQ-1.1, 1.2, 1.E1, 2.1, 2.2, 2.3, 2.E1 met
 
-- [ ] 3. Enriched blocking reasons
-  - [ ] 3.1 Add `_format_block_reason()` helper
+- [x] 3. Enriched blocking reasons
+  - [x] 3.1 Add `_format_block_reason()` helper
     - Add to `agent_fox/engine/result_handler.py`
     - Accept archetype, findings list, threshold, spec_name, task_group
     - Format: "{Archetype} found N critical finding(s) (threshold: T) for
@@ -112,18 +112,18 @@ introspection), (5) wiring verification.
     - Truncate each description to 60 chars
     - _Requirements: 84-REQ-3.1, 84-REQ-3.E1_
 
-  - [ ] 3.2 Wire enriched reason into `evaluate_review_blocking()`
+  - [x] 3.2 Wire enriched reason into `evaluate_review_blocking()`
     - Replace the existing generic reason string (line 134-138) with a call
       to `_format_block_reason(archetype, findings, threshold, spec, group)`
     - Pass the `findings` list (already queried) to the formatter
     - _Requirements: 84-REQ-3.1, 84-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Blocking tests pass: `uv run pytest -q tests/unit/engine/test_block_reason_enrichment.py`
-    - [ ] Property test TS-84-P3 passes
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 84-REQ-3.1, 3.2, 3.E1 met
+  - [x] 3.V Verify task group 3
+    - [x] Blocking tests pass: `uv run pytest -q tests/unit/engine/test_block_reason_enrichment.py`
+    - [x] Property test TS-84-P3 passes
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 84-REQ-3.1, 3.2, 3.E1 met
 
 - [ ] 4. CLI findings command and status summary
   - [ ] 4.1 Create `reporting/findings.py` module

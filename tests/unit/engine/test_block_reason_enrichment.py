@@ -51,6 +51,12 @@ def _make_session_record(
         archetype=archetype,
         attempt=attempt,
         status="completed",
+        input_tokens=0,
+        output_tokens=0,
+        cost=0.0,
+        duration_ms=0,
+        error_message=None,
+        timestamp="2026-01-01T00:00:00",
     )
 
 

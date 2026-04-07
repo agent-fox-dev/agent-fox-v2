@@ -14,9 +14,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
-from agent_fox.cli.findings import findings_cmd
 from click.testing import CliRunner
 
+from agent_fox.cli.findings import findings_cmd
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
 

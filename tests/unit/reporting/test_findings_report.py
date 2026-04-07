@@ -14,17 +14,17 @@ import json
 import uuid
 
 import duckdb
-from agent_fox.reporting.findings import (
-    format_findings_table,
-    query_findings,
-    query_findings_summary,
-)
 
 from agent_fox.knowledge.review_store import (
     ReviewFinding,
     VerificationResult,
     insert_findings,
     insert_verdicts,
+)
+from agent_fox.reporting.findings import (
+    format_findings_table,
+    query_findings,
+    query_findings_summary,
 )
 
 
