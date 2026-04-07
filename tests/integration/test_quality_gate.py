@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import textwrap
 import uuid
+from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from agent_fox.routing.features import extract_features
 
 
 @pytest.fixture
-def integration_db() -> duckdb.DuckDBPyConnection:
+def integration_db() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with routing tables for integration tests."""
     conn = duckdb.connect(":memory:")
     conn.execute("""
