@@ -239,6 +239,7 @@ class TestStreamingErrorYieldsResult:
         assert isinstance(result, ResultMessage)
         assert result.is_error is True
         assert result.status == "failed"
+        assert result.error_message is not None
         assert "network failure" in result.error_message
 
     @pytest.mark.asyncio
@@ -266,6 +267,7 @@ class TestStreamingErrorYieldsResult:
         assert isinstance(result, ResultMessage)
         assert result.is_error is True
         assert result.status == "failed"
+        assert result.error_message is not None
         assert "without a result" in result.error_message
 
 
@@ -439,7 +441,7 @@ class TestStreamTeardownClosesResponseStream:
             gen = backend._stream_messages(prompt="test", options=MagicMock())
             # Consume one message, then explicitly close the generator
             messages.append(await gen.__anext__())
-            await gen.aclose()
+            await gen.aclose()  # type: ignore[attr-defined]
 
         assert len(messages) == 1
         assert aclose_called.is_set(), "aclose() must be called even on early close"

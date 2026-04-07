@@ -455,6 +455,7 @@ class TestReportingMigration:
             )
 
         report = build_status_report_from_audit(knowledge_conn)
+        assert report is not None
         assert report.total_sessions == 5
         assert report.total_input_tokens > 0
 

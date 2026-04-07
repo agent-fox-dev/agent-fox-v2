@@ -80,9 +80,7 @@ class TestGracefulShutdown:
         stream.run_once = AsyncMock(side_effect=slow_run)
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [stream], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [stream], budget, pid_path=tmp_path / "d.pid")
 
         async def shutdown_mid_operation() -> None:
             await asyncio.sleep(0.05)  # mid-operation
@@ -120,9 +118,7 @@ class TestConcurrentStreams:
 
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [s1, s2], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [s1, s2], budget, pid_path=tmp_path / "d.pid")
 
         start = time.monotonic()
 
@@ -154,7 +150,7 @@ class TestCostCheckBetweenCycles:
         """run_once completes fully even when cost exceeds budget."""
         from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
 
-        completed = []
+        completed: list[bool] = []
 
         async def costly_run() -> None:
             await asyncio.sleep(0.05)
@@ -165,9 +161,7 @@ class TestCostCheckBetweenCycles:
         stream = _make_mock_stream(name="costly-stream", interval=1)
         stream.run_once = AsyncMock(side_effect=costly_run)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [stream], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [stream], budget, pid_path=tmp_path / "d.pid")
         await runner.run()
         assert len(completed) >= 1
         assert budget.exceeded is True
@@ -194,9 +188,7 @@ class TestPersistentStreamFailure:
         healthy = _make_mock_stream(name="healthy", interval=1)
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [failing, healthy], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [failing, healthy], budget, pid_path=tmp_path / "d.pid")
 
         async def shutdown_after_delay() -> None:
             await asyncio.sleep(0.3)
@@ -419,9 +411,7 @@ class TestSmokeDraftPrCreation:
 
         with patch("agent_fox.platform.github.httpx.AsyncClient", return_value=mock_client):
             github = GitHubPlatform("owner", "repo", "token")
-            result = await github.create_pull_request(
-                "Fix", "body", "fix/1", "develop", draft=True
-            )
+            result = await github.create_pull_request("Fix", "body", "fix/1", "develop", draft=True)
 
         assert result.number == 99
         assert "github.com" in result.html_url

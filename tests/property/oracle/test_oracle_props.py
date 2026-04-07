@@ -85,6 +85,7 @@ class TestPropertyRegistryCompleteness:
         entry = ARCHETYPE_REGISTRY["oracle"]
         assert entry.injection == "auto_pre"
         assert entry.task_assignable is True
+        assert entry.default_allowlist is not None
         assert len(entry.default_allowlist) > 0
 
 
@@ -156,7 +157,7 @@ class TestPropertyBackwardCompat:
         else:
             kwargs["oracle"] = False
 
-        config = ArchetypesConfig(**kwargs)
+        config = ArchetypesConfig(**kwargs)  # type: ignore[arg-type]
         specs = [_spec()]
         task_groups = {"spec": [_tgd(1, "T1")]}
 

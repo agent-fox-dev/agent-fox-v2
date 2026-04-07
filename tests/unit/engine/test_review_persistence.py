@@ -95,7 +95,9 @@ class TestSkepticOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:2:1", 1)
 
-        rows = knowledge_db._conn.execute("SELECT severity, description FROM review_findings").fetchall()
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
+            "SELECT severity, description FROM review_findings"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "major"
         assert rows[0][1] == "Missing null check"
@@ -154,7 +156,9 @@ class TestVerifierOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:2:1", 1)
 
-        rows = knowledge_db._conn.execute("SELECT requirement_id, verdict FROM verification_results").fetchall()
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
+            "SELECT requirement_id, verdict FROM verification_results"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "03-REQ-1.1"
         assert rows[0][1] == "PASS"
@@ -235,7 +239,9 @@ class TestOracleOutputParsedAndPersisted:
         ):
             runner._persist_review_findings(output, "03_api:0:1", 1)
 
-        rows = knowledge_db._conn.execute("SELECT severity, description FROM drift_findings").fetchall()
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
+            "SELECT severity, description FROM drift_findings"
+        ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "critical"
 
@@ -394,7 +400,7 @@ class TestRetryContextIncludesActiveFindings:
             task_group="2",
             session_id="test_session",
         )
-        insert_findings(knowledge_db._conn, [critical_finding])
+        insert_findings(knowledge_db._conn, [critical_finding])  # type: ignore[arg-type]
 
         runner = NodeSessionRunner(
             "03_api:3",
@@ -419,7 +425,7 @@ class TestRetryContextIncludesActiveFindings:
             task_group="2",
             session_id="test_session",
         )
-        insert_findings(knowledge_db._conn, [major_finding])
+        insert_findings(knowledge_db._conn, [major_finding])  # type: ignore[arg-type]
 
         runner = NodeSessionRunner(
             "03_api:3",
@@ -444,7 +450,7 @@ class TestRetryContextIncludesActiveFindings:
             task_group="2",
             session_id="sess",
         )
-        insert_findings(knowledge_db._conn, [finding])
+        insert_findings(knowledge_db._conn, [finding])  # type: ignore[arg-type]
 
         runner = NodeSessionRunner(
             "03_api:3",
@@ -489,7 +495,7 @@ class TestRetryContextEmptyWhenNoFindings:
             task_group="2",
             session_id="sess",
         )
-        insert_findings(knowledge_db._conn, [minor_finding])
+        insert_findings(knowledge_db._conn, [minor_finding])  # type: ignore[arg-type]
 
         runner = NodeSessionRunner(
             "03_api:3",
@@ -512,7 +518,7 @@ class TestRetryContextEmptyWhenNoFindings:
             task_group="2",
             session_id="sess",
         )
-        insert_findings(knowledge_db._conn, [obs_finding])
+        insert_findings(knowledge_db._conn, [obs_finding])  # type: ignore[arg-type]
 
         runner = NodeSessionRunner(
             "03_api:3",

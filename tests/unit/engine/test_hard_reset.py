@@ -123,7 +123,7 @@ def _make_session_record(
         "commit_sha": commit_sha,
     }
     defaults.update(kwargs)
-    return SessionRecord(**defaults)
+    return SessionRecord(**defaults)  # type: ignore[arg-type]
 
 
 def _setup_agent_dir(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:

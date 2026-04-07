@@ -70,9 +70,7 @@ def _make_archetypes_config(block_threshold: int = 0):
 class TestEnrichedBlockingReason:
     """TS-84-6: Enriched blocking reason includes finding IDs."""
 
-    def test_blocking_reason_contains_finding_ids(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_blocking_reason_contains_finding_ids(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify blocked reason contains finding IDs and truncated descriptions."""
         findings = [
             _make_finding(description="Missing error handling for null input"),
@@ -95,9 +93,7 @@ class TestEnrichedBlockingReason:
         assert "F-" in decision.reason
         assert len(decision.reason) < 500  # reasonably sized
 
-    def test_blocking_reason_contains_descriptions(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_blocking_reason_contains_descriptions(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify blocked reason contains truncated descriptions."""
         findings = [
             _make_finding(description="Missing error handling for null input"),
@@ -121,14 +117,9 @@ class TestEnrichedBlockingReason:
 class TestBlockingReasonFindingIdCap:
     """TS-84-7: Blocking reason caps at 3 finding IDs."""
 
-    def test_caps_at_3_finding_ids(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_caps_at_3_finding_ids(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify that with 5 critical findings, only 3 IDs are shown."""
-        findings = [
-            _make_finding(description=f"Critical issue {i}")
-            for i in range(5)
-        ]
+        findings = [_make_finding(description=f"Critical issue {i}") for i in range(5)]
         insert_findings(knowledge_conn, findings)
 
         record = _make_session_record()

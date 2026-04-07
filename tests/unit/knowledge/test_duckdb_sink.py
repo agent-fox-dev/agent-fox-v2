@@ -75,8 +75,8 @@ class TestDuckDBSinkDebugGating:
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0  # type: ignore[index]
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0  # type: ignore[index]
 
     def test_tool_calls_written_when_debug_true(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify tool_calls and tool_errors are written when debug=True."""
@@ -85,8 +85,8 @@ class TestDuckDBSinkDebugGating:
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1  # type: ignore[index]
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1  # type: ignore[index]
 
 
 class TestDuckDBSinkMultipleTouchedPaths:

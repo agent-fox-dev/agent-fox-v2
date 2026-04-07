@@ -173,7 +173,7 @@ class TestStreamIsolation:
 
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")
+        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")  # type: ignore[arg-type]
 
         async def run_briefly() -> None:
             t = asyncio.create_task(runner.run())
@@ -209,7 +209,7 @@ class TestShutdownCompleteness:
         streams = [_make_mock_stream(name=f"s-{i}") for i in range(n)]
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")
+        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")  # type: ignore[arg-type]
         runner.request_shutdown()
 
         async def run_and_check() -> None:

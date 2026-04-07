@@ -19,9 +19,7 @@ try:
 except ImportError:
     HAS_HYPOTHESIS = False
 
-pytestmark = pytest.mark.skipif(
-    not HAS_HYPOTHESIS, reason="hypothesis not installed"
-)
+pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 
 REQUIRED_TRIAGE_KEYS = ("id", "description", "preconditions", "expected", "assertion")
 
@@ -56,9 +54,7 @@ class TestTriageCriteriaCompleteness:
         max_examples=50,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_parsed_criteria_always_complete(
-        self, criteria_dicts: list[dict]
-    ) -> None:
+    def test_parsed_criteria_always_complete(self, criteria_dicts: list[dict]) -> None:
         from agent_fox.session.review_parser import parse_triage_output
 
         json_str = json.dumps(
@@ -79,11 +75,7 @@ class TestTriageCriteriaCompleteness:
             assert criterion.assertion != ""
 
         # Count: only criteria with all 5 fields present should be included
-        complete = [
-            c
-            for c in criteria_dicts
-            if all(k in c and c[k] for k in REQUIRED_TRIAGE_KEYS)
-        ]
+        complete = [c for c in criteria_dicts if all(k in c and c[k] for k in REQUIRED_TRIAGE_KEYS)]
         assert len(result.criteria) == len(complete)
 
 
@@ -121,9 +113,7 @@ class TestReviewerVerdictValidation:
         max_examples=50,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_parsed_verdicts_valid_and_consistent(
-        self, verdict_dicts: list[dict]
-    ) -> None:
+    def test_parsed_verdicts_valid_and_consistent(self, verdict_dicts: list[dict]) -> None:
         from agent_fox.session.review_parser import parse_fix_review_output
 
         json_str = json.dumps(
@@ -162,9 +152,7 @@ class TestEscalationLadderConsistency:
         max_examples=50,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_ladder_state_matches_reference(
-        self, n: int, retries_before: int
-    ) -> None:
+    def test_ladder_state_matches_reference(self, n: int, retries_before: int) -> None:
         from agent_fox.core.models import ModelTier
         from agent_fox.routing.escalation import EscalationLadder
 
@@ -228,9 +216,7 @@ class TestRetryFeedbackInjection:
         max_examples=50,
         suppress_health_check=[HealthCheck.function_scoped_fixture],
     )
-    def test_fail_evidence_in_coder_prompt(
-        self, verdicts: list[tuple[str, str, str]]
-    ) -> None:
+    def test_fail_evidence_in_coder_prompt(self, verdicts: list[tuple[str, str, str]]) -> None:
         from unittest.mock import MagicMock
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
@@ -274,22 +260,14 @@ class TestRetryFeedbackInjection:
                     }
                     for cid, v, ev in verdicts
                 ],
-                "overall_verdict": (
-                    "FAIL"
-                    if any(v == "FAIL" for _, v, _ in verdicts)
-                    else "PASS"
-                ),
+                "overall_verdict": ("FAIL" if any(v == "FAIL" for _, v, _ in verdicts) else "PASS"),
                 "summary": "review",
             }
         )
         review_result = parse_fix_review_output(review_json, "fix-issue-1", "s1")
 
         # Skip if no FAIL verdicts (nothing to inject)
-        fail_verdicts = [
-            (cid, ev)
-            for cid, v, ev in verdicts
-            if v == "FAIL"
-        ]
+        fail_verdicts = [(cid, ev) for cid, v, ev in verdicts if v == "FAIL"]
         if not fail_verdicts:
             return
 
@@ -304,18 +282,12 @@ class TestRetryFeedbackInjection:
         config = MagicMock()
         pipeline = FixPipeline(config=config, platform=MagicMock())
 
-        _, task_prompt = pipeline._build_coder_prompt(
-            spec, triage_result, review_feedback=review_result
-        )
+        _, task_prompt = pipeline._build_coder_prompt(spec, triage_result, review_feedback=review_result)
 
         # Every FAIL evidence must appear in the task prompt
         combined = task_prompt
         for _cid, evidence in fail_verdicts:
             # Only check parsed FAIL verdicts (invalid ones are excluded)
-            matching = [
-                v for v in review_result.verdicts if v.verdict == "FAIL"
-            ]
+            matching = [v for v in review_result.verdicts if v.verdict == "FAIL"]
             for v in matching:
-                assert v.evidence in combined, (
-                    f"FAIL evidence '{v.evidence}' not in coder prompt"
-                )
+                assert v.evidence in combined, f"FAIL evidence '{v.evidence}' not in coder prompt"

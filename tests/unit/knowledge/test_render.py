@@ -8,6 +8,7 @@ Requirements: 05-REQ-6.1, 05-REQ-6.2, 05-REQ-6.E1, 05-REQ-6.E2
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -37,7 +38,7 @@ def _insert_fact(
 
 
 @pytest.fixture
-def schema_conn() -> duckdb.DuckDBPyConnection:
+def schema_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB connection with schema."""
     conn = duckdb.connect(":memory:")
     create_schema(conn)

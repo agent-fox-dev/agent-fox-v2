@@ -422,7 +422,7 @@ class NodeSessionRunner:
         outcome: SessionOutcome,
         workspace: WorkspaceInfo,
         repo_root: Path,
-    ) -> tuple[str, str, list[str]]:
+    ) -> tuple[str, str | None, list[str]]:
         """Harvest changes on success and run post-harvest integration.
 
         Returns (status, error_message, touched_files).
@@ -913,9 +913,10 @@ def load_relevant_facts(
     # 42-REQ-3.2: Try cache first when cache is available
     if fact_cache is not None:
         try:
-            current_count: int = knowledge_db.connection.execute(
+            _row = knowledge_db.connection.execute(
                 "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-            ).fetchone()[0]
+            ).fetchone()
+            current_count: int = _row[0] if _row else 0
             cached = get_cached_facts(fact_cache, spec_name, current_count)
             if cached is not None:
                 logger.debug(

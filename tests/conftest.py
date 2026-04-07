@@ -76,7 +76,7 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def tmp_git_repo(tmp_path: Path) -> Path:
+def tmp_git_repo(tmp_path: Path) -> Generator[Path, None, None]:
     """Create a temporary git repository for integration tests.
 
     Returns the path to the temporary repo directory with git initialized

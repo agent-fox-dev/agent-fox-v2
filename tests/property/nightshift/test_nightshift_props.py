@@ -311,7 +311,7 @@ class TestCategoryIsolation:
             mock_cats.append(mock)
 
         registry = HuntCategoryRegistry()
-        registry._categories = mock_cats
+        registry._categories = mock_cats  # type: ignore[assignment]
 
         scanner = HuntScanner(registry, config)
 

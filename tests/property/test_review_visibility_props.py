@@ -51,14 +51,10 @@ def finding_row_strategy():
     """Strategy for generating FindingRow objects."""
     return st.builds(
         FindingRow,
-        id=st.text(min_size=8, max_size=12, alphabet="abcdef0123456789").map(
-            lambda s: f"F-{s}"
-        ),
+        id=st.text(min_size=8, max_size=12, alphabet="abcdef0123456789").map(lambda s: f"F-{s}"),
         severity=st.sampled_from(SEVERITY_LEVELS),
         archetype=st.sampled_from(["skeptic", "oracle"]),
-        spec_name=st.text(
-            min_size=1, max_size=20, alphabet="abcdefghijklmnopqrstuvwxyz_0123456789"
-        ),
+        spec_name=st.text(min_size=1, max_size=20, alphabet="abcdefghijklmnopqrstuvwxyz_0123456789"),
         task_group=st.sampled_from(["1", "2", "3"]),
         description=st.text(
             min_size=1,
@@ -103,14 +99,10 @@ class TestAuditEventCountProperty:
 
     @given(
         n_findings=st.integers(min_value=1, max_value=10),
-        severities=st.lists(
-            st.sampled_from(SEVERITY_LEVELS), min_size=1, max_size=10
-        ),
+        severities=st.lists(st.sampled_from(SEVERITY_LEVELS), min_size=1, max_size=10),
     )
     @settings(max_examples=20)
-    def test_audit_count_matches_insert_count(
-        self, n_findings: int, severities: list[str]
-    ) -> None:
+    def test_audit_count_matches_insert_count(self, n_findings: int, severities: list[str]) -> None:
         """Audit event count equals number of inserted records."""
         from unittest.mock import MagicMock
 
@@ -122,10 +114,7 @@ class TestAuditEventCountProperty:
 
         mock_sink = MagicMock()
         findings_json = json.dumps(
-            [
-                {"severity": sev, "description": f"Finding {i}"}
-                for i, sev in enumerate(severities)
-            ]
+            [{"severity": sev, "description": f"Finding {i}"} for i, sev in enumerate(severities)]
         )
 
         persist_review_findings(
@@ -142,17 +131,11 @@ class TestAuditEventCountProperty:
 
         # Find the persisted audit event — must exist
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED]
         assert len(persisted_events) == 1, "Expected exactly one REVIEW_FINDINGS_PERSISTED event"
 
         event = persisted_events[0].args[0]
-        row_count = conn.execute(
-            "SELECT COUNT(*) FROM review_findings"
-        ).fetchone()[0]
+        row_count = conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()[0]  # type: ignore[index]
         assert event.payload["count"] == row_count
 
         conn.close()
@@ -273,9 +256,7 @@ class TestStatusSummaryOmission:
                     max_size=10,
                     alphabet="abcdefghijklmnopqrstuvwxyz",
                 ),
-                st.lists(
-                    st.sampled_from(SEVERITY_LEVELS), min_size=1, max_size=5
-                ),
+                st.lists(st.sampled_from(SEVERITY_LEVELS), min_size=1, max_size=5),
             ),
             min_size=1,
             max_size=5,

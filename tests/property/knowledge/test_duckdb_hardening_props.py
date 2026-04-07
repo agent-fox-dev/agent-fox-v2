@@ -95,12 +95,12 @@ class TestFixtureIsolation:
                 "0.9, CURRENT_TIMESTAMP)",
                 [f"fact_{i}"],
             )
-        count1 = conn1.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count1 = conn1.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count1 == n
         conn1.close()
 
         # Create fixture 2 — should be empty
         conn2 = _create_fresh_conn()
-        count2 = conn2.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count2 = conn2.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count2 == 0
         conn2.close()

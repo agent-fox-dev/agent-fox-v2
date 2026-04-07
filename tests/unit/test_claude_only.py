@@ -51,7 +51,7 @@ def test_protocol_exported() -> None:
 
     from agent_fox.session.backends import AgentBackend
 
-    assert issubclass(AgentBackend, Protocol)
+    assert issubclass(AgentBackend, Protocol)  # type: ignore[arg-type]
 
 
 def test_protocol_is_runtime_checkable() -> None:

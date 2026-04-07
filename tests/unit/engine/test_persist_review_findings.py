@@ -46,7 +46,7 @@ class TestPersistSkepticFindings:
         )
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
-        rows = knowledge_db._conn.execute(
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
             "SELECT severity, description, requirement_ref, spec_name, task_group "
             "FROM review_findings ORDER BY severity"
         ).fetchall()
@@ -69,7 +69,10 @@ class TestPersistSkepticFindings:
         )
         runner._persist_review_findings("No JSON here at all.", "my_spec:0", 1)
 
-        rows = knowledge_db._conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
+            "SELECT COUNT(*) FROM review_findings"
+        ).fetchone()
+        assert rows is not None
         assert rows[0] == 0
 
 
@@ -101,7 +104,7 @@ class TestPersistVerifierVerdicts:
         )
         runner._persist_review_findings(transcript, "my_spec:7", 1)
 
-        rows = knowledge_db._conn.execute(
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
             "SELECT requirement_id, verdict, evidence, spec_name, task_group "
             "FROM verification_results ORDER BY requirement_id"
         ).fetchall()
@@ -135,7 +138,7 @@ class TestPersistOracleDrift:
         )
         runner._persist_review_findings(transcript, "my_spec:0", 1)
 
-        rows = knowledge_db._conn.execute(
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
             "SELECT severity, description, spec_ref, artifact_ref, spec_name FROM drift_findings"
         ).fetchall()
         assert len(rows) == 1
@@ -156,7 +159,10 @@ class TestCoderSkipped:
         transcript = json.dumps({"findings": [{"severity": "critical", "description": "x"}]})
         runner._persist_review_findings(transcript, "my_spec:1", 1)
 
-        rows = knowledge_db._conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
+        rows = knowledge_db._conn.execute(  # type: ignore[union-attr]
+            "SELECT COUNT(*) FROM review_findings"
+        ).fetchone()
+        assert rows is not None
         assert rows[0] == 0
 
 

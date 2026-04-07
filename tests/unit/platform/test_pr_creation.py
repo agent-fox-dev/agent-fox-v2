@@ -41,9 +41,7 @@ class TestDraftPrCreation:
                 html_url="https://github.com/o/r/pull/42",
             )
         )
-        result = await platform.create_pull_request(
-            "title", "body", "fix/123", "develop", draft=True
-        )
+        result = await platform.create_pull_request("title", "body", "fix/123", "develop", draft=True)
         assert result.number == 42
         assert result.html_url == "https://github.com/o/r/pull/42"
 
@@ -63,32 +61,23 @@ class TestPlatformProtocolCreatePR:
         from agent_fox.platform.protocol import PlatformProtocol
 
         class WithPR:
-            async def create_issue(
-                self, title: str, body: str, labels: list[str] | None = None
-            ) -> IssueResult:
-                ...
+            async def create_issue(self, title: str, body: str, labels: list[str] | None = None) -> IssueResult: ...  # type: ignore[empty-body]
 
-            async def list_issues_by_label(
+            async def list_issues_by_label(  # type: ignore[empty-body]
                 self, label: str, state: str = "open", *, sort: str = "created", direction: str = "asc"
-            ) -> list[IssueResult]:
-                ...
+            ) -> list[IssueResult]: ...
 
-            async def add_issue_comment(self, issue_number: int, body: str) -> None:
-                ...
+            async def add_issue_comment(self, issue_number: int, body: str) -> None: ...
 
-            async def assign_label(self, issue_number: int, label: str) -> None:
-                ...
+            async def assign_label(self, issue_number: int, label: str) -> None: ...
 
-            async def close_issue(self, issue_number: int, comment: str | None = None) -> None:
-                ...
+            async def close_issue(self, issue_number: int, comment: str | None = None) -> None: ...
 
-            async def close(self) -> None:
-                ...
+            async def close(self) -> None: ...
 
-            async def create_pull_request(
+            async def create_pull_request(  # type: ignore[empty-body]
                 self, title: str, body: str, head: str, base: str, draft: bool = True
-            ) -> PullRequestResult:
-                ...
+            ) -> PullRequestResult: ...
 
         assert isinstance(WithPR(), PlatformProtocol)
 
@@ -129,9 +118,7 @@ class TestGitHubPlatformCreatePR:
 
         with patch("agent_fox.platform.github.httpx.AsyncClient", return_value=mock_client):
             github = GitHubPlatform("owner", "repo", "token")
-            result = await github.create_pull_request(
-                "Fix bug", "body", "fix/42", "develop", draft=True
-            )
+            result = await github.create_pull_request("Fix bug", "body", "fix/42", "develop", draft=True)
 
         assert result.number == 99
         assert len(requests_made) == 1
@@ -155,9 +142,7 @@ class TestPrCreationFailure:
         from agent_fox.nightshift.daemon import handle_merge_strategy
 
         platform = MagicMock()
-        platform.create_pull_request = AsyncMock(
-            side_effect=IntegrationError("API error")
-        )
+        platform.create_pull_request = AsyncMock(side_effect=IntegrationError("API error"))
         platform.add_issue_comment = AsyncMock()
 
         await handle_merge_strategy(

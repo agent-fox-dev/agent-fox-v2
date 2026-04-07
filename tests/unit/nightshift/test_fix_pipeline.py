@@ -279,22 +279,29 @@ class TestSuccessfulFixHarvestsAndCloses:
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
-                input_tokens=10, output_tokens=5,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if archetype == "triage":
                 outcome.response = triage_response
@@ -304,7 +311,7 @@ class TestSuccessfulFixHarvestsAndCloses:
                 outcome.response = ""
             return outcome
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = IssueResult(
             number=7,
@@ -337,22 +344,29 @@ class TestSuccessfulFixHarvestsAndCloses:
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
-                input_tokens=10, output_tokens=5,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if archetype == "triage":
                 outcome.response = triage_response
@@ -362,7 +376,7 @@ class TestSuccessfulFixHarvestsAndCloses:
                 outcome.response = ""
             return outcome
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = IssueResult(
             number=9,

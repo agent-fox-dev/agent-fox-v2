@@ -90,7 +90,7 @@ async def extract_facts(
 
     track_response_usage(response, model_entry.model_id, "fact extraction")
 
-    first_block = response.content[0]
+    first_block = response.content[0]  # type: ignore[attr-defined]
     if isinstance(first_block, TextBlock):
         raw_text: str = first_block.text
     else:

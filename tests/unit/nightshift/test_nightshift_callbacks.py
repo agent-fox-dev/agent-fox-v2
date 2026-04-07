@@ -109,17 +109,22 @@ class TestFixPipelinePassesCallback:
 
         issue = _make_issue()
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         # Capture calls to run_session via patching the session module
         captured_kwargs: list[dict] = []
@@ -172,17 +177,22 @@ class TestFixPipelinePassesCallback:
 
         issue = _make_issue()
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         captured_kwargs: list[dict] = []
 
@@ -190,8 +200,10 @@ class TestFixPipelinePassesCallback:
             captured_kwargs.append(kwargs)
             node_id = kwargs.get("node_id", "")
             mock_outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if "triage" in str(node_id):
                 mock_outcome.response = triage_response
@@ -244,22 +256,29 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if archetype == "triage":
                 outcome.response = triage_response
@@ -269,7 +288,7 @@ class TestFixPipelineTaskEvents:
                 outcome.response = ""
             return outcome
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = _make_issue(number=42)
 
@@ -303,22 +322,29 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if archetype == "triage":
                 outcome.response = triage_response
@@ -328,7 +354,7 @@ class TestFixPipelineTaskEvents:
                 outcome.response = ""
             return outcome
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = _make_issue(number=99)
 
@@ -360,28 +386,33 @@ class TestFixPipelineTaskEvents:
 
         # Triage succeeds but coder fails
         import json
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
+
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
         call_count = {"n": 0}
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             call_count["n"] += 1
             if archetype == "triage":
                 outcome = MagicMock(
-                    input_tokens=10, output_tokens=5,
-                    cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                    input_tokens=10,
+                    output_tokens=5,
+                    cache_read_input_tokens=0,
+                    cache_creation_input_tokens=0,
                     response=triage_response,
                 )
                 return outcome
             # coder fails
             raise RuntimeError("session crash")
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = _make_issue(number=10)
 
@@ -410,22 +441,29 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if archetype == "triage":
                 outcome.response = triage_response
@@ -435,7 +473,7 @@ class TestFixPipelineTaskEvents:
                 outcome.response = ""
             return outcome
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         issue = _make_issue()
 
@@ -474,17 +512,22 @@ class TestActivityEventForwarded:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         # Simulate run_session calling activity_callback
         async def fake_run_session(**kwargs):
@@ -500,8 +543,10 @@ class TestActivityEventForwarded:
                     )
                 )
             mock_outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if "triage" in str(node_id):
                 mock_outcome.response = triage_response

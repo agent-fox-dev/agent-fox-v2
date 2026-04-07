@@ -21,13 +21,6 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
-
-# NOTE: The following imports fail until the respective task groups implement them.
-# All property tests in this file will fail with ImportError until Task Group 2
-# creates engine.review_parser.
-from agent_fox.session.review_parser import (
-    extract_json_array,
-)
 from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.graph.injection import build_review_only_graph
 from agent_fox.knowledge.audit import AuditEventType
@@ -37,6 +30,13 @@ from agent_fox.knowledge.review_store import (
     ReviewFinding,
     insert_findings,
     query_active_findings,
+)
+
+# NOTE: The following imports fail until the respective task groups implement them.
+# All property tests in this file will fail with ImportError until Task Group 2
+# creates engine.review_parser.
+from agent_fox.session.review_parser import (
+    extract_json_array,
 )
 
 # ---------------------------------------------------------------------------
@@ -196,9 +196,9 @@ class TestParseOrWarnInvariant:
             # Count total inserted records across all tables
             _tables = ("review_findings", "verification_results", "drift_findings")
             total_inserted = sum(
-                db._conn.execute(
+                db._conn.execute(  # type: ignore[union-attr]
                     f"SELECT COUNT(*) FROM {table}"  # noqa: S608
-                ).fetchone()[0]
+                ).fetchone()[0]  # type: ignore[index]
                 for table in _tables
             )
 
@@ -208,7 +208,7 @@ class TestParseOrWarnInvariant:
                 f"No findings persisted and no parse_failure event emitted for output={output!r}, archetype={archetype}"
             )
         finally:
-            db._conn.close()
+            db._conn.close()  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
@@ -256,11 +256,11 @@ class TestSupersessionConsistency:
                     )
                     for desc in descriptions
                 ]
-                insert_findings(db._conn, batch)
+                insert_findings(db._conn, batch)  # type: ignore[arg-type]
                 if i == len(batches) - 1:
                     last_batch_ids = {f.id for f in batch}
 
-            active = query_active_findings(db._conn, spec_name, task_group)
+            active = query_active_findings(db._conn, spec_name, task_group)  # type: ignore[arg-type]
             active_ids = {f.id for f in active}
 
             assert active_ids <= last_batch_ids, (
@@ -270,7 +270,7 @@ class TestSupersessionConsistency:
                 f"Not all last-batch findings are active: active={active_ids}, last={last_batch_ids}"
             )
         finally:
-            db._conn.close()
+            db._conn.close()  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
@@ -315,9 +315,9 @@ class TestArchetypeRoutingCorrectness:
 
             runner._persist_review_findings(output, "prop_spec:1", 1)
 
-            count = db._conn.execute(
+            count = db._conn.execute(  # type: ignore[union-attr]
                 f"SELECT COUNT(*) FROM {table}"  # noqa: S608
-            ).fetchone()[0]
+            ).fetchone()[0]  # type: ignore[index]
 
             assert count > 0, f"archetype={archetype} should have inserted into {table}, but count=0"
 
@@ -328,14 +328,14 @@ class TestArchetypeRoutingCorrectness:
                 "drift_findings",
             } - {table}
             for other in other_tables:
-                other_count = db._conn.execute(
+                other_count = db._conn.execute(  # type: ignore[union-attr]
                     f"SELECT COUNT(*) FROM {other}"  # noqa: S608
-                ).fetchone()[0]
+                ).fetchone()[0]  # type: ignore[index]
                 assert other_count == 0, (
                     f"archetype={archetype} should not insert into {other}, but count={other_count}"
                 )
         finally:
-            db._conn.close()
+            db._conn.close()  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +536,7 @@ class TestRetryContextIncludesFindings:
             ]
 
             if findings_with_desc:
-                insert_findings(db._conn, findings_with_desc)
+                insert_findings(db._conn, findings_with_desc)  # type: ignore[arg-type]
 
             runner = NodeSessionRunner(
                 "prop_spec:2",
@@ -557,4 +557,4 @@ class TestRetryContextIncludesFindings:
                         f"{f.severity} finding should NOT appear in context: {f.description!r}"
                     )
         finally:
-            db._conn.close()
+            db._conn.close()  # type: ignore[union-attr]

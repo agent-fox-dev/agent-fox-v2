@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import textwrap
 import uuid
+from collections.abc import Generator
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -105,7 +106,7 @@ def no_paths_spec_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def routing_db() -> duckdb.DuckDBPyConnection:
+def routing_db() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with routing tables including execution_outcomes."""
     conn = duckdb.connect(":memory:")
     conn.execute("""

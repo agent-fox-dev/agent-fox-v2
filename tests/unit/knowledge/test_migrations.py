@@ -34,7 +34,7 @@ class TestMigrationAppliesPendingMigrations:
         test_migration = Migration(
             version=2,
             description="add test_col to session_outcomes",
-            apply=lambda c: c.execute("ALTER TABLE session_outcomes ADD COLUMN test_col TEXT"),
+            apply=lambda c: c.execute("ALTER TABLE session_outcomes ADD COLUMN test_col TEXT"),  # type: ignore[arg-type]
         )
 
         with patch(
@@ -105,7 +105,7 @@ class TestMigrationFailureRaisesKnowledgeStoreError:
         bad_migration = Migration(
             version=2,
             description="bad migration",
-            apply=lambda c: c.execute("INVALID SQL STATEMENT"),
+            apply=lambda c: c.execute("INVALID SQL STATEMENT"),  # type: ignore[arg-type]
         )
 
         with patch(

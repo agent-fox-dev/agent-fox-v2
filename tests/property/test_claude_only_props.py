@@ -50,5 +50,5 @@ def test_protocol_is_runtime_checkable() -> None:
     """AgentBackend is a runtime-checkable Protocol subclass."""
     from agent_fox.session.backends import AgentBackend
 
-    assert issubclass(AgentBackend, Protocol)
+    assert issubclass(AgentBackend, Protocol)  # type: ignore[arg-type]
     assert getattr(AgentBackend, "_is_runtime_protocol", False)

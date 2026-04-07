@@ -76,7 +76,7 @@ _hostname_strategy = st.text(
 
 # Random string key names for config
 _extra_key_strategy = st.text(
-    alphabet=st.characters(whitelist_categories=("L",)),
+    alphabet=st.characters(whitelist_categories=("L",)),  # type: ignore[arg-type]
     min_size=1,
     max_size=20,
 ).filter(lambda s: s not in {"type", "url"})
@@ -200,7 +200,7 @@ class TestConfigBackwardCompatibility:
             "pr_granularity": pr_granularity,
             "labels": labels,
         }
-        config = PlatformConfig(**data)
+        config = PlatformConfig(**data)  # type: ignore[arg-type]
         assert config.type == "none"
         assert not hasattr(config, "wait_for_ci")
         assert not hasattr(config, "wait_for_review")
@@ -368,7 +368,7 @@ class TestPlatformFactoryWiresUrl:
         class FakeConfig:
             platform = FakePlatformCfg()
 
-        FakeConfig.platform.url = url
+        FakeConfig.platform.url = url  # type: ignore[attr-defined]
 
         with (
             patch.dict(os.environ, {"GITHUB_PAT": "test-token"}),

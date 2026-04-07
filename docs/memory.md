@@ -101,6 +101,10 @@
 - Blocking reason with critical findings should cap finding IDs at 3 and include 'and N more' text when total exceeds 3. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - Test helpers must include all required fields of data structures (e.g., all SessionRecord fields) even if not directly tested, to avoid runtime errors. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - SessionRecord requires all fields to be populated in integration tests, not just a subset, or the smoke test will fail. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Use `suppress_health_check=[HealthCheck.function_scoped_fixture]` when using Hypothesis property tests with pytest fixtures to avoid spurious health check failures. _(spec: 85_daemon_framework, confidence: 0.90)_
+- When adding new methods to a protocol (like create_pull_request to PlatformProtocol), existing mock implementations in tests will break and require updating to match the protocol signature. _(spec: 85_daemon_framework, confidence: 0.90)_
+- asyncio.get_event_loop() is deprecated and can cause flaky property tests; use modern asyncio APIs instead. _(spec: 85_daemon_framework, confidence: 0.90)_
+- SpecGeneratorStream.run_once() is a documented intentional stub for spec 86 (not a wiring gap); this should be noted in class docstrings to distinguish intentional placeholders from incomplete implementations. _(spec: 85_daemon_framework, confidence: 0.90)_
 
 ## Patterns
 
@@ -673,6 +677,42 @@
 - Integration smoke tests (TS-84-SMOKE-*) must pass using real components rather than stubbed implementations to verify end-to-end functionality. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - A stub and dead-code audit should search for patterns like `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, and `NotImplementedError` to identify and eliminate incomplete implementations. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - Return value verification requires grepping for all callers of functions and confirming that no caller discards the return value; return values must propagate through the entire call chain to their final consumers. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Work streams should be defined as @runtime_checkable Protocol with properties (name, interval, enabled) and async methods (run_once, shutdown) to enable pluggable stream implementations. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PID file management requires stale detection using os.kill(pid, 0) with ProcessLookupError handling to distinguish between live and dead processes. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Configuration interval fields should be validated and clamped to minimums (spec_interval min 10, spec_gen_interval min 60) using Pydantic field validators. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Shared cost budget across streams should be first-come, first-served with a monotonically non-decreasing total and graceful shutdown triggered when limit is reached. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Graceful shutdown should complete current in-progress run_once() operations and call shutdown() on all streams via a finally block, ensuring PID file cleanup even on exceptions. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Stream exceptions during run_once() should be logged and retried on the next cycle without crashing the daemon or interrupting other streams. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Stream filtering should represent the intersection of config-enabled streams and CLI-enabled streams (--no-* flags), with warnings for unknown stream names. _(spec: 85_daemon_framework, confidence: 0.90)_
+- When platform.type is 'none', disable fix pipeline, hunt scans, and spec generator streams while keeping spec executor enabled for local spec processing. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PID file check should prevent code and plan commands from running when daemon is active; stale PIDs should not block execution, only live processes should. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Spec executor stream should call discover_new_specs_gated() to find new specs, instantiate a fresh Orchestrator per batch, and report resulting cost to shared budget. _(spec: 85_daemon_framework, confidence: 0.60)_
+- SIGINT handling should allow graceful shutdown on first signal; second SIGINT/SIGTERM should abort immediately with exit code 130. _(spec: 85_daemon_framework, confidence: 0.90)_
+- When implementing a daemon framework spec, organize tests into multiple files by category: acceptance criteria tests (TS-*-1+), edge-case tests (TS-*-E*), property-based tests (TS-*-P*), and integration smoke tests (TS-*-SMOKE-*) to maintain clarity and modularity. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Writing all failing tests before implementation (test-driven development) is an effective approach for specifying daemon framework behavior, with tests expected to fail with ImportError/ModuleNotFoundError until the implementation is in place. _(spec: 85_daemon_framework, confidence: 0.90)_
+- When testing async task cancellation and cleanup, use `asyncio.create_task()` to launch background shutdown tasks alongside the main `await runner.run()` call to verify graceful shutdown behavior. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Stream exceptions should be caught and logged by the daemon framework to prevent one stream's failure from blocking other streams, enabling isolation and resilience. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Timing-sensitive concurrent tests should use `time.monotonic()` for elapsed time measurement and allow reasonable tolerance (e.g., 25% margin) to account for system scheduling variance. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Second SIGINT/shutdown request should raise `SystemExit(130)` immediately rather than waiting for graceful shutdown, providing a fail-fast abort mechanism. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Multiple streams with identical intervals should execute in a defined priority order (e.g., spec-executor, fix-pipeline, hunt-scan, spec-generator) rather than arbitrary order. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Mock stream helpers should parameterize interval and enabled flags separately to allow independent testing of scheduling and filtering logic. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Platform degradation mode (platform.type='none') should restrict enabled streams to only spec-executor to avoid running external operations without a platform. _(spec: 85_daemon_framework, confidence: 0.90)_
+- WorkStream protocol should be defined in a dedicated module (nightshift/stream.py) to separate stream abstraction from daemon implementation. _(spec: 85_daemon_framework, confidence: 0.60)_
+- PID file management for daemon processes should be isolated in its own module (nightshift/pid.py) for maintainability and reusability. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Core daemon abstractions (SharedBudget, DaemonState, DaemonRunner) benefit from skeleton implementation before full logic is added. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Platform protocols should include result dataclasses (PullRequestResult) alongside their corresponding methods to ensure type safety for return values. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Stream scheduling in daemon frameworks should be implemented as independent asyncio tasks with priority ordering to enable concurrent execution and flexible resource management. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Cost budget checking should be performed between daemon cycles to prevent resource exhaustion and ensure predictable resource consumption. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Daemon graceful shutdown can be implemented using asyncio.Event to signal termination across concurrent tasks. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Daemon lifecycle management should include idle loop handling when all streams are disabled to reduce unnecessary CPU usage. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Factory functions like build_streams() should support both CLI flags and configuration-based filtering (enabled_streams) to provide flexibility in stream initialization. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Platform degradation logic should be integrated into stream factory functions to handle cases where certain stream types may not be available on all platforms. _(spec: 85_daemon_framework, confidence: 0.60)_
+- When marking task groups as complete, verify that all implementation was delivered by prior task groups rather than assuming work remains to be done in the current group. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Comprehensive test coverage across unit tests, integration tests, and smoke tests should be confirmed before marking implementation work as complete. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PID check guards are required in CLI entry points (cli/code.py, cli/plan.py) to prevent unauthorized execution paths. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Wiring verification should include tracing all execution paths, verifying return value propagation, and performing stub/dead-code audits. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PID file checks should be implemented as guards in CLI commands (code, plan) to prevent concurrent execution with the daemon; check_pid_file() returns a PidStatus enum and the actual PID, which the CLI uses to block execution when PidStatus.ALIVE. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Wiring verification must include end-to-end tracing of all execution paths from design.md (daemon startup, spec executor, fix pipeline), return value propagation verification, integration smoke tests, and stub/dead-code audits before considering work complete. _(spec: 85_daemon_framework, confidence: 0.90)_
 
 ## Decisions
 
@@ -746,6 +786,15 @@
 - All changes to this feature are additive with no modifications to existing behavior; backward compatibility is maintained for JSONL readers that ignore unknown fields. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - Blocking reasons should be enriched with additional context beyond basic rejection criteria to provide meaningful audit and reporting information. _(spec: 84_review_output_visibility, confidence: 0.60)_
 - Status summary queries should only include specs with critical > 0 or major > 0 findings, omitting specs with only minor/observation severity. _(spec: 84_review_output_visibility, confidence: 0.90)_
+- Stream scheduling should enforce priority order at startup (spec executor → fix pipeline → remaining streams) using asyncio task creation order or explicit locks. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PullRequestResult should be a frozen dataclass with fields (number, url, html_url) returned by create_pull_request() method on PlatformProtocol. _(spec: 85_daemon_framework, confidence: 0.90)_
+- code --watch should be implemented as a CLI alias for 'night-shift --no-fixes --no-hunts --no-spec-gen' running only the spec executor stream. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Merge strategy configuration should support 'direct' (auto-merge to develop) and 'pr' (create draft pull requests) with fallback to 'direct' on unrecognized values. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Config validation should clamp interval values to documented minimums (e.g., spec_interval >= 10, spec_gen_interval >= 60) rather than rejecting invalid input. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Empty enabled_streams list in config should default to all available streams rather than disabling all streams. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Cost checks in budgeted execution should occur between cycles, not mid-operation, to allow currently-running tasks to complete even if budget is exceeded. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Configuration objects should be extended with task-specific fields (spec_interval, spec_gen_interval, enabled_streams, merge_strategy) rather than creating separate config classes. _(spec: 85_daemon_framework, confidence: 0.60)_
+- The DaemonRunner and work stream classes (SpecExecutorStream, FixPipelineStream, SpecGeneratorStream, HuntStream) are fully implemented and tested in isolation, but CLI integration was intentionally deferred to avoid disrupting the existing NightShiftEngine workflow. _(spec: 85_daemon_framework, confidence: 0.90)_
 
 ## Conventions
 
@@ -900,6 +949,10 @@
 - Finding IDs in enriched blocking reason strings should be prefixed with 'F-' and use truncated UUIDs rather than full identifiers. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - Description strings in enriched blocking reasons should be truncated to 60 characters to maintain output readability. _(spec: 84_review_output_visibility, confidence: 0.90)_
 - Reporting queries (query_findings, query_findings_summary) and CLI commands should be split across separate modules: reporting/ for data access and cli/ for command interface. _(spec: 84_review_output_visibility, confidence: 0.60)_
+- Mark async integration tests with `@pytest.mark.asyncio` to enable pytest-asyncio to properly discover and run them. _(spec: 85_daemon_framework, confidence: 0.90)_
+- PID file management and audit event emission are important components of a complete daemon framework implementation. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Document known wiring gaps and intentional stubs (e.g., DaemonRunner gaps, SpecGeneratorStream stubs) as errata rather than treating them as bugs. _(spec: 85_daemon_framework, confidence: 0.60)_
+- Errata documentation (85_nightshift_cli_daemon_runner.md) should be created when spec implementation diverges from design to explain why deferred work is intentional, what works today, and what remains unimplemented. _(spec: 85_daemon_framework, confidence: 0.90)_
 
 ## Anti-Patterns
 

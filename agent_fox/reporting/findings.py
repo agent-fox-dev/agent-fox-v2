@@ -93,26 +93,18 @@ def query_findings(
     include_verifier = archetype is None or archetype == "verifier"
     include_oracle = archetype is None or archetype == "oracle"
 
-    severity_threshold: int | None = (
-        SEVERITY_ORDER.get(severity) if severity else None
-    )
+    severity_threshold: int | None = SEVERITY_ORDER.get(severity) if severity else None
 
     rows: list[FindingRow] = []
 
     if include_skeptic:
-        rows.extend(
-            _query_review_findings(conn, spec, severity_threshold, active_only)
-        )
+        rows.extend(_query_review_findings(conn, spec, severity_threshold, active_only))
 
     if include_verifier:
-        rows.extend(
-            _query_verification_results(conn, spec, severity_threshold, active_only)
-        )
+        rows.extend(_query_verification_results(conn, spec, severity_threshold, active_only))
 
     if include_oracle:
-        rows.extend(
-            _query_drift_findings(conn, spec, severity_threshold, active_only)
-        )
+        rows.extend(_query_drift_findings(conn, spec, severity_threshold, active_only))
 
     # Sort by created_at descending (most recent first)
     rows.sort(key=lambda r: r.created_at, reverse=True)
@@ -374,9 +366,7 @@ def format_findings_table(
                     "spec_name": f.spec_name,
                     "task_group": f.task_group,
                     "description": f.description,
-                    "created_at": (
-                        f.created_at.isoformat() if f.created_at else None
-                    ),
+                    "created_at": (f.created_at.isoformat() if f.created_at else None),
                 }
                 for f in findings
             ],
@@ -399,19 +389,13 @@ def format_findings_table(
         f"CREATED"
     )
     separator = "-" * (
-        col_widths["severity"]
-        + col_widths["archetype"]
-        + col_widths["spec"]
-        + col_widths["description"]
-        + 30
+        col_widths["severity"] + col_widths["archetype"] + col_widths["spec"] + col_widths["description"] + 30
     )
 
     lines = [header, separator]
     for f in findings:
         desc = f.description[: col_widths["description"]]
-        created = (
-            f.created_at.strftime("%Y-%m-%d %H:%M") if f.created_at else "N/A"
-        )
+        created = f.created_at.strftime("%Y-%m-%d %H:%M") if f.created_at else "N/A"
         line = (
             f"{f.severity:<{col_widths['severity']}} "
             f"{f.archetype:<{col_widths['archetype']}} "

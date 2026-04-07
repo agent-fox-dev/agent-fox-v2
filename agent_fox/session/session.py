@@ -222,7 +222,7 @@ async def _execute_query(
     turn_count = 0
     cumulative_tokens = 0
 
-    async for message in backend.execute(
+    async for message in backend.execute(  # type: ignore[attr-defined]
         task_prompt,
         system_prompt=system_prompt,
         model=model_id,

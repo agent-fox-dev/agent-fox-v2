@@ -129,8 +129,8 @@ class TestHuntScanOverlap:
         with caplog.at_level(logging.INFO, logger="agent_fox.nightshift.engine"):
             # Create a minimal engine and simulate overlap
             engine = _make_mock_engine()
-            engine._hunt_scan_in_progress = True
-            await engine._run_hunt_scan()
+            engine._hunt_scan_in_progress = True  # type: ignore[attr-defined]
+            await engine._run_hunt_scan()  # type: ignore[attr-defined]
 
         log_text = caplog.text.lower()
         assert "skip" in log_text or "overlap" in log_text or "progress" in log_text

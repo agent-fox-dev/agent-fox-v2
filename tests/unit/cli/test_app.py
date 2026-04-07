@@ -227,7 +227,7 @@ class TestTopLevelExceptionHandler:
 
     def test_keyboard_interrupt_not_caught(self, cli_runner: CliRunner) -> None:
         """KeyboardInterrupt is not caught by the handler."""
-        cmd = _make_failing_subcommand(KeyboardInterrupt())
+        cmd = _make_failing_subcommand(KeyboardInterrupt())  # type: ignore[arg-type]
         main.add_command(cmd, name="boom")
         try:
             result = cli_runner.invoke(main, ["boom"])

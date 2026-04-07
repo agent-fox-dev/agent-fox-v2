@@ -536,6 +536,7 @@ class Orchestrator:
 
                 # 39-REQ-1.1: Sort ready tasks by predicted duration
                 duration_hints = self._compute_duration_hints()
+                assert self._graph_sync is not None  # noqa: S101
                 ready = self._graph_sync.ready_tasks(duration_hints=duration_hints)
 
                 # 39-REQ-9.3: Filter conflicting tasks when enabled
@@ -565,10 +566,10 @@ class Orchestrator:
                                 "status instead of entering watch loop."
                             )
                         else:
-                            result = await self._watch_loop(state)
-                            if result is None:
+                            watch_result = await self._watch_loop(state)
+                            if watch_result is None:
                                 continue  # New tasks found — re-enter dispatch
-                            return result  # Terminal state (interrupted, etc.)
+                            return watch_result  # Terminal state (interrupted, etc.)
 
                     state.run_status = RunStatus.COMPLETED
                     self._state_manager.save(state)
@@ -930,6 +931,7 @@ class Orchestrator:
                 max_turns_override=max_turns_override,
             )
 
+            assert self._result_handler is not None  # noqa: S101
             self._result_handler.process(
                 record,
                 attempt,

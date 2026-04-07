@@ -38,15 +38,11 @@ def _make_oracle_transcript(drift_findings: list[dict]) -> str:
 class TestSkepticFindingsPersistedAuditEvent:
     """TS-84-3: review.findings_persisted event emitted for skeptic."""
 
-    def test_findings_persisted_event_emitted(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_findings_persisted_event_emitted(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify review.findings_persisted event is emitted after successful insertion."""
         mock_sink = MagicMock()
 
-        transcript = _make_skeptic_transcript(
-            [{"severity": "critical", "description": "missing guard"}]
-        )
+        transcript = _make_skeptic_transcript([{"severity": "critical", "description": "missing guard"}])
 
         persist_review_findings(
             transcript,
@@ -62,11 +58,7 @@ class TestSkepticFindingsPersistedAuditEvent:
 
         # Find the findings_persisted audit event call
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED]
         assert len(persisted_events) == 1
 
         event = persisted_events[0].args[0]
@@ -74,9 +66,7 @@ class TestSkepticFindingsPersistedAuditEvent:
         assert event.payload["count"] == 1
         assert event.payload["severity_summary"]["critical"] == 1
 
-    def test_findings_persisted_event_has_spec_name(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_findings_persisted_event_has_spec_name(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify audit event payload contains spec_name."""
         mock_sink = MagicMock()
 
@@ -100,11 +90,7 @@ class TestSkepticFindingsPersistedAuditEvent:
         )
 
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED]
         assert len(persisted_events) == 1
 
         event = persisted_events[0].args[0]
@@ -116,9 +102,7 @@ class TestSkepticFindingsPersistedAuditEvent:
 class TestVerifierVerdictsPersistedAuditEvent:
     """TS-84-4: review.verdicts_persisted event emitted for verifier."""
 
-    def test_verdicts_persisted_event_emitted(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_verdicts_persisted_event_emitted(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify review.verdicts_persisted event with pass/fail counts."""
         mock_sink = MagicMock()
 
@@ -142,11 +126,7 @@ class TestVerifierVerdictsPersistedAuditEvent:
         )
 
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_VERDICTS_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_VERDICTS_PERSISTED]
         assert len(persisted_events) == 1
 
         event = persisted_events[0].args[0]
@@ -158,15 +138,11 @@ class TestVerifierVerdictsPersistedAuditEvent:
 class TestOracleDriftPersistedAuditEvent:
     """TS-84-5: review.drift_persisted event emitted for oracle."""
 
-    def test_drift_persisted_event_emitted(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_drift_persisted_event_emitted(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify review.drift_persisted event with severity summary."""
         mock_sink = MagicMock()
 
-        transcript = _make_oracle_transcript(
-            [{"severity": "major", "description": "spec divergence"}]
-        )
+        transcript = _make_oracle_transcript([{"severity": "major", "description": "spec divergence"}])
 
         persist_review_findings(
             transcript,
@@ -181,11 +157,7 @@ class TestOracleDriftPersistedAuditEvent:
         )
 
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_DRIFT_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_DRIFT_PERSISTED]
         assert len(persisted_events) == 1
 
         event = persisted_events[0].args[0]
@@ -196,9 +168,7 @@ class TestOracleDriftPersistedAuditEvent:
 class TestAuditEmissionFailureResilience:
     """TS-84-E2: Audit emission failure does not raise."""
 
-    def test_audit_emission_failure_does_not_propagate(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_audit_emission_failure_does_not_propagate(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify that if audit event emission raises, findings are still persisted.
 
         The emit_audit_event mock raises RuntimeError. The system should:
@@ -209,9 +179,7 @@ class TestAuditEmissionFailureResilience:
         mock_sink = MagicMock()
         mock_sink.emit_audit_event.side_effect = RuntimeError("audit broken")
 
-        transcript = _make_skeptic_transcript(
-            [{"severity": "critical", "description": "test finding"}]
-        )
+        transcript = _make_skeptic_transcript([{"severity": "critical", "description": "test finding"}])
 
         # Should not raise
         persist_review_findings(
@@ -227,17 +195,15 @@ class TestAuditEmissionFailureResilience:
         )
 
         # Findings should still be in the database
-        rows = knowledge_conn.execute(
-            "SELECT COUNT(*) FROM review_findings"
-        ).fetchone()
+        rows = knowledge_conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()
+        assert rows is not None
         assert rows[0] == 1
 
         # The system should have attempted to emit a REVIEW_FINDINGS_PERSISTED event
         # (which would have raised, but been caught)
         persisted_calls = [
-            c for c in mock_sink.emit_audit_event.call_args_list
+            c
+            for c in mock_sink.emit_audit_event.call_args_list
             if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED
         ]
-        assert len(persisted_calls) >= 1, (
-            "Expected at least one REVIEW_FINDINGS_PERSISTED emission attempt"
-        )
+        assert len(persisted_calls) >= 1, "Expected at least one REVIEW_FINDINGS_PERSISTED emission attempt"

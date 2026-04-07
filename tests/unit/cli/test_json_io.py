@@ -118,7 +118,7 @@ class TestReadStdin:
         from agent_fox.cli.json_io import read_stdin
 
         fake_stdin = io.StringIO('{"question": "what is fox?"}')
-        fake_stdin.isatty = lambda: False  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: False  # type: ignore[method-assign]
         with patch("sys.stdin", fake_stdin):
             result = read_stdin()
             assert result == {"question": "what is fox?"}
@@ -128,7 +128,7 @@ class TestReadStdin:
         from agent_fox.cli.json_io import read_stdin
 
         fake_stdin = io.StringIO("")
-        fake_stdin.isatty = lambda: True  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: True  # type: ignore[method-assign]
         with patch("sys.stdin", fake_stdin):
             result = read_stdin()
             assert result == {}
@@ -138,7 +138,7 @@ class TestReadStdin:
         from agent_fox.cli.json_io import read_stdin
 
         fake_stdin = io.StringIO("")
-        fake_stdin.isatty = lambda: False  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: False  # type: ignore[method-assign]
         with patch("sys.stdin", fake_stdin):
             result = read_stdin()
             assert result == {}
@@ -148,7 +148,7 @@ class TestReadStdin:
         from agent_fox.cli.json_io import read_stdin
 
         fake_stdin = io.StringIO("not valid json {")
-        fake_stdin.isatty = lambda: False  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: False  # type: ignore[method-assign]
         with patch("sys.stdin", fake_stdin):
             with pytest.raises(json.JSONDecodeError):
                 read_stdin()
@@ -158,7 +158,7 @@ class TestReadStdin:
         from agent_fox.cli.json_io import read_stdin
 
         fake_stdin = io.StringIO('{"unknown_field": 42, "question": "test"}')
-        fake_stdin.isatty = lambda: False  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: False  # type: ignore[method-assign]
         with patch("sys.stdin", fake_stdin):
             result = read_stdin()
             assert result["question"] == "test"

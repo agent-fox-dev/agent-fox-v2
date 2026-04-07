@@ -16,10 +16,10 @@ from pydantic.fields import FieldInfo
 
 from agent_fox.core.config import ArchetypeInstancesConfig
 from agent_fox.core.config_gen import (
+    _get_description,
     generate_default_config,
     merge_existing_config,
 )
-from agent_fox.core.config_gen import _get_description
 
 # Sections that must appear (active or commented) in the simplified template.
 _EXPECTED_VISIBLE_SECTIONS = {

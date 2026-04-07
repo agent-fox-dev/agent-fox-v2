@@ -238,7 +238,7 @@ class TestFixtureIsolation:
             "'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::UUID, "
             "'test', 'decision', 0.9, CURRENT_TIMESTAMP)"
         )
-        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count == 1
 
     def test_fixture_provides_fresh_db_b(
@@ -246,7 +246,7 @@ class TestFixtureIsolation:
         knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """TS-38-12: Second test should see zero rows."""
-        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count == 0
 
     def test_fixture_has_all_tables(

@@ -66,8 +66,7 @@ def _format_block_reason(
     n = len(critical_findings)
 
     header = (
-        f"{archetype.capitalize()} found {n} critical finding(s) "
-        f"(threshold: {threshold}) for {spec_name}:{task_group}"
+        f"{archetype.capitalize()} found {n} critical finding(s) (threshold: {threshold}) for {spec_name}:{task_group}"
     )
 
     if n == 0:
@@ -130,10 +129,11 @@ def evaluate_review_blocking(
         if archetype == "skeptic" and archetypes_config is not None:
             configured_threshold = archetypes_config.skeptic_config.block_threshold
         elif archetype == "oracle" and archetypes_config is not None:
-            configured_threshold = archetypes_config.oracle_settings.block_threshold
-            if configured_threshold is None:
+            oracle_threshold = archetypes_config.oracle_settings.block_threshold
+            if oracle_threshold is None:
                 # Oracle is advisory-only when block_threshold is None
                 return BlockDecision(should_block=False)
+            configured_threshold = oracle_threshold
         else:
             # No config available, use conservative default
             configured_threshold = 3

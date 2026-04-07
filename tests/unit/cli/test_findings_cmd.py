@@ -40,9 +40,7 @@ class TestFindingsNoDatabase:
 class TestFindingsEmptyResults:
     """TS-84-E4: Empty query result message."""
 
-    def test_no_matches_prints_message(
-        self, cli_runner: CliRunner, tmp_path: Path
-    ) -> None:
+    def test_no_matches_prints_message(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """Verify message when no findings match filters."""
         db_path = tmp_path / "knowledge.duckdb"
         conn = duckdb.connect(str(db_path))

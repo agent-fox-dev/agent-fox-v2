@@ -68,7 +68,7 @@ class TestDebugGatingInvariant:
         for _ in range(m):
             sink.record_tool_error(ToolError(tool_name="test"))
 
-        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0
-        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0  # type: ignore[index]
+        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0  # type: ignore[index]
 
         conn.close()

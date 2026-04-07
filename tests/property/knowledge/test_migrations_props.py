@@ -34,7 +34,7 @@ def _make_test_migrations(count: int) -> list[Migration]:
             Migration(
                 version=version,
                 description=f"add {col_name}",
-                apply=lambda c, cn=col_name: c.execute(f"ALTER TABLE session_outcomes ADD COLUMN {cn} TEXT"),
+                apply=lambda c, cn=col_name: c.execute(f"ALTER TABLE session_outcomes ADD COLUMN {cn} TEXT"),  # type: ignore[arg-type,misc]
             )
         )
     return migrations

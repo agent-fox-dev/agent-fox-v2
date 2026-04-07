@@ -125,17 +125,17 @@ class TestBlockingHistory:
             )
             record_blocking_decision(blocking_db, decision)
 
-        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
-        assert threshold is not None
-        assert isinstance(threshold, int)
-        assert threshold > 0
+        optimal = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
+        assert optimal is not None
+        assert isinstance(optimal, int)
+        assert optimal > 0
 
     def test_insufficient_decisions_returns_none(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """Returns None when fewer than min_decisions exist."""
         from agent_fox.knowledge.blocking_history import compute_optimal_threshold
 
-        threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
-        assert threshold is None
+        optimal = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
+        assert optimal is None
 
     def test_stored_thresholds(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
         """TS-39-31: Learned thresholds stored in DuckDB.

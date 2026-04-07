@@ -252,7 +252,7 @@ class TestComputeDurationHints:
         Requirement: 41-REQ-5.2
         """
         orch = self._make_orchestrator(tmp_path, duration_ordering=False)
-        result = orch._compute_duration_hints()
+        result = orch._compute_duration_hints()  # type: ignore[attr-defined]
         assert result is None
 
     def test_pipeline_unavailable_returns_none(self, tmp_path: Path) -> None:
@@ -261,7 +261,7 @@ class TestComputeDurationHints:
         Requirement: 41-REQ-5.E2
         """
         orch = self._make_orchestrator(tmp_path, pipeline=None)
-        result = orch._compute_duration_hints()
+        result = orch._compute_duration_hints()  # type: ignore[attr-defined]
         assert result is None
 
     def test_db_exception_returns_none(self, tmp_path: Path) -> None:
@@ -280,6 +280,6 @@ class TestComputeDurationHints:
 
         orch = self._make_orchestrator(tmp_path, pipeline=mock_pipeline)
         # Set up graph_sync with pending nodes so the loop iterates
-        orch._graph_sync = GraphSync({"a:1": "pending", "b:1": "pending"}, {})
-        result = orch._compute_duration_hints()
+        orch._graph_sync = GraphSync({"a:1": "pending", "b:1": "pending"}, {})  # type: ignore[attr-defined]
+        result = orch._compute_duration_hints()  # type: ignore[attr-defined]
         assert result is None

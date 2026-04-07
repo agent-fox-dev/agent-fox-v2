@@ -154,7 +154,7 @@ class FixPipelineStream:
     async def run_once(self) -> None:
         """Run one drain-issues cycle and report cost delta."""
         cost_before = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
-        await self._engine._drain_issues()  # type: ignore[union-attr]
+        await self._engine._drain_issues()  # type: ignore[attr-defined]
         cost_after = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
         delta = cost_after - cost_before
         if delta > 0:
@@ -209,7 +209,7 @@ class HuntScanStream:
     async def run_once(self) -> None:
         """Run one hunt scan cycle and report cost delta."""
         cost_before = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
-        await self._engine._run_hunt_scan()  # type: ignore[union-attr]
+        await self._engine._run_hunt_scan()  # type: ignore[attr-defined]
         cost_after = getattr(getattr(self._engine, "state", None), "total_cost", 0.0)
         delta = cost_after - cost_before
         if delta > 0:

@@ -56,22 +56,28 @@ class TestArchetypePipeline:
 
         archetypes_used: list[str] = []
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         async def mock_execute(archetype: str, *args: object, **kwargs: object) -> object:
             archetypes_used.append(archetype)
             outcome = MagicMock(
-                input_tokens=10, output_tokens=5,
+                input_tokens=10,
+                output_tokens=5,
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
@@ -85,7 +91,7 @@ class TestArchetypePipeline:
 
         with patch.object(pipeline, "_run_session", side_effect=mock_execute):
             issue = _make_issue()
-            await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")
+            await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")  # type: ignore[arg-type]
 
         assert "triage" in archetypes_used
         assert "coder" in archetypes_used
@@ -121,7 +127,7 @@ class TestFixProgressComments:
             AsyncMock(return_value=MagicMock(success=True)),
         ):
             issue = _make_issue()
-            await pipeline.process_issue(issue, issue_body="Fix something important")
+            await pipeline.process_issue(issue, issue_body="Fix something important")  # type: ignore[arg-type]
 
         assert mock_platform.add_issue_comment.call_count >= 1
 
@@ -155,7 +161,7 @@ class TestFixCompletionComment:
             AsyncMock(return_value=MagicMock(success=True)),
         ):
             issue = _make_issue(number=42, title="Fix unused imports")
-            await pipeline.process_issue(issue, issue_body="Fix something")
+            await pipeline.process_issue(issue, issue_body="Fix something")  # type: ignore[arg-type]
 
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("fix/" in c for c in comments)
@@ -190,7 +196,7 @@ class TestFixSessionFailure:
             AsyncMock(side_effect=RuntimeError("session failed")),
         ):
             issue = _make_issue()
-            await pipeline.process_issue(issue, issue_body="Fix something")
+            await pipeline.process_issue(issue, issue_body="Fix something")  # type: ignore[arg-type]
 
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("fail" in c.lower() for c in comments)

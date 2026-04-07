@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -40,7 +41,7 @@ def _make_status_report(**overrides):
         "per_spec": {},
     }
     defaults.update(overrides)
-    return StatusReport(**defaults)
+    return StatusReport(**defaults)  # type: ignore[arg-type]
 
 
 def _make_standup_report(**overrides):
@@ -75,7 +76,7 @@ def _make_standup_report(**overrides):
         "cost_breakdown": [],
     }
     defaults.update(overrides)
-    return StandupReport(**defaults)
+    return StandupReport(**defaults)  # type: ignore[arg-type]
 
 
 @pytest.fixture
@@ -85,7 +86,7 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def tmp_project(tmp_path: Path) -> Path:
+def tmp_project(tmp_path: Path) -> Generator[Path, None, None]:
     """Create a minimal project directory with .agent-fox structure."""
     repo = tmp_path / "repo"
     repo.mkdir()

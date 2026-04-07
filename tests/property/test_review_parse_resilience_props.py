@@ -17,9 +17,8 @@ from unittest.mock import MagicMock, patch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.session.review_parser import parse_review_findings
 from agent_fox.knowledge.review_store import VALID_SEVERITIES, ReviewFinding
-from agent_fox.session.review_parser import _unwrap_items
+from agent_fox.session.review_parser import _unwrap_items, parse_review_findings
 
 # ---------------------------------------------------------------------------
 # TS-74-P1: Fuzzy matching subsumes exact matching
@@ -40,7 +39,7 @@ class TestFuzzyMatchingSubsumesExactMatching:
         """_resolve_wrapper_key always resolves the exact canonical key."""
         from agent_fox.session.review_parser import _resolve_wrapper_key
 
-        data = {canonical_key: []}
+        data: dict[str, list[object]] = {canonical_key: []}
         result = _resolve_wrapper_key(data, canonical_key)
         assert result == canonical_key, f"Expected '{canonical_key}' but got '{result}' for exact canonical key lookup"
 
@@ -213,7 +212,7 @@ class TestVariantCoverage:
 
         variants = WRAPPER_KEY_VARIANTS.get(canonical_key, set())
         for variant in variants:
-            data = {variant: []}
+            data: dict[str, list[object]] = {variant: []}
             result = _resolve_wrapper_key(data, canonical_key)
             assert result == variant, f"Variant '{variant}' of '{canonical_key}' did not resolve: got '{result}'"
 
@@ -226,7 +225,7 @@ class TestVariantCoverage:
 
         for canonical, variants in WRAPPER_KEY_VARIANTS.items():
             for variant in variants:
-                data = {variant: []}
+                data: dict[str, list[object]] = {variant: []}
                 result = _resolve_wrapper_key(data, canonical)
                 assert result == variant, f"Variant '{variant}' of '{canonical}' did not resolve"
 

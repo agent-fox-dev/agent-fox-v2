@@ -854,6 +854,7 @@ class TestEdgeCases:
             # Should not have been called right after #10 failed
             for call in staleness_calls:
                 fixed = call.args[0] if call.args else call.kwargs.get("fixed_issue")
+                assert fixed is not None
                 assert fixed.number != 10
 
     # -----------------------------------------------------------------------

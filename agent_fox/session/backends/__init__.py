@@ -38,4 +38,4 @@ def get_backend() -> AgentBackend:
     """
     from agent_fox.session.backends.claude import ClaudeBackend
 
-    return ClaudeBackend()
+    return ClaudeBackend()  # type: ignore[return-value]

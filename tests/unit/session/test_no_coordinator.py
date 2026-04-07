@@ -51,10 +51,9 @@ class TestGetArchetypeCoordinatorFallback:
         with caplog.at_level(logging.WARNING):
             get_archetype("coordinator")
 
-        assert any(
-            "coordinator" in record.message
-            for record in caplog.records
-        ), "Expected a warning log containing 'coordinator'"
+        assert any("coordinator" in record.message for record in caplog.records), (
+            "Expected a warning log containing 'coordinator'"
+        )
 
 
 # -------------------------------------------------------------------

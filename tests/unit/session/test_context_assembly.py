@@ -10,6 +10,7 @@ Requirements: 42-REQ-1.*, 42-REQ-3.4, 42-REQ-4.*
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -181,7 +182,7 @@ def _insert_verification_result(
 
 
 @pytest.fixture
-def schema_conn() -> duckdb.DuckDBPyConnection:
+def schema_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with full schema."""
     conn = duckdb.connect(":memory:")
     create_schema(conn)
@@ -284,7 +285,7 @@ class TestPriorGroupFindings:
 
         assert len(result) == 2
         # Results should include both groups
-        groups = {r.group if hasattr(r, "group") else r.task_group for r in result}
+        groups = {r.group if hasattr(r, "group") else r.task_group for r in result}  # type: ignore[attr-defined]
         assert "1" in groups
         assert "2" in groups
 
@@ -378,7 +379,7 @@ class TestPriorGroupFindings:
 
         # Only groups 1 and 2 should be present
         for r in result:
-            group_val = r.group if hasattr(r, "group") else r.task_group
+            group_val = r.group if hasattr(r, "group") else r.task_group  # type: ignore[attr-defined]
             assert int(group_val) < 3, f"Found finding from group {group_val}, expected only < 3"
 
     def test_render_includes_type_labels(self) -> None:

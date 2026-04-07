@@ -93,7 +93,7 @@ class TestFactIdempotent:
         count = knowledge_db.connection.execute(
             "SELECT COUNT(*) FROM memory_facts WHERE id = ?::UUID",
             [fact.id],
-        ).fetchone()[0]
+        ).fetchone()[0]  # type: ignore[index]
         assert count == 1
 
 

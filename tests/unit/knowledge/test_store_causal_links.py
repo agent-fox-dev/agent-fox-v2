@@ -5,6 +5,8 @@ Requirements: 13-REQ-3.1, 13-REQ-3.E1
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 import duckdb
 import pytest
 
@@ -14,7 +16,7 @@ from .conftest import create_schema, seed_facts
 
 
 @pytest.fixture
-def db_with_facts() -> duckdb.DuckDBPyConnection:
+def db_with_facts() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     conn = duckdb.connect(":memory:")
     create_schema(conn)
     seed_facts(conn)

@@ -89,9 +89,7 @@ def _insert_test_findings(
 class TestQueryFindings:
     """TS-84-8: Findings command displays table."""
 
-    def test_returns_active_findings_only(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_returns_active_findings_only(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify query_findings returns only active (non-superseded) findings."""
         # Insert 2 active findings
         _insert_test_findings(knowledge_conn, severities=["critical", "major"])
@@ -106,9 +104,7 @@ class TestQueryFindings:
         rows = query_findings(knowledge_conn, active_only=True)
         assert len(rows) == 2
 
-    def test_format_table_contains_required_columns(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_format_table_contains_required_columns(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify formatted table contains severity, archetype, spec, description."""
         _insert_test_findings(knowledge_conn, severities=["critical"])
 
@@ -121,9 +117,7 @@ class TestQueryFindings:
 class TestQueryFindingsBySpec:
     """TS-84-9: Findings command filters by spec."""
 
-    def test_filters_by_spec_name(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_filters_by_spec_name(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --spec filter narrows results to matching spec."""
         _insert_test_findings(knowledge_conn, spec_name="foo", session_id="foo:1:1")
         _insert_test_findings(knowledge_conn, spec_name="bar", session_id="bar:1:1")
@@ -136,9 +130,7 @@ class TestQueryFindingsBySpec:
 class TestQueryFindingsBySeverity:
     """TS-84-10: Findings command filters by severity."""
 
-    def test_severity_filter_at_or_above(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_severity_filter_at_or_above(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --severity filter returns findings at or above the given level."""
         _insert_test_findings(
             knowledge_conn,
@@ -153,9 +145,7 @@ class TestQueryFindingsBySeverity:
 class TestQueryFindingsByArchetype:
     """TS-84-11: Findings command filters by archetype."""
 
-    def test_archetype_filter_verifier(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_archetype_filter_verifier(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --archetype verifier returns only verifier verdicts."""
         # Insert skeptic findings
         _insert_test_findings(knowledge_conn, severities=["critical"])
@@ -176,9 +166,7 @@ class TestQueryFindingsByArchetype:
         rows = query_findings(knowledge_conn, archetype="verifier")
         assert all(r.archetype == "verifier" for r in rows)
 
-    def test_archetype_filter_skeptic(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_archetype_filter_skeptic(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --archetype skeptic returns only skeptic findings."""
         _insert_test_findings(knowledge_conn, severities=["critical"])
 
@@ -189,9 +177,7 @@ class TestQueryFindingsByArchetype:
 class TestQueryFindingsByRunId:
     """TS-84-12: Findings command filters by run ID."""
 
-    def test_run_id_filter(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_run_id_filter(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --run filter scopes findings to sessions within the given run."""
         # This requires that findings can be associated with a run.
         # The exact mechanism depends on audit_events or session metadata.
@@ -207,9 +193,7 @@ class TestQueryFindingsByRunId:
 class TestFindingsJsonOutput:
     """TS-84-13: Findings command JSON output."""
 
-    def test_json_output_valid(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_json_output_valid(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify --json produces valid JSON array output."""
         _insert_test_findings(knowledge_conn, severities=["critical", "major"])
 
@@ -228,9 +212,7 @@ class TestFindingsJsonOutput:
 class TestStatusFindingsSummary:
     """TS-84-14: Status includes findings summary."""
 
-    def test_summary_includes_critical_and_major(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_summary_includes_critical_and_major(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify status summary includes specs with critical or major findings."""
         _insert_test_findings(
             knowledge_conn,
@@ -240,9 +222,7 @@ class TestStatusFindingsSummary:
 
         summary = query_findings_summary(knowledge_conn)
         assert len(summary) >= 1
-        my_spec_entry = next(
-            (s for s in summary if s.spec_name == "my_spec"), None
-        )
+        my_spec_entry = next((s for s in summary if s.spec_name == "my_spec"), None)
         assert my_spec_entry is not None
         assert my_spec_entry.critical == 1
         assert my_spec_entry.major == 2
@@ -251,9 +231,7 @@ class TestStatusFindingsSummary:
 class TestStatusOmitsFindingsSummary:
     """TS-84-15: Status omits findings summary when none."""
 
-    def test_summary_empty_with_only_minor(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_summary_empty_with_only_minor(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify summary is empty when only minor and observation findings exist."""
         _insert_test_findings(
             knowledge_conn,
@@ -263,9 +241,7 @@ class TestStatusOmitsFindingsSummary:
         summary = query_findings_summary(knowledge_conn)
         assert summary == []
 
-    def test_summary_empty_with_no_findings(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_summary_empty_with_no_findings(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify summary is empty when no findings exist."""
         summary = query_findings_summary(knowledge_conn)
         assert summary == []

@@ -122,7 +122,7 @@ class TestSessionRunnerSuccess:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "completed"
@@ -147,7 +147,7 @@ class TestSessionRunnerSuccess:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.input_tokens == 100
@@ -173,7 +173,7 @@ class TestSessionRunnerSuccess:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.duration_ms == 5000
@@ -198,7 +198,7 @@ class TestSessionRunnerSuccess:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.error_message is None
@@ -223,7 +223,7 @@ class TestSessionRunnerSuccess:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.spec_name == workspace_info.spec_name
@@ -248,7 +248,7 @@ class TestSessionRunnerSDKError:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "failed"
@@ -268,7 +268,7 @@ class TestSessionRunnerSDKError:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.error_message is not None
@@ -307,7 +307,7 @@ class TestSessionRunnerTimeout:
                 "sys prompt",
                 "task prompt",
                 short_timeout_config,
-                backend=backend,
+                backend=backend,  # type: ignore[arg-type]
             )
 
         assert outcome.status == "timeout"
@@ -342,7 +342,7 @@ class TestSessionRunnerIsError:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "failed"
@@ -373,7 +373,7 @@ class TestSessionRunnerIsError:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.error_message is not None
@@ -401,7 +401,7 @@ class TestSessionRunnerResultHandling:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "completed"
@@ -428,7 +428,7 @@ class TestSessionRunnerResultHandling:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "failed"
@@ -497,7 +497,7 @@ class TestSessionRunnerActivityCallback:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
             activity_callback=lambda e: events.append(e),
         )
 
@@ -533,7 +533,7 @@ class TestSessionRunnerActivityTurnAndTokens:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
             activity_callback=lambda e: events.append(e),
         )
 
@@ -568,7 +568,7 @@ class TestSessionRunnerNoCallback:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
         )
 
         assert outcome.status == "completed"
@@ -601,7 +601,7 @@ class TestSessionRunnerCallbackException:
             "sys prompt",
             "task prompt",
             default_config,
-            backend=backend,
+            backend=backend,  # type: ignore[arg-type]
             activity_callback=raising_cb,
         )
 

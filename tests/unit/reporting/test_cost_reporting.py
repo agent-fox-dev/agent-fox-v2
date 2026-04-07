@@ -212,7 +212,7 @@ class TestBackwardCompat:
             "timestamp": "2026-01-01T00:00:00Z",
         }
         # SessionRecord should handle missing archetype
-        record = SessionRecord(**data)
+        record = SessionRecord(**data)  # type: ignore[arg-type]
         assert record.archetype == "coder"
 
     def test_node_id_no_colon(self) -> None:

@@ -129,9 +129,7 @@ class TestPipelineArchetypeSequence:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
@@ -139,9 +137,7 @@ class TestPipelineArchetypeSequence:
         await pipeline.process_issue(_make_issue(), issue_body="fix the bug")
 
         assert archetypes_called[0] == "triage"
-        assert "coder" in archetypes_called or any(
-            "coder" in str(a) for a in archetypes_called
-        )
+        assert "coder" in archetypes_called or any("coder" in str(a) for a in archetypes_called)
         assert archetypes_called[-1] == "fix_reviewer"
 
 
@@ -160,17 +156,13 @@ class TestCoderPromptIncludesCriteria:
         # Build a TriageResult with two criteria
         from agent_fox.session.review_parser import parse_triage_output
 
-        triage_result = parse_triage_output(
-            _triage_json(2), "fix-issue-42", "s1"
-        )
+        triage_result = parse_triage_output(_triage_json(2), "fix-issue-42", "s1")
 
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
 
         spec = build_in_memory_spec(_make_issue(), "fix the bug")
 
-        system_prompt, task_prompt = pipeline._build_coder_prompt(
-            spec, triage_result
-        )
+        system_prompt, task_prompt = pipeline._build_coder_prompt(spec, triage_result)
 
         assert "AC-1" in system_prompt
         assert "AC-2" in system_prompt
@@ -191,17 +183,13 @@ class TestReviewerPromptIncludesCriteria:
 
         from agent_fox.session.review_parser import parse_triage_output
 
-        triage_result = parse_triage_output(
-            _triage_json(1), "fix-issue-42", "s1"
-        )
+        triage_result = parse_triage_output(_triage_json(1), "fix-issue-42", "s1")
 
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
 
         spec = build_in_memory_spec(_make_issue(), "fix the bug")
 
-        system_prompt, task_prompt = pipeline._build_reviewer_prompt(
-            spec, triage_result
-        )
+        system_prompt, task_prompt = pipeline._build_reviewer_prompt(spec, triage_result)
 
         assert "AC-1" in system_prompt
         assert triage_result.criteria[0].description in system_prompt
@@ -224,18 +212,14 @@ class TestTriageCommentPosted:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         await pipeline.process_issue(_make_issue(), issue_body="bug")
 
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         # At least one comment should contain the criterion ID
         assert any("AC-1" in c for c in comments)
 
@@ -257,22 +241,16 @@ class TestReviewerCommentPosted:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         await pipeline.process_issue(_make_issue(), issue_body="bug")
 
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         # At least one comment should contain verdict info
-        review_comments = [
-            c for c in comments if "PASS" in c or "verdict" in c.lower()
-        ]
+        review_comments = [c for c in comments if "PASS" in c or "verdict" in c.lower()]
         assert len(review_comments) >= 1
         assert any("AC-1" in c for c in review_comments)
 
@@ -299,14 +277,8 @@ class TestCoderRetryOnFail:
             if archetype == "fix_reviewer":
                 call_count["reviewer"] += 1
                 if call_count["reviewer"] == 1:
-                    return _make_session_outcome(
-                        _review_json(
-                            "FAIL", ["AC-1"], ["FAIL"]
-                        )
-                    )
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                    return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             # coder
             return _make_session_outcome()
 
@@ -317,9 +289,7 @@ class TestCoderRetryOnFail:
 
         def capturing_build(*args: object, **kwargs: object) -> tuple:
             result = original_build(*args, **kwargs)
-            coder_prompts.append(
-                {"system": result[0], "task": result[1]}
-            )
+            coder_prompts.append({"system": result[0], "task": result[1]})
             return result
 
         pipeline._build_coder_prompt = capturing_build  # type: ignore[method-assign]
@@ -344,9 +314,7 @@ class TestModelEscalation:
 
     @pytest.mark.asyncio
     async def test_model_tier_changes_after_escalation(self) -> None:
-        pipeline, mock_platform, _ = _make_pipeline(
-            max_retries=3, retries_before_escalation=1
-        )
+        pipeline, mock_platform, _ = _make_pipeline(max_retries=3, retries_before_escalation=1)
 
         model_ids_used: list[str | None] = []
 
@@ -354,9 +322,7 @@ class TestModelEscalation:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("FAIL", ["AC-1"], ["FAIL"])
-                )
+                return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
@@ -371,9 +337,7 @@ class TestModelEscalation:
             model_id: str | None = None,
         ) -> MagicMock:
             model_ids_used.append(model_id)
-            return await original_run_coder(
-                spec, system_prompt, task_prompt, model_id
-            )
+            return await original_run_coder(spec, system_prompt, task_prompt, model_id)
 
         pipeline._run_coder_session = capturing_run_coder  # type: ignore[method-assign]
 
@@ -396,17 +360,13 @@ class TestPipelineExhaustion:
 
     @pytest.mark.asyncio
     async def test_exhaustion_posts_failure_no_close(self) -> None:
-        pipeline, mock_platform, _ = _make_pipeline(
-            max_retries=1, retries_before_escalation=1
-        )
+        pipeline, mock_platform, _ = _make_pipeline(max_retries=1, retries_before_escalation=1)
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("FAIL", ["AC-1"], ["FAIL"])
-                )
+                return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
@@ -414,14 +374,8 @@ class TestPipelineExhaustion:
         await pipeline.process_issue(_make_issue(), issue_body="bug")
 
         # Check failure comment posted
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
-        failure_comments = [
-            c
-            for c in comments
-            if "failed" in c.lower() or "exhausted" in c.lower()
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+        failure_comments = [c for c in comments if "failed" in c.lower() or "exhausted" in c.lower()]
         assert len(failure_comments) >= 1
 
         # Issue should NOT be closed
@@ -447,9 +401,7 @@ class TestTriageFailureFallback:
             if archetype == "triage":
                 raise Exception("timeout")
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             coder_called["value"] = True
             return _make_session_outcome()
 
@@ -476,17 +428,13 @@ class TestCommentPostingResilience:
         pipeline, mock_platform, _ = _make_pipeline()
 
         # Make comment posting fail
-        mock_platform.add_issue_comment = AsyncMock(
-            side_effect=Exception("API error")
-        )
+        mock_platform.add_issue_comment = AsyncMock(side_effect=Exception("API error"))
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "fix_reviewer":
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
@@ -522,12 +470,8 @@ class TestOnlyCoderRetried:
             if archetype == "fix_reviewer":
                 call_count["reviewer"] += 1
                 if call_count["reviewer"] < 3:
-                    return _make_session_outcome(
-                        _review_json("FAIL", ["AC-1"], ["FAIL"])
-                    )
-                return _make_session_outcome(
-                    _review_json("PASS", ["AC-1"])
-                )
+                    return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
+                return _make_session_outcome(_review_json("PASS", ["AC-1"]))
             return _make_session_outcome()
 
         pipeline._run_session = mock_run_session  # type: ignore[method-assign]
@@ -553,9 +497,7 @@ class TestReviewerNoTriageCriteria:
 
         from agent_fox.session.review_parser import parse_triage_output
 
-        empty_triage = parse_triage_output(
-            "no json here", "fix-issue-42", "s1"
-        )
+        empty_triage = parse_triage_output("no json here", "fix-issue-42", "s1")
 
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
 
@@ -565,7 +507,4 @@ class TestReviewerNoTriageCriteria:
 
         # Should reference issue description or contain the issue context
         prompt_lower = system_prompt.lower()
-        assert (
-            "issue" in prompt_lower
-            or spec.system_context in system_prompt
-        )
+        assert "issue" in prompt_lower or spec.system_context in system_prompt

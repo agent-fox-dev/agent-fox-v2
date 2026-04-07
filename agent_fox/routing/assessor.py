@@ -161,7 +161,7 @@ async def llm_assess(
 
         track_response_usage(api_response, model, "LLM assessment")
 
-        response = api_response.content[0].text if api_response.content else ""
+        response = api_response.content[0].text if api_response.content else ""  # type: ignore[attr-defined]
     except Exception:
         logger.warning("LLM assessment API call failed", exc_info=True)
         record_auxiliary_usage(0, 0, model)
@@ -350,7 +350,7 @@ class AssessmentPipeline:
         """
         if self._statistical is not None:
             try:
-                tier, conf = self._statistical.predict(features)  # type: ignore[union-attr]
+                tier, conf = self._statistical.predict(features)  # type: ignore[attr-defined]
                 return tier, conf, False
             except Exception:
                 logger.warning(
@@ -447,7 +447,7 @@ class AssessmentPipeline:
             try:
                 if self._statistical is None:
                     self._statistical = StatisticalAssessor(self._db)  # type: ignore[arg-type]
-                accuracy = self._statistical.train()  # type: ignore[union-attr]
+                accuracy = self._statistical.train()  # type: ignore[attr-defined]
                 old_accuracy = self._statistical_accuracy
                 self._statistical_accuracy = accuracy
                 self._last_training_count = outcome_count

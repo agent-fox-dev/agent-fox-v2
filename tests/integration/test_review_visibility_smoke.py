@@ -65,9 +65,7 @@ class TestFindingsPersistenceAuditE2E:
         # Use a capturing mock sink (not mocking insert_findings or emit)
         mock_sink = MagicMock()
 
-        transcript = json.dumps(
-            [{"severity": "critical", "description": "missing guard"}]
-        )
+        transcript = json.dumps([{"severity": "critical", "description": "missing guard"}])
 
         persist_review_findings(
             transcript,
@@ -82,18 +80,12 @@ class TestFindingsPersistenceAuditE2E:
         )
 
         # Verify rows in DB
-        row_count = conn.execute(
-            "SELECT COUNT(*) FROM review_findings"
-        ).fetchone()[0]
+        row_count = conn.execute("SELECT COUNT(*) FROM review_findings").fetchone()[0]  # type: ignore[index]
         assert row_count > 0
 
         # Verify audit event emitted
         calls = mock_sink.emit_audit_event.call_args_list
-        persisted_events = [
-            c
-            for c in calls
-            if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED
-        ]
+        persisted_events = [c for c in calls if c.args[0].event_type == AuditEventType.REVIEW_FINDINGS_PERSISTED]
         assert len(persisted_events) == 1
 
         conn.close()
@@ -168,9 +160,7 @@ class TestEnrichedBlockingReasonE2E:
     Real DB with critical findings produces enriched reason with F- IDs.
     """
 
-    def test_enriched_reason_from_real_db(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_enriched_reason_from_real_db(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         from agent_fox.engine.result_handler import evaluate_review_blocking
         from agent_fox.engine.state import SessionRecord
 

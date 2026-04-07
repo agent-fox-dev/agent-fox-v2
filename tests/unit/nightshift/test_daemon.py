@@ -113,7 +113,7 @@ class TestDaemonStreamRegistration:
         ]
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(config, None, streams, budget)
+        runner = DaemonRunner(config, None, streams, budget)  # type: ignore[arg-type]
         assert len(runner.streams) == 4
         assert [s.name for s in runner.streams] == [
             "spec-executor",
@@ -140,9 +140,7 @@ class TestDisabledStreamSkipped:
         disabled = _make_mock_stream(name="disabled-stream", enabled=False)
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [enabled, disabled], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [enabled, disabled], budget, pid_path=tmp_path / "d.pid")
         runner.request_shutdown()
         await runner.run()
         assert enabled.run_once.call_count >= 0  # at least constructed
@@ -168,9 +166,7 @@ class TestStreamExceptionHandling:
         )
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [stream], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [stream], budget, pid_path=tmp_path / "d.pid")
 
         # Let it run briefly then shutdown
         async def shutdown_after_delay() -> None:
@@ -248,9 +244,7 @@ class TestStreamShutdownCalled:
         s2 = _make_mock_stream(name="s2")
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [s1, s2], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [s1, s2], budget, pid_path=tmp_path / "d.pid")
         runner.request_shutdown()
         await runner.run()
         assert s1.shutdown.call_count == 1
@@ -290,9 +284,7 @@ class TestStreamPriorityOrder:
 
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, streams, budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")  # type: ignore[arg-type]
 
         async def shutdown_after_delay() -> None:
             await asyncio.sleep(0.2)
@@ -344,9 +336,7 @@ class TestSimultaneousWakePriority:
 
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, streams, budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")  # type: ignore[arg-type]
 
         async def shutdown_after_delay() -> None:
             await asyncio.sleep(0.2)
@@ -381,7 +371,7 @@ class TestUnknownStreamName:
         config = _make_config(enabled_streams=["specs", "unknown_stream"])
         budget = SharedBudget(max_cost=None)
         # Should not raise
-        runner = DaemonRunner(config, None, streams, budget)
+        runner = DaemonRunner(config, None, streams, budget)  # type: ignore[arg-type]
         assert len(runner.streams) >= 1
 
 
@@ -398,15 +388,10 @@ class TestAllStreamsDisabled:
         """No stream's run_once called when all disabled."""
         from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
 
-        streams = [
-            _make_mock_stream(name=f"s{i}", enabled=False)
-            for i in range(4)
-        ]
+        streams = [_make_mock_stream(name=f"s{i}", enabled=False) for i in range(4)]
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, streams, budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, streams, budget, pid_path=tmp_path / "d.pid")  # type: ignore[arg-type]
         runner.request_shutdown()
         await runner.run()
         for s in streams:
@@ -430,9 +415,7 @@ class TestDisabledSpecExecutorNoPriorityDelay:
         fix = _make_mock_stream(name="fix-pipeline", enabled=True)
         budget = SharedBudget(max_cost=None)
         config = _make_config()
-        runner = DaemonRunner(
-            config, None, [spec, fix], budget, pid_path=tmp_path / "d.pid"
-        )
+        runner = DaemonRunner(config, None, [spec, fix], budget, pid_path=tmp_path / "d.pid")
 
         async def shutdown_after_delay() -> None:
             await asyncio.sleep(0.2)

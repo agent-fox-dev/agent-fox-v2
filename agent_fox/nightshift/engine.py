@@ -212,7 +212,7 @@ class NightShiftEngine:
         self._clear_idle()
         self._emit_status("Checking for af:fix issues\u2026")
         try:
-            issues = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
+            issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
                 "af:fix",
                 sort="created",
                 direction="asc",
@@ -269,7 +269,7 @@ class NightShiftEngine:
             if obsolete not in issue_map or obsolete in closed:
                 continue
             try:
-                await self._platform.close_issue(  # type: ignore[union-attr]
+                await self._platform.close_issue(  # type: ignore[attr-defined]
                     obsolete,
                     f"Superseded by #{_keep} (AI triage).",
                 )
@@ -325,7 +325,7 @@ class NightShiftEngine:
                         for obsolete_num in staleness.obsolete_issues:
                             if obsolete_num not in remaining_nums:
                                 continue
-                            await self._platform.close_issue(  # type: ignore[union-attr]
+                            await self._platform.close_issue(  # type: ignore[attr-defined]
                                 obsolete_num,
                                 f"Resolved by fix for #{issue_num}",
                             )
@@ -391,21 +391,21 @@ class NightShiftEngine:
         # Dedup gate: skip groups whose fingerprint matches an existing open
         # af:hunt issue. Fails open if the platform API is unavailable.
         # Requirements: 79-REQ-4.1, 79-REQ-4.2
-        groups = await filter_known_duplicates(groups, self._platform)
+        groups = await filter_known_duplicates(groups, self._platform)  # type: ignore[arg-type]
 
         # create_issues_from_groups returns the created IssueResults so we
         # can assign labels without creating duplicate issues (61-REQ-5.4).
-        created = await create_issues_from_groups(groups, self._platform)
+        created = await create_issues_from_groups(groups, self._platform)  # type: ignore[arg-type]
         self.state.issues_created += len(created)
 
         if self._auto_fix:
             # Assign af:fix label to the issues already created above.
             for result in created:
                 try:
-                    await self._platform.assign_label(result.number, "af:fix")  # type: ignore[union-attr]
+                    await self._platform.assign_label(result.number, "af:fix")  # type: ignore[attr-defined]
                     _emit_audit_event(
                         "night_shift.issue_created",
-                        {"issue_number": result.number},
+                        {"issue_number": result.number},  # type: ignore[attr-defined]
                     )
                 except Exception:
                     logger.warning(
@@ -532,7 +532,7 @@ class NightShiftEngine:
 
             # Re-poll to see if any af:fix issues remain
             try:
-                remaining = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
+                remaining = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
                     "af:fix",
                     sort="created",
                     direction="asc",

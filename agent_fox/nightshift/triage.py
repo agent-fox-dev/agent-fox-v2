@@ -158,7 +158,7 @@ async def _run_ai_triage(
     track_response_usage(response, model_entry.model_id, "batch triage")
 
     # Extract text from response
-    first_block = response.content[0]  # type: ignore[union-attr]
+    first_block = response.content[0]  # type: ignore[attr-defined]
     response_text = getattr(first_block, "text", None)
     if response_text is None:
         raise TriageError("AI response has no text content")

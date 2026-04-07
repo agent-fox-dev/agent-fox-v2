@@ -47,9 +47,7 @@ class TestCliNoFlags:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=True, no_fixes=False, no_hunts=False, no_spec_gen=False
-        )
+        streams = build_streams(config, no_specs=True, no_fixes=False, no_hunts=False, no_spec_gen=False)
         spec = next(s for s in streams if s.name == "spec-executor")
         fix = next(s for s in streams if s.name == "fix-pipeline")
         assert spec.enabled is False
@@ -60,9 +58,7 @@ class TestCliNoFlags:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=False, no_fixes=True, no_hunts=False, no_spec_gen=False
-        )
+        streams = build_streams(config, no_specs=False, no_fixes=True, no_hunts=False, no_spec_gen=False)
         fix = next(s for s in streams if s.name == "fix-pipeline")
         assert fix.enabled is False
 
@@ -71,9 +67,7 @@ class TestCliNoFlags:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=False, no_fixes=False, no_hunts=True, no_spec_gen=False
-        )
+        streams = build_streams(config, no_specs=False, no_fixes=False, no_hunts=True, no_spec_gen=False)
         hunt = next(s for s in streams if s.name == "hunt-scan")
         assert hunt.enabled is False
 
@@ -82,9 +76,7 @@ class TestCliNoFlags:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=False, no_fixes=False, no_hunts=False, no_spec_gen=True
-        )
+        streams = build_streams(config, no_specs=False, no_fixes=False, no_hunts=False, no_spec_gen=True)
         gen = next(s for s in streams if s.name == "spec-generator")
         assert gen.enabled is False
 
@@ -103,9 +95,7 @@ class TestCodeWatchAlias:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=False, no_fixes=True, no_hunts=True, no_spec_gen=True
-        )
+        streams = build_streams(config, no_specs=False, no_fixes=True, no_hunts=True, no_spec_gen=True)
         enabled = [s for s in streams if s.enabled]
         assert len(enabled) == 1
         assert enabled[0].name == "spec-executor"
@@ -127,7 +117,7 @@ class TestAutoFlag:
         config = _make_config()
         streams = build_streams(config, auto=True)
         hunt = next(s for s in streams if s.name == "hunt-scan")
-        assert hunt.auto_fix is True
+        assert hunt.auto_fix is True  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
@@ -163,9 +153,7 @@ class TestAllFlagsDisabled:
         from agent_fox.nightshift.streams import build_streams
 
         config = _make_config()
-        streams = build_streams(
-            config, no_specs=True, no_fixes=True, no_hunts=True, no_spec_gen=True
-        )
+        streams = build_streams(config, no_specs=True, no_fixes=True, no_hunts=True, no_spec_gen=True)
         enabled = [s for s in streams if s.enabled]
         assert len(enabled) == 0
 
