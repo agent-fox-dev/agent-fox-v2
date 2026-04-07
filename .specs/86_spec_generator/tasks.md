@@ -226,9 +226,9 @@ generation pipeline.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 86-REQ-8.*, 86-REQ-10.3 met
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - Path 1 (happy path): stream.run_once → poll → process_issue → analyze → generate → land → close
     - Path 2 (clarification): stream.run_once → poll → process_issue → analyze → post questions → pending
     - Path 3 (re-analysis): stream.run_once → poll pending → detect new comment → transition → process_issue
@@ -237,7 +237,7 @@ generation pipeline.
     - Confirm no function in any chain is a stub (`return []`, `return None`, `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - `list_issue_comments()` → `list[IssueComment]` consumed by `_has_new_human_comment`, `_count_clarification_rounds`, `_analyze_issue`
     - `_analyze_issue()` → `AnalysisResult` consumed by `process_issue` branching logic
     - `_check_duplicates()` → `DuplicateCheckResult` consumed by `process_issue`
@@ -247,25 +247,30 @@ generation pipeline.
     - Grep for callers of each function; confirm none discards the return value
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All TS-86-SMOKE-1 through TS-86-SMOKE-5 pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/test_spec_gen_lifecycle.py -k SMOKE`
     - _Test Spec: TS-86-SMOKE-1 through TS-86-SMOKE-5_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Findings: all `return []` are on `list[...]` return types (justified);
+      `return None` only in `parse_github_remote()` which returns `Optional`;
+      all `pass`-like bodies are in Protocol abstract methods or no-op
+      `shutdown()` with docstring justification; no `# TODO` or
+      `NotImplementedError` found. Stale "stub" comments removed.
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass: `uv run pytest -q tests/integration/test_spec_gen_lifecycle.py`
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `make check`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass: `uv run pytest -q tests/integration/test_spec_gen_lifecycle.py`
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `make test`
 
 ### Checkbox States
 

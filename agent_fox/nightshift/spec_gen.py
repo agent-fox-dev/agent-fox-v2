@@ -421,7 +421,7 @@ class SpecGenerator:
         return refs
 
     # ------------------------------------------------------------------
-    # AI-powered methods (stubs for task group 4)
+    # AI-powered methods
     # ------------------------------------------------------------------
 
     async def _analyze_issue(
@@ -630,7 +630,7 @@ class SpecGenerator:
         )
 
     # ------------------------------------------------------------------
-    # Landing workflow (stub for task group 5)
+    # Landing workflow
     # ------------------------------------------------------------------
 
     async def _land_spec(

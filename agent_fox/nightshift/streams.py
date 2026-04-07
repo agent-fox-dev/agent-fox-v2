@@ -220,7 +220,7 @@ class HuntScanStream:
 
 
 # ---------------------------------------------------------------------------
-# SpecGeneratorStream (stub)
+# SpecGeneratorStream
 # ---------------------------------------------------------------------------
 
 
@@ -409,6 +409,8 @@ def build_streams(
     discover_fn: Any | None = None,
     orch_factory: Callable[..., Any] | None = None,
     budget: SharedBudget | None = None,
+    platform: Any | None = None,
+    repo_root: Any | None = None,
 ) -> list[SpecExecutorStream | FixPipelineStream | HuntScanStream | SpecGeneratorStream]:
     """Build all four work streams with proper enabled/disabled state.
 
@@ -500,8 +502,14 @@ def build_streams(
         )
     )
 
+    # Extract NightShiftConfig for spec generator if available
+    ns_config = getattr(config, "night_shift", None)
+
     streams.append(
         SpecGeneratorStream(
+            config=ns_config,
+            platform=platform,
+            repo_root=repo_root,
             enabled="spec_gen" in final_enabled,
             interval=spec_gen_interval,
         )
