@@ -103,27 +103,27 @@ generation pipeline.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 86-REQ-1.* met
 
-- [ ] 3. Config extensions, state machine helpers, and utility functions
-  - [ ] 3.1 Add new fields to `NightShiftConfig`
+- [x] 3. Config extensions, state machine helpers, and utility functions
+  - [x] 3.1 Add new fields to `NightShiftConfig`
     - `max_clarification_rounds: int` (default 3, min 1 via validator)
     - `max_budget_usd: float` (default 2.0)
     - `spec_gen_model_tier: str` (default "ADVANCED")
     - Add field validator for clamping `max_clarification_rounds` to min 1
     - _Requirements: 86-REQ-9.1, 86-REQ-9.2, 86-REQ-9.3, 86-REQ-9.E1_
 
-  - [ ] 3.2 Create `nightshift/spec_gen.py` with data types and helpers
+  - [x] 3.2 Create `nightshift/spec_gen.py` with data types and helpers
     - Define `SpecGenOutcome`, `SpecGenResult`, `AnalysisResult`, `DuplicateCheckResult`, `ReferencedIssue`, `SpecPackage` dataclasses
     - Define label constants: `LABEL_SPEC`, `LABEL_ANALYZING`, etc.
     - Implement `_is_fox_comment()`, `_count_clarification_rounds()`, `_has_new_human_comment()`
     - _Requirements: 86-REQ-5.1, 86-REQ-5.3, 86-REQ-2.3, 86-REQ-2.4_
 
-  - [ ] 3.3 Implement `_find_next_spec_number()` and `_spec_name_from_title()`
+  - [x] 3.3 Implement `_find_next_spec_number()` and `_spec_name_from_title()`
     - Scan `.specs/` for highest numeric prefix, increment
     - Derive snake_case slug from issue title, truncate to 40 chars
     - Handle empty `.specs/` (return 1)
     - _Requirements: 86-REQ-6.3, 86-REQ-6.E2_
 
-  - [ ] 3.4 Implement `_transition_label()` and `_format_*_comment()` helpers
+  - [x] 3.4 Implement `_transition_label()` and `_format_*_comment()` helpers
     - `_transition_label`: assign new label, then remove old label
     - `_format_clarification_comment`: numbered questions, round counter
     - `_format_completion_comment`: spec folder, file list, commit hash
@@ -131,19 +131,19 @@ generation pipeline.
     - `_format_budget_comment`: cost and limit
     - _Requirements: 86-REQ-3.1, 86-REQ-4.2, 86-REQ-5.2, 86-REQ-8.4, 86-REQ-10.2_
 
-  - [ ] 3.5 Implement `_harvest_references()`
+  - [x] 3.5 Implement `_harvest_references()`
     - Parse `#N` from body and comment bodies via regex
     - For each, call `platform.get_issue()` and `platform.list_issue_comments()`
     - On IntegrationError: log warning, skip reference
     - Return `list[ReferencedIssue]`
     - _Requirements: 86-REQ-4.3, 86-REQ-4.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen_config.py tests/unit/nightshift/test_spec_gen.py -k "TS_86_10 or TS_86_16 or TS_86_17 or TS_86_19 or TS_86_22 or TS_86_31 or E5 or E8 or E9 or E12 or E16 or E17"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P1 or P2 or P3 or P4 or P7"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 86-REQ-3.1, 86-REQ-4.3, 86-REQ-5.1, 86-REQ-5.3, 86-REQ-6.3, 86-REQ-9.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen_config.py tests/unit/nightshift/test_spec_gen.py -k "TS_86_10 or TS_86_16 or TS_86_17 or TS_86_19 or TS_86_22 or TS_86_31 or E5 or E8 or E9 or E12 or E16 or E17"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P1 or P2 or P3 or P4 or P7"`
+    - [-] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 86-REQ-3.1, 86-REQ-4.3, 86-REQ-5.1, 86-REQ-5.3, 86-REQ-6.3, 86-REQ-9.* met
 
 - [ ] 4. SpecGenerator core: analysis, clarification, generation, duplicates, cost
   - [ ] 4.1 Implement `SpecGenerator.__init__()` and `_resolve_model()`

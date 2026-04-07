@@ -175,15 +175,24 @@ def test_TS_86_P4_spec_number_exceeds_existing(
     specs_dir.mkdir(exist_ok=True)
 
     for p in prefixes:
-        (specs_dir / f"{p:02d}_test_spec").mkdir()
+        (specs_dir / f"{p:02d}_test_spec").mkdir(exist_ok=True)
 
     gen = _make_generator(repo_root=tmp_path)
     result = gen._find_next_spec_number()
 
-    if not prefixes:
+    # Note: tmp_path may contain folders from prior Hypothesis examples,
+    # so we check that result exceeds all currently-present prefixes.
+    all_prefixes: set[int] = set()
+    import re as _re
+    for entry in specs_dir.iterdir():
+        m = _re.match(r"^(\d{2,})_", entry.name)
+        if m:
+            all_prefixes.add(int(m.group(1)))
+
+    if not all_prefixes:
         assert result == 1
     else:
-        assert result > max(prefixes)
+        assert result > max(all_prefixes)
 
 
 # ---------------------------------------------------------------------------
