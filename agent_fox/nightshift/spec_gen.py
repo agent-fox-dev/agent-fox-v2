@@ -706,7 +706,7 @@ class SpecGenerator:
                 cwd=str(self._repo_root),
             )
             merge_result = subprocess.run(
-                ["git", "merge", actual_branch, "--no-ff"],
+                ["git", "merge", actual_branch],
                 capture_output=True,
                 text=True,
                 cwd=str(self._repo_root),

@@ -225,21 +225,43 @@ class HuntScanStream:
 
 
 class SpecGeneratorStream:
-    """Stub work stream for spec generation from af:spec issues.
+    """Work stream that polls af:spec issues and generates specs.
 
-    Placeholder for spec 86. run_once() is intentionally a no-op.
+    Replaces the no-op stub from spec 85 with real implementation.
 
-    Requirements: 85-REQ-1.1
+    Requirements: 85-REQ-1.1, 86-REQ-2.1, 86-REQ-2.2, 86-REQ-2.E1,
+                  86-REQ-2.E2, 86-REQ-3.E1, 86-REQ-3.E2, 86-REQ-10.3
     """
 
     def __init__(
         self,
         *,
+        config: Any | None = None,
+        platform: Any | None = None,
+        repo_root: Any | None = None,
         enabled: bool = True,
         interval: int = 300,
     ) -> None:
+        from pathlib import Path
+
+        self._config = config
+        self._platform = platform
+        self._repo_root = Path(repo_root) if repo_root else None
         self._enabled = enabled
         self._interval = interval
+        self._budget: SharedBudget | None = None
+
+        # Create generator if platform and config are available
+        if config is not None and platform is not None and repo_root is not None:
+            from agent_fox.nightshift.spec_gen import SpecGenerator
+
+            self._generator = SpecGenerator(
+                platform=platform,
+                config=config,
+                repo_root=Path(repo_root),
+            )
+        else:
+            self._generator = None  # type: ignore[assignment]
 
     @property
     def name(self) -> str:
@@ -258,11 +280,116 @@ class SpecGeneratorStream:
         self._enabled = value
 
     async def run_once(self) -> None:
-        """No-op stub — spec generation is not yet implemented (spec 86)."""
-        logger.debug("spec-generator stream: not yet implemented (placeholder for spec 86)")
+        """One cycle: discover issues, process one, report cost.
+
+        Requirements: 86-REQ-2.1, 86-REQ-2.2, 86-REQ-2.E1, 86-REQ-2.E2,
+                      86-REQ-3.E1, 86-REQ-3.E2, 86-REQ-10.3
+        """
+        if self._platform is None or self._generator is None:
+            logger.debug("spec-generator stream: not configured (no platform/generator)")
+            return
+
+        logger.info("spec-generator: starting run_once cycle")
+
+        from agent_fox.nightshift.spec_gen import (
+            LABEL_ANALYZING,
+            LABEL_GENERATING,
+            LABEL_PENDING,
+            LABEL_SPEC,
+        )
+
+        # Crash recovery: reset stale analyzing/generating labels (86-REQ-3.E1, 86-REQ-3.E2)
+        for stale_label in (LABEL_ANALYZING, LABEL_GENERATING):
+            try:
+                stale_issues = await self._platform.list_issues_by_label(stale_label)
+                for issue in stale_issues:
+                    logger.warning(
+                        "Issue #%d has stale label %s; resetting to %s",
+                        issue.number,
+                        stale_label,
+                        LABEL_SPEC,
+                    )
+                    await self._platform.assign_label(issue.number, LABEL_SPEC)
+                    await self._platform.remove_label(issue.number, stale_label)
+            except Exception:
+                logger.exception("Error during crash recovery for label %s", stale_label)
+
+        # Poll for af:spec-pending issues with new human comments (86-REQ-2.3)
+        try:
+            pending_issues = await self._platform.list_issues_by_label(LABEL_PENDING)
+        except Exception:
+            logger.exception("Failed to list af:spec-pending issues")
+            pending_issues = []
+
+        for p_issue in pending_issues:
+            try:
+                comments = await self._platform.list_issue_comments(p_issue.number)
+                if self._generator._has_new_human_comment(comments):
+                    # Transition to analyzing for re-analysis (86-REQ-2.3)
+                    await self._platform.assign_label(p_issue.number, LABEL_ANALYZING)
+                    await self._platform.remove_label(p_issue.number, LABEL_PENDING)
+                    # Process the re-analyzed issue
+                    result = await self._generator.process_issue(p_issue)
+                    if self._budget is not None:
+                        self._budget.add_cost(result.cost)
+                    logger.info("spec-generator: run_once cycle complete")
+                    return
+            except Exception:
+                logger.exception("Error handling pending issue #%d", p_issue.number)
+
+        # Poll for af:spec issues (86-REQ-2.1)
+        try:
+            spec_issues = await self._platform.list_issues_by_label(LABEL_SPEC)
+        except Exception:
+            logger.exception("Failed to list af:spec issues")
+            spec_issues = []
+
+        if not spec_issues:
+            logger.debug("No af:spec issues found")
+            logger.info("spec-generator: run_once cycle complete (no-op)")
+            return
+
+        # Process only the oldest issue (86-REQ-2.2)
+        issue = spec_issues[0]
+
+        # Check for staleness (86-REQ-2.E2)
+        if await self._is_stale(issue):
+            logger.warning("Issue #%d is stale (>30 days); skipping", issue.number)
+            logger.info("spec-generator: run_once cycle complete")
+            return
+
+        # Process the issue
+        result = await self._generator.process_issue(issue)
+
+        # Report cost (86-REQ-10.3)
+        if self._budget is not None:
+            self._budget.add_cost(result.cost)
+
+        logger.info("spec-generator: run_once cycle complete")
+
+    async def _is_stale(self, issue: Any) -> bool:
+        """Check if an issue is stale (>30 days since last activity).
+
+        Requirements: 86-REQ-2.E2
+        """
+        from datetime import UTC, datetime, timedelta
+
+        try:
+            comments = await self._platform.list_issue_comments(issue.number)
+        except Exception:
+            return False
+
+        if not comments:
+            # No comments; can't determine staleness reliably
+            return False
+
+        # Find the most recent comment timestamp
+        latest = max(datetime.fromisoformat(c.created_at.replace("Z", "+00:00")) for c in comments)
+        cutoff = datetime.now(UTC) - timedelta(days=30)
+        return latest < cutoff
 
     async def shutdown(self) -> None:
-        """No resources to clean up."""
+        """No persistent resources to clean up."""
 
 
 # ---------------------------------------------------------------------------

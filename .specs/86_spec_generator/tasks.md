@@ -145,28 +145,28 @@ generation pipeline.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 86-REQ-3.1, 86-REQ-4.3, 86-REQ-5.1, 86-REQ-5.3, 86-REQ-6.3, 86-REQ-9.* met
 
-- [ ] 4. SpecGenerator core: analysis, clarification, generation, duplicates, cost
-  - [ ] 4.1 Implement `SpecGenerator.__init__()` and `_resolve_model()`
+- [x] 4. SpecGenerator core: analysis, clarification, generation, duplicates, cost
+  - [x] 4.1 Implement `SpecGenerator.__init__()` and `_resolve_model()`
     - Accept platform, config, repo_root
     - Create async Anthropic client via `create_async_anthropic_client()`
     - Resolve model from `spec_gen_model_tier` with fallback to ADVANCED
     - _Requirements: 86-REQ-6.4, 86-REQ-9.E2_
 
-  - [ ] 4.2 Implement `_analyze_issue()`
+  - [x] 4.2 Implement `_analyze_issue()`
     - Build prompt with issue body, comments, referenced issues, existing specs, steering
     - Call AI via `cached_messages_create()`
     - Parse response into `AnalysisResult(clear, questions, summary)`
     - Track cost from API response usage
     - _Requirements: 86-REQ-4.1, 86-REQ-4.E2_
 
-  - [ ] 4.3 Implement `_check_duplicates()`
+  - [x] 4.3 Implement `_check_duplicates()`
     - If no existing specs, return `DuplicateCheckResult(is_duplicate=False)` immediately
     - Build prompt with issue title/body and existing spec summaries
     - Call AI, parse response into `DuplicateCheckResult`
     - Track cost
     - _Requirements: 86-REQ-7.1, 86-REQ-7.E1_
 
-  - [ ] 4.4 Implement `_generate_spec_package()`
+  - [x] 4.4 Implement `_generate_spec_package()`
     - Generate each document sequentially via AI calls following af-spec skill structure
     - Build PRD from issue body + clarification answers + `## Source` section
     - Pass previous documents as context for subsequent ones (requirements → design → test_spec → tasks)
@@ -174,7 +174,7 @@ generation pipeline.
     - Return `SpecPackage` with all 5 files
     - _Requirements: 86-REQ-6.1, 86-REQ-6.2, 86-REQ-6.4, 86-REQ-10.1, 86-REQ-10.2_
 
-  - [ ] 4.5 Implement `process_issue()` — full orchestration
+  - [x] 4.5 Implement `process_issue()` — full orchestration
     - Transition to analyzing
     - Fetch comments, harvest references, gather context
     - Check duplicates (if duplicate, post comment, transition pending, return)
@@ -184,12 +184,12 @@ generation pipeline.
     - Handle errors: catch exceptions, post error comment, transition to blocked
     - _Requirements: 86-REQ-3.2, 86-REQ-3.3, 86-REQ-3.4, 86-REQ-4.2, 86-REQ-5.2, 86-REQ-7.2, 86-REQ-7.3, 86-REQ-6.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen.py -k "TS_86_6 or TS_86_7 or TS_86_8 or TS_86_9 or TS_86_11 or TS_86_12 or TS_86_13 or TS_86_14 or TS_86_15 or TS_86_18 or TS_86_20 or TS_86_21 or TS_86_23 or TS_86_24 or TS_86_25 or TS_86_26 or TS_86_32 or TS_86_33 or E4 or E6 or E7 or E10 or E11 or E13 or E18"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P2 or P6"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 86-REQ-2.* through 86-REQ-7.*, 86-REQ-10.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen.py -k "TS_86_6 or TS_86_7 or TS_86_8 or TS_86_9 or TS_86_11 or TS_86_12 or TS_86_13 or TS_86_14 or TS_86_15 or TS_86_18 or TS_86_20 or TS_86_21 or TS_86_23 or TS_86_24 or TS_86_25 or TS_86_26 or TS_86_32 or TS_86_33 or E4 or E6 or E7 or E10 or E11 or E13 or E18"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P2 or P6"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 86-REQ-2.* through 86-REQ-7.*, 86-REQ-10.* met
 
 - [ ] 5. SpecGeneratorStream wiring and landing workflow
   - [ ] 5.1 Implement `_land_spec()` in `SpecGenerator`

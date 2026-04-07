@@ -322,8 +322,9 @@ class TestSmokeHappyPath:
         budget = SharedBudget(max_cost=None)
 
         # Mock AI to return clear analysis and documents
+        # Note: _check_duplicates skips AI call when no specs exist,
+        # so first AI call is from _analyze_issue
         analysis_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-        dup_check_resp = _mock_ai_response('{"is_duplicate": false, "overlapping_spec": null, "explanation": ""}')
         doc_resp = _mock_ai_response("Generated document content for spec")
 
         call_count = 0
@@ -332,8 +333,6 @@ class TestSmokeHappyPath:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return dup_check_resp
-            if call_count == 2:
                 return analysis_resp
             return doc_resp
 
@@ -391,20 +390,12 @@ class TestSmokeAmbiguousIssue:
         config = _make_config()
         repo_root = Path("/tmp/smoke-test-ambiguous")
 
+        # Note: _check_duplicates skips AI call when no specs exist
         analysis_resp = _mock_ai_response(
             '{"clear": false, "questions": ["What is the scope?", "What APIs?"], "summary": "Ambiguous"}'
         )
-        dup_check_resp = _mock_ai_response(
-            '{"is_duplicate": false, "overlapping_spec": null, "explanation": ""}'
-        )
-
-        call_count = 0
 
         async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return dup_check_resp
             return analysis_resp
 
         stream = SpecGeneratorStream(
@@ -470,8 +461,8 @@ class TestSmokePendingReanalysis:
         config = _make_config()
 
         # Mock AI: clear on re-analysis, generate docs
+        # Note: _check_duplicates skips AI call when no specs exist
         clear_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-        dup_resp = _mock_ai_response('{"is_duplicate": false, "overlapping_spec": null, "explanation": ""}')
         doc_resp = _mock_ai_response("Generated document")
 
         call_count = 0
@@ -480,8 +471,6 @@ class TestSmokePendingReanalysis:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return dup_resp
-            if call_count == 2:
                 return clear_resp
             return doc_resp
 
@@ -538,18 +527,12 @@ class TestSmokeMaxRoundsEscalation:
         config = _make_config(max_clarification_rounds=2)
 
         # AI still finds ambiguity
+        # Note: _check_duplicates skips AI call when no specs exist
         ambiguous_resp = _mock_ai_response(
             '{"clear": false, "questions": ["Still need clarity on Z"], "summary": "Unclear"}'
         )
-        dup_resp = _mock_ai_response('{"is_duplicate": false, "overlapping_spec": null, "explanation": ""}')
-
-        call_count = 0
 
         async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return dup_resp
             return ambiguous_resp
 
         stream = SpecGeneratorStream(
@@ -609,9 +592,8 @@ class TestSmokeCostCapExceeded:
         expensive_resp.usage.cache_read_input_tokens = 0
         expensive_resp.usage.cache_creation_input_tokens = 0
 
-        # For analysis (clear) and duplicate check (not dup)
+        # For analysis (clear) — duplicate check skipped when no specs exist
         clear_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-        dup_resp = _mock_ai_response('{"is_duplicate": false, "overlapping_spec": null, "explanation": ""}')
 
         call_count = 0
 
@@ -619,8 +601,6 @@ class TestSmokeCostCapExceeded:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return dup_resp
-            if call_count == 2:
                 return clear_resp
             return expensive_resp  # generation calls
 

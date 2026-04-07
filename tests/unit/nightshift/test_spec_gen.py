@@ -163,6 +163,8 @@ class TestDiscoverAfSpecIssues:
                     cost=0.0,
                 )
             )
+            # No new human comment on pending issue, so it should fall through to af:spec
+            mock_gen._has_new_human_comment = MagicMock(return_value=False)
             await stream.run_once()
 
         # Both labels should have been queried
@@ -1191,11 +1193,9 @@ class TestStaleIssueSkipped:
 
         with patch.object(stream, "_generator", create=True) as mock_gen:
             mock_gen.process_issue = AsyncMock()
-            with pytest.raises(Exception):
-                # This should log a warning and skip, or we expect the
-                # stale check to prevent processing
-                await stream.run_once()
-                mock_gen.process_issue.assert_not_called()
+            await stream.run_once()
+            # Stale issue should be skipped, so process_issue should not be called
+            mock_gen.process_issue.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
