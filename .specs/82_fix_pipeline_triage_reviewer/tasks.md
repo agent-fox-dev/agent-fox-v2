@@ -101,8 +101,8 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 82-REQ-2.1, 2.2, 2.3, 2.E1, 5.1 met
 
-- [ ] 3. Prompt templates and archetype registration
-  - [ ] 3.1 Create `triage.md` prompt template
+- [x] 3. Prompt templates and archetype registration
+  - [x] 3.1 Create `triage.md` prompt template
     - Place in `agent_fox/_templates/prompts/triage.md`
     - Follow same structure as existing archetype templates (frontmatter,
       role description, orientation, scope lock, output format, constraints,
@@ -113,7 +113,7 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Include `{spec_name}` interpolation placeholder
     - _Requirements: 82-REQ-1.2, 82-REQ-2.4_
 
-  - [ ] 3.2 Create `fix_reviewer.md` prompt template
+  - [x] 3.2 Create `fix_reviewer.md` prompt template
     - Place in `agent_fox/_templates/prompts/fix_reviewer.md`
     - Follow same structure as existing archetype templates
     - Direct agent to: verify coder's changes against acceptance criteria,
@@ -124,19 +124,19 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
       issue description
     - _Requirements: 82-REQ-4.2, 82-REQ-5.2, 82-REQ-5.3, 82-REQ-5.E1_
 
-  - [ ] 3.3 Register archetypes in registry
+  - [x] 3.3 Register archetypes in registry
     - Add `"triage"` entry to `ARCHETYPE_REGISTRY` in `archetypes.py`:
       template=`triage.md`, tier=ADVANCED, read-only allowlist, max_turns=80
     - Add `"fix_reviewer"` entry: template=`fix_reviewer.md`, tier=ADVANCED,
       full allowlist (uv, make, pytest, etc.), max_turns=120
     - _Requirements: 82-REQ-1.1, 82-REQ-4.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Registry tests pass: `uv run pytest -q tests/unit/test_archetype_registry.py`
-    - [ ] Prompt template tests TS-82-2, TS-82-7 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 82-REQ-1.1, 1.2, 4.1, 4.2 met
+  - [x] 3.V Verify task group 3
+    - [x] Registry tests pass: `uv run pytest -q tests/unit/test_archetype_registry.py`
+    - [x] Prompt template tests TS-82-2, TS-82-7 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 82-REQ-1.1, 1.2, 4.1, 4.2 met
 
 - [ ] 4. Fix pipeline rewrite
   - [ ] 4.1 Add comment formatting methods
