@@ -26,26 +26,26 @@ introspection), (5) wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create JSONL response logging tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create JSONL response logging tests
     - Create `tests/unit/knowledge/test_jsonl_response.py`
     - Translate TS-84-1, TS-84-2 (response field written)
     - Translate TS-84-E1 (truncation at 100k)
     - _Test Spec: TS-84-1, TS-84-2, TS-84-E1_
 
-  - [ ] 1.2 Create audit event emission tests
+  - [x] 1.2 Create audit event emission tests
     - Create `tests/unit/engine/test_review_audit_events.py`
     - Translate TS-84-3, TS-84-4, TS-84-5 (persisted events for each archetype)
     - Translate TS-84-E2 (emission failure does not raise)
     - _Test Spec: TS-84-3, TS-84-4, TS-84-5, TS-84-E2_
 
-  - [ ] 1.3 Create blocking reason enrichment tests
+  - [x] 1.3 Create blocking reason enrichment tests
     - Create `tests/unit/engine/test_block_reason_enrichment.py`
     - Translate TS-84-6 (finding IDs in reason)
     - Translate TS-84-7 (cap at 3 IDs)
     - _Test Spec: TS-84-6, TS-84-7_
 
-  - [ ] 1.4 Create findings CLI and reporting tests
+  - [x] 1.4 Create findings CLI and reporting tests
     - Create `tests/unit/cli/test_findings_cmd.py`
     - Create `tests/unit/reporting/test_findings_report.py`
     - Translate TS-84-8 through TS-84-13 (query, filter, format)
@@ -53,20 +53,20 @@ introspection), (5) wiring verification.
     - Translate TS-84-E3, TS-84-E4, TS-84-E5 (edge cases)
     - _Test Spec: TS-84-8 through TS-84-15, TS-84-E3, TS-84-E4, TS-84-E5_
 
-  - [ ] 1.5 Create property tests
+  - [x] 1.5 Create property tests
     - Create `tests/property/test_review_visibility_props.py`
     - Translate TS-84-P1 through TS-84-P6
     - _Test Spec: TS-84-P1, TS-84-P2, TS-84-P3, TS-84-P4, TS-84-P5, TS-84-P6_
 
-  - [ ] 1.6 Create integration smoke tests
+  - [x] 1.6 Create integration smoke tests
     - Create `tests/integration/test_review_visibility_smoke.py`
     - Translate TS-84-SMOKE-1 through TS-84-SMOKE-5
     - _Test Spec: TS-84-SMOKE-1 through TS-84-SMOKE-5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check`
 
 - [ ] 2. JSONL response logging and audit events
   - [ ] 2.1 Add response field to JSONL sink
