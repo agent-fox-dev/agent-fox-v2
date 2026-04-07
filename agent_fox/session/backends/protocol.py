@@ -44,6 +44,10 @@ class ResultMessage:
         duration_ms: Session wall-clock duration in milliseconds.
         error_message: Error description if the session failed, else ``None``.
         is_error: Whether the session ended in an error state.
+        is_transport_error: Whether the failure was a transient transport/
+            connection error (e.g. OSError, empty stream) rather than a
+            session-level failure.  When ``True`` the orchestrator should
+            reset the node to pending without consuming an escalation retry.
     """
 
     status: str
@@ -54,6 +58,7 @@ class ResultMessage:
     is_error: bool
     cache_read_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
+    is_transport_error: bool = False
 
 
 # Union of all canonical message types

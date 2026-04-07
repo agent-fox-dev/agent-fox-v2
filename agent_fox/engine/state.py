@@ -45,6 +45,7 @@ class SessionRecord:
     files_touched: list[str] = field(default_factory=list)
     archetype: str = "coder"  # Archetype name; defaults for backward compat
     commit_sha: str = ""  # develop HEAD after harvest (empty if no code merged)
+    is_transport_error: bool = False  # True when failure was a transient connection error
 
 
 @dataclass
@@ -258,4 +259,5 @@ async def invoke_runner(
         model=getattr(result, "model", ""),
         files_touched=getattr(result, "files_touched", []),
         archetype=getattr(result, "archetype", "coder"),
+        is_transport_error=getattr(result, "is_transport_error", False),
     )

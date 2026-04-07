@@ -52,6 +52,7 @@ class _QueryExecutionState:
     status: str = "completed"
     saw_result: bool = False
     last_response: str = ""  # Last AssistantMessage content
+    is_transport_error: bool = False  # True when failure is a transient connection error
 
 
 async def with_timeout[T](
@@ -178,6 +179,7 @@ async def run_session(
         duration_ms=state.duration_ms,
         error_message=state.error_message,
         response=state.last_response,
+        is_transport_error=state.is_transport_error,
     )
 
 
@@ -303,9 +305,11 @@ async def _execute_query(
         if message.is_error:
             query_state.status = "failed"
             query_state.error_message = message.error_message or "Unknown error"
+            query_state.is_transport_error = getattr(message, "is_transport_error", False)
         else:
             query_state.status = "completed"
             query_state.error_message = None
+            query_state.is_transport_error = False
 
     if not query_state.saw_result:
         query_state.status = "failed"

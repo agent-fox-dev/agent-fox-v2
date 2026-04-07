@@ -35,6 +35,7 @@ class SessionOutcome:
     error_message: str | None = None
     response: str = ""  # Last assistant message text (used by review parsers)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    is_transport_error: bool = False  # True when failure was a transient connection error
 
 
 @dataclass(frozen=True)

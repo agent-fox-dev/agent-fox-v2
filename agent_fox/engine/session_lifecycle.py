@@ -697,6 +697,7 @@ class NodeSessionRunner:
             files_touched=touched_files,
             archetype=self._archetype,
             commit_sha=commit_sha,
+            is_transport_error=getattr(outcome, "is_transport_error", False),
         )
 
     def _record_session_to_sink(

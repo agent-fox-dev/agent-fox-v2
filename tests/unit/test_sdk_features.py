@@ -132,9 +132,16 @@ class TestMaxTurnsPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
+            from agent_fox.session.backends.protocol import ResultMessage
             captured_options.append(options)
-            return
-            yield  # make it an async generator  # noqa: E501
+            yield ResultMessage(
+                status="completed",
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0,
+                error_message=None,
+                is_error=False,
+            )
 
         backend = ClaudeBackend()
 
@@ -181,9 +188,16 @@ class TestBudgetPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
+            from agent_fox.session.backends.protocol import ResultMessage
             captured_options.append(options)
-            return
-            yield  # noqa: E501
+            yield ResultMessage(
+                status="completed",
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0,
+                error_message=None,
+                is_error=False,
+            )
 
         backend = ClaudeBackend()
 
@@ -231,9 +245,16 @@ class TestFallbackModelPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
+            from agent_fox.session.backends.protocol import ResultMessage
             captured_options.append(options)
-            return
-            yield  # noqa: E501
+            yield ResultMessage(
+                status="completed",
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0,
+                error_message=None,
+                is_error=False,
+            )
 
         backend = ClaudeBackend()
 
@@ -283,9 +304,16 @@ class TestThinkingPassthrough:
         captured_options: list[Any] = []
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
+            from agent_fox.session.backends.protocol import ResultMessage
             captured_options.append(options)
-            return
-            yield  # noqa: E501
+            yield ResultMessage(
+                status="completed",
+                input_tokens=0,
+                output_tokens=0,
+                duration_ms=0,
+                error_message=None,
+                is_error=False,
+            )
 
         backend = ClaudeBackend()
 

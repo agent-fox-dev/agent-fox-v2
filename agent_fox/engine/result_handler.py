@@ -522,6 +522,19 @@ class SessionResultHandler:
         node_id = record.node_id
         error_tracker[node_id] = record.error_message
 
+        # Transport errors are retried without consuming an escalation attempt.
+        # The ClaudeBackend already retried internally; this path is reached only
+        # when all transport retries were exhausted.  Reset the node to pending
+        # so the orchestrator re-dispatches it without touching the ladder.
+        if getattr(record, "is_transport_error", False):
+            logger.warning(
+                "Transport error for %s (not consuming escalation retry): %s",
+                node_id,
+                record.error_message,
+            )
+            self._graph_sync.node_states[node_id] = "pending"
+            return
+
         # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
         node_archetype = self._get_node_archetype(node_id)
         archetype_entry = get_archetype(node_archetype)
