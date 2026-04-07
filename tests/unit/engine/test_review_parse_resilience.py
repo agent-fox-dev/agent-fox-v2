@@ -773,7 +773,7 @@ class TestSingleInstanceBypass:
     def test_single_instance_findings_passed_through(self) -> None:
         """Single instance result is used directly without convergence filtering."""
         f = _make_finding(severity="major", description="direct finding")
-        raw_results: list[list[ReviewFinding] | None] = [[f]]
+        raw_results: list[list[ReviewFinding]] = [[f]]
 
         # With a single instance, no filtering should happen.
         # converge_skeptic_records with 1 instance returns the list directly.
