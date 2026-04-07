@@ -164,7 +164,7 @@ def persist_review_findings(
             )
 
             # Dispatch table: archetype -> (parser, inserter, label)
-            _review_dispatch = {
+            _review_dispatch: dict[str, tuple[Any, Any, str]] = {
                 "skeptic": (
                     parse_review_findings,
                     insert_findings,

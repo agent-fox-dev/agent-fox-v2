@@ -13,8 +13,10 @@ Requirements: 03-REQ-4.1 through 03-REQ-4.E1, 03-REQ-5.1, 03-REQ-5.2,
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -68,7 +70,7 @@ _ARCHETYPE_SPEC_FILES: list[tuple[str, str]] = [
 def _render_severity_findings(
     findings: list,
     title: str,
-    format_finding: callable,
+    format_finding: Callable[..., str],
     *,
     show_empty_groups: bool = False,
 ) -> str:
@@ -233,7 +235,7 @@ def _migrate_legacy_files(
     )
 
     # Table-driven legacy migration: (filename, query_fn, parse_fn, insert_fn, label)
-    _migrations = [
+    _migrations: list[tuple[str, Any, Any, Any, str]] = [
         (
             "review.md",
             query_active_findings,
@@ -429,7 +431,7 @@ def get_prior_group_findings(
         finding_type: str,
         columns: str = "CAST(id AS VARCHAR), severity, description, task_group, CAST(created_at AS VARCHAR)",
         *,
-        row_mapper: None | (callable) = None,
+        row_mapper: Callable[[tuple], PriorFinding] | None = None,
     ) -> None:
         """Query a findings table and append results to the findings list."""
         try:
