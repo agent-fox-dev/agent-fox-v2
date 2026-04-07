@@ -9,6 +9,7 @@ import logging
 from dataclasses import dataclass
 
 from agent_fox.core.json_extraction import extract_json_object
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.nightshift.dep_graph import DependencyEdge
 from agent_fox.platform.github import IssueResult
 
@@ -36,7 +37,9 @@ def _build_triage_prompt(
     issue_descriptions = []
     for issue in issues:
         body_preview = (issue.body or "")[:500]
-        issue_descriptions.append(f"- #{issue.number}: {issue.title}\n  Body: {body_preview}")
+        safe_title = sanitize_prompt_content(issue.title, label="issue-title")
+        safe_body = sanitize_prompt_content(body_preview, label="issue-body")
+        issue_descriptions.append(f"- #{issue.number}: {safe_title}\n  Body: {safe_body}")
 
     edges_text = ""
     if explicit_edges:

@@ -206,11 +206,12 @@ class NodeSessionRunner:
         )
 
         if previous_error and attempt > 1:
+            safe_error = sanitize_prompt_content(previous_error, label="previous-error")
             task_prompt = (
                 f"{task_prompt}\n\n"
                 f"**Note:** This is retry attempt {attempt}. "
                 f"The previous attempt failed with:\n"
-                f"```\n{previous_error}\n```\n"
+                f"{safe_error}\n"
                 f"Please address this error.\n"
             )
 
@@ -1027,7 +1028,8 @@ def build_retry_context(
         ]
         for finding in critical_major:
             ref_str = f" [{finding.requirement_ref}]" if finding.requirement_ref else ""
-            lines.append(f"- **{finding.severity.upper()}**{ref_str}: {finding.description}")
+            safe_desc = sanitize_prompt_content(finding.description, label="review-finding")
+            lines.append(f"- **{finding.severity.upper()}**{ref_str}: {safe_desc}")
         return "\n".join(lines)
 
     except Exception:
