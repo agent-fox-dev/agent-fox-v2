@@ -20,7 +20,7 @@ from typing import Any
 
 import duckdb
 
-from agent_fox.core.prompt_safety import strip_control_chars
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews
 from agent_fox.knowledge.review_store import (
     DriftFinding,
@@ -133,7 +133,7 @@ def render_drift_context(
         return None
 
     def _format(f):
-        desc = f.description
+        desc = sanitize_prompt_content(f.description, label="drift-finding")
         refs = []
         if f.spec_ref:
             refs.append(f"spec: {f.spec_ref}")
@@ -164,10 +164,14 @@ def render_review_context(
     if not findings:
         return None
 
+    def _format_review(f):
+        sanitized = sanitize_prompt_content(f.description, label="review-finding")
+        return f"- [severity: {f.severity}] {sanitized}"
+
     return _render_severity_findings(
         findings,
         "## Skeptic Review",
-        lambda f: f"- [severity: {f.severity}] {f.description}",
+        _format_review,
         show_empty_groups=True,
     )
 
@@ -199,7 +203,8 @@ def render_verification_context(
 
     has_fail = False
     for v in verdicts:
-        notes = v.evidence or ""
+        raw_notes = v.evidence or ""
+        notes = sanitize_prompt_content(raw_notes, label="verification-evidence") if raw_notes else ""
         lines.append(f"| {v.requirement_id} | {v.verdict} | {notes} |")
         if v.verdict == "FAIL":
             has_fail = True
@@ -345,7 +350,8 @@ def assemble_context(
             )
             continue
         content = filepath.read_text(encoding="utf-8")
-        file_sections.append(f"{header}\n\n{content}")
+        safe_content = sanitize_prompt_content(content, label="spec")
+        file_sections.append(f"{header}\n\n{safe_content}")
 
     # Include archetype-produced files (review.md, verification.md) only
     # when they exist on disk and weren't already rendered from the DB.
@@ -356,7 +362,8 @@ def assemble_context(
         if not filepath.exists():
             continue
         content = filepath.read_text(encoding="utf-8")
-        file_sections.append(f"{header}\n\n{content}")
+        safe_content = sanitize_prompt_content(content, label="spec")
+        file_sections.append(f"{header}\n\n{safe_content}")
 
     # Insert file sections before DB-rendered sections
     sections = file_sections + sections
@@ -368,9 +375,9 @@ def assemble_context(
         if steering_content:
             sections.append(f"## Steering Directives\n\n{steering_content}")
 
-    # 03-REQ-4.2: Include memory facts (strip control chars from stored facts)
+    # 03-REQ-4.2: Include memory facts (sanitize stored facts against injection)
     if memory_facts:
-        facts_text = "\n".join(f"- {strip_control_chars(fact)}" for fact in memory_facts)
+        facts_text = "\n".join(f"- {sanitize_prompt_content(fact, label='memory-fact')}" for fact in memory_facts)
         sections.append(f"## Memory Facts\n\n{facts_text}")
 
     # 39-REQ-6.1, 39-REQ-6.2: Include prior group findings
@@ -510,7 +517,8 @@ def render_prior_group_findings(findings: list[PriorFinding]) -> str:
         group_label = f"[group {f.group}]"
         type_label = f"[{f.type}]"
         sev_label = f"[{f.severity}]"
-        lines.append(f"- {group_label} {type_label} {sev_label} {f.description}")
+        safe_desc = sanitize_prompt_content(f.description, label="prior-finding")
+        lines.append(f"- {group_label} {type_label} {sev_label} {safe_desc}")
 
     return "\n".join(lines)
 

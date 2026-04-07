@@ -448,12 +448,17 @@ class TestPriorGroupFindings:
         ]
 
         rendered = render_prior_group_findings(findings)
-        lines = [line for line in rendered.split("\n") if line.startswith("- ")]
 
-        # Lines should be in created_at ascending order
-        assert "Earlier finding" in lines[0]
-        assert "Middle finding" in lines[1]
-        assert "Later finding" in lines[2]
+        # All descriptions must appear in the output
+        assert "Earlier finding" in rendered
+        assert "Middle finding" in rendered
+        assert "Later finding" in rendered
+
+        # Descriptions must appear in created_at ascending order
+        earlier_pos = rendered.index("Earlier finding")
+        middle_pos = rendered.index("Middle finding")
+        later_pos = rendered.index("Later finding")
+        assert earlier_pos < middle_pos < later_pos
 
     def test_task_group_1_returns_no_prior_findings(
         self,
