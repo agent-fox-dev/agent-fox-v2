@@ -25,7 +25,7 @@ from agent_fox.knowledge.audit import (
     AuditEvent,
     AuditEventType,
 )
-from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
+from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher, ToolCall, ToolError
 from agent_fox.session.backends.protocol import (
     AgentBackend,
     AgentMessage,
@@ -223,6 +223,7 @@ async def _execute_query(
 
     turn_count = 0
     cumulative_tokens = 0
+    last_tool_name: str | None = None  # track most-recent tool for error attribution
 
     async for message in backend.execute(  # type: ignore[attr-defined]
         task_prompt,
@@ -279,6 +280,17 @@ async def _execute_query(
                     exc_info=True,
                 )
 
+        # Record tool call telemetry for every ToolUseMessage (fixes #282)
+        if sink_dispatcher is not None and isinstance(message, ToolUseMessage):
+            last_tool_name = message.tool_name
+            sink_dispatcher.record_tool_call(
+                ToolCall(
+                    session_id=run_id,
+                    node_id=node_id,
+                    tool_name=message.tool_name,
+                )
+            )
+
         # Capture assistant text for review archetype parsing.
         if isinstance(message, AssistantMessage) and message.content:
             query_state.last_response = message.content
@@ -306,6 +318,15 @@ async def _execute_query(
             query_state.status = "failed"
             query_state.error_message = message.error_message or "Unknown error"
             query_state.is_transport_error = getattr(message, "is_transport_error", False)
+            # Record tool error when the session fails after a tool invocation
+            if sink_dispatcher is not None and last_tool_name is not None:
+                sink_dispatcher.record_tool_error(
+                    ToolError(
+                        session_id=run_id,
+                        node_id=node_id,
+                        tool_name=last_tool_name,
+                    )
+                )
         else:
             query_state.status = "completed"
             query_state.error_message = None
