@@ -27,15 +27,15 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create parser test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create parser test file
     - Create `tests/unit/session/test_triage_parser.py`
     - Translate TS-82-3 through TS-82-5 (triage parsing)
     - Translate TS-82-8, TS-82-9 (reviewer parsing)
     - Translate TS-82-E1, TS-82-E3, TS-82-E4 (edge cases)
     - _Test Spec: TS-82-3, TS-82-4, TS-82-5, TS-82-8, TS-82-9, TS-82-E1, TS-82-E3, TS-82-E4_
 
-  - [ ] 1.2 Create archetype registry test additions
+  - [x] 1.2 Create archetype registry test additions
     - Add tests to existing `tests/unit/test_archetype_registry.py` or create
       if absent
     - Translate TS-82-1 (triage registration) and TS-82-6 (fix_reviewer
@@ -43,26 +43,26 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Translate TS-82-2 (triage prompt) and TS-82-7 (reviewer prompt)
     - _Test Spec: TS-82-1, TS-82-2, TS-82-6, TS-82-7_
 
-  - [ ] 1.3 Create pipeline test file
+  - [x] 1.3 Create pipeline test file
     - Create `tests/unit/nightshift/test_fix_pipeline_triage.py`
     - Translate TS-82-10 through TS-82-20 (pipeline behavior, comments,
       retry, escalation, error handling)
     - _Test Spec: TS-82-10 through TS-82-20_
 
-  - [ ] 1.4 Create property test file
+  - [x] 1.4 Create property test file
     - Create `tests/property/test_fix_triage_properties.py`
     - Translate TS-82-P1 through TS-82-P4
     - _Test Spec: TS-82-P1, TS-82-P2, TS-82-P3, TS-82-P4_
 
-  - [ ] 1.5 Create integration smoke test file
+  - [x] 1.5 Create integration smoke test file
     - Create `tests/integration/nightshift/test_fix_pipeline_smoke.py`
     - Translate TS-82-SMOKE-1 through TS-82-SMOKE-3
     - _Test Spec: TS-82-SMOKE-1, TS-82-SMOKE-2, TS-82-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check`
 
 - [ ] 2. Data types and parse functions
   - [ ] 2.1 Define data types
