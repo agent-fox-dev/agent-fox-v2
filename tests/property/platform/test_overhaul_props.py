@@ -26,8 +26,9 @@ from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig, PlatformConfig
 from agent_fox.core.config_gen import extract_schema
+from agent_fox.core.errors import ConfigError
 from agent_fox.nightshift.platform_factory import create_platform
-from agent_fox.platform.github import GitHubPlatform, parse_github_remote
+from agent_fox.platform.github import GitHubPlatform, _validate_github_url, parse_github_remote
 from agent_fox.workspace import WorkspaceInfo
 from agent_fox.workspace.harvest import post_harvest_integrate
 
@@ -296,6 +297,10 @@ class TestUrlResolutionDeterministic:
     @settings(max_examples=100)
     def test_url_resolution(self, url: str) -> None:
         """URL resolution is deterministic: github.com/empty → api.github.com."""
+        try:
+            _validate_github_url(url)
+        except ConfigError:
+            assume(False)  # skip URLs that resolve to restricted addresses
         platform = GitHubPlatform(owner="o", repo="r", token="t", url=url)
         if url in ("github.com", ""):
             assert platform._api_base == "https://api.github.com"
@@ -361,6 +366,10 @@ class TestPlatformFactoryWiresUrl:
     @settings(max_examples=30)
     def test_factory_wires_url(self, url: str) -> None:
         """create_platform passes url to GitHubPlatform constructor."""
+        try:
+            _validate_github_url(url)
+        except ConfigError:
+            assume(False)  # skip URLs that resolve to restricted addresses
 
         class FakePlatformCfg:
             type = "github"
