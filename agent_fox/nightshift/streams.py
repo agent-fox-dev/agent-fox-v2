@@ -374,6 +374,9 @@ class SpecGeneratorStream:
         """
         from datetime import UTC, datetime, timedelta
 
+        if self._platform is None:
+            return False
+
         try:
             comments = await self._platform.list_issue_comments(issue.number)
         except Exception:
