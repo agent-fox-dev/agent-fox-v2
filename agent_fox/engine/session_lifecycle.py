@@ -506,6 +506,7 @@ class NodeSessionRunner:
         node_id: str,
         attempt: int,
         workspace: WorkspaceInfo,
+        outcome_response: str = "",
     ) -> None:
         """Extract knowledge facts and review findings from session output.
 
@@ -538,7 +539,10 @@ class NodeSessionRunner:
 
         # 27-REQ-3.1: Parse and persist structured findings from
         # review archetypes (skeptic, verifier, oracle).
-        self._persist_review_findings(transcript, node_id, attempt)
+        # Prefer the actual session response (which contains the agent's
+        # JSON output) over the fallback transcript (which is metadata).
+        review_text = outcome_response or transcript
+        self._persist_review_findings(review_text, node_id, attempt)
 
     async def _run_and_harvest(
         self,
@@ -656,7 +660,12 @@ class NodeSessionRunner:
 
         # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
         if status == "completed":
-            await self._extract_knowledge_and_findings(node_id, attempt, workspace)
+            await self._extract_knowledge_and_findings(
+                node_id,
+                attempt,
+                workspace,
+                outcome_response=outcome.response,
+            )
 
         return SessionRecord(
             node_id=node_id,

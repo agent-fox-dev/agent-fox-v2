@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
-from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
+from agent_fox.knowledge.sink import SessionOutcome, SessionSink, SinkDispatcher
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.review_store import ReviewFinding
@@ -41,7 +41,7 @@ _STRATEGY_RETRY = "retry"
 
 
 def record_session_to_sink(
-    sink: SinkDispatcher | None,
+    sink: SinkDispatcher | SessionSink | None,
     outcome: SessionOutcome,
     node_id: str,
 ) -> None:
@@ -67,7 +67,7 @@ def persist_review_findings(
     spec_name: str,
     task_group: int | str,
     knowledge_db_conn: Any,
-    sink: SinkDispatcher | None,
+    sink: SinkDispatcher | SessionSink | None,
     run_id: str,
     session_handle: Any = None,
 ) -> None:
@@ -164,7 +164,7 @@ def persist_review_findings(
             )
 
             # Dispatch table: archetype -> (parser, inserter, label)
-            _review_dispatch = {
+            _review_dispatch: dict[str, tuple[Any, Any, str]] = {
                 "skeptic": (
                     parse_review_findings,
                     insert_findings,

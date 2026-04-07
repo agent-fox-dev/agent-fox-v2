@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+import duckdb
 import pytest
 
 # NOTE: build_review_only_graph does not yet exist in graph.injection.
@@ -93,7 +94,7 @@ def _make_drift(
 class TestFindingSupersession:
     """TS-53-4: Inserting new findings supersedes prior active findings."""
 
-    def test_prior_finding_superseded(self, knowledge_conn: object) -> None:
+    def test_prior_finding_superseded(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-53-4: Old finding has superseded_by set after new insert."""
         old_finding = _make_finding()
         insert_findings(knowledge_conn, [old_finding])
@@ -108,7 +109,7 @@ class TestFindingSupersession:
         assert old_row is not None
         assert old_row[0] is not None, "Prior finding should have superseded_by set"
 
-    def test_new_finding_active(self, knowledge_conn: object) -> None:
+    def test_new_finding_active(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-53-4: New finding has superseded_by = NULL (still active)."""
         old_finding = _make_finding()
         insert_findings(knowledge_conn, [old_finding])
@@ -123,7 +124,7 @@ class TestFindingSupersession:
         assert new_row is not None
         assert new_row[0] is None, "New finding should have superseded_by = NULL"
 
-    def test_only_latest_batch_active(self, knowledge_conn: object) -> None:
+    def test_only_latest_batch_active(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-53-4: After 3 insert rounds, only the last batch is active."""
         for i in range(3):
             batch = [_make_finding(description=f"Round {i} finding")]
@@ -133,7 +134,7 @@ class TestFindingSupersession:
         assert len(active) == 1
         assert active[0].description == "Round 2 finding"
 
-    def test_verdict_supersession(self, knowledge_conn: object) -> None:
+    def test_verdict_supersession(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-53-4: Verdicts are superseded on re-insert for same spec+task_group."""
         old_verdict = _make_verdict(verdict="FAIL")
         insert_verdicts(knowledge_conn, [old_verdict])
@@ -148,7 +149,7 @@ class TestFindingSupersession:
         assert old_row is not None
         assert old_row[0] is not None, "Prior verdict should be superseded"
 
-    def test_drift_finding_supersession(self, knowledge_conn: object) -> None:
+    def test_drift_finding_supersession(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """TS-53-4: Drift findings are superseded on re-insert for same spec+task."""
         old_drift = _make_drift()
         insert_drift_findings(knowledge_conn, [old_drift])
@@ -208,7 +209,9 @@ class TestReviewOnlyGraphNoCoder:
 class TestReviewOnlySummaryOutput:
     """TS-53-13: Review-only run prints a summary with counts by category."""
 
-    def test_summary_contains_finding_counts(self, knowledge_conn: object, capsys: pytest.CaptureFixture) -> None:
+    def test_summary_contains_finding_counts(
+        self, knowledge_conn: duckdb.DuckDBPyConnection, capsys: pytest.CaptureFixture
+    ) -> None:
         """TS-53-13: Summary includes finding counts by severity."""
         from agent_fox.graph.injection import print_review_only_summary
 

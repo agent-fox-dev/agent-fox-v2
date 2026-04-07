@@ -7,6 +7,7 @@ helper factories used across test modules.
 from __future__ import annotations
 
 import textwrap
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -112,7 +113,7 @@ def empty_spec_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def routing_db() -> duckdb.DuckDBPyConnection:
+def routing_db() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """Create an in-memory DuckDB with routing tables.
 
     Creates both complexity_assessments and execution_outcomes tables

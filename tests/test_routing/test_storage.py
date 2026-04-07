@@ -25,17 +25,30 @@ from agent_fox.routing.core import (
 )
 
 
-def _make_assessment(**overrides) -> ComplexityAssessment:
+def _make_assessment(
+    *,
+    id: str | None = None,
+    node_id: str = "test_spec:1",
+    spec_name: str = "test_spec",
+    task_group: int = 1,
+    predicted_tier: ModelTier = ModelTier.SIMPLE,
+    confidence: float = 0.6,
+    assessment_method: str = "heuristic",
+    feature_vector: FeatureVector | None = None,
+    tier_ceiling: ModelTier = ModelTier.ADVANCED,
+    created_at: datetime | None = None,
+) -> ComplexityAssessment:
     """Create a test ComplexityAssessment with defaults."""
-    defaults = {
-        "id": str(uuid.uuid4()),
-        "node_id": "test_spec:1",
-        "spec_name": "test_spec",
-        "task_group": 1,
-        "predicted_tier": ModelTier.SIMPLE,
-        "confidence": 0.6,
-        "assessment_method": "heuristic",
-        "feature_vector": FeatureVector(
+    return ComplexityAssessment(
+        id=id or str(uuid.uuid4()),
+        node_id=node_id,
+        spec_name=spec_name,
+        task_group=task_group,
+        predicted_tier=predicted_tier,
+        confidence=confidence,
+        assessment_method=assessment_method,
+        feature_vector=feature_vector
+        or FeatureVector(
             subtask_count=3,
             spec_word_count=200,
             has_property_tests=False,
@@ -43,30 +56,39 @@ def _make_assessment(**overrides) -> ComplexityAssessment:
             dependency_count=1,
             archetype="coder",
         ),
-        "tier_ceiling": ModelTier.ADVANCED,
-        "created_at": datetime.now(UTC),
-    }
-    defaults.update(overrides)
-    return ComplexityAssessment(**defaults)
+        tier_ceiling=tier_ceiling,
+        created_at=created_at or datetime.now(UTC),
+    )
 
 
-def _make_outcome(assessment_id: str, **overrides) -> ExecutionOutcome:
+def _make_outcome(
+    assessment_id: str,
+    *,
+    id: str | None = None,
+    actual_tier: ModelTier = ModelTier.STANDARD,
+    total_tokens: int = 5000,
+    total_cost: float = 0.05,
+    duration_ms: int = 3000,
+    attempt_count: int = 3,
+    escalation_count: int = 1,
+    outcome: str = "completed",
+    files_touched_count: int = 5,
+    created_at: datetime | None = None,
+) -> ExecutionOutcome:
     """Create a test ExecutionOutcome with defaults."""
-    defaults = {
-        "id": str(uuid.uuid4()),
-        "assessment_id": assessment_id,
-        "actual_tier": ModelTier.STANDARD,
-        "total_tokens": 5000,
-        "total_cost": 0.05,
-        "duration_ms": 3000,
-        "attempt_count": 3,
-        "escalation_count": 1,
-        "outcome": "completed",
-        "files_touched_count": 5,
-        "created_at": datetime.now(UTC),
-    }
-    defaults.update(overrides)
-    return ExecutionOutcome(**defaults)
+    return ExecutionOutcome(
+        id=id or str(uuid.uuid4()),
+        assessment_id=assessment_id,
+        actual_tier=actual_tier,
+        total_tokens=total_tokens,
+        total_cost=total_cost,
+        duration_ms=duration_ms,
+        attempt_count=attempt_count,
+        escalation_count=escalation_count,
+        outcome=outcome,
+        files_touched_count=files_touched_count,
+        created_at=created_at or datetime.now(UTC),
+    )
 
 
 class TestAssessmentTableSchema:

@@ -17,13 +17,13 @@ from agent_fox.knowledge.audit import (
 )
 
 if TYPE_CHECKING:
-    from agent_fox.knowledge.sink import SinkDispatcher
+    from agent_fox.knowledge.sink import SessionSink, SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
 
 def emit_audit_event(
-    sink: SinkDispatcher | None,
+    sink: SinkDispatcher | SessionSink | None,
     run_id: str,
     event_type: AuditEventType,
     *,

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import duckdb
 
@@ -58,7 +59,7 @@ DEFAULT_DURATION_MS: int = 300_000  # 5 minutes
 
 try:
     import numpy as np
-    from sklearn.linear_model import LinearRegression
+    from sklearn.linear_model import LinearRegression  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover
     np = None  # type: ignore[assignment]
     LinearRegression = None  # type: ignore[assignment,misc]
@@ -87,7 +88,7 @@ def get_duration_hint(
     archetype: str,
     tier: str,
     min_outcomes: int = 10,
-    model: object | None = None,
+    model: Any | None = None,
 ) -> DurationHint:
     """Get predicted duration for a task node.
 
@@ -182,7 +183,7 @@ def _get_historical_median(
 
 def _predict_from_model(
     conn: duckdb.DuckDBPyConnection,
-    model: object,
+    model: Any,
     spec_name: str,
     archetype: str,
 ) -> float | None:
@@ -217,7 +218,7 @@ def _predict_from_model(
         return None
 
     try:
-        prediction = model.predict(np.array([fv]))[0]  # type: ignore[union-attr]
+        prediction = model.predict(np.array([fv]))[0]
         return float(prediction)
     except Exception:
         logger.warning("Regression prediction failed", exc_info=True)

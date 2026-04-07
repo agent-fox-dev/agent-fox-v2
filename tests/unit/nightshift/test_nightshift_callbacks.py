@@ -91,10 +91,14 @@ class TestFixPipelinePassesCallback:
     @pytest.mark.asyncio
     async def test_81_callback_passed_to_session(self) -> None:
         """run_session receives activity_callback from FixPipeline."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         activity_cb = MagicMock()
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(
@@ -105,18 +109,36 @@ class TestFixPipelinePassesCallback:
 
         issue = _make_issue()
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
 
         # Capture calls to run_session via patching the session module
         captured_kwargs: list[dict] = []
 
         async def fake_run_session(**kwargs):
             captured_kwargs.append(kwargs)
+            node_id = kwargs.get("node_id", "")
+            mock_outcome = MagicMock(
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            )
+            if "triage" in str(node_id):
+                mock_outcome.response = triage_response
+            elif "fix_reviewer" in str(node_id):
+                mock_outcome.response = review_response
+            else:
+                mock_outcome.response = ""
             return mock_outcome
 
         with patch(
@@ -129,33 +151,54 @@ class TestFixPipelinePassesCallback:
             await pipeline.process_issue(issue, issue_body="Fix the bug")
 
         # Verify run_session was called with our activity_callback
-        assert len(captured_kwargs) == 3  # skeptic, coder, verifier
+        # triage + coder + fix_reviewer = 3 sessions
+        assert len(captured_kwargs) == 3
         for kw in captured_kwargs:
             assert kw.get("activity_callback") is activity_cb
 
     @pytest.mark.asyncio
     async def test_81_none_callback_passed_to_session(self) -> None:
         """run_session receives None when no activity_callback provided."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=platform)
 
         issue = _make_issue()
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
 
         captured_kwargs: list[dict] = []
 
         async def fake_run_session(**kwargs):
             captured_kwargs.append(kwargs)
+            node_id = kwargs.get("node_id", "")
+            mock_outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if "triage" in str(node_id):
+                mock_outcome.response = triage_response
+            elif "fix_reviewer" in str(node_id):
+                mock_outcome.response = review_response
+            else:
+                mock_outcome.response = ""
             return mock_outcome
 
         with patch(
@@ -182,11 +225,15 @@ class TestFixPipelineTaskEvents:
 
     @pytest.mark.asyncio
     async def test_81_task_event_per_archetype(self) -> None:
-        """3 TaskEvents emitted with archetypes skeptic, coder, verifier."""
+        """TaskEvents emitted with archetypes triage, coder, fix_reviewer."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         events: list[TaskEvent] = []
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(
@@ -197,29 +244,55 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
-        pipeline._run_session = AsyncMock(return_value=mock_outcome)  # type: ignore[method-assign]
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = _make_issue(number=42)
 
         await pipeline.process_issue(issue, issue_body="Fix the bug")
 
-        assert len(events) == 3
-        assert [e.archetype for e in events] == ["skeptic", "coder", "verifier"]
+        # triage + coder + fix_reviewer = 3 archetype events
+        archetype_names = [e.archetype for e in events]
+        assert "triage" in archetype_names
+        assert "coder" in archetype_names
+        assert "fix_reviewer" in archetype_names
         assert all(e.status == "completed" for e in events)
 
     @pytest.mark.asyncio
     async def test_81_task_event_fields(self) -> None:
         """TaskEvents have correct node_id, positive duration, and archetype."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         events: list[TaskEvent] = []
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(
@@ -230,13 +303,32 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
-        pipeline._run_session = AsyncMock(return_value=mock_outcome)  # type: ignore[method-assign]
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = _make_issue(number=99)
 
@@ -246,7 +338,7 @@ class TestFixPipelineTaskEvents:
             assert e.duration_s >= 0
             assert e.node_id.startswith("fix-issue-99")
             assert e.status == "completed"
-            assert e.archetype in ("skeptic", "coder", "verifier")
+            assert e.archetype in ("triage", "coder", "fix_reviewer")
 
     @pytest.mark.asyncio
     async def test_81_task_event_on_failure(self) -> None:
@@ -255,6 +347,8 @@ class TestFixPipelineTaskEvents:
 
         events: list[TaskEvent] = []
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(
@@ -264,27 +358,51 @@ class TestFixPipelineTaskEvents:
         )
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
 
-        # First session (skeptic) fails
-        pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
-            side_effect=RuntimeError("session crash")
-        )
+        # Triage succeeds but coder fails
+        import json
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        call_count = {"n": 0}
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            call_count["n"] += 1
+            if archetype == "triage":
+                outcome = MagicMock(
+                    input_tokens=10, output_tokens=5,
+                    cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                    response=triage_response,
+                )
+                return outcome
+            # coder fails
+            raise RuntimeError("session crash")
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = _make_issue(number=10)
 
         await pipeline.process_issue(issue, issue_body="Fix the bug")
 
-        # Only one event (the failed skeptic), since pipeline stops on failure
-        assert len(events) == 1
-        assert events[0].status == "failed"
-        assert events[0].archetype == "skeptic"
-        assert events[0].duration_s >= 0
+        # Should have at least one failed event for coder
+        failed = [e for e in events if e.status == "failed"]
+        assert len(failed) >= 1
+        assert failed[0].archetype == "coder"
+        assert failed[0].duration_s >= 0
 
     @pytest.mark.asyncio
     async def test_81_no_task_events_when_callback_none(self) -> None:
         """No task events emitted when task_callback is None."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         # No task_callback
@@ -292,13 +410,32 @@ class TestFixPipelineTaskEvents:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
-        pipeline._run_session = AsyncMock(return_value=mock_outcome)  # type: ignore[method-assign]
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = _make_issue()
 
@@ -318,11 +455,15 @@ class TestActivityEventForwarded:
     @pytest.mark.asyncio
     async def test_81_activity_forwarded(self) -> None:
         """activity_callback receives events when run_session emits them."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.ui.progress import ActivityEvent
 
         events: list[ActivityEvent] = []
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         pipeline = FixPipeline(
@@ -333,25 +474,41 @@ class TestActivityEventForwarded:
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
 
         # Simulate run_session calling activity_callback
         async def fake_run_session(**kwargs):
             cb = kwargs.get("activity_callback")
+            node_id = kwargs.get("node_id", "")
             if cb:
                 cb(
                     ActivityEvent(
-                        node_id="fix-issue-42:0:skeptic",
+                        node_id=str(node_id),
                         tool_name="Read",
                         argument="file.py",
-                        archetype="skeptic",
+                        archetype="test",
                     )
                 )
+            mock_outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if "triage" in str(node_id):
+                mock_outcome.response = triage_response
+            elif "fix_reviewer" in str(node_id):
+                mock_outcome.response = review_response
+            else:
+                mock_outcome.response = ""
             return mock_outcome
 
         with patch(

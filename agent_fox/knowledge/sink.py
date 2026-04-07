@@ -33,6 +33,7 @@ class SessionOutcome:
     cache_creation_input_tokens: int = 0
     duration_ms: int = 0
     error_message: str | None = None
+    response: str = ""  # Last assistant message text (used by review parsers)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 

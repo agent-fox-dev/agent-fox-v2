@@ -123,6 +123,43 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         ],
         default_max_turns=80,
     ),
+    "triage": ArchetypeEntry(
+        name="triage",
+        templates=["triage.md"],
+        default_model_tier="ADVANCED",
+        injection=None,
+        task_assignable=False,
+        default_allowlist=[
+            "ls",
+            "cat",
+            "git",
+            "wc",
+            "head",
+            "tail",
+        ],
+        default_max_turns=80,
+    ),
+    "fix_reviewer": ArchetypeEntry(
+        name="fix_reviewer",
+        templates=["fix_reviewer.md"],
+        default_model_tier="ADVANCED",
+        injection=None,
+        task_assignable=False,
+        retry_predecessor=False,
+        default_allowlist=[
+            "ls",
+            "cat",
+            "git",
+            "grep",
+            "find",
+            "head",
+            "tail",
+            "wc",
+            "uv",
+            "make",
+        ],
+        default_max_turns=120,
+    ),
 }
 
 

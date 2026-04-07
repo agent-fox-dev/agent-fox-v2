@@ -188,30 +188,40 @@ class TestFixSessionActivityDisplay:
     @pytest.mark.asyncio
     async def test_fix_session_activity_display(self) -> None:
         """Fix pipeline emits ActivityEvents and TaskEvents with correct fields."""
+        import json
+
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         issue = _make_issue(number=42)
         config = _make_config()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         platform = AsyncMock()
 
         activity_events: list[ActivityEvent] = []
         task_events: list[TaskEvent] = []
 
-        mock_outcome = MagicMock(
-            input_tokens=100,
-            output_tokens=50,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        )
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
 
         # Simulate run_session emitting ActivityEvents
         async def fake_run_session(**kwargs):
             cb = kwargs.get("activity_callback")
-            archetype = kwargs.get("node_id", "").split(":")[-1] if "node_id" in kwargs else "unknown"
+            node_id = kwargs.get("node_id", "test")
+            archetype = str(node_id).split(":")[-1] if node_id else "unknown"
             if cb:
                 cb(
                     ActivityEvent(
-                        node_id=kwargs.get("node_id", "test"),
+                        node_id=str(node_id),
                         tool_name="Read",
                         argument="file.py",
                         turn=1,
@@ -221,7 +231,7 @@ class TestFixSessionActivityDisplay:
                 )
                 cb(
                     ActivityEvent(
-                        node_id=kwargs.get("node_id", "test"),
+                        node_id=str(node_id),
                         tool_name="Edit",
                         argument="file.py",
                         turn=2,
@@ -229,6 +239,16 @@ class TestFixSessionActivityDisplay:
                         archetype=archetype,
                     )
                 )
+            mock_outcome = MagicMock(
+                input_tokens=100, output_tokens=50,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if "triage" in str(node_id):
+                mock_outcome.response = triage_response
+            elif "fix_reviewer" in str(node_id):
+                mock_outcome.response = review_response
+            else:
+                mock_outcome.response = ""
             return mock_outcome
 
         pipeline = FixPipeline(
@@ -249,10 +269,11 @@ class TestFixSessionActivityDisplay:
         # Verify ActivityEvents were emitted (2 per archetype session = 6)
         assert len(activity_events) >= 6, f"Expected at least 6 activity events, got {len(activity_events)}"
 
-        # Verify TaskEvents: one per archetype (3 total)
-        assert len(task_events) == 3
-        archetypes = [e.archetype for e in task_events]
-        assert archetypes == ["skeptic", "coder", "verifier"]
+        # Verify TaskEvents: one per archetype (triage + coder + fix_reviewer)
+        archetype_names = [e.archetype for e in task_events]
+        assert "triage" in archetype_names
+        assert "coder" in archetype_names
+        assert "fix_reviewer" in archetype_names
         assert all(e.status == "completed" for e in task_events)
         assert all(e.duration_s >= 0 for e in task_events)
 

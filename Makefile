@@ -50,7 +50,8 @@ format:
 check: lint test
 
 clean-branches:
-	@git branch --list 'feature/*' | xargs -r git branch -d
+	@git branch --list 'feature/*' | xargs -r git branch -D
+	@git branch --list 'fix/*' | xargs -r git branch -D
 
 CONTAINER_IMAGE ?= agent-fox-dev
 CONTAINER_FILE := scripts/self-dev/Containerfile

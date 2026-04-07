@@ -43,6 +43,7 @@ class TestReviewFindingFieldValidation:
             }
         ]
         results = parse_review_findings(objs, "spec-1", "1", "session-1")
+        assert results[0].requirement_ref is not None
         assert len(results[0].requirement_ref) == MAX_REF_LENGTH
 
 
@@ -65,6 +66,7 @@ class TestVerificationResultFieldValidation:
             }
         ]
         results = parse_verification_results(objs, "spec-1", "1", "session-1")
+        assert results[0].evidence is not None
         assert len(results[0].evidence) == MAX_EVIDENCE_LENGTH
 
     def test_oversized_requirement_id_truncated(self) -> None:
@@ -105,6 +107,7 @@ class TestDriftFindingFieldValidation:
             }
         ]
         results = parse_drift_findings(objs, "spec-1", "1", "session-1")
+        assert results[0].spec_ref is not None
         assert len(results[0].spec_ref) == MAX_REF_LENGTH
 
     def test_oversized_artifact_ref_truncated(self) -> None:
@@ -116,4 +119,5 @@ class TestDriftFindingFieldValidation:
             }
         ]
         results = parse_drift_findings(objs, "spec-1", "1", "session-1")
+        assert results[0].artifact_ref is not None
         assert len(results[0].artifact_ref) == MAX_REF_LENGTH
