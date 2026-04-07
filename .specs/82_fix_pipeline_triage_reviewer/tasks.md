@@ -138,13 +138,13 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 82-REQ-1.1, 1.2, 4.1, 4.2 met
 
-- [ ] 4. Fix pipeline rewrite
-  - [ ] 4.1 Add comment formatting methods
+- [x] 4. Fix pipeline rewrite
+  - [x] 4.1 Add comment formatting methods
     - Implement `_format_triage_comment(triage_result)` → markdown string
     - Implement `_format_review_comment(review_result)` → markdown string
     - _Requirements: 82-REQ-3.1, 82-REQ-6.1_
 
-  - [ ] 4.2 Add prompt building methods
+  - [x] 4.2 Add prompt building methods
     - Implement `_build_coder_prompt(spec, triage, review_feedback=None)`
     - Implement `_build_reviewer_prompt(spec, triage)`
     - Coder prompt injects criteria as structured context (82-REQ-7.2)
@@ -153,19 +153,19 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Handle empty triage result (82-REQ-5.E1, 82-REQ-7.E1)
     - _Requirements: 82-REQ-7.2, 82-REQ-7.3, 82-REQ-8.1, 82-REQ-5.E1_
 
-  - [ ] 4.3 Add coder session runner with model override
+  - [x] 4.3 Add coder session runner with model override
     - Implement `_run_coder_session(spec, system_prompt, task_prompt, model_id=None)`
     - Pass `model_id` override to `run_session()` for escalation
     - _Requirements: 82-REQ-8.3_
 
-  - [ ] 4.4 Implement triage runner
+  - [x] 4.4 Implement triage runner
     - Implement `_run_triage(spec)` → `TriageResult`
     - Run triage session, parse output, post comment
     - Catch exceptions and return empty TriageResult on failure (82-REQ-7.E1)
     - Catch comment posting errors (82-REQ-3.E1)
     - _Requirements: 82-REQ-3.1, 82-REQ-3.E1, 82-REQ-7.E1_
 
-  - [ ] 4.5 Implement coder-reviewer loop
+  - [x] 4.5 Implement coder-reviewer loop
     - Implement `_coder_review_loop(spec, triage, metrics)` → `bool`
     - Instantiate `EscalationLadder` from config (82-REQ-8.2)
     - Loop: build coder prompt → run coder → build reviewer prompt →
@@ -177,19 +177,19 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - _Requirements: 82-REQ-7.1, 82-REQ-8.1, 82-REQ-8.2, 82-REQ-8.3,
       82-REQ-8.4, 82-REQ-8.E1_
 
-  - [ ] 4.6 Rewrite `process_issue()`
+  - [x] 4.6 Rewrite `process_issue()`
     - Replace `("skeptic", "coder", "verifier")` loop with:
       1. `_run_triage(spec)` → `TriageResult`
       2. `_coder_review_loop(spec, triage, metrics)` → success bool
     - Keep existing branch creation, harvest, and close logic
     - _Requirements: 82-REQ-7.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Pipeline tests pass: `uv run pytest -q tests/unit/nightshift/test_fix_pipeline_triage.py`
-    - [ ] Property tests TS-82-P3, TS-82-P4 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 82-REQ-3.1, 3.E1, 6.1, 6.E1, 7.1, 7.2, 7.3, 7.E1,
+  - [x] 4.V Verify task group 4
+    - [x] Pipeline tests pass: `uv run pytest -q tests/unit/nightshift/test_fix_pipeline_triage.py`
+    - [x] Property tests TS-82-P3, TS-82-P4 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 82-REQ-3.1, 3.E1, 6.1, 6.E1, 7.1, 7.2, 7.3, 7.E1,
       8.1, 8.2, 8.3, 8.4, 8.E1 met
 
 - [ ] 5. Wiring verification
