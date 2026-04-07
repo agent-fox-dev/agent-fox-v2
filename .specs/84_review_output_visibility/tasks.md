@@ -68,21 +68,21 @@ introspection), (5) wiring verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check`
 
-- [ ] 2. JSONL response logging and audit events
-  - [ ] 2.1 Add response field to JSONL sink
+- [x] 2. JSONL response logging and audit events
+  - [x] 2.1 Add response field to JSONL sink
     - Modify `JsonlSink.record_session_outcome()` in
       `agent_fox/knowledge/jsonl_sink.py` to include the `response` field
     - Add truncation logic: if `len(response) > 100_000`, write
       `response[:100_000] + "[truncated]"`
     - _Requirements: 84-REQ-1.1, 84-REQ-1.2, 84-REQ-1.E1_
 
-  - [ ] 2.2 Add new AuditEventType members
+  - [x] 2.2 Add new AuditEventType members
     - Add `REVIEW_FINDINGS_PERSISTED`, `REVIEW_VERDICTS_PERSISTED`,
       `REVIEW_DRIFT_PERSISTED` to `AuditEventType` in
       `agent_fox/knowledge/audit.py`
     - _Requirements: 84-REQ-2.1, 84-REQ-2.2, 84-REQ-2.3_
 
-  - [ ] 2.3 Emit audit events after successful persistence
+  - [x] 2.3 Emit audit events after successful persistence
     - Modify `persist_review_findings()` in
       `agent_fox/engine/review_persistence.py`
     - After `insert_findings()`: emit `review.findings_persisted` with count
@@ -94,13 +94,13 @@ introspection), (5) wiring verification.
     - Wrap emission in try/except to satisfy 84-REQ-2.E1
     - _Requirements: 84-REQ-2.1, 84-REQ-2.2, 84-REQ-2.3, 84-REQ-2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] JSONL tests pass: `uv run pytest -q tests/unit/knowledge/test_jsonl_response.py`
-    - [ ] Audit event tests pass: `uv run pytest -q tests/unit/engine/test_review_audit_events.py`
-    - [ ] Property tests TS-84-P1, TS-84-P2 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 84-REQ-1.1, 1.2, 1.E1, 2.1, 2.2, 2.3, 2.E1 met
+  - [x] 2.V Verify task group 2
+    - [x] JSONL tests pass: `uv run pytest -q tests/unit/knowledge/test_jsonl_response.py`
+    - [x] Audit event tests pass: `uv run pytest -q tests/unit/engine/test_review_audit_events.py`
+    - [x] Property tests TS-84-P1, TS-84-P2 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 84-REQ-1.1, 1.2, 1.E1, 2.1, 2.2, 2.3, 2.E1 met
 
 - [ ] 3. Enriched blocking reasons
   - [ ] 3.1 Add `_format_block_reason()` helper

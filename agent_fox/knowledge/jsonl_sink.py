@@ -19,6 +19,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("agent_fox.knowledge.jsonl_sink")
 
+_MAX_RESPONSE_LEN = 100_000
+_TRUNCATION_MARKER = "[truncated]"
+
+
+def _truncate_response(response: str) -> str:
+    """Truncate response to 100,000 characters with a marker if needed.
+
+    Requirements: 84-REQ-1.1, 84-REQ-1.2, 84-REQ-1.E1
+    """
+    if len(response) > _MAX_RESPONSE_LEN:
+        return response[:_MAX_RESPONSE_LEN] + _TRUNCATION_MARKER
+    return response
+
 
 def _json_default(obj: object) -> str:
     """JSON serializer for UUID and datetime objects."""
@@ -84,6 +97,7 @@ class JsonlSink:
                 "input_tokens": outcome.input_tokens,
                 "output_tokens": outcome.output_tokens,
                 "duration_ms": outcome.duration_ms,
+                "response": _truncate_response(outcome.response),
                 "created_at": outcome.created_at,
             },
         )
