@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from agent_fox.nightshift.reference_parser import (
 from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
+from agent_fox.ui.progress import ActivityCallback, TaskCallback
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +81,29 @@ class NightShiftEngine:
     Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-1.4, 61-REQ-1.E2
     """
 
+    # Maximum drain iterations to prevent infinite loops if issues are
+    # created faster than they are fixed.
+    _MAX_DRAIN_ITERATIONS: int = 50
+
     def __init__(
         self,
         config: object,
         platform: object,
         *,
         auto_fix: bool = False,
+        activity_callback: ActivityCallback | None = None,
+        task_callback: TaskCallback | None = None,
+        status_callback: Callable[[str, str], None] | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._auto_fix = auto_fix
+        self._activity_callback = activity_callback
+        self._task_callback = task_callback
+        self._status_callback = status_callback
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
+        self._idle_text = ""
 
     def request_shutdown(self) -> None:
         """Request graceful shutdown of the engine."""
@@ -124,6 +137,62 @@ class NightShiftEngine:
             return False
         return self.state.total_sessions >= max_sessions
 
+    def _emit_status(self, text: str, style: str = "bold cyan") -> None:
+        """Emit a permanent status line via the status_callback.
+
+        If no callback is set, this is a no-op.
+
+        Requirements: 81-REQ-3.1, 81-REQ-3.2, 81-REQ-3.3, 81-REQ-3.4, 81-REQ-3.5
+        """
+        if self._status_callback is not None:
+            try:
+                self._status_callback(text, style)
+            except Exception:
+                logger.debug("Status callback failed", exc_info=True)
+
+    def _update_idle_spinner(self, issue_remaining: float, hunt_remaining: float) -> None:
+        """Update the spinner with the next scheduled action time.
+
+        Displays the earlier of the two timers in the user's local timezone.
+
+        Requirements: 81-REQ-4.1, 81-REQ-4.E1
+        """
+        if self._activity_callback is None:
+            return
+
+        from datetime import datetime, timedelta
+
+        now = datetime.now().astimezone()
+        if issue_remaining <= hunt_remaining:
+            next_time = now + timedelta(seconds=issue_remaining)
+            action = "issue check"
+        else:
+            next_time = now + timedelta(seconds=hunt_remaining)
+            action = "hunt scan"
+
+        time_str = next_time.strftime("%H:%M")
+        self._idle_text = f"Waiting until {time_str} for next {action}"
+
+        from agent_fox.ui.progress import ActivityEvent
+
+        self._activity_callback(
+            ActivityEvent(
+                node_id="night-shift",
+                tool_name="thinking...",
+                argument="",
+                turn=0,
+                tokens=None,
+                archetype=None,
+            )
+        )
+
+    def _clear_idle(self) -> None:
+        """Clear the idle message when a phase starts.
+
+        Requirements: 81-REQ-4.2
+        """
+        self._idle_text = ""
+
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.
 
@@ -140,6 +209,8 @@ class NightShiftEngine:
         Requirements: 61-REQ-2.1, 71-REQ-1.1, 71-REQ-1.2, 71-REQ-1.E1,
                       71-REQ-3.1, 71-REQ-3.5, 71-REQ-5.1, 71-REQ-5.E3
         """
+        self._clear_idle()
+        self._emit_status("Checking for af:fix issues\u2026")
         try:
             issues = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
                 "af:fix",
@@ -292,6 +363,9 @@ class NightShiftEngine:
 
         Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2
         """
+        self._clear_idle()
+        self._emit_status("Starting hunt scan\u2026")
+
         if self._hunt_scan_in_progress:
             logger.info("Hunt scan already in progress, skipping overlapping scan")
             return
@@ -309,6 +383,7 @@ class NightShiftEngine:
 
         if not findings:
             self.state.hunt_scans_completed += 1
+            self._emit_status("Hunt scan complete: 0 issues created from 0 findings", "bold green")
             return
 
         groups = await consolidate_findings(findings)  # type: ignore[arg-type]
@@ -339,6 +414,10 @@ class NightShiftEngine:
                     )
 
         self.state.hunt_scans_completed += 1
+        self._emit_status(
+            f"Hunt scan complete: {len(created)} issues created from {len(findings)} findings",
+            "bold green",
+        )
 
     def _calculate_fix_cost(self, metrics: object) -> float:
         """Calculate USD cost from FixMetrics token counts."""
@@ -372,23 +451,50 @@ class NightShiftEngine:
         if not isinstance(issue, IssueResult):
             return
 
+        import time
+
+        fix_start = time.monotonic()
+        self._emit_status(f"Fixing issue #{issue.number}: {issue.title}")
+
         _emit_audit_event(
             "night_shift.fix_start",
             {"issue_number": issue.number, "title": issue.title},
         )
 
-        pipeline = FixPipeline(config=self._config, platform=self._platform)
+        pipeline = FixPipeline(
+            config=self._config,
+            platform=self._platform,
+            activity_callback=self._activity_callback,
+            task_callback=self._task_callback,
+        )
 
         try:
             metrics = await pipeline.process_issue(issue, issue_body=issue.body)
             self.state.total_sessions += getattr(metrics, "sessions_run", 0)
             self.state.total_cost += self._calculate_fix_cost(metrics)
             self.state.issues_fixed += 1
+
+            from agent_fox.ui.progress import format_duration
+
+            duration_str = format_duration(time.monotonic() - fix_start)
+            self._emit_status(
+                f"\u2714 Issue #{issue.number} fixed ({duration_str})",
+                "bold green",
+            )
+
             _emit_audit_event(
                 "night_shift.fix_complete",
                 {"issue_number": issue.number},
             )
         except Exception:
+            from agent_fox.ui.progress import format_duration
+
+            duration_str = format_duration(time.monotonic() - fix_start)
+            self._emit_status(
+                f"\u2718 Issue #{issue.number} failed ({duration_str})",
+                "bold red",
+            )
+
             logger.warning(
                 "Fix pipeline raised unexpectedly for issue #%d",
                 issue.number,
@@ -399,15 +505,67 @@ class NightShiftEngine:
                 {"issue_number": issue.number},
             )
 
+    async def _drain_issues(self) -> bool:
+        """Run issue checks until no open af:fix issues remain.
+
+        Loops calling ``_run_issue_check`` and re-polling the platform until
+        zero ``af:fix`` issues are reported.  Respects shutdown, cost, and
+        session limits between iterations, and enforces a safety-valve
+        maximum iteration count to prevent infinite loops.
+
+        Returns True when no ``af:fix`` issues remain (drain succeeded),
+        False when issues may still exist (limit hit, shutdown, or error).
+
+        Requirements: 81-REQ-1.1, 81-REQ-1.4
+        """
+        for _ in range(self._MAX_DRAIN_ITERATIONS):
+            if self.state.is_shutting_down:
+                return False
+            if self._check_cost_limit():
+                logger.info("Cost limit reached during issue drain")
+                return False
+            if self._check_session_limit():
+                logger.info("Session limit reached during issue drain")
+                return False
+
+            await self._run_issue_check()
+
+            # Re-poll to see if any af:fix issues remain
+            try:
+                remaining = await self._platform.list_issues_by_label(  # type: ignore[union-attr]
+                    "af:fix",
+                    sort="created",
+                    direction="asc",
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to re-poll issues during drain",
+                    exc_info=True,
+                )
+                # Fail-open: if we can't check, assume clear (81-REQ-1.E1)
+                return True
+
+            if not remaining:
+                return True
+
+        logger.warning("Issue drain safety valve reached after %d iterations", self._MAX_DRAIN_ITERATIONS)
+        return False
+
     async def run(self) -> NightShiftState:
         """Run the daemon loop until interrupted.
 
-        Executes an initial issue check and hunt scan immediately on startup,
-        then repeats them at configured intervals until the engine is asked
-        to shut down.
+        Executes an initial issue drain (processing all af:fix issues) and
+        hunt scan on startup, then repeats them at configured intervals
+        until the engine is asked to shut down.
+
+        Issue-first gate: hunt scans are suppressed while open af:fix
+        issues exist.  After every hunt scan, an immediate issue drain
+        processes any newly created issues before the next hunt scan
+        can fire.
 
         Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.1, 61-REQ-2.2,
-                      61-REQ-2.3
+                      61-REQ-2.3, 81-REQ-1.1, 81-REQ-1.2, 81-REQ-1.3,
+                      81-REQ-1.4, 81-REQ-1.5
         """
         logger.info("Night-shift engine starting")
         _emit_audit_event("night_shift.start")
@@ -423,11 +581,30 @@ class NightShiftEngine:
             14400,
         )
 
-        # Initial run (61-REQ-2.3)
+        # Initial run — issue-first gate (81-REQ-1.2)
+        # Drain all af:fix issues before the first hunt scan.
+        issues_clear = True
         if not self.state.is_shutting_down:
-            await self._run_issue_check()
-        if not self.state.is_shutting_down:
+            try:
+                issues_clear = await self._drain_issues()
+            except Exception:
+                logger.warning(
+                    "Pre-hunt issue drain failed, proceeding with hunt scan",
+                    exc_info=True,
+                )
+                issues_clear = True  # fail-open (81-REQ-1.E1)
+        # Only run hunt scan if issues were drained (81-REQ-1.1)
+        if not self.state.is_shutting_down and issues_clear:
             await self._run_hunt_scan()
+            # Post-hunt drain (81-REQ-1.3)
+            if not self.state.is_shutting_down:
+                try:
+                    await self._drain_issues()
+                except Exception:
+                    logger.warning(
+                        "Post-hunt issue drain failed",
+                        exc_info=True,
+                    )
 
         # Timed loop — repeat checks at configured intervals
         issue_elapsed = 0.0
@@ -454,7 +631,33 @@ class NightShiftEngine:
 
             if hunt_elapsed >= hunt_interval:
                 hunt_elapsed = 0.0
-                await self._run_hunt_scan()
+                # Issue-first gate (81-REQ-1.4): drain issues before hunt
+                can_hunt = True
+                try:
+                    can_hunt = await self._drain_issues()
+                except Exception:
+                    logger.warning(
+                        "Pre-hunt issue drain failed, proceeding with hunt scan",
+                        exc_info=True,
+                    )
+                    can_hunt = True  # fail-open (81-REQ-1.E1)
+                # Only hunt if issues are clear (81-REQ-1.1)
+                if not self.state.is_shutting_down and can_hunt:
+                    await self._run_hunt_scan()
+                    # Post-hunt drain (81-REQ-1.3)
+                    if not self.state.is_shutting_down:
+                        try:
+                            await self._drain_issues()
+                        except Exception:
+                            logger.warning(
+                                "Post-hunt issue drain failed",
+                                exc_info=True,
+                            )
+
+            # Update idle spinner with next action time (81-REQ-4.1)
+            issue_remaining = max(0.0, issue_interval - issue_elapsed)
+            hunt_remaining = max(0.0, hunt_interval - hunt_elapsed)
+            self._update_idle_spinner(issue_remaining, hunt_remaining)
 
         logger.info("Night-shift engine stopped")
         return self.state

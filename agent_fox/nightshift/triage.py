@@ -5,17 +5,14 @@ Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3, 71-REQ-3.E1, 71-REQ-3.E2
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from dataclasses import dataclass
 
+from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.nightshift.dep_graph import DependencyEdge
 from agent_fox.platform.github import IssueResult
 
 logger = logging.getLogger(__name__)
-
-_JSON_FENCE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
 
 
 class TriageError(Exception):
@@ -81,16 +78,9 @@ def _parse_triage_response(
     issue_numbers = {i.number for i in issues}
 
     try:
-        data = json.loads(response_text)
-    except (json.JSONDecodeError, TypeError):
-        match = _JSON_FENCE.search(response_text)
-        if match:
-            try:
-                data = json.loads(match.group(1))
-            except (json.JSONDecodeError, TypeError) as exc:
-                raise TriageError(f"Failed to parse triage JSON from code fence: {exc}") from exc
-        else:
-            raise TriageError("AI response was not valid JSON")
+        data = extract_json_object(response_text)
+    except ValueError as exc:
+        raise TriageError(f"Failed to parse triage JSON: {exc}") from exc
 
     if not isinstance(data, dict):
         raise TriageError("AI response is not a JSON object")

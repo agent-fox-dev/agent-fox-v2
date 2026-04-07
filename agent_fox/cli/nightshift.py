@@ -57,7 +57,26 @@ def night_shift_cmd(ctx: click.Context, auto: bool) -> None:
     # Instantiate the platform from config (exits with code 1 on failure).
     platform = create_platform(config, project_root)
 
-    engine = NightShiftEngine(config=config, platform=platform, auto_fix=auto)
+    # --- ProgressDisplay setup (81-REQ-2.1) ---------------------------------
+    from agent_fox.core.config import ThemeConfig
+    from agent_fox.ui.display import create_theme
+    from agent_fox.ui.progress import ProgressDisplay
+
+    theme_config = getattr(config, "theme", None) or ThemeConfig()
+    theme = create_theme(theme_config)
+    quiet = ctx.obj.get("quiet", False) if isinstance(ctx.obj, dict) else False
+    progress = ProgressDisplay(theme, quiet=quiet)
+    progress.start()
+    # -----------------------------------------------------------------------
+
+    engine = NightShiftEngine(
+        config=config,
+        platform=platform,
+        auto_fix=auto,
+        activity_callback=progress.activity_callback,
+        task_callback=progress.task_callback,
+        status_callback=progress.print_status,
+    )
 
     # --- Signal handling ----------------------------------------------------
     # First SIGINT/SIGTERM: graceful shutdown (current operation completes).
@@ -94,6 +113,7 @@ def night_shift_cmd(ctx: click.Context, auto: bool) -> None:
         click.echo(f"Error: night-shift engine failed: {exc}", err=True)
         sys.exit(1)
     finally:
+        progress.stop()
         # Close platform connection if it supports it
         try:
             if hasattr(platform, "close"):

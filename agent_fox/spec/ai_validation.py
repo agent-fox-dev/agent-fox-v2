@@ -21,6 +21,7 @@ from typing import Any
 from anthropic.types import TextBlock
 
 from agent_fox.core.client import cached_messages_create, create_async_anthropic_client
+from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.core.retry import retry_api_call_async
 from agent_fox.core.token_tracker import record_auxiliary_usage, track_response_usage
 from agent_fox.spec.discovery import SpecInfo
@@ -43,9 +44,7 @@ def _load_ai_template(name: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-# -- JSON extraction from AI responses ----------------------------------------
-
-_JSON_FENCE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
+# -- Response text extraction --------------------------------------------------
 
 
 def _extract_response_text(response: Any, context: str) -> str | None:
@@ -70,14 +69,9 @@ def _extract_json(text: str) -> dict:
     Raises json.JSONDecodeError or TypeError on failure.
     """
     try:
-        return json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        pass
-    # Try extracting from code fences
-    match = _JSON_FENCE.search(text)
-    if match:
-        return json.loads(match.group(1))
-    raise json.JSONDecodeError("No JSON found in AI response", text, 0)
+        return extract_json_object(text)
+    except ValueError as exc:
+        raise json.JSONDecodeError(str(exc), text, 0) from exc
 
 
 async def _ai_call_and_parse(

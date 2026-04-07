@@ -12,11 +12,13 @@ Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.github import IssueResult
+from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +56,13 @@ class FixPipeline:
         self,
         config: object,
         platform: object,
+        activity_callback: ActivityCallback | None = None,
+        task_callback: TaskCallback | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
+        self._activity_callback = activity_callback
+        self._task_callback = task_callback
 
     async def _run_session(
         self,
@@ -103,6 +109,7 @@ class FixPipeline:
             system_prompt=system_prompt,
             task_prompt=spec.task_prompt,
             config=self._config,  # type: ignore[arg-type]
+            activity_callback=self._activity_callback,
         )
 
     async def _create_fix_branch(self, branch_name: str) -> None:
@@ -169,9 +176,35 @@ class FixPipeline:
 
         try:
             # 61-REQ-6.3: full archetype pipeline
+            # 81-REQ-5.3: emit TaskEvent per archetype with timing
             for archetype in ("skeptic", "coder", "verifier"):
-                outcome = await self._run_session(archetype, spec=spec)
-                self._accumulate_metrics(metrics, outcome)
+                node_id = f"fix-issue-{spec.issue_number}:0:{archetype}"
+                t0 = time.monotonic()
+                try:
+                    outcome = await self._run_session(archetype, spec=spec)
+                    self._accumulate_metrics(metrics, outcome)
+                    duration = time.monotonic() - t0
+                    if self._task_callback is not None:
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=node_id,
+                                status="completed",
+                                duration_s=duration,
+                                archetype=archetype,
+                            )
+                        )
+                except Exception:
+                    duration = time.monotonic() - t0
+                    if self._task_callback is not None:
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=node_id,
+                                status="failed",
+                                duration_s=duration,
+                                archetype=archetype,
+                            )
+                        )
+                    raise
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
             await self._platform.add_issue_comment(  # type: ignore[union-attr]

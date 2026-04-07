@@ -66,7 +66,7 @@ def collect_enabled_auto_pre(
     Returns:
         List of ArchetypeEntry tuples for enabled auto_pre archetypes.
     """
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+    from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
     enabled: list[ArchetypeEntry] = [
         ArchetypeEntry(arch_name, entry)
@@ -96,7 +96,7 @@ def collect_enabled_auto_post(
     Returns:
         List of ArchetypeEntry tuples for enabled auto_post archetypes.
     """
-    from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+    from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
     return [
         ArchetypeEntry(arch_name, entry)

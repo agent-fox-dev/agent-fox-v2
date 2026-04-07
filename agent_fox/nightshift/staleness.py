@@ -6,16 +6,13 @@ Requirements: 71-REQ-5.1, 71-REQ-5.2, 71-REQ-5.3, 71-REQ-5.4,
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from dataclasses import dataclass, field
 
+from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.platform.github import IssueResult
 
 logger = logging.getLogger(__name__)
-
-_JSON_FENCE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -66,16 +63,9 @@ def _parse_staleness_response(
     remaining_numbers = {i.number for i in remaining_issues}
 
     try:
-        data = json.loads(response_text)
-    except (json.JSONDecodeError, TypeError):
-        match = _JSON_FENCE.search(response_text)
-        if match:
-            try:
-                data = json.loads(match.group(1))
-            except (json.JSONDecodeError, TypeError):
-                return StalenessResult(obsolete_issues=[], rationale={})
-        else:
-            return StalenessResult(obsolete_issues=[], rationale={})
+        data = extract_json_object(response_text)
+    except ValueError:
+        return StalenessResult(obsolete_issues=[], rationale={})
 
     if not isinstance(data, dict):
         return StalenessResult(obsolete_issues=[], rationale={})

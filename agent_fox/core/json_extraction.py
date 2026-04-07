@@ -65,6 +65,49 @@ def extract_json_array(
     return None
 
 
+def extract_json_object(text: str) -> dict:
+    """Extract a JSON object (dict) from LLM output text.
+
+    Strategy 1: Try direct ``json.loads()`` on the stripped text.
+
+    Strategy 2: Strip markdown code fences and retry.
+
+    Strategy 3: Use ``json.JSONDecoder.raw_decode()`` to find the
+    first JSON object in the text.
+
+    Raises ``ValueError`` if no valid JSON object is found.
+    """
+    stripped = text.strip()
+
+    # Strategy 1: direct parse
+    try:
+        result = json.loads(stripped)
+        if isinstance(result, dict):
+            return result
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    # Strategy 2: markdown fence stripping
+    for match in _FENCE_RE.finditer(stripped):
+        content = match.group(1).strip()
+        try:
+            result = json.loads(content)
+            if isinstance(result, dict):
+                return result
+        except (json.JSONDecodeError, TypeError, ValueError):
+            continue
+
+    # Strategy 3: raw_decode scan for first object
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(stripped)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    raise ValueError("No JSON object found in text")
+
+
 def _scan_bracket_arrays(text: str) -> list[dict] | None:
     """Scan text left-to-right for bracket-delimited JSON arrays.
 

@@ -24,6 +24,7 @@ from rich.live import Live
 from rich.spinner import Spinner
 from rich.text import Text
 
+from agent_fox.reporting.formatters import format_tokens
 from agent_fox.ui.display import AppTheme
 
 # ---------------------------------------------------------------------------
@@ -163,18 +164,6 @@ def abbreviate_arg(raw: str, max_len: int = 60) -> str:
     return raw
 
 
-def format_tokens(tokens: int | None) -> str:
-    """Format token count for compact display.
-
-    Returns "?k" if None, "X.YM" for millions, "X.Yk" for thousands.
-    """
-    if tokens is None:
-        return "?k"
-    if tokens >= 1_000_000:
-        return f"{tokens / 1_000_000:.1f}M"
-    return f"{tokens / 1_000:.1f}k"
-
-
 def format_duration(seconds: float) -> str:
     """Format a duration for display.
 
@@ -297,6 +286,35 @@ class ProgressDisplay:
             else:
                 # Non-TTY: plain print
                 self._console.print(line, highlight=False)
+
+    def print_status(self, text: str, style: str = "bold cyan") -> None:
+        """Print a permanent status line above the spinner.
+
+        Used by the night-shift engine to emit phase-transition lines
+        (e.g. "Checking for af:fix issues…", "Starting hunt scan…").
+
+        Requirements: 81-REQ-3.1
+        """
+        if self._quiet:
+            return
+        with self._lock:
+            line = Text(text, style=style)
+            if self._is_tty and self._live is not None:
+                self._live.console.print(line)
+            else:
+                self._console.print(line, highlight=False)
+
+    def update_spinner_text(self, text: str) -> None:
+        """Update the spinner text directly (e.g. for idle state display).
+
+        Requirements: 81-REQ-4.1
+        """
+        if self._quiet:
+            return
+        with self._lock:
+            self._spinner_text = text
+            if self._live is not None:
+                self._live.update(Spinner("dots", text=text))
 
     @property
     def activity_callback(self) -> Callable[[ActivityEvent], None]:

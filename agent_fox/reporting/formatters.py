@@ -21,18 +21,20 @@ from agent_fox.reporting.status import StatusReport
 logger = logging.getLogger(__name__)
 
 
-def format_tokens(count: int) -> str:
+def format_tokens(count: int | None) -> str:
     """Format token count for human readability.
 
     Args:
-        count: Raw token count.
+        count: Raw token count, or None if unavailable.
 
     Returns:
-        "1.5M" for counts >= 1_000_000, "12.9k" for counts >= 1000,
-        "345" for counts < 1000.
+        "?k" if None, "1.5M" for counts >= 1_000_000,
+        "12.9k" for counts >= 1000, "345" for counts < 1000.
 
     Requirements: 15-REQ-7.1
     """
+    if count is None:
+        return "?k"
     if count >= 1_000_000:
         return f"{count / 1_000_000:.1f}M"
     if count >= 1000:
