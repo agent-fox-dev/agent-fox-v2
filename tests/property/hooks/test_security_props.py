@@ -100,7 +100,12 @@ class TestAllowlistEnforcementCompleteness:
         """
         command = f"{cmd} {args}".strip()
         allowed, _ = check_command_allowed(command, DEFAULT_ALLOWLIST)
-        assert allowed is True, f"Command '{command}' should be allowed but was blocked"
+        # check_shell_operators may reject args containing dangerous tokens
+        # (e.g. '-exec', '-execdir') regardless of allowlist membership.
+        expected = check_shell_operators(command) is None
+        assert allowed == expected, (
+            f"Command '{command}' allowed={allowed} but expected allowed={expected}"
+        )
 
 
 class TestDefaultAllowlistStability:
