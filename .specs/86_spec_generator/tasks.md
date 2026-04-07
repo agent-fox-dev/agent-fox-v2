@@ -35,8 +35,8 @@ generation pipeline.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/unit/platform/test_platform_extensions.py` — remove_label, list_issue_comments, get_issue, protocol tests
     - Create `tests/unit/nightshift/test_spec_gen.py` — SpecGenerator helper and core logic tests
     - Create `tests/unit/nightshift/test_spec_gen_config.py` — Config extension tests
@@ -44,30 +44,30 @@ generation pipeline.
     - Create `tests/property/test_spec_gen_props.py` — Property tests
     - _Test Spec: TS-86-1 through TS-86-34, TS-86-E1 through TS-86-E18_
 
-  - [ ] 1.2 Translate acceptance-criterion tests
+  - [x] 1.2 Translate acceptance-criterion tests
     - TS-86-1 through TS-86-34: one test function per entry
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-86-1 through TS-86-34_
 
-  - [ ] 1.3 Translate edge-case tests
+  - [x] 1.3 Translate edge-case tests
     - TS-86-E1 through TS-86-E18: one test function per entry
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-86-E1 through TS-86-E18_
 
-  - [ ] 1.4 Translate property tests
+  - [x] 1.4 Translate property tests
     - TS-86-P1 through TS-86-P7: one property test per entry
     - Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]`
     - _Test Spec: TS-86-P1 through TS-86-P7_
 
-  - [ ] 1.5 Translate integration smoke tests
+  - [x] 1.5 Translate integration smoke tests
     - TS-86-SMOKE-1 through TS-86-SMOKE-5: one smoke test per entry
     - Mark with `@pytest.mark.asyncio`
     - _Test Spec: TS-86-SMOKE-1 through TS-86-SMOKE-5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Platform extensions: remove_label, list_issue_comments, get_issue
   - [ ] 2.1 Add `IssueComment` dataclass to `platform/github.py`
