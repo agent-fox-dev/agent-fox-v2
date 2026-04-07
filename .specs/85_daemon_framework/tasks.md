@@ -111,14 +111,14 @@ and can be built in parallel with streams if desired.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 85-REQ-1.1, 85-REQ-2.1, 85-REQ-2.E1-E3, 85-REQ-3.1-E2, 85-REQ-5.1-E1, 85-REQ-9.1-E2 met
 
-- [ ] 3. DaemonRunner: lifecycle, scheduling, cost budget, signal handling
-  - [ ] 3.1 Implement `DaemonRunner.__init__()` and stream registration
+- [x] 3. DaemonRunner: lifecycle, scheduling, cost budget, signal handling
+  - [x] 3.1 Implement `DaemonRunner.__init__()` and stream registration
     - Accept config, platform, streams, budget, pid_path
     - Filter streams by `enabled` property
     - Log warning for unknown stream names in `enabled_streams`
     - _Requirements: 85-REQ-1.2, 85-REQ-1.3, 85-REQ-9.2_
 
-  - [ ] 3.2 Implement `DaemonRunner.run()` — main lifecycle
+  - [x] 3.2 Implement `DaemonRunner.run()` — main lifecycle
     - Write PID file on start, emit audit event
     - Launch stream tasks in priority order (specs → fixes → rest)
     - Main loop: check budget.exceeded between cycles, shutdown if exceeded
@@ -126,24 +126,24 @@ and can be built in parallel with streams if desired.
     - `finally` block ensures PID cleanup
     - _Requirements: 85-REQ-2.1, 85-REQ-2.2, 85-REQ-2.4, 85-REQ-2.5, 85-REQ-4.1, 85-REQ-4.2_
 
-  - [ ] 3.3 Implement stream task scheduling
+  - [x] 3.3 Implement stream task scheduling
     - Each stream runs as `asyncio.create_task` with independent sleep loop
     - Priority ordering at simultaneous wake: use an asyncio.Lock or ordered launch
     - Handle stream exceptions: log and continue (do not cancel task)
     - _Requirements: 85-REQ-4.1, 85-REQ-4.3, 85-REQ-1.4, 85-REQ-1.E1_
 
-  - [ ] 3.4 Implement `request_shutdown()` and signal integration
+  - [x] 3.4 Implement `request_shutdown()` and signal integration
     - Set `_shutting_down` asyncio.Event
     - Stream tasks check event between cycles
     - Idle loop when all streams disabled (wait for shutdown event)
     - _Requirements: 85-REQ-2.2, 85-REQ-2.3, 85-REQ-1.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_daemon.py tests/integration/test_daemon_lifecycle.py -k "TS_85_2 or TS_85_3 or TS_85_4 or TS_85_6 or TS_85_7 or TS_85_8 or TS_85_9 or TS_85_12 or TS_85_13 or TS_85_14 or TS_85_17 or TS_85_27 or E1 or E2 or E8 or E10 or SMOKE_1 or SMOKE_5"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P3 or P4 or P7"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 85-REQ-1.2-E2, 85-REQ-2.1-2.5, 85-REQ-4.1-E1, 85-REQ-5.2-5.3 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_daemon.py tests/integration/test_daemon_lifecycle.py -k "TS_85_2 or TS_85_3 or TS_85_4 or TS_85_6 or TS_85_7 or TS_85_8 or TS_85_9 or TS_85_12 or TS_85_13 or TS_85_14 or TS_85_17 or TS_85_27 or E1 or E2 or E8 or E10 or SMOKE_1 or SMOKE_5"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P3 or P4 or P7"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 85-REQ-1.2-E2, 85-REQ-2.1-2.5, 85-REQ-4.1-E1, 85-REQ-5.2-5.3 met
 
 - [ ] 4. Stream implementations and CLI integration
   - [ ] 4.1 Implement `SpecExecutorStream` in `nightshift/streams.py`
