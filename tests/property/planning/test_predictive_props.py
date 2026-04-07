@@ -236,7 +236,7 @@ class TestConfidenceFilterMonotonicity:
         facts = [
             make_fact(
                 id=f"f{i}",
-                confidence=str(i / 10.0),
+                confidence=i / 10.0,
                 keywords=["test"],
                 spec_name="s",
             )
@@ -543,21 +543,23 @@ class TestBlockingThresholdConvergence:
                 ),
             )
 
-        threshold = compute_optimal_threshold(conn, "skeptic", min_decisions=20, max_false_negative_rate=0.1)
+        opt_threshold: int | None = compute_optimal_threshold(
+            conn, "skeptic", min_decisions=20, max_false_negative_rate=0.1
+        )
 
-        if threshold is not None:
+        if opt_threshold is not None:
             # Verify the threshold satisfies FNR constraint
             rows = conn.execute(
                 "SELECT critical_count, outcome FROM blocking_history WHERE archetype = 'skeptic'"
             ).fetchall()
 
             # Compute FNR: missed blocks / (missed blocks + correct blocks)
-            should_block_count = sum(1 for cc, _ in rows if cc > threshold)
-            missed_blocks = sum(1 for cc, out in rows if cc > threshold and out in ("correct_pass", "missed_block"))
+            should_block_count = sum(1 for cc, _ in rows if cc > opt_threshold)
+            missed_blocks = sum(1 for cc, out in rows if cc > opt_threshold and out in ("correct_pass", "missed_block"))
 
             if should_block_count > 0:
                 fnr = missed_blocks / should_block_count
                 # Allow some tolerance for edge cases
-                assert fnr <= 0.15, f"FNR {fnr} exceeds max with threshold {threshold}"
+                assert fnr <= 0.15, f"FNR {fnr} exceeds max with threshold {opt_threshold}"
 
         conn.close()

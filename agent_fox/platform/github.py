@@ -5,7 +5,8 @@ authenticated with a GITHUB_PAT environment variable.
 
 Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3, 19-REQ-4.4,
               19-REQ-4.E1, 19-REQ-4.E2, 19-REQ-4.E3, 19-REQ-4.E4,
-              28-REQ-1.*, 28-REQ-2.*, 28-REQ-3.*, 28-REQ-4.*
+              28-REQ-1.*, 28-REQ-2.*, 28-REQ-3.*, 28-REQ-4.*,
+              86-REQ-1.*
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import httpx
 
@@ -41,6 +43,31 @@ class IssueResult:
     title: str
     html_url: str
     body: str = ""
+
+
+@dataclass(frozen=True)
+class PullRequestResult:
+    """Structured result for pull request creation.
+
+    Requirements: 85-REQ-8.3
+    """
+
+    number: int
+    url: str
+    html_url: str
+
+
+@dataclass(frozen=True)
+class IssueComment:
+    """Structured result for GitHub issue comments.
+
+    Requirements: 86-REQ-1.3
+    """
+
+    id: int
+    body: str
+    user: str  # GitHub login
+    created_at: str  # ISO 8601
 
 
 class GitHubPlatform:
@@ -291,6 +318,118 @@ class GitHubPlatform:
             )
         logger.info("Assigned label %r to issue #%d", label, issue_number)
 
+    async def remove_label(
+        self,
+        issue_number: int,
+        label: str,
+    ) -> None:
+        """Remove a label from an issue.
+
+        Uses DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{label}.
+        Succeeds silently if the label is not present (404).
+        Raises IntegrationError on other API errors.
+
+        Requirements: 86-REQ-1.1, 86-REQ-1.2, 86-REQ-1.E1
+        """
+        headers = self._auth_headers()
+        encoded_label = quote(label, safe="")
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/labels/{encoded_label}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(url, headers=headers)
+        if resp.status_code == 404:
+            # Label not present — succeed silently (idempotent)
+            logger.debug(
+                "Label %r not present on issue #%d, nothing to remove",
+                label,
+                issue_number,
+            )
+            return
+        if resp.status_code not in (200, 204):
+            detail = _truncate_response(resp.text)
+            logger.debug(
+                "Label removal response (%d): %s",
+                resp.status_code,
+                detail,
+            )
+            raise IntegrationError(
+                f"GitHub label removal failed ({resp.status_code})",
+            )
+        logger.info("Removed label %r from issue #%d", label, issue_number)
+
+    async def list_issue_comments(
+        self,
+        issue_number: int,
+    ) -> list[IssueComment]:
+        """List all comments on an issue in chronological order.
+
+        Uses GET /repos/{owner}/{repo}/issues/{issue_number}/comments.
+        Returns empty list if no comments exist.
+        Raises IntegrationError on API error.
+
+        Requirements: 86-REQ-1.3, 86-REQ-1.E2
+        """
+        headers = self._auth_headers()
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/comments"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
+            logger.debug(
+                "Issue comments response (%d): %s",
+                resp.status_code,
+                detail,
+            )
+            raise IntegrationError(
+                f"GitHub issue comments failed ({resp.status_code})",
+            )
+        items = resp.json()
+        results = [
+            IssueComment(
+                id=item["id"],
+                body=item.get("body") or "",
+                user=item["user"]["login"],
+                created_at=item["created_at"],
+            )
+            for item in items
+        ]
+        logger.debug("Issue #%d has %d comment(s)", issue_number, len(results))
+        return results
+
+    async def get_issue(
+        self,
+        issue_number: int,
+    ) -> IssueResult:
+        """Fetch a single issue by number.
+
+        Uses GET /repos/{owner}/{repo}/issues/{issue_number}.
+        Raises IntegrationError on 404 or other API error.
+
+        Requirements: 86-REQ-1.4, 86-REQ-1.E3
+        """
+        headers = self._auth_headers()
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code != 200:
+            detail = _truncate_response(resp.text)
+            logger.debug(
+                "Get issue response (%d): %s",
+                resp.status_code,
+                detail,
+            )
+            raise IntegrationError(
+                f"GitHub get issue failed ({resp.status_code})",
+            )
+        data = resp.json()
+        result = IssueResult(
+            number=data["number"],
+            title=data["title"],
+            html_url=data["html_url"],
+            body=data.get("body") or "",
+        )
+        logger.debug("Fetched issue #%d: %s", result.number, result.title)
+        return result
+
     async def close(self) -> None:
         """Clean up resources.
 
@@ -298,6 +437,48 @@ class GitHubPlatform:
 
         Requirements: 61-REQ-8.1
         """
+
+    async def create_pull_request(
+        self,
+        title: str,
+        body: str,
+        head: str,
+        base: str,
+        draft: bool = True,
+    ) -> PullRequestResult:
+        """Create a pull request.
+
+        Uses POST /repos/{owner}/{repo}/pulls.
+        Returns PullRequestResult with the created PR's number, url, and html_url.
+        Raises IntegrationError on API error.
+
+        Requirements: 85-REQ-8.4
+        """
+        headers = self._auth_headers()
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/pulls"
+        payload = {
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+            "draft": draft,
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code != 201:
+            detail = _truncate_response(resp.text)
+            logger.debug("PR creation response (%d): %s", resp.status_code, detail)
+            raise IntegrationError(
+                f"GitHub PR creation failed ({resp.status_code})",
+            )
+        data = resp.json()
+        result = PullRequestResult(
+            number=data["number"],
+            url=data["url"],
+            html_url=data["html_url"],
+        )
+        logger.info("Created PR #%d: %s", result.number, result.html_url)
+        return result
 
     async def close_issue(
         self,

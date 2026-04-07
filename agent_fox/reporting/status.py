@@ -127,6 +127,7 @@ class StatusReport:
     cost_by_spec: dict[str, float] = field(default_factory=dict)
     active_agents: list[str] = field(default_factory=list)
     in_progress_tasks: list[TaskActivity] = field(default_factory=list)
+    findings_summary: list = field(default_factory=list)  # list[FindingsSummary]
 
 
 def extract_spec_name(node_id: str) -> str:
@@ -412,6 +413,15 @@ def generate_status(
     else:
         in_progress_tasks = []
 
+    # Review findings summary for status display (84-REQ-5.1, 84-REQ-5.2, 84-REQ-5.E1)
+    try:
+        from agent_fox.reporting.findings import query_findings_summary
+
+        findings_summary = query_findings_summary(db_conn)
+    except Exception:
+        logger.debug("Failed to build findings summary for status report", exc_info=True)
+        findings_summary = []
+
     return StatusReport(
         counts=counts,
         total_tasks=total_tasks,
@@ -426,4 +436,5 @@ def generate_status(
         cost_by_spec=dict(cost_by_spec_agg),
         active_agents=active_agents,
         in_progress_tasks=in_progress_tasks,
+        findings_summary=findings_summary,
     )

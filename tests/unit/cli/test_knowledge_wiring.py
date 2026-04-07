@@ -226,9 +226,9 @@ class TestKnowledgeInjectionIntoContext:
                 new_callable=AsyncMock,
             ),
             patch("agent_fox.engine.session_lifecycle.assemble_context", mock_assemble),
-            patch("agent_fox.engine.context_assembly.load_all_facts", return_value=facts),
+            patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=facts),
             patch(
-                "agent_fox.engine.context_assembly.select_relevant_facts",
+                "agent_fox.engine.session_lifecycle.select_relevant_facts",
                 return_value=facts,
             ),
             patch(
@@ -276,9 +276,9 @@ class TestKnowledgeInjectionIntoContext:
                 new_callable=AsyncMock,
             ),
             patch("agent_fox.engine.session_lifecycle.assemble_context", mock_assemble),
-            patch("agent_fox.engine.context_assembly.load_all_facts", return_value=[]),
+            patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=[]),
             patch(
-                "agent_fox.engine.context_assembly.select_relevant_facts",
+                "agent_fox.engine.session_lifecycle.select_relevant_facts",
                 return_value=[],
             ),
             patch(
@@ -334,9 +334,9 @@ class TestSinkWiring:
                 "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.engine.context_assembly.load_all_facts", return_value=[]),
+            patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=[]),
             patch(
-                "agent_fox.engine.context_assembly.select_relevant_facts",
+                "agent_fox.engine.session_lifecycle.select_relevant_facts",
                 return_value=[],
             ),
         ):
@@ -383,9 +383,9 @@ class TestSinkWiring:
                 "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.engine.context_assembly.load_all_facts", return_value=[]),
+            patch("agent_fox.engine.session_lifecycle.load_all_facts", return_value=[]),
             patch(
-                "agent_fox.engine.context_assembly.select_relevant_facts",
+                "agent_fox.engine.session_lifecycle.select_relevant_facts",
                 return_value=[],
             ),
         ):

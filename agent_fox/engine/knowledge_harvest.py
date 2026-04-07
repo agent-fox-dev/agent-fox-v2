@@ -427,7 +427,8 @@ def _extract_causal_links(
         try:
             from agent_fox.knowledge.audit import AuditEvent, AuditEventType
 
-            total_link_count = knowledge_db.connection.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]
+            row = knowledge_db.connection.execute("SELECT COUNT(*) FROM fact_causes").fetchone()
+            total_link_count = row[0] if row else 0
             event = AuditEvent(
                 run_id=run_id,
                 event_type=AuditEventType.FACT_CAUSAL_LINKS,

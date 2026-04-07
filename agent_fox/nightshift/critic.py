@@ -174,7 +174,7 @@ async def _run_critic(findings: list[Finding]) -> str:
     response = await retry_api_call_async(_call, context="finding consolidation critic")
     track_response_usage(response, model_entry.model_id, "finding consolidation critic")
 
-    first_block = response.content[0]  # type: ignore[union-attr]
+    first_block = response.content[0]  # type: ignore[attr-defined]
     response_text = getattr(first_block, "text", None)
     if response_text is None:
         raise ValueError("AI critic response has no text content")
@@ -254,8 +254,8 @@ def _parse_critic_response(
             )
 
     for raw_drop in raw_dropped:
-        idx: int = raw_drop.get("finding_index", -1)
-        reason: str = raw_drop.get("reason", "")
+        idx = raw_drop.get("finding_index", -1)
+        reason = raw_drop.get("reason", "")
 
         if not (0 <= idx < len(findings)):
             logger.warning(

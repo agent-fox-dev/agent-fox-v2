@@ -168,10 +168,7 @@ class TestTraverseWithReviews:
         assert review_findings[0].id == review_id
 
         # All items are deduplicated by ID
-        ids = [
-            r.fact_id if isinstance(r, CausalFact) else getattr(r, "id", None)
-            for r in result
-        ]
+        ids = [r.fact_id if isinstance(r, CausalFact) else getattr(r, "id", None) for r in result]
         assert len(ids) == len(set(ids))
 
     def test_includes_drift_findings(

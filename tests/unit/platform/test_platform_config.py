@@ -244,7 +244,7 @@ class TestConfigTemplateHasTypeAndUrl:
         schema still contains the correct fields even though the template omits
         the platform section.
         """
-        from agent_fox.core.config_schema import extract_schema
+        from agent_fox.core.config_gen import extract_schema
 
         schema = extract_schema(AgentFoxConfig)
         platform_section = next((s for s in schema if s.path == "platform"), None)
@@ -284,9 +284,7 @@ class TestPlatformConfigUnknownKeysIgnored:
 
     def test_unknown_keys_ignored(self) -> None:
         """PlatformConfig ignores auto_merge and other arbitrary unknown keys."""
-        config = PlatformConfig.model_validate(
-            {"type": "github", "auto_merge": True, "foo": "bar", "baz": 42}
-        )
+        config = PlatformConfig.model_validate({"type": "github", "auto_merge": True, "foo": "bar", "baz": 42})
         assert config.type == "github"
         assert not hasattr(config, "auto_merge")
         assert not hasattr(config, "foo")

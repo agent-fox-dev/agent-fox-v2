@@ -196,7 +196,7 @@ class TestDualWriteConsistency:
                 dispatcher.emit_audit_event(event)
 
             # Check DuckDB
-            db_count = conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0]
+            db_count = conn.execute("SELECT COUNT(*) FROM audit_events").fetchone()[0]  # type: ignore[index]
             assert db_count == n
 
             # Check JSONL
@@ -260,7 +260,7 @@ class TestRetentionBound:
 
             enforce_audit_retention(audit_dir, conn, max_runs=max_runs)
 
-            remaining = conn.execute("SELECT COUNT(DISTINCT run_id) FROM audit_events").fetchone()[0]
+            remaining = conn.execute("SELECT COUNT(DISTINCT run_id) FROM audit_events").fetchone()[0]  # type: ignore[index]
             assert remaining <= max_runs
             assert remaining == min(n_runs, max_runs)
 

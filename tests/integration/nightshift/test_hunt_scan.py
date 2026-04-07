@@ -7,11 +7,15 @@ Requirements: 61-REQ-3.4, 61-REQ-5.2, 61-REQ-2.E1, 61-REQ-3.E1, 61-REQ-5.E1
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from agent_fox.nightshift.finding import Finding
 
-def _make_finding(**overrides: object) -> object:
+
+def _make_finding(**overrides: object) -> Finding:
     """Create a Finding with sensible defaults."""
     from agent_fox.nightshift.finding import Finding
 
@@ -25,7 +29,7 @@ def _make_finding(**overrides: object) -> object:
         "evidence": "evidence",
         "group_key": "test-group",
     }
-    defaults.update(overrides)
+    defaults.update(overrides)  # type: ignore[arg-type]
     return Finding(**defaults)  # type: ignore[arg-type]
 
 
@@ -74,7 +78,7 @@ class TestParallelCategoryExecution:
             mock.detect = slow_detect
             mock_cats.append(mock)
 
-        registry._categories = mock_cats
+        registry._categories = mock_cats  # type: ignore[assignment]
 
         # All names "enabled"
         scanner = HuntScanner(registry, config)

@@ -142,6 +142,19 @@ def code_cmd(
     quiet: bool = ctx.obj.get("quiet", False)
     json_mode: bool = ctx.obj.get("json", False)
 
+    # 85-REQ-3.1: Refuse to run when daemon is active.
+    from agent_fox.nightshift.pid import PidStatus, check_pid_file
+
+    daemon_pid_path = Path.cwd() / ".agent-fox" / "daemon.pid"
+    pid_status, _pid = check_pid_file(daemon_pid_path)
+    if pid_status == PidStatus.ALIVE:
+        msg = f"Error: night-shift daemon is running (PID {_pid}). Stop the daemon before running `code`."
+        if json_mode:
+            json_io.emit_error(msg)
+        else:
+            click.echo(msg, err=True)
+        sys.exit(1)
+
     # 23-REQ-7.1: read stdin JSON when in JSON mode
     if json_mode:
         stdin_data = json_io.read_stdin()

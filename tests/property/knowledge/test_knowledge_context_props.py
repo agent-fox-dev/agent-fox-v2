@@ -175,7 +175,7 @@ class TestGroupBoundaryInvariant:
         )
 
         for r in result:
-            group_val = r.group if hasattr(r, "group") else r.task_group
+            group_val = r.group if hasattr(r, "group") else r.task_group  # type: ignore[attr-defined]
             assert int(group_val) < target_group, f"Finding from group {group_val} included for target {target_group}"
 
         conn.close()

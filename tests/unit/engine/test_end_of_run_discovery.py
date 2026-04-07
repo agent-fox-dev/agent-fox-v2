@@ -328,7 +328,7 @@ class TestStalledNoDiscovery:
     ) -> None:
         """When execution is stalled, _try_end_of_run_discovery is not called."""
         # Create a graph where task B depends on A, and A fails (stalls B)
-        nodes = {
+        nodes: dict[str, dict[str, object]] = {
             "spec:1": {},
             "spec:2": {},
         }
@@ -379,7 +379,7 @@ class TestCostLimitNoDiscovery:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed", cost=10.0)],
         )
-        nodes = {"spec:1": {}, "spec:2": {}}
+        nodes: dict[str, dict[str, object]] = {"spec:1": {}, "spec:2": {}}
         orch = _make_orchestrator(
             tmp_plan_dir,
             tmp_state_path,
@@ -421,7 +421,7 @@ class TestSessionLimitNoDiscovery:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        nodes = {"spec:1": {}, "spec:2": {}}
+        nodes: dict[str, dict[str, object]] = {"spec:1": {}, "spec:2": {}}
         orch = _make_orchestrator(
             tmp_plan_dir,
             tmp_state_path,
@@ -460,7 +460,7 @@ class TestBlockLimitNoDiscovery:
     ) -> None:
         """When block limit is hit, _try_end_of_run_discovery is not called."""
         # Create a graph where most tasks fail and get blocked
-        nodes = {
+        nodes: dict[str, dict[str, object]] = {
             "spec:1": {},
             "spec:2": {},
             "spec:3": {},

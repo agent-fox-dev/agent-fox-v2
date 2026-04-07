@@ -75,7 +75,7 @@ class TestBelowThresholdMechanicalGrouping:
         finding_b = _make_finding(title="Finding B", group_key="b")
 
         with patch("agent_fox.nightshift.critic._run_critic") as ai_mock:
-            groups = await consolidate_findings([finding_a, finding_b])
+            groups = await consolidate_findings([finding_a, finding_b])  # type: ignore[list-item]
 
         assert len(groups) == 2
         assert ai_mock.call_count == 0
@@ -88,7 +88,7 @@ class TestBelowThresholdMechanicalGrouping:
         finding_a = _make_finding(title="Finding A", group_key="a")
         finding_b = _make_finding(title="Finding B", group_key="b")
 
-        groups = await consolidate_findings([finding_a, finding_b])
+        groups = await consolidate_findings([finding_a, finding_b])  # type: ignore[list-item]
 
         assert len(groups) == 2
         group_findings_lists = [g.findings for g in groups]
@@ -105,7 +105,7 @@ class TestBelowThresholdMechanicalGrouping:
         finding = _make_finding(title="Solo Finding")
 
         with patch("agent_fox.nightshift.critic._run_critic") as ai_mock:
-            groups = await consolidate_findings([finding])
+            groups = await consolidate_findings([finding])  # type: ignore[list-item]
 
         assert len(groups) == 1
         assert groups[0].findings == [finding]
@@ -166,7 +166,7 @@ class TestAffectedFilesUnion:
             }
         )
 
-        groups, _ = _parse_critic_response(response, [finding_a, finding_b])
+        groups, _ = _parse_critic_response(response, [finding_a, finding_b])  # type: ignore[list-item]
         assert len(groups) == 1
         assert groups[0].affected_files == ["auth.py", "middleware.py", "utils.py"]
 
@@ -192,7 +192,7 @@ class TestAffectedFilesUnion:
             }
         )
 
-        groups, _ = _parse_critic_response(response, [finding_a, finding_b])
+        groups, _ = _parse_critic_response(response, [finding_a, finding_b])  # type: ignore[list-item]
         assert len(groups) == 1
         assert groups[0].affected_files == ["auth.py"]
 
@@ -230,7 +230,7 @@ class TestInvalidFindingIndices:
         )
 
         with caplog.at_level(logging.WARNING):
-            groups, _ = _parse_critic_response(response, [finding_a, finding_b, finding_c])
+            groups, _ = _parse_critic_response(response, [finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         # Only valid-indexed findings are included; index 99 is skipped
         all_grouped_findings = [f for g in groups for f in g.findings]

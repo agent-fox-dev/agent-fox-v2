@@ -118,7 +118,7 @@ async def _run_ai_staleness(
     response = await retry_api_call_async(_call, context="staleness check")
     track_response_usage(response, model_entry.model_id, "staleness check")
 
-    first_block = response.content[0]  # type: ignore[union-attr]
+    first_block = response.content[0]  # type: ignore[attr-defined]
     response_text = getattr(first_block, "text", None)
     if response_text is None:
         return StalenessResult(obsolete_issues=[], rationale={})
@@ -163,7 +163,7 @@ async def check_staleness(
 
     # Step 2: Verify with GitHub API by re-fetching issues (71-REQ-5.2)
     try:
-        still_open = await platform.list_issues_by_label(  # type: ignore[union-attr]
+        still_open = await platform.list_issues_by_label(  # type: ignore[attr-defined]
             "af:fix",
             state="open",
         )

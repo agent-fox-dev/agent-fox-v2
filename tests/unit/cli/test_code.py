@@ -500,6 +500,7 @@ class TestNodeSessionRunnerHarvestError:
             )
 
         assert record.status == "failed"
+        assert record.error_message is not None
         assert "harvest failed" in record.error_message.lower()
         assert record.input_tokens == 100  # Session metrics preserved
         assert record.output_tokens == 200

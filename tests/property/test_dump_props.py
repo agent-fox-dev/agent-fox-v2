@@ -142,7 +142,7 @@ class TestJsonKeyCompleteness:
 
 # Strategy for valid SQL table names
 table_name_strategy = st.text(
-    alphabet=st.characters(whitelist_categories=("Ll",)),
+    alphabet=st.characters(whitelist_categories=("Ll",)),  # type: ignore[arg-type]
     min_size=3,
     max_size=15,
 ).filter(

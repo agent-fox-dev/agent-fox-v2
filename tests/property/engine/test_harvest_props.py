@@ -254,7 +254,7 @@ class TestCausalLinkIdempotency:
             count = db.connection.execute(
                 "SELECT COUNT(*) FROM fact_causes WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
                 [cause_id, effect_id],
-            ).fetchone()[0]
+            ).fetchone()[0]  # type: ignore[index]
             assert count == 1
         finally:
             db.close()

@@ -336,8 +336,7 @@ class TestTemplateEdgeCases:
         Requirement: 33-REQ-1.E1
         """
         # Verify the format function itself handles None correctly
-        from agent_fox.core.config_gen import _format_field_comment
-        from agent_fox.core.config_schema import FieldSpec
+        from agent_fox.core.config_gen import FieldSpec, _format_field_comment
 
         fs = FieldSpec(
             name="test_field",

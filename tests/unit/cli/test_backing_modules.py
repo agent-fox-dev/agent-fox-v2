@@ -204,7 +204,7 @@ class TestRunCodeCallable:
             result = await run_code(config, parallel=2, max_cost=1.0)
 
         assert result is not None
-        assert result.status == "completed"
+        assert result.status == "completed"  # type: ignore[union-attr]
 
 
 class TestRunCodeReturnsExecutionState:
@@ -232,7 +232,7 @@ class TestRunCodeReturnsExecutionState:
 
             result = await run_code(config)
 
-        assert result.status in (
+        assert result.status in (  # type: ignore[union-attr]
             "completed",
             "stalled",
             "cost_limit",
@@ -293,7 +293,7 @@ class TestRunCodeKeyboardInterrupt:
 
             result = await run_code(config)
 
-        assert result.status == "interrupted"
+        assert result.status == "interrupted"  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------

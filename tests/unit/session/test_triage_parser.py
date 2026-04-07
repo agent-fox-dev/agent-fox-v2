@@ -199,9 +199,7 @@ class TestParseFixReviewInvalidJSON:
     def test_returns_fail_on_prose(self) -> None:
         from agent_fox.session.review_parser import parse_fix_review_output
 
-        result = parse_fix_review_output(
-            "Some markdown prose, no JSON", "fix-issue-1", "s1"
-        )
+        result = parse_fix_review_output("Some markdown prose, no JSON", "fix-issue-1", "s1")
         assert result.overall_verdict == "FAIL"
         assert result.verdicts == []
 

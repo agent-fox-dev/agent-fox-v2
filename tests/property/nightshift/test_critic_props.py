@@ -178,7 +178,7 @@ class TestGracefulDegradation:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("backend down"),
             ):
-                return await consolidate_findings(findings)  # type: ignore[arg-type]
+                return list(await consolidate_findings(findings))  # type: ignore[arg-type]
 
         groups = asyncio.run(run())
         assert len(groups) == len(expected)
@@ -244,10 +244,10 @@ class TestFindingConservation:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("backend down"),
             ):
-                return await consolidate_findings(findings)  # type: ignore[arg-type]
+                return list(await consolidate_findings(findings))  # type: ignore[arg-type]
 
         groups = asyncio.run(run())
-        found = {id(f) for g in groups for f in g.findings}
+        found = {id(f) for g in groups for f in g.findings}  # type: ignore[attr-defined]
         # Fallback to mechanical: all findings conserved
         assert len(found) == len(findings)
 

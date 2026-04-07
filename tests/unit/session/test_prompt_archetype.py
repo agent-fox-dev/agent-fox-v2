@@ -219,6 +219,7 @@ class TestRunnerUsesArchetype:
         )
         # Skeptic has a default allowlist in the registry
         assert runner._resolved_security is not None
+        assert runner._resolved_security.bash_allowlist is not None
         assert "ls" in runner._resolved_security.bash_allowlist
         assert "cat" in runner._resolved_security.bash_allowlist
 

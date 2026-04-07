@@ -70,7 +70,7 @@ class TestPropertyGateOnlyWhenConfigured:
         kwargs = {}
         if gate is not None:
             kwargs["quality_gate"] = gate
-        config = OrchestratorConfig(**kwargs)
+        config = OrchestratorConfig(**kwargs)  # type: ignore[arg-type]
 
         with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
             result = run_quality_gate(config, project_root="/tmp/project")

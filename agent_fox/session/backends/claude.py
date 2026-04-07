@@ -119,7 +119,7 @@ class ClaudeBackend:
             permission_mode="bypassPermissions",
             can_use_tool=can_use_tool,
             extra_args=extra_args,
-            **({"max_turns": max_turns} if max_turns is not None else {}),
+            **({"max_turns": max_turns} if max_turns is not None else {}),  # type: ignore[arg-type]
         )
 
         # Store thinking config as attribute on options (56-REQ-4.2, 56-REQ-5.E1)
@@ -127,7 +127,7 @@ class ClaudeBackend:
         # If a future SDK version raises TypeError here, we catch it and omit.
         if thinking is not None:
             try:
-                options.thinking = thinking  # type: ignore[attr-defined]
+                options.thinking = thinking  # type: ignore[assignment]
             except TypeError as exc:
                 logger.warning("SDK does not support 'thinking' parameter, omitting: %s", exc)
 
@@ -193,7 +193,7 @@ class ClaudeBackend:
                 # _read_messages_impl may still be reading when SIGTERM
                 # arrives, producing an unhandled ProcessError(exit code
                 # 143).
-                await response_stream.aclose()
+                await response_stream.aclose()  # type: ignore[attr-defined]
 
     @staticmethod
     def _map_message(message: Any) -> list[AgentMessage]:

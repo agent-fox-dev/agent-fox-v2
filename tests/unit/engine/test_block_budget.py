@@ -236,7 +236,7 @@ class TestSkepticBlocking:
 
         mock_conn = MagicMock()
 
-        archetypes_config = ArchetypesConfig(
+        archetypes_config = ArchetypesConfig(  # type: ignore[call-arg]
             skeptic_config=SkepticConfig(block_threshold=3),
         )
 
@@ -304,7 +304,7 @@ class TestSkepticBlocking:
             mock_findings.append(finding)
 
         mock_conn = MagicMock()
-        archetypes_config = ArchetypesConfig(
+        archetypes_config = ArchetypesConfig(  # type: ignore[call-arg]
             skeptic_config=SkepticConfig(block_threshold=3),
         )
 

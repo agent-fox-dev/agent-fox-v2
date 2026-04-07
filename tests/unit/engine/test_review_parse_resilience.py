@@ -15,11 +15,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent_fox.core.json_extraction import extract_json_array
-from agent_fox.engine.review_parser import (
-    parse_drift_findings,
-    parse_review_findings,
-    parse_verification_results,
-)
 from agent_fox.knowledge.audit import AuditEventType
 from agent_fox.knowledge.review_store import ReviewFinding, VerificationResult
 from agent_fox.session.convergence import (
@@ -29,7 +24,12 @@ from agent_fox.session.convergence import (
     converge_skeptic_records,
     converge_verifier_records,
 )
-from agent_fox.session.review_parser import _unwrap_items
+from agent_fox.session.review_parser import (
+    _unwrap_items,
+    parse_drift_findings,
+    parse_review_findings,
+    parse_verification_results,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers for constructing test data
@@ -95,7 +95,7 @@ class TestCaseInsensitiveWrapperKeyResolution:
         """_resolve_wrapper_key handles fully uppercase wrapper key."""
         from agent_fox.session.review_parser import _resolve_wrapper_key
 
-        data = {"FINDINGS": []}
+        data: dict[str, list[object]] = {"FINDINGS": []}
         result = _resolve_wrapper_key(data, "findings")
         assert result == "FINDINGS"
 
@@ -103,7 +103,7 @@ class TestCaseInsensitiveWrapperKeyResolution:
         """_resolve_wrapper_key returns exact key when casing matches."""
         from agent_fox.session.review_parser import _resolve_wrapper_key
 
-        data = {"findings": []}
+        data: dict[str, list[object]] = {"findings": []}
         result = _resolve_wrapper_key(data, "findings")
         assert result == "findings"
 
@@ -111,7 +111,7 @@ class TestCaseInsensitiveWrapperKeyResolution:
         """_resolve_wrapper_key returns None when no matching key exists."""
         from agent_fox.session.review_parser import _resolve_wrapper_key
 
-        data = {"something_else": []}
+        data: dict[str, list[object]] = {"something_else": []}
         result = _resolve_wrapper_key(data, "findings")
         assert result is None
 

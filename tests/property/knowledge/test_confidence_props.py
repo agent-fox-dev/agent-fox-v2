@@ -127,13 +127,13 @@ class TestMigrationPreservesRowCount:
                 [fid, conf],
             )
 
-        count_before = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count_before = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
 
         from agent_fox.knowledge.migrations import apply_pending_migrations
 
         apply_pending_migrations(conn)
 
-        count_after = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]
+        count_after = conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()[0]  # type: ignore[index]
         assert count_before == count_after
 
         conn.close()

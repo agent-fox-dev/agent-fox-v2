@@ -62,7 +62,7 @@ class TestSyncFactsToDuckDB:
         count = knowledge_db.connection.execute(
             "SELECT COUNT(*) FROM memory_facts WHERE id = ?::UUID",
             [fact.id],
-        ).fetchone()[0]
+        ).fetchone()[0]  # type: ignore[index]
         assert count == 1
 
     def test_causal_links_succeed_after_sync(self, knowledge_db: KnowledgeDB) -> None:

@@ -8,6 +8,7 @@ Requirements: 27-REQ-5.1, 27-REQ-5.2, 27-REQ-5.3, 27-REQ-5.E1, 27-REQ-5.E2,
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -27,7 +28,7 @@ from agent_fox.session.prompt import (
 
 
 @pytest.fixture
-def review_conn() -> duckdb.DuckDBPyConnection:
+def review_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with review tables."""
     from tests.unit.knowledge.conftest import create_schema
 

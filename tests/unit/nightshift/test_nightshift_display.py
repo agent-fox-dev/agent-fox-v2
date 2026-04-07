@@ -247,7 +247,7 @@ class TestIdleSpinnerShowsTime:
         """Spinner text contains time in HH:MM format during idle."""
         import re
 
-        activity_events = []
+        activity_events: list[object] = []
 
         config = _make_config()
         platform = MagicMock()

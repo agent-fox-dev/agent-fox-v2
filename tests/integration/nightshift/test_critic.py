@@ -102,7 +102,7 @@ class TestCrossCategoryMerge:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         assert len(groups) == 2
         findings_in_groups = [set(id(f) for f in g.findings) for g in groups]
@@ -161,7 +161,7 @@ class TestSynthesisedTitleBody:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         merged_group = next(g for g in groups if len(g.findings) > 1)
         assert merged_group.title == synthesised_title
@@ -230,7 +230,7 @@ class TestEvidenceValidationDrops:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         all_findings = [f for g in groups for f in g.findings]
         assert finding_b not in all_findings
@@ -281,7 +281,7 @@ class TestSeverityCalibration:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         merged_group = next(g for g in groups if len(g.findings) > 1)
         # Calibrated severity must appear in the body or as a dedicated field
@@ -322,7 +322,7 @@ class TestSeverityCalibration:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         standalone = next(g for g in groups if len(g.findings) == 1)
         assert "info" in standalone.body
@@ -380,7 +380,7 @@ class TestOutputCompatibility:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         for g in groups:
             assert g.title != ""
@@ -426,7 +426,7 @@ class TestAllSameRootCause:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         assert len(groups) == 1
         assert len(groups[0].findings) == 3
@@ -483,7 +483,7 @@ class TestNoSharedRootCause:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         assert len(groups) == 3
 
@@ -522,7 +522,7 @@ class TestAllFindingsDropped:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         assert groups == []
 
@@ -589,7 +589,7 @@ class TestSpeculativeEvidenceDropped:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         all_findings = [f for g in groups for f in g.findings]
         assert finding_a not in all_findings
@@ -640,7 +640,7 @@ class TestSeverityPreservedWhenNotMerged:
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         standalone = next(g for g in groups if len(g.findings) == 1)
         assert "minor" in standalone.body
@@ -674,7 +674,7 @@ class TestMalformedJsonFallback:
             ),
             caplog.at_level(logging.WARNING),
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         # Mechanical fallback: one group per finding
         assert len(groups) == 3
@@ -714,7 +714,7 @@ class TestAiBackendFailure:
             ),
             caplog.at_level(logging.WARNING),
         ):
-            groups = await consolidate_findings([finding_a, finding_b, finding_c])
+            groups = await consolidate_findings([finding_a, finding_b, finding_c])  # type: ignore[list-item]
 
         # Mechanical fallback: one group per finding
         assert len(groups) == 3

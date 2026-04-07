@@ -27,11 +27,11 @@ class TestConfidenceFiltering:
         from agent_fox.knowledge.filtering import select_relevant_facts
 
         facts = [
-            make_fact(id="f1", confidence="0.9", keywords=["test"], spec_name="s"),
-            make_fact(id="f2", confidence="0.7", keywords=["test"], spec_name="s"),
-            make_fact(id="f3", confidence="0.5", keywords=["test"], spec_name="s"),
-            make_fact(id="f4", confidence="0.3", keywords=["test"], spec_name="s"),
-            make_fact(id="f5", confidence="0.1", keywords=["test"], spec_name="s"),
+            make_fact(id="f1", confidence=0.9, keywords=["test"], spec_name="s"),
+            make_fact(id="f2", confidence=0.7, keywords=["test"], spec_name="s"),
+            make_fact(id="f3", confidence=0.5, keywords=["test"], spec_name="s"),
+            make_fact(id="f4", confidence=0.3, keywords=["test"], spec_name="s"),
+            make_fact(id="f5", confidence=0.1, keywords=["test"], spec_name="s"),
         ]
 
         result = select_relevant_facts(facts, "s", ["test"], confidence_threshold=0.5)
@@ -61,14 +61,14 @@ class TestConfidenceFiltering:
         # Low confidence fact with high keyword relevance
         low_conf_high_rel = make_fact(
             id="low_conf",
-            confidence="0.3",
+            confidence=0.3,
             keywords=["exact_match"],
             spec_name="other",
         )
         # High confidence fact with low keyword relevance
         high_conf_low_rel = make_fact(
             id="high_conf",
-            confidence="0.9",
+            confidence=0.9,
             keywords=["exact_match"],
             spec_name="other",
         )
@@ -89,8 +89,8 @@ class TestConfidenceFiltering:
         from agent_fox.knowledge.filtering import select_relevant_facts
 
         facts = [
-            make_fact(id="f1", confidence="0.4", keywords=["test"], spec_name="s"),
-            make_fact(id="f2", confidence="0.6", keywords=["test"], spec_name="s"),
+            make_fact(id="f1", confidence=0.4, keywords=["test"], spec_name="s"),
+            make_fact(id="f2", confidence=0.6, keywords=["test"], spec_name="s"),
         ]
 
         # Default threshold should be 0.5

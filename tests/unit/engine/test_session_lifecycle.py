@@ -88,6 +88,7 @@ class TestResolveSecurityConfig:
         """Skeptic has a default allowlist from the registry."""
         runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
+        assert runner._resolved_security.bash_allowlist is not None
         assert "ls" in runner._resolved_security.bash_allowlist
         assert "git" in runner._resolved_security.bash_allowlist
 
@@ -155,6 +156,7 @@ class TestExecuteErrorHandling:
             record = await runner.execute("spec:1", 1)
 
         assert record.status == "failed"
+        assert record.error_message is not None
         assert "worktree failed" in record.error_message
 
     @pytest.mark.asyncio
@@ -206,7 +208,7 @@ class TestExecuteErrorHandling:
             ),
             patch.object(runner, "_run_and_harvest", _fake_run_and_harvest),
             patch(
-                "agent_fox.engine.context_assembly.load_all_facts",
+                "agent_fox.engine.session_lifecycle.load_all_facts",
                 return_value=[],
             ),
         ):

@@ -8,6 +8,7 @@ Requirements: 32-REQ-7.1, 32-REQ-7.2, 32-REQ-7.3, 32-REQ-7.4,
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 
 import duckdb
 import pytest
@@ -35,7 +36,7 @@ def _create_drift_schema(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 @pytest.fixture
-def drift_conn() -> duckdb.DuckDBPyConnection:
+def drift_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with drift_findings table."""
     conn = duckdb.connect(":memory:")
     _create_drift_schema(conn)

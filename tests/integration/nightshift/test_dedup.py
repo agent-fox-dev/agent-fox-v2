@@ -108,7 +108,7 @@ class TestFilterKnownDuplicates:
 
         platform = _make_mock_platform(issues=[existing_issue])
 
-        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type]
+        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type, list-item]
 
         assert group_b in result
         assert group_a not in result
@@ -121,7 +121,7 @@ class TestFilterKnownDuplicates:
         group = _make_group(category="linter_debt", affected_files=["unique.py"])
         platform = _make_mock_platform(issues=[])
 
-        result = await filter_known_duplicates([group], platform)  # type: ignore[arg-type]
+        result = await filter_known_duplicates([group], platform)  # type: ignore[arg-type, list-item]
 
         assert group in result
 
@@ -167,7 +167,7 @@ class TestFilterKnownDuplicates:
         platform = _make_mock_platform(issues=[existing_issue])
 
         with caplog.at_level(logging.INFO):
-            result = await filter_known_duplicates([group], platform)  # type: ignore[arg-type]
+            result = await filter_known_duplicates([group], platform)  # type: ignore[arg-type, list-item]
 
         assert result == []
         log_text = caplog.text
@@ -198,7 +198,7 @@ class TestCreateIssuesWithLabel:
         mock_platform = AsyncMock()
         mock_platform.create_issue = AsyncMock(return_value=_make_issue_result(1))
 
-        await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type]
+        await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type, list-item]
 
         mock_platform.create_issue.assert_called_once()
         call_kwargs = mock_platform.create_issue.call_args
@@ -229,7 +229,7 @@ class TestCreateIssuesWithLabel:
         mock_platform = AsyncMock()
         mock_platform.create_issue = AsyncMock(return_value=_make_issue_result(1))
 
-        await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type]
+        await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type, list-item]
 
         call_kwargs = mock_platform.create_issue.call_args
         # body is the second positional argument
@@ -308,7 +308,7 @@ class TestDedupEdgeCases:
         platform = _make_mock_platform(list_issues_raises=IntegrationError("timeout"))
 
         with caplog.at_level(logging.WARNING):
-            result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type]
+            result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type, list-item]
 
         assert len(result) == 2
         assert group_a in result
@@ -342,7 +342,7 @@ class TestDedupEdgeCases:
         group_b = _make_group(category="dead_code", affected_files=["b.py"])
         platform = _make_mock_platform(issues=[])
 
-        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type]
+        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type, list-item]
 
         assert len(result) == 2
 
@@ -372,7 +372,7 @@ class TestDedupEdgeCases:
         ]
         platform = _make_mock_platform(issues=existing_issues)
 
-        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type]
+        result = await filter_known_duplicates([group_a, group_b], platform)  # type: ignore[arg-type, list-item]
 
         assert result == []
 
@@ -392,7 +392,7 @@ class TestDedupEdgeCases:
         mock_platform.create_issue = AsyncMock(return_value=_make_issue_result(1))
 
         # Issue creation should succeed regardless
-        result = await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type]
+        result = await create_issues_from_groups([group], mock_platform)  # type: ignore[arg-type, list-item]
 
         assert len(result) == 1
 
@@ -489,8 +489,8 @@ class TestHuntScanSmokeTests:
 
         # Verify fingerprints are embedded
         for issue in created_issues:
-            fp = extract_fingerprint(issue.body)  # type: ignore[arg-type]
-            assert fp is not None, f"Issue #{issue.number} body must contain fingerprint"
+            fp = extract_fingerprint(issue.body)  # type: ignore[arg-type, attr-defined]
+            assert fp is not None, f"Issue #{issue.number} body must contain fingerprint"  # type: ignore[attr-defined]
 
         # Configure platform to return the created issues for dedup check
         open_hunt_issues.extend(created_issues)

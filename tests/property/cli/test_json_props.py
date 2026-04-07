@@ -12,6 +12,7 @@ import io
 import json
 import os
 import subprocess
+from collections.abc import Generator
 from pathlib import Path
 from unittest.mock import patch
 
@@ -36,7 +37,7 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def tmp_project(tmp_path: Path) -> Path:
+def tmp_project(tmp_path: Path) -> Generator[Path, None, None]:
     """Create a minimal project directory with .agent-fox structure."""
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -157,7 +158,7 @@ class TestJsonExclusivity:
     ) -> None:
         """stdout is valid JSON for batch command '{cmd_name}'."""
         spec = _BATCH_COMMANDS_WITH_MOCKS[cmd_name]
-        with patch(spec["patch_target"]) as mock_fn:
+        with patch(spec["patch_target"]) as mock_fn:  # type: ignore[call-overload]
             mock_fn.return_value = spec["mock_return"]
             result = cli_runner.invoke(main, ["--json", cmd_name])
             data = json.loads(result.output)
@@ -228,7 +229,7 @@ class TestExitCodePreservation:
     ) -> None:
         """Exit code is identical with and without --json."""
         spec = _BATCH_COMMANDS_WITH_MOCKS[cmd_name]
-        with patch(spec["patch_target"]) as mock_fn:
+        with patch(spec["patch_target"]) as mock_fn:  # type: ignore[call-overload]
             mock_fn.return_value = spec["mock_return"]
             result_text = cli_runner.invoke(main, [cmd_name])
             result_json = cli_runner.invoke(main, ["--json", cmd_name])
@@ -256,7 +257,7 @@ class TestFlagPrecedence:
         stdin_val = cli_val + 1  # Always different from cli_val
 
         fake_stdin = io.StringIO(json.dumps({"top_k": stdin_val}))
-        fake_stdin.isatty = lambda: False  # type: ignore[attr-defined]
+        fake_stdin.isatty = lambda: False  # type: ignore[method-assign]
 
         with patch("sys.stdin", fake_stdin):
             stdin_data = read_stdin()

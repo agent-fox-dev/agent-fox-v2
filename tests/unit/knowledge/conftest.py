@@ -156,7 +156,7 @@ def knowledge_config(tmp_path: Path) -> KnowledgeConfig:
 
 
 @pytest.fixture
-def in_memory_conn() -> duckdb.DuckDBPyConnection:
+def in_memory_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """An in-memory DuckDB connection for isolated unit tests."""
     conn = duckdb.connect(":memory:")
     yield conn  # type: ignore[misc]

@@ -201,17 +201,22 @@ class TestFixSessionActivityDisplay:
         activity_events: list[ActivityEvent] = []
         task_events: list[TaskEvent] = []
 
-        triage_response = json.dumps({
-            "summary": "s", "affected_files": [],
-            "acceptance_criteria": [
-                {"id": "AC-1", "description": "d", "preconditions": "p",
-                 "expected": "e", "assertion": "a"},
-            ],
-        })
-        review_response = json.dumps({
-            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
-            "overall_verdict": "PASS", "summary": "ok",
-        })
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
 
         # Simulate run_session emitting ActivityEvents
         async def fake_run_session(**kwargs):
@@ -240,8 +245,10 @@ class TestFixSessionActivityDisplay:
                     )
                 )
             mock_outcome = MagicMock(
-                input_tokens=100, output_tokens=50,
-                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+                input_tokens=100,
+                output_tokens=50,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
             )
             if "triage" in str(node_id):
                 mock_outcome.response = triage_response

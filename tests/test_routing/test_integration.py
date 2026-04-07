@@ -48,7 +48,7 @@ def _make_assessment(**overrides) -> ComplexityAssessment:
         "created_at": datetime.now(UTC),
     }
     defaults.update(overrides)
-    return ComplexityAssessment(**defaults)
+    return ComplexityAssessment(**defaults)  # type: ignore[arg-type]
 
 
 class TestCostInCircuitBreaker:
@@ -263,8 +263,8 @@ class TestP4PersistenceCompleteness:
             )
             persist_outcome(routing_db, outcome)
 
-        assessment_count = routing_db.execute("SELECT COUNT(*) FROM complexity_assessments").fetchone()[0]
-        outcome_count = routing_db.execute("SELECT COUNT(*) FROM execution_outcomes").fetchone()[0]
+        assessment_count = routing_db.execute("SELECT COUNT(*) FROM complexity_assessments").fetchone()[0]  # type: ignore[index]
+        outcome_count = routing_db.execute("SELECT COUNT(*) FROM execution_outcomes").fetchone()[0]  # type: ignore[index]
         assert assessment_count == n
         assert outcome_count == n
 
@@ -273,7 +273,7 @@ class TestP4PersistenceCompleteness:
             SELECT COUNT(*) FROM execution_outcomes o
             LEFT JOIN complexity_assessments a ON o.assessment_id = a.id
             WHERE a.id IS NULL
-        """).fetchone()[0]
+        """).fetchone()[0]  # type: ignore[index]
         assert orphans == 0
 
 

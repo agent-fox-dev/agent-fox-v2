@@ -122,8 +122,12 @@ class TestStatePersistence:
     def test_record_session_updates_totals(
         self,
         tmp_state_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """record_session() updates cumulative token/cost/session totals."""
+        monkeypatch.setattr(
+            "agent_fox.core.token_tracker.flush_auxiliary_usage", lambda: []
+        )
         manager = StateManager(tmp_state_path)
         state = _make_execution_state()
 

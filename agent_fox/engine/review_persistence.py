@@ -40,6 +40,88 @@ _STRATEGY_INITIAL = "bracket_scan"
 _STRATEGY_RETRY = "retry"
 
 
+def _emit_persistence_event(
+    sink: SinkDispatcher | SessionSink | None,
+    run_id: str,
+    archetype: str,
+    node_id: str,
+    spec_name: str,
+    task_group: str,
+    records: list[Any],
+    count: int,
+) -> None:
+    """Emit the appropriate persistence audit event after successful insertion.
+
+    Logs a warning and continues if emission fails (84-REQ-2.E1).
+
+    Requirements: 84-REQ-2.1, 84-REQ-2.2, 84-REQ-2.3, 84-REQ-2.E1
+    """
+    try:
+        if archetype == "skeptic":
+            severity_summary: dict[str, int] = {}
+            for r in records:
+                sev = r.severity
+                severity_summary[sev] = severity_summary.get(sev, 0) + 1
+            emit_audit_event(
+                sink,
+                run_id,
+                AuditEventType.REVIEW_FINDINGS_PERSISTED,
+                node_id=node_id,
+                archetype=archetype,
+                payload={
+                    "archetype": archetype,
+                    "count": count,
+                    "severity_summary": severity_summary,
+                    "spec_name": spec_name,
+                    "task_group": task_group,
+                },
+            )
+        elif archetype == "verifier":
+            pass_count = sum(1 for r in records if r.verdict == "PASS")
+            fail_count = sum(1 for r in records if r.verdict == "FAIL")
+            emit_audit_event(
+                sink,
+                run_id,
+                AuditEventType.REVIEW_VERDICTS_PERSISTED,
+                node_id=node_id,
+                archetype=archetype,
+                payload={
+                    "archetype": archetype,
+                    "count": count,
+                    "pass_count": pass_count,
+                    "fail_count": fail_count,
+                    "spec_name": spec_name,
+                    "task_group": task_group,
+                },
+            )
+        elif archetype == "oracle":
+            severity_summary = {}
+            for r in records:
+                sev = r.severity
+                severity_summary[sev] = severity_summary.get(sev, 0) + 1
+            emit_audit_event(
+                sink,
+                run_id,
+                AuditEventType.REVIEW_DRIFT_PERSISTED,
+                node_id=node_id,
+                archetype=archetype,
+                payload={
+                    "archetype": archetype,
+                    "count": count,
+                    "severity_summary": severity_summary,
+                    "spec_name": spec_name,
+                    "task_group": task_group,
+                },
+            )
+    except Exception:
+        logger.warning(
+            "Failed to emit persistence audit event for %s %s",
+            archetype,
+            node_id,
+            exc_info=True,
+        )
+
+
 def record_session_to_sink(
     sink: SinkDispatcher | SessionSink | None,
     outcome: SessionOutcome,
@@ -152,15 +234,15 @@ def persist_review_findings(
                         payload={"archetype": archetype},
                     )
 
-            from agent_fox.engine.review_parser import (
-                parse_drift_findings,
-                parse_review_findings,
-                parse_verification_results,
-            )
             from agent_fox.knowledge.review_store import (
                 insert_drift_findings,
                 insert_findings,
                 insert_verdicts,
+            )
+            from agent_fox.session.review_parser import (
+                parse_drift_findings,
+                parse_review_findings,
+                parse_verification_results,
             )
 
             # Dispatch table: archetype -> (parser, inserter, label)
@@ -186,6 +268,7 @@ def persist_review_findings(
             if records:
                 count = inserter(knowledge_db_conn, records)
                 logger.info("Persisted %d %s for %s", count, label, node_id)
+                _emit_persistence_event(sink, run_id, archetype, node_id, spec_name, tg, records, count)
             else:
                 emit_audit_event(
                     sink,

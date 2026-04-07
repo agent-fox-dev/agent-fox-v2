@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -57,7 +58,7 @@ def _insert_fact(conn: duckdb.DuckDBPyConnection, fact: dict) -> None:
 
 
 @pytest.fixture
-def knowledge_conn() -> duckdb.DuckDBPyConnection:
+def knowledge_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB connection with schema applied."""
     conn = duckdb.connect(":memory:")
     create_schema(conn)

@@ -79,9 +79,8 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
                 from agent_fox.routing.duration import get_duration_hint
 
                 for nid in graph.nodes:
-                    hint = get_duration_hint(conn, nid)
-                    if hint is not None:
-                        duration_hints[nid] = hint
+                    hint = get_duration_hint(conn, nid, spec_name="", archetype="", tier="")
+                    duration_hints[nid] = hint.predicted_ms
             except Exception:
                 logger.debug("Could not load duration hints", exc_info=True)
             finally:

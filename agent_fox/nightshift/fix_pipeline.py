@@ -375,7 +375,7 @@ class FixPipeline:
         if triage.criteria or triage.summary:
             comment = self._format_triage_comment(triage)
             try:
-                await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, comment
                 )
             except Exception as exc:
@@ -409,10 +409,14 @@ class FixPipeline:
         from agent_fox.session.review_parser import parse_fix_review_output
 
         retries_before = getattr(
-            self._config.orchestrator, "retries_before_escalation", 1  # type: ignore[union-attr]
+            self._config.orchestrator,  # type: ignore[attr-defined]
+            "retries_before_escalation",
+            1,
         )
         max_retries = getattr(
-            self._config.orchestrator, "max_retries", 3  # type: ignore[union-attr]
+            self._config.orchestrator,  # type: ignore[attr-defined]
+            "max_retries",
+            3,
         )
 
         ladder = EscalationLadder(
@@ -430,16 +434,12 @@ class FixPipeline:
             model_id: str | None = model_entry.model_id
 
             # Build and run coder session
-            system_prompt, task_prompt = self._build_coder_prompt(
-                spec, triage, review_feedback=review_feedback
-            )
+            system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
 
             node_id = f"fix-issue-{spec.issue_number}:0:coder"
             t0 = time.monotonic()
             try:
-                coder_outcome = await self._run_coder_session(
-                    spec, system_prompt, task_prompt, model_id=model_id
-                )
+                coder_outcome = await self._run_coder_session(spec, system_prompt, task_prompt, model_id=model_id)
                 self._accumulate_metrics(metrics, coder_outcome)
                 duration = time.monotonic() - t0
                 if self._task_callback is not None:
@@ -465,9 +465,7 @@ class FixPipeline:
                 raise
 
             # Build and run reviewer session
-            reviewer_system, reviewer_task = self._build_reviewer_prompt(
-                spec, triage
-            )
+            reviewer_system, reviewer_task = self._build_reviewer_prompt(spec, triage)
 
             reviewer_node_id = f"fix-issue-{spec.issue_number}:0:fix_reviewer"
             t0 = time.monotonic()
@@ -513,7 +511,7 @@ class FixPipeline:
             # Post review comment
             review_comment = self._format_review_comment(review_result)
             try:
-                await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, review_comment
                 )
             except Exception as exc:
@@ -533,7 +531,7 @@ class FixPipeline:
             if ladder.is_exhausted or _attempt >= max_retries:
                 # Post failure comment and stop
                 try:
-                    await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                    await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                         spec.issue_number,
                         "Fix pipeline exhausted all retries. "
                         "The issue could not be resolved automatically. "
@@ -574,7 +572,7 @@ class FixPipeline:
 
         # 61-REQ-6.E2: reject empty issue body
         if not issue_body or not issue_body.strip():
-            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
                 "Insufficient detail in issue body to build a fix. "
                 "Please add more detail describing the problem and expected behavior.",
@@ -588,7 +586,7 @@ class FixPipeline:
 
         # Post progress comment
         try:
-            await self._platform.add_issue_comment(  # type: ignore[union-attr]
+            await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
                 f"Starting fix session on branch `{spec.branch_name}`...",
             )
@@ -626,7 +624,7 @@ class FixPipeline:
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
             try:
-                await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
                     f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}`",
                 )
@@ -650,7 +648,7 @@ class FixPipeline:
         # Harvest fix branch into develop and push to origin (65-REQ-3.2).
         if not await self._harvest_and_push(spec):
             try:
-                await self._platform.add_issue_comment(  # type: ignore[union-attr]
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
                     f"Fix sessions completed but failed to merge branch "
                     f"`{spec.branch_name}` into `develop`. "
@@ -666,7 +664,7 @@ class FixPipeline:
 
         # Close the originating issue with a comment pointing to the branch.
         try:
-            await self._platform.close_issue(  # type: ignore[union-attr]
+            await self._platform.close_issue(  # type: ignore[attr-defined]
                 issue.number,
                 f"Fix complete on branch `{spec.branch_name}`. "
                 "Changes have been merged into `develop`. "

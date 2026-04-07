@@ -184,12 +184,12 @@ class QualityGateCategory(BaseHuntCategory):
                 backend = create_async_anthropic_client()
 
             prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
-            response = await backend.messages.create(
+            response = await backend.messages.create(  # type: ignore[attr-defined]
                 model="claude-opus-4-5",
                 max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
             )
-            response_text = response.content[0].text
+            response_text = response.content[0].text  # type: ignore[attr-defined]
 
             items = extract_json_array(response_text)
             if items is None:

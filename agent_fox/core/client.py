@@ -248,7 +248,7 @@ def _check_vertex_deps() -> None:
 def _check_bedrock_deps() -> None:
     """Fail fast if the Bedrock extras are missing."""
     try:
-        import boto3  # noqa: F401
+        import boto3  # type: ignore[import-untyped]  # noqa: F401
     except ModuleNotFoundError:
         raise RuntimeError(
             "CLAUDE_CODE_USE_BEDROCK=1 is set but boto3 is not installed. Run: pip install 'anthropic[bedrock]'"

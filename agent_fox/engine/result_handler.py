@@ -47,6 +47,49 @@ class BlockDecision:
     reason: str = ""
 
 
+def _format_block_reason(
+    archetype: str,
+    findings: list[Any],
+    threshold: int,
+    spec_name: str,
+    task_group: str,
+) -> str:
+    """Format an enriched blocking reason string with finding IDs and descriptions.
+
+    Includes the count of critical findings, up to 3 finding IDs as `F-<8hex>`
+    short prefixes, truncated descriptions (max 60 chars each), and "and N more"
+    when there are more than 3 critical findings.
+
+    Requirements: 84-REQ-3.1, 84-REQ-3.E1
+    """
+    critical_findings = [f for f in findings if f.severity.lower() == "critical"]
+    n = len(critical_findings)
+
+    header = (
+        f"{archetype.capitalize()} found {n} critical finding(s) (threshold: {threshold}) for {spec_name}:{task_group}"
+    )
+
+    if n == 0:
+        return header
+
+    shown = critical_findings[:3]
+    parts = []
+    for finding in shown:
+        # Build F-<8hex> short ID from the UUID
+        raw_id = finding.id.replace("-", "")[:8]
+        short_id = f"F-{raw_id}"
+        desc = finding.description[:60]
+        if len(finding.description) > 60:
+            desc += "…"
+        parts.append(f"{short_id}: {desc}")
+
+    detail = ", ".join(parts)
+    if n > 3:
+        detail += f", and {n - 3} more"
+
+    return f"{header} — {detail}"
+
+
 def evaluate_review_blocking(
     record: SessionRecord,
     archetypes_config: ArchetypesConfig | None,
@@ -86,10 +129,11 @@ def evaluate_review_blocking(
         if archetype == "skeptic" and archetypes_config is not None:
             configured_threshold = archetypes_config.skeptic_config.block_threshold
         elif archetype == "oracle" and archetypes_config is not None:
-            configured_threshold = archetypes_config.oracle_settings.block_threshold
-            if configured_threshold is None:
+            oracle_threshold = archetypes_config.oracle_settings.block_threshold
+            if oracle_threshold is None:
                 # Oracle is advisory-only when block_threshold is None
                 return BlockDecision(should_block=False)
+            configured_threshold = oracle_threshold
         else:
             # No config available, use conservative default
             configured_threshold = 3
@@ -131,10 +175,12 @@ def evaluate_review_blocking(
             )
 
         if blocked:
-            reason = (
-                f"{archetype.capitalize()} found {critical_count} critical "
-                f"finding(s) (threshold: {effective_threshold}) for "
-                f"{spec_name}:{task_group}"
+            reason = _format_block_reason(
+                archetype,
+                findings,
+                effective_threshold,
+                spec_name,
+                task_group,
             )
             logger.warning(
                 "%s blocking %s: %s",

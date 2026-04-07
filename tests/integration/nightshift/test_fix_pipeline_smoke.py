@@ -105,24 +105,18 @@ class TestFullPipelineHappyPath:
             if archetype == "triage":
                 return _make_outcome(_triage_json(2))
             if archetype == "fix_reviewer":
-                return _make_outcome(
-                    _review_json("PASS", ["AC-1", "AC-2"])
-                )
+                return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
             return _make_outcome()  # coder
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
-        metrics = await pipeline.process_issue(
-            _make_issue(), issue_body="bug description"
-        )
+        metrics = await pipeline.process_issue(_make_issue(), issue_body="bug description")
 
         # Verify comment posting (real parsing, not mocked)
         assert mock_platform.add_issue_comment.call_count >= 3
 
         # Verify triage comment contains criteria
-        comments = [
-            str(call) for call in mock_platform.add_issue_comment.call_args_list
-        ]
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("AC-1" in c and "AC-2" in c for c in comments)
 
         # Verify review comment contains PASS
@@ -169,15 +163,11 @@ class TestRetryLoopWithEscalation:
             if archetype == "fix_reviewer":
                 reviewer_call_count["n"] += 1
                 if reviewer_call_count["n"] < 3:
-                    return _make_outcome(
-                        _review_json("FAIL", ["AC-1", "AC-2"])
-                    )
-                return _make_outcome(
-                    _review_json("PASS", ["AC-1", "AC-2"])
-                )
+                    return _make_outcome(_review_json("FAIL", ["AC-1", "AC-2"]))
+                return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
             return _make_outcome()
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
         # Capture model IDs
         original_run_coder = pipeline._run_coder_session
@@ -189,15 +179,11 @@ class TestRetryLoopWithEscalation:
             model_id: str | None = None,
         ) -> MagicMock:
             model_ids_used.append(model_id)
-            return await original_run_coder(
-                spec, system_prompt, task_prompt, model_id
-            )
+            return await original_run_coder(spec, system_prompt, task_prompt, model_id)  # type: ignore[return-value, arg-type]
 
-        pipeline._run_coder_session = capturing_coder  # type: ignore[method-assign]
+        pipeline._run_coder_session = capturing_coder  # type: ignore[assignment]
 
-        metrics = await pipeline.process_issue(
-            _make_issue(), issue_body="hard bug"
-        )
+        metrics = await pipeline.process_issue(_make_issue(), issue_body="hard bug")
 
         # 1 triage + 3 coder + 3 reviewer = 7 sessions
         assert metrics.sessions_run == 7
@@ -253,11 +239,9 @@ class TestTriageFailureFallback:
                 )
             return _make_outcome()
 
-        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
 
-        metrics = await pipeline.process_issue(
-            _make_issue(), issue_body="simple bug"
-        )
+        metrics = await pipeline.process_issue(_make_issue(), issue_body="simple bug")
 
         # Triage was attempted but failed
         assert triage_attempted["value"]

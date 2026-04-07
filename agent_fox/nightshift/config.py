@@ -1,6 +1,8 @@
 """Night Shift configuration models.
 
-Requirements: 61-REQ-9.1, 61-REQ-9.2, 61-REQ-9.E1
+Requirements: 61-REQ-9.1, 61-REQ-9.2, 61-REQ-9.E1,
+              85-REQ-9.1, 85-REQ-9.E1, 85-REQ-9.E2,
+              86-REQ-9.1, 86-REQ-9.2, 86-REQ-9.3, 86-REQ-9.E1
 """
 
 from __future__ import annotations
@@ -56,6 +58,96 @@ class NightShiftConfig(BaseModel):
         default=600,
         description="Per-check timeout in seconds (minimum 60)",
     )
+
+    # --- New fields for daemon framework (spec 85) ---
+
+    spec_interval: int = Field(
+        default=60,
+        description="Seconds between spec executor cycles (minimum 10)",
+    )
+    spec_gen_interval: int = Field(
+        default=300,
+        description="Seconds between spec generator cycles (minimum 60)",
+    )
+    enabled_streams: list[str] = Field(
+        default=["specs", "fixes", "hunts", "spec_gen"],
+        description="List of enabled work stream config names",
+    )
+    merge_strategy: str = Field(
+        default="direct",
+        description="Merge strategy: 'direct' or 'pr'",
+    )
+
+    # --- New fields for spec generator (spec 86) ---
+
+    max_clarification_rounds: int = Field(
+        default=3,
+        description="Max clarification rounds before escalation (min 1)",
+    )
+    max_budget_usd: float = Field(
+        default=2.0,
+        description="Per-spec generation cost cap in USD (0 = unlimited)",
+    )
+    spec_gen_model_tier: str = Field(
+        default="ADVANCED",
+        description="Model tier for spec generation (SIMPLE/STANDARD/ADVANCED)",
+    )
+
+    @field_validator("max_clarification_rounds")
+    @classmethod
+    def clamp_max_clarification_rounds(cls, v: int) -> int:
+        """Clamp max_clarification_rounds to a minimum of 1.
+
+        Requirements: 86-REQ-9.E1
+        """
+        if v < 1:
+            logger.warning(
+                "Config field 'max_clarification_rounds' value %d below minimum, clamped to 1",
+                v,
+            )
+            return 1
+        return v
+
+    @field_validator("spec_interval")
+    @classmethod
+    def clamp_spec_interval(cls, v: int) -> int:
+        """Clamp spec_interval to a minimum of 10 seconds.
+
+        Requirements: 85-REQ-9.E1
+        """
+        if v < 10:
+            logger.warning(
+                "Config field 'spec_interval' value %d below minimum, clamped to 10",
+                v,
+            )
+            return 10
+        return v
+
+    @field_validator("spec_gen_interval")
+    @classmethod
+    def clamp_spec_gen_interval(cls, v: int) -> int:
+        """Clamp spec_gen_interval to a minimum of 60 seconds.
+
+        Requirements: 85-REQ-9.1
+        """
+        if v < 60:
+            logger.warning(
+                "Config field 'spec_gen_interval' value %d below minimum, clamped to 60",
+                v,
+            )
+            return 60
+        return v
+
+    @field_validator("enabled_streams")
+    @classmethod
+    def default_empty_enabled_streams(cls, v: list[str]) -> list[str]:
+        """Treat empty enabled_streams as all streams enabled.
+
+        Requirements: 85-REQ-9.E2
+        """
+        if not v:
+            return ["specs", "fixes", "hunts", "spec_gen"]
+        return v
 
     @field_validator("issue_check_interval", "hunt_scan_interval")
     @classmethod

@@ -157,7 +157,7 @@ class TestPredecessorReset:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             1,
             state,
@@ -230,7 +230,7 @@ class TestRetryCycleLimit:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             3,
             state,
@@ -293,7 +293,7 @@ class TestNonCoderPredecessor:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             1,
             state,

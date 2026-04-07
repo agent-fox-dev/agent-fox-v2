@@ -202,7 +202,7 @@ class TestCausalLinkIdempotent:
         count = conn.execute(
             "SELECT COUNT(*) FROM fact_causes WHERE cause_id = ?::UUID AND effect_id = ?::UUID",
             [fact_a.id, fact_b.id],
-        ).fetchone()[0]
+        ).fetchone()[0]  # type: ignore[index]
         assert count == 1
 
 
@@ -228,7 +228,7 @@ class TestMissingFactLinkSkipped:
         stored = store_causal_links(conn, [(existing_fact.id, nonexistent_id)])
         assert stored == 0
 
-        count = conn.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM fact_causes").fetchone()[0]  # type: ignore[index]
         assert count == 0
 
     def test_link_with_both_nonexistent_skipped(self, knowledge_db: KnowledgeDB) -> None:

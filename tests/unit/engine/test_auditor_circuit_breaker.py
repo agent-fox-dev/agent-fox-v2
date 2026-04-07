@@ -154,7 +154,7 @@ class TestRetryOnFail:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             1,
             state,
@@ -212,7 +212,7 @@ class TestAuditorReruns:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             1,
             state,
@@ -278,7 +278,7 @@ class TestCircuitBreakerBlocks:
         )
 
         with caplog.at_level(logging.WARNING):
-            orch._result_handler.process(
+            orch._result_handler.process(  # type: ignore[union-attr]
                 failed_record,
                 3,
                 state,
@@ -361,7 +361,7 @@ class TestMaxRetriesZeroBlocks:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             failed_record,
             1,
             state,
@@ -417,7 +417,7 @@ class TestPassNoRetry:
             timestamp="2024-01-01T00:00:00Z",
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             pass_record,
             1,
             state,
@@ -492,7 +492,7 @@ class TestPropertyCircuitBreakerBound:
                 timestamp="2024-01-01T00:00:00Z",
             )
 
-            orch._result_handler.process(
+            orch._result_handler.process(  # type: ignore[union-attr]
                 failed_record,
                 attempt,
                 state,

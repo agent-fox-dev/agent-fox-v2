@@ -345,7 +345,7 @@ class TestTrainDurationModel:
 
         Requirement: 41-REQ-4.1
         """
-        from sklearn.linear_model import LinearRegression
+        from sklearn.linear_model import LinearRegression  # type: ignore[import-untyped]
 
         from agent_fox.routing.duration import train_duration_model
 

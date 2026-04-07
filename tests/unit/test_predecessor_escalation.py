@@ -166,7 +166,7 @@ class TestReviewerFailureRecordsOnPredLadder:
         orch._routing.ladders["spec:1"] = pred_ladder
         initial_count = pred_ladder.attempt_count  # = 1 before any failures
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(),
             1,
             state,
@@ -206,7 +206,7 @@ class TestPredecessorResetToPending:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(),
             1,
             state,
@@ -253,7 +253,7 @@ class TestPredecessorEscalatesAfterRetries:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still STANDARD
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -267,7 +267,7 @@ class TestPredecessorEscalatesAfterRetries:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — escalates to ADVANCED
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=2),
             2,
             state,
@@ -308,7 +308,7 @@ class TestPredecessorBlocksOnExhaustion:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still retrying
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -322,7 +322,7 @@ class TestPredecessorBlocksOnExhaustion:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — exhausts the ladder
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=2),
             2,
             state,
@@ -364,7 +364,7 @@ class TestOutcomeRecordedOnBlock:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         with patch.object(orch._result_handler, "record_node_outcome") as mock_record:
-            orch._result_handler.process(
+            orch._result_handler.process(  # type: ignore[union-attr]
                 _make_failed_reviewer_record(attempt=1),
                 1,
                 state,
@@ -403,7 +403,7 @@ class TestNeitherNodeResetWhenBlocked:
         )
         orch._routing.ladders["spec:1"] = pred_ladder
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -461,7 +461,7 @@ class TestMultipleReviewersShareLadder:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # 1st failure (verifier)
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record("spec:2", 1),
             1,
             state,
@@ -475,7 +475,7 @@ class TestMultipleReviewersShareLadder:
         state.node_states["spec:1:auditor"] = "in_progress"
 
         # 2nd failure (auditor)
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
             1,
             state,
@@ -489,7 +489,7 @@ class TestMultipleReviewersShareLadder:
         state.node_states["spec:2"] = "in_progress"
 
         # 3rd failure (verifier again) — triggers escalation
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record("spec:2", 2),
             2,
             state,
@@ -548,7 +548,7 @@ class TestCumulativeEscalationDecision:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # 1st failure (verifier): still at STANDARD
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record("spec:2", 1),
             1,
             state,
@@ -562,7 +562,7 @@ class TestCumulativeEscalationDecision:
         state.node_states["spec:1:auditor"] = "in_progress"
 
         # 2nd failure (auditor): cumulative count triggers escalation to ADVANCED
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
             1,
             state,
@@ -595,7 +595,7 @@ class TestNoLadderCreatedDefensively:
         # Confirm no predecessor ladder exists before the call
         assert "spec:1" not in orch._routing.ladders
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(),
             1,
             state,
@@ -619,7 +619,7 @@ class TestNoLadderCreatedDefensively:
             CODER_VERIFIER_NODES, CODER_VERIFIER_EDGES, node_states
         )
 
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(),
             1,
             state,
@@ -666,7 +666,7 @@ class TestAdvancedCeilingBlocks:
         orch._routing.ladders["spec:1"] = pred_ladder
 
         # First failure — still retrying
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=1),
             1,
             state,
@@ -680,7 +680,7 @@ class TestAdvancedCeilingBlocks:
         state.node_states["spec:2"] = "in_progress"
 
         # Second failure — no tier to escalate to, ladder exhausted
-        orch._result_handler.process(
+        orch._result_handler.process(  # type: ignore[union-attr]
             _make_failed_reviewer_record(attempt=2),
             2,
             state,

@@ -311,7 +311,7 @@ class TestCategoryIsolation:
             mock_cats.append(mock)
 
         registry = HuntCategoryRegistry()
-        registry._categories = mock_cats
+        registry._categories = mock_cats  # type: ignore[assignment]
 
         scanner = HuntScanner(registry, config)
 
@@ -346,6 +346,10 @@ class TestPlatformProtocolSubstitutability:
         mock_platform.add_issue_comment = AsyncMock()
         mock_platform.assign_label = AsyncMock()
         mock_platform.close_issue = AsyncMock()
+        mock_platform.create_pull_request = AsyncMock()
+        mock_platform.remove_label = AsyncMock()
+        mock_platform.list_issue_comments = AsyncMock(return_value=[])
+        mock_platform.get_issue = AsyncMock()
         mock_platform.close = AsyncMock()
 
         assert isinstance(mock_platform, PlatformProtocol)
