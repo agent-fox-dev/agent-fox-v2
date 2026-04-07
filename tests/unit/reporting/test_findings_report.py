@@ -37,7 +37,14 @@ def _insert_test_findings(
     severities: list[str] | None = None,
     supersede: bool = False,
 ) -> list[ReviewFinding]:
-    """Insert test findings and optionally mark as superseded."""
+    """Insert test findings and optionally mark as superseded.
+
+    When ``supersede=True``, findings are inserted directly via SQL with
+    ``superseded_by`` pre-set, bypassing ``insert_findings``'s automatic
+    supersession of previous active records for the same (spec_name,
+    task_group). This ensures that already-active findings from a prior call
+    are not unintentionally superseded by this helper.
+    """
     if severities is None:
         severities = ["critical", "major"]
 
@@ -53,14 +60,28 @@ def _insert_test_findings(
         )
         for sev in severities
     ]
-    insert_findings(conn, findings)
 
     if supersede:
+        # Insert directly, bypassing auto-supersession, so that a previous
+        # active batch is not superseded as a side effect.
         for f in findings:
             conn.execute(
-                "UPDATE review_findings SET superseded_by = 'superseded' WHERE id = ?::UUID",
-                [f.id],
+                "INSERT INTO review_findings "
+                "(id, severity, description, requirement_ref, spec_name, "
+                " task_group, session_id, superseded_by, created_at) "
+                "VALUES (?::UUID, ?, ?, ?, ?, ?, ?, 'superseded', CURRENT_TIMESTAMP)",
+                [
+                    f.id,
+                    f.severity,
+                    f.description,
+                    f.requirement_ref,
+                    f.spec_name,
+                    f.task_group,
+                    f.session_id,
+                ],
             )
+    else:
+        insert_findings(conn, findings)
 
     return findings
 

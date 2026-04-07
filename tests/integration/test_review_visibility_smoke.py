@@ -201,6 +201,12 @@ class TestEnrichedBlockingReasonE2E:
             archetype="skeptic",
             attempt=1,
             status="completed",
+            input_tokens=100,
+            output_tokens=50,
+            cost=0.01,
+            duration_ms=1000,
+            error_message=None,
+            timestamp="2026-04-07T00:00:00Z",
         )
 
         config = MagicMock()

@@ -125,8 +125,8 @@ introspection), (5) wiring verification.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 84-REQ-3.1, 3.2, 3.E1 met
 
-- [ ] 4. CLI findings command and status summary
-  - [ ] 4.1 Create `reporting/findings.py` module
+- [x] 4. CLI findings command and status summary
+  - [x] 4.1 Create `reporting/findings.py` module
     - Define `FindingRow` and `FindingsSummary` dataclasses
     - Implement `query_findings()` with spec, severity, archetype, run_id,
       active_only filters
@@ -136,7 +136,7 @@ introspection), (5) wiring verification.
     - _Requirements: 84-REQ-4.1, 84-REQ-4.2, 84-REQ-4.3, 84-REQ-4.4,
       84-REQ-4.5, 84-REQ-4.6_
 
-  - [ ] 4.2 Create `cli/findings.py` command
+  - [x] 4.2 Create `cli/findings.py` command
     - Define `findings_cmd` with Click options: `--spec`, `--severity`,
       `--archetype`, `--run`, `--json`
     - Open read-only DuckDB connection (handle missing DB: 84-REQ-4.E1)
@@ -144,11 +144,11 @@ introspection), (5) wiring verification.
     - Output via `format_findings_table()`
     - _Requirements: 84-REQ-4.1 through 84-REQ-4.6, 84-REQ-4.E1, 84-REQ-4.E2_
 
-  - [ ] 4.3 Register command in `cli/app.py`
+  - [x] 4.3 Register command in `cli/app.py`
     - Import `findings_cmd` and add `main.add_command(findings_cmd, name="findings")`
     - _Requirements: 84-REQ-4.1_
 
-  - [ ] 4.4 Add findings summary to status report
+  - [x] 4.4 Add findings summary to status report
     - Add `findings_summary: list[FindingsSummary]` field to `StatusReport`
       in `reporting/status.py`
     - Call `query_findings_summary()` in `generate_status()` when DB
@@ -157,13 +157,13 @@ introspection), (5) wiring verification.
     - Render "Review Findings" section in status output when non-empty
     - _Requirements: 84-REQ-5.1, 84-REQ-5.2, 84-REQ-5.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] CLI tests pass: `uv run pytest -q tests/unit/cli/test_findings_cmd.py`
-    - [ ] Reporting tests pass: `uv run pytest -q tests/unit/reporting/test_findings_report.py`
-    - [ ] Property tests TS-84-P4, TS-84-P5, TS-84-P6 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 84-REQ-4.*, 84-REQ-5.* met
+  - [x] 4.V Verify task group 4
+    - [x] CLI tests pass: `uv run pytest -q tests/unit/cli/test_findings_cmd.py`
+    - [x] Reporting tests pass: `uv run pytest -q tests/unit/reporting/test_findings_report.py`
+    - [x] Property tests TS-84-P4, TS-84-P5, TS-84-P6 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 84-REQ-4.*, 84-REQ-5.* met
 
 - [ ] 5. Wiring verification
 
