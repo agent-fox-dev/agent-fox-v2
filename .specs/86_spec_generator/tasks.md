@@ -69,39 +69,39 @@ generation pipeline.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Platform extensions: remove_label, list_issue_comments, get_issue
-  - [ ] 2.1 Add `IssueComment` dataclass to `platform/github.py`
+- [x] 2. Platform extensions: remove_label, list_issue_comments, get_issue
+  - [x] 2.1 Add `IssueComment` dataclass to `platform/github.py`
     - Frozen dataclass with fields: `id: int`, `body: str`, `user: str`, `created_at: str`
     - _Requirements: 86-REQ-1.3_
 
-  - [ ] 2.2 Implement `GitHubPlatform.remove_label()`
+  - [x] 2.2 Implement `GitHubPlatform.remove_label()`
     - DELETE to `/repos/{owner}/{repo}/issues/{issue_number}/labels/{label}`
     - URL-encode the label name (colons in `af:spec`)
     - 204: success. 404: succeed silently (idempotent). Other errors: raise `IntegrationError`
     - _Requirements: 86-REQ-1.1, 86-REQ-1.2, 86-REQ-1.E1_
 
-  - [ ] 2.3 Implement `GitHubPlatform.list_issue_comments()`
+  - [x] 2.3 Implement `GitHubPlatform.list_issue_comments()`
     - GET `/repos/{owner}/{repo}/issues/{issue_number}/comments`
     - Parse response into `list[IssueComment]` (chronological by default from API)
     - Return empty list for no comments. Raise `IntegrationError` on API error
     - _Requirements: 86-REQ-1.3, 86-REQ-1.E2_
 
-  - [ ] 2.4 Implement `GitHubPlatform.get_issue()`
+  - [x] 2.4 Implement `GitHubPlatform.get_issue()`
     - GET `/repos/{owner}/{repo}/issues/{issue_number}`
     - Parse into `IssueResult`. Raise `IntegrationError` on 404 or other error
     - _Requirements: 86-REQ-1.4, 86-REQ-1.E3_
 
-  - [ ] 2.5 Extend `PlatformProtocol` with new method signatures
+  - [x] 2.5 Extend `PlatformProtocol` with new method signatures
     - Add `remove_label`, `list_issue_comments`, `get_issue` to protocol
     - Verify `isinstance(GitHubPlatform(...), PlatformProtocol)` still passes
     - _Requirements: 86-REQ-1.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/platform/test_platform_extensions.py -k "TS_86_1 or TS_86_2 or TS_86_3 or TS_86_4 or TS_86_5 or E1 or E2 or E3"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P5"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 86-REQ-1.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/platform/test_platform_extensions.py -k "TS_86_1 or TS_86_2 or TS_86_3 or TS_86_4 or TS_86_5 or E1 or E2 or E3"`
+    - [-] Property tests pass: `uv run pytest -q tests/property/test_spec_gen_props.py -k "P5"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 86-REQ-1.* met
 
 - [ ] 3. Config extensions, state machine helpers, and utility functions
   - [ ] 3.1 Add new fields to `NightShiftConfig`

@@ -3,21 +3,21 @@
 Defines the interface for platform implementations (GitHub, GitLab, etc.).
 Scoped to issue tracking only — PR creation has been removed.
 
-Requirements: 61-REQ-8.1, 65-REQ-4.1
+Requirements: 61-REQ-8.1, 65-REQ-4.1, 86-REQ-1.5
 """
 
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from agent_fox.platform.github import IssueResult, PullRequestResult
+from agent_fox.platform.github import IssueComment, IssueResult, PullRequestResult
 
 
 @runtime_checkable
 class PlatformProtocol(Protocol):
     """Abstract forge operations for issue and PR management.
 
-    Requirements: 61-REQ-8.1
+    Requirements: 61-REQ-8.1, 86-REQ-1.5
     """
 
     async def create_issue(
@@ -65,6 +65,39 @@ class PlatformProtocol(Protocol):
         """Create a pull request from head branch to base branch.
 
         Requirements: 85-REQ-8.3
+        """
+        ...
+
+    async def remove_label(
+        self,
+        issue_number: int,
+        label: str,
+    ) -> None:
+        """Remove a label from an issue.
+
+        Succeeds silently if the label is not present (idempotent).
+
+        Requirements: 86-REQ-1.1, 86-REQ-1.2
+        """
+        ...
+
+    async def list_issue_comments(
+        self,
+        issue_number: int,
+    ) -> list[IssueComment]:
+        """List all comments on an issue in chronological order.
+
+        Requirements: 86-REQ-1.3
+        """
+        ...
+
+    async def get_issue(
+        self,
+        issue_number: int,
+    ) -> IssueResult:
+        """Fetch a single issue by number.
+
+        Requirements: 86-REQ-1.4
         """
         ...
 

@@ -60,6 +60,8 @@ class TestPlatformProtocolCreatePR:
         from agent_fox.platform.github import IssueResult, PullRequestResult
         from agent_fox.platform.protocol import PlatformProtocol
 
+        from agent_fox.platform.github import IssueComment
+
         class WithPR:
             async def create_issue(self, title: str, body: str, labels: list[str] | None = None) -> IssueResult: ...  # type: ignore[empty-body]
 
@@ -78,6 +80,12 @@ class TestPlatformProtocolCreatePR:
             async def create_pull_request(  # type: ignore[empty-body]
                 self, title: str, body: str, head: str, base: str, draft: bool = True
             ) -> PullRequestResult: ...
+
+            async def remove_label(self, issue_number: int, label: str) -> None: ...
+
+            async def list_issue_comments(self, issue_number: int) -> list[IssueComment]: ...  # type: ignore[empty-body]
+
+            async def get_issue(self, issue_number: int) -> IssueResult: ...  # type: ignore[empty-body]
 
         assert isinstance(WithPR(), PlatformProtocol)
 
