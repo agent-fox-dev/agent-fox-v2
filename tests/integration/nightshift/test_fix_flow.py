@@ -37,32 +37,59 @@ class TestArchetypePipeline:
     """Verify that fixes use the full archetype pipeline."""
 
     @pytest.mark.asyncio
-    async def test_skeptic_coder_verifier_invoked(self) -> None:
-        """Session runner is invoked with skeptic, coder, and verifier."""
+    async def test_triage_coder_reviewer_invoked(self) -> None:
+        """Session runner is invoked with triage, coder, and fix_reviewer."""
+        import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
         archetypes_used: list[str] = []
 
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
         async def mock_execute(archetype: str, *args: object, **kwargs: object) -> object:
             archetypes_used.append(archetype)
-            return MagicMock(success=True)
+            outcome = MagicMock(
+                input_tokens=10, output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
 
         with patch.object(pipeline, "_run_session", side_effect=mock_execute):
             issue = _make_issue()
             await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")
 
-        assert "skeptic" in archetypes_used
+        assert "triage" in archetypes_used
         assert "coder" in archetypes_used
-        assert "verifier" in archetypes_used
+        assert "fix_reviewer" in archetypes_used
 
 
 # ---------------------------------------------------------------------------

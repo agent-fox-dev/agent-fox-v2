@@ -265,19 +265,46 @@ class TestSuccessfulFixHarvestsAndCloses:
     @pytest.mark.asyncio
     async def test_harvest_and_close_called_on_success(self) -> None:
         """After all sessions succeed, harvest/push runs and the issue is closed."""
+        import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.platform.github import IssueResult
 
         config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-
-        # Stub out the archetype sessions so they succeed without real work
-        pipeline._run_session = AsyncMock(return_value=None)  # type: ignore[method-assign]
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=10, output_tokens=5,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = IssueResult(
             number=7,
@@ -296,17 +323,46 @@ class TestSuccessfulFixHarvestsAndCloses:
     @pytest.mark.asyncio
     async def test_issue_not_closed_on_harvest_failure(self) -> None:
         """When harvest/push fails, the issue is NOT closed."""
+        import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.platform.github import IssueResult
 
         config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._run_session = AsyncMock(return_value=None)  # type: ignore[method-assign]
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps({
+            "summary": "s", "affected_files": [],
+            "acceptance_criteria": [
+                {"id": "AC-1", "description": "d", "preconditions": "p",
+                 "expected": "e", "assertion": "a"},
+            ],
+        })
+        review_response = json.dumps({
+            "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+            "overall_verdict": "PASS", "summary": "ok",
+        })
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=10, output_tokens=5,
+                cache_read_input_tokens=0, cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[method-assign]
 
         issue = IssueResult(
             number=9,
