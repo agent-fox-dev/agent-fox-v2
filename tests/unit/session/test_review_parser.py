@@ -2,7 +2,8 @@
 
 Test Spec: TS-27-3, TS-27-4, TS-27-5, TS-27-15, TS-27-16
 Requirements: 27-REQ-3.1, 27-REQ-3.2, 27-REQ-3.3, 27-REQ-3.E1, 27-REQ-3.E2,
-              27-REQ-8.1, 27-REQ-8.2, 27-REQ-9.1, 27-REQ-9.2
+              27-REQ-8.1, 27-REQ-8.2, 27-REQ-9.1, 27-REQ-9.2,
+              46-REQ-8.1
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_fox.session.review_parser import (
+    parse_auditor_output,
     parse_legacy_review_md,
     parse_legacy_verification_md,
     parse_review_output,
@@ -278,3 +280,134 @@ class TestLegacyParsing:
         assert verdicts[0].requirement_id == "05-REQ-1.1"
         assert verdicts[0].verdict == "PASS"
         assert verdicts[1].verdict == "FAIL"
+
+
+# ---------------------------------------------------------------------------
+# parse_auditor_output: bare JSON fast path (issue #267)
+# Requirements: 46-REQ-8.1
+# ---------------------------------------------------------------------------
+
+
+class TestParseAuditorOutputBareJson:
+    """parse_auditor_output correctly handles bare JSON (no markdown fences).
+
+    The auditor prompt instructs bare JSON output. The original regex-only
+    approach failed on some well-formed responses. The fast-path json.loads
+    call should handle these cases.
+    """
+
+    _VALID_AUDIT = {
+        "audit": [
+            {
+                "ts_entry": "TS-05-1",
+                "test_functions": ["tests/unit/test_foo.py::test_bar"],
+                "verdict": "PASS",
+                "notes": None,
+            },
+            {
+                "ts_entry": "TS-05-2",
+                "test_functions": [],
+                "verdict": "MISSING",
+                "notes": "No test found",
+            },
+        ],
+        "overall_verdict": "FAIL",
+        "summary": "1 MISSING entry found.",
+    }
+
+    def test_bare_json_parsed_correctly(self) -> None:
+        """Bare JSON object (no fences, no prose) is parsed into AuditResult."""
+        import json as _json
+
+        response = _json.dumps(self._VALID_AUDIT)
+        result = parse_auditor_output(response)
+
+        assert result is not None
+        assert result.overall_verdict == "FAIL"
+        assert result.summary == "1 MISSING entry found."
+        assert len(result.entries) == 2
+        assert result.entries[0].ts_entry == "TS-05-1"
+        assert result.entries[0].verdict == "PASS"
+        assert result.entries[1].ts_entry == "TS-05-2"
+        assert result.entries[1].verdict == "MISSING"
+
+    def test_bare_json_with_nested_strings(self) -> None:
+        """Bare JSON with nested brace characters in string values is parsed."""
+        import json as _json
+
+        audit = {
+            "audit": [
+                {
+                    "ts_entry": "TS-01-1",
+                    "test_functions": ["test_a"],
+                    # notes contains { } characters that confuse naive regex
+                    "verdict": "WEAK",
+                    "notes": "Assertion uses `assert result == {'key': 'value'}` only",
+                },
+            ],
+            "overall_verdict": "PASS",
+            "summary": "Nested braces {handled} correctly.",
+        }
+        response = _json.dumps(audit)
+        result = parse_auditor_output(response)
+
+        assert result is not None
+        assert len(result.entries) == 1
+        assert result.entries[0].verdict == "WEAK"
+        assert "{'key': 'value'}" in (result.entries[0].notes or "")
+
+    def test_fenced_json_still_parsed(self) -> None:
+        """JSON wrapped in markdown fences is still parsed via fallback path."""
+        import json as _json
+
+        response = "```json\n" + _json.dumps(self._VALID_AUDIT) + "\n```"
+        result = parse_auditor_output(response)
+
+        assert result is not None
+        assert result.overall_verdict == "FAIL"
+
+    def test_json_with_surrounding_prose_parsed(self) -> None:
+        """JSON embedded in prose (with fences) is parsed via fallback path."""
+        import json as _json
+
+        response = (
+            "Here is my analysis of the test suite.\n\n"
+            "```json\n"
+            + _json.dumps(self._VALID_AUDIT)
+            + "\n```\n\n"
+            "End of analysis."
+        )
+        result = parse_auditor_output(response)
+
+        assert result is not None
+        assert result.overall_verdict == "FAIL"
+
+    def test_no_audit_key_returns_none(self) -> None:
+        """JSON object without 'audit' key returns None."""
+        response = '{"findings": [{"severity": "major", "description": "oops"}]}'
+        result = parse_auditor_output(response)
+
+        assert result is None
+
+    def test_plain_prose_returns_none(self) -> None:
+        """Plain text with no JSON returns None."""
+        response = "I analyzed the tests and found several issues with coverage."
+        result = parse_auditor_output(response)
+
+        assert result is None
+
+    def test_empty_audit_array(self) -> None:
+        """Audit result with empty entries array is valid."""
+        import json as _json
+
+        audit = {
+            "audit": [],
+            "overall_verdict": "PASS",
+            "summary": "All good.",
+        }
+        response = _json.dumps(audit)
+        result = parse_auditor_output(response)
+
+        assert result is not None
+        assert result.overall_verdict == "PASS"
+        assert len(result.entries) == 0

@@ -475,27 +475,24 @@ def parse_auditor_output(
     Looks for a JSON object with an "audit" array, "overall_verdict",
     and "summary". Returns None if no valid JSON found.
 
+    Parsing strategy (in order):
+    - Direct ``json.loads`` on the full response (handles bare JSON output
+      and complex nested structures whose string values may contain brace
+      characters that confuse the regex).
+    - Regex-based block extraction (handles fenced code blocks and bare
+      JSON objects/arrays in mixed prose responses).
+
     Requirements: 46-REQ-8.1
     """
     from agent_fox.session.convergence import AuditEntry, AuditResult
 
-    blocks = _extract_json_blocks(response)
-
-    if not blocks:
-        logger.warning("No valid JSON blocks found in Auditor output")
-        return None
-
-    for block in blocks:
-        try:
-            data = json.loads(block)
-        except json.JSONDecodeError:
-            continue
-
+    def _build_audit_result(data: object) -> AuditResult | None:
+        """Convert a parsed JSON value into an AuditResult, or return None."""
         if not isinstance(data, dict):
-            continue
+            return None
         audit_key = _resolve_wrapper_key(data, "audit")
         if audit_key is None:
-            continue
+            return None
 
         entries: list[AuditEntry] = []
         for item in data[audit_key]:
@@ -518,6 +515,45 @@ def parse_auditor_output(
             overall_verdict=overall,
             summary=summary,
         )
+
+    # ------------------------------------------------------------------
+    # Fast path: try direct JSON parsing on the entire response.
+    # The auditor prompt instructs bare JSON output with no fences, so this
+    # path handles conforming responses without regex overhead.
+    # ------------------------------------------------------------------
+    stripped = response.strip()
+    try:
+        direct = json.loads(stripped)
+        result = _build_audit_result(direct)
+        if result is not None:
+            return result
+        # A recognisable JSON value was found but yielded no audit key.
+        # For bare-JSON responses stop here to avoid double-counting.
+        if stripped.startswith(("{", "[")):
+            logger.warning("No valid audit result extracted from Auditor output")
+            return None
+    except json.JSONDecodeError:
+        pass
+
+    # ------------------------------------------------------------------
+    # Fallback: regex-based block extraction.
+    # Handles fenced code blocks and mixed prose/JSON responses.
+    # ------------------------------------------------------------------
+    blocks = _extract_json_blocks(response)
+
+    if not blocks:
+        logger.warning("No valid JSON blocks found in Auditor output")
+        return None
+
+    for block in blocks:
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+
+        result = _build_audit_result(data)
+        if result is not None:
+            return result
 
     logger.warning("No valid audit result extracted from Auditor output")
     return None

@@ -544,3 +544,145 @@ class TestRetryContextEmptyWhenNoFindings:
         # Should not raise, should return empty or handle gracefully
         context = runner._build_retry_context("03_api")
         assert context == ""
+
+
+# ---------------------------------------------------------------------------
+# Auditor parse failure and retry (issue #267)
+# Requirements: 46-REQ-8.1
+# ---------------------------------------------------------------------------
+
+
+class TestAuditorParseFailureEmitsEvent:
+    """Auditor parse failure emits review.parse_failure event (issue #267)."""
+
+    def test_auditor_parse_failure_emits_event(self, knowledge_db: KnowledgeDB) -> None:
+        """Unparseable auditor output emits a REVIEW_PARSE_FAILURE audit event."""
+        emitted_events = []
+        mock_sink = MagicMock()
+        mock_sink.emit_audit_event.side_effect = lambda e: emitted_events.append(e)
+
+        runner = NodeSessionRunner(
+            "05_spec:1",
+            AgentFoxConfig(),
+            archetype="auditor",
+            knowledge_db=knowledge_db,
+            sink_dispatcher=mock_sink,
+            run_id="test_run_auditor_001",
+        )
+
+        runner._persist_review_findings(
+            "This is just prose — no JSON audit block anywhere.",
+            "05_spec:1",
+            1,
+        )
+
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
+        assert len(failure_events) == 1
+        assert failure_events[0].severity == AuditSeverity.WARNING
+        payload = failure_events[0].payload
+        assert "raw_output" in payload
+        assert payload["retry_attempted"] is False
+
+    def test_auditor_parse_failure_does_not_raise(self, knowledge_db: KnowledgeDB) -> None:
+        """Auditor parse failure must not raise — execution continues."""
+        runner = NodeSessionRunner(
+            "05_spec:1",
+            AgentFoxConfig(),
+            archetype="auditor",
+            knowledge_db=knowledge_db,
+            run_id="test_run_auditor_002",
+        )
+        # Must not raise
+        runner._persist_review_findings("no json here at all", "05_spec:1", 1)
+
+    def test_auditor_retry_succeeds_on_second_attempt(self, knowledge_db: KnowledgeDB) -> None:
+        """When initial auditor parse fails but retry produces valid JSON, success event emitted."""
+        import json as _json
+
+        from agent_fox.engine.review_persistence import persist_review_findings
+
+        valid_audit = _json.dumps(
+            {
+                "audit": [
+                    {
+                        "ts_entry": "TS-05-1",
+                        "test_functions": ["test_a"],
+                        "verdict": "PASS",
+                        "notes": None,
+                    }
+                ],
+                "overall_verdict": "PASS",
+                "summary": "All good.",
+            }
+        )
+
+        # Session handle that is alive and returns valid JSON on retry
+        mock_session = MagicMock()
+        mock_session.is_alive = True
+        mock_session.append_user_message.return_value = valid_audit
+
+        emitted_events = []
+        mock_sink = MagicMock()
+        mock_sink.emit_audit_event.side_effect = lambda e: emitted_events.append(e)
+
+        conn = knowledge_db.connection
+
+        # Initial output is unparseable; retry produces valid JSON
+        with patch("agent_fox.engine.review_persistence.Path") as mock_path_cls:
+            mock_spec_dir = MagicMock()
+            mock_spec_dir.__truediv__ = MagicMock(return_value=mock_spec_dir)
+            mock_path_cls.cwd.return_value.__truediv__ = MagicMock(return_value=mock_spec_dir)
+
+            persist_review_findings(
+                "prose with no JSON",
+                "05_spec:1",
+                1,
+                archetype="auditor",
+                spec_name="05_spec",
+                task_group="1",
+                knowledge_db_conn=conn,
+                sink=mock_sink,
+                run_id="test_run_auditor_003",
+                session_handle=mock_session,
+            )
+
+        # A retry was attempted
+        mock_session.append_user_message.assert_called_once()
+
+        # A retry_success event should have been emitted (not a failure event)
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
+        retry_success_events = [e for e in emitted_events if e.event_type == "review.parse_retry_success"]
+        assert len(failure_events) == 0, "No failure event expected when retry succeeds"
+        assert len(retry_success_events) == 1
+
+    def test_auditor_retry_emits_failure_when_both_fail(self, knowledge_db: KnowledgeDB) -> None:
+        """When both initial parse and retry fail, a failure event is emitted with retry_attempted=True."""
+        from agent_fox.engine.review_persistence import persist_review_findings
+
+        mock_session = MagicMock()
+        mock_session.is_alive = True
+        mock_session.append_user_message.return_value = "still not json"
+
+        emitted_events = []
+        mock_sink = MagicMock()
+        mock_sink.emit_audit_event.side_effect = lambda e: emitted_events.append(e)
+
+        conn = knowledge_db.connection
+
+        persist_review_findings(
+            "prose with no JSON",
+            "05_spec:1",
+            1,
+            archetype="auditor",
+            spec_name="05_spec",
+            task_group="1",
+            knowledge_db_conn=conn,
+            sink=mock_sink,
+            run_id="test_run_auditor_004",
+            session_handle=mock_session,
+        )
+
+        failure_events = [e for e in emitted_events if e.event_type == "review.parse_failure"]
+        assert len(failure_events) == 1
+        assert failure_events[0].payload["retry_attempted"] is True
+        assert "retry" in failure_events[0].payload["strategy"]
