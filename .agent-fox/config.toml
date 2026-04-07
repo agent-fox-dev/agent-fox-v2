@@ -64,6 +64,35 @@ auditor = true
 # max_turns = {}
 ## Per-archetype extended thinking configuration (default: {})
 # thinking = {}
+## Unified per-archetype configuration tables (see [archetypes.overrides.*] below)
+# overrides = {}
+
+# ---------------------------------------------------------------------------
+# Unified per-archetype overrides (preferred over the legacy dicts above)
+# Each [archetypes.overrides.<name>] block supports:
+#   model_tier     — "SIMPLE" | "STANDARD" | "ADVANCED"  (None = registry default)
+#   max_turns      — integer >= 0, 0 = unlimited           (None = registry default)
+#   thinking_mode  — "enabled" | "adaptive" | "disabled"  (None = registry default)
+#   thinking_budget — integer >= 0 (tokens)               (None = registry default)
+#   allowlist      — list of allowed bash commands         (None = registry default)
+# ---------------------------------------------------------------------------
+
+# Example: run the coder on the ADVANCED model with extra turns
+# [archetypes.overrides.coder]
+# model_tier = "ADVANCED"
+# max_turns = 200
+# thinking_mode = "adaptive"
+
+# Example: use STANDARD model for skeptic reviews (cost reduction)
+# [archetypes.overrides.skeptic]
+# model_tier = "STANDARD"
+# max_turns = 50
+
+# Example: restrict verifier to a minimal allowlist
+# [archetypes.overrides.verifier]
+# model_tier = "ADVANCED"
+# max_turns = 75
+# allowlist = ["ls", "cat", "git", "make", "uv"]
 
 # [archetypes.skeptic_settings]
 ## Finding count to block merge (>=0, default: 3)

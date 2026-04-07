@@ -22,14 +22,25 @@ logger = logging.getLogger(__name__)
 def resolve_max_turns(config: AgentFoxConfig, archetype: str) -> int | None:
     """Resolve max_turns for the given archetype.
 
-    Resolution order: config.toml override > archetype registry default.
+    Resolution order (highest to lowest priority):
+      1. archetypes.overrides.<name>.max_turns (unified table)
+      2. archetypes.max_turns.<name> (legacy dict)
+      3. Archetype registry default
     Returns None when configured as 0 (unlimited).
 
-    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1
+    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1, 207-REQ-2
     """
+    # 1. Unified per-archetype override table (highest priority)
+    override = config.archetypes.overrides.get(archetype)
+    if override is not None and override.max_turns is not None:
+        return override.max_turns if override.max_turns > 0 else None
+
+    # 2. Legacy dict
     configured = config.archetypes.max_turns.get(archetype)
     if configured is not None:
         return configured if configured > 0 else None  # 0 = unlimited
+
+    # 3. Registry default
     entry = get_archetype(archetype)
     return entry.default_max_turns
 
@@ -37,16 +48,30 @@ def resolve_max_turns(config: AgentFoxConfig, archetype: str) -> int | None:
 def resolve_thinking(config: AgentFoxConfig, archetype: str) -> dict | None:
     """Resolve thinking configuration for the given archetype.
 
-    Resolution order: config.toml override > archetype registry default.
+    Resolution order (highest to lowest priority):
+      1. archetypes.overrides.<name>.thinking_mode / thinking_budget (unified table)
+      2. archetypes.thinking.<name> (legacy dict)
+      3. Archetype registry default
     Returns None when mode is ``disabled``.
 
-    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1
+    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1, 207-REQ-2
     """
+    # 1. Unified per-archetype override table (highest priority)
+    override = config.archetypes.overrides.get(archetype)
+    if override is not None and override.thinking_mode is not None:
+        if override.thinking_mode == "disabled":
+            return None
+        budget = override.thinking_budget if override.thinking_budget is not None else 10000
+        return {"type": override.thinking_mode, "budget_tokens": budget}
+
+    # 2. Legacy dict
     configured = config.archetypes.thinking.get(archetype)
     if configured is not None:
         if configured.mode == "disabled":
             return None
         return {"type": configured.mode, "budget_tokens": configured.budget_tokens}
+
+    # 3. Registry default
     entry = get_archetype(archetype)
     if entry.default_thinking_mode == "disabled":
         return None

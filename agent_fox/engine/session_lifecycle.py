@@ -226,16 +226,24 @@ class NodeSessionRunner:
     def _resolve_model_tier(self) -> str:
         """Resolve model tier for the archetype.
 
-        Priority: config override > archetype registry default > global coding model.
+        Priority (highest to lowest):
+          1. archetypes.overrides.<name>.model_tier (unified table)
+          2. archetypes.models.<name> (legacy dict)
+          3. Archetype registry default
 
-        Requirements: 26-REQ-4.4, 26-REQ-6.3
+        Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2
         """
-        # Check config override first
+        # 1. Unified per-archetype override table (highest priority)
+        override = self._config.archetypes.overrides.get(self._archetype)
+        if override and override.model_tier:
+            return override.model_tier
+
+        # 2. Legacy dict override
         config_override = self._config.archetypes.models.get(self._archetype)
         if config_override:
             return config_override
 
-        # Fall back to archetype registry default
+        # 3. Fall back to archetype registry default
         entry = get_archetype(self._archetype)
         return entry.default_model_tier
 
@@ -245,16 +253,25 @@ class NodeSessionRunner:
         Returns a SecurityConfig with the archetype's allowlist override,
         or None to use the global default.
 
-        Priority: config override > archetype registry default > None (global).
+        Priority (highest to lowest):
+          1. archetypes.overrides.<name>.allowlist (unified table)
+          2. archetypes.allowlists.<name> (legacy dict)
+          3. Archetype registry default
+          4. None → use global config.security
 
-        Requirements: 26-REQ-3.4, 26-REQ-6.4
+        Requirements: 26-REQ-3.4, 26-REQ-6.4, 207-REQ-2
         """
-        # Check config override first
+        # 1. Unified per-archetype override table (highest priority)
+        override = self._config.archetypes.overrides.get(self._archetype)
+        if override and override.allowlist is not None:
+            return SecurityConfig(bash_allowlist=override.allowlist)
+
+        # 2. Legacy dict override
         config_allowlist = self._config.archetypes.allowlists.get(self._archetype)
         if config_allowlist is not None:
             return SecurityConfig(bash_allowlist=config_allowlist)
 
-        # Fall back to archetype registry default
+        # 3. Fall back to archetype registry default
         entry = get_archetype(self._archetype)
         if entry.default_allowlist is not None:
             return SecurityConfig(bash_allowlist=entry.default_allowlist)
