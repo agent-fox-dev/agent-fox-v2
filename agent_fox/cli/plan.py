@@ -8,6 +8,7 @@ Requirements: 02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4, 02-REQ-7.5
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import click
@@ -29,6 +30,18 @@ def plan_cmd(
     filter_spec: str | None,
 ) -> None:
     """Build an execution plan from specifications."""
+    # 85-REQ-3.2: Refuse to run when daemon is active.
+    from agent_fox.nightshift.pid import PidStatus, check_pid_file
+
+    daemon_pid_path = Path.cwd() / ".agent-fox" / "daemon.pid"
+    pid_status, _pid = check_pid_file(daemon_pid_path)
+    if pid_status == PidStatus.ALIVE:
+        click.echo(
+            f"Error: night-shift daemon is running (PID {_pid}). Stop the daemon before running `plan`.",
+            err=True,
+        )
+        sys.exit(1)
+
     # Determine project paths
     project_root = Path.cwd()
     specs_dir = project_root / ".specs"

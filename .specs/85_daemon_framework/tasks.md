@@ -213,9 +213,9 @@ and can be built in parallel with streams if desired.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 85-REQ-8.* met
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - Path 1 (daemon startup): verify CLI → PID check → write PID → DaemonRunner → stream launch
     - Path 2 (spec executor): verify stream → discover_new_specs_gated → Orchestrator → cost
     - Path 3 (fix pipeline): verify stream → engine._drain_issues → cost delta
@@ -226,7 +226,7 @@ and can be built in parallel with streams if desired.
     - Confirm no function in any chain is a stub that was never replaced
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - `check_pid_file()` → PidStatus consumed by CLI guards and daemon startup
     - `discover_new_specs_gated()` → list[SpecInfo] consumed by SpecExecutorStream
     - `Orchestrator.run()` → ExecutionState.total_cost consumed by SharedBudget
@@ -234,12 +234,12 @@ and can be built in parallel with streams if desired.
     - Grep for callers; confirm none discards the return value
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All TS-85-SMOKE-1 through TS-85-SMOKE-7 pass using real components
     - `uv run pytest -q tests/integration/test_daemon_lifecycle.py -k SMOKE`
     - _Test Spec: TS-85-SMOKE-1 through TS-85-SMOKE-7_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
@@ -248,11 +248,11 @@ and can be built in parallel with streams if desired.
     - Each other hit must be justified or replaced with real implementation
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass: `uv run pytest -q tests/integration/test_daemon_lifecycle.py`
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `make check`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass: `uv run pytest -q tests/integration/test_daemon_lifecycle.py`
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `make check`
 
 ### Checkbox States
 
