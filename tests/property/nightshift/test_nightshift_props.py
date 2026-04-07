@@ -346,6 +346,7 @@ class TestPlatformProtocolSubstitutability:
         mock_platform.add_issue_comment = AsyncMock()
         mock_platform.assign_label = AsyncMock()
         mock_platform.close_issue = AsyncMock()
+        mock_platform.create_pull_request = AsyncMock()
         mock_platform.close = AsyncMock()
 
         assert isinstance(mock_platform, PlatformProtocol)

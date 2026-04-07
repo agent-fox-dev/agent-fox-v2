@@ -145,31 +145,31 @@ and can be built in parallel with streams if desired.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 85-REQ-1.2-E2, 85-REQ-2.1-2.5, 85-REQ-4.1-E1, 85-REQ-5.2-5.3 met
 
-- [ ] 4. Stream implementations and CLI integration
-  - [ ] 4.1 Implement `SpecExecutorStream` in `nightshift/streams.py`
+- [x] 4. Stream implementations and CLI integration
+  - [x] 4.1 Implement `SpecExecutorStream` in `nightshift/streams.py`
     - `run_once()`: call `discover_new_specs_gated()`, build plan, run Orchestrator
     - Report cost to SharedBudget from ExecutionState.total_cost
     - Handle discovery errors gracefully (log and return)
     - No-op when no specs discovered
     - _Requirements: 85-REQ-10.1, 85-REQ-10.2, 85-REQ-10.3, 85-REQ-10.E1_
 
-  - [ ] 4.2 Implement `FixPipelineStream` in `nightshift/streams.py`
+  - [x] 4.2 Implement `FixPipelineStream` in `nightshift/streams.py`
     - Wrap `NightShiftEngine._drain_issues()`
     - Compute cost delta from `engine.state.total_cost` before/after
     - Report delta to SharedBudget
     - _Requirements: 85-REQ-1.1 (conforms to WorkStream protocol)_
 
-  - [ ] 4.3 Implement `HuntScanStream` in `nightshift/streams.py`
+  - [x] 4.3 Implement `HuntScanStream` in `nightshift/streams.py`
     - Wrap `NightShiftEngine._run_hunt_scan()`
     - Compute and report cost delta to SharedBudget
     - _Requirements: 85-REQ-1.1 (conforms to WorkStream protocol)_
 
-  - [ ] 4.4 Implement `SpecGeneratorStream` (stub) in `nightshift/streams.py`
+  - [x] 4.4 Implement `SpecGeneratorStream` (stub) in `nightshift/streams.py`
     - `run_once()`: no-op (log debug "spec generator not yet implemented")
     - Placeholder for spec 86
     - _Requirements: 85-REQ-1.1 (conforms to WorkStream protocol)_
 
-  - [ ] 4.5 Implement platform degradation and CLI integration
+  - [x] 4.5 Implement platform degradation and CLI integration
     - `build_streams()` factory: create all 4 streams, apply enabled_streams
       config, --no-* flags, platform degradation
     - Platform type "none": disable fix, hunt, spec-gen streams with warning
@@ -179,13 +179,13 @@ and can be built in parallel with streams if desired.
     - Update `cli/plan.py`: add PID check guard
     - _Requirements: 85-REQ-6.1, 85-REQ-6.2, 85-REQ-6.3, 85-REQ-6.E1, 85-REQ-7.1, 85-REQ-7.E1, 85-REQ-3.1, 85-REQ-3.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_streams.py -k "TS_85_18 or TS_85_19 or TS_85_20 or TS_85_21 or TS_85_28 or TS_85_29 or TS_85_30 or E10 or E11 or E16"`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/test_daemon_lifecycle.py -k "SMOKE_2 or SMOKE_3 or SMOKE_4 or SMOKE_6"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P6 or P7"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 85-REQ-3.*, 85-REQ-6.*, 85-REQ-7.*, 85-REQ-10.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_streams.py -k "TS_85_18 or TS_85_19 or TS_85_20 or TS_85_21 or TS_85_28 or TS_85_29 or TS_85_30 or E10 or E11 or E16"`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/test_daemon_lifecycle.py -k "SMOKE_2 or SMOKE_3 or SMOKE_4 or SMOKE_6"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P6 or P7"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 85-REQ-3.*, 85-REQ-6.*, 85-REQ-7.*, 85-REQ-10.* met
 
 - [ ] 5. Platform PR creation and merge strategy
   - [ ] 5.1 Extend `PlatformProtocol` with `create_pull_request()`
