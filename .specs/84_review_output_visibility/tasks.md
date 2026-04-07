@@ -165,9 +165,9 @@ introspection), (5) wiring verification.
     - [x] No linter warnings introduced: `uv run ruff check`
     - [x] Requirements 84-REQ-4.*, 84-REQ-5.* met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1: JsonlSink.record_session_outcome → state.jsonl contains
       response field
     - Path 2: persist_review_findings → insert_findings → emit
@@ -179,7 +179,7 @@ introspection), (5) wiring verification.
     - Confirm no function in any chain is a stub
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `insert_findings()` return count → used in audit event payload
     - `query_findings()` return list → consumed by format_findings_table
     - `query_findings_summary()` return list → assigned to
@@ -188,24 +188,24 @@ introspection), (5) wiring verification.
     - Grep for callers, confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All TS-84-SMOKE-* tests pass using real components (not stubbed)
     - _Test Spec: TS-84-SMOKE-1, TS-84-SMOKE-2, TS-84-SMOKE-3,
       TS-84-SMOKE-4, TS-84-SMOKE-5_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit: justified or replaced
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check`
 
 ### Checkbox States
 
