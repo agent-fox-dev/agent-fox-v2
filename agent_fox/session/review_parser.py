@@ -20,6 +20,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from agent_fox.nightshift.fix_types import FixReviewResult, TriageResult
     from agent_fox.session.convergence import AuditResult
 
 from agent_fox.engine.review_parser import (
@@ -47,6 +48,7 @@ WRAPPER_KEY_VARIANTS: dict[str, set[str]] = {
     "verdicts": {"verdicts", "verdict", "results", "verifications"},
     "drift_findings": {"drift_findings", "drift_finding", "drifts"},
     "audit": {"audit", "audits", "audit_results", "entries"},
+    "acceptance_criteria": {"acceptance_criteria", "criteria", "test_cases"},
 }
 
 
@@ -364,3 +366,185 @@ def parse_legacy_verification_md(
             )
 
     return verdicts
+
+
+# ---------------------------------------------------------------------------
+# Triage and fix-reviewer parsers (82-REQ-2.1 .. 82-REQ-2.E1, 82-REQ-5.1)
+# ---------------------------------------------------------------------------
+
+_TRIAGE_REQUIRED_KEYS = ("id", "description", "preconditions", "expected", "assertion")
+
+
+def parse_triage_output(
+    response: str,
+    spec_name: str,
+    session_id: str,
+) -> TriageResult:
+    """Parse triage JSON into TriageResult.
+
+    Returns empty TriageResult on parse failure.
+
+    Requirements: 82-REQ-2.1, 82-REQ-2.2, 82-REQ-2.3, 82-REQ-2.E1
+    """
+    from agent_fox.nightshift.fix_types import AcceptanceCriterion, TriageResult
+
+    # Try direct JSON parse first, then regex fallback via _extract_json_blocks
+    data: dict | None = None
+    stripped = response.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            data = parsed
+    except json.JSONDecodeError:
+        pass
+
+    if data is None:
+        # Fallback: extract from fenced code blocks or bare JSON
+        blocks = _extract_json_blocks(response)
+        for block in blocks:
+            try:
+                parsed = json.loads(block)
+                if isinstance(parsed, dict):
+                    data = parsed
+                    break
+            except json.JSONDecodeError:
+                continue
+
+    if data is None:
+        logger.warning(
+            "No parseable JSON in triage output for %s (session %s)",
+            spec_name,
+            session_id,
+        )
+        return TriageResult()
+
+    summary = data.get("summary", "")
+    if not isinstance(summary, str):
+        summary = ""
+
+    affected_files = data.get("affected_files", [])
+    if not isinstance(affected_files, list):
+        affected_files = []
+    affected_files = [f for f in affected_files if isinstance(f, str)]
+
+    # Resolve the criteria array using fuzzy wrapper key matching
+    criteria_key = _resolve_wrapper_key(data, "acceptance_criteria")
+    raw_criteria = data.get(criteria_key, []) if criteria_key else []
+    if not isinstance(raw_criteria, list):
+        raw_criteria = []
+
+    criteria: list[AcceptanceCriterion] = []
+    for item in raw_criteria:
+        if not isinstance(item, dict):
+            continue
+        # All five fields must be present and non-empty
+        if not all(
+            isinstance(item.get(k), str) and item[k]
+            for k in _TRIAGE_REQUIRED_KEYS
+        ):
+            continue
+        criteria.append(
+            AcceptanceCriterion(
+                id=item["id"],
+                description=item["description"],
+                preconditions=item["preconditions"],
+                expected=item["expected"],
+                assertion=item["assertion"],
+            )
+        )
+
+    return TriageResult(
+        summary=summary,
+        affected_files=affected_files,
+        criteria=criteria,
+    )
+
+
+def parse_fix_review_output(
+    response: str,
+    spec_name: str,
+    session_id: str,
+) -> FixReviewResult:
+    """Parse fix reviewer JSON into FixReviewResult.
+
+    Returns FixReviewResult with overall_verdict='FAIL' on parse failure.
+
+    Requirements: 82-REQ-5.1
+    """
+    from agent_fox.nightshift.fix_types import FixReviewResult, FixReviewVerdict
+
+    _VALID_VERDICTS = {"PASS", "FAIL"}
+
+    # Try direct JSON parse first, then regex fallback
+    data: dict | None = None
+    stripped = response.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            data = parsed
+    except json.JSONDecodeError:
+        pass
+
+    if data is None:
+        blocks = _extract_json_blocks(response)
+        for block in blocks:
+            try:
+                parsed = json.loads(block)
+                if isinstance(parsed, dict):
+                    data = parsed
+                    break
+            except json.JSONDecodeError:
+                continue
+
+    if data is None:
+        logger.warning(
+            "No parseable JSON in fix reviewer output for %s (session %s)",
+            spec_name,
+            session_id,
+        )
+        return FixReviewResult()
+
+    # Extract verdicts using fuzzy wrapper key
+    verdicts_key = _resolve_wrapper_key(data, "verdicts")
+    raw_verdicts = data.get(verdicts_key, []) if verdicts_key else []
+    if not isinstance(raw_verdicts, list):
+        raw_verdicts = []
+
+    verdicts: list[FixReviewVerdict] = []
+    for item in raw_verdicts:
+        if not isinstance(item, dict):
+            continue
+        criterion_id = item.get("criterion_id", "")
+        verdict_val = item.get("verdict", "")
+        evidence = item.get("evidence", "")
+        if not isinstance(verdict_val, str) or verdict_val not in _VALID_VERDICTS:
+            continue
+        if not isinstance(criterion_id, str):
+            continue
+        if not isinstance(evidence, str):
+            evidence = str(evidence)
+        verdicts.append(
+            FixReviewVerdict(
+                criterion_id=criterion_id,
+                verdict=verdict_val,
+                evidence=evidence,
+            )
+        )
+
+    summary = data.get("summary", "")
+    if not isinstance(summary, str):
+        summary = ""
+
+    overall_verdict = data.get("overall_verdict", "FAIL")
+    if not isinstance(overall_verdict, str) or overall_verdict not in _VALID_VERDICTS:
+        overall_verdict = "FAIL"
+
+    # Enforce: if any individual verdict is FAIL, overall must be FAIL
+    if any(v.verdict == "FAIL" for v in verdicts):
+        overall_verdict = "FAIL"
+
+    return FixReviewResult(
+        verdicts=verdicts,
+        overall_verdict=overall_verdict,
+        summary=summary,
+    )

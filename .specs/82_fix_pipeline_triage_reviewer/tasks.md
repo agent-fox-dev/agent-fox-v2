@@ -64,15 +64,15 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check`
 
-- [ ] 2. Data types and parse functions
-  - [ ] 2.1 Define data types
+- [x] 2. Data types and parse functions
+  - [x] 2.1 Define data types
     - Add `AcceptanceCriterion`, `TriageResult`, `FixReviewVerdict`, and
       `FixReviewResult` dataclasses
     - Place in `agent_fox/nightshift/fix_pipeline.py` or a new
       `agent_fox/nightshift/fix_types.py` if cleaner
     - _Requirements: 82-REQ-2.1, 82-REQ-2.2, 82-REQ-2.3, 82-REQ-5.1_
 
-  - [ ] 2.2 Implement `parse_triage_output()`
+  - [x] 2.2 Implement `parse_triage_output()`
     - Add to `agent_fox/session/review_parser.py`
     - Use existing `_unwrap_items()` with wrapper key
       `"acceptance_criteria"`
@@ -81,7 +81,7 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Return `TriageResult`
     - _Requirements: 82-REQ-2.1, 82-REQ-2.2, 82-REQ-2.3, 82-REQ-2.E1_
 
-  - [ ] 2.3 Implement `parse_fix_review_output()`
+  - [x] 2.3 Implement `parse_fix_review_output()`
     - Add to `agent_fox/session/review_parser.py`
     - Use existing `_unwrap_items()` with wrapper key `"verdicts"`
     - Validate verdict values (PASS/FAIL only), skip invalid
@@ -90,16 +90,16 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Return `FixReviewResult`
     - _Requirements: 82-REQ-5.1_
 
-  - [ ] 2.4 Extend `_resolve_wrapper_key()` variant map
+  - [x] 2.4 Extend `_resolve_wrapper_key()` variant map
     - Add `"acceptance_criteria": {"acceptance_criteria", "criteria", "test_cases"}`
     - _Requirements: 82-REQ-2.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Parser tests pass: `uv run pytest -q tests/unit/session/test_triage_parser.py`
-    - [ ] Property tests TS-82-P1 and TS-82-P2 pass: `uv run pytest -q tests/property/test_fix_triage_properties.py -k "P1 or P2"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check`
-    - [ ] Requirements 82-REQ-2.1, 2.2, 2.3, 2.E1, 5.1 met
+  - [x] 2.V Verify task group 2
+    - [x] Parser tests pass: `uv run pytest -q tests/unit/session/test_triage_parser.py`
+    - [x] Property tests TS-82-P1 and TS-82-P2 pass: `uv run pytest -q tests/property/test_fix_triage_properties.py -k "P1 or P2"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check`
+    - [x] Requirements 82-REQ-2.1, 2.2, 2.3, 2.E1, 5.1 met
 
 - [ ] 3. Prompt templates and archetype registration
   - [ ] 3.1 Create `triage.md` prompt template
