@@ -102,3 +102,40 @@ class TestGitHubPlatformRepr:
         platform = GitHubPlatform(owner="acme", repo="widgets", token="ghp_s3cret")
         result = str(platform)
         assert "ghp_s3cret" not in result
+
+    # ------------------------------------------------------------------
+    # AC-1: repr includes owner, repo, url; excludes token (issue #222)
+    # ------------------------------------------------------------------
+
+    def test_repr_exact_format_github_com(self) -> None:
+        """repr() includes owner, repo, url; token absent (AC-1)."""
+        platform = GitHubPlatform(
+            owner="octocat", repo="hello", token="ghp_secret123", url="github.com"
+        )
+        result = repr(platform)
+        assert result == "GitHubPlatform(owner='octocat', repo='hello', url='github.com')"
+        assert "ghp_secret123" not in result
+
+    # ------------------------------------------------------------------
+    # AC-2: Token absent for GitHub Enterprise URLs (issue #222)
+    # ------------------------------------------------------------------
+
+    def test_repr_enterprise_url_excludes_token(self) -> None:
+        """repr() excludes token and includes enterprise url (AC-2)."""
+        platform = GitHubPlatform(
+            owner="corp", repo="app", token="ghp_enterprisetoken", url="github.example.com"
+        )
+        result = repr(platform)
+        assert "ghp_enterprisetoken" not in result
+        assert "github.example.com" in result
+        assert result == "GitHubPlatform(owner='corp', repo='app', url='github.example.com')"
+
+    # ------------------------------------------------------------------
+    # AC-3: str() does not contain the token (issue #222)
+    # ------------------------------------------------------------------
+
+    def test_str_excludes_token_issue_222(self) -> None:
+        """str(instance) must not contain the token string (AC-3)."""
+        token = "ghp_unique_token_for_222"
+        platform = GitHubPlatform(owner="org", repo="project", token=token)
+        assert token not in str(platform)

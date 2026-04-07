@@ -95,7 +95,7 @@ class GitHubPlatform:
             self._api_base = f"https://{self._url}/api/v3"
 
     def __repr__(self) -> str:
-        return f"GitHubPlatform(owner={self._owner!r}, repo={self._repo!r})"
+        return f"GitHubPlatform(owner={self._owner!r}, repo={self._repo!r}, url={self._url!r})"
 
     def _auth_headers(self) -> dict[str, str]:
         """Build authentication headers for GitHub API requests."""
