@@ -191,8 +191,8 @@ generation pipeline.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 86-REQ-2.* through 86-REQ-7.*, 86-REQ-10.* met
 
-- [ ] 5. SpecGeneratorStream wiring and landing workflow
-  - [ ] 5.1 Implement `_land_spec()` in `SpecGenerator`
+- [x] 5. SpecGeneratorStream wiring and landing workflow
+  - [x] 5.1 Implement `_land_spec()` in `SpecGenerator`
     - Create feature branch `spec/<spec_name>` from develop
     - Handle branch collision by appending `-2`, `-3`, etc.
     - Write all spec files to `.specs/<spec_name>/`
@@ -203,28 +203,28 @@ generation pipeline.
     - Return commit hash
     - _Requirements: 86-REQ-8.1, 86-REQ-8.2, 86-REQ-8.3, 86-REQ-8.E1, 86-REQ-8.E2_
 
-  - [ ] 5.2 Replace `SpecGeneratorStream` stub in `nightshift/streams.py`
+  - [x] 5.2 Replace `SpecGeneratorStream` stub in `nightshift/streams.py`
     - Replace the no-op stub from spec 85 with real implementation
     - `run_once()`: poll for af:spec and af:spec-pending issues, handle crash recovery (stale labels), check staleness, process one issue, report cost
     - Wire `SpecGenerator` instantiation
     - _Requirements: 86-REQ-2.1, 86-REQ-2.2, 86-REQ-2.E1, 86-REQ-2.E2, 86-REQ-3.E1, 86-REQ-3.E2_
 
-  - [ ] 5.3 Wire completion flow in `process_issue()`
+  - [x] 5.3 Wire completion flow in `process_issue()`
     - After successful landing: post completion comment, transition to done, close issue
     - Report cost to result
     - _Requirements: 86-REQ-8.4, 86-REQ-10.3_
 
-  - [ ] 5.4 Verify cost reporting to SharedBudget
+  - [x] 5.4 Verify cost reporting to SharedBudget
     - `run_once()` calls `budget.add_cost(result.cost)` after processing
     - Cost is reported regardless of outcome (generated, blocked, etc.)
     - _Requirements: 86-REQ-10.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen.py -k "TS_86_27 or TS_86_28 or TS_86_29 or TS_86_30 or TS_86_34 or E14 or E15"`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/test_spec_gen_lifecycle.py`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 86-REQ-8.*, 86-REQ-10.3 met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_spec_gen.py -k "TS_86_27 or TS_86_28 or TS_86_29 or TS_86_30 or TS_86_34 or E14 or E15"`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/test_spec_gen_lifecycle.py`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 86-REQ-8.*, 86-REQ-10.3 met
 
 - [ ] 6. Wiring verification
 

@@ -89,9 +89,7 @@ def test_TS_86_P1_label_transition_assign_before_remove(
     )
     gen = SpecGenerator(platform=platform, config=config, repo_root=Path("/tmp/test"))
 
-    asyncio.get_event_loop().run_until_complete(
-        gen._transition_label(42, from_label, to_label)
-    )
+    asyncio.run(gen._transition_label(42, from_label, to_label))
 
     assert call_order.index("assign") < call_order.index("remove")
 
@@ -227,7 +225,7 @@ def test_TS_86_P5_remove_label_idempotency(label: str) -> None:
 
     with patch("agent_fox.platform.github.httpx.AsyncClient", return_value=client):
         # Should not raise regardless of 204 or 404
-        asyncio.get_event_loop().run_until_complete(platform.remove_label(42, label))
+        asyncio.run(platform.remove_label(42, label))
 
 
 # ---------------------------------------------------------------------------
