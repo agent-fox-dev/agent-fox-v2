@@ -6,6 +6,8 @@ Requirements: 28-REQ-1.*, 28-REQ-2.*, 28-REQ-3.*, 28-REQ-4.*
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,7 +19,7 @@ from agent_fox.platform.github import GitHubPlatform, IssueResult
 _TARGET = "agent_fox.platform.github.httpx.AsyncClient"
 
 
-def _mock_client(**method_responses: MagicMock) -> AsyncMock:
+def _mock_client(**method_responses: MagicMock | Callable[..., Any]) -> AsyncMock:
     """Build a mock httpx.AsyncClient with specified method responses.
 
     Pass keyword arguments like get=mock_response or post=mock_response.
