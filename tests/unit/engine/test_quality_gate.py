@@ -48,10 +48,11 @@ class TestQualityGateRuns:
         assert result.passed is True
         assert result.exit_code == 0
         mock_run.assert_called_once()
-        # Verify shell=True and the command string
+        # AC-1, AC-6: subprocess.run receives a list and shell=False
         call_args = mock_run.call_args
         cmd = call_args[0][0] if call_args[0] else call_args.kwargs.get("args")
-        assert cmd == "make check"
+        assert cmd == ["make", "check"], f"Expected list ['make', 'check'], got {cmd!r}"
+        assert call_args.kwargs.get("shell") is False
 
 
 # ---------------------------------------------------------------------------
@@ -315,6 +316,71 @@ class TestQualityGateOutputTruncation:
         # Should have the LAST lines, not the first
         assert "line 199" in result.stdout_tail
         assert "err 199" in result.stderr_tail
+
+
+# ---------------------------------------------------------------------------
+# AC-2: shlex import
+# ---------------------------------------------------------------------------
+
+
+class TestShellFalseInvocation:
+    """AC-2 through AC-4: subprocess is invoked with shell=False and shlex tokenisation."""
+
+    def test_shlex_imported_in_quality_gate_module(self) -> None:
+        """AC-2: shlex is importable from quality_gate at module level."""
+        import importlib
+        import inspect
+
+        import agent_fox.engine.quality_gate as qg_mod
+
+        source = inspect.getsource(qg_mod)
+        assert "import shlex" in source, "shlex must be imported at module level in quality_gate.py"
+
+    def test_quoted_args_tokenised_correctly(self) -> None:
+        """AC-3: Commands with quoted arguments are correctly tokenised by shlex.split.
+
+        e.g. 'pytest -k "test_foo bar"' → ['pytest', '-k', 'test_foo bar']
+        """
+        from agent_fox.engine.quality_gate import run_quality_gate
+
+        config = OrchestratorConfig(quality_gate='pytest -k "test_foo bar"')
+
+        with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["pytest", "-k", "test_foo bar"],
+                returncode=0,
+                stdout="",
+                stderr="",
+            )
+            run_quality_gate(config, project_root="/tmp/project")
+
+        call_args = mock_run.call_args
+        cmd = call_args[0][0] if call_args[0] else call_args.kwargs.get("args")
+        assert cmd == ["pytest", "-k", "test_foo bar"], f"Unexpected tokenisation: {cmd!r}"
+        assert call_args.kwargs.get("shell") is False
+
+    def test_shell_metacharacters_not_interpreted(self) -> None:
+        """AC-4: Shell metacharacters are tokenised literally, not interpreted.
+
+        'echo hello; rm -rf /' → ['echo', 'hello;', 'rm', '-rf', '/']
+        """
+        from agent_fox.engine.quality_gate import run_quality_gate
+
+        config = OrchestratorConfig(quality_gate="echo hello; rm -rf /")
+
+        with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["echo", "hello;", "rm", "-rf", "/"],
+                returncode=0,
+                stdout="hello; rm -rf /\n",
+                stderr="",
+            )
+            run_quality_gate(config, project_root="/tmp/project")
+
+        call_args = mock_run.call_args
+        cmd = call_args[0][0] if call_args[0] else call_args.kwargs.get("args")
+        assert cmd == ["echo", "hello;", "rm", "-rf", "/"], f"Unexpected tokenisation: {cmd!r}"
+        assert call_args.kwargs.get("shell") is False
 
 
 # ---------------------------------------------------------------------------

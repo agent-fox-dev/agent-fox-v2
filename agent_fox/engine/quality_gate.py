@@ -10,6 +10,7 @@ Requirements: 54-REQ-1.1, 54-REQ-1.2, 54-REQ-1.3, 54-REQ-1.E1, 54-REQ-1.E2,
 from __future__ import annotations
 
 import logging
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass
@@ -70,8 +71,8 @@ def run_quality_gate(
 
     try:
         proc = subprocess.run(
-            command,
-            shell=True,
+            shlex.split(command),
+            shell=False,
             capture_output=True,
             text=True,
             timeout=timeout,
