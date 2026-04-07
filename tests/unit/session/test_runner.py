@@ -5,6 +5,7 @@ Test Spec: TS-03-7 (success), TS-03-8 (SDK error), TS-03-9 (timeout),
            TS-18-8 (activity callback invoked),
            TS-18-9 (session works without callback),
            TS-18-E3 (callback exception does not crash session)
+           AC-1, AC-2, AC-5 (tool telemetry recording — fixes #282)
 Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.1, 03-REQ-6.2,
               03-REQ-6.E1, 18-REQ-2.1, 18-REQ-2.3, 18-REQ-2.E1,
               26-REQ-1.E1, 26-REQ-2.4
@@ -13,11 +14,12 @@ Requirements: 03-REQ-3.1 through 03-REQ-3.E2, 03-REQ-6.1, 03-REQ-6.2,
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.knowledge.sink import SinkDispatcher, ToolCall, ToolError
 from agent_fox.session.backends.protocol import (
     AgentMessage,
     AssistantMessage,
@@ -605,4 +607,321 @@ class TestSessionRunnerCallbackException:
             activity_callback=raising_cb,
         )
 
+        assert outcome.status == "completed"
+
+
+# ---------------------------------------------------------------------------
+# AC-1, AC-2, AC-5: Tool telemetry recording (fixes #282)
+# ---------------------------------------------------------------------------
+
+
+class TestSessionRunnerRecordsToolCalls:
+    """AC-1: record_tool_call is invoked for every ToolUseMessage.
+
+    Each ToolUseMessage received from the backend must produce exactly one
+    record_tool_call dispatch on the sink_dispatcher.
+    """
+
+    @pytest.mark.asyncio
+    async def test_single_tool_call_recorded(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """A session with one ToolUseMessage records exactly one tool call."""
+        recorded: list[ToolCall] = []
+
+        sink = MagicMock()
+        sink.record_tool_call.side_effect = lambda c: recorded.append(c)
+        sink.record_tool_error = MagicMock()
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={"file_path": "/a.py"}),
+                _make_result(),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-abc",
+        )
+
+        assert len(recorded) == 1
+        assert recorded[0].tool_name == "Read"
+
+    @pytest.mark.asyncio
+    async def test_multiple_tool_calls_all_recorded(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """AC-1: N ToolUseMessages produce N tool_call records."""
+        recorded: list[ToolCall] = []
+
+        sink = MagicMock()
+        sink.record_tool_call.side_effect = lambda c: recorded.append(c)
+        sink.record_tool_error = MagicMock()
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={"file_path": "/a.py"}),
+                ToolUseMessage(tool_name="Edit", tool_input={"file_path": "/b.py"}),
+                ToolUseMessage(tool_name="Bash", tool_input={"command": "make test"}),
+                _make_result(),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-abc",
+        )
+
+        assert len(recorded) == 3
+        assert [r.tool_name for r in recorded] == ["Read", "Edit", "Bash"]
+
+    @pytest.mark.asyncio
+    async def test_tool_call_carries_node_id(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Recorded ToolCall has the correct node_id."""
+        recorded: list[ToolCall] = []
+
+        sink = MagicMock()
+        sink.record_tool_call.side_effect = lambda c: recorded.append(c)
+        sink.record_tool_error = MagicMock()
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={}),
+                _make_result(),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "my-node:2",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-xyz",
+        )
+
+        assert len(recorded) == 1
+        assert recorded[0].node_id == "my-node:2"
+        assert recorded[0].session_id == "run-xyz"
+
+    @pytest.mark.asyncio
+    async def test_no_tool_calls_when_no_dispatcher(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """Session without sink_dispatcher completes without errors."""
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={}),
+                _make_result(),
+            ]
+        )
+
+        outcome = await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+        )
+
+        assert outcome.status == "completed"
+
+
+class TestSessionRunnerRecordsToolErrors:
+    """AC-2: record_tool_error is invoked when a session fails after tool use."""
+
+    @pytest.mark.asyncio
+    async def test_tool_error_recorded_on_is_error_result(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """AC-2: ResultMessage(is_error=True) after a tool use records a ToolError."""
+        error_records: list[ToolError] = []
+
+        sink = MagicMock()
+        sink.record_tool_call = MagicMock()
+        sink.record_tool_error.side_effect = lambda e: error_records.append(e)
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Bash", tool_input={"command": "make"}),
+                _make_result(is_error=True, error_message="build failed"),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-err",
+        )
+
+        assert len(error_records) == 1
+        assert error_records[0].tool_name == "Bash"
+
+    @pytest.mark.asyncio
+    async def test_no_tool_error_when_session_succeeds(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """No ToolError recorded when session ends successfully."""
+        error_records: list[ToolError] = []
+
+        sink = MagicMock()
+        sink.record_tool_call = MagicMock()
+        sink.record_tool_error.side_effect = lambda e: error_records.append(e)
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={}),
+                _make_result(),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-ok",
+        )
+
+        assert len(error_records) == 0
+
+    @pytest.mark.asyncio
+    async def test_no_tool_error_without_tool_invocation(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """No ToolError recorded when session fails without any tool invocation."""
+        error_records: list[ToolError] = []
+
+        sink = MagicMock()
+        sink.record_tool_call = MagicMock()
+        sink.record_tool_error.side_effect = lambda e: error_records.append(e)
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                _make_result(is_error=True, error_message="init failure"),
+            ]
+        )
+
+        await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-no-tool",
+        )
+
+        assert len(error_records) == 0
+
+
+class TestSessionRunnerTelemetrySinkFailure:
+    """AC-5: Sink failure in record_tool_call does not crash the session."""
+
+    @pytest.mark.asyncio
+    async def test_record_tool_call_failure_does_not_crash_session(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """AC-5: If record_tool_call raises, the session continues and completes."""
+        sink = MagicMock()
+        sink.record_tool_call.side_effect = RuntimeError("DB connection lost")
+        sink.record_tool_error = MagicMock()
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Read", tool_input={}),
+                _make_result(),
+            ]
+        )
+
+        outcome = await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-fail",
+        )
+
+        # Session must complete successfully despite sink failure
         assert outcome.status == "completed"
