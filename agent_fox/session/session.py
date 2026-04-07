@@ -51,6 +51,7 @@ class _QueryExecutionState:
     error_message: str | None = None
     status: str = "completed"
     saw_result: bool = False
+    last_response: str = ""  # Last AssistantMessage content
 
 
 async def with_timeout[T](
@@ -176,6 +177,7 @@ async def run_session(
         cache_creation_input_tokens=state.cache_creation_input_tokens,
         duration_ms=state.duration_ms,
         error_message=state.error_message,
+        response=state.last_response,
     )
 
 
@@ -274,6 +276,10 @@ async def _execute_query(
                     "Failed to emit tool.invocation audit event",
                     exc_info=True,
                 )
+
+        # Capture assistant text for review archetype parsing.
+        if isinstance(message, AssistantMessage) and message.content:
+            query_state.last_response = message.content
 
         # Track cumulative tokens from ToolUseMessage / AssistantMessage
         # (canonical messages don't carry usage info on non-result messages,
