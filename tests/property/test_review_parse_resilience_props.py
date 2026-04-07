@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.review_parser import parse_review_findings
+from agent_fox.session.review_parser import parse_review_findings
 from agent_fox.knowledge.review_store import VALID_SEVERITIES, ReviewFinding
 from agent_fox.session.review_parser import _unwrap_items
 
@@ -67,7 +67,7 @@ class TestCaseNormalizationPreservesValues:
     )
     def test_normalize_keys_preserves_values(self, items: list[int]) -> None:
         """_normalize_keys preserves all values for non-colliding keys."""
-        from agent_fox.engine.review_parser import _normalize_keys
+        from agent_fox.session.review_parser import _normalize_keys
 
         # Build dict with unique lowercase keys and integer values
         d = {f"key_{i}": v for i, v in enumerate(items)}
@@ -86,7 +86,7 @@ class TestCaseNormalizationPreservesValues:
     )
     def test_normalize_keys_all_lowercase(self, d: dict) -> None:
         """_normalize_keys produces a dict with all lowercase keys."""
-        from agent_fox.engine.review_parser import _normalize_keys
+        from agent_fox.session.review_parser import _normalize_keys
 
         result = _normalize_keys(d)
         for key in result:

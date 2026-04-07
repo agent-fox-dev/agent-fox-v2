@@ -17,7 +17,7 @@ import pytest
 # NOTE: agent_fox.engine.review_parser does not exist yet.
 # All tests in this file will fail with ImportError until Task Group 2
 # creates the module.
-from agent_fox.engine.review_parser import (
+from agent_fox.session.review_parser import (
     extract_json_array,
     parse_drift_findings,
     parse_review_findings,

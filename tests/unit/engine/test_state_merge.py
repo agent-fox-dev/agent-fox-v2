@@ -11,7 +11,7 @@ from pathlib import Path
 
 from agent_fox.engine.engine import _load_or_init_state, _seed_node_states_from_graph
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
-from agent_fox.engine.state_init import _init_attempt_tracker, _reset_blocked_tasks
+from agent_fox.engine.engine import _init_attempt_tracker, _reset_blocked_tasks
 from agent_fox.graph.types import Node, NodeStatus, TaskGraph
 
 

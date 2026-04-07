@@ -7,7 +7,7 @@ string length limits on LLM-provided fields.
 from __future__ import annotations
 
 from agent_fox.core.llm_validation import MAX_CONTENT_LENGTH, MAX_REF_LENGTH
-from agent_fox.engine.review_parser import (
+from agent_fox.session.review_parser import (
     parse_drift_findings,
     parse_review_findings,
     parse_verification_results,

@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent_fox.core.json_extraction import extract_json_array
-from agent_fox.engine.review_parser import (
+from agent_fox.session.review_parser import (
     parse_drift_findings,
     parse_review_findings,
     parse_verification_results,
