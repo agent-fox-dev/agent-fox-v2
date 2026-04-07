@@ -180,6 +180,7 @@ def converge_skeptic_records(
             spec_name=f.spec_name,
             task_group=f.task_group,
             session_id=convergence_id,
+            category=getattr(f, "category", None),
         )
         for f in merged
     ]

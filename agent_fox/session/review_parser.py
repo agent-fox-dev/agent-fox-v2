@@ -49,6 +49,50 @@ __all__ = ["extract_json_array"]
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Security keyword detection for automatic category classification
+# ---------------------------------------------------------------------------
+
+_SECURITY_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "command injection",
+        "sql injection",
+        "sqli",
+        "xss",
+        "cross-site scripting",
+        "path traversal",
+        "directory traversal",
+        "remote code execution",
+        "rce",
+        "ssrf",
+        "server-side request forgery",
+        "open redirect",
+        "xxe",
+        "xml injection",
+        "ldap injection",
+        "code injection",
+        "shell injection",
+        "injection vulnerability",
+        "privilege escalation",
+        "arbitrary command",
+        "arbitrary code",
+    }
+)
+
+
+def _detect_security_category(description: str) -> str | None:
+    """Return 'security' if the description contains security-related keywords.
+
+    Case-insensitive substring match against a known set of security keywords.
+    Returns None if no security keywords are found.
+    """
+    lower = description.lower()
+    for keyword in _SECURITY_KEYWORDS:
+        if keyword in lower:
+            return "security"
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Field-level key normalization (74-REQ-2.4)
 # ---------------------------------------------------------------------------
 
@@ -106,6 +150,7 @@ def parse_review_findings(
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
             req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
+        category = _detect_security_category(description)
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
@@ -115,6 +160,7 @@ def parse_review_findings(
                 spec_name=spec_name,
                 task_group=task_group,  # type: ignore[arg-type]
                 session_id=session_id,
+                category=category,
             )
         )
     return results

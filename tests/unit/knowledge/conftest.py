@@ -101,7 +101,8 @@ CREATE TABLE IF NOT EXISTS review_findings (
     task_group      TEXT NOT NULL,
     session_id      TEXT NOT NULL,
     superseded_by   TEXT,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    category        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS verification_results (

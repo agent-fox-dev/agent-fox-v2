@@ -82,6 +82,7 @@ class ReviewFinding:
     session_id: str
     superseded_by: str | None = None
     created_at: datetime | None = None
+    category: str | None = None
 
 
 @dataclass(frozen=True)
@@ -225,7 +226,7 @@ def insert_findings(
     return _insert_with_supersession(
         conn,
         table="review_findings",
-        columns=("id, severity, description, requirement_ref, spec_name, task_group, session_id"),
+        columns=("id, severity, description, requirement_ref, spec_name, task_group, session_id, category"),
         records=findings,
         value_extractor=lambda f: [
             f.id,
@@ -235,6 +236,7 @@ def insert_findings(
             f.spec_name,
             f.task_group,
             f.session_id,
+            f.category,
         ],
         record_type_label="review findings",
     )
@@ -330,7 +332,7 @@ def _query_active(
 
 _FINDING_COLS = (
     "id::VARCHAR, severity, description, requirement_ref, "
-    "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at"
+    "spec_name, task_group, session_id, superseded_by::VARCHAR, created_at, category"
 )
 
 _VERDICT_COLS = (
@@ -475,6 +477,7 @@ def _row_to_finding(row: tuple) -> ReviewFinding:
         session_id=row[6],
         superseded_by=row[7],
         created_at=row[8],
+        category=row[9] if len(row) > 9 else None,
     )
 
 

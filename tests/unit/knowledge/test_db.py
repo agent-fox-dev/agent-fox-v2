@@ -73,8 +73,8 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        # v1..v6 (review, routing, drift, confidence, audit)
-        assert len(rows) == 6
+        # v1..v7 (review, routing, drift, confidence, audit, security category)
+        assert len(rows) == 7
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
@@ -83,6 +83,7 @@ class TestSchemaVersionRecordedOnCreation:
         assert rows[3][0] == 4
         assert rows[4][0] == 5
         assert rows[5][0] == 6
+        assert rows[6][0] == 7
         db.close()
 
 
@@ -138,8 +139,8 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        # v1..v6 (review, routing, drift, confidence, audit)
-        assert count[0] == 6
+        # v1..v7 (review, routing, drift, confidence, audit, security category)
+        assert count[0] == 7
         db2.close()
 
 
