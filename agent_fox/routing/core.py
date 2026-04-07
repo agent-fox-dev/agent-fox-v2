@@ -105,9 +105,9 @@ class ExecutionOutcome:
 # ---------------------------------------------------------------------------
 
 
-def _feature_vector_to_json(fv: object) -> str:
+def _feature_vector_to_json(fv: FeatureVector) -> str:
     """Serialize a FeatureVector dataclass to a JSON string."""
-    return json.dumps(asdict(fv))  # type: ignore[arg-type]
+    return json.dumps(asdict(fv))
 
 
 def persist_assessment(

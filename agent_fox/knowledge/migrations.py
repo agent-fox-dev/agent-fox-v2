@@ -191,8 +191,8 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     # Save embeddings data if it exists
     has_embeddings = False
     try:
-        embedding_count = conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()[0]
-        has_embeddings = embedding_count > 0
+        row = conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()
+        has_embeddings = row is not None and row[0] > 0
     except Exception:
         pass
 

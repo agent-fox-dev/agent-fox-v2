@@ -10,8 +10,10 @@ Requirements: 27-REQ-1.1, 27-REQ-2.1, 27-REQ-4.1, 27-REQ-4.2, 27-REQ-4.3,
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import duckdb  # noqa: F401
 
@@ -161,7 +163,7 @@ def _insert_with_supersession(
     table: str,
     columns: str,
     records: list,
-    value_extractor: callable,
+    value_extractor: Callable[..., list[Any]],
     record_type_label: str,
 ) -> int:
     """Insert records with supersession and causal links.
