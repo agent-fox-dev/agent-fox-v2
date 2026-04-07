@@ -192,9 +192,9 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - [x] Requirements 82-REQ-3.1, 3.E1, 6.1, 6.E1, 7.1, 7.2, 7.3, 7.E1,
       8.1, 8.2, 8.3, 8.4, 8.E1 met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1: process_issue → _run_triage → _run_session("triage") →
       parse_triage_output → _format_triage_comment → add_issue_comment
     - Path 2: _build_coder_prompt → _run_coder_session → run_session
@@ -205,7 +205,7 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Confirm no function in any chain is a stub
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `parse_triage_output` → `TriageResult` → consumed by
       `_build_coder_prompt` and `_build_reviewer_prompt`
     - `parse_fix_review_output` → `FixReviewResult` → consumed by
@@ -215,23 +215,23 @@ archetype registration, (4) fix pipeline rewrite with retry/escalation,
     - Grep for callers, confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All TS-82-SMOKE-* tests pass using real pipeline code (not stubbed)
     - _Test Spec: TS-82-SMOKE-1, TS-82-SMOKE-2, TS-82-SMOKE-3_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit: justified or replaced
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check`
 
 ### Checkbox States
 
