@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.github import IssueResult, PullRequestResult
 
 
 @runtime_checkable
@@ -53,5 +53,19 @@ class PlatformProtocol(Protocol):
         issue_number: int,
         comment: str | None = None,
     ) -> None: ...
+
+    async def create_pull_request(
+        self,
+        title: str,
+        body: str,
+        head: str,
+        base: str,
+        draft: bool = True,
+    ) -> PullRequestResult:
+        """Create a pull request from head branch to base branch.
+
+        Requirements: 85-REQ-8.3
+        """
+        ...
 
     async def close(self) -> None: ...

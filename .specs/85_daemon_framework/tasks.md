@@ -71,14 +71,14 @@ and can be built in parallel with streams if desired.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Core abstractions: WorkStream protocol, PID module, config, data types
-  - [ ] 2.1 Create `nightshift/stream.py` — WorkStream protocol
+- [x] 2. Core abstractions: WorkStream protocol, PID module, config, data types
+  - [x] 2.1 Create `nightshift/stream.py` — WorkStream protocol
     - Define `WorkStream` as a `@runtime_checkable` Protocol
     - Properties: `name: str`, `interval: int`, `enabled: bool`
     - Methods: `async run_once() -> None`, `async shutdown() -> None`
     - _Requirements: 85-REQ-1.1_
 
-  - [ ] 2.2 Create `nightshift/pid.py` — PID file management
+  - [x] 2.2 Create `nightshift/pid.py` — PID file management
     - `PidStatus` enum: `ALIVE`, `STALE`, `ABSENT`
     - `check_pid_file(pid_path) -> tuple[PidStatus, int | None]`
     - `write_pid_file(pid_path) -> None`
@@ -86,7 +86,7 @@ and can be built in parallel with streams if desired.
     - Stale detection via `os.kill(pid, 0)` with `ProcessLookupError` handling
     - _Requirements: 85-REQ-2.1, 85-REQ-2.4, 85-REQ-2.E1, 85-REQ-2.E2, 85-REQ-2.E3_
 
-  - [ ] 2.3 Extend `nightshift/config.py` — new NightShiftConfig fields
+  - [x] 2.3 Extend `nightshift/config.py` — new NightShiftConfig fields
     - Add `spec_interval: int` (default 60, min 10)
     - Add `spec_gen_interval: int` (default 300, min 60)
     - Add `enabled_streams: list[str]` (default all four)
@@ -94,22 +94,22 @@ and can be built in parallel with streams if desired.
     - Add field validators for clamping spec_interval and spec_gen_interval
     - _Requirements: 85-REQ-9.1, 85-REQ-9.E1, 85-REQ-9.E2_
 
-  - [ ] 2.4 Create `PullRequestResult` dataclass in `platform/github.py`
+  - [x] 2.4 Create `PullRequestResult` dataclass in `platform/github.py`
     - Fields: `number: int`, `url: str`, `html_url: str`
     - Frozen dataclass
     - _Requirements: 85-REQ-8.3_
 
-  - [ ] 2.5 Create `SharedBudget` and `DaemonState` in `nightshift/daemon.py`
+  - [x] 2.5 Create `SharedBudget` and `DaemonState` in `nightshift/daemon.py`
     - `SharedBudget`: `max_cost`, `add_cost()`, `total_cost`, `exceeded`
     - `DaemonState`: cost, sessions, issues, scans, specs, uptime fields
     - _Requirements: 85-REQ-5.1, 85-REQ-5.2, 85-REQ-5.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_stream.py tests/unit/nightshift/test_pid.py tests/unit/nightshift/test_config_daemon.py -k "TS_85_1 or TS_85_5 or TS_85_10 or TS_85_11 or TS_85_15 or TS_85_16 or TS_85_22 or TS_85_26 or E3 or E4 or E5 or E6 or E7 or E9 or E14 or E15"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P1 or P2 or P5"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 85-REQ-1.1, 85-REQ-2.1, 85-REQ-2.E1-E3, 85-REQ-3.1-E2, 85-REQ-5.1-E1, 85-REQ-9.1-E2 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_stream.py tests/unit/nightshift/test_pid.py tests/unit/nightshift/test_config_daemon.py -k "TS_85_1 or TS_85_5 or TS_85_10 or TS_85_11 or TS_85_15 or TS_85_16 or TS_85_22 or TS_85_26 or E3 or E4 or E5 or E6 or E7 or E9 or E14 or E15"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_daemon_props.py -k "P1 or P2 or P5"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 85-REQ-1.1, 85-REQ-2.1, 85-REQ-2.E1-E3, 85-REQ-3.1-E2, 85-REQ-5.1-E1, 85-REQ-9.1-E2 met
 
 - [ ] 3. DaemonRunner: lifecycle, scheduling, cost budget, signal handling
   - [ ] 3.1 Implement `DaemonRunner.__init__()` and stream registration

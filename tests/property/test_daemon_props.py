@@ -80,15 +80,14 @@ class TestPidMutualExclusion:
         try:
             os.kill(pid, 0)
             alive = True
-        except (ProcessLookupError, PermissionError):
-            alive = pid == os.getpid()  # PermissionError means alive
-            try:
-                os.kill(pid, 0)
-                alive = True
-            except ProcessLookupError:
-                alive = False
-            except PermissionError:
-                alive = True
+        except ProcessLookupError:
+            alive = False
+        except PermissionError:
+            # Process exists but we lack permission — treat as alive.
+            alive = True
+        except (OverflowError, OSError):
+            # PID out of valid range — not alive.
+            alive = False
 
         if alive:
             assert status == PidStatus.ALIVE

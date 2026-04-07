@@ -43,6 +43,18 @@ class IssueResult:
     body: str = ""
 
 
+@dataclass(frozen=True)
+class PullRequestResult:
+    """Structured result for pull request creation.
+
+    Requirements: 85-REQ-8.3
+    """
+
+    number: int
+    url: str
+    html_url: str
+
+
 class GitHubPlatform:
     """GitHub platform using the REST API.
 
@@ -298,6 +310,48 @@ class GitHubPlatform:
 
         Requirements: 61-REQ-8.1
         """
+
+    async def create_pull_request(
+        self,
+        title: str,
+        body: str,
+        head: str,
+        base: str,
+        draft: bool = True,
+    ) -> PullRequestResult:
+        """Create a pull request.
+
+        Uses POST /repos/{owner}/{repo}/pulls.
+        Returns PullRequestResult with the created PR's number, url, and html_url.
+        Raises IntegrationError on API error.
+
+        Requirements: 85-REQ-8.4
+        """
+        headers = self._auth_headers()
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/pulls"
+        payload = {
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+            "draft": draft,
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, headers=headers)
+        if resp.status_code != 201:
+            detail = _truncate_response(resp.text)
+            logger.debug("PR creation response (%d): %s", resp.status_code, detail)
+            raise IntegrationError(
+                f"GitHub PR creation failed ({resp.status_code})",
+            )
+        data = resp.json()
+        result = PullRequestResult(
+            number=data["number"],
+            url=data["url"],
+            html_url=data["html_url"],
+        )
+        logger.info("Created PR #%d: %s", result.number, result.html_url)
+        return result
 
     async def close_issue(
         self,
