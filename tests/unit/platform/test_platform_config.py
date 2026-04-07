@@ -49,8 +49,8 @@ class TestPlatformConfigAutoMergeIgnored:
     """
 
     def test_old_auto_merge_ignored(self) -> None:
-        """PlatformConfig(auto_merge=True) loads without error and ignores it."""
-        config = PlatformConfig(type="github", auto_merge=True)
+        """PlatformConfig with auto_merge key loads without error and ignores it."""
+        config = PlatformConfig.model_validate({"type": "github", "auto_merge": True})
         assert config.type == "github"
         assert not hasattr(config, "auto_merge")
 
@@ -284,7 +284,9 @@ class TestPlatformConfigUnknownKeysIgnored:
 
     def test_unknown_keys_ignored(self) -> None:
         """PlatformConfig ignores auto_merge and other arbitrary unknown keys."""
-        config = PlatformConfig(type="github", auto_merge=True, foo="bar", baz=42)
+        config = PlatformConfig.model_validate(
+            {"type": "github", "auto_merge": True, "foo": "bar", "baz": 42}
+        )
         assert config.type == "github"
         assert not hasattr(config, "auto_merge")
         assert not hasattr(config, "foo")
