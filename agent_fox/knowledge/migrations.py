@@ -265,6 +265,18 @@ def _migrate_v6(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v7(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add category column to review_findings table.
+
+    Enables classification of findings (e.g. 'security', 'correctness',
+    'performance'). Critical security-category findings bypass the numeric
+    block threshold and always trigger blocking.
+
+    Requirements: 277-REQ-1, 277-REQ-2
+    """
+    conn.execute("ALTER TABLE review_findings ADD COLUMN IF NOT EXISTS category TEXT")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -291,6 +303,11 @@ MIGRATIONS: list[Migration] = [
         version=6,
         description="add audit_events table",
         apply=_migrate_v6,
+    ),
+    Migration(
+        version=7,
+        description="add category column to review_findings for security classification",
+        apply=_migrate_v7,
     ),
 ]
 

@@ -94,11 +94,18 @@ def evaluate_review_blocking(
     record: SessionRecord,
     archetypes_config: ArchetypesConfig | None,
     knowledge_db_conn: Any | None,
+    *,
+    sink: Any | None = None,
+    run_id: str = "",
 ) -> BlockDecision:
     """Evaluate whether a skeptic/oracle session should block its downstream task.
 
     Queries persisted review findings from DuckDB, counts critical findings,
     applies the configured (or learned) block threshold.
+
+    Critical findings with category='security' always trigger blocking,
+    regardless of the numeric threshold, because security vulnerabilities
+    must be remediated before downstream work can proceed.
 
     Returns a BlockDecision indicating whether blocking should occur and why.
     """
@@ -124,6 +131,42 @@ def evaluate_review_blocking(
 
         if critical_count == 0:
             return BlockDecision(should_block=False)
+
+        # Security bypass: critical findings with category='security' always block,
+        # regardless of the numeric threshold.
+        security_critical = [
+            f for f in findings if f.severity.lower() == "critical" and getattr(f, "category", None) == "security"
+        ]
+        if security_critical:
+            shown = security_critical[:3]
+            detail = ", ".join(
+                f"F-{f.id.replace('-', '')[:8]}: {f.description[:60]}" + ("…" if len(f.description) > 60 else "")
+                for f in shown
+            )
+            reason = (
+                f"[SECURITY] {archetype.capitalize()} found {len(security_critical)} critical "
+                f"security finding(s) for {spec_name}:{task_group} — {detail}"
+            )
+            logger.warning("SECURITY blocking %s: %s", coder_node_id, reason)
+            emit_audit_event(
+                sink,
+                run_id,
+                AuditEventType.SECURITY_FINDING_BLOCKED,
+                node_id=record.node_id,
+                session_id=session_id,
+                archetype=archetype,
+                payload={
+                    "spec_name": spec_name,
+                    "task_group": task_group,
+                    "security_critical_count": len(security_critical),
+                    "finding_ids": [str(f.id) for f in security_critical],
+                },
+            )
+            return BlockDecision(
+                should_block=True,
+                coder_node_id=coder_node_id,
+                reason=reason,
+            )
 
         # Resolve threshold
         if archetype == "skeptic" and archetypes_config is not None:
@@ -326,6 +369,8 @@ class SessionResultHandler:
             record,
             self._archetypes_config,
             self._knowledge_db_conn,
+            sink=self._sink,
+            run_id=self._run_id,
         )
         if decision.should_block:
             self._block_task(decision.coder_node_id, state, decision.reason)
