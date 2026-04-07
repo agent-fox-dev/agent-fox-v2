@@ -15,10 +15,10 @@ import warnings
 
 import duckdb
 import numpy as np
-from sklearn.exceptions import FitFailedWarning
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import LabelEncoder
+from sklearn.exceptions import FitFailedWarning  # type: ignore[import-untyped]
+from sklearn.linear_model import LogisticRegression  # type: ignore[import-untyped]
+from sklearn.model_selection import cross_val_score  # type: ignore[import-untyped]
+from sklearn.preprocessing import LabelEncoder  # type: ignore[import-untyped]
 
 from agent_fox.core.models import ModelTier
 from agent_fox.routing.core import FeatureVector, count_outcomes, query_outcomes
