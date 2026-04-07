@@ -182,10 +182,15 @@ class TestGroupBoundaryInvariant:
 
 
 class TestCacheStalenessDetection:
-    """TS-42-P4: Cache returns list only when fact count matches.
+    """TS-42-P4: Cache respects tolerance-based staleness detection.
 
     Requirements: 42-REQ-3.3
+
+    Updated for fix-issue-273: invalidation uses a 10% tolerance window
+    instead of exact count matching.
     """
+
+    _DEFAULT_TOLERANCE = 0.1
 
     @given(
         cache_count=st.integers(min_value=0, max_value=100),
@@ -204,7 +209,15 @@ class TestCacheStalenessDetection:
 
         result = get_cached_facts(cache, "test_spec", current_fact_count=query_count)
 
-        if query_count == cache_count:
+        # Determine expected outcome based on tolerance logic that mirrors the
+        # implementation: drift = |query - cache| / cache; stale if drift > tol.
+        if cache_count == 0:
+            expected_hit = query_count == 0
+        else:
+            drift = abs(query_count - cache_count) / cache_count
+            expected_hit = drift <= self._DEFAULT_TOLERANCE
+
+        if expected_hit:
             assert result is not None
         else:
             assert result is None

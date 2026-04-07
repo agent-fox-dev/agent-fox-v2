@@ -113,12 +113,14 @@ def get_cached_facts(
     cache: dict[str, RankedFactCache],
     spec_name: str,
     current_fact_count: int,
+    tolerance: float = 0.1,
 ) -> list[Fact] | None:
     """Return cached facts if still valid, None if stale or missing.
 
     The cache is considered stale when the current fact count differs
-    from the count at creation time — indicating facts have been added
-    or superseded since the cache was built.
+    from the count at creation time by more than ``tolerance`` (fractional).
+    A ``tolerance`` of 0.1 means up to 10% drift is accepted before
+    invalidating.  Pass ``tolerance=0.0`` to restore exact-count matching.
 
     Requirements: 39-REQ-5.2, 39-REQ-5.3
     """
@@ -126,8 +128,15 @@ def get_cached_facts(
     if entry is None:
         return None
 
-    if entry.fact_count_at_creation != current_fact_count:
-        return None
+    cached_count = entry.fact_count_at_creation
+    if cached_count == 0:
+        # Avoid division by zero; require exact match when cache was empty
+        if current_fact_count != 0:
+            return None
+    else:
+        drift = abs(current_fact_count - cached_count) / cached_count
+        if drift > tolerance:
+            return None
 
     return entry.ranked_facts
 

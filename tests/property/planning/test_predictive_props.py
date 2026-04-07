@@ -283,8 +283,10 @@ class TestFactCacheConsistency:
         assert cached is not None
         assert len(cached) == n_facts
 
-        # When count differs, cache should be stale
-        stale = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=n_facts + 1)
+        # When count differs by more than 10% default tolerance, cache is stale.
+        # Use n_facts * 2 + 1 to guarantee > 10% drift for all n_facts >= 1.
+        stale_count = n_facts * 2 + 1
+        stale = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=stale_count)
         assert stale is None
 
 

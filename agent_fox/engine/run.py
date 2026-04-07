@@ -308,7 +308,8 @@ async def run_code(
 
 
 def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
-    """Run ingestion and export facts at sync barrier."""
+    """Run ingestion, export facts, and rebuild fact cache at sync barrier."""
+    from agent_fox.engine.fact_cache import precompute_fact_rankings
     from agent_fox.knowledge.ingest import run_background_ingestion
     from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, export_facts_to_jsonl
 
@@ -325,6 +326,24 @@ def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
         export_facts_to_jsonl(knowledge_db.connection, DEFAULT_MEMORY_PATH)
     except Exception:
         logger.warning("Barrier JSONL export failed", exc_info=True)
+
+    # Rebuild the fact cache in-place so all holders of the shared dict
+    # (including session_runner_factory closures) see the refreshed rankings.
+    fact_cache = infra.get("fact_cache")
+    if fact_cache is not None:
+        try:
+            spec_names = list(fact_cache.keys())
+            if spec_names:
+                new_cache = precompute_fact_rankings(
+                    knowledge_db.connection,
+                    spec_names,
+                    confidence_threshold=config.knowledge.confidence_threshold,
+                )
+                fact_cache.clear()
+                fact_cache.update(new_cache)
+                logger.debug("Barrier sync: rebuilt fact cache for %d specs", len(spec_names))
+        except Exception:
+            logger.warning("Barrier fact cache rebuild failed", exc_info=True)
 
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
