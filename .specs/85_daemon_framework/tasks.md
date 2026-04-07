@@ -187,31 +187,31 @@ and can be built in parallel with streams if desired.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 85-REQ-3.*, 85-REQ-6.*, 85-REQ-7.*, 85-REQ-10.* met
 
-- [ ] 5. Platform PR creation and merge strategy
-  - [ ] 5.1 Extend `PlatformProtocol` with `create_pull_request()`
+- [x] 5. Platform PR creation and merge strategy
+  - [x] 5.1 Extend `PlatformProtocol` with `create_pull_request()`
     - Add method signature to protocol: `async def create_pull_request(self, title, body, head, base, draft=True) -> PullRequestResult`
     - _Requirements: 85-REQ-8.3_
 
-  - [ ] 5.2 Implement `GitHubPlatform.create_pull_request()`
+  - [x] 5.2 Implement `GitHubPlatform.create_pull_request()`
     - POST to `/repos/{owner}/{repo}/pulls`
     - JSON body: title, body, head, base, draft
     - Parse response into PullRequestResult
     - Raise IntegrationError on API failure
     - _Requirements: 85-REQ-8.4_
 
-  - [ ] 5.3 Implement merge strategy wiring
+  - [x] 5.3 Implement merge strategy wiring
     - Add `resolve_merge_strategy()` helper: validate config value,
       fall back to "direct" on unknown values with warning
     - Wire into fix pipeline and spec executor post-session merge logic
     - On PR creation failure: log error, post comment with branch name
     - _Requirements: 85-REQ-8.1, 85-REQ-8.2, 85-REQ-8.E1, 85-REQ-8.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/platform/test_pr_creation.py -k "TS_85_23 or TS_85_24 or TS_85_25 or E12 or E13"`
-    - [ ] Smoke test passes: `uv run pytest -q tests/integration/test_daemon_lifecycle.py -k "SMOKE_7"`
-    - [ ] All existing tests still pass: `make test`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 85-REQ-8.* met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/platform/test_pr_creation.py -k "TS_85_23 or TS_85_24 or TS_85_25 or E12 or E13"`
+    - [x] Smoke test passes: `uv run pytest -q tests/integration/test_daemon_lifecycle.py -k "SMOKE_7"`
+    - [x] All existing tests still pass: `make test`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 85-REQ-8.* met
 
 - [ ] 6. Wiring verification
 
