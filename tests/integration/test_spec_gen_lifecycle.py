@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_BLOCKED,
     LABEL_DONE,
@@ -18,8 +19,6 @@ from agent_fox.nightshift.spec_gen import (
     SpecGenerator,
     SpecPackage,
 )
-
-from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.platform.github import IssueResult
 
 # ---------------------------------------------------------------------------

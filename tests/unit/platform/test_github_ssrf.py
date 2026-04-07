@@ -20,7 +20,6 @@ import pytest
 from agent_fox.core.errors import ConfigError
 from agent_fox.platform.github import GitHubPlatform, _validate_github_url
 
-
 # ---------------------------------------------------------------------------
 # AC-1: Reject private IPv4 addresses
 # ---------------------------------------------------------------------------

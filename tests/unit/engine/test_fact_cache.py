@@ -13,13 +13,14 @@ invalidation now use deltas that exceed the 10% default tolerance.
 
 from __future__ import annotations
 
-import logging
 import uuid
+from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
 import pytest
 
+from agent_fox.engine.fact_cache import RankedFactCache
 from tests.unit.knowledge.conftest import make_fact
 
 # ---------------------------------------------------------------------------
@@ -51,9 +52,7 @@ def _make_cache_entry(
     spec_name: str = "spec_a",
     fact_count_at_creation: int = 100,
     n_facts: int = 1,
-) -> "RankedFactCache":
-    from agent_fox.engine.fact_cache import RankedFactCache
-
+) -> RankedFactCache:
     return RankedFactCache(
         spec_name=spec_name,
         ranked_facts=[make_fact(id=f"f{i}", spec_name=spec_name) for i in range(n_facts)],
@@ -270,9 +269,8 @@ class TestCacheHitLogging:
         """
         from unittest.mock import MagicMock
 
-        from agent_fox.engine.fact_cache import RankedFactCache, precompute_fact_rankings
+        from agent_fox.engine.fact_cache import precompute_fact_rankings
         from agent_fox.engine.session_lifecycle import load_relevant_facts
-        from agent_fox.knowledge.db import KnowledgeDB
 
         # Seed 100 facts
         for i in range(92):  # 8 already seeded by cache_db fixture → 100 total
@@ -281,7 +279,6 @@ class TestCacheHitLogging:
         # Build cache at current count (100)
         cache = precompute_fact_rankings(cache_db, ["spec_a"])
         assert "spec_a" in cache
-        cached_count = cache["spec_a"].fact_count_at_creation
 
         # Add 3 more facts (3% drift, within 10% default tolerance)
         _seed_facts(cache_db, "spec_a", n=3)
@@ -317,7 +314,7 @@ class TestBarrierCacheRebuild:
     def test_barrier_sync_updates_fact_cache_in_place(
         self,
         cache_db: duckdb.DuckDBPyConnection,
-        tmp_path: "Path",
+        tmp_path: Path,
     ) -> None:
         """AC-3: After _barrier_sync, fact_cache entries reflect new fact count.
 
@@ -325,10 +322,9 @@ class TestBarrierCacheRebuild:
         _barrier_sync via a minimal infra dict and verifies that the cache dict
         is updated in-place with a new fact_count_at_creation.
         """
-        from pathlib import Path
         from unittest.mock import MagicMock, patch
 
-        from agent_fox.engine.fact_cache import RankedFactCache, precompute_fact_rankings
+        from agent_fox.engine.fact_cache import precompute_fact_rankings
         from agent_fox.engine.run import _barrier_sync
 
         # Build initial cache at 8 facts (5 spec_a + 3 spec_b from fixture)

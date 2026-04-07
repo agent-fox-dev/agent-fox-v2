@@ -13,10 +13,7 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from agent_fox.core.json_extraction import extract_json_array
-
 
 # ---------------------------------------------------------------------------
 # Option B — two-pass scan: prefer dict-containing arrays over string arrays

@@ -11,7 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
+from agent_fox.core.errors import IntegrationError
+from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_ANALYZING,
     LABEL_BLOCKED,
@@ -26,9 +27,6 @@ from agent_fox.nightshift.spec_gen import (
     SpecGenResult,
     SpecPackage,
 )
-
-from agent_fox.core.errors import IntegrationError
-from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.platform.github import IssueResult
 
 # ---------------------------------------------------------------------------
