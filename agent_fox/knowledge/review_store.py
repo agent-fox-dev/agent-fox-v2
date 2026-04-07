@@ -50,17 +50,23 @@ def normalize_severity(severity: str) -> str:
     return "observation"
 
 
-def validate_verdict(verdict: str) -> str | None:
+def validate_verdict(verdict: str) -> str:
     """Normalize and validate a verdict value.
 
     Upper-cases and strips the input. Returns the normalised value if
-    valid, or ``None`` (with a warning log) if not.
+    valid (``PASS`` or ``FAIL``). Non-standard values (e.g. ``PARTIAL``,
+    ``CONDITIONAL``) are mapped to ``"FAIL"`` and a warning is logged,
+    so that partial compliance is treated as non-compliance rather than
+    silently dropped.
     """
     normalized = verdict.upper().strip()
     if normalized in VALID_VERDICTS:
         return normalized
-    logger.warning("Invalid verdict '%s' (must be PASS or FAIL)", verdict)
-    return None
+    logger.warning(
+        "Invalid verdict '%s' normalized to 'FAIL' (must be PASS or FAIL)",
+        verdict,
+    )
+    return "FAIL"
 
 
 @dataclass(frozen=True)

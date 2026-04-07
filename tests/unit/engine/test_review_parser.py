@@ -237,11 +237,12 @@ class TestParseVerificationResults:
         result = parse_verification_results(json_objects, "03_api", 2, "sess")
         assert len(result) == 0
 
-    def test_invalid_verdict_value_skipped(self) -> None:
-        """Objects with unrecognised verdict values are skipped."""
+    def test_invalid_verdict_value_normalized_to_fail(self) -> None:
+        """Objects with unrecognised verdict values are normalized to FAIL (not skipped)."""
         json_objects = [{"requirement_id": "03-REQ-1.1", "verdict": "UNKNOWN"}]
         result = parse_verification_results(json_objects, "03_api", 2, "sess")
-        assert len(result) == 0
+        assert len(result) == 1
+        assert result[0].verdict == "FAIL"
 
     def test_fail_verdict_accepted(self) -> None:
         """FAIL verdict is valid and parsed correctly."""

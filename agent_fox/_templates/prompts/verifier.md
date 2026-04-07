@@ -123,19 +123,19 @@ and no commentary. Use exactly the field names shown in the schema below.
 
 Each verdict object MUST have:
 - `requirement_id`: the requirement ID being verified (e.g. `"05-REQ-1.1"`)
-- `verdict`: one of `"PASS"`, `"FAIL"`, or `"PARTIAL"`
+- `verdict`: exactly `"PASS"` or `"FAIL"`. Your verdict MUST be exactly
+  PASS or FAIL. Do not use PARTIAL, CONDITIONAL, or any other value.
   - **PASS** — requirement fully satisfied, tests pass
   - **FAIL** — requirement not met, tests fail, or significant issues
-  - **PARTIAL** — some acceptance criteria met, others not
 
 Each verdict object SHOULD have:
-- `evidence`: supporting evidence for the verdict. For FAIL and PARTIAL
-  verdicts, be specific about what is wrong and what needs to change —
+- `evidence`: supporting evidence for the verdict. For FAIL verdicts,
+  be specific about what is wrong and what needs to change —
   the Coder will receive this as retry context.
 
 The top-level object MUST also have:
 - `overall_verdict`: one of `"PASS"` or `"FAIL"`. FAIL if any individual
-  verdict is FAIL. PASS if all verdicts are PASS or PARTIAL.
+  verdict is FAIL. PASS only if all verdicts are PASS.
 - `summary`: a 1-2 sentence summary of the verification result.
 
 You may write a human-readable summary after the JSON block, but the

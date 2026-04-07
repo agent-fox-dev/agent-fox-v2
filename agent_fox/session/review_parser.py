@@ -19,6 +19,7 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,7 +33,9 @@ from agent_fox.core.llm_validation import (
     MAX_REF_LENGTH,
     truncate_field,
 )
+from agent_fox.knowledge.audit import AuditEvent, AuditEventType, AuditSeverity
 from agent_fox.knowledge.review_store import (
+    VALID_VERDICTS,
     DriftFinding,
     ReviewFinding,
     VerificationResult,
@@ -122,12 +125,20 @@ def parse_verification_results(
     spec_name: str,
     task_group: int | str,
     session_id: str,
+    *,
+    emit_audit_event: Callable[[AuditEvent], None] | None = None,
 ) -> list[VerificationResult]:
     """Parse a list of dicts into VerificationResult instances.
 
-    Required fields: ``requirement_id``, ``verdict`` (must be PASS or FAIL).
+    Required fields: ``requirement_id``, ``verdict`` (PASS or FAIL).
     Optional fields: ``evidence``.
-    Objects with missing or invalid fields are skipped with a warning log.
+    Objects missing required fields are skipped with a warning log.
+
+    Non-standard verdict values (e.g. ``PARTIAL``, ``CONDITIONAL``) are
+    normalized to ``FAIL`` rather than dropped. When *emit_audit_event* is
+    provided, a :data:`~agent_fox.knowledge.audit.AuditEventType.VERDICT_NORMALIZED`
+    event is emitted for each coerced verdict so operators can observe the
+    normalization.
 
     Requirements: 53-REQ-4.2
     """
@@ -152,14 +163,32 @@ def parse_verification_results(
                 list(obj.keys()),
             )
             continue
-        verdict_val = validate_verdict(str(obj["verdict"]))
-        if verdict_val is None:
-            continue
+        raw_verdict = str(obj["verdict"])
+        verdict_val = validate_verdict(raw_verdict)
+        original_upper = raw_verdict.upper().strip()
+        verdict_was_coerced = original_upper not in VALID_VERDICTS
+
         req_id = truncate_field(
             str(obj["requirement_id"]),
             max_length=MAX_REF_LENGTH,
             field_name="verdict.requirement_id",
         )
+
+        if verdict_was_coerced and emit_audit_event is not None:
+            emit_audit_event(
+                AuditEvent(
+                    run_id="",
+                    event_type=AuditEventType.VERDICT_NORMALIZED,
+                    severity=AuditSeverity.WARNING,
+                    session_id=session_id,
+                    payload={
+                        "original_verdict": original_upper,
+                        "normalized_verdict": verdict_val,
+                        "requirement_id": req_id,
+                    },
+                )
+            )
+
         evidence = obj.get("evidence")
         if isinstance(evidence, str):
             evidence = truncate_field(

@@ -73,6 +73,7 @@ class AuditEventType(StrEnum):
     REVIEW_FINDINGS_PERSISTED = "review.findings_persisted"
     REVIEW_VERDICTS_PERSISTED = "review.verdicts_persisted"
     REVIEW_DRIFT_PERSISTED = "review.drift_persisted"
+    VERDICT_NORMALIZED = "review.verdict_normalized"
     NIGHT_SHIFT_START = "night_shift.start"
     HUNT_SCAN_COMPLETE = "night_shift.hunt_scan_complete"
     ISSUE_CREATED = "night_shift.issue_created"

@@ -120,11 +120,12 @@ class TestValidateSchemaRejects:
         verdicts = parse_verification_output(response, "s", "1", "s1")
         assert len(verdicts) == 0
 
-    def test_invalid_verdict_rejected(self) -> None:
-        """Verdict with non-PASS/FAIL value is skipped."""
+    def test_invalid_verdict_normalized_to_fail(self) -> None:
+        """Verdict with non-PASS/FAIL value is normalized to FAIL (not skipped)."""
         response = '```json\n[{"requirement_id": "X", "verdict": "MAYBE"}]\n```'
         verdicts = parse_verification_output(response, "s", "1", "s1")
-        assert len(verdicts) == 0
+        assert len(verdicts) == 1
+        assert verdicts[0].verdict == "FAIL"
 
 
 class TestNoValidJsonReturnsEmpty:
