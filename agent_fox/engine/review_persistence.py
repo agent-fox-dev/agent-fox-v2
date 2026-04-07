@@ -234,15 +234,15 @@ def persist_review_findings(
                         payload={"archetype": archetype},
                     )
 
-            from agent_fox.engine.review_parser import (
-                parse_drift_findings,
-                parse_review_findings,
-                parse_verification_results,
-            )
             from agent_fox.knowledge.review_store import (
                 insert_drift_findings,
                 insert_findings,
                 insert_verdicts,
+            )
+            from agent_fox.session.review_parser import (
+                parse_drift_findings,
+                parse_review_findings,
+                parse_verification_results,
             )
 
             # Dispatch table: archetype -> (parser, inserter, label)
@@ -268,9 +268,7 @@ def persist_review_findings(
             if records:
                 count = inserter(knowledge_db_conn, records)
                 logger.info("Persisted %d %s for %s", count, label, node_id)
-                _emit_persistence_event(
-                    sink, run_id, archetype, node_id, spec_name, tg, records, count
-                )
+                _emit_persistence_event(sink, run_id, archetype, node_id, spec_name, tg, records, count)
             else:
                 emit_audit_event(
                     sink,

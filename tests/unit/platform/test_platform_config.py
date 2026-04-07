@@ -244,7 +244,7 @@ class TestConfigTemplateHasTypeAndUrl:
         schema still contains the correct fields even though the template omits
         the platform section.
         """
-        from agent_fox.core.config_schema import extract_schema
+        from agent_fox.core.config_gen import extract_schema
 
         schema = extract_schema(AgentFoxConfig)
         platform_section = next((s for s in schema if s.path == "platform"), None)

@@ -30,16 +30,14 @@ from agent_fox.core.config import (
     OrchestratorConfig,
     PlanningConfig,
     RoutingConfig,
+    load_config,
 )
-from agent_fox.core.errors import PlanError
+from agent_fox.core.errors import ConfigError, PlanError
+from agent_fox.core.models import content_hash
 from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
-from agent_fox.engine.config_reload import (  # noqa: F401 — diff_configs re-exported
-    ConfigReloader,
-    diff_configs,
-)
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.hot_load import (
     _build_nodes_and_edges,
@@ -55,15 +53,6 @@ from agent_fox.engine.state import (
     SessionRecord,
     StateManager,
     invoke_runner,
-)
-from agent_fox.engine.state_init import (
-    _build_edges_dict_from_graph,
-    _init_attempt_tracker,
-    _init_error_tracker,
-    _load_or_init_state,
-    _reset_blocked_tasks,
-    _reset_in_progress_tasks,
-    _seed_node_states_from_graph,  # noqa: F401
 )
 from agent_fox.graph.injection import ensure_graph_archetypes
 from agent_fox.graph.persistence import load_plan, save_plan
@@ -1484,4 +1473,344 @@ class Orchestrator:
             completed,
             total,
             remaining,
+        )
+
+
+# ---------------------------------------------------------------------------
+# State initialization (inlined from state_init.py)
+#
+# Requirements: 04-REQ-7.E1
+# ---------------------------------------------------------------------------
+
+
+def _build_edges_dict_from_graph(graph: TaskGraph) -> dict[str, list[str]]:
+    """Build adjacency list from a TaskGraph.
+
+    Returns dict mapping each node to its dependencies (predecessors).
+    """
+    edges_dict: dict[str, list[str]] = {nid: [] for nid in graph.nodes}
+    for edge in graph.edges:
+        if edge.target in edges_dict:
+            edges_dict[edge.target].append(edge.source)
+    return edges_dict
+
+
+def _seed_node_states_from_graph(graph: TaskGraph) -> dict[str, str]:
+    """Seed node states from a TaskGraph.
+
+    Honours statuses already set by the graph builder (e.g. "completed"
+    from tasks.md ``[x]`` markers) instead of resetting everything to
+    "pending".
+    """
+    node_states: dict[str, str] = {}
+    for nid, node in graph.nodes.items():
+        status = node.status.value
+        if status not in ("completed", "skipped"):
+            status = "pending"
+        node_states[nid] = status
+    return node_states
+
+
+def _load_or_init_state(
+    state_manager: StateManager,
+    plan_hash: str,
+    graph: TaskGraph,
+) -> ExecutionState:
+    """Load existing state or initialize fresh state.
+
+    If state exists and plan hash matches, reuse it (adding any new nodes).
+    If state exists but plan hash differs, merge: carry forward
+    ``completed``/``skipped`` statuses from the old state for nodes that
+    still exist in the new plan, so that already-finished work is not
+    re-executed. New nodes and previously failed/blocked nodes start fresh.
+    If no prior state exists, seed entirely from the TaskGraph.
+    """
+    existing = state_manager.load()
+
+    if existing is not None:
+        if existing.plan_hash != plan_hash:
+            # Plan structure changed (e.g. new spec added).  Merge old
+            # completed/skipped statuses into the new plan rather than
+            # discarding them — tasks.md checkboxes may be stale.
+            node_states = _seed_node_states_from_graph(graph)
+            carried = 0
+            for nid in node_states:
+                old_status = existing.node_states.get(nid)
+                if old_status in ("completed", "skipped"):
+                    node_states[nid] = old_status
+                    carried += 1
+
+            logger.warning(
+                "Plan has changed since last run (plan hash mismatch). "
+                "Merged state: %d nodes carried forward, %d new/reset.",
+                carried,
+                len(node_states) - carried,
+            )
+
+            existing.plan_hash = plan_hash
+            existing.node_states = node_states
+            existing.updated_at = datetime.now(UTC).isoformat()
+            existing.blocked_reasons = {
+                k: v
+                for k, v in existing.blocked_reasons.items()
+                if k in graph.nodes and node_states.get(k) != "pending"
+            }
+            return existing
+
+        # Hash matches — reuse existing state, add any new nodes.
+        for nid in graph.nodes:
+            if nid not in existing.node_states:
+                existing.node_states[nid] = "pending"
+        return existing
+
+    # No prior state — seed from the TaskGraph.
+    node_states = _seed_node_states_from_graph(graph)
+    now = datetime.now(UTC).isoformat()
+    return ExecutionState(
+        plan_hash=plan_hash,
+        node_states=node_states,
+        started_at=now,
+        updated_at=now,
+    )
+
+
+def _reset_in_progress_tasks(
+    state: ExecutionState,
+    state_manager: StateManager,
+) -> None:
+    """Reset in_progress tasks to pending on resume (04-REQ-7.E1)."""
+    any_reset = False
+    for node_id, status in state.node_states.items():
+        if status == "in_progress":
+            state.node_states[node_id] = "pending"
+            any_reset = True
+            logger.info(
+                "Task %s was in_progress from prior run; resetting to pending.",
+                node_id,
+            )
+    if any_reset:
+        state_manager.save(state)
+
+
+def _reset_blocked_tasks(
+    state: ExecutionState,
+    state_manager: StateManager,
+) -> None:
+    """Reset blocked tasks to pending on resume so they get fresh retries."""
+    any_reset = False
+    for node_id, status in state.node_states.items():
+        if status == "blocked":
+            state.node_states[node_id] = "pending"
+            state.blocked_reasons.pop(node_id, None)
+            any_reset = True
+            logger.info(
+                "Task %s was blocked from prior run; resetting to pending.",
+                node_id,
+            )
+    if any_reset:
+        state_manager.save(state)
+
+
+def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:
+    """Initialize attempt counter from session history.
+
+    Tasks whose current status is ``"pending"`` are excluded — they are
+    either new or have been reset and should start fresh at attempt 0.
+    """
+    tracker: dict[str, int] = {}
+    for record in state.session_history:
+        if state.node_states.get(record.node_id) == "pending":
+            continue
+        current = tracker.get(record.node_id, 0)
+        tracker[record.node_id] = max(current, record.attempt)
+    return tracker
+
+
+def _init_error_tracker(state: ExecutionState) -> dict[str, str | None]:
+    """Initialize error tracker from session history."""
+    tracker: dict[str, str | None] = {}
+
+    for record in state.session_history:
+        if record.status == "failed" and record.error_message:
+            tracker[record.node_id] = record.error_message
+
+    for node_id, status in state.node_states.items():
+        if status == "pending" and node_id not in tracker:
+            prior_attempts = [r for r in state.session_history if r.node_id == node_id]
+            if prior_attempts:
+                last = prior_attempts[-1]
+                if last.error_message:
+                    tracker[node_id] = last.error_message
+
+    return tracker
+
+
+# ---------------------------------------------------------------------------
+# Configuration hot-reload (inlined from config_reload.py)
+#
+# Requirements: 66-REQ-1.1 through 66-REQ-7.2
+# ---------------------------------------------------------------------------
+
+
+def diff_configs(old: AgentFoxConfig, new: AgentFoxConfig) -> dict[str, dict[str, Any]]:
+    """Compare two AgentFoxConfig instances field-by-field.
+
+    Returns a dict mapping "section.field" -> {"old": ..., "new": ...}
+    for every field whose value has changed. Handles nested Pydantic
+    models by walking model_fields one level deep.
+
+    Requirements: 66-REQ-6.2
+    """
+    changed: dict[str, dict[str, Any]] = {}
+    for section_name in AgentFoxConfig.model_fields:
+        old_section = getattr(old, section_name)
+        new_section = getattr(new, section_name)
+        if old_section == new_section:
+            continue
+        # Walk the sub-model fields if it's a Pydantic model
+        if hasattr(old_section.__class__, "model_fields") and hasattr(new_section.__class__, "model_fields"):
+            for field_name in old_section.__class__.model_fields:
+                old_val = getattr(old_section, field_name)
+                new_val = getattr(new_section, field_name)
+                if old_val != new_val:
+                    changed[f"{section_name}.{field_name}"] = {
+                        "old": old_val,
+                        "new": new_val,
+                    }
+        else:
+            # Non-model section (e.g. night_shift Any field)
+            changed[section_name] = {"old": old_section, "new": new_section}
+    return changed
+
+
+class ConfigReloader:
+    """Manages configuration hot-reload from disk.
+
+    Tracks the config file hash and applies changes when the file
+    is modified, preserving immutable fields (like ``parallel``) and
+    emitting audit events for changed fields.
+    """
+
+    def __init__(
+        self,
+        config_path: Path | None,
+        full_config: AgentFoxConfig | None,
+    ) -> None:
+        self._config_path = config_path
+        self._full_config = full_config
+        self._config_hash: str = ""  # empty = first reload always fires
+
+    @property
+    def config_path(self) -> Path | None:
+        return self._config_path
+
+    @property
+    def full_config(self) -> AgentFoxConfig | None:
+        return self._full_config
+
+    @property
+    def config_hash(self) -> str:
+        return self._config_hash
+
+    @config_hash.setter
+    def config_hash(self, value: str) -> None:
+        self._config_hash = value
+
+    def reload(
+        self,
+        *,
+        current_config: OrchestratorConfig,
+        circuit: CircuitBreaker,
+        sink: Any | None,
+        run_id: str,
+    ) -> (
+        tuple[
+            OrchestratorConfig,
+            CircuitBreaker,
+            HookConfig | None,
+            ArchetypesConfig | None,
+            PlanningConfig,
+        ]
+        | None
+    ):
+        """Reload configuration from disk if the file has changed.
+
+        Returns a tuple of updated objects if the config changed,
+        or None if no reload was needed or an error occurred.
+
+        Requirements: 66-REQ-1.1 through 66-REQ-7.2
+        """
+        if self._config_path is None:
+            return None
+
+        # 66-REQ-1.1 / 66-REQ-1.2: Read file and compare hash
+        try:
+            raw = self._config_path.read_text(encoding="utf-8")
+        except (FileNotFoundError, OSError) as exc:
+            logger.warning("Config hot-reload: cannot read %s: %s", self._config_path, exc)
+            return None
+
+        new_hash = content_hash(raw)
+        if new_hash == self._config_hash:
+            # 66-REQ-1.2: No-op when hash matches
+            return None
+
+        # 66-REQ-1.3: Hash differs — parse and apply new config
+        try:
+            new_full_config = load_config(self._config_path)
+        except (ConfigError, OSError, ValueError) as exc:
+            # 66-REQ-5.1, 66-REQ-5.E1: Errors preserve current config
+            logger.warning(
+                "Config hot-reload: failed to parse %s: %s; keeping current config",
+                self._config_path,
+                exc,
+            )
+            return None
+
+        old_full_config = self._full_config or AgentFoxConfig()
+        new_orch_cfg = new_full_config.orchestrator
+
+        # 66-REQ-3.1, 66-REQ-3.2: parallel is immutable — preserve original
+        original_parallel = current_config.parallel
+        if new_orch_cfg.parallel != original_parallel:
+            logger.warning(
+                "Config hot-reload: 'parallel' changed from %d to %d but "
+                "cannot be changed at runtime; keeping original value.",
+                original_parallel,
+                new_orch_cfg.parallel,
+            )
+            new_orch_cfg = new_orch_cfg.model_copy(update={"parallel": original_parallel})
+            new_full_config = new_full_config.model_copy(update={"orchestrator": new_orch_cfg})
+
+        # 66-REQ-6.2: Compute diff before applying changes
+        changed_fields = diff_configs(old_full_config, new_full_config)
+
+        # 66-REQ-2.2: Rebuild CircuitBreaker with new config
+        new_circuit = CircuitBreaker(new_orch_cfg)
+
+        # Update stored full config and hash
+        self._full_config = new_full_config
+        self._config_hash = new_hash
+
+        # 66-REQ-6.1: Emit CONFIG_RELOADED audit event when fields changed
+        if changed_fields:
+            emit_audit_event(
+                sink,
+                run_id,
+                AuditEventType.CONFIG_RELOADED,
+                payload={"changed_fields": changed_fields},
+            )
+
+        logger.info(
+            "Config hot-reload: applied %d changed field(s) from %s",
+            len(changed_fields),
+            self._config_path,
+        )
+
+        return (
+            new_orch_cfg,
+            new_circuit,
+            new_full_config.hooks,
+            new_full_config.archetypes,
+            new_full_config.planning,
         )
