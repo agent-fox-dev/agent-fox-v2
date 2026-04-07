@@ -43,6 +43,7 @@ class TestRegistryEntry:
         assert entry.default_model_tier == "STANDARD"
         assert entry.templates == ["auditor.md"]
         expected_cmds = {"ls", "cat", "git", "grep", "find", "head", "tail", "wc", "uv"}
+        assert entry.default_allowlist is not None
         assert expected_cmds.issubset(set(entry.default_allowlist))
 
 
