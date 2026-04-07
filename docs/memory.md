@@ -96,6 +96,7 @@
 - Git worktree remove may not fully clean up the filesystem, requiring a manual directory removal as a fallback step before other cleanup operations. _(spec: 80_worktree_cleanup_hardening, confidence: 0.90)_
 - Hypothesis property tests should use `suppress_health_check=[HealthCheck.function_scoped_fixture]` when mocking with async functions, and `assume()` to skip invalid generated inputs (e.g., branch names starting with `-`). _(spec: 80_worktree_cleanup_hardening, confidence: 0.60)_
 - All execution paths from the design document (startup with issue-first gate, fix session with activity display, idle state with timer display) must be fully traceable in code with no stubs; use a stub/dead-code audit (searching for `return []`, `pass`, `NotImplementedError`, etc.) to verify completeness. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
+- Review parsers (skeptic, verifier, oracle) depend on receiving the agent's actual JSON output rather than the session transcript, which is only metadata. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 
 ## Patterns
 
@@ -617,6 +618,25 @@
 - Stub and dead-code audits must identify all `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, and `NotImplementedError`; each hit must be justified with a comment or replaced with real implementation. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Integration smoke tests must pass using real components with no stub bypass to ensure the entire wiring chain functions correctly end-to-end. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Wiring verification requires all execution paths to be traceable in actual code and live (not stubbed), all existing tests must still pass, and all smoke tests must succeed before marking wiring verification complete. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
+- When extracting knowledge from session outcomes, prefer the actual agent response (outcome_response) over the transcript metadata, as the response contains the agent's JSON output needed for review archetype parsing. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Capture the last AssistantMessage content during query execution to make it available for downstream review archetype parsers that need the actual agent output. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- When implementing a new feature, write comprehensive failing tests first across multiple levels: unit tests for parsing/registration, integration tests for wiring/retry/escalation, property-based tests for invariants, and smoke tests. This provides clear specification of expected behavior before implementation. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Property-based tests can validate existing code behavior (like escalation ladder logic) while building new test suites, serving as regression checks during implementation of related features. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- A well-structured test suite for pipeline/workflow features should cover: parsing logic, component registration, wiring/integration, retry behavior, escalation paths, and end-to-end smoke tests. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- When testing async code with pytest, use @pytest.mark.asyncio decorator on async test methods to enable proper async execution. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Use MagicMock and AsyncMock from unittest.mock to mock synchronous and asynchronous dependencies respectively in unit tests. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Property-based testing with Hypothesis requires the hypothesis library to be installed; use pytest.mark.skipif to gracefully skip tests when the library is unavailable. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- When building property tests with Hypothesis, use st.fixed_dictionaries with optional parameters to generate dictionaries with potentially missing keys, enabling testing of incomplete data handling. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- Capture intermediate values in async tests by wrapping original methods with custom async functions that record parameters before calling the original implementation. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- Parser functions should gracefully handle invalid input (non-JSON, malformed JSON, missing fields) by returning empty or partial results rather than raising exceptions. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- For retry/escalation pipelines, verify that only the target component (e.g., coder) is retried while upstream (triage) and downstream (reviewer) run a fixed number of times. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Pipeline failure modes should post a user-visible comment but not raise exceptions; use try-except blocks around comment posting to ensure the pipeline continues even if API calls fail. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Integration smoke tests should mock external dependencies (platform API, session runners) but use real parsing logic to catch integration issues between parser output and downstream consumers. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Model tier escalation in retry loops should alternate between different model identifiers; verify escalation by comparing model_id values across consecutive retry attempts. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- When implementing parsers for structured outputs, include field validation, filtering of incomplete data, and verdict validation to ensure data quality before downstream processing. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Wrapper key extension in output parsing allows flexibility in handling nested or variably-structured response formats from external systems. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- When adding new prompt templates to a project, register them in a central registry (ARCHETYPE_REGISTRY) and update corresponding unit tests that verify registry completeness. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Unit tests should include registry completeness checks to ensure all new archetypes/templates are properly registered and discoverable. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 
 ## Decisions
 
@@ -684,6 +704,8 @@
 - Reuse the existing `ProgressDisplay` from `agent_fox.ui.progress` with a new lightweight `print_status(text, style)` method (~5 lines) to emit permanent status lines, avoiding a dedicated display callback parameter. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Handle pre-hunt issue check failures with fail-open semantics: if `_drain_issues()` raises (platform API failure), log a warning and proceed with the hunt scan rather than blocking. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Idle spinner should display the next scheduled action time in local timezone rather than UTC to improve user experience. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
+- The SessionOutcome and _QueryExecutionState objects need to track the last assistant response separately from other session metadata to support review finding extraction. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- When verdicts have both per-criterion and overall verdicts, the overall verdict should be automatically downgraded to FAIL if any criterion is FAIL, rather than trusting the provided value. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 
 ## Conventions
 
@@ -832,6 +854,9 @@
 - When refactoring callback handling across multiple components, verify backward compatibility by running the full existing test suite alongside new tests to catch unintended side effects. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
 - Comprehensive test coverage for display integration should include display integration, phase lines, idle display, CLI lifecycle, and exit summary scenarios. _(spec: 81_night_shift_issue_first_status, confidence: 0.60)_
 - Intentional stubs (e.g., error-path fallbacks returning empty lists, exception-suppression in cleanup code, Optional returns) should be documented with explicit rationale comments to distinguish them from incomplete implementations. _(spec: 81_night_shift_issue_first_status, confidence: 0.90)_
+- Test specs should be organized into numbered files corresponding to spec areas (parser tests, archetype registry tests, pipeline behavior tests, property tests, smoke tests) to maintain clarity as requirements grow. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- Defining dedicated data types (e.g., AcceptanceCriterion, TriageResult, FixReviewVerdict) for parsed results provides type safety and clarity in multi-stage pipeline processing. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Prompt templates should be organized in a dedicated directory structure (e.g., agent_fox/_templates/prompts/) and use consistent naming conventions tied to their registry entries. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 
 ## Anti-Patterns
 
