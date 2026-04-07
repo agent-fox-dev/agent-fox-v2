@@ -637,6 +637,12 @@
 - Wrapper key extension in output parsing allows flexibility in handling nested or variably-structured response formats from external systems. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
 - When adding new prompt templates to a project, register them in a central registry (ARCHETYPE_REGISTRY) and update corresponding unit tests that verify registry completeness. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 - Unit tests should include registry completeness checks to ensure all new archetypes/templates are properly registered and discoverable. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- When refactoring pipeline sequences (e.g., skeptic→coder→verifier to triage→coder→fix_reviewer), update all existing test files that assert on the old archetype sequence to match the new flow. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Pipeline implementations benefit from extracting helper methods for retry/escalation loops, prompt building, and runner initialization to improve readability and maintainability of the main process method. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.60)_
+- All execution paths from the design document must be fully traceable in code with no stubs; use a stub/dead-code audit to verify completeness before marking wiring verification complete. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Verify return values propagate correctly through execution chains by tracing dataflow from parse functions through consuming functions and confirming no callers discard returns. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Run integration smoke tests using real (non-stubbed) pipeline code to validate end-to-end functionality before marking wiring verification complete. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Comprehensive wiring verification requires checking: execution path traceability, return value propagation, smoke test passage, and stub/dead-code absence across all touched files. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
 
 ## Decisions
 
@@ -907,3 +913,4 @@
 - Import ordering can be inadvertently introduced as a lint issue during refactoring across multiple task groups and should be audited in test files alongside production code. _(spec: 79_hunt_scan_dedup, confidence: 0.60)_
 - Event-loop flakes in test suites can persist across verification cycles and should be tracked as baseline issues rather than regressions; 3 pre-existing flakes remained unchanged after comprehensive wiring verification. _(spec: 80_worktree_cleanup_hardening, confidence: 0.90)_
 - The `_drain_issues` method should have a safety valve (max iterations) to prevent infinite loops if issues are continuously created faster than they are fixed, even though this is not a formal requirement. _(spec: 81_night_shift_issue_first_status, confidence: 0.60)_
+- Breaking changes to pipeline processing flows require coordinated updates across the main implementation, test assertions, and potentially multiple test files that depend on the old sequence. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
