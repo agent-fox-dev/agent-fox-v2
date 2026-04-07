@@ -105,6 +105,16 @@
 - When adding new methods to a protocol (like create_pull_request to PlatformProtocol), existing mock implementations in tests will break and require updating to match the protocol signature. _(spec: 85_daemon_framework, confidence: 0.90)_
 - asyncio.get_event_loop() is deprecated and can cause flaky property tests; use modern asyncio APIs instead. _(spec: 85_daemon_framework, confidence: 0.90)_
 - SpecGeneratorStream.run_once() is a documented intentional stub for spec 86 (not a wiring gap); this should be noted in class docstrings to distinguish intentional placeholders from incomplete implementations. _(spec: 85_daemon_framework, confidence: 0.90)_
+- When calling `.fetchone()` on a database cursor that may return None, check the result before indexing to avoid TypeError. Use `row = cursor.fetchone(); value = row[0] if row else default`. _(spec: 86_spec_generator, confidence: 0.90)_
+- When a method signature changes (e.g., adding required parameters), all existing mock implementations in tests must be updated to match the new protocol signature. _(spec: 86_spec_generator, confidence: 0.90)_
+- Fixture return type annotations should use `Generator[T, None, None]` if the fixture has yield statements, not just `T`. _(spec: 86_spec_generator, confidence: 0.90)_
+- Hypothesis property tests require `suppress_health_check=[HealthCheck.function_scoped_fixture]` when using pytest fixtures with `@given` decorators. _(spec: 86_spec_generator, confidence: 0.90)_
+- Integration tests using real git operations should initialize a repo with `git config user.email` and `git config user.name` before attempting commits, even in test environments. _(spec: 86_spec_generator, confidence: 0.90)_
+- When patching module-level functions in tests, use `patch()` with the full module path where the function is used, not where it's defined. _(spec: 86_spec_generator, confidence: 0.90)_
+- When mocking AI calls in integration tests for spec generation, account for conditional logic like _check_duplicates that may skip AI calls when certain conditions aren't met (e.g., no existing specs). _(spec: 86_spec_generator, confidence: 0.90)_
+- When adding new methods to a protocol class, existing substitutability tests must be updated to verify the new methods are properly implemented by all conforming types. _(spec: 86_spec_generator, confidence: 0.90)_
+- When wiring components in a streaming pipeline, ensure all required context parameters (config, platform, repo_root) are explicitly passed through to downstream stream constructors, as omissions can cause silent failures. _(spec: 86_spec_generator, confidence: 0.90)_
+- Factory functions like build_streams() must pass all required constructor parameters to stream instances; omitting parameters like config, platform, and repo_root causes silent no-ops due to early-return guards checking for None values. _(spec: 86_spec_generator, confidence: 0.90)_
 
 ## Patterns
 
@@ -713,6 +723,26 @@
 - Wiring verification should include tracing all execution paths, verifying return value propagation, and performing stub/dead-code audits. _(spec: 85_daemon_framework, confidence: 0.90)_
 - PID file checks should be implemented as guards in CLI commands (code, plan) to prevent concurrent execution with the daemon; check_pid_file() returns a PidStatus enum and the actual PID, which the CLI uses to block execution when PidStatus.ALIVE. _(spec: 85_daemon_framework, confidence: 0.90)_
 - Wiring verification must include end-to-end tracing of all execution paths from design.md (daemon startup, spec executor, fix pipeline), return value propagation verification, integration smoke tests, and stub/dead-code audits before considering work complete. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Assert that optional attributes are not None before using them in critical code paths, using `assert self._attr is not None  # noqa: S101` to satisfy both type checkers and bandit. _(spec: 86_spec_generator, confidence: 0.90)_
+- Use `getattr()` with a default value when accessing potentially-untyped attributes from external libraries to handle None safely. _(spec: 86_spec_generator, confidence: 0.90)_
+- Refactor early returns with None checks into explicit variable assignments followed by a return statement to avoid repeated null checks. _(spec: 86_spec_generator, confidence: 0.60)_
+- When writing a comprehensive test suite, organize tests into multiple files by category (acceptance criteria, edge cases, property tests, integration smoke tests) to maintain clarity and enable targeted testing. _(spec: 86_spec_generator, confidence: 0.60)_
+- When mocking async methods with AsyncMock, use `side_effect` parameter to dynamically return different values based on call arguments, enabling behavior-driven mock responses. _(spec: 86_spec_generator, confidence: 0.90)_
+- Label state transitions in async workflows should assign the new label before removing the old label to prevent transient unlabeled states and maintain atomicity of intent. _(spec: 86_spec_generator, confidence: 0.90)_
+- Cost tracking for API calls should use non-decreasing monotonic accumulation with a budget cap checked after each operation; exceeding the cap should prevent further processing. _(spec: 86_spec_generator, confidence: 0.90)_
+- Idempotent operations like removing labels should gracefully handle both success (204) and not-found (404) HTTP responses without raising errors. _(spec: 86_spec_generator, confidence: 0.90)_
+- Property tests for name generation should verify both correctness against a regex pattern and determinism (same inputs always produce same output). _(spec: 86_spec_generator, confidence: 0.60)_
+- Helper factories for test objects (like `_make_config`, `_make_issue`) should accept `**overrides` to enable flexible customization while maintaining sensible defaults. _(spec: 86_spec_generator, confidence: 0.90)_
+- Multi-round clarification workflows should track the count of fox-generated clarification comments separately from total comments to enforce max-rounds limits correctly. _(spec: 86_spec_generator, confidence: 0.90)_
+- When extending a protocol with new method signatures, existing test classes that implement the protocol must be updated to satisfy the expanded protocol requirements. _(spec: 86_spec_generator, confidence: 0.90)_
+- NightShiftConfig extensions should include validation constraints like clamping validators for numeric configuration values (e.g., max_budget_usd, max_clarification_rounds). _(spec: 86_spec_generator, confidence: 0.60)_
+- Spec generation workflows should include discrete analysis phases: AI-powered analysis, duplicate checking, and generation, with dedicated data types (AnalysisResult, DuplicateCheckResult, SpecGenResult) to represent each phase's output. _(spec: 86_spec_generator, confidence: 0.60)_
+- Spec generation systems should separate core orchestration logic (analysis, generation, cost tracking) from stream-specific concerns (discovery, recovery, staleness checks, reporting) into distinct implementation phases. _(spec: 86_spec_generator, confidence: 0.60)_
+- Comprehensive wiring verification should include tracing all execution paths end-to-end, verifying return value propagation across the full chain, and auditing for dead code or stub comments. _(spec: 86_spec_generator, confidence: 0.90)_
+- When verifying wiring completeness, audit factory functions and stream construction to ensure all required parameters are passed through; omitted parameters can cause streams to silently disable themselves via None-checks. _(spec: 86_spec_generator, confidence: 0.90)_
+- Stub/dead-code audits should verify that `return []` appears only on list-typed returns, `return None` only on Optional returns, and `pass` bodies only in Protocol methods or justified no-op methods with docstrings. _(spec: 86_spec_generator, confidence: 0.90)_
+- Execution path tracing from design.md should map each path through the codebase end-to-end, confirming no function in any chain is a stub, and verifying return values propagate correctly through branching logic. _(spec: 86_spec_generator, confidence: 0.90)_
+- Integration smoke tests should verify all execution paths using real components with no stub bypasses; grep for callers of each function to confirm no return values are discarded. _(spec: 86_spec_generator, confidence: 0.90)_
 
 ## Decisions
 
@@ -795,6 +825,8 @@
 - Cost checks in budgeted execution should occur between cycles, not mid-operation, to allow currently-running tasks to complete even if budget is exceeded. _(spec: 85_daemon_framework, confidence: 0.90)_
 - Configuration objects should be extended with task-specific fields (spec_interval, spec_gen_interval, enabled_streams, merge_strategy) rather than creating separate config classes. _(spec: 85_daemon_framework, confidence: 0.60)_
 - The DaemonRunner and work stream classes (SpecExecutorStream, FixPipelineStream, SpecGeneratorStream, HuntStream) are fully implemented and tested in isolation, but CLI integration was intentionally deferred to avoid disrupting the existing NightShiftEngine workflow. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Sequential processing workflows should process only the oldest item when multiple items exist in the queue to maintain deterministic ordering and fairness. _(spec: 86_spec_generator, confidence: 0.90)_
+- Git merge operations benefit from removing the --no-ff flag to allow fast-forward merges when appropriate, simplifying history without sacrificing merge tracking where needed. _(spec: 86_spec_generator, confidence: 0.60)_
 
 ## Conventions
 
@@ -953,6 +985,16 @@
 - PID file management and audit event emission are important components of a complete daemon framework implementation. _(spec: 85_daemon_framework, confidence: 0.60)_
 - Document known wiring gaps and intentional stubs (e.g., DaemonRunner gaps, SpecGeneratorStream stubs) as errata rather than treating them as bugs. _(spec: 85_daemon_framework, confidence: 0.60)_
 - Errata documentation (85_nightshift_cli_daemon_runner.md) should be created when spec implementation diverges from design to explain why deferred work is intentional, what works today, and what remains unimplemented. _(spec: 85_daemon_framework, confidence: 0.90)_
+- Use `type: ignore[attr-defined]` instead of `type: ignore[union-attr]` for mypy suppression when accessing attributes on objects with untyped external libraries. _(spec: 86_spec_generator, confidence: 0.90)_
+- Rename intermediate variables to avoid shadowing outer scope variables (e.g., use `watch_result` instead of `result`) to improve code clarity and reduce shadowing warnings. _(spec: 86_spec_generator, confidence: 0.60)_
+- Type ignore comments should use specific error codes like `[attr-defined]`, `[arg-type]`, `[assignment]`, or `[return-value]` rather than generic suppression for better debugging. _(spec: 86_spec_generator, confidence: 0.90)_
+- Return type annotations can specify optional variants (e.g., `tuple[str, str | None, list[str]]`) to indicate that a tuple field may be None. _(spec: 86_spec_generator, confidence: 0.90)_
+- Verify that newly written tests fail as expected (red phase) before implementation, and ensure all existing tests continue to pass to maintain regression safety. _(spec: 86_spec_generator, confidence: 0.90)_
+- Ensure all tests pass linting and syntax validation as part of the test writing process, not as an afterthought. _(spec: 86_spec_generator, confidence: 0.90)_
+- Edge case tests should cover boundary conditions like empty collections, maximum values, and error states in addition to happy-path scenarios. _(spec: 86_spec_generator, confidence: 0.90)_
+- Dataclass additions to platform implementations should be accompanied by corresponding method signatures in the PlatformProtocol to maintain consistency across all platform implementations. _(spec: 86_spec_generator, confidence: 0.90)_
+- When building orchestration functions like process_issue, organize helper methods as private functions (_function_name) for internal logic (parsing, counting, finding) separate from public data types and formatters. _(spec: 86_spec_generator, confidence: 0.60)_
+- Outdated section header comments referencing 'stub' or 'task group' should be removed during cleanup to prevent confusion about implementation status and avoid suggesting incomplete work. _(spec: 86_spec_generator, confidence: 0.90)_
 
 ## Anti-Patterns
 
@@ -1004,3 +1046,4 @@
 - Event-loop flakes in test suites can persist across verification cycles and should be tracked as baseline issues rather than regressions; 3 pre-existing flakes remained unchanged after comprehensive wiring verification. _(spec: 80_worktree_cleanup_hardening, confidence: 0.90)_
 - The `_drain_issues` method should have a safety valve (max iterations) to prevent infinite loops if issues are continuously created faster than they are fixed, even though this is not a formal requirement. _(spec: 81_night_shift_issue_first_status, confidence: 0.60)_
 - Breaking changes to pipeline processing flows require coordinated updates across the main implementation, test assertions, and potentially multiple test files that depend on the old sequence. _(spec: 82_fix_pipeline_triage_reviewer, confidence: 0.90)_
+- Async event loop deprecation warnings in property tests can occur when test infrastructure doesn't properly manage event loop lifecycle; this is a common source of pre-existing test failures. _(spec: 86_spec_generator, confidence: 0.90)_
