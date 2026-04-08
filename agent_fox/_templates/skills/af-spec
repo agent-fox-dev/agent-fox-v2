@@ -867,6 +867,14 @@ The **last task group** of every spec must be a wiring verification group. Its
 purpose is to catch integration gaps before the spec is declared done. It
 cannot be satisfied by checking that components work in isolation.
 
+**Hard rule:** An execution path from design.md that is not live in production
+code **fails** the wiring verification. Writing an erratum or deferring the
+wire to a follow-up task does NOT satisfy the checkbox. If a path cannot be
+made live within the spec's scope, the spec must either (a) implement the
+missing caller, or (b) remove the path from design.md and file an issue for
+the deferred work. A completed wiring verification means every path is
+traceable in code — no exceptions, no deferrals.
+
 ```markdown
 - [ ] N. Wiring verification
 
@@ -875,6 +883,8 @@ cannot be satisfied by checking that components work in isolation.
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
+    - Every path must be live in production code — errata or deferrals do not
+      satisfy this check
     - _Requirements: all_
 
   - [ ] N.2 Verify return values propagate correctly
@@ -895,10 +905,22 @@ cannot be satisfied by checking that components work in isolation.
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
 
+  - [ ] N.5 Cross-spec entry point verification
+    - For each execution path whose entry point is owned by another spec
+      (e.g., a stream's `run_once()` that is called by a daemon runner
+      defined in a different spec), grep the codebase to confirm the entry
+      point is actually called from production code — not just from tests
+    - If the upstream caller does not exist, either implement it within this
+      spec or file an issue and remove the path from design.md
+    - This step prevents cascading wiring gaps where spec B assumes spec A's
+      wire is live but it was deferred or never landed
+    - _Requirements: all_
+
   - [ ] N.V Verify wiring group
     - [ ] All smoke tests pass
     - [ ] No unjustified stubs remain in touched files
     - [ ] All execution paths from design.md are live (traceable in code)
+    - [ ] All cross-spec entry points are called from production code
     - [ ] All existing tests still pass: `<full test suite command>`
 ```
 
@@ -1008,4 +1030,4 @@ user. These checks mirror what `agent-fox lint-spec` validates:
 - [ ] Each task group has a verification subtask (N.V)
 - [ ] `## Traceability` section with a table listing every requirement ID
 - [ ] No task group has more than 6 non-verification subtasks
-- [ ] Final task group is "Wiring verification" containing: execution path trace, return value propagation check, smoke test run, stub/dead-code audit
+- [ ] Final task group is "Wiring verification" containing: execution path trace, return value propagation check, smoke test run, stub/dead-code audit, cross-spec entry point verification
