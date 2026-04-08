@@ -137,26 +137,21 @@ def _mock_gen_methods(
 
 
 class TestDiscoverAfSpecIssues:
-    """Verify run_once polls for both af:spec and af:spec-pending issues."""
+    """Verify run_once polls for af:spec issues (pending/blocked are ignored)."""
 
-    async def test_polls_both_labels(self) -> None:
-        """TS-86-6: Both af:spec and af:spec-pending are queried."""
+    async def test_polls_af_spec_label(self) -> None:
+        """TS-86-6: af:spec is queried; af:spec-pending is not."""
         from agent_fox.nightshift.streams import SpecGeneratorStream
 
         platform = _make_platform()
         issue_a = _make_issue(number=1, title="Issue A")
-        issue_b = _make_issue(number=2, title="Issue B")
 
-        # Return different issues for different labels
         async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
             if label == "af:spec":
                 return [issue_a]
-            if label == "af:spec-pending":
-                return [issue_b]
             return []
 
         platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[])
 
         config = _make_config()
         stream = SpecGeneratorStream(
@@ -165,7 +160,6 @@ class TestDiscoverAfSpecIssues:
             repo_root=Path("/tmp/test-repo"),
         )
 
-        # Mock the generator to track process_issue calls
         with patch.object(stream, "_generator", create=True) as mock_gen:
             mock_gen.process_issue = AsyncMock(
                 return_value=SpecGenResult(
@@ -174,14 +168,11 @@ class TestDiscoverAfSpecIssues:
                     cost=0.0,
                 )
             )
-            # No new human comment on pending issue, so it should fall through to af:spec
-            mock_gen._has_new_human_comment = MagicMock(return_value=False)
             await stream.run_once()
 
-        # Both labels should have been queried
         call_labels = [call.args[0] for call in platform.list_issues_by_label.call_args_list]
         assert "af:spec" in call_labels
-        assert "af:spec-pending" in call_labels
+        assert "af:spec-pending" not in call_labels
 
 
 # ---------------------------------------------------------------------------
@@ -229,101 +220,6 @@ class TestSequentialProcessing:
             mock_gen.process_issue.assert_called_once()
             processed_issue = mock_gen.process_issue.call_args[0][0]
             assert processed_issue.number == 1
-
-
-# ---------------------------------------------------------------------------
-# TS-86-8: pending issue with new human comment triggers re-analysis
-# Requirements: 86-REQ-2.3
-# ---------------------------------------------------------------------------
-
-
-class TestPendingIssueReanalysis:
-    """Verify a pending issue with a new human comment is transitioned to analyzing."""
-
-    async def test_new_human_comment_triggers_transition(self) -> None:
-        """TS-86-8: Label transitions: assign analyzing, remove pending."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-        human = _make_comment(comment_id=2, body="Here are my answers", created_at="2026-01-02T00:00:00Z")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[fox, human])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock(
-                return_value=SpecGenResult(
-                    outcome=SpecGenOutcome.GENERATED,
-                    issue_number=10,
-                    cost=0.0,
-                )
-            )
-            mock_gen._has_new_human_comment = MagicMock(return_value=True)
-            await stream.run_once()
-
-        # Should transition to analyzing
-        assign_calls = [
-            call.args for call in platform.assign_label.call_args_list
-        ]
-        remove_calls = [
-            call.args for call in platform.remove_label.call_args_list
-        ]
-        assert (10, "af:spec-analyzing") in assign_calls
-        assert (10, "af:spec-pending") in remove_calls
-
-
-# ---------------------------------------------------------------------------
-# TS-86-9: pending issue without new comment is skipped
-# Requirements: 86-REQ-2.4
-# ---------------------------------------------------------------------------
-
-
-class TestPendingIssueSkipped:
-    """Verify a pending issue with no new human comment is skipped."""
-
-    async def test_no_new_comment_skips(self) -> None:
-        """TS-86-9: process_issue is not called. No label changes."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[fox])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock()
-            mock_gen._has_new_human_comment = MagicMock(return_value=False)
-            await stream.run_once()
-
-            mock_gen.process_issue.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

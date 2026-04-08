@@ -294,7 +294,6 @@ class SpecGeneratorStream:
         from agent_fox.nightshift.spec_gen import (
             LABEL_ANALYZING,
             LABEL_GENERATING,
-            LABEL_PENDING,
             LABEL_SPEC,
         )
 
@@ -314,28 +313,8 @@ class SpecGeneratorStream:
             except Exception:
                 logger.exception("Error during crash recovery for label %s", stale_label)
 
-        # Poll for af:spec-pending issues with new human comments (86-REQ-2.3)
-        try:
-            pending_issues = await self._platform.list_issues_by_label(LABEL_PENDING)
-        except Exception:
-            logger.exception("Failed to list af:spec-pending issues")
-            pending_issues = []
-
-        for p_issue in pending_issues:
-            try:
-                comments = await self._platform.list_issue_comments(p_issue.number)
-                if self._generator._has_new_human_comment(comments):
-                    # Transition to analyzing for re-analysis (86-REQ-2.3)
-                    await self._platform.assign_label(p_issue.number, LABEL_ANALYZING)
-                    await self._platform.remove_label(p_issue.number, LABEL_PENDING)
-                    # Process the re-analyzed issue
-                    result = await self._generator.process_issue(p_issue)
-                    if self._budget is not None:
-                        self._budget.add_cost(result.cost)
-                    logger.info("spec-generator: run_once cycle complete")
-                    return
-            except Exception:
-                logger.exception("Error handling pending issue #%d", p_issue.number)
+        # Issues with af:spec-pending or af:spec-blocked are ignored until a
+        # human manually resets the label back to af:spec.
 
         # Poll for af:spec issues (86-REQ-2.1)
         try:
