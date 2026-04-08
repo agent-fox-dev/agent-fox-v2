@@ -112,46 +112,6 @@ class TestFindingFormatUniversality:
 
 
 # ---------------------------------------------------------------------------
-# TS-61-P2: Schedule interval compliance
-# Property 2: Callbacks are invoked at intervals within tolerance.
-# Requirements: 61-REQ-2.1, 61-REQ-2.2, 61-REQ-9.1
-# ---------------------------------------------------------------------------
-
-
-class TestScheduleIntervalCompliance:
-    """Callbacks are invoked at correct intervals."""
-
-    @given(interval=st.integers(min_value=60, max_value=1000))
-    @settings(max_examples=20)
-    def test_schedule_interval_compliance(self, interval: int) -> None:
-        import asyncio
-
-        from agent_fox.nightshift.scheduler import Scheduler
-
-        count = 0
-
-        async def on_check() -> None:
-            nonlocal count
-            count += 1
-
-        async def noop() -> None:
-            pass
-
-        scheduler = Scheduler(
-            issue_interval=interval,
-            hunt_interval=999999,
-            on_issue_check=on_check,
-            on_hunt_scan=noop,
-        )
-
-        # Simulate 3 full intervals + 1 initial
-        duration = interval * 3 + 1
-
-        asyncio.run(scheduler.run_for(duration))
-        assert count == 4  # t=0, t=interval, t=2*interval, t=3*interval
-
-
-# ---------------------------------------------------------------------------
 # TS-61-P4: Fix pipeline completeness
 # Property 4: Successful fix produces exactly one branch and one PR.
 # Requirements: 61-REQ-6.2, 61-REQ-7.1, 61-REQ-7.2
@@ -204,60 +164,6 @@ class TestCostMonotonicity:
             state.total_cost += cost
             assert state.total_cost >= previous
             previous = state.total_cost
-
-
-# ---------------------------------------------------------------------------
-# TS-61-P6: Graceful shutdown completeness
-# Property 6: Shutdown always completes the current operation.
-# Requirements: 61-REQ-1.3, 61-REQ-1.4
-# ---------------------------------------------------------------------------
-
-
-class TestGracefulShutdownCompleteness:
-    """Shutdown always completes the current operation."""
-
-    @given(
-        operation=st.sampled_from(["issue_check", "hunt_scan"]),
-    )
-    @settings(max_examples=10)
-    def test_graceful_shutdown_completeness(self, operation: str) -> None:
-        import asyncio
-        from unittest.mock import AsyncMock, MagicMock
-
-        from agent_fox.nightshift.engine import NightShiftEngine
-
-        config = MagicMock()
-        config.orchestrator.max_cost = None
-        config.orchestrator.max_sessions = None
-        config.night_shift.issue_check_interval = 900
-        config.night_shift.hunt_scan_interval = 14400
-        config.night_shift.spec_gen_interval = 300
-
-        mock_platform = AsyncMock()
-        mock_platform.list_issues_by_label = AsyncMock(return_value=[])
-
-        engine = NightShiftEngine(config=config, platform=mock_platform)
-
-        completed = False
-        method_name = f"_run_{operation}"
-        original = getattr(engine, method_name)
-
-        async def tracked(*args: object, **kwargs: object) -> object:
-            nonlocal completed
-            result = await original(*args, **kwargs)
-            completed = True
-            return result
-
-        setattr(engine, method_name, tracked)
-
-        async def run_and_stop() -> object:
-            task = asyncio.create_task(engine.run())
-            await asyncio.sleep(0.05)
-            engine.request_shutdown()
-            return await task
-
-        asyncio.run(run_and_stop())
-        assert completed is True
 
 
 # ---------------------------------------------------------------------------

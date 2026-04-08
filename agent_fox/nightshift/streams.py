@@ -511,14 +511,14 @@ def build_streams(
     # Extract NightShiftConfig for spec generator if available
     ns_config = getattr(config, "night_shift", None)
 
-    streams.append(
-        SpecGeneratorStream(
-            config=ns_config,
-            platform=platform,
-            repo_root=repo_root,
-            enabled="spec_gen" in final_enabled,
-            interval=spec_gen_interval,
-        )
+    spec_gen_stream = SpecGeneratorStream(
+        config=ns_config,
+        platform=platform,
+        repo_root=repo_root,
+        enabled="spec_gen" in final_enabled,
+        interval=spec_gen_interval,
     )
+    spec_gen_stream._budget = budget
+    streams.append(spec_gen_stream)
 
     return streams

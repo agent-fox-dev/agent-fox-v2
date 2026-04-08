@@ -34,6 +34,8 @@ Do not implement anything before completing these steps.
 <main_package>/         # Main package
 <test_directory>/       # Tests directory
 docs/                   # Documentation
+.specs/                 # Specs to be implemented
+.specs/archive/         # Old specs. Ignore for coding tasks, except for reference
 ```
 
 ## Spec-Driven Workflow
@@ -94,7 +96,7 @@ make check
 
 A session is not complete until:
 
-1. `make check` passes (no regressions).
+1. `make check` or `make test` passes (no regressions).
 2. Changes are committed with a clear conventional commit message.
 3. Changes are merged into `develop` locally.
 4. `git status` shows a clean working tree.

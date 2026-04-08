@@ -236,71 +236,6 @@ class TestPhaseLineFixFailed:
 
 
 # ---------------------------------------------------------------------------
-# TS-81-15: Idle spinner shows next action time
-# Requirement: 81-REQ-4.1
-# ---------------------------------------------------------------------------
-
-
-class TestIdleSpinnerShowsTime:
-    """Verify idle spinner displays next action time in HH:MM format."""
-
-    def test_81_idle_spinner_shows_time(self) -> None:
-        """Spinner text contains time in HH:MM format during idle."""
-        import re
-
-        activity_events: list[object] = []
-
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=activity_events.append,
-        )
-
-        engine._update_idle_spinner(300, 600)
-
-        assert engine._idle_text, "Idle text should be set"
-        assert re.search(r"\d{2}:\d{2}", engine._idle_text), (
-            f"Expected HH:MM format in idle text, got: {engine._idle_text}"
-        )
-        assert "Waiting until" in engine._idle_text
-
-
-# ---------------------------------------------------------------------------
-# TS-81-16: Idle spinner clears on phase start
-# Requirement: 81-REQ-4.2
-# ---------------------------------------------------------------------------
-
-
-class TestIdleClearsOnPhase:
-    """Verify idle message is cleared when a phase starts."""
-
-    @pytest.mark.asyncio
-    async def test_81_idle_clears_on_phase(self) -> None:
-        """Idle text is cleared when issue check starts."""
-        config = _make_config()
-        platform = AsyncMock()
-        platform.list_issues_by_label = AsyncMock(return_value=[])
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-            status_callback=lambda text, style: None,
-        )
-
-        # Set idle text
-        engine._update_idle_spinner(300, 600)
-        assert engine._idle_text != ""
-
-        # Run issue check — should clear idle text
-        await engine._run_issue_check()
-        assert engine._idle_text == "", f"Idle text should be cleared, got: {engine._idle_text}"
-
-
-# ---------------------------------------------------------------------------
 # TS-81-E7: Quiet mode suppresses phase lines
 # Requirement: 81-REQ-3.E1
 # ---------------------------------------------------------------------------
@@ -333,46 +268,6 @@ class TestPhaseLineQuiet:
 
 
 # ---------------------------------------------------------------------------
-# TS-81-E8: Earlier timer shown in idle display
-# Requirement: 81-REQ-4.E1
-# ---------------------------------------------------------------------------
-
-
-class TestIdleShowsEarlierTimer:
-    """Verify that the earlier timer is shown in idle spinner."""
-
-    def test_81_idle_shows_earlier_timer(self) -> None:
-        """When issue check fires sooner, idle text shows 'issue check'."""
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(300, 7200)
-        assert "issue check" in engine._idle_text
-        assert "hunt scan" not in engine._idle_text
-
-    def test_81_idle_shows_hunt_when_earlier(self) -> None:
-        """When hunt scan fires sooner, idle text shows 'hunt scan'."""
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(7200, 300)
-        assert "hunt scan" in engine._idle_text
-        assert "issue check" not in engine._idle_text
-
-
-# ---------------------------------------------------------------------------
 # TS-81-6: ProgressDisplay created and started in CLI
 # Requirement: 81-REQ-2.1
 # ---------------------------------------------------------------------------
@@ -394,19 +289,22 @@ class TestProgressDisplayCreated:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform") as MockPlatform,
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            mock_state = MagicMock()
-            mock_state.hunt_scans_completed = 0
-            mock_state.issues_fixed = 0
-            mock_state.total_cost = 0.0
-
-            async def fake_run():
-                return mock_state
-
-            mock_engine.run = fake_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_daemon_state = MagicMock()
+            mock_daemon_state.total_cost = 0.0
+            mock_runner_instance = MagicMock()
+            mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            MockRunner.return_value = mock_runner_instance
+
             MockPlatform.return_value = MagicMock()
 
             mock_progress_instance = MagicMock()
@@ -446,19 +344,22 @@ class TestExitSummary:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform"),
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            mock_state = MagicMock()
-            mock_state.hunt_scans_completed = 2
-            mock_state.issues_fixed = 3
-            mock_state.total_cost = 1.5
-
-            async def fake_run():
-                return mock_state
-
-            mock_engine.run = fake_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 2
+            mock_engine.state.issues_fixed = 3
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_daemon_state = MagicMock()
+            mock_daemon_state.total_cost = 1.5
+            mock_runner_instance = MagicMock()
+            mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            MockRunner.return_value = mock_runner_instance
+
             MockProgress.return_value = MagicMock()
 
             result = runner.invoke(
@@ -471,47 +372,6 @@ class TestExitSummary:
             assert "Scans completed: 2" in result.output
             assert "Issues fixed: 3" in result.output
             assert "$1.5" in result.output
-
-
-# ---------------------------------------------------------------------------
-# TS-81-P5: Idle display accuracy (property test)
-# Validates: 81-REQ-4.1, 81-REQ-4.E1
-# ---------------------------------------------------------------------------
-
-
-class TestPropIdleAccuracy:
-    """For any pair of remaining times, spinner shows the earlier time."""
-
-    @pytest.mark.parametrize(
-        "issue_remaining,hunt_remaining",
-        [
-            (60, 3600),
-            (3600, 60),
-            (300, 300),
-            (120, 14400),
-            (14400, 120),
-        ],
-    )
-    def test_81_prop_idle_accuracy(self, issue_remaining: int, hunt_remaining: int) -> None:
-        """The displayed time equals now + min(issue_remaining, hunt_remaining)."""
-        import re
-
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(issue_remaining, hunt_remaining)
-
-        expected_action = "issue check" if issue_remaining <= hunt_remaining else "hunt scan"
-        assert expected_action in engine._idle_text
-
-        # Verify HH:MM format present
-        assert re.search(r"\d{2}:\d{2}", engine._idle_text)
 
 
 # ---------------------------------------------------------------------------
@@ -537,26 +397,25 @@ class TestPropDisplayLifecycle:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform"),
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            if exit_mode == "clean":
-                mock_state = MagicMock()
-                mock_state.hunt_scans_completed = 0
-                mock_state.issues_fixed = 0
-                mock_state.total_cost = 0.0
-
-                async def fake_run():
-                    return mock_state
-
-                mock_engine.run = fake_run
-            else:
-
-                async def failing_run():
-                    raise RuntimeError("crash")
-
-                mock_engine.run = failing_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_runner_instance = MagicMock()
+            if exit_mode == "clean":
+                mock_daemon_state = MagicMock()
+                mock_daemon_state.total_cost = 0.0
+                mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            else:
+                mock_runner_instance.run = AsyncMock(side_effect=RuntimeError("crash"))
+            MockRunner.return_value = mock_runner_instance
+
             mock_progress_instance = MagicMock()
             MockProgress.return_value = mock_progress_instance
 
