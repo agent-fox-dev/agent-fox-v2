@@ -19,12 +19,14 @@ def _make_config(
     *,
     issue_interval: int = 900,
     hunt_interval: int = 14400,
+    spec_gen_interval: int = 300,
     max_cost: float | None = None,
     max_sessions: int | None = None,
 ) -> MagicMock:
     config = MagicMock()
     config.night_shift.issue_check_interval = issue_interval
     config.night_shift.hunt_scan_interval = hunt_interval
+    config.night_shift.spec_gen_interval = spec_gen_interval
     config.orchestrator.max_cost = max_cost
     config.orchestrator.max_sessions = max_sessions
     return config

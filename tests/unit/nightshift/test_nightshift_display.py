@@ -29,6 +29,7 @@ def _make_config(
     config = MagicMock()
     config.night_shift.issue_check_interval = issue_interval
     config.night_shift.hunt_scan_interval = hunt_interval
+    config.night_shift.spec_gen_interval = 300
     config.orchestrator.max_cost = max_cost
     config.orchestrator.max_sessions = max_sessions
     return config
