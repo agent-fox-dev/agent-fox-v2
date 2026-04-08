@@ -810,7 +810,7 @@ def parse_fix_review_output(
             spec_name,
             session_id,
         )
-        return FixReviewResult()
+        return FixReviewResult(is_parse_failure=True)
 
     # Extract verdicts using fuzzy wrapper key
     verdicts_key = _resolve_wrapper_key(data, "verdicts")

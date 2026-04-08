@@ -3,6 +3,7 @@
 !.agent-fox/config.toml
 !.agent-fox/memory.jsonl
 .agent-fox/state.jsonl
+.claude/worktrees/
 
 # Python
 __pycache__/
@@ -23,9 +24,6 @@ hack.md
 stuff.md
 stuff.json
 hack/** 
-
-# Claude Code worktrees
-.claude/worktrees/
 
 # other
 **/.env
