@@ -28,13 +28,13 @@ from agent_fox.platform.github import IssueResult
 
 def _make_config(**overrides: object) -> NightShiftConfig:
     """Create NightShiftConfig with overrides."""
-    defaults = {
+    defaults: dict[str, object] = {
         "max_clarification_rounds": 3,
         "max_budget_usd": 2.0,
         "spec_gen_model_tier": "ADVANCED",
     }
     defaults.update(overrides)
-    return NightShiftConfig(**defaults)
+    return NightShiftConfig.model_validate(defaults)
 
 
 def _make_platform() -> MagicMock:

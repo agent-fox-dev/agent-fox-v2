@@ -77,7 +77,7 @@ class TestContextRenderingDeterminism:
 
         # Both renders must be non-None (same findings -> same non-empty result)
         assert (md1 is None) == (md2 is None)
-        if md1 is None:
+        if md1 is None or md2 is None:
             conn.close()
             return
 

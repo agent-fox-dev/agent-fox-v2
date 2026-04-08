@@ -9,7 +9,7 @@ Requirements: 26-REQ-9.3 (transport-transparent retry path)
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 from agent_fox.engine.graph_sync import GraphSync
@@ -278,7 +278,7 @@ class TestTransportInternalRetryNoFailedRecord:
         the escalation ladder.
         """
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
-        mock_state_manager = handler._state_manager  # already a MagicMock
+        mock_state_manager = cast(MagicMock, handler._state_manager)
 
         record = _make_transport_record()
         handler.process(record, 1, state, attempt_tracker, error_tracker)

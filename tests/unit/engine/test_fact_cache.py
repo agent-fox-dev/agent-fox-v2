@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import patch
 
 import duckdb
@@ -355,7 +356,8 @@ class TestBarrierCacheRebuild:
             _barrier_sync(infra, config_mock)
 
         # The cache dict is updated in-place
-        updated_count = infra["fact_cache"]["spec_a"].fact_count_at_creation
+        updated_fact_cache = cast(dict[str, Any], infra["fact_cache"])
+        updated_count = updated_fact_cache["spec_a"].fact_count_at_creation
         assert updated_count > original_count, (
             f"Expected fact_count_at_creation to increase after barrier sync; "
             f"was {original_count}, got {updated_count}"
