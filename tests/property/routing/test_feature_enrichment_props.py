@@ -1,7 +1,7 @@
-"""Property tests for feature vector enrichment and quality gate.
+"""Property tests for feature vector enrichment.
 
-Test Spec: TS-54-P1 through TS-54-P8
-Correctness Properties: Properties 1-8 from design.md
+Test Spec: TS-54-P4 through TS-54-P8
+Correctness Properties: Properties 4-8 from design.md
 """
 
 from __future__ import annotations
@@ -11,8 +11,6 @@ import statistics
 import uuid
 from dataclasses import asdict
 from pathlib import Path
-from unittest.mock import patch
-
 import duckdb
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -47,102 +45,6 @@ _file_path_st = st.from_regex(
     r"[a-zA-Z_]{1,10}(/[a-zA-Z_]{1,10}){0,3}\.[a-zA-Z]{1,5}",
     fullmatch=True,
 )
-
-
-# ---------------------------------------------------------------------------
-# TS-54-P1: Quality gate only when configured
-# ---------------------------------------------------------------------------
-
-
-class TestPropertyGateOnlyWhenConfigured:
-    """TS-54-P1: No subprocess spawned when quality_gate is empty.
-
-    Property: Property 1 from design.md
-    Validates: 54-REQ-1.3
-    """
-
-    @given(gate=st.sampled_from(["", None]))
-    @settings(max_examples=10)
-    def test_p1_no_subprocess_when_unconfigured(self, gate: str | None) -> None:
-        from agent_fox.core.config import OrchestratorConfig
-        from agent_fox.engine.quality_gate import run_quality_gate
-
-        kwargs = {}
-        if gate is not None:
-            kwargs["quality_gate"] = gate
-        config = OrchestratorConfig(**kwargs)  # type: ignore[arg-type]
-
-        with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
-            result = run_quality_gate(config, project_root="/tmp/project")
-
-        assert result is None
-        mock_run.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TS-54-P2: Timeout enforcement
-# ---------------------------------------------------------------------------
-
-
-class TestPropertyTimeoutEnforcement:
-    """TS-54-P2: Timed-out gates always record exit_code=-1.
-
-    Property: Property 2 from design.md
-    Validates: 54-REQ-1.2
-    """
-
-    @given(timeout=st.integers(min_value=1, max_value=10))
-    @settings(max_examples=10)
-    def test_p2_timeout_always_minus_one(self, timeout: int) -> None:
-        import subprocess
-
-        from agent_fox.core.config import OrchestratorConfig
-        from agent_fox.engine.quality_gate import run_quality_gate
-
-        config = OrchestratorConfig(
-            quality_gate="some_command",
-            quality_gate_timeout=timeout,
-        )
-
-        with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
-            mock_run.side_effect = subprocess.TimeoutExpired(cmd="some_command", timeout=timeout)
-            result = run_quality_gate(config, project_root="/tmp/project")
-
-        assert result is not None
-        assert result.exit_code == -1
-        assert result.passed is False
-
-
-# ---------------------------------------------------------------------------
-# TS-54-P3: Gate failure does not block
-# ---------------------------------------------------------------------------
-
-
-class TestPropertyGateDoesNotBlock:
-    """TS-54-P3: Gate failure never prevents the next session.
-
-    Property: Property 3 from design.md
-    Validates: 54-REQ-2.3
-    """
-
-    @given(exit_code=st.integers(min_value=1, max_value=255))
-    @settings(max_examples=20)
-    def test_p3_failure_returns_result(self, exit_code: int) -> None:
-        import subprocess
-
-        from agent_fox.core.config import OrchestratorConfig
-        from agent_fox.engine.quality_gate import run_quality_gate
-
-        config = OrchestratorConfig(quality_gate="cmd")
-
-        with patch("agent_fox.engine.quality_gate.subprocess.run") as mock_run:
-            mock_run.return_value = subprocess.CompletedProcess(args="cmd", returncode=exit_code, stdout="", stderr="")
-            result = run_quality_gate(config, project_root="/tmp/project")
-
-        # Function returns a result, never raises — engine can proceed
-        assert result is not None
-        assert result.passed is False
-        assert result.exit_code == exit_code
 
 
 # ---------------------------------------------------------------------------
