@@ -372,6 +372,9 @@ class SpecGeneratorStream:
 
         Requirements: 86-REQ-2.E2
         """
+        if self._platform is None:
+            return False
+
         from datetime import UTC, datetime, timedelta
 
         if self._platform is None:

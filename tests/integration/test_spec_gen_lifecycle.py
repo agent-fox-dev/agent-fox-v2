@@ -10,6 +10,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from anthropic.types import TextBlock
+
 from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_BLOCKED,
@@ -90,7 +92,7 @@ def _make_human_comment(
 def _mock_ai_response(text: str = "Generated content") -> MagicMock:
     """Create a mock AI response."""
     resp = MagicMock()
-    resp.content = [MagicMock(text=text)]
+    resp.content = [TextBlock(type="text", text=text)]
     resp.usage.input_tokens = 100
     resp.usage.output_tokens = 50
     resp.usage.cache_read_input_tokens = 0
@@ -585,7 +587,7 @@ class TestSmokeCostCapExceeded:
 
         # Expensive AI responses
         expensive_resp = MagicMock()
-        expensive_resp.content = [MagicMock(text="Generated content")]
+        expensive_resp.content = [TextBlock(type="text", text="Generated content")]
         expensive_resp.usage.input_tokens = 100000
         expensive_resp.usage.output_tokens = 50000
         expensive_resp.usage.cache_read_input_tokens = 0

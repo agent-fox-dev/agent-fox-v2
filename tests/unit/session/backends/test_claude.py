@@ -463,8 +463,9 @@ class TestTransportRetry:
 
         # Stream succeeded on third attempt
         assert len(messages) == 1
-        assert isinstance(messages[0], ResultMessage)
-        assert messages[0].is_error is False
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is False
         assert call_count == 3
 
     # ------------------------------------------------------------------
