@@ -630,10 +630,12 @@ class AgentFoxConfig(BaseModel):
     @model_validator(mode="after")
     def _default_night_shift(self) -> Self:
         """Populate night_shift with NightShiftConfig if not provided."""
-        if self.night_shift is None:
-            from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.nightshift.config import NightShiftConfig
 
+        if self.night_shift is None:
             self.night_shift = NightShiftConfig()
+        elif isinstance(self.night_shift, dict):
+            self.night_shift = NightShiftConfig(**self.night_shift)
         return self
 
 
