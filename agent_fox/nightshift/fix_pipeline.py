@@ -677,6 +677,18 @@ class FixPipeline:
                 issue.number,
                 exc,
             )
+        # Remove the af:fix label so the issue is not re-processed (#295).
+        try:
+            await self._platform.remove_label(  # type: ignore[attr-defined]
+                issue.number,
+                "af:fix",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to remove af:fix label from issue #%d: %s",
+                issue.number,
+                exc,
+            )
         logger.info(
             "Fix pipeline complete for issue #%d on branch %s",
             issue.number,

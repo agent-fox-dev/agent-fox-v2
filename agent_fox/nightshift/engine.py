@@ -278,6 +278,17 @@ class NightShiftEngine:
                     "night_shift.issue_superseded",
                     {"closed_issue": obsolete, "superseded_by": _keep},
                 )
+                try:
+                    await self._platform.remove_label(  # type: ignore[attr-defined]
+                        obsolete,
+                        "af:fix",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to remove af:fix label from superseded issue #%d",
+                        obsolete,
+                        exc_info=True,
+                    )
             except Exception:
                 logger.warning(
                     "Failed to close superseded issue #%d",
@@ -338,6 +349,17 @@ class NightShiftEngine:
                                     "rationale": staleness.rationale.get(obsolete_num, ""),
                                 },
                             )
+                            try:
+                                await self._platform.remove_label(  # type: ignore[attr-defined]
+                                    obsolete_num,
+                                    "af:fix",
+                                )
+                            except Exception:
+                                logger.warning(
+                                    "Failed to remove af:fix label from obsolete issue #%d",
+                                    obsolete_num,
+                                    exc_info=True,
+                                )
                     except Exception:
                         logger.warning(
                             "Staleness check failed after fix #%d",
