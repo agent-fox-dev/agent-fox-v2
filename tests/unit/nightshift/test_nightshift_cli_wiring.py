@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from agent_fox.cli.nightshift import night_shift_cmd
@@ -64,7 +63,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -81,7 +80,7 @@ class TestCliUsesDaemonRunner:
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 [],
                 obj={"config": _make_config(), "quiet": False},
@@ -106,7 +105,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]) as mock_build,
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -123,7 +122,7 @@ class TestCliUsesDaemonRunner:
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 ["--no-fixes", "--no-hunts"],
                 obj={"config": _make_config(), "quiet": False},
@@ -151,7 +150,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -169,7 +168,7 @@ class TestCliUsesDaemonRunner:
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 [],
                 obj={"config": _make_config(), "quiet": False},
