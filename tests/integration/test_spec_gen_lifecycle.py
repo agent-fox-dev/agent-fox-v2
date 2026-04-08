@@ -428,10 +428,10 @@ class TestSmokeAmbiguousIssue:
 
 
 class TestSmokePendingReanalysis:
-    """End-to-end: pending issue with new human comment gets re-analyzed."""
+    """End-to-end: issue with prior clarification re-analyzed after human reset to af:spec."""
 
     async def test_pending_reanalysis_generates_spec(self, tmp_path: Path) -> None:
-        """TS-86-SMOKE-3: pending → analyzing → generating → done."""
+        """TS-86-SMOKE-3: af:spec (human reset) → analyzing → generating → done."""
         import subprocess
 
         from agent_fox.nightshift.streams import SpecGeneratorStream
@@ -448,11 +448,12 @@ class TestSmokePendingReanalysis:
 
         platform = _make_platform()
         issue = _make_issue(number=42, title="Widget feature")
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-        human = _make_human_comment(comment_id=2, created_at="2026-01-02T00:00:00Z")
+        fox = _make_fox_comment(comment_id=1, created_at="2026-04-06T00:00:00Z")
+        human = _make_human_comment(comment_id=2, created_at="2026-04-07T00:00:00Z")
 
+        # Human has reset the label to af:spec after answering clarification
         async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
+            if label == "af:spec":
                 return [issue]
             return []
 
@@ -506,19 +507,20 @@ class TestSmokeMaxRoundsEscalation:
 
         # Two prior rounds of clarification
         comments = [
-            _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z"),
-            _make_human_comment(comment_id=2, created_at="2026-01-02T00:00:00Z"),
+            _make_fox_comment(comment_id=1, created_at="2026-04-04T00:00:00Z"),
+            _make_human_comment(comment_id=2, created_at="2026-04-05T00:00:00Z"),
             IssueComment(
                 id=3,
                 body="## Agent Fox -- Clarification Needed\n\n1. Still need X?",
                 user="agent-fox[bot]",
-                created_at="2026-01-03T00:00:00Z",
+                created_at="2026-04-06T00:00:00Z",
             ),
-            _make_human_comment(comment_id=4, body="X is Y", created_at="2026-01-04T00:00:00Z"),
+            _make_human_comment(comment_id=4, body="X is Y", created_at="2026-04-07T00:00:00Z"),
         ]
 
+        # Human has reset label to af:spec after answering, but max rounds already hit
         async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
+            if label == "af:spec":
                 return [issue]
             return []
 
