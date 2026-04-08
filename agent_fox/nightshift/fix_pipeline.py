@@ -500,13 +500,68 @@ class FixPipeline:
                     )
                 raise
 
-            # Parse reviewer output
+            # Parse reviewer output, retrying reviewer once on parse failure
             reviewer_response = getattr(reviewer_outcome, "response", "") or ""
             review_result = parse_fix_review_output(
                 reviewer_response,
                 f"fix-issue-{spec.issue_number}",
                 f"fix-issue-{spec.issue_number}:0:fix_reviewer",
             )
+
+            if review_result.is_parse_failure:
+                logger.info(
+                    "Reviewer output unparseable for issue #%d, retrying reviewer",
+                    spec.issue_number,
+                )
+                retry_node_id = f"fix-issue-{spec.issue_number}:0:fix_reviewer_retry"
+                t0 = time.monotonic()
+                try:
+                    retry_outcome = await self._run_session(
+                        "fix_reviewer",
+                        spec=spec,
+                        system_prompt=reviewer_system,
+                        task_prompt=reviewer_task,
+                    )
+                    self._accumulate_metrics(metrics, retry_outcome)
+                    duration = time.monotonic() - t0
+                    if self._task_callback is not None:
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=retry_node_id,
+                                status="completed",
+                                duration_s=duration,
+                                archetype="fix_reviewer",
+                            )
+                        )
+                    retry_response = getattr(retry_outcome, "response", "") or ""
+                    retry_result = parse_fix_review_output(
+                        retry_response,
+                        f"fix-issue-{spec.issue_number}",
+                        f"fix-issue-{spec.issue_number}:0:fix_reviewer_retry",
+                    )
+                    if not retry_result.is_parse_failure:
+                        review_result = retry_result
+                    else:
+                        logger.warning(
+                            "Reviewer retry also unparseable for issue #%d, treating as FAIL",
+                            spec.issue_number,
+                        )
+                except Exception:
+                    duration = time.monotonic() - t0
+                    if self._task_callback is not None:
+                        self._task_callback(
+                            TaskEvent(
+                                node_id=retry_node_id,
+                                status="failed",
+                                duration_s=duration,
+                                archetype="fix_reviewer",
+                            )
+                        )
+                    logger.warning(
+                        "Reviewer retry failed for issue #%d, treating as FAIL",
+                        spec.issue_number,
+                        exc_info=True,
+                    )
 
             # Post review comment
             review_comment = self._format_review_comment(review_result)

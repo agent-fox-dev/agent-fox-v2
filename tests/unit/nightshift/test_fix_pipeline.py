@@ -711,3 +711,144 @@ class TestSupersessionPairsActedOn:
         # _process_fix must never be called for the superseded issue 20
         processed_numbers = [call.args[0].number for call in process_fix.call_args_list]
         assert 20 not in processed_numbers
+
+
+# ---------------------------------------------------------------------------
+# Reviewer retry on parse failure (fixes #294)
+# ---------------------------------------------------------------------------
+
+
+class TestReviewerRetryOnParseFailure:
+    """Verify the pipeline retries the reviewer when output is unparseable."""
+
+    @pytest.mark.asyncio
+    async def test_reviewer_retried_on_parse_failure_then_passes(self) -> None:
+        """When first reviewer output is unparseable but retry produces valid
+        JSON with PASS, the pipeline should succeed without coder retry."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        pass_review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
+
+        call_count = 0
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            nonlocal call_count
+            outcome = MagicMock(
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                call_count += 1
+                if call_count == 1:
+                    # First reviewer call: unparseable
+                    outcome.response = "Here are my thoughts on the fix..."
+                else:
+                    # Retry: valid JSON
+                    outcome.response = pass_review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=42,
+            title="Fix something",
+            html_url="https://github.com/test/repo/issues/42",
+        )
+
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)):
+            await pipeline.process_issue(issue, issue_body="Something is broken.")
+
+        # Reviewer was called twice (original + retry), and the fix passed
+        assert call_count == 2
+        mock_platform.close_issue.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_reviewer_parse_failure_both_times_triggers_coder_retry(self) -> None:
+        """When both reviewer attempts produce unparseable output, the pipeline
+        should fall through to coder retry (escalation ladder)."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.github import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 0  # No coder retries — exhaust immediately
+        mock_platform = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+
+        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "fix_reviewer":
+                # Always unparseable
+                outcome.response = "I looked at the code and everything seems fine."
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=43,
+            title="Fix another thing",
+            html_url="https://github.com/test/repo/issues/43",
+        )
+
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+            await pipeline.process_issue(issue, issue_body="Another thing is broken.")
+
+        # Issue should NOT be closed (max_retries=0 exhausted)
+        mock_platform.close_issue.assert_not_awaited()
