@@ -52,7 +52,7 @@ class TestArchetypePipeline:
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         archetypes_used: list[str] = []
 

@@ -99,7 +99,7 @@ class TestFullPipelineHappyPath:
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
             if archetype == "triage":
@@ -152,7 +152,7 @@ class TestRetryLoopWithEscalation:
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         reviewer_call_count = {"n": 0}
         model_ids_used: list[str | None] = []
@@ -218,7 +218,7 @@ class TestTriageFailureFallback:
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_attempted = {"value": False}
 

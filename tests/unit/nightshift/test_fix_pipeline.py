@@ -319,7 +319,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/7",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)) as mock_harvest:
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")) as mock_harvest:
             await pipeline.process_issue(issue, issue_body="Login is broken.")
 
         mock_harvest.assert_awaited_once()
@@ -384,17 +384,21 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/9",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="error")):
             await pipeline.process_issue(issue, issue_body="Something else is broken.")
 
         mock_platform.close_issue.assert_not_awaited()
-        # A comment about manual merge should be posted
+        # A comment about manual investigation should be posted
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("manual" in c.lower() or "merge" in c.lower() for c in comments)
 
     @pytest.mark.asyncio
-    async def test_issue_not_closed_when_harvest_returns_empty(self) -> None:
-        """When harvest produces no changed files, the issue is NOT closed."""
+    async def test_issue_closed_when_harvest_returns_empty_and_review_passed(self) -> None:
+        """When reviewer PASS but harvest has no new commits, issue IS closed.
+
+        The fix is already present on develop — the issue should be closed
+        to prevent the night-shift from endlessly re-processing it.
+        """
         import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -456,11 +460,11 @@ class TestSuccessfulFixHarvestsAndCloses:
         ):
             await pipeline.process_issue(issue, issue_body="Something is broken.")
 
-        # Issue must NOT be closed when harvest produced no changes
-        mock_platform.close_issue.assert_not_awaited()
-        # A comment about no changes should be posted
-        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
-        assert any("no change" in c.lower() or "no new commit" in c.lower() for c in comments)
+        # Issue IS closed — reviewer confirmed PASS and fix is already on develop
+        mock_platform.close_issue.assert_awaited_once()
+        # Close message should mention fix already present
+        close_msg = str(mock_platform.close_issue.call_args)
+        assert "already present" in close_msg.lower()
 
     @pytest.mark.asyncio
     async def test_issue_not_closed_on_session_failure(self) -> None:
@@ -788,7 +792,7 @@ class TestReviewerRetryOnParseFailure:
             html_url="https://github.com/test/repo/issues/42",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")):
             await pipeline.process_issue(issue, issue_body="Something is broken.")
 
         # Reviewer was called twice (original + retry), and the fix passed
@@ -847,7 +851,7 @@ class TestReviewerRetryOnParseFailure:
             html_url="https://github.com/test/repo/issues/43",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="error")):
             await pipeline.process_issue(issue, issue_body="Another thing is broken.")
 
         # Issue should NOT be closed (max_retries=0 exhausted)

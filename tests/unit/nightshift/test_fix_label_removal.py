@@ -80,7 +80,7 @@ class TestFixPipelineLabelRemoval:
             html_url="https://github.com/test/repo/issues/42",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")):
             await pipeline.process_issue(issue, issue_body="Bug description.")
 
         mock_platform.close_issue.assert_awaited_once()
@@ -140,7 +140,7 @@ class TestFixPipelineLabelRemoval:
             html_url="https://github.com/test/repo/issues/42",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="error")):
             await pipeline.process_issue(issue, issue_body="Bug description.")
 
         mock_platform.close_issue.assert_not_awaited()

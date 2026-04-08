@@ -701,13 +701,13 @@ class FixPipeline:
             return metrics
 
         # Harvest fix branch into develop and push to origin (65-REQ-3.2).
-        if not await self._harvest_and_push(spec):
+        harvest_result = await self._harvest_and_push(spec)
+        if harvest_result == "error":
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
-                    f"Fix sessions completed but no changes were produced or "
-                    f"merged from branch `{spec.branch_name}` into `develop`. "
-                    "No new commits were found on the fix branch. "
+                    f"Fix sessions completed but changes from branch "
+                    f"`{spec.branch_name}` could not be merged into `develop`. "
                     "Manual investigation is required.",
                 )
             except Exception as exc:
@@ -719,12 +719,23 @@ class FixPipeline:
             return metrics
 
         # Close the originating issue with a comment pointing to the branch.
+        # When harvest_result is "no_changes", the reviewer confirmed PASS
+        # but there are no new commits — the fix is already on develop.
+        if harvest_result == "no_changes":
+            close_msg = (
+                f"Fix verified on branch `{spec.branch_name}`. "
+                "No new commits were needed — the fix is already present on `develop`."
+            )
+        else:
+            close_msg = (
+                f"Fix complete on branch `{spec.branch_name}`. "
+                "Changes have been merged into `develop`. "
+                "Create a PR from that branch to land them on `main`."
+            )
         try:
             await self._platform.close_issue(  # type: ignore[attr-defined]
                 issue.number,
-                f"Fix complete on branch `{spec.branch_name}`. "
-                "Changes have been merged into `develop`. "
-                "Create a PR from that branch to land them on `main`.",
+                close_msg,
             )
         except Exception as exc:
             logger.warning(
@@ -757,12 +768,16 @@ class FixPipeline:
 
         await run_git(["checkout", "develop"], cwd=Path.cwd(), check=False)
 
-    async def _harvest_and_push(self, spec: InMemorySpec) -> bool:
+    async def _harvest_and_push(self, spec: InMemorySpec) -> str:
         """Harvest the fix branch into develop and push to origin.
 
-        Returns True when changes were merged, False when harvest
-        produced no changes or when an error occurred.  Always restores
-        the working tree to ``develop`` afterwards.
+        Returns:
+            ``"merged"`` when changes were merged successfully.
+            ``"no_changes"`` when harvest found no new commits on the
+            fix branch (the fix may already be on develop).
+            ``"error"`` when an error occurred during harvest or push.
+
+        Always restores the working tree to ``develop`` afterwards.
         """
         from agent_fox.workspace.harvest import harvest, post_harvest_integrate
         from agent_fox.workspace.worktree import WorkspaceInfo
@@ -783,7 +798,7 @@ class FixPipeline:
                     spec.branch_name,
                 )
                 await self._restore_develop()
-                return False
+                return "no_changes"
             await post_harvest_integrate(repo_root, workspace)
         except Exception as exc:
             logger.warning(
@@ -793,6 +808,6 @@ class FixPipeline:
                 exc,
             )
             await self._restore_develop()
-            return False
+            return "error"
         await self._restore_develop()
-        return True
+        return "merged"

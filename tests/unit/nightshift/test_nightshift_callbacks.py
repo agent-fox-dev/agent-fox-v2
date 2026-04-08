@@ -151,7 +151,7 @@ class TestFixPipelinePassesCallback:
             side_effect=fake_run_session,
         ):
             pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-            pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+            pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
             await pipeline.process_issue(issue, issue_body="Fix the bug")
 
@@ -218,7 +218,7 @@ class TestFixPipelinePassesCallback:
             side_effect=fake_run_session,
         ):
             pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-            pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+            pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
             await pipeline.process_issue(issue, issue_body="Fix the bug")
 
@@ -254,7 +254,7 @@ class TestFixPipelineTaskEvents:
             task_callback=events.append,
         )
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -320,7 +320,7 @@ class TestFixPipelineTaskEvents:
             task_callback=events.append,
         )
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -439,7 +439,7 @@ class TestFixPipelineTaskEvents:
         # No task_callback
         pipeline = FixPipeline(config=config, platform=platform)
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -510,7 +510,7 @@ class TestActivityEventForwarded:
             activity_callback=events.append,
         )
         pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
