@@ -46,7 +46,7 @@ def _make_mock_stream(
 def _make_config(enabled_streams: list[str] | None = None) -> MagicMock:
     config = MagicMock()
     ns = MagicMock()
-    ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts", "spec_gen"]
+    ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts"]
     ns.merge_strategy = "direct"
     config.night_shift = ns
     return config
@@ -233,19 +233,16 @@ class TestConfigIntervalClamping:
 
     @given(
         spec_interval=st.integers(min_value=-1000, max_value=10000),
-        spec_gen_interval=st.integers(min_value=-1000, max_value=10000),
     )
     @settings(max_examples=100)
-    def test_intervals_clamped(self, spec_interval: int, spec_gen_interval: int) -> None:
-        """spec_interval >= 10 and spec_gen_interval >= 60 after validation."""
+    def test_intervals_clamped(self, spec_interval: int) -> None:
+        """spec_interval >= 10 after validation."""
         from agent_fox.nightshift.config import NightShiftConfig
 
         config = NightShiftConfig(
             spec_interval=spec_interval,
-            spec_gen_interval=spec_gen_interval,
         )
         assert config.spec_interval >= 10
-        assert config.spec_gen_interval >= 60
 
 
 # ---------------------------------------------------------------------------
@@ -267,10 +264,9 @@ class TestPlatformDegradation:
         config = MagicMock()
         config.platform.type = "none"
         ns = MagicMock()
-        ns.enabled_streams = ["specs", "fixes", "hunts", "spec_gen"]
+        ns.enabled_streams = ["specs", "fixes", "hunts"]
         ns.merge_strategy = "direct"
         ns.spec_interval = 60
-        ns.spec_gen_interval = 300
         ns.issue_check_interval = 900
         ns.hunt_scan_interval = 14400
         config.night_shift = ns
@@ -295,7 +291,6 @@ _CONFIG_TO_STREAM = {
     "specs": "spec-executor",
     "fixes": "fix-pipeline",
     "hunts": "hunt-scan",
-    "spec_gen": "spec-generator",
 }
 _STREAM_TO_CONFIG = {v: k for k, v in _CONFIG_TO_STREAM.items()}
 _ALL_CONFIG_NAMES = list(_CONFIG_TO_STREAM.keys())
@@ -308,13 +303,12 @@ class TestEnabledStreamFiltering:
         config_enabled=st.lists(
             st.sampled_from(_ALL_CONFIG_NAMES),
             min_size=0,
-            max_size=4,
+            max_size=3,
             unique=True,
         ),
         no_specs=st.booleans(),
         no_fixes=st.booleans(),
         no_hunts=st.booleans(),
-        no_spec_gen=st.booleans(),
     )
     @settings(max_examples=50)
     def test_intersection(
@@ -323,7 +317,6 @@ class TestEnabledStreamFiltering:
         no_specs: bool,
         no_fixes: bool,
         no_hunts: bool,
-        no_spec_gen: bool,
     ) -> None:
         """Running set = config-enabled ∩ CLI-enabled."""
         from agent_fox.nightshift.streams import build_streams
@@ -335,7 +328,6 @@ class TestEnabledStreamFiltering:
         ns.enabled_streams = config_enabled if config_enabled else []
         ns.merge_strategy = "direct"
         ns.spec_interval = 60
-        ns.spec_gen_interval = 300
         ns.issue_check_interval = 900
         ns.hunt_scan_interval = 14400
         config.night_shift = ns
@@ -345,7 +337,6 @@ class TestEnabledStreamFiltering:
             no_specs=no_specs,
             no_fixes=no_fixes,
             no_hunts=no_hunts,
-            no_spec_gen=no_spec_gen,
         )
 
         cli_enabled = set()
@@ -355,8 +346,6 @@ class TestEnabledStreamFiltering:
             cli_enabled.add("fixes")
         if not no_hunts:
             cli_enabled.add("hunts")
-        if not no_spec_gen:
-            cli_enabled.add("spec_gen")
 
         # Empty config_enabled means all enabled
         effective_config = set(config_enabled) if config_enabled else set(_ALL_CONFIG_NAMES)

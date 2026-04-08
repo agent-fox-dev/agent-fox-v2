@@ -65,12 +65,8 @@ class NightShiftConfig(BaseModel):
         default=60,
         description="Seconds between spec executor cycles (minimum 10)",
     )
-    spec_gen_interval: int = Field(
-        default=300,
-        description="Seconds between spec generator cycles (minimum 60)",
-    )
     enabled_streams: list[str] = Field(
-        default=["specs", "fixes", "hunts", "spec_gen"],
+        default=["specs", "fixes", "hunts"],
         description="List of enabled work stream config names",
     )
     merge_strategy: str = Field(
@@ -78,7 +74,10 @@ class NightShiftConfig(BaseModel):
         description="Merge strategy: 'direct' or 'pr'",
     )
 
-    # --- New fields for spec generator (spec 86) ---
+    # --- Fields used by SpecGenerator (spec 86) ---
+    # Retained here because SpecGenerator (spec_gen.py) references them.
+    # These will migrate to a dedicated config when spec generation gets
+    # its own command.
 
     max_clarification_rounds: int = Field(
         default=3,
@@ -123,21 +122,6 @@ class NightShiftConfig(BaseModel):
             return 10
         return v
 
-    @field_validator("spec_gen_interval")
-    @classmethod
-    def clamp_spec_gen_interval(cls, v: int) -> int:
-        """Clamp spec_gen_interval to a minimum of 60 seconds.
-
-        Requirements: 85-REQ-9.1
-        """
-        if v < 60:
-            logger.warning(
-                "Config field 'spec_gen_interval' value %d below minimum, clamped to 60",
-                v,
-            )
-            return 60
-        return v
-
     @field_validator("enabled_streams")
     @classmethod
     def default_empty_enabled_streams(cls, v: list[str]) -> list[str]:
@@ -146,7 +130,7 @@ class NightShiftConfig(BaseModel):
         Requirements: 85-REQ-9.E2
         """
         if not v:
-            return ["specs", "fixes", "hunts", "spec_gen"]
+            return ["specs", "fixes", "hunts"]
         return v
 
     @field_validator("issue_check_interval", "hunt_scan_interval")

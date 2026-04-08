@@ -29,7 +29,6 @@ def _make_config(
     config = MagicMock()
     config.night_shift.issue_check_interval = issue_interval
     config.night_shift.hunt_scan_interval = hunt_interval
-    config.night_shift.spec_gen_interval = 300
     config.orchestrator.max_cost = max_cost
     config.orchestrator.max_sessions = max_sessions
     return config
@@ -296,7 +295,6 @@ class TestProgressDisplayCreated:
             mock_engine.state = MagicMock()
             mock_engine.state.hunt_scans_completed = 0
             mock_engine.state.issues_fixed = 0
-            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
 
             mock_daemon_state = MagicMock()
@@ -351,7 +349,6 @@ class TestExitSummary:
             mock_engine.state = MagicMock()
             mock_engine.state.hunt_scans_completed = 2
             mock_engine.state.issues_fixed = 3
-            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
 
             mock_daemon_state = MagicMock()
@@ -404,7 +401,6 @@ class TestPropDisplayLifecycle:
             mock_engine.state = MagicMock()
             mock_engine.state.hunt_scans_completed = 0
             mock_engine.state.issues_fixed = 0
-            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
 
             mock_runner_instance = MagicMock()

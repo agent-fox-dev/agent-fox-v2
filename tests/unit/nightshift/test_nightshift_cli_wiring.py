@@ -19,10 +19,9 @@ def _make_config() -> MagicMock:
     config = MagicMock()
     config.max_budget_usd = 10.0
     ns = MagicMock()
-    ns.enabled_streams = ["specs", "fixes", "hunts", "spec_gen"]
+    ns.enabled_streams = ["specs", "fixes", "hunts"]
     ns.merge_strategy = "direct"
     ns.spec_interval = 60
-    ns.spec_gen_interval = 300
     ns.issue_check_interval = 900
     ns.hunt_scan_interval = 14400
     config.night_shift = ns
@@ -76,7 +75,6 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 1
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
@@ -118,7 +116,6 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 0
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
@@ -134,7 +131,6 @@ class TestCliUsesDaemonRunner:
             assert call_kwargs.kwargs["no_fixes"] is True
             assert call_kwargs.kwargs["no_hunts"] is True
             assert call_kwargs.kwargs["no_specs"] is False
-            assert call_kwargs.kwargs["no_spec_gen"] is False
 
     def test_engine_run_not_called(self) -> None:
         """Engine.run() must NOT be called — DaemonRunner manages lifecycle."""
@@ -163,7 +159,6 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 0
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine.run = AsyncMock()
             mock_engine_cls.return_value = mock_engine
 
@@ -179,35 +174,3 @@ class TestCliUsesDaemonRunner:
             mock_engine.run.assert_not_awaited()
             # runner.run() should have been called
             mock_runner.run.assert_awaited_once()
-
-
-class TestSpecGeneratorBudgetWiring:
-    """Verify build_streams passes budget to SpecGeneratorStream."""
-
-    def test_spec_generator_receives_budget(self) -> None:
-        """SpecGeneratorStream._budget is set when build_streams passes it."""
-        from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import build_streams
-
-        config = MagicMock()
-        config.platform.type = "github"
-        ns = MagicMock()
-        ns.enabled_streams = ["spec_gen"]
-        ns.spec_interval = 60
-        ns.spec_gen_interval = 300
-        ns.issue_check_interval = 900
-        ns.hunt_scan_interval = 14400
-        config.night_shift = ns
-
-        budget = SharedBudget(max_cost=10.0)
-        streams = build_streams(
-            config,
-            budget=budget,
-            no_specs=True,
-            no_fixes=True,
-            no_hunts=True,
-            no_spec_gen=False,
-        )
-
-        gen_stream = next(s for s in streams if s.name == "spec-generator")
-        assert gen_stream._budget is budget
