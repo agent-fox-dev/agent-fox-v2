@@ -289,19 +289,22 @@ class TestProgressDisplayCreated:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform") as MockPlatform,
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            mock_state = MagicMock()
-            mock_state.hunt_scans_completed = 0
-            mock_state.issues_fixed = 0
-            mock_state.total_cost = 0.0
-
-            async def fake_run():
-                return mock_state
-
-            mock_engine.run = fake_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_daemon_state = MagicMock()
+            mock_daemon_state.total_cost = 0.0
+            mock_runner_instance = MagicMock()
+            mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            MockRunner.return_value = mock_runner_instance
+
             MockPlatform.return_value = MagicMock()
 
             mock_progress_instance = MagicMock()
@@ -341,19 +344,22 @@ class TestExitSummary:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform"),
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            mock_state = MagicMock()
-            mock_state.hunt_scans_completed = 2
-            mock_state.issues_fixed = 3
-            mock_state.total_cost = 1.5
-
-            async def fake_run():
-                return mock_state
-
-            mock_engine.run = fake_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 2
+            mock_engine.state.issues_fixed = 3
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_daemon_state = MagicMock()
+            mock_daemon_state.total_cost = 1.5
+            mock_runner_instance = MagicMock()
+            mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            MockRunner.return_value = mock_runner_instance
+
             MockProgress.return_value = MagicMock()
 
             result = runner.invoke(
@@ -391,26 +397,25 @@ class TestPropDisplayLifecycle:
             patch("agent_fox.nightshift.engine.validate_night_shift_prerequisites"),
             patch("agent_fox.nightshift.platform_factory.create_platform"),
             patch("agent_fox.ui.progress.ProgressDisplay") as MockProgress,
+            patch("agent_fox.nightshift.daemon.DaemonRunner") as MockRunner,
+            patch("agent_fox.nightshift.streams.build_streams", return_value=[]),
         ):
             mock_engine = MagicMock()
-            if exit_mode == "clean":
-                mock_state = MagicMock()
-                mock_state.hunt_scans_completed = 0
-                mock_state.issues_fixed = 0
-                mock_state.total_cost = 0.0
-
-                async def fake_run():
-                    return mock_state
-
-                mock_engine.run = fake_run
-            else:
-
-                async def failing_run():
-                    raise RuntimeError("crash")
-
-                mock_engine.run = failing_run
-
+            mock_engine.state = MagicMock()
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.specs_generated = 0
             MockEngine.return_value = mock_engine
+
+            mock_runner_instance = MagicMock()
+            if exit_mode == "clean":
+                mock_daemon_state = MagicMock()
+                mock_daemon_state.total_cost = 0.0
+                mock_runner_instance.run = AsyncMock(return_value=mock_daemon_state)
+            else:
+                mock_runner_instance.run = AsyncMock(side_effect=RuntimeError("crash"))
+            MockRunner.return_value = mock_runner_instance
+
             mock_progress_instance = MagicMock()
             MockProgress.return_value = mock_progress_instance
 
