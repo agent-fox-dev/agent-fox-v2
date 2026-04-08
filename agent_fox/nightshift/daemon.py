@@ -105,7 +105,6 @@ class DaemonRunner:
         "spec-executor",
         "fix-pipeline",
         "hunt-scan",
-        "spec-generator",
     ]
 
     def __init__(
@@ -130,7 +129,6 @@ class DaemonRunner:
             "specs": "spec-executor",
             "fixes": "fix-pipeline",
             "hunts": "hunt-scan",
-            "spec_gen": "spec-generator",
         }
         enabled_cfg = getattr(getattr(config, "night_shift", None), "enabled_streams", None)
         if enabled_cfg:

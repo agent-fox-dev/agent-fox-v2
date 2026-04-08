@@ -21,7 +21,6 @@ def _make_config() -> MagicMock:
     config.orchestrator.max_sessions = None
     config.night_shift.issue_check_interval = 900
     config.night_shift.hunt_scan_interval = 14400
-    config.night_shift.spec_gen_interval = 300
     return config
 
 

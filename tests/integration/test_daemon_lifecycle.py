@@ -51,7 +51,7 @@ def _make_config() -> MagicMock:
     """Create a mock config."""
     config = MagicMock()
     ns = MagicMock()
-    ns.enabled_streams = ["specs", "fixes", "hunts", "spec_gen"]
+    ns.enabled_streams = ["specs", "fixes", "hunts"]
     ns.merge_strategy = "direct"
     config.night_shift = ns
     return config

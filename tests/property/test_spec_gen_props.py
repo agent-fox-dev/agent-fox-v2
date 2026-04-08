@@ -112,9 +112,7 @@ _fox_comment_strategy = st.builds(
 _human_comment_strategy = st.builds(
     IssueComment,
     id=st.integers(min_value=1, max_value=10000),
-    body=st.text(min_size=1, max_size=100).filter(
-        lambda s: not s.strip().startswith("## Agent Fox")
-    ),
+    body=st.text(min_size=1, max_size=100).filter(lambda s: not s.strip().startswith("## Agent Fox")),
     user=st.just("alice"),
     created_at=st.just("2026-01-02T00:00:00Z"),
 )
@@ -182,6 +180,7 @@ def test_TS_86_P4_spec_number_exceeds_existing(
     # so we check that result exceeds all currently-present prefixes.
     all_prefixes: set[int] = set()
     import re as _re
+
     for entry in specs_dir.iterdir():
         m = _re.match(r"^(\d{2,})_", entry.name)
         if m:
