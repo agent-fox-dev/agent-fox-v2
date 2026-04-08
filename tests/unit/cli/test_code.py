@@ -17,8 +17,18 @@ from agent_fox.cli.app import main
 from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.db import KnowledgeDB
+from agent_fox.nightshift.pid import PidStatus
 
 _MOCK_KB = MagicMock(spec=KnowledgeDB)
+
+
+@pytest.fixture(autouse=True)
+def _no_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent the daemon PID check from blocking ``code`` tests."""
+    monkeypatch.setattr(
+        "agent_fox.nightshift.pid.check_pid_file",
+        lambda _path: (PidStatus.ABSENT, None),
+    )
 
 
 def _make_execution_state(
