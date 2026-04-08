@@ -1,18 +1,19 @@
-"""Night Shift engine: daemon lifecycle and event loop.
+"""Night Shift engine: business logic for fix pipeline and hunt scans.
 
-Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-1.4, 61-REQ-1.E1,
-              61-REQ-1.E2, 61-REQ-9.3
+Provides the core operations that work streams delegate to.  Lifecycle
+management (scheduling, signals, budget) is handled by ``DaemonRunner``.
+
+Requirements: 61-REQ-1.1, 61-REQ-1.E1, 61-REQ-9.3
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
+from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
 from agent_fox.nightshift.critic import consolidate_findings
 from agent_fox.nightshift.dedup import filter_known_duplicates
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
@@ -29,34 +30,6 @@ from agent_fox.nightshift.triage import run_batch_triage
 from agent_fox.ui.progress import ActivityCallback, TaskCallback
 
 logger = logging.getLogger(__name__)
-
-
-def _emit_audit_event(
-    event_type_name: str,
-    payload: dict[str, Any] | None = None,
-) -> None:
-    """Emit a night-shift audit event.
-
-    Best-effort: silently skips if audit infrastructure is unavailable.
-
-    Requirements: 61-REQ-8.4 (observability)
-    """
-    try:
-        from agent_fox.knowledge.audit import (
-            AuditEvent,
-            AuditEventType,
-            generate_run_id,
-        )
-
-        event_type = AuditEventType(event_type_name)
-        event = AuditEvent(
-            run_id=generate_run_id(),
-            event_type=event_type,
-            payload=payload or {},
-        )
-        logger.debug("Audit event: %s payload=%s", event.event_type, event.payload)
-    except Exception:  # noqa: BLE001
-        logger.debug("Failed to emit audit event: %s", event_type_name, exc_info=True)
 
 
 def validate_night_shift_prerequisites(config: object) -> None:
@@ -103,11 +76,6 @@ class NightShiftEngine:
         self._status_callback = status_callback
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
-        self._idle_text = ""
-
-    def request_shutdown(self) -> None:
-        """Request graceful shutdown of the engine."""
-        self.state.is_shutting_down = True
 
     def _check_cost_limit(self) -> bool:
         """Check whether the cost limit has been reached.
@@ -150,49 +118,6 @@ class NightShiftEngine:
             except Exception:
                 logger.debug("Status callback failed", exc_info=True)
 
-    def _update_idle_spinner(self, issue_remaining: float, hunt_remaining: float) -> None:
-        """Update the spinner with the next scheduled action time.
-
-        Displays the earlier of the two timers in the user's local timezone.
-
-        Requirements: 81-REQ-4.1, 81-REQ-4.E1
-        """
-        if self._activity_callback is None:
-            return
-
-        from datetime import datetime, timedelta
-
-        now = datetime.now().astimezone()
-        if issue_remaining <= hunt_remaining:
-            next_time = now + timedelta(seconds=issue_remaining)
-            action = "issue check"
-        else:
-            next_time = now + timedelta(seconds=hunt_remaining)
-            action = "hunt scan"
-
-        time_str = next_time.strftime("%H:%M")
-        self._idle_text = f"Waiting until {time_str} for next {action}"
-
-        from agent_fox.ui.progress import ActivityEvent
-
-        self._activity_callback(
-            ActivityEvent(
-                node_id="night-shift",
-                tool_name="thinking...",
-                argument="",
-                turn=0,
-                tokens=None,
-                archetype=None,
-            )
-        )
-
-    def _clear_idle(self) -> None:
-        """Clear the idle message when a phase starts.
-
-        Requirements: 81-REQ-4.2
-        """
-        self._idle_text = ""
-
     async def _run_issue_check(self) -> None:
         """Poll platform for af:fix issues and process them.
 
@@ -209,7 +134,6 @@ class NightShiftEngine:
         Requirements: 61-REQ-2.1, 71-REQ-1.1, 71-REQ-1.2, 71-REQ-1.E1,
                       71-REQ-3.1, 71-REQ-3.5, 71-REQ-5.1, 71-REQ-5.E3
         """
-        self._clear_idle()
         self._emit_status("Checking for af:fix issues\u2026")
         try:
             issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
@@ -385,7 +309,6 @@ class NightShiftEngine:
 
         Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2
         """
-        self._clear_idle()
         self._emit_status("Starting hunt scan\u2026")
 
         if self._hunt_scan_in_progress:
@@ -440,109 +363,6 @@ class NightShiftEngine:
             f"Hunt scan complete: {len(created)} issues created from {len(findings)} findings",
             "bold green",
         )
-
-    async def _run_spec_gen(self) -> None:
-        """Poll platform for af:spec issues and process the oldest one.
-
-        Mirrors the crash-recovery and polling logic from
-        ``SpecGeneratorStream.run_once()`` but runs inline in the engine
-        loop, using ``SpecGenerator`` directly.
-
-        Requirements: 86-REQ-2.1, 86-REQ-2.2, 86-REQ-2.3,
-                      86-REQ-3.E1, 86-REQ-3.E2
-        """
-        self._clear_idle()
-        self._emit_status("Checking for af:spec issues\u2026")
-
-        from agent_fox.nightshift.spec_gen import (
-            LABEL_ANALYZING,
-            LABEL_GENERATING,
-            LABEL_PENDING,
-            LABEL_SPEC,
-            SpecGenerator,
-            SpecGenOutcome,
-        )
-
-        ns_config = getattr(self._config, "night_shift", None)
-        if ns_config is None:
-            logger.debug("No night_shift config; skipping spec gen")
-            return
-
-        repo_root = Path.cwd()
-        generator = SpecGenerator(
-            platform=self._platform,  # type: ignore[arg-type]
-            config=ns_config,
-            repo_root=repo_root,
-        )
-
-        # Crash recovery: reset stale analyzing/generating labels (86-REQ-3.E1, 86-REQ-3.E2)
-        for stale_label in (LABEL_ANALYZING, LABEL_GENERATING):
-            try:
-                stale_issues = await self._platform.list_issues_by_label(stale_label)  # type: ignore[attr-defined]
-                for issue in stale_issues:
-                    logger.warning(
-                        "Issue #%d has stale label %s; resetting to %s",
-                        issue.number,
-                        stale_label,
-                        LABEL_SPEC,
-                    )
-                    await self._platform.assign_label(issue.number, LABEL_SPEC)  # type: ignore[attr-defined]
-                    await self._platform.remove_label(issue.number, stale_label)  # type: ignore[attr-defined]
-            except Exception:
-                logger.exception("Error during crash recovery for label %s", stale_label)
-
-        # Poll for af:spec-pending issues with new human comments (86-REQ-2.3)
-        try:
-            pending_issues = await self._platform.list_issues_by_label(LABEL_PENDING)  # type: ignore[attr-defined]
-        except Exception:
-            logger.exception("Failed to list af:spec-pending issues")
-            pending_issues = []
-
-        for p_issue in pending_issues:
-            try:
-                comments = await self._platform.list_issue_comments(p_issue.number)  # type: ignore[attr-defined]
-                if generator._has_new_human_comment(comments):
-                    await self._platform.assign_label(p_issue.number, LABEL_ANALYZING)  # type: ignore[attr-defined]
-                    await self._platform.remove_label(p_issue.number, LABEL_PENDING)  # type: ignore[attr-defined]
-                    result = await generator.process_issue(p_issue)
-                    self.state.total_cost += result.cost
-                    if result.outcome == SpecGenOutcome.GENERATED:
-                        self.state.specs_generated += 1
-                    return
-            except Exception:
-                logger.exception("Error handling pending issue #%d", p_issue.number)
-
-        # Poll for af:spec issues (86-REQ-2.1)
-        try:
-            spec_issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
-                LABEL_SPEC,
-                sort="created",
-                direction="asc",
-            )
-        except Exception:
-            logger.warning(
-                "Spec gen check failed due to platform API error",
-                exc_info=True,
-            )
-            return
-
-        if not spec_issues:
-            return
-
-        # Process only the oldest issue (86-REQ-2.2)
-        issue = spec_issues[0]
-
-        try:
-            result = await generator.process_issue(issue)
-            self.state.total_cost += result.cost
-            if result.outcome == SpecGenOutcome.GENERATED:
-                self.state.specs_generated += 1
-        except Exception:
-            logger.warning(
-                "Spec generation failed for issue #%d, continuing",
-                issue.number,
-                exc_info=True,
-            )
 
     def _calculate_fix_cost(self, metrics: object) -> float:
         """Calculate USD cost from FixMetrics token counts."""
@@ -675,135 +495,3 @@ class NightShiftEngine:
 
         logger.warning("Issue drain safety valve reached after %d iterations", self._MAX_DRAIN_ITERATIONS)
         return False
-
-    async def run(self) -> NightShiftState:
-        """Run the daemon loop until interrupted.
-
-        Executes an initial issue drain (processing all af:fix issues) and
-        hunt scan on startup, then repeats them at configured intervals
-        until the engine is asked to shut down.
-
-        Issue-first gate: hunt scans are suppressed while open af:fix
-        issues exist.  After every hunt scan, an immediate issue drain
-        processes any newly created issues before the next hunt scan
-        can fire.
-
-        Requirements: 61-REQ-1.1, 61-REQ-1.3, 61-REQ-2.1, 61-REQ-2.2,
-                      61-REQ-2.3, 81-REQ-1.1, 81-REQ-1.2, 81-REQ-1.3,
-                      81-REQ-1.4, 81-REQ-1.5
-        """
-        logger.info("Night-shift engine starting")
-        _emit_audit_event("night_shift.start")
-
-        issue_interval = getattr(
-            getattr(self._config, "night_shift", None),
-            "issue_check_interval",
-            900,
-        )
-        hunt_interval = getattr(
-            getattr(self._config, "night_shift", None),
-            "hunt_scan_interval",
-            14400,
-        )
-        spec_gen_interval = getattr(
-            getattr(self._config, "night_shift", None),
-            "spec_gen_interval",
-            300,
-        )
-
-        # Initial run — issue-first gate (81-REQ-1.2)
-        # Drain all af:fix issues before the first hunt scan.
-        issues_clear = True
-        if not self.state.is_shutting_down:
-            try:
-                issues_clear = await self._drain_issues()
-            except Exception:
-                logger.warning(
-                    "Pre-hunt issue drain failed, proceeding with hunt scan",
-                    exc_info=True,
-                )
-                issues_clear = True  # fail-open (81-REQ-1.E1)
-        # Only run hunt scan if issues were drained (81-REQ-1.1)
-        if not self.state.is_shutting_down and issues_clear:
-            await self._run_hunt_scan()
-            # Post-hunt drain (81-REQ-1.3)
-            if not self.state.is_shutting_down:
-                try:
-                    await self._drain_issues()
-                except Exception:
-                    logger.warning(
-                        "Post-hunt issue drain failed",
-                        exc_info=True,
-                    )
-
-        # Initial spec gen run — independent of issue-first gate
-        if not self.state.is_shutting_down:
-            try:
-                await self._run_spec_gen()
-            except Exception:
-                logger.warning(
-                    "Initial spec gen run failed",
-                    exc_info=True,
-                )
-
-        # Timed loop — repeat checks at configured intervals
-        issue_elapsed = 0.0
-        hunt_elapsed = 0.0
-        spec_gen_elapsed = 0.0
-        tick = 1.0  # seconds per tick
-
-        while not self.state.is_shutting_down:
-            if self._check_cost_limit():
-                logger.info("Cost limit reached, shutting down")
-                self.state.is_shutting_down = True
-                break
-            if self._check_session_limit():
-                logger.info("Session limit reached, shutting down")
-                self.state.is_shutting_down = True
-                break
-
-            await asyncio.sleep(tick)
-            issue_elapsed += tick
-            hunt_elapsed += tick
-            spec_gen_elapsed += tick
-
-            if issue_elapsed >= issue_interval:
-                issue_elapsed = 0.0
-                await self._run_issue_check()
-
-            if hunt_elapsed >= hunt_interval:
-                hunt_elapsed = 0.0
-                # Issue-first gate (81-REQ-1.4): drain issues before hunt
-                can_hunt = True
-                try:
-                    can_hunt = await self._drain_issues()
-                except Exception:
-                    logger.warning(
-                        "Pre-hunt issue drain failed, proceeding with hunt scan",
-                        exc_info=True,
-                    )
-                    can_hunt = True  # fail-open (81-REQ-1.E1)
-                # Only hunt if issues are clear (81-REQ-1.1)
-                if not self.state.is_shutting_down and can_hunt:
-                    await self._run_hunt_scan()
-                    # Post-hunt drain (81-REQ-1.3)
-                    if not self.state.is_shutting_down:
-                        try:
-                            await self._drain_issues()
-                        except Exception:
-                            logger.warning(
-                                "Post-hunt issue drain failed",
-                                exc_info=True,
-                            )
-
-            if spec_gen_elapsed >= spec_gen_interval:
-                spec_gen_elapsed = 0.0
-                await self._run_spec_gen()
-
-            # Update idle spinner with next action time (81-REQ-4.1)
-            issue_remaining = max(0.0, issue_interval - issue_elapsed)
-            hunt_remaining = max(0.0, hunt_interval - hunt_elapsed)
-            self._update_idle_spinner(issue_remaining, hunt_remaining)
-
-        logger.info("Night-shift engine stopped")
-        return self.state

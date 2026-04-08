@@ -236,71 +236,6 @@ class TestPhaseLineFixFailed:
 
 
 # ---------------------------------------------------------------------------
-# TS-81-15: Idle spinner shows next action time
-# Requirement: 81-REQ-4.1
-# ---------------------------------------------------------------------------
-
-
-class TestIdleSpinnerShowsTime:
-    """Verify idle spinner displays next action time in HH:MM format."""
-
-    def test_81_idle_spinner_shows_time(self) -> None:
-        """Spinner text contains time in HH:MM format during idle."""
-        import re
-
-        activity_events: list[object] = []
-
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=activity_events.append,
-        )
-
-        engine._update_idle_spinner(300, 600)
-
-        assert engine._idle_text, "Idle text should be set"
-        assert re.search(r"\d{2}:\d{2}", engine._idle_text), (
-            f"Expected HH:MM format in idle text, got: {engine._idle_text}"
-        )
-        assert "Waiting until" in engine._idle_text
-
-
-# ---------------------------------------------------------------------------
-# TS-81-16: Idle spinner clears on phase start
-# Requirement: 81-REQ-4.2
-# ---------------------------------------------------------------------------
-
-
-class TestIdleClearsOnPhase:
-    """Verify idle message is cleared when a phase starts."""
-
-    @pytest.mark.asyncio
-    async def test_81_idle_clears_on_phase(self) -> None:
-        """Idle text is cleared when issue check starts."""
-        config = _make_config()
-        platform = AsyncMock()
-        platform.list_issues_by_label = AsyncMock(return_value=[])
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-            status_callback=lambda text, style: None,
-        )
-
-        # Set idle text
-        engine._update_idle_spinner(300, 600)
-        assert engine._idle_text != ""
-
-        # Run issue check — should clear idle text
-        await engine._run_issue_check()
-        assert engine._idle_text == "", f"Idle text should be cleared, got: {engine._idle_text}"
-
-
-# ---------------------------------------------------------------------------
 # TS-81-E7: Quiet mode suppresses phase lines
 # Requirement: 81-REQ-3.E1
 # ---------------------------------------------------------------------------
@@ -330,46 +265,6 @@ class TestPhaseLineQuiet:
 
         progress.stop()
         assert buf.getvalue() == "", f"Expected no output in quiet mode, got: {buf.getvalue()!r}"
-
-
-# ---------------------------------------------------------------------------
-# TS-81-E8: Earlier timer shown in idle display
-# Requirement: 81-REQ-4.E1
-# ---------------------------------------------------------------------------
-
-
-class TestIdleShowsEarlierTimer:
-    """Verify that the earlier timer is shown in idle spinner."""
-
-    def test_81_idle_shows_earlier_timer(self) -> None:
-        """When issue check fires sooner, idle text shows 'issue check'."""
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(300, 7200)
-        assert "issue check" in engine._idle_text
-        assert "hunt scan" not in engine._idle_text
-
-    def test_81_idle_shows_hunt_when_earlier(self) -> None:
-        """When hunt scan fires sooner, idle text shows 'hunt scan'."""
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(7200, 300)
-        assert "hunt scan" in engine._idle_text
-        assert "issue check" not in engine._idle_text
 
 
 # ---------------------------------------------------------------------------
@@ -471,47 +366,6 @@ class TestExitSummary:
             assert "Scans completed: 2" in result.output
             assert "Issues fixed: 3" in result.output
             assert "$1.5" in result.output
-
-
-# ---------------------------------------------------------------------------
-# TS-81-P5: Idle display accuracy (property test)
-# Validates: 81-REQ-4.1, 81-REQ-4.E1
-# ---------------------------------------------------------------------------
-
-
-class TestPropIdleAccuracy:
-    """For any pair of remaining times, spinner shows the earlier time."""
-
-    @pytest.mark.parametrize(
-        "issue_remaining,hunt_remaining",
-        [
-            (60, 3600),
-            (3600, 60),
-            (300, 300),
-            (120, 14400),
-            (14400, 120),
-        ],
-    )
-    def test_81_prop_idle_accuracy(self, issue_remaining: int, hunt_remaining: int) -> None:
-        """The displayed time equals now + min(issue_remaining, hunt_remaining)."""
-        import re
-
-        config = _make_config()
-        platform = MagicMock()
-
-        engine = NightShiftEngine(
-            config=config,
-            platform=platform,
-            activity_callback=lambda e: None,
-        )
-
-        engine._update_idle_spinner(issue_remaining, hunt_remaining)
-
-        expected_action = "issue check" if issue_remaining <= hunt_remaining else "hunt scan"
-        assert expected_action in engine._idle_text
-
-        # Verify HH:MM format present
-        assert re.search(r"\d{2}:\d{2}", engine._idle_text)
 
 
 # ---------------------------------------------------------------------------
