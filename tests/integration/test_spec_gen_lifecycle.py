@@ -7,6 +7,7 @@ Requirements: 86-REQ-2.*, 86-REQ-3.*, 86-REQ-4.*, 86-REQ-5.*, 86-REQ-6.*,
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -26,6 +27,17 @@ from agent_fox.platform.github import IssueResult
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _days_ago(n: int) -> str:
+    """Return an ISO 8601 UTC timestamp for n days ago.
+
+    Using dynamic timestamps prevents the staleness check in _is_stale()
+    from treating test comments as older than 30 days, which would cause
+    run_once() to skip the issue and never call close_issue.
+    """
+    ts = datetime.now(UTC) - timedelta(days=n)
+    return ts.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _make_config(**overrides: object) -> NightShiftConfig:
@@ -66,8 +78,10 @@ def _make_issue(
 
 def _make_fox_comment(
     comment_id: int = 100,
-    created_at: str = "2026-01-01T12:00:00Z",
+    created_at: str | None = None,
 ) -> IssueComment:
+    if created_at is None:
+        created_at = _days_ago(2)
     return IssueComment(
         id=comment_id,
         body="## Agent Fox -- Clarification Needed\n\n1. What is X?\n2. How does Y work?",
@@ -79,8 +93,10 @@ def _make_fox_comment(
 def _make_human_comment(
     comment_id: int = 101,
     body: str = "Here are my answers: X is foo, Y works like bar.",
-    created_at: str = "2026-01-02T00:00:00Z",
+    created_at: str | None = None,
 ) -> IssueComment:
+    if created_at is None:
+        created_at = _days_ago(1)
     return IssueComment(
         id=comment_id,
         body=body,
@@ -448,8 +464,8 @@ class TestSmokePendingReanalysis:
 
         platform = _make_platform()
         issue = _make_issue(number=42, title="Widget feature")
-        fox = _make_fox_comment(comment_id=1, created_at="2026-04-06T00:00:00Z")
-        human = _make_human_comment(comment_id=2, created_at="2026-04-07T00:00:00Z")
+        fox = _make_fox_comment(comment_id=1, created_at=_days_ago(2))
+        human = _make_human_comment(comment_id=2, created_at=_days_ago(1))
 
         # Human has reset the label to af:spec after answering clarification
         async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
@@ -507,15 +523,15 @@ class TestSmokeMaxRoundsEscalation:
 
         # Two prior rounds of clarification
         comments = [
-            _make_fox_comment(comment_id=1, created_at="2026-04-04T00:00:00Z"),
-            _make_human_comment(comment_id=2, created_at="2026-04-05T00:00:00Z"),
+            _make_fox_comment(comment_id=1, created_at=_days_ago(4)),
+            _make_human_comment(comment_id=2, created_at=_days_ago(3)),
             IssueComment(
                 id=3,
                 body="## Agent Fox -- Clarification Needed\n\n1. Still need X?",
                 user="agent-fox[bot]",
-                created_at="2026-04-06T00:00:00Z",
+                created_at=_days_ago(2),
             ),
-            _make_human_comment(comment_id=4, body="X is Y", created_at="2026-04-07T00:00:00Z"),
+            _make_human_comment(comment_id=4, body="X is Y", created_at=_days_ago(1)),
         ]
 
         # Human has reset label to af:spec after answering, but max rounds already hit
