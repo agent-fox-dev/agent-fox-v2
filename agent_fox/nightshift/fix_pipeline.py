@@ -650,9 +650,10 @@ class FixPipeline:
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
-                    f"Fix sessions completed but failed to merge branch "
-                    f"`{spec.branch_name}` into `develop`. "
-                    "Manual merge is required.",
+                    f"Fix sessions completed but no changes were produced or "
+                    f"merged from branch `{spec.branch_name}` into `develop`. "
+                    "No new commits were found on the fix branch. "
+                    "Manual investigation is required.",
                 )
             except Exception as exc:
                 logger.warning(
@@ -692,8 +693,9 @@ class FixPipeline:
     async def _harvest_and_push(self, spec: InMemorySpec) -> bool:
         """Harvest the fix branch into develop and push to origin.
 
-        Returns True on success, False on failure.  Always restores the
-        working tree to ``develop`` afterwards.
+        Returns True when changes were merged, False when harvest
+        produced no changes or when an error occurred.  Always restores
+        the working tree to ``develop`` afterwards.
         """
         from agent_fox.workspace.harvest import harvest, post_harvest_integrate
         from agent_fox.workspace.worktree import WorkspaceInfo
@@ -706,7 +708,15 @@ class FixPipeline:
             task_group=0,
         )
         try:
-            await harvest(repo_root, workspace)
+            changed_files = await harvest(repo_root, workspace)
+            if not changed_files:
+                logger.warning(
+                    "No changes produced for issue #%d on branch %s",
+                    spec.issue_number,
+                    spec.branch_name,
+                )
+                await self._restore_develop()
+                return False
             await post_harvest_integrate(repo_root, workspace)
         except Exception as exc:
             logger.warning(
