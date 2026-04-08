@@ -1,6 +1,6 @@
-"""Property tests for sink protocol compliance and debug gating.
+"""Property tests for sink protocol compliance and tool telemetry invariants.
 
-Test Spec: TS-11-P3 (sink protocol compliance), TS-11-P4 (debug gating invariant)
+Test Spec: TS-11-P3 (sink protocol compliance), TS-11-P4 (tool telemetry always-on)
 Properties: Property 3 and Property 5 from design.md
 Requirements: 11-REQ-4.1, 11-REQ-5.1, 11-REQ-5.3, 11-REQ-5.4, 11-REQ-6.1
 """
@@ -43,13 +43,14 @@ class TestSinkProtocolCompliance:
             assert isinstance(instance, SessionSink)
 
 
-class TestDebugGatingInvariant:
-    """TS-11-P4: Debug gating invariant.
+class TestToolTelemetryAlwaysOnInvariant:
+    """TS-11-P4: Tool telemetry always-on invariant (fixes #282).
 
     For any N tool calls and M tool errors (1 <= N, M <= 10), tool_calls
-    and tool_errors tables remain empty when debug=False.
+    and tool_errors tables contain exactly N and M rows respectively,
+    regardless of the debug flag value.
 
-    Property 5 from design.md.
+    Property 5 from design.md (updated: always-on replaces debug-gating).
     """
 
     @given(
@@ -57,8 +58,8 @@ class TestDebugGatingInvariant:
         m=st.integers(min_value=1, max_value=10),
     )
     @settings(max_examples=20)
-    def test_no_tool_signals_when_debug_false(self, n: int, m: int) -> None:
-        """Tool signal tables are empty after N calls and M errors with debug=False."""
+    def test_tool_signals_written_when_debug_false(self, n: int, m: int) -> None:
+        """N tool calls and M errors produce exactly N+M rows with debug=False (AC-3)."""
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         sink = DuckDBSink(conn, debug=False)
@@ -68,7 +69,28 @@ class TestDebugGatingInvariant:
         for _ in range(m):
             sink.record_tool_error(ToolError(tool_name="test"))
 
-        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0  # type: ignore[index]
-        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0  # type: ignore[index]
+        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == n  # type: ignore[index]
+        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == m  # type: ignore[index]
+
+        conn.close()
+
+    @given(
+        n=st.integers(min_value=1, max_value=10),
+        m=st.integers(min_value=1, max_value=10),
+    )
+    @settings(max_examples=20)
+    def test_tool_signals_written_when_debug_true(self, n: int, m: int) -> None:
+        """N tool calls and M errors produce exactly N+M rows with debug=True."""
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)
+        sink = DuckDBSink(conn, debug=True)
+
+        for _ in range(n):
+            sink.record_tool_call(ToolCall(tool_name="test"))
+        for _ in range(m):
+            sink.record_tool_error(ToolError(tool_name="test"))
+
+        assert conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == n  # type: ignore[index]
+        assert conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == m  # type: ignore[index]
 
         conn.close()

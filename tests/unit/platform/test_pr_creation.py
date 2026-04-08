@@ -57,10 +57,8 @@ class TestPlatformProtocolCreatePR:
 
     def test_class_with_create_pr_passes_isinstance(self) -> None:
         """Class implementing all methods including create_pull_request passes."""
-        from agent_fox.platform.github import IssueResult, PullRequestResult
+        from agent_fox.platform.github import IssueComment, IssueResult, PullRequestResult
         from agent_fox.platform.protocol import PlatformProtocol
-
-        from agent_fox.platform.github import IssueComment
 
         class WithPR:
             async def create_issue(self, title: str, body: str, labels: list[str] | None = None) -> IssueResult: ...  # type: ignore[empty-body]

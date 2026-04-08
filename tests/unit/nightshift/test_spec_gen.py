@@ -8,10 +8,13 @@ Requirements: 86-REQ-2.* through 86-REQ-8.*, 86-REQ-10.*
 
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
+from agent_fox.core.errors import IntegrationError
+from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_ANALYZING,
     LABEL_BLOCKED,
@@ -26,9 +29,6 @@ from agent_fox.nightshift.spec_gen import (
     SpecGenResult,
     SpecPackage,
 )
-
-from agent_fox.core.errors import IntegrationError
-from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.platform.github import IssueResult
 
 # ---------------------------------------------------------------------------
@@ -46,13 +46,13 @@ _FIVE_FILES = {
 
 def _make_config(**overrides: object) -> NightShiftConfig:
     """Create a NightShiftConfig with optional overrides."""
-    defaults = {
+    defaults: dict[str, object] = {
         "max_clarification_rounds": 3,
         "max_budget_usd": 2.0,
         "spec_gen_model_tier": "ADVANCED",
     }
     defaults.update(overrides)
-    return NightShiftConfig(**defaults)
+    return NightShiftConfig.model_validate(defaults)
 
 
 def _make_platform() -> MagicMock:
@@ -117,6 +117,17 @@ def _make_generator(
     if repo_root is None:
         repo_root = Path("/tmp/test-repo")
     return SpecGenerator(platform=platform, config=config, repo_root=repo_root)
+
+
+@contextlib.contextmanager
+def _mock_gen_methods(
+    gen: SpecGenerator, **method_mocks: Any
+) -> Any:
+    """Context manager that patches SpecGenerator methods using patch.object."""
+    with contextlib.ExitStack() as stack:
+        for method_name, mock_value in method_mocks.items():
+            stack.enter_context(patch.object(gen, method_name, mock_value))
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -362,24 +373,26 @@ class TestInitialTransitionToAnalyzing:
         gen = _make_generator(platform=platform)
 
         # Mock internal methods to isolate transition behavior
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._generate_spec_package = AsyncMock(
-            return_value=SpecPackage(
-                spec_name="87_widget_support",
-                files=_FIVE_FILES,
-                source_issue_url="https://github.com/org/repo/issues/42",
-            )
-        )
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _generate_spec_package=AsyncMock(
+                return_value=SpecPackage(
+                    spec_name="87_widget_support",
+                    files=_FIVE_FILES,
+                    source_issue_url="https://github.com/org/repo/issues/42",
+                )
+            ),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            await gen.process_issue(issue)
 
         assign_calls = [call.args for call in platform.assign_label.call_args_list]
         assert (42, LABEL_ANALYZING) in assign_calls
@@ -402,24 +415,26 @@ class TestTransitionToGenerating:
 
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._generate_spec_package = AsyncMock(
-            return_value=SpecPackage(
-                spec_name="87_widget_support",
-                files=_FIVE_FILES,
-                source_issue_url="https://github.com/org/repo/issues/42",
-            )
-        )
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _generate_spec_package=AsyncMock(
+                return_value=SpecPackage(
+                    spec_name="87_widget_support",
+                    files=_FIVE_FILES,
+                    source_issue_url="https://github.com/org/repo/issues/42",
+                )
+            ),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            await gen.process_issue(issue)
 
         assign_calls = [call.args for call in platform.assign_label.call_args_list]
         assert (42, LABEL_GENERATING) in assign_calls
@@ -442,24 +457,26 @@ class TestTransitionToDone:
 
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._generate_spec_package = AsyncMock(
-            return_value=SpecPackage(
-                spec_name="87_widget_support",
-                files=_FIVE_FILES,
-                source_issue_url="https://github.com/org/repo/issues/42",
-            )
-        )
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _generate_spec_package=AsyncMock(
+                return_value=SpecPackage(
+                    spec_name="87_widget_support",
+                    files=_FIVE_FILES,
+                    source_issue_url="https://github.com/org/repo/issues/42",
+                )
+            ),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.GENERATED
         assign_calls = [call.args for call in platform.assign_label.call_args_list]
@@ -520,19 +537,21 @@ class TestAmbiguousAnalysis:
 
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(
-                clear=False,
-                questions=["What is the scope?", "What are the requirements?"],
-                summary="Need more info",
-            )
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(
+                    clear=False,
+                    questions=["What is the scope?", "What are the requirements?"],
+                    summary="Need more info",
+                )
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.PENDING
         platform.add_issue_comment.assert_called_once()
@@ -625,19 +644,21 @@ class TestEscalationAfterMaxRounds:
         issue = _make_issue(number=42)
         gen = _make_generator(config=config, platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(
-                clear=False,
-                questions=["Still unclear about X"],
-                summary="Ambiguous",
-            )
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(
+                    clear=False,
+                    questions=["Still unclear about X"],
+                    summary="Ambiguous",
+                )
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.BLOCKED
         comment_body = platform.add_issue_comment.call_args[0][1]
@@ -835,16 +856,18 @@ class TestDuplicatePostsComment:
 
         gen = _make_generator(platform=platform)
 
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(
-                is_duplicate=True,
-                overlapping_spec="42_webhook_support",
-                explanation="Same feature",
-            )
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(
+                    is_duplicate=True,
+                    overlapping_spec="42_webhook_support",
+                    explanation="Same feature",
+                )
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.PENDING
         comment_body = platform.add_issue_comment.call_args[0][1]
@@ -943,24 +966,26 @@ class TestCompletionComment:
 
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._generate_spec_package = AsyncMock(
-            return_value=SpecPackage(
-                spec_name="87_test_spec",
-                files=_FIVE_FILES,
-                source_issue_url="https://github.com/org/repo/issues/42",
-            )
-        )
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _generate_spec_package=AsyncMock(
+                return_value=SpecPackage(
+                    spec_name="87_test_spec",
+                    files=_FIVE_FILES,
+                    source_issue_url="https://github.com/org/repo/issues/42",
+                )
+            ),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.GENERATED
 
@@ -1011,18 +1036,20 @@ class TestCostTracking:
             resp.usage.cache_creation_input_tokens = 0
             return resp
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai_call):
-            result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai_call):
+                result = await gen.process_issue(issue)
 
         # Cost should be positive and tracked
         assert result.cost > 0
@@ -1056,17 +1083,19 @@ class TestCostCapAbort:
             resp.usage.cache_creation_input_tokens = 0
             return resp
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", expensive_ai):
-            result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            with patch("agent_fox.nightshift.spec_gen.cached_messages_create", expensive_ai):
+                result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.BLOCKED
         comment_body = platform.add_issue_comment.call_args[0][1]
@@ -1312,22 +1341,24 @@ class TestEmptyBodyAmbiguous:
         issue = _make_issue(number=1, title="Feature", body="")
 
         gen = _make_generator(platform=platform)
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
 
         # The system should treat empty body as ambiguous
         # Either via direct check or via AI analysis
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(
-                clear=False,
-                questions=["What is this feature about?"],
-                summary="Empty body",
-            )
-        )
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(
+                    clear=False,
+                    questions=["What is this feature about?"],
+                    summary="Empty body",
+                )
+            ),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.PENDING
 
@@ -1356,19 +1387,21 @@ class TestMaxRoundsFirstAnalysis:
         issue = _make_issue(number=42)
         gen = _make_generator(config=config, platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(
-                clear=False,
-                questions=["Still unclear"],
-                summary="Ambiguous",
-            )
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(
+                    clear=False,
+                    questions=["Still unclear"],
+                    summary="Ambiguous",
+                )
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.BLOCKED
 
@@ -1390,21 +1423,22 @@ class TestApiFailureAborts:
         issue = _make_issue(number=42)
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        # Make generation fail
-        gen._generate_spec_package = AsyncMock(
-            side_effect=Exception("AI API call failed")
-        )
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+            # Make generation fail
+            _generate_spec_package=AsyncMock(
+                side_effect=Exception("AI API call failed")
+            ),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.BLOCKED
         assign_calls = [call.args for call in platform.assign_label.call_args_list]
@@ -1520,26 +1554,27 @@ class TestMergeFailureBlocks:
 
         gen = _make_generator(platform=platform)
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._generate_spec_package = AsyncMock(
-            return_value=SpecPackage(
-                spec_name="87_test_spec",
-                files=_FIVE_FILES,
-                source_issue_url="https://github.com/org/repo/issues/42",
-            )
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        # Make landing fail
-        gen._land_spec = AsyncMock(side_effect=Exception("Merge conflict"))
-
-        result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _generate_spec_package=AsyncMock(
+                return_value=SpecPackage(
+                    spec_name="87_test_spec",
+                    files=_FIVE_FILES,
+                    source_issue_url="https://github.com/org/repo/issues/42",
+                )
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _find_next_spec_number=MagicMock(return_value=87),
+            # Make landing fail
+            _land_spec=AsyncMock(side_effect=Exception("Merge conflict")),
+        ):
+            result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.BLOCKED
         comment_body = platform.add_issue_comment.call_args[0][1]
@@ -1595,17 +1630,19 @@ class TestUnlimitedBudget:
             resp.usage.cache_creation_input_tokens = 0
             return resp
 
-        gen._analyze_issue = AsyncMock(
-            return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-        )
-        gen._check_duplicates = AsyncMock(
-            return_value=DuplicateCheckResult(is_duplicate=False)
-        )
-        gen._harvest_references = AsyncMock(return_value=[])
-        gen._land_spec = AsyncMock(return_value="abc1234")
-        gen._find_next_spec_number = MagicMock(return_value=87)
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            result = await gen.process_issue(issue)
+        with _mock_gen_methods(
+            gen,
+            _analyze_issue=AsyncMock(
+                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
+            ),
+            _check_duplicates=AsyncMock(
+                return_value=DuplicateCheckResult(is_duplicate=False)
+            ),
+            _harvest_references=AsyncMock(return_value=[]),
+            _land_spec=AsyncMock(return_value="abc1234"),
+            _find_next_spec_number=MagicMock(return_value=87),
+        ):
+            with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
+                result = await gen.process_issue(issue)
 
         assert result.outcome == SpecGenOutcome.GENERATED

@@ -125,5 +125,6 @@ def night_shift_cmd(ctx: click.Context, auto: bool) -> None:
         f"Night-shift stopped. "
         f"Scans completed: {state.hunt_scans_completed}, "
         f"Issues fixed: {state.issues_fixed}, "
+        f"Specs generated: {state.specs_generated}, "
         f"Total cost: ${state.total_cost:.4f}"
     )

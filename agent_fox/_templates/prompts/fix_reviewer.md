@@ -163,3 +163,7 @@ Verification complete!
 Use **exactly the field names** from the schema: `verdicts`, `criterion_id`,
 `verdict`, `evidence`, `overall_verdict`, `summary`. Do not use synonyms or
 alternative spellings.
+
+**Your entire output must be a single JSON object and nothing else.** No
+preamble, no explanation, no trailing text. The first character of your
+response must be `{` and the last must be `}`.

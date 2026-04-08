@@ -11,14 +11,16 @@ Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3, 19-REQ-4.4,
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
+import socket
 from dataclasses import dataclass
 from urllib.parse import quote
 
 import httpx
 
-from agent_fox.core.errors import IntegrationError
+from agent_fox.core.errors import ConfigError, IntegrationError
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,60 @@ def _truncate_response(text: str) -> str:
     if len(text) <= _MAX_ERROR_TEXT:
         return text
     return text[:_MAX_ERROR_TEXT] + "..."
+
+
+def _validate_github_url(url: str) -> None:
+    """Validate that ``url`` does not point to a restricted IP address.
+
+    Strips an optional port suffix (host:port), then resolves the hostname
+    and checks every returned address against private, loopback, and
+    link-local ranges.  Raises ``ConfigError`` if any restricted address is
+    found.
+
+    Requirements: 221-REQ-1.*, 221-REQ-2.*
+    """
+    # Strip port suffix (e.g. "127.0.0.1:8080" → "127.0.0.1")
+    host = url.rsplit(":", 1)[0] if ":" in url else url
+    # IPv6 addresses contain colons but no port suffix here; try parsing
+    # directly as an IP address first to avoid stripping part of the address.
+    try:
+        addr = ipaddress.ip_address(url)
+        # url itself is a bare IP address — use it directly.
+        _check_address(addr, url)
+        return
+    except ValueError:
+        pass
+
+    try:
+        addr_with_port = ipaddress.ip_address(host)
+        _check_address(addr_with_port, url)
+        return
+    except ValueError:
+        pass
+
+    # host is a hostname — resolve it and check each resulting address.
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (OSError, UnicodeError):
+        # If resolution fails (e.g. hostname unreachable or invalid encoding)
+        # we cannot confirm it is restricted; allow it through.
+        return
+
+    for info in infos:
+        addr_str = info[4][0]
+        try:
+            addr = ipaddress.ip_address(addr_str)
+        except ValueError:
+            continue
+        _check_address(addr, url)
+
+
+def _check_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address, url: str) -> None:
+    """Raise ConfigError if *addr* is a restricted address."""
+    if addr.is_private or addr.is_loopback or addr.is_link_local:
+        raise ConfigError(
+            f"GitHub URL {url!r} resolves to a restricted IP address: {addr}",
+        )
 
 
 @dataclass(frozen=True)
@@ -87,6 +143,8 @@ class GitHubPlatform:
         self._repo = repo
         self._token = token
         self._url = url or "github.com"
+        # Validate the URL before using it to prevent SSRF attacks.
+        _validate_github_url(self._url)
         # Resolve API base URL — github.com uses api.github.com; anything
         # else (e.g. GitHub Enterprise) uses https://{host}/api/v3.
         if self._url == "github.com":
@@ -95,7 +153,7 @@ class GitHubPlatform:
             self._api_base = f"https://{self._url}/api/v3"
 
     def __repr__(self) -> str:
-        return f"GitHubPlatform(owner={self._owner!r}, repo={self._repo!r})"
+        return f"GitHubPlatform(owner={self._owner!r}, repo={self._repo!r}, url={self._url!r})"
 
     def _auth_headers(self) -> dict[str, str]:
         """Build authentication headers for GitHub API requests."""

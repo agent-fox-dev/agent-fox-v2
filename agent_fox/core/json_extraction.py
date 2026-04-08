@@ -29,10 +29,13 @@ def extract_json_array(
     """Extract a JSON array from LLM output text.
 
     Strategy 1: Scan left-to-right for bracket-delimited arrays using
-    ``json.JSONDecoder.raw_decode()``; return the first valid JSON list.
+    ``json.JSONDecoder.raw_decode()``; prefer arrays where at least one item
+    is a dict over primitive-only arrays (e.g. string arrays in prose).
 
     Strategy 2: If no valid bare array found, scan markdown code fences
     (``\u0060\u0060\u0060json ... \u0060\u0060\u0060``) for a valid JSON list.
+    Single-key wrapper objects like ``{"findings": [...]}`` are unwrapped
+    automatically (Option A).
 
     Strategy 3 (opt-in): If *repair_truncated* is True and strategies 1-2
     fail, attempt to recover partial results from a truncated JSON array
@@ -43,7 +46,7 @@ def extract_json_array(
     if not output_text:
         return None
 
-    # Strategy 1: bracket-scan from left to right
+    # Strategy 1: bracket-scan from left to right (two-pass: prefer dict arrays)
     result = _scan_bracket_arrays(output_text)
     if result is not None:
         return result
@@ -55,6 +58,10 @@ def extract_json_array(
             parsed = json.loads(content)
             if isinstance(parsed, list):
                 return parsed  # type: ignore[return-value]
+            # Option A: unwrap single-key wrapper objects like {"findings": [...]}
+            unwrapped = _unwrap_single_key_list(parsed)
+            if unwrapped is not None:
+                return unwrapped  # type: ignore[return-value]
         except (json.JSONDecodeError, ValueError):
             continue
 
@@ -108,15 +115,38 @@ def extract_json_object(text: str) -> dict:
     raise ValueError("No JSON object found in text")
 
 
+def _unwrap_single_key_list(obj: object) -> list | None:
+    """Unwrap a single-key dict whose value is a list.
+
+    Handles the common LLM pattern of wrapping array output in a named
+    object, e.g. ``{"findings": [...]}``.  Returns ``None`` if *obj* is
+    not a single-key dict or its value is not a list.
+    """
+    if isinstance(obj, dict) and len(obj) == 1:
+        value = next(iter(obj.values()))
+        if isinstance(value, list):
+            return value
+    return None
+
+
 def _scan_bracket_arrays(text: str) -> list[dict] | None:
     """Scan text left-to-right for bracket-delimited JSON arrays.
 
     Uses ``json.JSONDecoder.raw_decode()`` to properly handle brackets
     inside JSON strings, nested objects, and other edge cases.
+
+    Two-pass strategy (Option B):
+
+    - **First pass:** accept only arrays where at least one item is a dict.
+    - **Second pass (fallback):** accept any valid array.
+
+    This ensures prose string arrays (e.g. ``["req-1", "req-2"]``) are
+    skipped when a real findings array of objects exists later in the text.
     """
     decoder = json.JSONDecoder()
     pos = 0
     text_len = len(text)
+    first_primitive_array: list | None = None  # fallback when no dict array found
 
     while pos < text_len:
         start = text.find("[", pos)
@@ -126,13 +156,18 @@ def _scan_bracket_arrays(text: str) -> list[dict] | None:
         try:
             parsed, _ = decoder.raw_decode(text, start)
             if isinstance(parsed, list):
-                return parsed  # type: ignore[return-value]
+                # Prefer arrays containing at least one dict item (Option B).
+                if any(isinstance(item, dict) for item in parsed):
+                    return parsed  # type: ignore[return-value]
+                # Remember first primitive array as a fallback.
+                if first_primitive_array is None:
+                    first_primitive_array = parsed
         except (json.JSONDecodeError, ValueError):
             pass
 
         pos = start + 1
 
-    return None
+    return first_primitive_array
 
 
 def _repair_truncated_json_array(text: str) -> list[dict] | None:

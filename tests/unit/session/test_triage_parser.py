@@ -185,6 +185,7 @@ class TestParseValidFixReviewJSON:
         assert result.verdicts[1].evidence == "Function returns wrong value"
         assert result.overall_verdict == "FAIL"
         assert result.summary == "1 of 2 criteria failed"
+        assert result.is_parse_failure is False
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +203,7 @@ class TestParseFixReviewInvalidJSON:
         result = parse_fix_review_output("Some markdown prose, no JSON", "fix-issue-1", "s1")
         assert result.overall_verdict == "FAIL"
         assert result.verdicts == []
+        assert result.is_parse_failure is True
 
     def test_returns_fail_on_garbage(self) -> None:
         from agent_fox.session.review_parser import parse_fix_review_output
@@ -209,6 +211,7 @@ class TestParseFixReviewInvalidJSON:
         result = parse_fix_review_output("no json", "fix-issue-1", "s1")
         assert result.overall_verdict == "FAIL"
         assert result.verdicts == []
+        assert result.is_parse_failure is True
 
 
 # ---------------------------------------------------------------------------

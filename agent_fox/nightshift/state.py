@@ -20,4 +20,5 @@ class NightShiftState:
     issues_created: int = 0
     issues_fixed: int = 0
     hunt_scans_completed: int = 0
+    specs_generated: int = 0
     is_shutting_down: bool = False

@@ -3,6 +3,7 @@
 !.agent-fox/config.toml
 !.agent-fox/memory.jsonl
 .agent-fox/state.jsonl
+.claude/worktrees/
 
 # Python
 __pycache__/

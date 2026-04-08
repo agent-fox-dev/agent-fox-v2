@@ -9,6 +9,7 @@ Requirements: 26-REQ-2.1, 26-REQ-2.2, 26-REQ-2.3, 26-REQ-2.E1
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from typing import Any
@@ -38,6 +39,12 @@ from agent_fox.session.backends.protocol import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of transport-layer retry attempts before yielding a
+# terminal failure ResultMessage.  Does not consume escalation ladder retries.
+_MAX_TRANSPORT_RETRIES = 3
+# Base delay in seconds; actual delay = _BACKOFF_BASE * 2^(attempt-1)
+_BACKOFF_BASE = 1.0
 
 
 class ClaudeBackend:
@@ -131,35 +138,73 @@ class ClaudeBackend:
             except TypeError as exc:
                 logger.warning("SDK does not support 'thinking' parameter, omitting: %s", exc)
 
-        saw_result = False
-        try:
-            async for message in self._stream_messages(prompt=prompt, options=options):
-                if isinstance(message, ResultMessage):
-                    saw_result = True
-                yield message
-        except Exception as exc:
-            # 26-REQ-2.E1: Streaming error yields ResultMessage with is_error=True
-            logger.warning("ClaudeBackend streaming error: %s", exc)
-            yield ResultMessage(
-                status="failed",
-                input_tokens=0,
-                output_tokens=0,
-                duration_ms=0,
-                error_message=str(exc),
-                is_error=True,
-            )
-            return
+        # Transport-layer retry loop (AC-1 through AC-4).
+        # Transient errors (connection failure or missing ResultMessage) are
+        # retried up to _MAX_TRANSPORT_RETRIES times with exponential backoff
+        # before a terminal failure ResultMessage is emitted.  These retries
+        # are invisible to the orchestrator's escalation ladder.
+        last_error: str | None = None
+        for _attempt in range(_MAX_TRANSPORT_RETRIES):
+            if _attempt > 0:
+                delay = _BACKOFF_BASE * (2 ** (_attempt - 1))
+                logger.info(
+                    "ClaudeBackend: transport retry %d/%d after %.1fs",
+                    _attempt,
+                    _MAX_TRANSPORT_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
 
-        if not saw_result:
-            logger.warning("ClaudeBackend stream ended without a ResultMessage")
-            yield ResultMessage(
-                status="failed",
-                input_tokens=0,
-                output_tokens=0,
-                duration_ms=0,
-                error_message="Backend stream ended without a result message.",
-                is_error=True,
-            )
+            buffered: list[AgentMessage] = []
+            saw_result = False
+            is_transport_failure = False
+
+            try:
+                async for message in self._stream_messages(prompt=prompt, options=options):
+                    if isinstance(message, ResultMessage):
+                        saw_result = True
+                    buffered.append(message)
+            except Exception as exc:
+                # 26-REQ-2.E1: Connection/OS errors are transient transport failures
+                last_error = str(exc)
+                logger.warning(
+                    "ClaudeBackend transport error (attempt %d/%d): %s",
+                    _attempt + 1,
+                    _MAX_TRANSPORT_RETRIES,
+                    exc,
+                )
+                is_transport_failure = True
+
+            if not is_transport_failure and not saw_result:
+                last_error = "Backend stream ended without a result message."
+                logger.warning(
+                    "ClaudeBackend stream ended without ResultMessage (attempt %d/%d)",
+                    _attempt + 1,
+                    _MAX_TRANSPORT_RETRIES,
+                )
+                is_transport_failure = True
+
+            if not is_transport_failure:
+                # Successful stream — yield buffered messages and return.
+                for msg in buffered:
+                    yield msg
+                return
+
+        # All transport retries exhausted — emit a terminal transport-error result.
+        logger.error(
+            "ClaudeBackend: all %d transport retries exhausted; last error: %s",
+            _MAX_TRANSPORT_RETRIES,
+            last_error,
+        )
+        yield ResultMessage(
+            status="failed",
+            input_tokens=0,
+            output_tokens=0,
+            duration_ms=0,
+            error_message=(f"Transport error after {_MAX_TRANSPORT_RETRIES} retries: {last_error}"),
+            is_error=True,
+            is_transport_error=True,
+        )
 
     async def _stream_messages(
         self,

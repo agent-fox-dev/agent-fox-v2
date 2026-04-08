@@ -280,6 +280,50 @@ class ThinkingConfig(BaseModel):
         return self
 
 
+class PerArchetypeConfig(BaseModel):
+    """Unified per-archetype configuration table.
+
+    Used via ``[archetypes.overrides.<name>]`` in config.toml. Provides a
+    single, consolidated surface for all per-archetype knobs that previously
+    required separate dict fields (``models``, ``max_turns``, ``thinking``,
+    ``allowlists``).
+
+    Requirements: 207-REQ-1, 207-REQ-2, 207-REQ-3
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    model_tier: str | None = Field(
+        default=None,
+        description="Model tier override (SIMPLE, STANDARD, ADVANCED). None = use registry default.",
+    )
+    max_turns: int | None = Field(
+        default=None,
+        description="Max turns override. 0 = unlimited. None = use registry default.",
+        ge=0,
+    )
+    thinking_mode: Literal["enabled", "adaptive", "disabled"] | None = Field(
+        default=None,
+        description="Extended thinking mode. None = use registry default.",
+    )
+    thinking_budget: int | None = Field(
+        default=None,
+        description="Extended thinking budget tokens. None = use registry default.",
+        ge=0,
+    )
+    allowlist: list[str] | None = Field(
+        default=None,
+        description="Bash command allowlist override. None = use registry default.",
+    )
+
+    @model_validator(mode="after")
+    def validate_thinking(self) -> Self:
+        """thinking_budget must be > 0 when thinking_mode is 'enabled'."""
+        if self.thinking_mode == "enabled" and self.thinking_budget is not None and self.thinking_budget <= 0:
+            raise ValueError("thinking_budget must be > 0 when thinking_mode is 'enabled'")
+        return self
+
+
 class ArchetypeInstancesConfig(BaseModel):
     """Per-archetype instance count configuration.
 
@@ -384,6 +428,14 @@ class ArchetypesConfig(BaseModel):
     thinking: dict[str, ThinkingConfig] = Field(
         default_factory=dict,
         description="Per-archetype extended thinking configuration",
+    )
+    overrides: dict[str, PerArchetypeConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Unified per-archetype configuration tables. "
+            "TOML: [archetypes.overrides.<name>]. "
+            "Takes precedence over models/max_turns/thinking/allowlists dicts."
+        ),
     )
 
     @field_validator("coder")

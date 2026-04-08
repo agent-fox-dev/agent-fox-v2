@@ -289,9 +289,54 @@ def persist_review_findings(
             from agent_fox.session.review_parser import parse_auditor_output
 
             audit_result = parse_auditor_output(transcript)
-            if audit_result is not None:
-                spec_dir = Path.cwd() / ".specs" / spec_name
-                persist_auditor_results(spec_dir, audit_result, attempt=attempt)
+            retry_attempted = False
+
+            if audit_result is None:
+                # Attempt format retry if session is still alive (mirrors 74-REQ-3.1)
+                session_is_alive = session_handle is not None and getattr(session_handle, "is_alive", False)
+
+                if session_is_alive:
+                    logger.warning(
+                        "Initial auditor parse failed for %s — attempting format retry",
+                        node_id,
+                    )
+                    retry_response = session_handle.append_user_message(FORMAT_RETRY_PROMPT)
+                    retry_attempted = True
+                    audit_result = parse_auditor_output(retry_response)
+
+                if audit_result is None:
+                    strategy_parts = [_STRATEGY_INITIAL]
+                    if retry_attempted:
+                        strategy_parts.append(_STRATEGY_RETRY)
+                    emit_audit_event(
+                        sink,
+                        run_id,
+                        AuditEventType.REVIEW_PARSE_FAILURE,
+                        node_id=node_id,
+                        archetype=archetype,
+                        severity=AuditSeverity.WARNING,
+                        payload={
+                            "raw_output": transcript[:2000],
+                            "retry_attempted": retry_attempted,
+                            "strategy": ",".join(strategy_parts),
+                        },
+                    )
+                    return
+
+                # Retry succeeded
+                if retry_attempted:
+                    emit_audit_event(
+                        sink,
+                        run_id,
+                        AuditEventType.REVIEW_PARSE_RETRY_SUCCESS,
+                        node_id=node_id,
+                        archetype=archetype,
+                        severity=AuditSeverity.INFO,
+                        payload={"archetype": archetype},
+                    )
+
+            spec_dir = Path.cwd() / ".specs" / spec_name
+            persist_auditor_results(spec_dir, audit_result, attempt=attempt)
 
     except Exception:
         logger.warning(

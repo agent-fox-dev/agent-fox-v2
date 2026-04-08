@@ -1,6 +1,6 @@
 [project]
 name = "agent-fox"
-version = "3.0.0rc1"
+version = "3.0.0rc2"
 description = "Autonomous coding-agent orchestrator"
 requires-python = ">=3.12"
 dependencies = [
@@ -26,6 +26,7 @@ build-backend = "hatchling.build"
 [tool.ruff]
 target-version = "py312"
 line-length = 120
+exclude = [".claude/worktrees"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]
@@ -33,6 +34,7 @@ select = ["E", "F", "W", "I", "UP"]
 [tool.mypy]
 python_version = "3.12"
 check_untyped_defs = true
+exclude = [".claude/worktrees"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

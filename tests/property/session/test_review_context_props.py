@@ -54,23 +54,47 @@ def review_finding_list(draw: st.DrawFn) -> list[ReviewFinding]:
 
 
 class TestContextRenderingDeterminism:
-    """TS-27-P3: Property 3 -- Context Rendering Determinism.
+    """TS-27-P3: Property 3 -- Context Rendering Structural Consistency.
 
     For any set of active findings, render_review_context produces
-    identical output on repeated calls with the same DB state.
+    structurally consistent output on repeated calls with the same DB state.
+
+    Note: nonce-tagged boundaries (from sanitize_prompt_content) make
+    exact string equality across calls impossible by design. The invariant
+    is that all finding descriptions appear in both outputs.
     """
 
     @given(findings=review_finding_list())
     @settings(max_examples=20)
     def test_render_determinism(self, findings: list[ReviewFinding]) -> None:
-        """Two calls to render_review_context produce identical strings."""
+        """Two calls to render_review_context include the same descriptions."""
         conn = duckdb.connect(":memory:")
         create_schema(conn)
         insert_findings(conn, findings)
 
         md1 = render_review_context(conn, "prop_test_spec")
         md2 = render_review_context(conn, "prop_test_spec")
-        assert md1 == md2
+
+        # Both renders must be non-None (same findings -> same non-empty result)
+        assert (md1 is None) == (md2 is None)
+        if md1 is None or md2 is None:
+            conn.close()
+            return
+
+        # Every finding description must appear in both renders
+        for finding in findings:
+            assert finding.description in md1, (
+                f"Description '{finding.description}' missing from first render"
+            )
+            assert finding.description in md2, (
+                f"Description '{finding.description}' missing from second render"
+            )
+
+        # Structural markers must be present in both renders
+        assert "## Skeptic Review" in md1
+        assert "## Skeptic Review" in md2
+        assert "Summary:" in md1
+        assert "Summary:" in md2
 
         conn.close()
 

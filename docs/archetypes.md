@@ -276,8 +276,43 @@ default to STANDARD (Sonnet) for cost-effective implementation.
 
 ### Overriding Model Tiers via config.toml
 
-Override the default tier for any archetype in `config.toml` under
-`archetypes.models`:
+#### Unified per-archetype table (recommended)
+
+Use `[archetypes.overrides.<name>]` to configure all per-archetype settings
+in one place:
+
+```toml
+[archetypes.overrides.coder]
+model_tier = "ADVANCED"   # promote coder to Opus for complex specs
+max_turns = 200
+thinking_mode = "adaptive"
+
+[archetypes.overrides.skeptic]
+model_tier = "STANDARD"   # downgrade skeptic to Sonnet (cost reduction)
+max_turns = 50
+
+[archetypes.overrides.verifier]
+model_tier = "ADVANCED"
+max_turns = 75
+allowlist = ["ls", "cat", "git", "make", "uv"]
+```
+
+Each `[archetypes.overrides.<name>]` block supports:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `model_tier` | `"SIMPLE"` \| `"STANDARD"` \| `"ADVANCED"` | None (registry) | Model tier override |
+| `max_turns` | int ≥ 0 | None (registry) | Turn limit; 0 = unlimited |
+| `thinking_mode` | `"enabled"` \| `"adaptive"` \| `"disabled"` | None (registry) | Extended thinking mode |
+| `thinking_budget` | int ≥ 0 | None (10000) | Thinking budget tokens |
+| `allowlist` | list of strings | None (registry) | Bash command allowlist |
+
+`None` values fall through to the registry default. Any field not specified
+inherits from the archetype registry.
+
+#### Legacy dict syntax (backwards compatible)
+
+The older dict-based overrides remain supported:
 
 ```toml
 [archetypes.models]
@@ -289,9 +324,12 @@ verifier = "SIMPLE"     # downgrade verifier to Haiku
 Valid tier values are `"SIMPLE"` (Haiku), `"STANDARD"` (Sonnet), and
 `"ADVANCED"` (Opus). An invalid value raises a `ConfigError` at startup.
 
-Config overrides take precedence over registry defaults. If an adaptive
-routing assessment is available, the assessed tier takes precedence over both
-the config override and the registry default.
+**Resolution priority:** `[archetypes.overrides.<name>]` takes precedence
+over the legacy dict fields (`models`, `max_turns`, `thinking`, `allowlists`),
+which in turn take precedence over the archetype registry defaults.
+
+If an adaptive routing assessment is available, the assessed tier takes
+precedence over all config values.
 
 ### Escalation Behavior
 
@@ -331,14 +369,24 @@ skeptic = 1
 verifier = 1
 auditor = 1
 
-# Per-archetype model tier overrides
-[archetypes.models]
-coder = "ADVANCED"    # promote coder to Opus (default: STANDARD)
-skeptic = "STANDARD"  # downgrade skeptic to Sonnet (default: ADVANCED)
+# Unified per-archetype overrides (recommended — all knobs in one place)
+[archetypes.overrides.coder]
+model_tier = "ADVANCED"    # promote coder to Opus (default: STANDARD)
+max_turns = 200
+thinking_mode = "adaptive"
 
-# Per-archetype command allowlists
-[archetypes.allowlists]
-oracle = ["ls", "cat", "git", "grep", "find", "head", "tail", "wc"]
+[archetypes.overrides.skeptic]
+model_tier = "STANDARD"    # downgrade skeptic to Sonnet (default: ADVANCED)
+max_turns = 50
+
+[archetypes.overrides.verifier]
+model_tier = "ADVANCED"
+max_turns = 75
+
+# Legacy dict overrides (still supported for backwards compat)
+# [archetypes.models]
+# coder = "ADVANCED"
+# skeptic = "STANDARD"
 ```
 
 See the [archetypes ADR](adr/agent-archetypes.md) for the overall design

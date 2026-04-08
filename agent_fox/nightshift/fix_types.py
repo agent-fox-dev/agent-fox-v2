@@ -56,3 +56,4 @@ class FixReviewResult:
     verdicts: list[FixReviewVerdict] = field(default_factory=list)
     overall_verdict: str = "FAIL"  # "PASS" or "FAIL"
     summary: str = ""
+    is_parse_failure: bool = False

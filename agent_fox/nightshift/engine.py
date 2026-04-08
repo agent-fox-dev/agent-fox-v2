@@ -278,6 +278,17 @@ class NightShiftEngine:
                     "night_shift.issue_superseded",
                     {"closed_issue": obsolete, "superseded_by": _keep},
                 )
+                try:
+                    await self._platform.remove_label(  # type: ignore[attr-defined]
+                        obsolete,
+                        "af:fix",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to remove af:fix label from superseded issue #%d",
+                        obsolete,
+                        exc_info=True,
+                    )
             except Exception:
                 logger.warning(
                     "Failed to close superseded issue #%d",
@@ -338,6 +349,17 @@ class NightShiftEngine:
                                     "rationale": staleness.rationale.get(obsolete_num, ""),
                                 },
                             )
+                            try:
+                                await self._platform.remove_label(  # type: ignore[attr-defined]
+                                    obsolete_num,
+                                    "af:fix",
+                                )
+                            except Exception:
+                                logger.warning(
+                                    "Failed to remove af:fix label from obsolete issue #%d",
+                                    obsolete_num,
+                                    exc_info=True,
+                                )
                     except Exception:
                         logger.warning(
                             "Staleness check failed after fix #%d",
@@ -418,6 +440,109 @@ class NightShiftEngine:
             f"Hunt scan complete: {len(created)} issues created from {len(findings)} findings",
             "bold green",
         )
+
+    async def _run_spec_gen(self) -> None:
+        """Poll platform for af:spec issues and process the oldest one.
+
+        Mirrors the crash-recovery and polling logic from
+        ``SpecGeneratorStream.run_once()`` but runs inline in the engine
+        loop, using ``SpecGenerator`` directly.
+
+        Requirements: 86-REQ-2.1, 86-REQ-2.2, 86-REQ-2.3,
+                      86-REQ-3.E1, 86-REQ-3.E2
+        """
+        self._clear_idle()
+        self._emit_status("Checking for af:spec issues\u2026")
+
+        from agent_fox.nightshift.spec_gen import (
+            LABEL_ANALYZING,
+            LABEL_GENERATING,
+            LABEL_PENDING,
+            LABEL_SPEC,
+            SpecGenerator,
+            SpecGenOutcome,
+        )
+
+        ns_config = getattr(self._config, "night_shift", None)
+        if ns_config is None:
+            logger.debug("No night_shift config; skipping spec gen")
+            return
+
+        repo_root = Path.cwd()
+        generator = SpecGenerator(
+            platform=self._platform,  # type: ignore[arg-type]
+            config=ns_config,
+            repo_root=repo_root,
+        )
+
+        # Crash recovery: reset stale analyzing/generating labels (86-REQ-3.E1, 86-REQ-3.E2)
+        for stale_label in (LABEL_ANALYZING, LABEL_GENERATING):
+            try:
+                stale_issues = await self._platform.list_issues_by_label(stale_label)  # type: ignore[attr-defined]
+                for issue in stale_issues:
+                    logger.warning(
+                        "Issue #%d has stale label %s; resetting to %s",
+                        issue.number,
+                        stale_label,
+                        LABEL_SPEC,
+                    )
+                    await self._platform.assign_label(issue.number, LABEL_SPEC)  # type: ignore[attr-defined]
+                    await self._platform.remove_label(issue.number, stale_label)  # type: ignore[attr-defined]
+            except Exception:
+                logger.exception("Error during crash recovery for label %s", stale_label)
+
+        # Poll for af:spec-pending issues with new human comments (86-REQ-2.3)
+        try:
+            pending_issues = await self._platform.list_issues_by_label(LABEL_PENDING)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Failed to list af:spec-pending issues")
+            pending_issues = []
+
+        for p_issue in pending_issues:
+            try:
+                comments = await self._platform.list_issue_comments(p_issue.number)  # type: ignore[attr-defined]
+                if generator._has_new_human_comment(comments):
+                    await self._platform.assign_label(p_issue.number, LABEL_ANALYZING)  # type: ignore[attr-defined]
+                    await self._platform.remove_label(p_issue.number, LABEL_PENDING)  # type: ignore[attr-defined]
+                    result = await generator.process_issue(p_issue)
+                    self.state.total_cost += result.cost
+                    if result.outcome == SpecGenOutcome.GENERATED:
+                        self.state.specs_generated += 1
+                    return
+            except Exception:
+                logger.exception("Error handling pending issue #%d", p_issue.number)
+
+        # Poll for af:spec issues (86-REQ-2.1)
+        try:
+            spec_issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
+                LABEL_SPEC,
+                sort="created",
+                direction="asc",
+            )
+        except Exception:
+            logger.warning(
+                "Spec gen check failed due to platform API error",
+                exc_info=True,
+            )
+            return
+
+        if not spec_issues:
+            return
+
+        # Process only the oldest issue (86-REQ-2.2)
+        issue = spec_issues[0]
+
+        try:
+            result = await generator.process_issue(issue)
+            self.state.total_cost += result.cost
+            if result.outcome == SpecGenOutcome.GENERATED:
+                self.state.specs_generated += 1
+        except Exception:
+            logger.warning(
+                "Spec generation failed for issue #%d, continuing",
+                issue.number,
+                exc_info=True,
+            )
 
     def _calculate_fix_cost(self, metrics: object) -> float:
         """Calculate USD cost from FixMetrics token counts."""
@@ -580,6 +705,11 @@ class NightShiftEngine:
             "hunt_scan_interval",
             14400,
         )
+        spec_gen_interval = getattr(
+            getattr(self._config, "night_shift", None),
+            "spec_gen_interval",
+            300,
+        )
 
         # Initial run — issue-first gate (81-REQ-1.2)
         # Drain all af:fix issues before the first hunt scan.
@@ -606,9 +736,20 @@ class NightShiftEngine:
                         exc_info=True,
                     )
 
+        # Initial spec gen run — independent of issue-first gate
+        if not self.state.is_shutting_down:
+            try:
+                await self._run_spec_gen()
+            except Exception:
+                logger.warning(
+                    "Initial spec gen run failed",
+                    exc_info=True,
+                )
+
         # Timed loop — repeat checks at configured intervals
         issue_elapsed = 0.0
         hunt_elapsed = 0.0
+        spec_gen_elapsed = 0.0
         tick = 1.0  # seconds per tick
 
         while not self.state.is_shutting_down:
@@ -624,6 +765,7 @@ class NightShiftEngine:
             await asyncio.sleep(tick)
             issue_elapsed += tick
             hunt_elapsed += tick
+            spec_gen_elapsed += tick
 
             if issue_elapsed >= issue_interval:
                 issue_elapsed = 0.0
@@ -653,6 +795,10 @@ class NightShiftEngine:
                                 "Post-hunt issue drain failed",
                                 exc_info=True,
                             )
+
+            if spec_gen_elapsed >= spec_gen_interval:
+                spec_gen_elapsed = 0.0
+                await self._run_spec_gen()
 
             # Update idle spinner with next action time (81-REQ-4.1)
             issue_remaining = max(0.0, issue_interval - issue_elapsed)

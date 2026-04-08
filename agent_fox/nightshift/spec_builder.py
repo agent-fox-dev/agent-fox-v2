@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.platform.github import IssueResult
 
 
@@ -51,11 +52,13 @@ def build_in_memory_spec(issue: IssueResult, issue_body: str) -> InMemorySpec:
     Requirements: 61-REQ-6.1
     """
     branch = sanitise_branch_name(issue.title)
-    task_prompt = f"Fix the issue: {issue.title}\n\nIssue #{issue.number}\n\n{issue_body}"
+    safe_title = sanitize_prompt_content(issue.title, label="issue-title")
+    safe_body = sanitize_prompt_content(issue_body, label="issue-body")
+    task_prompt = f"Fix the issue: {safe_title}\n\nIssue #{issue.number}\n\n{safe_body}"
     return InMemorySpec(
         issue_number=issue.number,
         title=issue.title,
         task_prompt=task_prompt,
-        system_context=issue_body,
+        system_context=safe_body,
         branch_name=branch,
     )

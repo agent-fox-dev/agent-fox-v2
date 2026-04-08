@@ -19,6 +19,7 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -32,7 +33,9 @@ from agent_fox.core.llm_validation import (
     MAX_REF_LENGTH,
     truncate_field,
 )
+from agent_fox.knowledge.audit import AuditEvent, AuditEventType, AuditSeverity
 from agent_fox.knowledge.review_store import (
+    VALID_VERDICTS,
     DriftFinding,
     ReviewFinding,
     VerificationResult,
@@ -44,6 +47,50 @@ from agent_fox.knowledge.review_store import (
 __all__ = ["extract_json_array"]
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Security keyword detection for automatic category classification
+# ---------------------------------------------------------------------------
+
+_SECURITY_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "command injection",
+        "sql injection",
+        "sqli",
+        "xss",
+        "cross-site scripting",
+        "path traversal",
+        "directory traversal",
+        "remote code execution",
+        "rce",
+        "ssrf",
+        "server-side request forgery",
+        "open redirect",
+        "xxe",
+        "xml injection",
+        "ldap injection",
+        "code injection",
+        "shell injection",
+        "injection vulnerability",
+        "privilege escalation",
+        "arbitrary command",
+        "arbitrary code",
+    }
+)
+
+
+def _detect_security_category(description: str) -> str | None:
+    """Return 'security' if the description contains security-related keywords.
+
+    Case-insensitive substring match against a known set of security keywords.
+    Returns None if no security keywords are found.
+    """
+    lower = description.lower()
+    for keyword in _SECURITY_KEYWORDS:
+        if keyword in lower:
+            return "security"
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Field-level key normalization (74-REQ-2.4)
@@ -103,6 +150,7 @@ def parse_review_findings(
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
             req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
+        category = _detect_security_category(description)
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
@@ -112,6 +160,7 @@ def parse_review_findings(
                 spec_name=spec_name,
                 task_group=task_group,  # type: ignore[arg-type]
                 session_id=session_id,
+                category=category,
             )
         )
     return results
@@ -122,12 +171,20 @@ def parse_verification_results(
     spec_name: str,
     task_group: int | str,
     session_id: str,
+    *,
+    emit_audit_event: Callable[[AuditEvent], None] | None = None,
 ) -> list[VerificationResult]:
     """Parse a list of dicts into VerificationResult instances.
 
-    Required fields: ``requirement_id``, ``verdict`` (must be PASS or FAIL).
+    Required fields: ``requirement_id``, ``verdict`` (PASS or FAIL).
     Optional fields: ``evidence``.
-    Objects with missing or invalid fields are skipped with a warning log.
+    Objects missing required fields are skipped with a warning log.
+
+    Non-standard verdict values (e.g. ``PARTIAL``, ``CONDITIONAL``) are
+    normalized to ``FAIL`` rather than dropped. When *emit_audit_event* is
+    provided, a :data:`~agent_fox.knowledge.audit.AuditEventType.VERDICT_NORMALIZED`
+    event is emitted for each coerced verdict so operators can observe the
+    normalization.
 
     Requirements: 53-REQ-4.2
     """
@@ -152,14 +209,32 @@ def parse_verification_results(
                 list(obj.keys()),
             )
             continue
-        verdict_val = validate_verdict(str(obj["verdict"]))
-        if verdict_val is None:
-            continue
+        raw_verdict = str(obj["verdict"])
+        verdict_val = validate_verdict(raw_verdict)
+        original_upper = raw_verdict.upper().strip()
+        verdict_was_coerced = original_upper not in VALID_VERDICTS
+
         req_id = truncate_field(
             str(obj["requirement_id"]),
             max_length=MAX_REF_LENGTH,
             field_name="verdict.requirement_id",
         )
+
+        if verdict_was_coerced and emit_audit_event is not None:
+            emit_audit_event(
+                AuditEvent(
+                    run_id="",
+                    event_type=AuditEventType.VERDICT_NORMALIZED,
+                    severity=AuditSeverity.WARNING,
+                    session_id=session_id,
+                    payload={
+                        "original_verdict": original_upper,
+                        "normalized_verdict": verdict_val,
+                        "requirement_id": req_id,
+                    },
+                )
+            )
+
         evidence = obj.get("evidence")
         if isinstance(evidence, str):
             evidence = truncate_field(
@@ -446,27 +521,24 @@ def parse_auditor_output(
     Looks for a JSON object with an "audit" array, "overall_verdict",
     and "summary". Returns None if no valid JSON found.
 
+    Parsing strategy (in order):
+    - Direct ``json.loads`` on the full response (handles bare JSON output
+      and complex nested structures whose string values may contain brace
+      characters that confuse the regex).
+    - Regex-based block extraction (handles fenced code blocks and bare
+      JSON objects/arrays in mixed prose responses).
+
     Requirements: 46-REQ-8.1
     """
     from agent_fox.session.convergence import AuditEntry, AuditResult
 
-    blocks = _extract_json_blocks(response)
-
-    if not blocks:
-        logger.warning("No valid JSON blocks found in Auditor output")
-        return None
-
-    for block in blocks:
-        try:
-            data = json.loads(block)
-        except json.JSONDecodeError:
-            continue
-
+    def _build_audit_result(data: object) -> AuditResult | None:
+        """Convert a parsed JSON value into an AuditResult, or return None."""
         if not isinstance(data, dict):
-            continue
+            return None
         audit_key = _resolve_wrapper_key(data, "audit")
         if audit_key is None:
-            continue
+            return None
 
         entries: list[AuditEntry] = []
         for item in data[audit_key]:
@@ -489,6 +561,45 @@ def parse_auditor_output(
             overall_verdict=overall,
             summary=summary,
         )
+
+    # ------------------------------------------------------------------
+    # Fast path: try direct JSON parsing on the entire response.
+    # The auditor prompt instructs bare JSON output with no fences, so this
+    # path handles conforming responses without regex overhead.
+    # ------------------------------------------------------------------
+    stripped = response.strip()
+    try:
+        direct = json.loads(stripped)
+        result = _build_audit_result(direct)
+        if result is not None:
+            return result
+        # A recognisable JSON value was found but yielded no audit key.
+        # For bare-JSON responses stop here to avoid double-counting.
+        if stripped.startswith(("{", "[")):
+            logger.warning("No valid audit result extracted from Auditor output")
+            return None
+    except json.JSONDecodeError:
+        pass
+
+    # ------------------------------------------------------------------
+    # Fallback: regex-based block extraction.
+    # Handles fenced code blocks and mixed prose/JSON responses.
+    # ------------------------------------------------------------------
+    blocks = _extract_json_blocks(response)
+
+    if not blocks:
+        logger.warning("No valid JSON blocks found in Auditor output")
+        return None
+
+    for block in blocks:
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+
+        result = _build_audit_result(data)
+        if result is not None:
+            return result
 
     logger.warning("No valid audit result extracted from Auditor output")
     return None
@@ -699,7 +810,7 @@ def parse_fix_review_output(
             spec_name,
             session_id,
         )
-        return FixReviewResult()
+        return FixReviewResult(is_parse_failure=True)
 
     # Extract verdicts using fuzzy wrapper key
     verdicts_key = _resolve_wrapper_key(data, "verdicts")

@@ -91,8 +91,9 @@ class TestRenderReviewContext:
         assert result is not None
         assert "## Skeptic Review" in result
         assert "### Critical Findings" in result
-        assert "[severity: critical] Big problem" in result
-        assert "[severity: observation] Minor note" in result
+        # Content must appear (may be wrapped in nonce-tagged boundary)
+        assert "Big problem" in result
+        assert "Minor note" in result
         assert "Summary:" in result
 
 

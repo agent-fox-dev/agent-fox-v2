@@ -13,6 +13,10 @@ import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_ANALYZING,
     LABEL_BLOCKED,
@@ -23,10 +27,6 @@ from agent_fox.nightshift.spec_gen import (
     IssueComment,
     SpecGenerator,
 )
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-
-from agent_fox.nightshift.config import NightShiftConfig
 
 # ---------------------------------------------------------------------------
 # Helpers

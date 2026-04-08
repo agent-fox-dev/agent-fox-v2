@@ -17,6 +17,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from anthropic.types import TextBlock
+
 from agent_fox.core.client import cached_messages_create
 from agent_fox.core.errors import ConfigError, IntegrationError
 from agent_fox.core.json_extraction import extract_json_object
@@ -29,6 +31,74 @@ if TYPE_CHECKING:
     from agent_fox.spec.discovery import SpecInfo
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Af-spec skill template guidance loader
+# ---------------------------------------------------------------------------
+
+# Maps spec document names to the af-spec skill step that governs them.
+_DOC_TO_STEP: dict[str, str] = {
+    "requirements.md": "## Step 3:",
+    "design.md": "## Step 4:",
+    "test_spec.md": "## Step 5:",
+    "tasks.md": "## Step 6:",
+}
+
+_SKILL_GUIDANCE_CACHE: dict[str, str] | None = None
+
+
+def _load_spec_skill_guidance() -> dict[str, str]:
+    """Load per-document generation guidance from the af-spec skill template.
+
+    Extracts the content of each Step section from the af-spec skill and
+    maps it to the corresponding document name. Results are cached.
+
+    Returns a dict like ``{"tasks.md": "## Step 6: Create the Implementation..."}``
+    or an empty dict if the skill file cannot be loaded.
+    """
+    global _SKILL_GUIDANCE_CACHE  # noqa: PLW0603
+    if _SKILL_GUIDANCE_CACHE is not None:
+        return _SKILL_GUIDANCE_CACHE
+
+    skill_path = Path(__file__).resolve().parent.parent / "_templates" / "skills" / "af-spec"
+    try:
+        skill_text = skill_path.read_text(encoding="utf-8")
+    except OSError:
+        logger.debug("Could not load af-spec skill from %s", skill_path)
+        _SKILL_GUIDANCE_CACHE = {}
+        return _SKILL_GUIDANCE_CACHE
+
+    guidance: dict[str, str] = {}
+    # Find all top-level step headings and extract content up to the next one
+    step_starts = [(m.start(), m.group()) for m in re.finditer(r"^## Step \d+:", skill_text, re.MULTILINE)]
+    for i, (start, _heading) in enumerate(step_starts):
+        end = step_starts[i + 1][0] if i + 1 < len(step_starts) else len(skill_text)
+        section = skill_text[start:end].strip()
+
+        for doc_name, step_prefix in _DOC_TO_STEP.items():
+            if section.startswith(step_prefix):
+                guidance[doc_name] = section
+                break
+
+    _SKILL_GUIDANCE_CACHE = guidance
+    return _SKILL_GUIDANCE_CACHE
+
+
+def _extract_text(response: Any, context: str) -> str:
+    """Extract text from an Anthropic API response content block.
+
+    Handles the TextBlock union type by narrowing with isinstance first,
+    then falling back to getattr for compatible types such as test mocks.
+    Raises ValueError if no text content is available.
+    """
+    first_block = response.content[0]
+    if isinstance(first_block, TextBlock):
+        return first_block.text
+    maybe_text: str | None = getattr(first_block, "text", None)
+    if maybe_text is None:
+        raise ValueError(f"AI response for {context} has no text content")
+    return maybe_text
+
 
 # ---------------------------------------------------------------------------
 # Label constants
@@ -473,7 +543,7 @@ class SpecGenerator:
         self._track_cost(response)
 
         # Parse response
-        text = response.content[0].text
+        text = _extract_text(response, "issue analysis")
         try:
             data = extract_json_object(text)
         except Exception:
@@ -521,7 +591,7 @@ class SpecGenerator:
 
         self._track_cost(response)
 
-        text = response.content[0].text
+        text = _extract_text(response, "duplicate check")
         try:
             data = extract_json_object(text)
         except Exception:
@@ -563,9 +633,11 @@ class SpecGenerator:
 
         files: dict[str, str] = {"prd.md": prd_content}
 
-        # Generate remaining documents sequentially
+        # Generate remaining documents sequentially, using af-spec skill
+        # guidance to ensure structural compliance (86-REQ-6.1).
         doc_order = ["requirements.md", "design.md", "test_spec.md", "tasks.md"]
         prev_docs = f"# PRD\n\n{prd_content}"
+        skill_guidance = _load_spec_skill_guidance()
 
         for doc_name in doc_order:
             # Check budget before each call (86-REQ-10.2)
@@ -573,12 +645,23 @@ class SpecGenerator:
             if max_budget and max_budget > 0 and self._cost >= max_budget:
                 raise _BudgetExceededError(self._cost, max_budget)
 
-            system_prompt = (
-                f"You are a specification writer. Generate the {doc_name} "
-                f"document for a software specification based on the PRD and "
-                f"any previously generated documents. Return ONLY the document "
-                f"content in markdown format."
-            )
+            # Build system prompt with af-spec skill guidance when available
+            guidance = skill_guidance.get(doc_name, "")
+            if guidance:
+                system_prompt = (
+                    f"You are a specification writer. Generate the {doc_name} "
+                    f"document for a software specification based on the PRD and "
+                    f"any previously generated documents. Return ONLY the document "
+                    f"content in markdown format.\n\n"
+                    f"Follow these instructions precisely:\n\n{guidance}"
+                )
+            else:
+                system_prompt = (
+                    f"You are a specification writer. Generate the {doc_name} "
+                    f"document for a software specification based on the PRD and "
+                    f"any previously generated documents. Return ONLY the document "
+                    f"content in markdown format."
+                )
 
             user_prompt = f"# Context\n\n{prev_docs}\n\n# Task\n\nGenerate {doc_name} for spec '{spec_name}'."
 
@@ -593,7 +676,7 @@ class SpecGenerator:
 
             self._track_cost(response)
 
-            doc_content = response.content[0].text
+            doc_content = _extract_text(response, f"spec generation ({doc_name})")
             files[doc_name] = doc_content
             prev_docs += f"\n\n# {doc_name}\n\n{doc_content}"
 

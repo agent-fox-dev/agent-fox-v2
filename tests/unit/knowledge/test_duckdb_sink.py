@@ -1,6 +1,6 @@
 """Tests for DuckDB sink implementation.
 
-Test Spec: TS-11-7 (always-on outcomes), TS-11-8 (debug gating),
+Test Spec: TS-11-7 (always-on outcomes), TS-11-8 (tool telemetry always-on),
            TS-11-9 (multiple touched paths)
 Edge cases: TS-11-E3 (write failure non-fatal), TS-11-E7 (empty touched paths)
 Requirements: 11-REQ-5.1, 11-REQ-5.2, 11-REQ-5.3, 11-REQ-5.4, 11-REQ-5.E1
@@ -62,21 +62,24 @@ class TestDuckDBSinkRecordsSessionOutcome:
         assert rows[0][1] == "failed"
 
 
-class TestDuckDBSinkDebugGating:
-    """TS-11-8: DuckDB sink records tool signals only in debug.
+class TestDuckDBSinkToolTelemetryAlwaysOn:
+    """AC-3, AC-4: DuckDB sink records tool signals regardless of debug flag.
 
-    Requirements: 11-REQ-5.3, 11-REQ-5.4
+    Requirements: 11-REQ-5.3, 11-REQ-5.4 (superseded by fix #282)
+
+    Tool telemetry is now always-on. The ``debug`` parameter is retained
+    for API compatibility but no longer gates tool_calls / tool_errors writes.
     """
 
-    def test_tool_calls_no_op_when_debug_false(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        """Verify tool_calls table empty when debug=False."""
+    def test_tool_calls_written_when_debug_false(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify tool_calls and tool_errors ARE written even with debug=False (AC-3, AC-4)."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
         sink.record_tool_call(ToolCall(tool_name="bash"))
         sink.record_tool_error(ToolError(tool_name="bash"))
 
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 0  # type: ignore[index]
-        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 0  # type: ignore[index]
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1  # type: ignore[index]
+        assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1  # type: ignore[index]
 
     def test_tool_calls_written_when_debug_true(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify tool_calls and tool_errors are written when debug=True."""
@@ -87,6 +90,16 @@ class TestDuckDBSinkDebugGating:
 
         assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_calls").fetchone()[0] == 1  # type: ignore[index]
         assert knowledge_conn.execute("SELECT COUNT(*) FROM tool_errors").fetchone()[0] == 1  # type: ignore[index]
+
+    def test_tool_name_is_persisted(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify tool_name is correctly stored in the tool_calls row."""
+        sink = DuckDBSink(knowledge_conn, debug=False)
+
+        sink.record_tool_call(ToolCall(tool_name="Read"))
+
+        row = knowledge_conn.execute("SELECT tool_name FROM tool_calls").fetchone()
+        assert row is not None
+        assert row[0] == "Read"
 
 
 class TestDuckDBSinkMultipleTouchedPaths:
@@ -137,7 +150,7 @@ class TestDuckDBSinkWriteFailurePropagates:
         """Verify tool call on closed connection raises (38-REQ-3.1)."""
         conn = duckdb.connect(":memory:")
         create_schema(conn)
-        sink = DuckDBSink(conn, debug=True)
+        sink = DuckDBSink(conn, debug=False)  # always-on; debug flag irrelevant
         conn.close()
 
         with pytest.raises(duckdb.ConnectionException):
@@ -147,7 +160,7 @@ class TestDuckDBSinkWriteFailurePropagates:
         """Verify tool error on closed connection raises (38-REQ-3.1)."""
         conn = duckdb.connect(":memory:")
         create_schema(conn)
-        sink = DuckDBSink(conn, debug=True)
+        sink = DuckDBSink(conn, debug=False)  # always-on; debug flag irrelevant
         conn.close()
 
         with pytest.raises(duckdb.ConnectionException):

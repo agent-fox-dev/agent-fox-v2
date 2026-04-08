@@ -21,8 +21,9 @@ logger = logging.getLogger("agent_fox.knowledge.duckdb_sink")
 class DuckDBSink:
     """SessionSink implementation backed by DuckDB.
 
-    Session outcomes are always written. Tool signals (tool_calls,
-    tool_errors) are only written when debug=True.
+    Session outcomes and tool signals are always written.
+    The ``debug`` parameter is retained for API compatibility but is no
+    longer used to gate tool telemetry writes (fixes #282).
     DuckDB errors propagate to the caller (38-REQ-3.1).
     """
 
@@ -33,7 +34,7 @@ class DuckDBSink:
         debug: bool = False,
     ) -> None:
         self._conn = conn
-        self._debug = debug
+        self._debug = debug  # retained for API compatibility
 
     def record_session_outcome(self, outcome: SessionOutcome) -> None:
         """Insert a row into session_outcomes for each touched path.
@@ -67,12 +68,10 @@ class DuckDBSink:
             )
 
     def record_tool_call(self, call: ToolCall) -> None:
-        """Insert a row into tool_calls. No-op if debug=False.
+        """Insert a row into tool_calls (always-on).
 
         DuckDB errors propagate to the caller (38-REQ-3.1).
         """
-        if not self._debug:
-            return
         self._conn.execute(
             """
             INSERT INTO tool_calls
@@ -89,12 +88,10 @@ class DuckDBSink:
         )
 
     def record_tool_error(self, error: ToolError) -> None:
-        """Insert a row into tool_errors. No-op if debug=False.
+        """Insert a row into tool_errors (always-on).
 
         DuckDB errors propagate to the caller (38-REQ-3.1).
         """
-        if not self._debug:
-            return
         self._conn.execute(
             """
             INSERT INTO tool_errors

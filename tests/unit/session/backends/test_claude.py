@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -217,14 +217,21 @@ class TestStreamingErrorYieldsResult:
 
     @pytest.mark.asyncio
     async def test_streaming_error_yields_error_result(self) -> None:
-        """When _stream_messages raises, execute yields a failed ResultMessage."""
+        """When _stream_messages always raises, execute exhausts retries and
+        yields a single failed ResultMessage with is_transport_error=True.
+
+        asyncio.sleep is patched to zero out backoff delays in tests.
+        """
         backend = ClaudeBackend()
 
         async def _exploding_stream(*, prompt, options):
             raise ConnectionError("network failure")
             yield  # noqa: RET503
 
-        with patch.object(backend, "_stream_messages", _exploding_stream):
+        with (
+            patch.object(backend, "_stream_messages", _exploding_stream),
+            patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
+        ):
             messages = []
             async for msg in backend.execute(
                 "test",
@@ -241,18 +248,24 @@ class TestStreamingErrorYieldsResult:
         assert result.status == "failed"
         assert result.error_message is not None
         assert "network failure" in result.error_message
+        assert result.is_transport_error is True
+        # Sleep was called for retries 2 and 3 (not the first attempt)
+        assert mock_sleep.call_count == 2
 
     @pytest.mark.asyncio
     async def test_empty_stream_yields_synthetic_error_result(self) -> None:
-        """When _stream_messages yields no ResultMessage, execute yields a
-        synthetic one."""
+        """When _stream_messages always yields no ResultMessage, execute exhausts
+        retries and yields a synthetic transport-error ResultMessage."""
         backend = ClaudeBackend()
 
         async def _empty_stream(*, prompt, options):
             return
             yield  # noqa: RET503
 
-        with patch.object(backend, "_stream_messages", _empty_stream):
+        with (
+            patch.object(backend, "_stream_messages", _empty_stream),
+            patch("agent_fox.session.backends.claude.asyncio.sleep"),
+        ):
             messages = []
             async for msg in backend.execute(
                 "test",
@@ -269,6 +282,293 @@ class TestStreamingErrorYieldsResult:
         assert result.status == "failed"
         assert result.error_message is not None
         assert "without a result" in result.error_message
+        assert result.is_transport_error is True
+
+
+# ---------------------------------------------------------------------------
+# Transport-layer retry tests (AC-1 through AC-5)
+# Issue: #269 — API connection drops cause 0ms session failures
+# ---------------------------------------------------------------------------
+
+
+class TestTransportRetry:
+    """Transport-layer retry with exponential backoff in ClaudeBackend.execute()."""
+
+    # ------------------------------------------------------------------
+    # AC-1: execute() retries on transient OSError and succeeds
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_retries_on_transient_exception_then_succeeds(self) -> None:
+        """execute() retries _stream_messages on OSError; yields successful
+        ResultMessage from the retry without emitting a failed one.
+
+        AC-1: Mock _stream_messages to raise OSError once then succeed.
+        """
+        from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+        sdk_result = SDKResultMessage(
+            subtype="success",
+            is_error=False,
+            result="done",
+            duration_ms=500,
+            duration_api_ms=400,
+            num_turns=1,
+            session_id="test",
+            total_cost_usd=0.01,
+            usage={"input_tokens": 20, "output_tokens": 10},
+        )
+        call_count = 0
+
+        async def _stream_once_then_succeed(*, prompt, options):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise OSError("connection refused")
+            # Second call: yield a successful result
+            for canonical in ClaudeBackend._map_message(sdk_result):
+                yield canonical
+
+        backend = ClaudeBackend()
+        with (
+            patch.object(backend, "_stream_messages", _stream_once_then_succeed),
+            patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
+        ):
+            messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                messages.append(msg)
+
+        # Should yield only the successful ResultMessage (no failed one)
+        assert len(messages) == 1
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is False
+        assert result.status == "completed"
+        assert result.is_transport_error is False
+        # Exactly one retry → exactly one sleep call
+        assert mock_sleep.call_count == 1
+        assert call_count == 2
+
+    # ------------------------------------------------------------------
+    # AC-2: execute() retries when stream yields no ResultMessage
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_retries_on_empty_stream_then_succeeds(self) -> None:
+        """execute() retries when _stream_messages yields no ResultMessage;
+        yields the successful result from the second attempt.
+
+        AC-2: Mock _stream_messages to yield empty iterator once then succeed.
+        """
+        from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+        sdk_result = SDKResultMessage(
+            subtype="success",
+            is_error=False,
+            result="done",
+            duration_ms=300,
+            duration_api_ms=200,
+            num_turns=1,
+            session_id="test",
+            total_cost_usd=0.005,
+            usage={"input_tokens": 10, "output_tokens": 5},
+        )
+        call_count = 0
+
+        async def _empty_then_succeed(*, prompt, options):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # Empty stream — no messages yielded
+                return
+            for canonical in ClaudeBackend._map_message(sdk_result):
+                yield canonical
+
+        backend = ClaudeBackend()
+        with (
+            patch.object(backend, "_stream_messages", _empty_then_succeed),
+            patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
+        ):
+            messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                messages.append(msg)
+
+        assert len(messages) == 1
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is False
+        assert result.status == "completed"
+        assert result.is_transport_error is False
+        assert mock_sleep.call_count == 1
+        assert call_count == 2
+
+    # ------------------------------------------------------------------
+    # AC-3: Exponential backoff delays between retries
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_exponential_backoff_delays(self) -> None:
+        """execute() uses exponential backoff: delay doubles between retries.
+
+        AC-3: _stream_messages fails twice then succeeds; verify sleep delays
+        increase exponentially (1.0s, 2.0s pattern).
+        """
+        from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+        sdk_result = SDKResultMessage(
+            subtype="success",
+            is_error=False,
+            result="done",
+            duration_ms=100,
+            duration_api_ms=80,
+            num_turns=1,
+            session_id="test",
+            total_cost_usd=0.001,
+            usage={"input_tokens": 5, "output_tokens": 2},
+        )
+        call_count = 0
+
+        async def _fail_twice_then_succeed(*, prompt, options):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise OSError(f"transient failure {call_count}")
+            for canonical in ClaudeBackend._map_message(sdk_result):
+                yield canonical
+
+        sleep_calls: list[float] = []
+
+        async def _record_sleep(delay: float) -> None:
+            sleep_calls.append(delay)
+
+        backend = ClaudeBackend()
+        with (
+            patch.object(backend, "_stream_messages", _fail_twice_then_succeed),
+            patch("agent_fox.session.backends.claude.asyncio.sleep", side_effect=_record_sleep),
+        ):
+            messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                messages.append(msg)
+
+        # Two failed attempts → two sleep calls with increasing delays
+        assert len(sleep_calls) == 2, f"Expected 2 sleep calls, got {sleep_calls}"
+        assert sleep_calls[0] < sleep_calls[1], "Delays must be increasing"
+        assert sleep_calls[1] == sleep_calls[0] * 2, "Delay must double each retry"
+
+        # Stream succeeded on third attempt
+        assert len(messages) == 1
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is False
+        assert call_count == 3
+
+    # ------------------------------------------------------------------
+    # AC-4: All retries exhausted → single failed ResultMessage
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_transport_error_after_exhausting_retries(self) -> None:
+        """execute() yields exactly one failed ResultMessage after all transport
+        retries are exhausted.
+
+        AC-4: _stream_messages always raises OSError.
+        """
+        backend = ClaudeBackend()
+
+        async def _always_fail(*, prompt, options):
+            raise OSError("persistent connection failure")
+            yield  # noqa: RET503
+
+        with (
+            patch.object(backend, "_stream_messages", _always_fail),
+            patch("agent_fox.session.backends.claude.asyncio.sleep"),
+        ):
+            messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                messages.append(msg)
+
+        assert len(messages) == 1
+        result = messages[0]
+        assert isinstance(result, ResultMessage)
+        assert result.is_error is True
+        assert result.status == "failed"
+        assert result.error_message is not None
+        assert "Transport error" in result.error_message or "transport" in result.error_message.lower()
+        assert "persistent connection failure" in result.error_message
+
+    # ------------------------------------------------------------------
+    # AC-5: is_transport_error flag present and distinguishable
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_transport_error_result_has_flag(self) -> None:
+        """ResultMessage from a transport failure has is_transport_error=True;
+        a normal session failure has is_transport_error=False.
+
+        AC-5: The attribute distinguishes transport errors from session errors.
+        """
+        backend = ClaudeBackend()
+
+        # --- transport error case ---
+        async def _always_fail_transport(*, prompt, options):
+            raise OSError("connection dropped")
+            yield  # noqa: RET503
+
+        with (
+            patch.object(backend, "_stream_messages", _always_fail_transport),
+            patch("agent_fox.session.backends.claude.asyncio.sleep"),
+        ):
+            transport_messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                transport_messages.append(msg)
+
+        assert len(transport_messages) == 1
+        transport_result = transport_messages[0]
+        assert isinstance(transport_result, ResultMessage)
+        assert transport_result.is_transport_error is True
+
+        # --- session-level error case (is_error=True from SDK, not a transport error) ---
+        from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+        sdk_fail = SDKResultMessage(
+            subtype="error",
+            is_error=True,
+            result="Agent hit turn limit",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            num_turns=10,
+            session_id="test",
+            total_cost_usd=0.50,
+            usage={"input_tokens": 2000, "output_tokens": 500},
+        )
+
+        async def _session_failure(*, prompt, options):
+            for canonical in ClaudeBackend._map_message(sdk_fail):
+                yield canonical
+
+        with patch.object(backend, "_stream_messages", _session_failure):
+            session_messages = []
+            async for msg in backend.execute(
+                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
+            ):
+                session_messages.append(msg)
+
+        assert len(session_messages) == 1
+        session_result = session_messages[0]
+        assert isinstance(session_result, ResultMessage)
+        assert session_result.is_error is True
+        # Session-level failure has is_transport_error=False (default)
+        assert session_result.is_transport_error is False
 
 
 # ---------------------------------------------------------------------------

@@ -10,6 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from anthropic.types import TextBlock
+
+from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
     LABEL_BLOCKED,
     LABEL_DONE,
@@ -18,8 +21,6 @@ from agent_fox.nightshift.spec_gen import (
     SpecGenerator,
     SpecPackage,
 )
-
-from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.platform.github import IssueResult
 
 # ---------------------------------------------------------------------------
@@ -29,13 +30,13 @@ from agent_fox.platform.github import IssueResult
 
 def _make_config(**overrides: object) -> NightShiftConfig:
     """Create NightShiftConfig with overrides."""
-    defaults = {
+    defaults: dict[str, object] = {
         "max_clarification_rounds": 3,
         "max_budget_usd": 2.0,
         "spec_gen_model_tier": "ADVANCED",
     }
     defaults.update(overrides)
-    return NightShiftConfig(**defaults)
+    return NightShiftConfig.model_validate(defaults)
 
 
 def _make_platform() -> MagicMock:
@@ -91,7 +92,7 @@ def _make_human_comment(
 def _mock_ai_response(text: str = "Generated content") -> MagicMock:
     """Create a mock AI response."""
     resp = MagicMock()
-    resp.content = [MagicMock(text=text)]
+    resp.content = [TextBlock(type="text", text=text)]
     resp.usage.input_tokens = 100
     resp.usage.output_tokens = 50
     resp.usage.cache_read_input_tokens = 0
@@ -586,7 +587,7 @@ class TestSmokeCostCapExceeded:
 
         # Expensive AI responses
         expensive_resp = MagicMock()
-        expensive_resp.content = [MagicMock(text="Generated content")]
+        expensive_resp.content = [TextBlock(type="text", text="Generated content")]
         expensive_resp.usage.input_tokens = 100000
         expensive_resp.usage.output_tokens = 50000
         expensive_resp.usage.cache_read_input_tokens = 0

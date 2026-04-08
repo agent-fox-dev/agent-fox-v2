@@ -17,6 +17,7 @@ from agent_fox.hooks.security import (
     DEFAULT_ALLOWLIST,
     build_effective_allowlist,
     check_command_allowed,
+    check_shell_operators,
     extract_command_name,
 )
 
@@ -70,8 +71,9 @@ class TestAllowlistEnforcementCompleteness:
             return
 
         allowed, _ = check_command_allowed(cmd, allowlist)
-        assert allowed == (name in allowlist), (
-            f"Expected allowed={name in allowlist} for command '{cmd}' "
+        assert allowed == (name in allowlist and check_shell_operators(cmd) is None), (
+            f"Expected allowed={name in allowlist and check_shell_operators(cmd) is None} "
+            f"for command '{cmd}' "
             f"(extracted name='{name}') with allowlist={allowlist!r}"
         )
 
@@ -98,7 +100,12 @@ class TestAllowlistEnforcementCompleteness:
         """
         command = f"{cmd} {args}".strip()
         allowed, _ = check_command_allowed(command, DEFAULT_ALLOWLIST)
-        assert allowed is True, f"Command '{command}' should be allowed but was blocked"
+        # check_shell_operators may reject args containing dangerous tokens
+        # (e.g. '-exec', '-execdir') regardless of allowlist membership.
+        expected = check_shell_operators(command) is None
+        assert allowed == expected, (
+            f"Command '{command}' allowed={allowed} but expected allowed={expected}"
+        )
 
 
 class TestDefaultAllowlistStability:
