@@ -1,0 +1,214 @@
+"""Tests for nightshift CLI wiring to DaemonRunner.
+
+Verifies that cli/nightshift.py uses DaemonRunner instead of
+NightShiftEngine.run() for lifecycle management, and that CLI flags
+are properly passed through to build_streams().
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+from click.testing import CliRunner
+
+from agent_fox.cli.nightshift import night_shift_cmd
+
+
+def _make_config() -> MagicMock:
+    """Create a mock config matching expected structure."""
+    config = MagicMock()
+    config.max_budget_usd = 10.0
+    ns = MagicMock()
+    ns.enabled_streams = ["specs", "fixes", "hunts", "spec_gen"]
+    ns.merge_strategy = "direct"
+    ns.spec_interval = 60
+    ns.spec_gen_interval = 300
+    ns.issue_check_interval = 900
+    ns.hunt_scan_interval = 14400
+    config.night_shift = ns
+    config.platform.type = "github"
+    config.theme = None
+    config.orchestrator.max_cost = 10.0
+    return config
+
+
+# Patch targets are at their definition sites since they're imported
+# inside the function body.
+_PATCHES = {
+    "validate": "agent_fox.nightshift.engine.validate_night_shift_prerequisites",
+    "create_platform": "agent_fox.nightshift.platform_factory.create_platform",
+    "progress_cls": "agent_fox.ui.progress.ProgressDisplay",
+    "create_theme": "agent_fox.ui.display.create_theme",
+    "daemon_runner": "agent_fox.nightshift.daemon.DaemonRunner",
+    "build_streams": "agent_fox.nightshift.streams.build_streams",
+    "engine_cls": "agent_fox.nightshift.engine.NightShiftEngine",
+    "shared_budget": "agent_fox.nightshift.daemon.SharedBudget",
+}
+
+
+class TestCliUsesDaemonRunner:
+    """Verify CLI wires through DaemonRunner, not NightShiftEngine.run()."""
+
+    def test_cli_creates_daemon_runner(self) -> None:
+        """The CLI creates a DaemonRunner and calls runner.run()."""
+        from agent_fox.nightshift.daemon import DaemonState
+
+        mock_state = DaemonState(total_cost=0.5, issues_fixed=1)
+
+        with (
+            patch(_PATCHES["validate"]),
+            patch(_PATCHES["create_platform"], return_value=MagicMock()),
+            patch(_PATCHES["progress_cls"]) as mock_progress_cls,
+            patch(_PATCHES["create_theme"]),
+            patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
+            patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
+            patch(_PATCHES["engine_cls"]) as mock_engine_cls,
+            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_progress_cls.return_value = mock_progress
+
+            mock_runner = MagicMock()
+            mock_runner.run = AsyncMock(return_value=mock_state)
+            mock_runner_cls.return_value = mock_runner
+
+            mock_engine = MagicMock()
+            mock_engine.state = MagicMock()
+            mock_engine.state.issues_fixed = 1
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.specs_generated = 0
+            mock_engine_cls.return_value = mock_engine
+
+            runner = CliRunner()
+            result = runner.invoke(
+                night_shift_cmd,
+                [],
+                obj={"config": _make_config(), "quiet": False},
+                catch_exceptions=False,
+            )
+
+            # DaemonRunner was created and run() was called
+            mock_runner_cls.assert_called_once()
+            mock_runner.run.assert_awaited_once()
+
+    def test_cli_passes_no_flags_to_build_streams(self) -> None:
+        """CLI --no-* flags are forwarded to build_streams()."""
+        from agent_fox.nightshift.daemon import DaemonState
+
+        mock_state = DaemonState()
+
+        with (
+            patch(_PATCHES["validate"]),
+            patch(_PATCHES["create_platform"], return_value=MagicMock()),
+            patch(_PATCHES["progress_cls"]) as mock_progress_cls,
+            patch(_PATCHES["create_theme"]),
+            patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
+            patch(_PATCHES["build_streams"], return_value=[MagicMock()]) as mock_build,
+            patch(_PATCHES["engine_cls"]) as mock_engine_cls,
+            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_progress_cls.return_value = mock_progress
+
+            mock_runner = MagicMock()
+            mock_runner.run = AsyncMock(return_value=mock_state)
+            mock_runner_cls.return_value = mock_runner
+
+            mock_engine = MagicMock()
+            mock_engine.state = MagicMock()
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.specs_generated = 0
+            mock_engine_cls.return_value = mock_engine
+
+            runner = CliRunner()
+            result = runner.invoke(
+                night_shift_cmd,
+                ["--no-fixes", "--no-hunts"],
+                obj={"config": _make_config(), "quiet": False},
+                catch_exceptions=False,
+            )
+
+            mock_build.assert_called_once()
+            call_kwargs = mock_build.call_args
+            assert call_kwargs.kwargs["no_fixes"] is True
+            assert call_kwargs.kwargs["no_hunts"] is True
+            assert call_kwargs.kwargs["no_specs"] is False
+            assert call_kwargs.kwargs["no_spec_gen"] is False
+
+    def test_engine_run_not_called(self) -> None:
+        """Engine.run() must NOT be called — DaemonRunner manages lifecycle."""
+        from agent_fox.nightshift.daemon import DaemonState
+
+        mock_state = DaemonState()
+
+        with (
+            patch(_PATCHES["validate"]),
+            patch(_PATCHES["create_platform"], return_value=MagicMock()),
+            patch(_PATCHES["progress_cls"]) as mock_progress_cls,
+            patch(_PATCHES["create_theme"]),
+            patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
+            patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
+            patch(_PATCHES["engine_cls"]) as mock_engine_cls,
+            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_progress_cls.return_value = mock_progress
+
+            mock_runner = MagicMock()
+            mock_runner.run = AsyncMock(return_value=mock_state)
+            mock_runner_cls.return_value = mock_runner
+
+            mock_engine = MagicMock()
+            mock_engine.state = MagicMock()
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine.state.specs_generated = 0
+            mock_engine.run = AsyncMock()
+            mock_engine_cls.return_value = mock_engine
+
+            runner = CliRunner()
+            result = runner.invoke(
+                night_shift_cmd,
+                [],
+                obj={"config": _make_config(), "quiet": False},
+                catch_exceptions=False,
+            )
+
+            # engine.run() should NOT have been called
+            mock_engine.run.assert_not_awaited()
+            # runner.run() should have been called
+            mock_runner.run.assert_awaited_once()
+
+
+class TestSpecGeneratorBudgetWiring:
+    """Verify build_streams passes budget to SpecGeneratorStream."""
+
+    def test_spec_generator_receives_budget(self) -> None:
+        """SpecGeneratorStream._budget is set when build_streams passes it."""
+        from agent_fox.nightshift.daemon import SharedBudget
+        from agent_fox.nightshift.streams import build_streams
+
+        config = MagicMock()
+        config.platform.type = "github"
+        ns = MagicMock()
+        ns.enabled_streams = ["spec_gen"]
+        ns.spec_interval = 60
+        ns.spec_gen_interval = 300
+        ns.issue_check_interval = 900
+        ns.hunt_scan_interval = 14400
+        config.night_shift = ns
+
+        budget = SharedBudget(max_cost=10.0)
+        streams = build_streams(
+            config,
+            budget=budget,
+            no_specs=True,
+            no_fixes=True,
+            no_hunts=True,
+            no_spec_gen=False,
+        )
+
+        gen_stream = next(s for s in streams if s.name == "spec-generator")
+        assert gen_stream._budget is budget
