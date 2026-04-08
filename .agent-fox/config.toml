@@ -3,43 +3,17 @@
 
 [orchestrator]
 ## Maximum parallel sessions (1-8, default: 2)
-parallel = 2
+parallel = 3
 ## Shell command to run after each coder session (default: "")
-quality_gate = "make check"
-## Maximum USD spend per session, 0 = unlimited (default: 2.0)
-max_budget_usd = 5.0
-## Sync interval in task groups (>=0, default: 5)
-# sync_interval = 5
-## Hot-load specs between sessions (default: true)
-# hot_load = true
-## Maximum retries per task group (>=0, default: 2)
-# max_retries = 2
-## Session timeout in minutes (>=1, default: 30)
-# session_timeout = 30
-## Delay between sessions in seconds (>=0, default: 3)
-# inter_session_delay = 3
-## Maximum cost limit (not set by default)
-## max_cost =
-## Maximum number of sessions (not set by default)
-## max_sessions =
-## Maximum number of runs to retain in the audit log (default: 20)
-# audit_retention_runs = 20
-## Stop the run when this fraction of nodes are blocked (0.0-1.0). None = disabled. (not set by default)
-## max_blocked_fraction =
-## Quality gate timeout in seconds (default: 300)
-# quality_gate_timeout = 300
-## Maximum number of prior facts included in the causal extraction prompt. When total non-superseded facts exceed this limit, prior facts are ranked by embedding similarity to the new facts and only the top N are included. (default: 200)
-# causal_context_limit = 200
-## Seconds between watch polls when --watch is active. Values below 10 are clamped to 10. (>=10, default: 60)
-# watch_interval = 60
+quality_gate = "make test"
+## Maximum USD spend per session, 0 = unlimited (default: 8.0)
+max_budget_usd = 8.0
+## Abort if more than 40% of tasks are blocked
+max_blocked_fraction = 0.4
 
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")
-coding = "ADVANCED"
-## Model tier for memory extraction (default: "SIMPLE")
-# memory_extraction = "SIMPLE"
-## Fallback model ID when primary is unavailable (default: "claude-sonnet-4-6")
-# fallback_model = "claude-sonnet-4-6"
+coding = "STANDARD"
 
 [archetypes]
 ## Enable coder archetype (default: true)
@@ -52,72 +26,29 @@ verifier = true
 oracle = true
 ## Enable auditor archetype (default: true)
 auditor = true
-## Enable librarian archetype (default: false)
-# librarian = false
-## Enable cartographer archetype (default: false)
-# cartographer = false
-## Per-archetype model overrides (default: {})
-# models = {}
-## Per-archetype command allowlists (default: {})
-# allowlists = {}
-## Per-archetype maximum turn limits (default: {})
-# max_turns = {}
-## Per-archetype extended thinking configuration (default: {})
-# thinking = {}
-## Unified per-archetype configuration tables (see [archetypes.overrides.*] below)
-# overrides = {}
-
-# ---------------------------------------------------------------------------
-# Unified per-archetype overrides (preferred over the legacy dicts above)
-# Each [archetypes.overrides.<name>] block supports:
-#   model_tier     — "SIMPLE" | "STANDARD" | "ADVANCED"  (None = registry default)
-#   max_turns      — integer >= 0, 0 = unlimited           (None = registry default)
-#   thinking_mode  — "enabled" | "adaptive" | "disabled"  (None = registry default)
-#   thinking_budget — integer >= 0 (tokens)               (None = registry default)
-#   allowlist      — list of allowed bash commands         (None = registry default)
-# ---------------------------------------------------------------------------
-
-# Example: run the coder on the ADVANCED model with extra turns
-# [archetypes.overrides.coder]
-# model_tier = "ADVANCED"
-# max_turns = 200
-# thinking_mode = "adaptive"
-
-# Example: use STANDARD model for skeptic reviews (cost reduction)
-# [archetypes.overrides.skeptic]
-# model_tier = "STANDARD"
-# max_turns = 50
-
-# Example: restrict verifier to a minimal allowlist
-# [archetypes.overrides.verifier]
-# model_tier = "ADVANCED"
-# max_turns = 75
-# allowlist = ["ls", "cat", "git", "make", "uv"]
-
-# [archetypes.skeptic_settings]
-## Finding count to block merge (>=0, default: 3)
-# block_threshold = 3
-
-# [archetypes.oracle_settings]
-## Drift count to block (None = advisory) (>=1, not set by default)
-## block_threshold =
-
-# [archetypes.auditor_config]
-## Minimum TS entries to trigger auditor injection (>=1, default: 5)
-# min_ts_entries = 5
-## Maximum auditor-coder retry iterations (>=0, default: 2)
-# max_retries = 2
 
 [archetypes.instances]
 ## Number of verifier instances (1-5, default: 2)
 verifier = 2
 
+[archetypes.thinking.coder]
+mode = "adaptive"
+budget_tokens = 32000
+
+[archetypes.thinking.skeptic]
+mode = "enabled"
+budget_tokens = 16000
+
+[archetypes.thinking.verifier]
+mode = "adaptive"
+budget_tokens = 32000
+
 [platform]
 type = "github"
 
-# [security]
+[night_shift]
+hunt_scan_interval = 14400
 
-## Issue tracker URL (defaults from type) (default: "")
-# url = ""
-
-## For all configuration options, see docs/config-reference.md
+[night_shift.categories]
+dead_code = false
+todo_fixme = false

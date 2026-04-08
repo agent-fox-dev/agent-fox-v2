@@ -2,7 +2,7 @@
 .agent-fox/*
 !.agent-fox/config.toml
 !.agent-fox/memory.jsonl
-.agent-fox/state.jsonl
+!.agent-fox/state.jsonl
 .claude/worktrees/
 
 # Python
