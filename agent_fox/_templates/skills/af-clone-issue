@@ -10,6 +10,12 @@ description: >
 
 # Copy GitHub issue to another repo
 
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
 GitHub does not offer “duplicate this issue to my fork.” This workflow creates a **new** issue on the target repository and replays upstream comments as new comments with attribution.
 
 ## Prerequisites
