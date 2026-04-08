@@ -606,6 +606,59 @@ class TestObservability:
             assert payload["closed_issue"] == 20
             assert payload["fixed_by"] == 10
 
+    @pytest.mark.asyncio
+    async def test_supersession_closure_emits_audit_event(self) -> None:
+        """Audit event emitted when issue closed as superseded by AI triage.
+
+        Requirement: 71-REQ-3.5
+        Regression guard for: night_shift.issue_superseded AuditEventType
+        """
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        mock_platform = AsyncMock()
+        issues = [_make_issue(10), _make_issue(20), _make_issue(30)]
+        mock_platform.list_issues_by_label = AsyncMock(return_value=issues)
+        mock_platform.close_issue = AsyncMock()
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        engine._process_fix = AsyncMock()  # type: ignore[assignment]
+
+        with (
+            patch(
+                "agent_fox.nightshift.engine.run_batch_triage",
+                new_callable=AsyncMock,
+            ) as mock_triage,
+            patch(
+                "agent_fox.nightshift.engine.check_staleness",
+                new_callable=AsyncMock,
+            ) as mock_staleness,
+            patch("agent_fox.nightshift.engine._emit_audit_event") as mock_audit,
+        ):
+            from agent_fox.nightshift.staleness import StalenessResult
+            from agent_fox.nightshift.triage import TriageResult
+
+            mock_triage.return_value = TriageResult(
+                processing_order=[10, 30],
+                edges=[],
+                supersession_pairs=[(10, 20)],  # issue 20 superseded by issue 10
+            )
+            mock_staleness.return_value = StalenessResult(obsolete_issues=[], rationale={})
+
+            await engine._run_issue_check()
+
+            # Verify the night_shift.issue_superseded audit event was emitted
+            audit_calls = [c for c in mock_audit.call_args_list if c.args[0] == "night_shift.issue_superseded"]
+            assert len(audit_calls) >= 1, "Expected at least one night_shift.issue_superseded audit event"
+            if len(audit_calls[0].args) > 1:
+                payload = audit_calls[0].args[1]
+            else:
+                payload = audit_calls[0].kwargs.get("payload", {})
+            assert payload["closed_issue"] == 20
+            assert payload["superseded_by"] == 10
+
     def test_ts_71_20_cycle_break_logged_at_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Cycle detection and break logged as WARNING."""
         from agent_fox.nightshift.dep_graph import DependencyEdge, build_graph

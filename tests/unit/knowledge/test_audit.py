@@ -115,6 +115,9 @@ class TestAuditEventTypeEnum:
             "sync.barrier",
             "quality_gate.result",
             "review.parse_failure",
+            # Night-shift events (spec 61) — regression guard for issue #293
+            "night_shift.issue_superseded",
+            "night_shift.issue_obsolete",
         }
         actual = {e.value for e in AuditEventType}
         assert required.issubset(actual)

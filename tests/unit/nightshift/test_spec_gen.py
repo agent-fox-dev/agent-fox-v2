@@ -26,7 +26,6 @@ from agent_fox.nightshift.spec_gen import (
     ReferencedIssue,
     SpecGenerator,
     SpecGenOutcome,
-    SpecGenResult,
     SpecPackage,
 )
 from agent_fox.platform.github import IssueResult
