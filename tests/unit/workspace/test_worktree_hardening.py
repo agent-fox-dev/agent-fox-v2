@@ -123,6 +123,104 @@ class TestBranchUsedByWorktree:
 
 
 # ---------------------------------------------------------------------------
+# checkout_branch self-healing on worktree conflicts
+# ---------------------------------------------------------------------------
+
+
+class TestCheckoutBranchWorktreeConflict:
+    """checkout_branch prunes and retries on stale worktree error, raises on live."""
+
+    _STALE_STDERR = "fatal: 'develop' is already used by worktree at '/nonexistent/path'\n"
+    _LIVE_STDERR_TEMPLATE = "fatal: 'develop' is already used by worktree at '{}'\n"
+
+    @pytest.mark.asyncio
+    async def test_prunes_and_retries_on_stale_worktree(self, tmp_path: Path) -> None:
+        """Prune + retry succeeds when worktree path doesn't exist on disk."""
+        from agent_fox.workspace.git import checkout_branch
+
+        call_responses: list[tuple[int, str, str]] = [
+            # First checkout: fails with "used by worktree"
+            (128, "", self._STALE_STDERR),
+            # git worktree prune: succeeds
+            (0, "", ""),
+            # Retry checkout: succeeds
+            (0, "", ""),
+        ]
+        mock_run_git = AsyncMock(side_effect=call_responses)
+
+        with patch("agent_fox.workspace.git.run_git", mock_run_git):
+            await checkout_branch(tmp_path, "develop")
+
+        calls = mock_run_git.call_args_list
+        assert any("prune" in str(c) for c in calls), "git worktree prune should have been called"
+
+    @pytest.mark.asyncio
+    async def test_raises_on_live_worktree(self, tmp_path: Path) -> None:
+        """Raises WorkspaceError when conflicting worktree directory exists."""
+        from agent_fox.workspace.git import checkout_branch
+
+        live_wt = tmp_path / "live-worktree"
+        live_wt.mkdir()
+
+        stderr = self._LIVE_STDERR_TEMPLATE.format(live_wt)
+        mock_run_git = AsyncMock(return_value=(128, "", stderr))
+
+        with patch("agent_fox.workspace.git.run_git", mock_run_git):
+            with pytest.raises(WorkspaceError, match="live worktree"):
+                await checkout_branch(tmp_path, "develop")
+
+    @pytest.mark.asyncio
+    async def test_raises_on_retry_failure_after_prune(self, tmp_path: Path) -> None:
+        """Raises WorkspaceError when retry also fails after pruning."""
+        from agent_fox.workspace.git import checkout_branch
+
+        call_responses: list[tuple[int, str, str]] = [
+            (128, "", self._STALE_STDERR),
+            (0, "", ""),  # prune succeeds
+            (128, "", self._STALE_STDERR),  # retry still fails
+        ]
+        mock_run_git = AsyncMock(side_effect=call_responses)
+
+        with patch("agent_fox.workspace.git.run_git", mock_run_git):
+            with pytest.raises(WorkspaceError):
+                await checkout_branch(tmp_path, "develop")
+
+    @pytest.mark.asyncio
+    async def test_prune_logged_at_debug(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Debug log emitted when stale worktree is detected and pruned."""
+        from agent_fox.workspace.git import checkout_branch
+
+        call_responses: list[tuple[int, str, str]] = [
+            (128, "", self._STALE_STDERR),
+            (0, "", ""),
+            (0, "", ""),
+        ]
+        mock_run_git = AsyncMock(side_effect=call_responses)
+
+        with patch("agent_fox.workspace.git.run_git", mock_run_git):
+            with caplog.at_level(logging.DEBUG, logger="agent_fox.workspace.git"):
+                await checkout_branch(tmp_path, "develop")
+
+        assert any("stale worktree" in record.message.lower() for record in caplog.records), (
+            "Expected debug log about stale worktree pruning"
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_worktree_error_raises_immediately(self, tmp_path: Path) -> None:
+        """Non-worktree checkout failures raise without prune attempt."""
+        from agent_fox.workspace.git import checkout_branch
+
+        mock_run_git = AsyncMock(return_value=(1, "", "error: pathspec 'nope' did not match\n"))
+
+        with patch("agent_fox.workspace.git.run_git", mock_run_git):
+            with pytest.raises(WorkspaceError):
+                await checkout_branch(tmp_path, "nope")
+
+        # Only one call — no prune attempted
+        assert mock_run_git.call_count == 1
+
+
+# ---------------------------------------------------------------------------
 # TS-80-5, TS-80-6: delete_branch self-healing
 # Requirements: 80-REQ-2.1, 80-REQ-2.2
 # ---------------------------------------------------------------------------

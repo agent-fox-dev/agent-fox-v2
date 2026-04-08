@@ -250,11 +250,60 @@ async def checkout_branch(
 ) -> None:
     """Check out a branch in the given working directory.
 
+    If checkout fails because the branch is held by another worktree:
+    - If the worktree directory is stale (doesn't exist on disk), prunes
+      worktree entries and retries once.
+    - If the worktree directory is live (exists on disk), raises
+      WorkspaceError with a clear message.
+
     Raises:
         WorkspaceError: If checkout fails or ref name is invalid.
     """
     validate_ref_name(branch_name)
-    await run_git(["checkout", branch_name], cwd=repo_path)
+    returncode, _stdout, stderr = await run_git(
+        ["checkout", branch_name],
+        cwd=repo_path,
+        check=False,
+    )
+    if returncode == 0:
+        return
+
+    if "used by worktree" in stderr:
+        match = _WORKTREE_IN_USE_RE.search(stderr)
+        worktree_path = Path(match.group(1)) if match else None
+
+        # Live worktree — cannot steal the branch from it.
+        if worktree_path is not None and worktree_path.exists():
+            raise WorkspaceError(
+                f"Cannot checkout '{branch_name}': branch is in use by a live worktree at {worktree_path}",
+                branch=branch_name,
+            )
+
+        # Stale registry entry: prune and retry once.
+        logger.debug(
+            "Checkout of '%s' blocked by stale worktree entry; pruning and retrying",
+            branch_name,
+        )
+        await run_git(["worktree", "prune"], cwd=repo_path, check=False)
+        rc2, _stdout2, stderr2 = await run_git(
+            ["checkout", branch_name],
+            cwd=repo_path,
+            check=False,
+        )
+        if rc2 == 0:
+            return
+
+        raise WorkspaceError(
+            f"git checkout failed (exit code {rc2})",
+            command=f"git checkout {branch_name}",
+            returncode=rc2,
+        )
+
+    raise WorkspaceError(
+        f"git checkout failed (exit code {returncode})",
+        command=f"git checkout {branch_name}",
+        returncode=returncode,
+    )
 
 
 async def has_new_commits(
