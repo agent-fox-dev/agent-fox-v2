@@ -130,6 +130,13 @@ class TestInitGitignore:
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/memory.jsonl" in gitignore
 
+    def test_gitignore_contains_claude_worktrees(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init adds .claude/worktrees/ to .gitignore."""
+        cli_runner.invoke(main, ["init"])
+
+        gitignore = (tmp_git_repo / ".gitignore").read_text()
+        assert ".claude/worktrees/" in gitignore
+
 
 class TestInitSeedFiles:
     """Init creates seed files so they are tracked in git from the start."""
