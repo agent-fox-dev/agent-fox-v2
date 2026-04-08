@@ -15,11 +15,13 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agent_fox.nightshift.stream import WorkStream
     from agent_fox.platform.protocol import PlatformProtocol
+
+from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -303,37 +305,6 @@ class DaemonRunner:
         )
 
         return state
-
-
-# ---------------------------------------------------------------------------
-# Audit helpers
-# ---------------------------------------------------------------------------
-
-
-def _emit_audit_event(
-    event_type_name: str,
-    payload: dict[str, Any] | None = None,
-) -> None:
-    """Emit a daemon audit event (best-effort).
-
-    Silently skips if audit infrastructure is unavailable.
-    """
-    try:
-        from agent_fox.knowledge.audit import (
-            AuditEvent,
-            AuditEventType,
-            generate_run_id,
-        )
-
-        event_type = AuditEventType(event_type_name)
-        event = AuditEvent(
-            run_id=generate_run_id(),
-            event_type=event_type,
-            payload=payload or {},
-        )
-        logger.debug("Audit event: %s payload=%s", event.event_type, event.payload)
-    except Exception:  # noqa: BLE001
-        logger.debug("Failed to emit audit event: %s", event_type_name, exc_info=True)
 
 
 # ---------------------------------------------------------------------------
