@@ -118,7 +118,9 @@ _CONVENTIONAL_PREFIX_RE = re.compile(
 )
 
 # Merge-commit pattern produced by git merge (used by agent workflows).
-_MERGE_BRANCH_RE = re.compile(r"^Merge branch\s+'")
+# Matches both "Merge branch '<name>'" and "Merge fix/issue-... into develop"
+# (branch-path merges where the branch name contains a slash).
+_MERGE_BRANCH_RE = re.compile(r"^Merge (branch\s+'|\S+/)")
 
 
 def is_agent_commit(commit: HumanCommit, agent_author: str) -> bool:
