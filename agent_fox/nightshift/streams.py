@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent_fox.nightshift.daemon import SharedBudget
+    from agent_fox.nightshift.stream import WorkStream
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +397,7 @@ def build_streams(
     budget: SharedBudget | None = None,
     platform: Any | None = None,
     repo_root: Any | None = None,
-) -> list[SpecExecutorStream | FixPipelineStream | HuntScanStream | SpecGeneratorStream]:
+) -> list[WorkStream]:
     """Build all four work streams with proper enabled/disabled state.
 
     Applies three layers of filtering:
@@ -456,7 +457,7 @@ def build_streams(
     hunt_scan_interval = getattr(ns, "hunt_scan_interval", 14400)
 
     # Build streams
-    streams: list[SpecExecutorStream | FixPipelineStream | HuntScanStream | SpecGeneratorStream] = []
+    streams: list[WorkStream] = []
 
     streams.append(
         SpecExecutorStream(

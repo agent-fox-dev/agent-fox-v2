@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -111,7 +112,7 @@ class DaemonRunner:
         self,
         config: object,
         platform: PlatformProtocol | None,
-        streams: list[WorkStream],
+        streams: Sequence[WorkStream],
         budget: SharedBudget,
         *,
         pid_path: Path | None = None,
