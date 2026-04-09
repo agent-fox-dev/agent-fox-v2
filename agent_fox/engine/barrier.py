@@ -213,10 +213,17 @@ async def run_sync_barrier_sequence(
         try:
             from agent_fox.knowledge.lifecycle import run_cleanup
 
-            run_cleanup(
+            cleanup_result = run_cleanup(
                 knowledge_db_conn,
                 knowledge_config,
                 sink_dispatcher=sink_dispatcher,
+            )
+            logger.info(
+                "Fact lifecycle cleanup: expired=%d deduped=%d contradicted=%d remaining=%d",
+                cleanup_result.facts_expired,
+                cleanup_result.facts_deduped,
+                cleanup_result.facts_contradicted,
+                cleanup_result.active_facts_remaining,
             )
         except Exception:
             logger.warning("Fact lifecycle cleanup failed at barrier", exc_info=True)

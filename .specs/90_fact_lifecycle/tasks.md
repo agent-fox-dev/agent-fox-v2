@@ -165,16 +165,24 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - [x] No linter warnings: `uv run ruff check agent_fox/`
     - [x] Requirements 5.1-5.4, 5.E1 met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
+    - Path 1 (dedup): extract_and_store_knowledge → dedup_new_facts →
+      UPDATE memory_facts superseded_by → DedupResult consumed ✓
+    - Path 2 (contradiction): extract_and_store_knowledge → detect_contradictions
+      → classify_contradiction_batch → cached_messages_create_sync →
+      ContradictionResult consumed ✓
+    - Path 3 (decay): run_sync_barrier_sequence → run_cleanup →
+      run_decay_cleanup → UPDATE memory_facts superseded_by →
+      CleanupResult captured and logged ✓
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - `dedup_new_facts()` → `DedupResult` used by harvest to filter facts
@@ -184,24 +192,31 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - `run_cleanup()` → `CleanupResult` used by barrier for logging
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
+    - Fixed: barrier.py now captures CleanupResult and logs counts (was discarding it)
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-90-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-90-SMOKE-1, TS-90-SMOKE-2, TS-90-SMOKE-3_
+    - 3/3 smoke tests pass ✓
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
-    - Document any intentional stubs here with rationale
+    - Intentional `return []` hits found and justified:
+      - contradiction.py:46 — empty pairs input → no verdicts (correct sentinel)
+      - contradiction.py:82 — LLM API error → graceful degradation (90-REQ-2.E1)
+      - contradiction.py:97 — malformed JSON → treat as non-contradiction (90-REQ-2.E3)
+      - barrier.py:39 — worktrees dir absent → no orphans (correct sentinel)
+    - No unjustified stubs, TODOs, or NotImplementedError in touched files ✓
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
