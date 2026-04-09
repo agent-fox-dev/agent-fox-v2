@@ -112,6 +112,19 @@ def night_shift_cmd(
     max_cost = getattr(getattr(config, "orchestrator", None), "max_cost", None)
     budget = SharedBudget(max_cost=max_cost)
 
+    # Spec discovery closure (85-REQ-10.1) — tracks already-seen specs
+    # across cycles so each spec is only surfaced once per daemon run.
+    from agent_fox.engine.hot_load import discover_new_specs_gated
+
+    _known_specs: set[str] = set()
+    _specs_dir = project_root / ".specs"
+
+    async def _discover_fn() -> list:
+        found = await discover_new_specs_gated(_specs_dir, _known_specs, project_root)
+        for spec in found:
+            _known_specs.add(spec.name)
+        return found
+
     # Build work streams with CLI flags (85-REQ-6.1)
     streams = build_streams(
         config,
@@ -121,6 +134,7 @@ def night_shift_cmd(
         auto=auto,
         engine=engine,
         budget=budget,
+        discover_fn=_discover_fn,
     )
 
     # Create the daemon runner (85-REQ-1.2, 85-REQ-2.1, 85-REQ-4.1)
