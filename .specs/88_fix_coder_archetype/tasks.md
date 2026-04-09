@@ -24,8 +24,8 @@ verification. The template is standalone (copy-and-diverge from coding.md).
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/unit/test_fix_coder_archetype.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/unit/test_fix_coder_archetype.py`
     - Template loading test (TS-88-1)
     - Template content assertions: no .specs/ (TS-88-2), commit format (TS-88-3),
       git workflow (TS-88-4), quality gates (TS-88-5), no session artifacts (TS-88-6)
@@ -34,25 +34,25 @@ verification. The template is standalone (copy-and-diverge from coding.md).
     - Edge cases: interpolation (TS-88-E1), fallback (TS-88-E2)
     - _Test Spec: TS-88-1 through TS-88-9, TS-88-E1, TS-88-E2_
 
-  - [ ] 1.2 Create test file `tests/unit/nightshift/test_fix_coder.py`
+  - [x] 1.2 Create test file `tests/unit/nightshift/test_fix_coder.py`
     - Fix pipeline tests: _build_coder_prompt archetype (TS-88-10), no commit
       format in task prompt (TS-88-11), _run_coder_session archetype (TS-88-12)
     - _Test Spec: TS-88-10 through TS-88-12_
 
-  - [ ] 1.3 Add property tests to `tests/property/test_fix_coder_props.py`
+  - [x] 1.3 Add property tests to `tests/property/test_fix_coder_props.py`
     - Template isolation under interpolation (TS-88-P1)
     - Registry parity (TS-88-P2)
     - SDK parameter parity (TS-88-P3)
     - _Test Spec: TS-88-P1 through TS-88-P3_
 
-  - [ ] 1.4 Add integration smoke test to `tests/integration/test_fix_coder_smoke.py`
+  - [x] 1.4 Add integration smoke test to `tests/integration/test_fix_coder_smoke.py`
     - Full prompt build + session invocation (TS-88-SMOKE-1)
     - _Test Spec: TS-88-SMOKE-1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
 
 - [ ] 2. Create fix_coding.md template and register archetype
   - [ ] 2.1 Create `agent_fox/_templates/prompts/fix_coding.md`
