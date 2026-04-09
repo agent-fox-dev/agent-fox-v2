@@ -26,8 +26,8 @@ keeps LLM-dependent code separate from pure computation, allowing groups
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for lifecycle functions
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for lifecycle functions
     - Create `tests/unit/knowledge/test_lifecycle.py`
     - Implement test fixtures: in-memory DuckDB with schema, fact seeding
       helpers, embedding seeding helpers
@@ -37,18 +37,18 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Test Spec: TS-90-1, TS-90-2, TS-90-3, TS-90-4, TS-90-9, TS-90-10,
       TS-90-11, TS-90-12, TS-90-13, TS-90-14, TS-90-15_
 
-  - [ ] 1.2 Create unit test file for contradiction detection
+  - [x] 1.2 Create unit test file for contradiction detection
     - Create `tests/unit/knowledge/test_contradiction.py`
     - Write tests TS-90-5 through TS-90-8 (contradiction)
     - _Test Spec: TS-90-5, TS-90-6, TS-90-7, TS-90-8_
 
-  - [ ] 1.3 Create edge case tests
+  - [x] 1.3 Create edge case tests
     - Add edge case tests to both test files
     - Write tests TS-90-E1 through TS-90-E8
     - _Test Spec: TS-90-E1, TS-90-E2, TS-90-E3, TS-90-E4, TS-90-E5,
       TS-90-E6, TS-90-E7, TS-90-E8_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/test_lifecycle_props.py`
     - Write property tests TS-90-P1, TS-90-P2, TS-90-P3, TS-90-P4,
       TS-90-P5, TS-90-P6, TS-90-P7, TS-90-P8, TS-90-P9
@@ -56,17 +56,17 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Test Spec: TS-90-P1, TS-90-P2, TS-90-P3, TS-90-P4, TS-90-P5,
       TS-90-P6, TS-90-P7, TS-90-P8, TS-90-P9_
 
-  - [ ] 1.5 Create integration test file
+  - [x] 1.5 Create integration test file
     - Create `tests/integration/test_harvest_lifecycle.py`
     - Write tests TS-90-16, TS-90-17
     - Write smoke tests TS-90-SMOKE-1, TS-90-SMOKE-2, TS-90-SMOKE-3
     - _Test Spec: TS-90-16, TS-90-17, TS-90-SMOKE-1, TS-90-SMOKE-2,
       TS-90-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement dedup and decay lifecycle functions
   - [ ] 2.1 Add config fields to KnowledgeConfig
