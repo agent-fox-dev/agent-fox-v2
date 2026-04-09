@@ -156,8 +156,8 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
   - Verify: `uv run pytest -q tests/test_scope_guard/test_stub_patterns.py tests/test_scope_guard/test_stub_validator.py`
   - Create or update documentation in README.md covering stub enforcement usage.
 
-- [ ] 5. Pre-flight checker and overlap detector
-  - [ ] 5.1 Implement `scope_guard/preflight_checker.py`
+- [x] 5. Pre-flight checker and overlap detector
+  - [x] 5.1 Implement `scope_guard/preflight_checker.py`
     - Implement `check_scope(task_group: TaskGroup, codebase_root: Path) -> ScopeCheckResult`
     - For each deliverable: use `source_parser.extract_function_body` to find function, use `stub_patterns.is_stub_body` to determine status
     - Classify as `PENDING` (stub or missing), `ALREADY_IMPLEMENTED` (non-stub), or `INDETERMINATE` (unparseable)
@@ -167,7 +167,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-2.1, 87-REQ-2.2, 87-REQ-2.3, 87-REQ-2.4, 87-REQ-2.5, 87-REQ-2.E1, 87-REQ-2.E2, 87-REQ-2.E3_
     - _Test Spec: TS-87-5, TS-87-6, TS-87-8, TS-87-E4, TS-87-E5, TS-87-E6, TS-87-P4, TS-87-P5_
 
-  - [ ] 5.2 Implement `scope_guard/overlap_detector.py`
+  - [x] 5.2 Implement `scope_guard/overlap_detector.py`
     - Implement `detect_overlaps(spec_graph: SpecGraph) -> OverlapResult`
     - Implement `_compare_deliverables(tg_a: TaskGroup, tg_b: TaskGroup) -> list[OverlapRecord]` — compare by `(file_path, function_id)` tuple
     - Implement `_classify_overlaps(overlaps, spec_graph) -> OverlapResult` — set severity to `ERROR` if no dependency, `WARNING` if dependency exists
@@ -175,11 +175,11 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-3.1, 87-REQ-3.2, 87-REQ-3.3, 87-REQ-3.4, 87-REQ-3.E1, 87-REQ-3.E2, 87-REQ-3.E3_
     - _Test Spec: TS-87-10, TS-87-11, TS-87-12, TS-87-13, TS-87-E7, TS-87-E8, TS-87-E9, TS-87-P8, TS-87-P9, TS-87-P10_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_preflight_checker.py tests/test_scope_guard/test_overlap_detector.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check src/scope_guard/`
-    - [ ] Requirements 87-REQ-2.1–2.5, 87-REQ-2.E1–E3, 87-REQ-3.1–3.4, 87-REQ-3.E1–E3 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_preflight_checker.py tests/test_scope_guard/test_overlap_detector.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
+    - [x] Requirements 87-REQ-2.1–2.5, 87-REQ-2.E1–E3, 87-REQ-3.1–3.4, 87-REQ-3.E1–E3 acceptance criteria met
 
 - [ ] 6. Prompt builder and session classifier
   - [ ] 6.1 Implement `scope_guard/prompt_builder.py`
