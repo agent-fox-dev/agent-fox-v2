@@ -5,13 +5,13 @@ Acceptance criteria: AC-1 through AC-5 from issue #313.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from agent_fox.core.errors import IntegrationError
-from agent_fox.platform.github import GitHubPlatform, _GITHUB_TIMEOUT, _MAX_RETRIES
+from agent_fox.platform.github import _GITHUB_TIMEOUT, _MAX_RETRIES, GitHubPlatform
 
 _TARGET = "agent_fox.platform.github.httpx.AsyncClient"
 _SLEEP_TARGET = "agent_fox.platform.github.asyncio.sleep"
