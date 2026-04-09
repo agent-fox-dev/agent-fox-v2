@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 89_simplify_routing.
+
 # Design Document: Archetype Model Tier Defaults
 
 ## Overview

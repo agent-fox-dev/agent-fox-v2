@@ -131,18 +131,18 @@ superseded specs, and finally verify wiring end-to-end.
     - [x] No linter warnings: `uv run ruff check agent_fox/`
     - [x] Requirements 89-REQ-4.*, 89-REQ-5.* met
 
-- [ ] 5. Archive superseded specs
-  - [ ] 5.1 Add deprecation banners to `30_adaptive_model_routing` spec files
+- [x] 5. Archive superseded specs
+  - [x] 5.1 Add deprecation banners to `30_adaptive_model_routing` spec files
     - Add `> **SUPERSEDED** by spec 89_simplify_routing.` banner to top of each file
     - _Requirements: 89-REQ-7.1_
 
-  - [ ] 5.2 Add deprecation banners to `57_archetype_model_tiers` spec files
+  - [x] 5.2 Add deprecation banners to `57_archetype_model_tiers` spec files
     - Add `> **SUPERSEDED** by spec 89_simplify_routing.` banner to top of each file
     - _Requirements: 89-REQ-7.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Deprecation banners present in all files of both specs
-    - [ ] `make check` passes: `make check`
+  - [x] 5.V Verify task group 5
+    - [x] Deprecation banners present in all files of both specs
+    - [x] `make check` passes: `make check`
 
 - [ ] 6. Wiring verification
   - [ ] 6.1 Trace every execution path from design.md end-to-end

@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 89_simplify_routing.
+
 # PRD: Adaptive Model Routing
 
 ## Problem Statement
