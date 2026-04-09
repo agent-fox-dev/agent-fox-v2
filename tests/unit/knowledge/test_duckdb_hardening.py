@@ -332,28 +332,3 @@ class TestContextAssemblyRequired:
 
         context = assemble_context(spec_dir, task_group=1, conn=knowledge_conn)
         assert "Test finding from DB" in context
-
-
-# -- TS-38-7: AssessmentPipeline requires db ---------------------------------
-
-
-class TestRoutingRequired:
-    """Verify AssessmentPipeline requires db parameter.
-
-    Requirements: 38-REQ-6.1, 38-REQ-6.2
-    """
-
-    def test_db_parameter_is_required(self) -> None:
-        """TS-38-7: db type is non-optional."""
-        from agent_fox.routing.assessor import AssessmentPipeline
-
-        hints = get_type_hints(AssessmentPipeline.__init__)
-        assert "db" in hints
-        assert hints["db"] is duckdb.DuckDBPyConnection
-
-    def test_get_outcome_count_requires_db(self) -> None:
-        """TS-38-7: _get_outcome_count needs non-None db."""
-        from agent_fox.routing.assessor import AssessmentPipeline
-
-        hints = get_type_hints(AssessmentPipeline.__init__)
-        assert hints["db"] is duckdb.DuckDBPyConnection

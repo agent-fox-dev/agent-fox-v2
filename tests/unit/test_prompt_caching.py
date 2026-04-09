@@ -252,7 +252,6 @@ AUXILIARY_MODULES = [
     "agent_fox/nightshift/critic.py",
     "agent_fox/nightshift/staleness.py",
     "agent_fox/nightshift/triage.py",
-    "agent_fox/routing/assessor.py",
     "agent_fox/spec/ai_validation.py",
     "agent_fox/engine/knowledge_harvest.py",
     "agent_fox/knowledge/query_oracle.py",

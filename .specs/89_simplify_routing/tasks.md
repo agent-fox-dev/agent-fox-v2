@@ -41,28 +41,28 @@ superseded specs, and finally verify wiring end-to-end.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Delete prediction pipeline source modules
-  - [ ] 2.1 Delete `agent_fox/routing/assessor.py`
+- [x] 2. Delete prediction pipeline source modules
+  - [x] 2.1 Delete `agent_fox/routing/assessor.py`
     - _Requirements: 89-REQ-2.1_
 
-  - [ ] 2.2 Delete `agent_fox/routing/features.py`
+  - [x] 2.2 Delete `agent_fox/routing/features.py`
     - _Requirements: 89-REQ-2.1_
 
-  - [ ] 2.3 Delete `agent_fox/routing/calibration.py`
+  - [x] 2.3 Delete `agent_fox/routing/calibration.py`
     - _Requirements: 89-REQ-2.1_
 
-  - [ ] 2.4 Delete `agent_fox/routing/duration.py`
+  - [x] 2.4 Delete `agent_fox/routing/duration.py`
     - _Requirements: 89-REQ-2.1_
 
-  - [ ] 2.5 Gut `agent_fox/routing/core.py`
+  - [x] 2.5 Gut `agent_fox/routing/core.py`
     - Remove functions: `_feature_vector_to_json`, `persist_assessment`, `persist_outcome`, `count_outcomes`, `query_outcomes`
     - Remove DuckDB imports
     - Keep dataclasses: `FeatureVector`, `ComplexityAssessment`, `ExecutionOutcome`
     - _Requirements: 89-REQ-2.2, 89-REQ-2.4_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests TS-89-4, TS-89-5, TS-89-6 pass
-    - [ ] No linter warnings: `uv run ruff check agent_fox/routing/`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests TS-89-4, TS-89-5, TS-89-6 pass
+    - [x] No linter warnings: `uv run ruff check agent_fox/routing/`
 
 - [ ] 3. Simplify engine integration points
   - [ ] 3.1 Simplify `agent_fox/engine/assessment.py`
