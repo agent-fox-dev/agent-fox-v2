@@ -25,21 +25,21 @@ superseded specs, and finally verify wiring end-to-end.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/unit/routing/test_simplify_routing.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/unit/routing/test_simplify_routing.py`
     - Tests for TS-89-1 through TS-89-13, TS-89-E1
     - Tests for TS-89-P1 through TS-89-P5
     - All tests MUST fail initially (assert against not-yet-simplified behavior)
     - _Test Spec: TS-89-1 through TS-89-13, TS-89-E1, TS-89-P1 through TS-89-P5_
 
-  - [ ] 1.2 Create smoke test `tests/integration/test_routing_simplified_smoke.py`
+  - [x] 1.2 Create smoke test `tests/integration/test_routing_simplified_smoke.py`
     - TS-89-SMOKE-1: orchestrator dispatch creates ladder without pipeline
     - _Test Spec: TS-89-SMOKE-1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Delete prediction pipeline source modules
   - [ ] 2.1 Delete `agent_fox/routing/assessor.py`
