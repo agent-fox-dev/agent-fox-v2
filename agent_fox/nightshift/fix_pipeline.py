@@ -19,6 +19,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.nightshift.fix_types import (
     FixReviewResult,
     TriageResult,
@@ -66,7 +67,7 @@ class FixPipeline:
 
     def __init__(
         self,
-        config: object,
+        config: AgentFoxConfig,
         platform: object,
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
@@ -122,7 +123,7 @@ class FixPipeline:
         node_id = f"fix-issue-{spec.issue_number}:0:{archetype}"
 
         # Resolve SDK params per archetype, matching NodeSessionRunner
-        config = self._config  # type: ignore[assignment]
+        config = self._config
         resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype)).model_id
         resolved_security = resolve_security_config(config, archetype)
         resolved_max_turns = resolve_max_turns(config, archetype)
@@ -449,12 +450,12 @@ class FixPipeline:
         from agent_fox.session.review_parser import parse_fix_review_output
 
         retries_before = getattr(
-            self._config.orchestrator,  # type: ignore[attr-defined]
+            self._config.orchestrator,
             "retries_before_escalation",
             1,
         )
         max_retries = getattr(
-            self._config.orchestrator,  # type: ignore[attr-defined]
+            self._config.orchestrator,
             "max_retries",
             3,
         )
