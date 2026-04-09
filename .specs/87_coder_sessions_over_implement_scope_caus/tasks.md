@@ -181,8 +181,8 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
     - [x] Requirements 87-REQ-2.1–2.5, 87-REQ-2.E1–E3, 87-REQ-3.1–3.4, 87-REQ-3.E1–E3 acceptance criteria met
 
-- [ ] 6. Prompt builder and session classifier
-  - [ ] 6.1 Implement `scope_guard/prompt_builder.py`
+- [x] 6. Prompt builder and session classifier
+  - [x] 6.1 Implement `scope_guard/prompt_builder.py`
     - Implement `build_prompt(task_group: TaskGroup, scope_result: ScopeCheckResult | None = None) -> str`
     - For test-writing archetypes: inject `<!-- SCOPE_GUARD:STUB_ONLY -->` directive block with stub-only constraint text
     - For non-test-writing archetypes: omit the directive block
@@ -192,7 +192,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-1.1, 87-REQ-2.3, 87-REQ-5.1_
     - _Test Spec: TS-87-1, TS-87-7, TS-87-18, TS-87-P7, TS-87-P17_
 
-  - [ ] 6.2 Implement `scope_guard/session_classifier.py`
+  - [x] 6.2 Implement `scope_guard/session_classifier.py`
     - Implement `classify_session(session: SessionResult, task_group: TaskGroup) -> SessionOutcome`
     - Implement `_count_functional_commits(session: SessionResult) -> int` — filter out whitespace/comment-only commits
     - Classification logic: error exit → `FAILURE`; harvest error → `HARVEST_ERROR`; zero functional commits + normal exit → `NO_OP`; has commits + test-writing → run stub validation and flag violations; else → `SUCCESS`
@@ -200,11 +200,11 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-1.3, 87-REQ-4.1, 87-REQ-4.E1, 87-REQ-4.E2, 87-REQ-4.E3_
     - _Test Spec: TS-87-3, TS-87-14, TS-87-E10, TS-87-E11, TS-87-E12, TS-87-P11, TS-87-P12, TS-87-P13, TS-87-P14_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_prompt_builder.py tests/test_scope_guard/test_session_classifier.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check src/scope_guard/`
-    - [ ] Requirements 87-REQ-1.1, 87-REQ-1.3, 87-REQ-2.3, 87-REQ-4.1, 87-REQ-4.E1–E3, 87-REQ-5.1 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_prompt_builder.py tests/test_scope_guard/test_session_classifier.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
+    - [x] Requirements 87-REQ-1.1, 87-REQ-1.3, 87-REQ-2.3, 87-REQ-4.1, 87-REQ-4.E1–E3, 87-REQ-5.1 acceptance criteria met
 
 - [ ] 7. Telemetry persistence and querying
   - [ ] 7.1 Implement `scope_guard/telemetry.py` — schema and session outcome recording
