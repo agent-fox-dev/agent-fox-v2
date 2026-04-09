@@ -151,7 +151,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
     - [x] Requirements 87-REQ-1.2, 87-REQ-1.3, 87-REQ-1.E1, 87-REQ-1.E2, 87-REQ-1.E3 acceptance criteria met
 
-- [ ] 4. Checkpoint — Stub Enforcement Complete
+- [x] 4. Checkpoint — Stub Enforcement Complete
   - Ensure all stub enforcement tests pass (TS-87-1 through TS-87-4, TS-87-E1 through TS-87-E3, TS-87-P1 through TS-87-P3).
   - Verify: `uv run pytest -q tests/test_scope_guard/test_stub_patterns.py tests/test_scope_guard/test_stub_validator.py`
   - Create or update documentation in README.md covering stub enforcement usage.
