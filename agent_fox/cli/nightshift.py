@@ -7,7 +7,7 @@ are automatically processed through the full archetype pipeline and a
 pull request is opened per fix.
 
 Requirements: 61-REQ-1.1, 61-REQ-1.2, 61-REQ-1.3, 61-REQ-1.4,
-              85-REQ-2.1, 85-REQ-4.1, 85-REQ-6.1
+              85-REQ-2.1, 85-REQ-4.1, 85-REQ-6.1, 85-REQ-10.2
 """
 
 from __future__ import annotations
@@ -17,10 +17,80 @@ import logging
 import signal
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import click
 
+if TYPE_CHECKING:
+    from agent_fox.core.config import AgentFoxConfig
+    from agent_fox.spec.discovery import SpecInfo
+    from agent_fox.ui.progress import ProgressDisplay
+
 logger = logging.getLogger(__name__)
+
+
+class _SpecBatchRunner:
+    """Builds a plan from discovered specs and runs the orchestrator.
+
+    Wraps ``run_code()`` so that ``SpecExecutorStream`` can call
+    ``runner.run()`` and get back an ``ExecutionState`` with
+    ``total_cost``.
+
+    Requirements: 85-REQ-10.2
+    """
+
+    def __init__(
+        self,
+        config: AgentFoxConfig,
+        specs: list[SpecInfo],
+        progress: ProgressDisplay | None = None,
+    ) -> None:
+        self._config = config
+        self._specs = specs
+        self._progress = progress
+
+    async def run(self) -> Any:
+        from agent_fox.core.paths import PLAN_PATH, STATE_PATH
+        from agent_fox.engine.run import run_code
+        from agent_fox.graph.builder import build_graph
+        from agent_fox.graph.persistence import save_plan
+        from agent_fox.graph.resolver import resolve_order
+        from agent_fox.spec.parser import parse_cross_deps, parse_tasks
+
+        # Build plan from the discovered specs
+        task_groups: dict[str, list] = {}
+        cross_deps = []
+        for spec in self._specs:
+            if not spec.has_tasks:
+                continue
+            groups = parse_tasks(spec.path / "tasks.md")
+            if groups:
+                task_groups[spec.name] = groups
+            if spec.has_prd:
+                deps = parse_cross_deps(spec.path / "prd.md", spec_name=spec.name)
+                cross_deps.extend(deps)
+
+        discovered_names = {s.name for s in self._specs}
+        cross_deps = [d for d in cross_deps if d.from_spec in discovered_names and d.to_spec in discovered_names]
+
+        graph = build_graph(
+            self._specs,
+            task_groups,
+            cross_deps,
+            archetypes_config=self._config.archetypes,
+        )
+        graph.order = resolve_order(graph)
+        save_plan(graph, PLAN_PATH)
+
+        # Clear stale state so the orchestrator starts fresh for this batch
+        if STATE_PATH.exists():
+            STATE_PATH.unlink()
+
+        return await run_code(
+            self._config,
+            activity_callback=(self._progress.activity_callback if self._progress else None),
+            task_callback=(self._progress.task_callback if self._progress else None),
+        )
 
 
 @click.command("night-shift")
@@ -125,6 +195,13 @@ def night_shift_cmd(
             _known_specs.add(spec.name)
         return found
 
+    # Orchestrator factory for the spec-executor stream (85-REQ-10.2).
+    # Each call builds a plan from the discovered specs, then delegates
+    # to run_code() which handles infrastructure setup, orchestrator
+    # creation, execution, and cleanup.
+    def _orch_factory(specs: list) -> _SpecBatchRunner:
+        return _SpecBatchRunner(config, specs, progress=progress)
+
     # Build work streams with CLI flags (85-REQ-6.1)
     streams = build_streams(
         config,
@@ -135,6 +212,7 @@ def night_shift_cmd(
         engine=engine,
         budget=budget,
         discover_fn=_discover_fn,
+        orch_factory=_orch_factory,
     )
 
     # Create the daemon runner (85-REQ-1.2, 85-REQ-2.1, 85-REQ-4.1)
