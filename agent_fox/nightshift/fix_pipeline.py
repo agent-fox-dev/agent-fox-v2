@@ -271,7 +271,7 @@ class FixPipeline:
             context=context,
             task_group=0,
             spec_name=f"fix-issue-{spec.issue_number}",
-            archetype="coder",
+            archetype="fix_coder",
         )
 
         # Build task prompt, injecting reviewer feedback on retry
@@ -372,7 +372,7 @@ class FixPipeline:
         Requirements: 82-REQ-8.3
         """
         return await self._run_session(
-            "coder",
+            "fix_coder",
             workspace,
             spec=spec,
             system_prompt=system_prompt,
@@ -477,7 +477,7 @@ class FixPipeline:
             # Build and run coder session
             system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
 
-            node_id = f"fix-issue-{spec.issue_number}:0:coder"
+            node_id = f"fix-issue-{spec.issue_number}:0:fix_coder"
             t0 = time.monotonic()
             try:
                 coder_outcome = await self._run_coder_session(
@@ -495,7 +495,7 @@ class FixPipeline:
                             node_id=node_id,
                             status="completed",
                             duration_s=duration,
-                            archetype="coder",
+                            archetype="fix_coder",
                         )
                     )
             except Exception:
@@ -506,7 +506,7 @@ class FixPipeline:
                             node_id=node_id,
                             status="failed",
                             duration_s=duration,
-                            archetype="coder",
+                            archetype="fix_coder",
                         )
                     )
                 raise

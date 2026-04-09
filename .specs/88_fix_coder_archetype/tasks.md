@@ -79,38 +79,38 @@ verification. The template is standalone (copy-and-diverge from coding.md).
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
-- [ ] 3. Update fix pipeline and wiring verification
-  - [ ] 3.1 Update `_build_coder_prompt()` in `fix_pipeline.py`
+- [x] 3. Update fix pipeline and wiring verification
+  - [x] 3.1 Update `_build_coder_prompt()` in `fix_pipeline.py`
     - Change `archetype="coder"` to `archetype="fix_coder"`
     - Remove the hardcoded commit format lines appended to task_prompt
     - _Requirements: 88-REQ-3.1, 88-REQ-3.3_
 
-  - [ ] 3.2 Update `_run_coder_session()` in `fix_pipeline.py`
+  - [x] 3.2 Update `_run_coder_session()` in `fix_pipeline.py`
     - Change `"coder"` to `"fix_coder"` in the `_run_session()` call
     - _Requirements: 88-REQ-3.2_
 
-  - [ ] 3.3 Trace execution path end-to-end
+  - [x] 3.3 Trace execution path end-to-end
     - Verify `_build_coder_prompt` → `build_system_prompt` → `get_archetype("fix_coder")` → `_load_template("fix_coding.md")` chain is live
     - Verify `_run_coder_session` → `_run_session("fix_coder")` → `resolve_model_tier(config, "fix_coder")` chain resolves correctly
     - _Requirements: all_
 
-  - [ ] 3.4 Run integration smoke test
+  - [x] 3.4 Run integration smoke test
     - TS-88-SMOKE-1 passes using real components
     - _Test Spec: TS-88-SMOKE-1_
 
-  - [ ] 3.5 Stub / dead-code audit
+  - [x] 3.5 Stub / dead-code audit
     - Search all files touched by this spec for stubs, `return []`, `pass`,
       `NotImplementedError`, `# TODO`
     - Verify no unjustified stubs remain
     - _Requirements: all_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/nightshift/test_fix_coder.py tests/unit/test_fix_coder_archetype.py tests/property/test_fix_coder_props.py tests/integration/test_fix_coder_smoke.py`
-    - [ ] SDK parity tests TS-88-P3 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] No unjustified stubs in touched files
-    - [ ] Execution path from design.md is live
+  - [x] 3.V Verify task group 3
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/nightshift/test_fix_coder.py tests/unit/test_fix_coder_archetype.py tests/property/test_fix_coder_props.py tests/integration/test_fix_coder_smoke.py`
+    - [x] SDK parity tests TS-88-P3 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] No unjustified stubs in touched files
+    - [x] Execution path from design.md is live
 
 ## Traceability
 
