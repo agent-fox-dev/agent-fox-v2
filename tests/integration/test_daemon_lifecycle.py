@@ -182,10 +182,10 @@ class TestPersistentStreamFailure:
 
         failing = _make_mock_stream(
             name="failing",
-            interval=1,
+            interval=0,
             side_effect=[RuntimeError("always fail")] * 10,
         )
-        healthy = _make_mock_stream(name="healthy", interval=1)
+        healthy = _make_mock_stream(name="healthy", interval=0)
         budget = SharedBudget(max_cost=None)
         config = _make_config()
         runner = DaemonRunner(config, None, [failing, healthy], budget, pid_path=tmp_path / "d.pid")
