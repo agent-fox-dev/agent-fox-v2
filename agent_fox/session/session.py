@@ -28,7 +28,6 @@ from agent_fox.knowledge.audit import (
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher, ToolCall, ToolError
 from agent_fox.session.backends.protocol import (
     AgentBackend,
-    AgentMessage,
     AssistantMessage,
     ResultMessage,
     ToolUseMessage,
@@ -313,5 +312,3 @@ async def _execute_query(
     if not query_state.saw_result:
         query_state.status = "failed"
         query_state.error_message = query_state.error_message or "Session ended without a result message."
-
-
