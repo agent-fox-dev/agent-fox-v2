@@ -7,11 +7,16 @@ Requirements: 88-REQ-3.1, 88-REQ-3.2, 88-REQ-3.3
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agent_fox.workspace import WorkspaceInfo
+
+if TYPE_CHECKING:
+    from agent_fox.nightshift.fix_types import TriageResult
+    from agent_fox.nightshift.spec_builder import InMemorySpec
 
 
 def _make_config() -> MagicMock:
@@ -26,7 +31,7 @@ def _make_config() -> MagicMock:
     return config
 
 
-def _make_spec(task_prompt: str = "Fix the issue: test\n\nIssue #42\n\nSome body") -> object:
+def _make_spec(task_prompt: str = "Fix the issue: test\n\nIssue #42\n\nSome body") -> InMemorySpec:
     """Return a minimal InMemorySpec-like object."""
     from agent_fox.nightshift.spec_builder import InMemorySpec
 
@@ -39,7 +44,7 @@ def _make_spec(task_prompt: str = "Fix the issue: test\n\nIssue #42\n\nSome body
     )
 
 
-def _make_triage() -> object:
+def _make_triage() -> TriageResult:
     """Return an empty TriageResult."""
     from agent_fox.nightshift.fix_types import TriageResult
 
