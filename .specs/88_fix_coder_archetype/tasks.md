@@ -54,8 +54,8 @@ verification. The template is standalone (copy-and-diverge from coding.md).
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
 
-- [ ] 2. Create fix_coding.md template and register archetype
-  - [ ] 2.1 Create `agent_fox/_templates/prompts/fix_coding.md`
+- [x] 2. Create fix_coding.md template and register archetype
+  - [x] 2.1 Create `agent_fox/_templates/prompts/fix_coding.md`
     - Copy `coding.md` as starting point, then diverge
     - Replace role description: "Fix Coder" for issue-driven fixes
     - Remove: TASK LOCK section (task groups), IMPLEMENT group-based workflow,
@@ -66,18 +66,18 @@ verification. The template is standalone (copy-and-diverge from coding.md).
     - Verify: no `.specs/` or `tasks.md` references remain
     - _Requirements: 88-REQ-1.1 through 88-REQ-1.6, 88-REQ-1.E1_
 
-  - [ ] 2.2 Add `fix_coder` entry to `ARCHETYPE_REGISTRY` in `archetypes.py`
+  - [x] 2.2 Add `fix_coder` entry to `ARCHETYPE_REGISTRY` in `archetypes.py`
     - `templates=["fix_coding.md"]`
     - Same defaults as `coder`: STANDARD, 300 turns, adaptive, 64000 budget
     - `task_assignable=False`
     - _Requirements: 88-REQ-2.1 through 88-REQ-2.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests TS-88-1 through TS-88-9 pass
-    - [ ] Property tests TS-88-P1, TS-88-P2 pass
-    - [ ] Edge case tests TS-88-E1, TS-88-E2 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests TS-88-1 through TS-88-9 pass
+    - [x] Property tests TS-88-P1, TS-88-P2 pass
+    - [x] Edge case tests TS-88-E1, TS-88-E2 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
 - [ ] 3. Update fix pipeline and wiring verification
   - [ ] 3.1 Update `_build_coder_prompt()` in `fix_pipeline.py`

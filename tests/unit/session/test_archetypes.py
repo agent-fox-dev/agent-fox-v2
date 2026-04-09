@@ -41,6 +41,7 @@ class TestRegistryCompleteness:
             "auditor",
             "triage",
             "fix_reviewer",
+            "fix_coder",
         }
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
