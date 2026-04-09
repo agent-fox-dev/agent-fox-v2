@@ -28,12 +28,11 @@ from agent_fox.knowledge.audit import (
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher, ToolCall, ToolError
 from agent_fox.session.backends.protocol import (
     AgentBackend,
-    AgentMessage,
     AssistantMessage,
     ResultMessage,
     ToolUseMessage,
 )
-from agent_fox.ui.progress import ActivityCallback, ActivityEvent, abbreviate_arg
+from agent_fox.ui.progress import ActivityCallback, abbreviate_arg
 from agent_fox.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
@@ -221,8 +220,6 @@ async def _execute_query(
         result = allowlist_hook(tool_name=tool_name, tool_input=tool_input)
         return result.get("decision") != "block"
 
-    turn_count = 0
-    cumulative_tokens = 0
     last_tool_name: str | None = None  # track most-recent tool for error attribution
 
     async for message in backend.execute(  # type: ignore[attr-defined]
@@ -231,28 +228,15 @@ async def _execute_query(
         model=model_id,
         cwd=cwd,
         permission_callback=_permission_callback,
+        activity_callback=activity_callback,
+        node_id=node_id,
+        archetype=archetype,
         max_turns=max_turns,
         max_budget_usd=max_budget_usd,
         fallback_model=fallback_model,
         thinking=thinking,
     ):
         is_result = isinstance(message, ResultMessage)
-
-        # 18-REQ-2.1, 18-REQ-2.E1: Emit activity events for non-result messages
-        if activity_callback is not None and not is_result:
-            turn_count += 1
-            event = _extract_activity(
-                node_id,
-                message,
-                turn=turn_count,
-                tokens=cumulative_tokens,
-                archetype=archetype,
-            )
-            if event is not None:
-                try:
-                    activity_callback(event)
-                except Exception:
-                    logger.debug("Activity callback raised; ignoring")
 
         # 40-REQ-8.1, 40-REQ-8.2: Emit tool.invocation audit events
         if sink_dispatcher is not None and run_id and isinstance(message, ToolUseMessage):
@@ -295,10 +279,6 @@ async def _execute_query(
         if isinstance(message, AssistantMessage) and message.content:
             query_state.last_response = message.content
 
-        # Track cumulative tokens from ToolUseMessage / AssistantMessage
-        # (canonical messages don't carry usage info on non-result messages,
-        # so cumulative token tracking is now driven by the ResultMessage)
-
         # 03-REQ-3.2: Collect the ResultMessage.
         if not is_result:
             continue
@@ -309,9 +289,6 @@ async def _execute_query(
         query_state.cache_read_input_tokens = message.cache_read_input_tokens
         query_state.cache_creation_input_tokens = message.cache_creation_input_tokens
         query_state.duration_ms = message.duration_ms
-
-        # Update cumulative tokens from the final result
-        cumulative_tokens = message.input_tokens + message.output_tokens
 
         # 03-REQ-3.E2: Check is_error flag
         if message.is_error:
@@ -335,46 +312,3 @@ async def _execute_query(
     if not query_state.saw_result:
         query_state.status = "failed"
         query_state.error_message = query_state.error_message or "Session ended without a result message."
-
-
-def _extract_activity(
-    node_id: str,
-    message: AgentMessage,
-    *,
-    turn: int = 0,
-    tokens: int | None = None,
-    archetype: str | None = None,
-) -> ActivityEvent | None:
-    """Extract an ActivityEvent from a canonical message.
-
-    - ToolUseMessage: extract tool name and abbreviated first argument.
-    - AssistantMessage: emit a thinking event.
-    - ResultMessage: ignored (handled separately).
-    """
-    if isinstance(message, ToolUseMessage):
-        arg = ""
-        for v in message.tool_input.values():
-            if isinstance(v, str):
-                arg = abbreviate_arg(v)
-                break
-        return ActivityEvent(
-            node_id=node_id,
-            tool_name=message.tool_name,
-            argument=arg,
-            turn=turn,
-            tokens=tokens,
-            archetype=archetype,
-        )
-
-    if isinstance(message, AssistantMessage):
-        return ActivityEvent(
-            node_id=node_id,
-            tool_name="thinking...",
-            argument="",
-            turn=turn,
-            tokens=tokens,
-            archetype=archetype,
-        )
-
-    # ResultMessage — no activity event
-    return None

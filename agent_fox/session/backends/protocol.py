@@ -13,6 +13,10 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
+# ActivityCallback is imported lazily by callers to avoid circular imports.
+# Protocol uses Any here so protocol.py has no dependency on ui.progress.
+_ActivityCallback = Any  # Callable[[ActivityEvent], None]
+
 # ---------------------------------------------------------------------------
 # Canonical message types
 # ---------------------------------------------------------------------------
@@ -109,6 +113,9 @@ class AgentBackend(Protocol):
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
+        activity_callback: _ActivityCallback = None,
+        node_id: str = "",
+        archetype: Any = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
         fallback_model: str | None = None,
