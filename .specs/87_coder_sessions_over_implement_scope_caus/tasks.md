@@ -103,12 +103,12 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - [x] All spec tests FAIL (red) — no implementation yet: `uv run pytest -q tests/test_scope_guard/ --tb=no`
     - [x] No linter warnings introduced: `uv run ruff check tests/test_scope_guard/`
 
-- [ ] 2. Models and stub patterns
-  - [ ] 2.1 Implement `scope_guard/models.py`
+- [x] 2. Models and stub patterns
+  - [x] 2.1 Implement `scope_guard/models.py`
     - Define all dataclasses and enums from design.md: `Language`, `DeliverableStatus`, `SessionClassification`, `OverlapSeverity`, `Deliverable`, `FunctionBody`, `DeliverableCheckResult`, `ScopeCheckResult`, `OverlapRecord`, `OverlapResult`, `ViolationRecord`, `StubValidationResult`, `SessionOutcome`, `PromptRecord`, `SpecWasteSummary`, `WasteReport`, `TaskGroup`, `SpecGraph`, `FileChange`, `SessionResult`
     - _Requirements: all (foundational types)_
 
-  - [ ] 2.2 Implement `scope_guard/stub_patterns.py`
+  - [x] 2.2 Implement `scope_guard/stub_patterns.py`
     - Implement `detect_language(file_path: str) -> Language` using file extension mapping
     - Implement `get_stub_patterns(language: Language) -> list[re.Pattern]` returning compiled regex patterns per language
     - Implement `is_stub_body(body: str, language: Language) -> bool` — strip comments/whitespace, check entire content matches single stub placeholder
@@ -116,15 +116,15 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-1.4, 87-REQ-1.E1, 87-REQ-1.E2_
     - _Test Spec: TS-87-4, TS-87-E2, TS-87-P1_
 
-  - [ ] 2.3 Create `scope_guard/__init__.py` with public API exports
+  - [x] 2.3 Create `scope_guard/__init__.py` with public API exports
     - Export all model types and module-level functions
     - _Requirements: all_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_stub_patterns.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check src/scope_guard/`
-    - [ ] Requirements 87-REQ-1.4, 87-REQ-1.E1, 87-REQ-1.E2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_stub_patterns.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check src/scope_guard/`
+    - [x] Requirements 87-REQ-1.4, 87-REQ-1.E1, 87-REQ-1.E2 acceptance criteria met
 
 - [ ] 3. Source parser and stub validator
   - [ ] 3.1 Implement `scope_guard/source_parser.py`
