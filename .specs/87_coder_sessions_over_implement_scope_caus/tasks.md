@@ -241,34 +241,34 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - No-op/pre-flight-skip telemetry and waste reporting
     - Configuration flags for rollout phases
 
-- [ ] 9. Integration smoke tests
-  - [ ] 9.1 Implement smoke test: overlap detection through warning/error emission
+- [x] 9. Integration smoke tests
+  - [x] 9.1 Implement smoke test: overlap detection through warning/error emission
     - Test full Path 1 from design.md: `detect_overlaps(spec_graph)` → `OverlapResult` → caller checks `has_errors`
     - Must NOT mock: `overlap_detector.detect_overlaps`, `overlap_detector._compare_deliverables`, `overlap_detector._classify_overlaps`
     - Use a real `SpecGraph` with known overlapping deliverables
     - _Test Spec: TS-87-SMOKE-1_
     - _Requirements: 87-REQ-3.1, 87-REQ-3.2, 87-REQ-3.3, 87-REQ-3.4_
 
-  - [ ] 9.2 Implement smoke test: pre-flight skip of fully-implemented task group
+  - [x] 9.2 Implement smoke test: pre-flight skip of fully-implemented task group
     - Test full Path 2: `check_scope` → all-implemented → `record_session_outcome(pre-flight-skip)` → verify DuckDB row
     - Must NOT mock: `preflight_checker.check_scope`, `source_parser.extract_function_body`, `stub_patterns.is_stub_body`, `telemetry.record_session_outcome`
     - Create temp codebase directory with fully-implemented functions
     - _Test Spec: TS-87-SMOKE-2_
     - _Requirements: 87-REQ-2.1, 87-REQ-2.2, 87-REQ-2.4, 87-REQ-2.5_
 
-  - [ ] 9.3 Implement smoke test: reduced scope prompt for partially-implemented task group
+  - [x] 9.3 Implement smoke test: reduced scope prompt for partially-implemented task group
     - Test full Path 3: `check_scope` → partially-implemented → `build_prompt` with pending-only deliverables → stub directive if test-writing
     - Must NOT mock: `preflight_checker.check_scope`, `prompt_builder.build_prompt`, `prompt_builder._filter_pending_deliverables`
     - _Test Spec: TS-87-SMOKE-3_
     - _Requirements: 87-REQ-2.3, 87-REQ-5.1_
 
-  - [ ] 9.4 Implement smoke test: stub enforcement validates test-writing session output
+  - [x] 9.4 Implement smoke test: stub enforcement validates test-writing session output
     - Test full Path 4: `classify_session` → test-writing with commits → `validate_stubs` → violations detected → `record_session_outcome` with `stub_violation=True`
     - Must NOT mock: `session_classifier.classify_session`, `stub_validator.validate_stubs`, `source_parser.extract_modified_functions`, `stub_patterns.is_stub_body`, `telemetry.record_session_outcome`
     - _Test Spec: TS-87-SMOKE-4_
     - _Requirements: 87-REQ-1.2, 87-REQ-1.3_
 
-  - [ ] 9.5 Implement smoke test: no-op and failure classification with telemetry recording
+  - [x] 9.5 Implement smoke test: no-op and failure classification with telemetry recording
     - Test Paths 5 and 6: `classify_session` for zero-commit normal exit → no-op; zero-commit error exit → failure; both recorded in DuckDB
     - Must NOT mock: `session_classifier.classify_session`, `telemetry.record_session_outcome`
     - _Test Spec: TS-87-
