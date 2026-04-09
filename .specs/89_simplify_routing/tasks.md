@@ -144,35 +144,35 @@ superseded specs, and finally verify wiring end-to-end.
     - [x] Deprecation banners present in all files of both specs
     - [x] `make check` passes: `make check`
 
-- [ ] 6. Wiring verification
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+- [x] 6. Wiring verification
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For Path 1 (orchestrator dispatch): verify assess_node() creates ladder,
       result_handler uses ladder for retry, no removed module is imported
     - For Path 2 (fix pipeline): verify fix_pipeline creates its own ladder
       (unchanged, but confirm no broken imports)
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - assess_node() stores ladder in self.ladders; confirm engine reads it
     - Confirm no caller of removed functions remains
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - `uv run pytest -q tests/integration/test_routing_simplified_smoke.py`
     - _Test Spec: TS-89-SMOKE-1_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Grep for: `AssessmentPipeline`, `routing.assessor`, `routing.features`,
       `routing.calibration`, `routing.duration`, `persist_assessment`,
       `persist_outcome`, `record_node_outcome`, `routing_pipeline`
     - Each hit must be resolved or justified
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] Full suite passes: `make check`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] Full suite passes: `make check`
 
 ## Traceability
 
