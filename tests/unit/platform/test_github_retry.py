@@ -5,6 +5,7 @@ Acceptance criteria: AC-1 through AC-5 from issue #313.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -17,7 +18,9 @@ _TARGET = "agent_fox.platform.github.httpx.AsyncClient"
 _SLEEP_TARGET = "agent_fox.platform.github.asyncio.sleep"
 
 
-def _json_response(status_code: int, json_data: dict | None = None) -> MagicMock:
+def _json_response(
+    status_code: int, json_data: dict[Any, Any] | list[Any] | None = None
+) -> MagicMock:
     resp = MagicMock()
     resp.status_code = status_code
     resp.text = ""
@@ -67,6 +70,7 @@ class TestExplicitTimeout:
         assert "timeout" in kwargs, "httpx.AsyncClient must be called with timeout="
         timeout = kwargs["timeout"]
         assert isinstance(timeout, httpx.Timeout)
+        assert timeout.connect is not None, "connect timeout must not be None"
         assert timeout.connect >= 15.0, "connect timeout must be >= 15 seconds"
 
     @pytest.mark.asyncio
