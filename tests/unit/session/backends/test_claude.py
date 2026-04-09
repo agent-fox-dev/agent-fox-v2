@@ -773,3 +773,408 @@ class TestStreamTeardownClosesResponseStream:
                     pass
 
         assert aclose_called.is_set(), "aclose() must be called even on stream error"
+
+
+# ---------------------------------------------------------------------------
+# Issue #320: SDK Notification hook wiring for activity progress events
+# AC-1 through AC-7
+# ---------------------------------------------------------------------------
+
+
+class TestNotificationHookRegistered:
+    """AC-1: ClaudeBackend registers a Notification hook when activity_callback
+    is provided.
+    """
+
+    @pytest.mark.asyncio
+    async def test_notification_hook_registered_when_callback_given(self) -> None:
+        """When activity_callback is provided, ClaudeAgentOptions.hooks contains
+        a 'Notification' key with at least one HookMatcher.
+
+        AC-1: Inspect the options passed to ClaudeSDKClient.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.ui.progress import ActivityEvent
+
+        captured_options: list = []
+
+        async def _mock_response_gen():
+            from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+            yield SDKResultMessage(
+                subtype="success",
+                is_error=False,
+                result="done",
+                duration_ms=100,
+                duration_api_ms=80,
+                num_turns=1,
+                session_id="test",
+                total_cost_usd=0.01,
+                usage={"input_tokens": 10, "output_tokens": 5},
+            )
+
+        def _fake_sdk_client(options):
+            captured_options.append(options)
+            mock_client = AsyncMock()
+            mock_client.query = AsyncMock()
+            mock_client.receive_response = MagicMock(return_value=_mock_response_gen())
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            return mock_client
+
+        backend = ClaudeBackend()
+        events: list[ActivityEvent] = []
+
+        with patch("agent_fox.session.backends.claude.ClaudeSDKClient", side_effect=_fake_sdk_client):
+            async for _ in backend.execute(
+                "test",
+                system_prompt="sys",
+                model="claude-sonnet-4-6",
+                cwd="/tmp",
+                activity_callback=lambda e: events.append(e),
+                node_id="node-1",
+                archetype="coder",
+            ):
+                pass
+
+        assert len(captured_options) == 1
+        options = captured_options[0]
+        assert options.hooks is not None, "hooks must not be None when activity_callback is provided"
+        assert "Notification" in options.hooks, "hooks must contain 'Notification' key"
+        matchers = options.hooks["Notification"]
+        assert len(matchers) >= 1, "at least one HookMatcher must be registered"
+        assert len(matchers[0].hooks) >= 1, "HookMatcher must have at least one hook function"
+
+    @pytest.mark.asyncio
+    async def test_no_notification_hook_when_callback_is_none(self) -> None:
+        """When activity_callback is None, hooks is not set to contain Notification.
+
+        AC-7: No hook registered, no errors raised.
+        """
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        captured_options: list = []
+
+        async def _mock_response_gen():
+            from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+            yield SDKResultMessage(
+                subtype="success",
+                is_error=False,
+                result="done",
+                duration_ms=100,
+                duration_api_ms=80,
+                num_turns=1,
+                session_id="test",
+                total_cost_usd=0.01,
+                usage={"input_tokens": 10, "output_tokens": 5},
+            )
+
+        def _fake_sdk_client(options):
+            captured_options.append(options)
+            mock_client = AsyncMock()
+            mock_client.query = AsyncMock()
+            mock_client.receive_response = MagicMock(return_value=_mock_response_gen())
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            return mock_client
+
+        backend = ClaudeBackend()
+
+        with patch("agent_fox.session.backends.claude.ClaudeSDKClient", side_effect=_fake_sdk_client):
+            messages = []
+            async for msg in backend.execute(
+                "test",
+                system_prompt="sys",
+                model="claude-sonnet-4-6",
+                cwd="/tmp",
+                activity_callback=None,
+            ):
+                messages.append(msg)
+
+        assert len(captured_options) == 1
+        options = captured_options[0]
+        # When no activity_callback: hooks should be None or not contain 'Notification'
+        assert options.hooks is None or "Notification" not in options.hooks
+        assert len(messages) == 1
+        assert isinstance(messages[0], ResultMessage)
+
+
+class TestNotificationHookHandler:
+    """AC-2: The Notification hook handler converts NotificationHookInput to
+    ActivityEvent and invokes the activity_callback.
+    """
+
+    @pytest.mark.asyncio
+    async def test_hook_produces_activity_event_from_notification_input(self) -> None:
+        """Trigger the hook directly and verify the ActivityEvent fields.
+
+        AC-2: tool_name and argument are derived from the notification input.
+        """
+        from agent_fox.session.backends.claude import _build_notification_hook
+        from agent_fox.ui.progress import ActivityEvent
+
+        events: list[ActivityEvent] = []
+
+        hook = _build_notification_hook(
+            lambda e: events.append(e),
+            node_id="spec-1:2",
+            archetype="verifier",
+        )
+
+        # NotificationHookInput is a TypedDict (dict subclass)
+        notification_input = {
+            "hook_event_name": "Notification",
+            "session_id": "sess-123",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/tmp",
+            "message": "Running Bash command",
+            "title": "Bash",
+            "notification_type": "tool_use",
+        }
+
+        result = await hook(notification_input, None, {"signal": None})
+
+        assert len(events) == 1
+        event = events[0]
+        assert isinstance(event, ActivityEvent)
+        assert event.node_id == "spec-1:2"
+        assert event.tool_name == "Bash"  # derived from title
+        assert event.argument == "Running Bash command"  # derived from message
+        assert event.archetype == "verifier"
+        assert event.turn == 1
+        assert isinstance(event.tokens, int)
+        # Hook must return a dict (SyncHookJSONOutput-compatible)
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_hook_uses_notification_type_when_title_absent(self) -> None:
+        """When title is absent, notification_type is used as tool_name.
+
+        AC-2: tool_name derived from available notification fields.
+        """
+        from agent_fox.session.backends.claude import _build_notification_hook
+        from agent_fox.ui.progress import ActivityEvent
+
+        events: list[ActivityEvent] = []
+
+        hook = _build_notification_hook(
+            lambda e: events.append(e),
+            node_id="node-x",
+            archetype=None,
+        )
+
+        notification_input = {
+            "hook_event_name": "Notification",
+            "session_id": "sess-456",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/tmp",
+            "message": "some notification",
+            "notification_type": "progress",
+        }
+
+        await hook(notification_input, None, {"signal": None})
+
+        assert len(events) == 1
+        assert events[0].tool_name == "progress"
+
+    @pytest.mark.asyncio
+    async def test_hook_turn_counter_increments(self) -> None:
+        """Turn counter increments with each hook invocation.
+
+        AC-2: ActivityEvent.turn reflects invocation order.
+        """
+        from agent_fox.session.backends.claude import _build_notification_hook
+        from agent_fox.ui.progress import ActivityEvent
+
+        events: list[ActivityEvent] = []
+
+        hook = _build_notification_hook(
+            lambda e: events.append(e),
+            node_id="node-y",
+            archetype=None,
+        )
+
+        notification_input = {
+            "hook_event_name": "Notification",
+            "session_id": "sess-789",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/tmp",
+            "message": "msg",
+            "notification_type": "info",
+        }
+
+        await hook(notification_input, None, {"signal": None})
+        await hook(notification_input, None, {"signal": None})
+        await hook(notification_input, None, {"signal": None})
+
+        assert [e.turn for e in events] == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_hook_callback_exception_does_not_propagate(self) -> None:
+        """An exception in activity_callback is swallowed by the hook.
+
+        AC-2 / AC-6: Hook must not propagate callback exceptions.
+        """
+        from agent_fox.session.backends.claude import _build_notification_hook
+
+        def _raising_cb(event):
+            raise ValueError("callback boom")
+
+        hook = _build_notification_hook(
+            _raising_cb,
+            node_id="node-z",
+            archetype=None,
+        )
+
+        notification_input = {
+            "hook_event_name": "Notification",
+            "session_id": "s",
+            "transcript_path": "/tmp/t.json",
+            "cwd": "/tmp",
+            "message": "msg",
+            "notification_type": "info",
+        }
+
+        # Must not raise
+        result = await hook(notification_input, None, {"signal": None})
+        assert isinstance(result, dict)
+
+
+class TestActivityCallbackThreadedThrough:
+    """AC-5: activity_callback is passed to ClaudeBackend.execute() and accessible
+    in the Notification hook closure.
+    """
+
+    @pytest.mark.asyncio
+    async def test_execute_accepts_activity_callback_kwarg(self) -> None:
+        """ClaudeBackend.execute() accepts activity_callback without error.
+
+        AC-5: The parameter is present and accessible.
+        """
+        from agent_fox.ui.progress import ActivityEvent
+
+        backend = ClaudeBackend()
+
+        async def _empty_stream(*, prompt, options):
+            from claude_agent_sdk.types import ResultMessage as SDKResultMessage
+
+            for canonical in ClaudeBackend._map_message(
+                SDKResultMessage(
+                    subtype="success",
+                    is_error=False,
+                    result="done",
+                    duration_ms=100,
+                    duration_api_ms=80,
+                    num_turns=1,
+                    session_id="test",
+                    total_cost_usd=0.01,
+                    usage={"input_tokens": 10, "output_tokens": 5},
+                )
+            ):
+                yield canonical
+
+        events: list[ActivityEvent] = []
+
+        with patch.object(backend, "_stream_messages", _empty_stream):
+            messages = []
+            async for msg in backend.execute(
+                "test",
+                system_prompt="sys",
+                model="claude-sonnet-4-6",
+                cwd="/tmp",
+                activity_callback=lambda e: events.append(e),
+                node_id="ac5-node",
+                archetype="coder",
+            ):
+                messages.append(msg)
+
+        # Session completes without error; callback was passed and accessible
+        assert len(messages) == 1
+        assert isinstance(messages[0], ResultMessage)
+
+
+class TestActivityEventBackwardCompatibility:
+    """AC-6: ActivityEvent from the hook is backward-compatible with
+    ProgressDisplay.on_activity().
+    """
+
+    def test_hook_event_renders_in_progress_display(self) -> None:
+        """ActivityEvent produced by hook path renders without error.
+
+        AC-6: ProgressDisplay.on_activity() accepts the event and updates
+        the spinner text with tool_name and argument.
+        """
+        from io import StringIO
+
+        from rich.console import Console
+        from rich.theme import Theme
+
+        from agent_fox.ui.display import ThemeConfig, create_theme
+        from agent_fox.ui.progress import ActivityEvent, ProgressDisplay
+
+        # Build a non-TTY theme with a StringIO console (mirrors test_progress.py helper)
+        config = ThemeConfig()
+        theme = create_theme(config)
+        buf = StringIO()
+        rich_theme = Theme({})
+        theme.console = Console(file=buf, theme=rich_theme, width=120, force_terminal=False)
+        display = ProgressDisplay(theme, quiet=False)
+
+        event = ActivityEvent(
+            node_id="spec-1:2",
+            tool_name="Bash",
+            argument="make test",
+            turn=3,
+            tokens=0,
+            archetype="coder",
+        )
+
+        # Must not raise; spinner text should contain tool_name (or verbified form)
+        display.on_activity(event)
+        spinner_text = display._get_spinner_text()
+        assert "Bash" in spinner_text or "Running command" in spinner_text
+        assert "make test" in spinner_text
+
+
+class TestSessionNoExtractActivity:
+    """AC-3, AC-4: _extract_activity() is removed from session.py and the
+    message loop no longer calls it directly.
+    """
+
+    def test_extract_activity_not_in_session_py(self) -> None:
+        """_extract_activity is not defined in session.py at module scope.
+
+        AC-4: Function relocated or removed.
+        """
+        import agent_fox.session.session as session_module
+
+        assert not hasattr(session_module, "_extract_activity"), (
+            "_extract_activity must not exist in session.py after refactor"
+        )
+
+    def test_message_loop_does_not_call_extract_activity(self) -> None:
+        """session.py source does not contain a call to _extract_activity().
+
+        AC-3: The branching block is removed from _execute_query().
+        """
+        import os
+
+        session_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "..",
+            "..",
+            "..",
+            "agent_fox",
+            "session",
+            "session.py",
+        )
+        session_path = os.path.normpath(session_path)
+        with open(session_path, encoding="utf-8") as f:
+            content = f.read()
+
+        assert "_extract_activity" not in content, (
+            "_extract_activity must not appear in session.py after refactor"
+        )
