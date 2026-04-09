@@ -261,8 +261,6 @@ class SessionResultHandler:
         graph_sync: GraphSync,
         state_manager: StateManager,
         routing_ladders: dict[str, Any],
-        routing_assessments: dict[str, Any],
-        routing_pipeline: Any | None,
         retries_before_escalation: int,
         max_retries: int,
         task_callback: TaskCallback | None,
@@ -281,8 +279,6 @@ class SessionResultHandler:
         self._graph_sync = graph_sync
         self._state_manager = state_manager
         self._routing_ladders = routing_ladders
-        self._routing_assessments = routing_assessments
-        self._routing_pipeline = routing_pipeline
         self._retries_before_escalation = retries_before_escalation
         self._max_retries = max_retries
         self._task_callback = task_callback
@@ -313,51 +309,6 @@ class SessionResultHandler:
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""
         return self._graph_sync.predecessors(node_id)
-
-    def record_node_outcome(
-        self,
-        node_id: str,
-        state: ExecutionState,
-        final_status: str,
-    ) -> None:
-        """Record execution outcome for a completed/failed node.
-
-        Requirements: 30-REQ-7.4, 30-REQ-3.1
-        """
-        if self._routing_pipeline is None:
-            return
-        assessment = self._routing_assessments.get(node_id)
-        if assessment is None:
-            return
-
-        ladder = self._routing_ladders.get(node_id)
-
-        node_records = [r for r in state.session_history if r.node_id == node_id]
-        total_tokens = sum(r.input_tokens + r.output_tokens for r in node_records)
-        total_cost = sum(r.cost for r in node_records)
-        total_duration = sum(r.duration_ms for r in node_records)
-        files_touched = set()
-        for r in node_records:
-            files_touched.update(r.files_touched)
-
-        try:
-            self._routing_pipeline.record_outcome(
-                assessment=assessment,
-                actual_tier=(ladder.current_tier if ladder else assessment.predicted_tier),
-                total_tokens=total_tokens,
-                total_cost=total_cost,
-                duration_ms=total_duration,
-                attempt_count=(ladder.attempt_count if ladder else len(node_records)),
-                escalation_count=ladder.escalation_count if ladder else 0,
-                outcome=final_status,
-                files_touched_count=len(files_touched),
-            )
-        except Exception:
-            logger.warning(
-                "Failed to record outcome for %s",
-                node_id,
-                exc_info=True,
-            )
 
     def check_skeptic_blocking(
         self,
@@ -642,7 +593,6 @@ class SessionResultHandler:
 
         # 58-REQ-2.1: Block predecessor if ladder exhausted
         if pred_ladder.is_exhausted:
-            self.record_node_outcome(pred_id, state, "failed")
             self._block_task(
                 pred_id,
                 state,
@@ -684,9 +634,6 @@ class SessionResultHandler:
         attempt_tracker: dict[str, int],
     ) -> None:
         """Handle a node that has exhausted all retries."""
-        # 30-REQ-2.3, 30-REQ-7.4: All retries exhausted
-        self.record_node_outcome(node_id, state, "failed")
-
         # 18-REQ-5.4: Emit task failure event
         if self._task_callback is not None:
             duration_s = (record.duration_ms or 0) / 1000

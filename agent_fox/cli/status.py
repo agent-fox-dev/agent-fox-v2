@@ -71,20 +71,8 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
         nodes: dict[str, str] = {nid: node.status.value for nid, node in graph.nodes.items()}
         edges: dict[str, list[str]] = {nid: graph.predecessors(nid) for nid in graph.nodes}
 
-        # Duration hints: use DuckDB if available, otherwise empty
+        # Duration hints: removed along with prediction pipeline (89-REQ-6.1)
         duration_hints: dict[str, int] = {}
-        conn = _get_readonly_conn()
-        if conn is not None:
-            try:
-                from agent_fox.routing.duration import get_duration_hint
-
-                for nid in graph.nodes:
-                    hint = get_duration_hint(conn, nid, spec_name="", archetype="", tier="")
-                    duration_hints[nid] = hint.predicted_ms
-            except Exception:
-                logger.debug("Could not load duration hints", exc_info=True)
-            finally:
-                conn.close()
 
         result = compute_critical_path(nodes, edges, duration_hints)
 

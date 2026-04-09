@@ -64,43 +64,43 @@ superseded specs, and finally verify wiring end-to-end.
     - [x] Spec tests TS-89-4, TS-89-5, TS-89-6 pass
     - [x] No linter warnings: `uv run ruff check agent_fox/routing/`
 
-- [ ] 3. Simplify engine integration points
-  - [ ] 3.1 Simplify `agent_fox/engine/assessment.py`
+- [x] 3. Simplify engine integration points
+  - [x] 3.1 Simplify `agent_fox/engine/assessment.py`
     - Remove pipeline parameter from `AssessmentManager.__init__`
     - Remove pipeline call and try/except in `assess_node()`
     - Always create ladder from archetype default tier
     - Remove `self.pipeline` and `self.assessments` attributes
     - _Requirements: 89-REQ-1.1, 89-REQ-1.2, 89-REQ-1.3, 89-REQ-1.E1_
 
-  - [ ] 3.2 Clean up `agent_fox/engine/result_handler.py`
+  - [x] 3.2 Clean up `agent_fox/engine/result_handler.py`
     - Remove `routing_pipeline` parameter from `__init__`
     - Remove `self._routing_pipeline` attribute
     - Remove `record_node_outcome()` method
     - Remove all code that calls `self._routing_pipeline.record_outcome()`
     - _Requirements: 89-REQ-3.1, 89-REQ-3.2_
 
-  - [ ] 3.3 Clean up `agent_fox/engine/run.py`
+  - [x] 3.3 Clean up `agent_fox/engine/run.py`
     - Remove `AssessmentPipeline` import and construction
     - Remove `assessment_pipeline` from infra dict
     - Update orchestrator construction to not pass assessment_pipeline
     - _Requirements: 89-REQ-2.3_
 
-  - [ ] 3.4 Remove duration references
+  - [x] 3.4 Remove duration references
     - Remove `get_duration_hint` import/usage from `agent_fox/engine/engine.py`
     - Remove `get_duration_hint` import/usage from `agent_fox/cli/status.py`
     - _Requirements: 89-REQ-6.1_
 
-  - [ ] 3.5 Update callers of AssessmentManager and SessionResultHandler
+  - [x] 3.5 Update callers of AssessmentManager and SessionResultHandler
     - Update `Orchestrator.__init__` to not pass `pipeline` to AssessmentManager
     - Update SessionResultHandler construction to not pass `routing_pipeline`
     - Grep for any remaining references to removed modules and fix
     - _Requirements: 89-REQ-2.3, 89-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests TS-89-1 through TS-89-3, TS-89-7 through TS-89-9, TS-89-12, TS-89-E1 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Requirements 89-REQ-1.*, 89-REQ-2.3, 89-REQ-3.*, 89-REQ-6.1 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests TS-89-1 through TS-89-3, TS-89-7 through TS-89-9, TS-89-12, TS-89-E1 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Requirements 89-REQ-1.*, 89-REQ-2.3, 89-REQ-3.*, 89-REQ-6.1 met
 
 - [ ] 4. Clean up config and tests
   - [ ] 4.1 Remove prediction-only fields from `RoutingConfig`

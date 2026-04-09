@@ -100,8 +100,6 @@ def _make_handler(
         graph_sync=graph_sync,
         state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
-        routing_assessments={},
-        routing_pipeline=None,
         retries_before_escalation=1,
         max_retries=2,
         task_callback=None,

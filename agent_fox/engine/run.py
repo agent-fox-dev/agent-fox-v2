@@ -138,21 +138,6 @@ def _setup_infrastructure(
             exc_info=True,
         )
 
-    # Create assessment pipeline for adaptive routing
-    assessment_pipeline = None
-    try:
-        from agent_fox.routing.assessor import AssessmentPipeline
-
-        assessment_pipeline = AssessmentPipeline(
-            config=config.routing,
-            db=knowledge_db.connection,
-        )
-    except Exception:
-        logger.warning(
-            "Failed to initialize assessment pipeline, adaptive routing disabled",
-            exc_info=True,
-        )
-
     hook_cfg = config.hooks
 
     def session_runner_factory(
@@ -187,7 +172,6 @@ def _setup_infrastructure(
         "sink_dispatcher": sink_dispatcher,
         "knowledge_db": knowledge_db,
         "fact_cache": fact_cache,
-        "assessment_pipeline": assessment_pipeline,
         "session_runner_factory": session_runner_factory,
         "audit_dir": AUDIT_DIR,
     }
@@ -287,7 +271,6 @@ async def run_code(
                 {
                     "session_runner_factory": infra["session_runner_factory"],
                     "barrier_callback": lambda: _barrier_sync(infra, config),
-                    "assessment_pipeline": infra["assessment_pipeline"],
                     "sink_dispatcher": infra["sink_dispatcher"],
                     "audit_dir": infra["audit_dir"],
                     "audit_db_conn": infra["knowledge_db"].connection,

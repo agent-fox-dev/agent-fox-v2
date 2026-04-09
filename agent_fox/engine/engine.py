@@ -186,7 +186,6 @@ class Orchestrator:
         task_callback: TaskCallback | None = None,
         barrier_callback: Callable[[], None] | None = None,
         routing_config: RoutingConfig | None = None,
-        assessment_pipeline: Any | None = None,
         archetypes_config: ArchetypesConfig | None = None,
         planning_config: PlanningConfig | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
@@ -221,12 +220,10 @@ class Orchestrator:
         # 66-REQ-7.1, 66-REQ-7.2: Config hot-reload state
         self._config_reloader = ConfigReloader(config_path, full_config)
 
-        # 30-REQ-7: Adaptive routing state
+        # 89-REQ-1: Escalation ladder routing state
         _rc = routing_config or RoutingConfig()
         self._routing_config = _rc  # store for timeout-aware escalation wiring
         self._routing = AssessmentManager(
-            routing_config=_rc,
-            pipeline=assessment_pipeline,
             retries_before_escalation=self._resolve_retries_before_escalation(_rc),
         )
 
@@ -329,7 +326,6 @@ class Orchestrator:
         await self._routing.assess_node(
             node_id,
             archetype,
-            emit_audit=self._emit_audit,
         )
 
         attempt = attempt_tracker.get(node_id, 0) + 1
@@ -435,8 +431,6 @@ class Orchestrator:
             graph_sync=self._graph_sync,
             state_manager=self._state_manager,
             routing_ladders=self._routing.ladders,
-            routing_assessments=self._routing.assessments,
-            routing_pipeline=self._routing.pipeline,
             retries_before_escalation=self._routing.retries_before_escalation,
             max_retries=self._config.max_retries,
             task_callback=self._task_callback,
@@ -697,57 +691,13 @@ class Orchestrator:
     def _compute_duration_hints(self) -> dict[str, int] | None:
         """Compute duration hints for ready task ordering.
 
-        When duration ordering is enabled and an assessment pipeline with
-        a DB connection is available, queries historical/regression/preset
-        duration hints for all pending nodes.
+        Duration-based ordering has been removed along with the prediction
+        pipeline. This method always returns None, preserving the call sites
+        without requiring further changes.
 
-        Returns:
-            Mapping of node_id to predicted duration in ms, or None
-            if duration ordering is disabled.
-
-        Requirements: 39-REQ-1.1, 39-REQ-2.2
+        Requirements: 89-REQ-6.1
         """
-        if not self._planning_config.duration_ordering:
-            return None
-
-        pipeline = self._routing.pipeline
-        if pipeline is None:
-            return None
-
-        db = getattr(pipeline, "_db", None)
-        if db is None:
-            return None
-
-        try:
-            from agent_fox.routing.duration import get_duration_hint
-
-            duration_model = getattr(pipeline, "duration_model", None)
-            hints: dict[str, int] = {}
-
-            for node_id in self.node_states:
-                node = self._get_node(node_id)
-                spec_name = node.spec_name if node else ""
-                archetype = node.archetype if node else "coder"
-                tier = "STANDARD"
-
-                hint = get_duration_hint(
-                    db,
-                    node_id,
-                    spec_name,
-                    archetype,
-                    tier,
-                    min_outcomes=self._planning_config.min_outcomes_for_historical,
-                    model=duration_model,
-                )
-                hints[node_id] = hint.predicted_ms
-
-            return hints
-        except Exception:
-            logger.warning(
-                "Failed to compute duration hints, using default ordering",
-                exc_info=True,
-            )
-            return None
+        return None
 
     def _filter_file_conflicts(self, ready: list[str]) -> list[str]:
         """Filter conflicting tasks from the ready set.
@@ -942,8 +892,6 @@ class Orchestrator:
 
             # 06-REQ-6.1: Check sync barrier after task completion
             if record.status == "completed":
-                # 30-REQ-7.4: Record outcome on success
-                self._result_handler.record_node_outcome(node_id, state, "completed")
                 await self._run_sync_barrier_if_needed(state)
 
             # Re-evaluate ready tasks after each completion
@@ -1133,8 +1081,6 @@ class Orchestrator:
 
             # 06-REQ-6.1: Check sync barrier after task completion
             if record.status == "completed":
-                # 30-REQ-7.4: Record outcome on success
-                self._result_handler.record_node_outcome(record.node_id, state, "completed")
                 if self._should_trigger_barrier(state):
                     barrier_needed = True
 

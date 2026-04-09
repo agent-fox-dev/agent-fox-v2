@@ -83,8 +83,6 @@ def _make_auditor_orchestrator(
         graph_sync=orch._graph_sync,
         state_manager=orch._state_manager,
         routing_ladders=orch._routing.ladders,
-        routing_assessments=orch._routing.assessments,
-        routing_pipeline=orch._routing.pipeline,
         retries_before_escalation=orch._routing.retries_before_escalation,
         max_retries=config.max_retries,
         task_callback=None,

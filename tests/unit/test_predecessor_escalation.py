@@ -10,7 +10,7 @@ Requirements: 58-REQ-1.1 through 58-REQ-3.2
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.core.models import ModelTier
@@ -90,8 +90,6 @@ def _make_orchestrator(
         graph_sync=orch._graph_sync,
         state_manager=orch._state_manager,
         routing_ladders=orch._routing.ladders,
-        routing_assessments=orch._routing.assessments,
-        routing_pipeline=orch._routing.pipeline,
         retries_before_escalation=orch._routing.retries_before_escalation,
         max_retries=config.max_retries,
         task_callback=None,
@@ -333,46 +331,6 @@ class TestPredecessorBlocksOnExhaustion:
         # 58-REQ-2.1: predecessor must be blocked
         assert pred_ladder.is_exhausted is True
         assert state.node_states["spec:1"] == "blocked"
-
-
-# ---------------------------------------------------------------------------
-# TS-58-5: Outcome Recorded on Predecessor Block
-# Requirement: 58-REQ-2.2
-# ---------------------------------------------------------------------------
-
-
-class TestOutcomeRecordedOnBlock:
-    """TS-58-5: Outcome recorded on predecessor block."""
-
-    def test_outcome_recorded_on_block(self) -> None:
-        """Verify _record_node_outcome is called with 'failed' when pred blocks.
-
-        Test Spec: TS-58-5
-        Requirement: 58-REQ-2.2
-        """
-        node_states = {"spec:1": "completed", "spec:2": "in_progress"}
-        orch, state, attempt_tracker, error_tracker = _make_orchestrator(
-            CODER_VERIFIER_NODES, CODER_VERIFIER_EDGES, node_states
-        )
-
-        # retries_before_escalation=0: exhausted immediately after 1 failure
-        pred_ladder = EscalationLadder(
-            starting_tier=ModelTier.ADVANCED,
-            tier_ceiling=ModelTier.ADVANCED,
-            retries_before_escalation=0,
-        )
-        orch._routing.ladders["spec:1"] = pred_ladder
-
-        with patch.object(orch._result_handler, "record_node_outcome") as mock_record:
-            orch._result_handler.process(  # type: ignore[union-attr]
-                _make_failed_reviewer_record(attempt=1),
-                1,
-                state,
-                attempt_tracker,
-                error_tracker,
-            )
-            # 58-REQ-2.2: must call record_node_outcome with pred_id and "failed"
-            mock_record.assert_called_once_with("spec:1", state, "failed")
 
 
 # ---------------------------------------------------------------------------
