@@ -725,6 +725,14 @@ class FixPipeline:
             # 82-REQ-7.1: coder-reviewer loop with retry/escalation
             success = await self._coder_review_loop(spec, triage, metrics, workspace)
 
+            if not success:
+                # Ladder exhausted — do NOT close issue
+                return metrics
+
+            # Harvest fix branch into develop and push to origin (65-REQ-3.2).
+            # Must run BEFORE cleanup destroys the feature branch.
+            harvest_result = await self._harvest_and_push(spec, workspace)
+
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
             try:
@@ -747,12 +755,6 @@ class FixPipeline:
         finally:
             await self._cleanup_workspace(workspace)
 
-        if not success:
-            # Ladder exhausted — do NOT close issue
-            return metrics
-
-        # Harvest fix branch into develop and push to origin (65-REQ-3.2).
-        harvest_result = await self._harvest_and_push(spec, workspace)
         if harvest_result == "error":
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
