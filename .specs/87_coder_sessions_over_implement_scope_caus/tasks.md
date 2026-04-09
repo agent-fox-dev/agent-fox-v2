@@ -24,19 +24,19 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
 - Integration tests: `uv run pytest -q tests/test_scope_guard/ -m integration`
 - Smoke tests: `uv run pytest -q tests/test_scope_guard/ -m smoke`
 - All tests: `uv run pytest -q`
-- Linter: `uv run ruff check src/scope_guard/ tests/test_scope_guard/`
+- Linter: `uv run ruff check agent_fox/scope_guard/ tests/test_scope_guard/`
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/test_scope_guard/` directory with `__init__.py`
     - Create test files: `test_stub_patterns.py`, `test_stub_validator.py`, `test_source_parser.py`, `test_preflight_checker.py`, `test_overlap_detector.py`, `test_prompt_builder.py`, `test_session_classifier.py`, `test_telemetry.py`, `test_integration.py`
     - Add pytest markers for `integration`, `smoke`, and `property` in `conftest.py`
     - Add shared fixtures for common `TaskGroup`, `SessionResult`, and DuckDB setup
     - _Test Spec: TS-87-1 through TS-87-20_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - `test_prompt_builder.py::test_stub_directive_in_test_writing_prompt` — _Test Spec: TS-87-1_
     - `test_stub_validator.py::test_validate_stubs_detects_non_stub` — _Test Spec: TS-87-2_
     - `test_session_classifier.py::test_stub_violation_flagged_in_outcome` — _Test Spec: TS-87-3_
@@ -60,7 +60,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-87-1 through TS-87-20_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - `test_stub_validator.py::test_inline_test_code_excluded` — stub enforcement only applies outside test-attributed blocks — _Test Spec: TS-87-E1_
     - `test_stub_patterns.py::test_stub_with_additional_statements_is_non_stub` — a `todo!()` preceded by setup logic is classified as non-stub — _Test Spec: TS-87-E2_
     - `test_stub_validator.py::test_unsupported_language_skipped_with_warning` — unsupported language files logged and skipped — _Test Spec: TS-87-E3_
@@ -77,7 +77,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-87-E1 through TS-87-E13_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - `test_stub_patterns.py::test_property_stub_body_purity` — Property 1: is_stub_body is True iff body is exactly one stub placeholder — _Test Spec: TS-87-P1_
     - `test_stub_validator.py::test_property_test_block_exclusion` — Property 2: test-block functions never appear in violations — _Test Spec: TS-87-P2_
     - `test_stub_validator.py::test_property_stub_validation_completeness` — Property 3: all non-stub non-test functions appear in violations — _Test Spec: TS-87-P3_
@@ -98,10 +98,10 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - Use hypothesis for property-based generation
     - _Test Spec: TS-87-P1 through TS-87-P18_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid: `uv run python -m py_compile tests/test_scope_guard/test_stub_patterns.py` (repeat for each test file)
-    - [ ] All spec tests FAIL (red) — no implementation yet: `uv run pytest -q tests/test_scope_guard/ --tb=no`
-    - [ ] No linter warnings introduced: `uv run ruff check tests/test_scope_guard/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid: `uv run python -m py_compile tests/test_scope_guard/test_stub_patterns.py` (repeat for each test file)
+    - [x] All spec tests FAIL (red) — no implementation yet: `uv run pytest -q tests/test_scope_guard/ --tb=no`
+    - [x] No linter warnings introduced: `uv run ruff check tests/test_scope_guard/`
 
 - [ ] 2. Models and stub patterns
   - [ ] 2.1 Implement `scope_guard/models.py`
