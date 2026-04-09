@@ -142,28 +142,28 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - [x] No linter warnings: `uv run ruff check agent_fox/`
     - [x] Requirements 2.1-2.8, 2.E1, 2.E2, 2.E3 met
 
-- [ ] 4. Integrate into harvest pipeline and end-of-run barrier
-  - [ ] 4.1 Wire dedup and contradiction into `extract_and_store_knowledge()`
+- [x] 4. Integrate into harvest pipeline and end-of-run barrier
+  - [x] 4.1 Wire dedup and contradiction into `extract_and_store_knowledge()`
     - After `sync_facts_to_duckdb()` and `_generate_embeddings()`: call
       `dedup_new_facts()`, then `detect_contradictions()` on survivors
     - Add dedup_count and contradiction_count to harvest.complete payload
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 4.2 Wire `run_cleanup()` into `engine/barrier.py`
+  - [x] 4.2 Wire `run_cleanup()` into `engine/barrier.py`
     - Call `run_cleanup()` after knowledge harvesting, before compaction
     - Gate on `config.knowledge.cleanup_enabled`
     - _Requirements: 4.1, 4.2_
 
-  - [ ] 4.3 Add `FACT_CLEANUP` to `AuditEventType` enum
+  - [x] 4.3 Add `FACT_CLEANUP` to `AuditEventType` enum
     - Add the new event type in `knowledge/audit.py`
     - _Requirements: 4.5_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Integration tests pass: `uv run pytest -q tests/integration/test_harvest_lifecycle.py`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/test_harvest_lifecycle.py -k "SMOKE"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Requirements 5.1-5.4, 5.E1 met
+  - [x] 4.V Verify task group 4
+    - [x] Integration tests pass: `uv run pytest -q tests/integration/test_harvest_lifecycle.py`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/test_harvest_lifecycle.py -k "SMOKE"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Requirements 5.1-5.4, 5.E1 met
 
 - [ ] 5. Wiring verification
 
