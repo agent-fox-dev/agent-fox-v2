@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 
-from agent_fox.core.config import AgentFoxConfig
+from agent_fox.core.config import AgentFoxConfig, SecurityConfig
 from agent_fox.session.archetypes import get_archetype
 
 logger = logging.getLogger(__name__)
@@ -143,3 +143,64 @@ def clamp_instances(archetype: str, instances: int) -> int:
         )
         return 1
     return instances
+
+
+def resolve_model_tier(config: AgentFoxConfig, archetype: str) -> str:
+    """Resolve model tier for the given archetype.
+
+    Priority (highest to lowest):
+      1. archetypes.overrides.<name>.model_tier (unified table)
+      2. archetypes.models.<name> (legacy dict)
+      3. Archetype registry default
+
+    Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2
+    """
+    # 1. Unified per-archetype override table (highest priority)
+    override = config.archetypes.overrides.get(archetype)
+    if override and override.model_tier:
+        return override.model_tier
+
+    # 2. Legacy dict override
+    config_override = config.archetypes.models.get(archetype)
+    if config_override:
+        return config_override
+
+    # 3. Fall back to archetype registry default
+    entry = get_archetype(archetype)
+    return entry.default_model_tier
+
+
+def resolve_security_config(
+    config: AgentFoxConfig,
+    archetype: str,
+) -> SecurityConfig | None:
+    """Resolve security config for the given archetype.
+
+    Returns a SecurityConfig with the archetype's allowlist override,
+    or None to use the global default.
+
+    Priority (highest to lowest):
+      1. archetypes.overrides.<name>.allowlist (unified table)
+      2. archetypes.allowlists.<name> (legacy dict)
+      3. Archetype registry default
+      4. None -> use global config.security
+
+    Requirements: 26-REQ-3.4, 26-REQ-6.4, 207-REQ-2
+    """
+    # 1. Unified per-archetype override table (highest priority)
+    override = config.archetypes.overrides.get(archetype)
+    if override and override.allowlist is not None:
+        return SecurityConfig(bash_allowlist=override.allowlist)
+
+    # 2. Legacy dict override
+    config_allowlist = config.archetypes.allowlists.get(archetype)
+    if config_allowlist is not None:
+        return SecurityConfig(bash_allowlist=config_allowlist)
+
+    # 3. Fall back to archetype registry default
+    entry = get_archetype(archetype)
+    if entry.default_allowlist is not None:
+        return SecurityConfig(bash_allowlist=entry.default_allowlist)
+
+    # None means use global config.security
+    return None

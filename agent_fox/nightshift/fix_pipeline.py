@@ -26,6 +26,7 @@ from agent_fox.nightshift.fix_types import (
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.github import IssueResult
 from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
+from agent_fox.workspace import WorkspaceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,9 @@ class FixPipeline:
     the full archetype pipeline, then posts a completion comment with
     the branch name so the user can open a PR manually.
 
+    Sessions run in an isolated git worktree, consistent with the
+    regular coding path (NodeSessionRunner).
+
     Requirements: 61-REQ-6.1 through 61-REQ-6.4,
                   82-REQ-7.1, 82-REQ-8.1 through 82-REQ-8.4
     """
@@ -75,79 +79,108 @@ class FixPipeline:
     async def _run_session(
         self,
         archetype: str,
-        *args: object,
-        **kwargs: object,
+        workspace: WorkspaceInfo,
+        *,
+        spec: InMemorySpec,
+        system_prompt: str | None = None,
+        task_prompt: str | None = None,
+        model_id: str | None = None,
     ) -> object:
         """Run a single archetype session for an issue fix.
 
-        Uses run_session() with prompts derived from the InMemorySpec.
-        Subclasses or tests can override this for mock execution.
+        Resolves SDK parameters (model, security, max_turns, thinking,
+        fallback, budget) per archetype, consistent with the regular
+        coding path.  Subclasses or tests can override this for mock
+        execution.
 
         Requirements: 61-REQ-6.3
         """
+        from agent_fox.core.models import resolve_model
+        from agent_fox.engine.sdk_params import (
+            resolve_fallback_model,
+            resolve_max_budget,
+            resolve_max_turns,
+            resolve_model_tier,
+            resolve_security_config,
+            resolve_thinking,
+        )
         from agent_fox.session.prompt import build_system_prompt
         from agent_fox.session.session import run_session
-        from agent_fox.workspace.worktree import WorkspaceInfo
-
-        spec: InMemorySpec = kwargs["spec"]  # type: ignore[assignment]
-        system_prompt_override: str | None = kwargs.get("system_prompt")  # type: ignore[assignment]
-        task_prompt_override: str | None = kwargs.get("task_prompt")  # type: ignore[assignment]
-        model_id: str | None = kwargs.get("model_id")  # type: ignore[assignment]
-        repo_root = Path.cwd()
-
-        # Build a minimal workspace on the fix branch.
-        # The branch must already exist before this call.
-        workspace = WorkspaceInfo(
-            path=repo_root,
-            branch=spec.branch_name,
-            spec_name=f"fix-issue-{spec.issue_number}",
-            task_group=0,
-        )
 
         # Build the archetype-specific system prompt.
-        if system_prompt_override:
-            system_prompt = system_prompt_override
+        if system_prompt:
+            effective_system = system_prompt
         else:
-            system_prompt = build_system_prompt(
+            effective_system = build_system_prompt(
                 context=spec.system_context,
                 task_group=0,
                 spec_name=f"fix-issue-{spec.issue_number}",
                 archetype=archetype,
             )
 
-        task_prompt = task_prompt_override if task_prompt_override else spec.task_prompt
-
+        effective_task = task_prompt if task_prompt else spec.task_prompt
         node_id = f"fix-issue-{spec.issue_number}:0:{archetype}"
+
+        # Resolve SDK params per archetype, matching NodeSessionRunner
+        config = self._config  # type: ignore[assignment]
+        resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype)).model_id
+        resolved_security = resolve_security_config(config, archetype)
+        resolved_max_turns = resolve_max_turns(config, archetype)
+        resolved_thinking = resolve_thinking(config, archetype)
+        resolved_fallback = resolve_fallback_model(config)
+        resolved_budget = resolve_max_budget(config)
+
+        # Claude CLI rejects fallback_model when it equals the main model
+        if resolved_fallback and resolved_fallback == resolved_model_id:
+            resolved_fallback = None
 
         return await run_session(
             workspace=workspace,
             node_id=node_id,
-            system_prompt=system_prompt,
-            task_prompt=task_prompt,
-            config=self._config,  # type: ignore[arg-type]
+            system_prompt=effective_system,
+            task_prompt=effective_task,
+            config=config,
             activity_callback=self._activity_callback,
-            model_id=model_id,
+            model_id=resolved_model_id,
+            security_config=resolved_security,
+            max_turns=resolved_max_turns,
+            max_budget_usd=resolved_budget,
+            fallback_model=resolved_fallback,
+            thinking=resolved_thinking,
+            archetype=archetype,
         )
 
-    async def _create_fix_branch(self, branch_name: str) -> None:
-        """Create a git branch for the fix from develop HEAD.
+    async def _setup_workspace(self, spec: InMemorySpec) -> WorkspaceInfo:
+        """Create an isolated worktree for the fix branch.
+
+        Uses the same ``create_worktree`` function as the regular coding
+        path, with a custom branch name to preserve the ``fix/`` prefix
+        convention.
 
         Requirements: 61-REQ-6.2
         """
-        from agent_fox.workspace.git import run_git
+        from agent_fox.workspace import create_worktree
 
         repo_root = Path.cwd()
-        rc, _stdout, _stderr = await run_git(
-            ["checkout", "-b", branch_name, "develop"],
-            cwd=repo_root,
-            check=False,
+        return await create_worktree(
+            repo_root,
+            spec_name=f"fix-issue-{spec.issue_number}",
+            task_group=0,
+            branch_name=spec.branch_name,
         )
-        if rc != 0:
-            # Branch may already exist — try to check it out
-            await run_git(
-                ["checkout", branch_name],
-                cwd=repo_root,
-                check=False,
+
+    async def _cleanup_workspace(self, workspace: WorkspaceInfo) -> None:
+        """Destroy the worktree created for the fix session."""
+        from agent_fox.workspace import destroy_worktree
+
+        repo_root = Path.cwd()
+        try:
+            await destroy_worktree(repo_root, workspace)
+        except Exception:
+            logger.warning(
+                "Failed to clean up worktree for %s",
+                workspace.branch,
+                exc_info=True,
             )
 
     def _accumulate_metrics(self, metrics: FixMetrics, outcome: object) -> None:
@@ -205,7 +238,7 @@ class FixPipeline:
             lines.append("### Per-criterion verdicts")
             lines.append("")
             for v in review.verdicts:
-                icon = "✅" if v.verdict == "PASS" else "❌"
+                icon = "\u2705" if v.verdict == "PASS" else "\u274c"
                 lines.append(f"- {icon} **{v.criterion_id}**: {v.verdict}")
                 lines.append(f"  - Evidence: {v.evidence}")
             lines.append("")
@@ -327,6 +360,7 @@ class FixPipeline:
 
     async def _run_coder_session(
         self,
+        workspace: WorkspaceInfo,
         spec: InMemorySpec,
         system_prompt: str,
         task_prompt: str,
@@ -338,13 +372,18 @@ class FixPipeline:
         """
         return await self._run_session(
             "coder",
+            workspace,
             spec=spec,
             system_prompt=system_prompt,
             task_prompt=task_prompt,
             model_id=model_id,
         )
 
-    async def _run_triage(self, spec: InMemorySpec) -> TriageResult:
+    async def _run_triage(
+        self,
+        spec: InMemorySpec,
+        workspace: WorkspaceInfo,
+    ) -> TriageResult:
         """Run triage session, parse output, post comment.
 
         Catches exceptions and returns empty TriageResult on failure.
@@ -355,7 +394,7 @@ class FixPipeline:
         from agent_fox.session.review_parser import parse_triage_output
 
         try:
-            outcome = await self._run_session("triage", spec=spec)
+            outcome = await self._run_session("triage", workspace, spec=spec)
         except Exception as exc:
             logger.warning(
                 "Triage session failed for issue #%d: %s",
@@ -396,6 +435,7 @@ class FixPipeline:
         spec: InMemorySpec,
         triage: TriageResult,
         metrics: FixMetrics,
+        workspace: WorkspaceInfo,
     ) -> bool:
         """Coder-reviewer loop with retry and escalation.
 
@@ -439,7 +479,13 @@ class FixPipeline:
             node_id = f"fix-issue-{spec.issue_number}:0:coder"
             t0 = time.monotonic()
             try:
-                coder_outcome = await self._run_coder_session(spec, system_prompt, task_prompt, model_id=model_id)
+                coder_outcome = await self._run_coder_session(
+                    workspace,
+                    spec,
+                    system_prompt,
+                    task_prompt,
+                    model_id=model_id,
+                )
                 self._accumulate_metrics(metrics, coder_outcome)
                 duration = time.monotonic() - t0
                 if self._task_callback is not None:
@@ -472,6 +518,7 @@ class FixPipeline:
             try:
                 reviewer_outcome = await self._run_session(
                     "fix_reviewer",
+                    workspace,
                     spec=spec,
                     system_prompt=reviewer_system,
                     task_prompt=reviewer_task,
@@ -518,6 +565,7 @@ class FixPipeline:
                 try:
                     retry_outcome = await self._run_session(
                         "fix_reviewer",
+                        workspace,
                         spec=spec,
                         system_prompt=reviewer_system,
                         task_prompt=reviewer_task,
@@ -617,7 +665,8 @@ class FixPipeline:
     ) -> FixMetrics:
         """Process an af:fix issue through the full pipeline.
 
-        Runs triage → coder → fix_reviewer with retry/escalation loop.
+        Runs triage -> coder -> fix_reviewer with retry/escalation loop
+        inside an isolated git worktree.
 
         Returns FixMetrics with aggregated token counts from all sessions.
 
@@ -636,8 +685,8 @@ class FixPipeline:
 
         spec = build_in_memory_spec(issue, issue_body)
 
-        # 61-REQ-6.2: create the fix branch from develop HEAD
-        await self._create_fix_branch(spec.branch_name)
+        # 61-REQ-6.2: create an isolated worktree for the fix branch
+        workspace = await self._setup_workspace(spec)
 
         # Post progress comment
         try:
@@ -656,7 +705,7 @@ class FixPipeline:
             # 82-REQ-7.1: run triage first
             triage_node_id = f"fix-issue-{spec.issue_number}:0:triage"
             t0 = time.monotonic()
-            triage = await self._run_triage(spec)
+            triage = await self._run_triage(spec, workspace)
             duration = time.monotonic() - t0
 
             # Emit triage task event if we got results
@@ -674,7 +723,7 @@ class FixPipeline:
                 metrics.sessions_run += 1
 
             # 82-REQ-7.1: coder-reviewer loop with retry/escalation
-            success = await self._coder_review_loop(spec, triage, metrics)
+            success = await self._coder_review_loop(spec, triage, metrics, workspace)
 
         except Exception as exc:
             # 61-REQ-6.E1: post comment on failure
@@ -695,13 +744,15 @@ class FixPipeline:
                 exc,
             )
             return metrics
+        finally:
+            await self._cleanup_workspace(workspace)
 
         if not success:
             # Ladder exhausted — do NOT close issue
             return metrics
 
         # Harvest fix branch into develop and push to origin (65-REQ-3.2).
-        harvest_result = await self._harvest_and_push(spec)
+        harvest_result = await self._harvest_and_push(spec, workspace)
         if harvest_result == "error":
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
@@ -762,13 +813,11 @@ class FixPipeline:
         )
         return metrics
 
-    async def _restore_develop(self) -> None:
-        """Check out develop to leave the repo in a clean state."""
-        from agent_fox.workspace.git import run_git
-
-        await run_git(["checkout", "develop"], cwd=Path.cwd(), check=False)
-
-    async def _harvest_and_push(self, spec: InMemorySpec) -> str:
+    async def _harvest_and_push(
+        self,
+        spec: InMemorySpec,
+        workspace: WorkspaceInfo,
+    ) -> str:
         """Harvest the fix branch into develop and push to origin.
 
         Returns:
@@ -776,19 +825,10 @@ class FixPipeline:
             ``"no_changes"`` when harvest found no new commits on the
             fix branch (the fix may already be on develop).
             ``"error"`` when an error occurred during harvest or push.
-
-        Always restores the working tree to ``develop`` afterwards.
         """
         from agent_fox.workspace.harvest import harvest, post_harvest_integrate
-        from agent_fox.workspace.worktree import WorkspaceInfo
 
         repo_root = Path.cwd()
-        workspace = WorkspaceInfo(
-            path=repo_root,
-            branch=spec.branch_name,
-            spec_name=f"fix-issue-{spec.issue_number}",
-            task_group=0,
-        )
         try:
             changed_files = await harvest(repo_root, workspace)
             if not changed_files:
@@ -797,7 +837,6 @@ class FixPipeline:
                     spec.issue_number,
                     spec.branch_name,
                 )
-                await self._restore_develop()
                 return "no_changes"
             await post_harvest_integrate(repo_root, workspace)
         except Exception as exc:
@@ -807,7 +846,5 @@ class FixPipeline:
                 spec.branch_name,
                 exc,
             )
-            await self._restore_develop()
             return "error"
-        await self._restore_develop()
         return "merged"

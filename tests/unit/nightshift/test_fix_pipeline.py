@@ -7,7 +7,20 @@ Requirements: 61-REQ-1.2, 61-REQ-6.1, 61-REQ-6.2, 61-REQ-7.2, 61-REQ-1.E2,
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 # ---------------------------------------------------------------------------
 # TS-61-2: Auto flag assigns af:fix label
@@ -277,7 +290,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -296,7 +310,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -342,7 +356,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -361,7 +376,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -411,7 +426,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -430,7 +446,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -478,7 +494,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
             side_effect=RuntimeError("session boom")
         )
@@ -741,7 +758,8 @@ class TestReviewerRetryOnParseFailure:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -762,7 +780,7 @@ class TestReviewerRetryOnParseFailure:
 
         call_count = 0
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             nonlocal call_count
             outcome = MagicMock(
                 input_tokens=10,
@@ -815,7 +833,8 @@ class TestReviewerRetryOnParseFailure:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -827,7 +846,7 @@ class TestReviewerRetryOnParseFailure:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
