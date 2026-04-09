@@ -102,13 +102,13 @@ superseded specs, and finally verify wiring end-to-end.
     - [x] No linter warnings: `uv run ruff check agent_fox/`
     - [x] Requirements 89-REQ-1.*, 89-REQ-2.3, 89-REQ-3.*, 89-REQ-6.1 met
 
-- [ ] 4. Clean up config and tests
-  - [ ] 4.1 Remove prediction-only fields from `RoutingConfig`
+- [x] 4. Clean up config and tests
+  - [x] 4.1 Remove prediction-only fields from `RoutingConfig`
     - Remove `training_threshold`, `accuracy_threshold`, `retrain_interval`
     - Keep `retries_before_escalation`, `max_timeout_retries`, `timeout_multiplier`, `timeout_ceiling_factor`
     - _Requirements: 89-REQ-4.1, 89-REQ-4.2_
 
-  - [ ] 4.2 Delete prediction pipeline test files
+  - [x] 4.2 Delete prediction pipeline test files
     - Delete `tests/test_routing/test_assessor.py`
     - Delete `tests/test_routing/test_features.py`
     - Delete `tests/test_routing/test_calibration.py`
@@ -116,20 +116,20 @@ superseded specs, and finally verify wiring end-to-end.
     - Delete `tests/test_routing/test_integration.py`
     - _Requirements: 89-REQ-5.1_
 
-  - [ ] 4.3 Clean up `tests/test_routing/conftest.py` and `tests/test_routing/helpers.py`
+  - [x] 4.3 Clean up `tests/test_routing/conftest.py` and `tests/test_routing/helpers.py`
     - Remove fixtures and helpers that reference deleted modules
     - If nothing remains, delete the files entirely
     - _Requirements: 89-REQ-5.1_
 
-  - [ ] 4.4 Verify retained tests pass
+  - [x] 4.4 Verify retained tests pass
     - Run `uv run pytest -q tests/test_routing/test_escalation.py tests/test_routing/test_config.py`
     - _Requirements: 89-REQ-5.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests TS-89-10, TS-89-11 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Requirements 89-REQ-4.*, 89-REQ-5.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests TS-89-10, TS-89-11 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Requirements 89-REQ-4.*, 89-REQ-5.* met
 
 - [ ] 5. Archive superseded specs
   - [ ] 5.1 Add deprecation banners to `30_adaptive_model_routing` spec files
