@@ -112,19 +112,19 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - [x] No linter warnings: `uv run ruff check agent_fox/`
     - [x] Requirements 1.1-1.5, 1.E1, 1.E2, 3.1-3.6, 3.E1, 3.E2, 4.1-4.6, 4.E1, 4.E2 met
 
-- [ ] 3. Implement LLM contradiction detection
-  - [ ] 3.1 Add contradiction config fields to KnowledgeConfig
+- [x] 3. Implement LLM contradiction detection
+  - [x] 3.1 Add contradiction config fields to KnowledgeConfig
     - Add `contradiction_similarity_threshold`, `contradiction_model`
     - _Requirements: 2.7, 2.8_
 
-  - [ ] 3.2 Create `knowledge/contradiction.py`
+  - [x] 3.2 Create `knowledge/contradiction.py`
     - Define `ContradictionVerdict` dataclass
     - Define `CONTRADICTION_PROMPT` template
     - Implement `classify_contradiction_batch()` — batched LLM call,
       response parsing, error handling
     - _Requirements: 2.2, 2.5_
 
-  - [ ] 3.3 Implement `detect_contradictions()` in lifecycle.py
+  - [x] 3.3 Implement `detect_contradictions()` in lifecycle.py
     - Define `ContradictionResult` dataclass
     - Query embeddings for candidate pairs above threshold
     - Batch candidates (max 10 per LLM call)
@@ -134,13 +134,13 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Requirements: 2.1, 2.3, 2.4, 2.6_
     - _Test Spec: TS-90-5, TS-90-6, TS-90-7, TS-90-8_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_contradiction.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_lifecycle_props.py -k "P3 or P4"`
-    - [ ] Edge case tests pass: `uv run pytest -q tests/unit/knowledge/ -k "E3 or E4"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Requirements 2.1-2.8, 2.E1, 2.E2, 2.E3 met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_contradiction.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_lifecycle_props.py -k "P3 or P4"`
+    - [x] Edge case tests pass: `uv run pytest -q tests/unit/knowledge/ -k "E3 or E4"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Requirements 2.1-2.8, 2.E1, 2.E2, 2.E3 met
 
 - [ ] 4. Integrate into harvest pipeline and end-of-run barrier
   - [ ] 4.1 Wire dedup and contradiction into `extract_and_store_knowledge()`
