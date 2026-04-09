@@ -206,32 +206,32 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
     - [x] Requirements 87-REQ-1.1, 87-REQ-1.3, 87-REQ-2.3, 87-REQ-4.1, 87-REQ-4.E1–E3, 87-REQ-5.1 acceptance criteria met
 
-- [ ] 7. Telemetry persistence and querying
-  - [ ] 7.1 Implement `scope_guard/telemetry.py` — schema and session outcome recording
+- [x] 7. Telemetry persistence and querying
+  - [x] 7.1 Implement `scope_guard/telemetry.py` — schema and session outcome recording
     - Implement DuckDB schema initialization: create `session_outcomes`, `session_prompts`, `scope_check_results` tables if not exist
     - Implement `record_session_outcome(outcome: SessionOutcome) -> None` — insert into `session_outcomes` table with JSON serialization for `violation_details`
     - _Requirements: 87-REQ-4.1, 87-REQ-4.2, 87-REQ-4.3_
     - _Test Spec: TS-87-15, TS-87-16, TS-87-P15_
 
-  - [ ] 7.2 Implement `scope_guard/telemetry.py` — prompt persistence and retrieval
+  - [x] 7.2 Implement `scope_guard/telemetry.py` — prompt persistence and retrieval
     - Implement `persist_prompt(session_id: str, prompt_text: str) -> None` — store prompt with truncation logic (100K char limit, retain first 500 + last 500, set truncated flag)
     - Implement `get_session_prompt(session_id: str) -> PromptRecord | None` — retrieve prompt, detect `SCOPE_GUARD:STUB_ONLY` presence
     - _Requirements: 87-REQ-5.1, 87-REQ-5.2, 87-REQ-5.3, 87-REQ-5.E1_
     - _Test Spec: TS-87-19, TS-87-20, TS-87-E13, TS-87-P18_
 
-  - [ ] 7.3 Implement `scope_guard/telemetry.py` — scope check recording and waste reporting
+  - [x] 7.3 Implement `scope_guard/telemetry.py` — scope check recording and waste reporting
     - Implement `record_scope_check(result: ScopeCheckResult) -> None` — insert into `scope_check_results` table
     - Implement `query_waste_report(spec_number: int | None = None) -> WasteReport` — aggregate no-op and pre-flight-skip counts, costs, durations per spec
     - _Requirements: 87-REQ-2.5, 87-REQ-4.4_
     - _Test Spec: TS-87-9, TS-87-17, TS-87-P16_
 
-  - [ ] 7.V Verify task group 7
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_telemetry.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check src/scope_guard/`
-    - [ ] Requirements 87-REQ-2.5, 87-REQ-4.1–4.4, 87-REQ-5.1–5.3, 87-REQ-5.E1 acceptance criteria met
+  - [x] 7.V Verify task group 7
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_telemetry.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
+    - [x] Requirements 87-REQ-2.5, 87-REQ-4.1–4.4, 87-REQ-5.1–5.3, 87-REQ-5.E1 acceptance criteria met
 
-- [ ] 8. Checkpoint — All Subsystems Complete
+- [x] 8. Checkpoint — All Subsystems Complete
   - Ensure all spec tests pass: `uv run pytest -q tests/test_scope_guard/`
   - Verify all unit, property, and integration tests green.
   - Create or update documentation in README.md and `docs/scope_guard.md` covering:
