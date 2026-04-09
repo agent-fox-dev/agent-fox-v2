@@ -84,6 +84,7 @@ class AuditEventType(StrEnum):
     FIX_FAILED = "night_shift.fix_failed"
     WATCH_POLL = "watch.poll"
     SECURITY_FINDING_BLOCKED = "review.security_finding_blocked"
+    FACT_CLEANUP = "fact.cleanup"
 
 
 # ---------------------------------------------------------------------------

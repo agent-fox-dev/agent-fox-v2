@@ -230,6 +230,13 @@ persists facts learned across sessions for use as context in future sessions.
 | `ask_synthesis_model` | str | `"STANDARD"` | — | Model tier used to synthesise query answers |
 | `confidence_threshold` | float | `0.5` | 0.0–1.0 | Minimum similarity score for fact inclusion in session context |
 | `fact_cache_enabled` | bool | `true` | — | Pre-compute fact rankings at plan time for faster session start |
+| `dedup_similarity_threshold` | float | `0.92` | — | Cosine similarity threshold for near-duplicate detection |
+| `contradiction_similarity_threshold` | float | `0.8` | — | Cosine similarity threshold for contradiction candidates |
+| `contradiction_model` | str | `"SIMPLE"` | — | Model tier for contradiction classification LLM calls |
+| `decay_half_life_days` | float | `90.0` | — | Days for fact confidence to halve |
+| `decay_floor` | float | `0.1` | — | Effective confidence below which facts are auto-superseded |
+| `cleanup_fact_threshold` | int | `500` | — | Active fact count above which decay cleanup runs |
+| `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
 
 **Example:**
 
@@ -238,6 +245,8 @@ persists facts learned across sessions for use as context in future sessions.
 ask_top_k = 30
 confidence_threshold = 0.6
 fact_cache_enabled = true
+cleanup_enabled = true
+decay_half_life_days = 90
 ```
 
 ---

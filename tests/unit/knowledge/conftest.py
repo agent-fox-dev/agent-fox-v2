@@ -146,6 +146,22 @@ def create_schema(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute(SCHEMA_DDL)
 
 
+# Production schema with DOUBLE confidence (matches KnowledgeDB._initialize_schema)
+SCHEMA_DDL_V2 = SCHEMA_DDL.replace(
+    "confidence    TEXT DEFAULT 'high'",
+    "confidence    DOUBLE DEFAULT 0.6",
+)
+
+
+def create_schema_v2(conn: duckdb.DuckDBPyConnection) -> None:
+    """Create schema with DOUBLE confidence column (matches production).
+
+    Use this for lifecycle tests that need numeric confidence comparisons.
+    The legacy ``create_schema`` retains TEXT confidence for migration tests.
+    """
+    conn.execute(SCHEMA_DDL_V2)
+
+
 # -- Fixtures ----------------------------------------------------------------
 
 

@@ -250,6 +250,34 @@ class KnowledgeConfig(BaseModel):
         default=True,
         description="Pre-compute fact rankings at plan time",
     )
+    dedup_similarity_threshold: float = Field(
+        default=0.92,
+        description="Cosine similarity threshold for near-duplicate detection",
+    )
+    contradiction_similarity_threshold: float = Field(
+        default=0.8,
+        description="Cosine similarity threshold for contradiction candidates",
+    )
+    contradiction_model: str = Field(
+        default="SIMPLE",
+        description="Model tier for contradiction classification LLM calls",
+    )
+    decay_half_life_days: float = Field(
+        default=90.0,
+        description="Days for fact confidence to halve",
+    )
+    decay_floor: float = Field(
+        default=0.1,
+        description="Effective confidence below which facts are auto-superseded",
+    )
+    cleanup_fact_threshold: int = Field(
+        default=500,
+        description="Active fact count above which decay cleanup runs",
+    )
+    cleanup_enabled: bool = Field(
+        default=True,
+        description="Enable/disable end-of-run fact lifecycle cleanup",
+    )
 
     clamp_ask_top_k = _clamped_validator("ask_top_k", ge=1)
     clamp_confidence = _clamped_validator("confidence_threshold", ge=0.0, le=1.0)

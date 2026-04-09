@@ -68,18 +68,18 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement dedup and decay lifecycle functions
-  - [ ] 2.1 Add config fields to KnowledgeConfig
+- [x] 2. Implement dedup and decay lifecycle functions
+  - [x] 2.1 Add config fields to KnowledgeConfig
     - Add `dedup_similarity_threshold`, `decay_half_life_days`,
       `decay_floor`, `cleanup_fact_threshold`, `cleanup_enabled` to
       `core/config.py: KnowledgeConfig`
     - _Requirements: 1.4, 3.3, 3.4, 4.3, 4.4_
 
-  - [ ] 2.2 Create `knowledge/lifecycle.py` with data types
+  - [x] 2.2 Create `knowledge/lifecycle.py` with data types
     - Define `DedupResult`, `CleanupResult` dataclasses
     - _Requirements: 4.6_
 
-  - [ ] 2.3 Implement `dedup_new_facts()`
+  - [x] 2.3 Implement `dedup_new_facts()`
     - Query `memory_embeddings` for cosine similarity above threshold
     - Call `mark_superseded()` for each duplicate
     - Return `DedupResult` with superseded IDs and surviving facts
@@ -87,7 +87,7 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Requirements: 1.1, 1.2, 1.3, 1.5_
     - _Test Spec: TS-90-1, TS-90-2, TS-90-3, TS-90-4_
 
-  - [ ] 2.4 Implement `run_decay_cleanup()`
+  - [x] 2.4 Implement `run_decay_cleanup()`
     - Load all active facts with `created_at`
     - Compute effective confidence using decay formula
     - Self-supersede facts below floor
@@ -96,7 +96,7 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Requirements: 3.1, 3.2, 3.5, 3.6_
     - _Test Spec: TS-90-9, TS-90-10, TS-90-11_
 
-  - [ ] 2.5 Implement `run_cleanup()`
+  - [x] 2.5 Implement `run_cleanup()`
     - Check `cleanup_enabled` config
     - Check active fact count against threshold
     - Run decay if above threshold
@@ -105,12 +105,12 @@ keeps LLM-dependent code separate from pure computation, allowing groups
     - _Requirements: 4.1, 4.2, 4.5, 4.6_
     - _Test Spec: TS-90-12, TS-90-13, TS-90-14, TS-90-15_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lifecycle.py -k "dedup or decay or cleanup"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_lifecycle_props.py -k "P1 or P2 or P5 or P6 or P7 or P8"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
-    - [ ] Requirements 1.1-1.5, 1.E1, 1.E2, 3.1-3.6, 3.E1, 3.E2, 4.1-4.6, 4.E1, 4.E2 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lifecycle.py -k "dedup or decay or cleanup"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_lifecycle_props.py -k "P1 or P2 or P5 or P6 or P7 or P8"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
+    - [x] Requirements 1.1-1.5, 1.E1, 1.E2, 3.1-3.6, 3.E1, 3.E2, 4.1-4.6, 4.E1, 4.E2 met
 
 - [ ] 3. Implement LLM contradiction detection
   - [ ] 3.1 Add contradiction config fields to KnowledgeConfig

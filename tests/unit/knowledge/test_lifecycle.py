@@ -25,7 +25,7 @@ from agent_fox.knowledge.lifecycle import (
     run_cleanup,
     run_decay_cleanup,
 )
-from tests.unit.knowledge.conftest import create_schema
+from tests.unit.knowledge.conftest import create_schema_v2
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -118,9 +118,9 @@ def _insert_fact(
 
 
 def _setup_db() -> duckdb.DuckDBPyConnection:
-    """Create an in-memory DuckDB with full schema."""
+    """Create an in-memory DuckDB with production schema (DOUBLE confidence)."""
     conn = duckdb.connect(":memory:")
-    create_schema(conn)
+    create_schema_v2(conn)
     return conn
 
 
