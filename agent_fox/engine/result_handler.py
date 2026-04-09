@@ -261,6 +261,8 @@ class SessionResultHandler:
         graph_sync: GraphSync,
         state_manager: StateManager,
         routing_ladders: dict[str, Any],
+        routing_assessments: dict[str, Any] | None = None,
+        routing_pipeline: Any | None = None,
         retries_before_escalation: int,
         max_retries: int,
         task_callback: TaskCallback | None,
@@ -279,6 +281,8 @@ class SessionResultHandler:
         self._graph_sync = graph_sync
         self._state_manager = state_manager
         self._routing_ladders = routing_ladders
+        self._routing_assessments: dict[str, Any] = routing_assessments or {}
+        self._routing_pipeline = routing_pipeline
         self._retries_before_escalation = retries_before_escalation
         self._max_retries = max_retries
         self._task_callback = task_callback
