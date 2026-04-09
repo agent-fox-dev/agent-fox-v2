@@ -126,8 +126,8 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - [x] No linter warnings introduced: `uv run ruff check src/scope_guard/`
     - [x] Requirements 87-REQ-1.4, 87-REQ-1.E1, 87-REQ-1.E2 acceptance criteria met
 
-- [ ] 3. Source parser and stub validator
-  - [ ] 3.1 Implement `scope_guard/source_parser.py`
+- [x] 3. Source parser and stub validator
+  - [x] 3.1 Implement `scope_guard/source_parser.py`
     - Implement `extract_function_body(file_path: Path, function_id: str) -> FunctionBody | None` — parse source file, locate function by ID, extract body text and metadata
     - Implement `extract_all_functions(file_path: Path) -> list[FunctionBody]` — extract all functions from a source file
     - Implement `extract_modified_functions(file_change: FileChange) -> list[FunctionBody]` — parse diff to identify and extract modified function bodies
@@ -135,7 +135,7 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - Handle unparseable files by returning `None` or empty list
     - _Requirements: 87-REQ-1.2, 87-REQ-2.1, 87-REQ-2.4, 87-REQ-2.E2_
 
-  - [ ] 3.2 Implement `scope_guard/stub_validator.py`
+  - [x] 3.2 Implement `scope_guard/stub_validator.py`
     - Implement `validate_stubs(modified_files: list[FileChange], task_group: TaskGroup) -> StubValidationResult`
     - For each non-test file: extract functions via source_parser, check each body via `is_stub_body`, exclude test blocks via `is_test_block`
     - Collect violations for non-stub functions outside test blocks
@@ -145,11 +145,11 @@ Task group 1 writes all failing tests. Groups 2–7 progressively implement modu
     - _Requirements: 87-REQ-1.2, 87-REQ-1.3, 87-REQ-1.E1, 87-REQ-1.E2, 87-REQ-1.E3_
     - _Test Spec: TS-87-2, TS-87-3, TS-87-20, TS-87-E1, TS-87-E2, TS-87-E3, TS-87-P2, TS-87-P3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_stub_validator.py tests/test_scope_guard/test_source_parser.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check src/scope_guard/`
-    - [ ] Requirements 87-REQ-1.2, 87-REQ-1.3, 87-REQ-1.E1, 87-REQ-1.E2, 87-REQ-1.E3 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/test_scope_guard/test_stub_validator.py tests/test_scope_guard/test_source_parser.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/scope_guard/`
+    - [x] Requirements 87-REQ-1.2, 87-REQ-1.3, 87-REQ-1.E1, 87-REQ-1.E2, 87-REQ-1.E3 acceptance criteria met
 
 - [ ] 4. Checkpoint — Stub Enforcement Complete
   - Ensure all stub enforcement tests pass (TS-87-1 through TS-87-4, TS-87-E1 through TS-87-E3, TS-87-P1 through TS-87-P3).
