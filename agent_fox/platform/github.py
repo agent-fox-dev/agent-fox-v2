@@ -11,6 +11,7 @@ Requirements: 19-REQ-4.1, 19-REQ-4.2, 19-REQ-4.3, 19-REQ-4.4,
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import logging
 import re
@@ -25,6 +26,18 @@ from agent_fox.core.errors import ConfigError, IntegrationError
 logger = logging.getLogger(__name__)
 
 _MAX_ERROR_TEXT = 500
+
+# Timeout for all GitHub API calls: 30s connect, 30s read/write.
+_GITHUB_TIMEOUT = httpx.Timeout(connect=30.0, read=30.0, write=30.0, pool=30.0)
+
+# Transport-level errors that are safe to retry (network blips, DNS timeouts).
+_RETRYABLE_ERRORS = (httpx.ConnectTimeout, httpx.ConnectError, httpx.ReadTimeout)
+
+# Maximum number of attempts before giving up (1 initial + 2 retries).
+_MAX_RETRIES = 3
+
+# Base backoff in seconds; doubles on each retry (0s, 1s, 2s, …).
+_RETRY_BACKOFF = 1.0
 
 
 def _truncate_response(text: str) -> str:
@@ -163,6 +176,37 @@ class GitHubPlatform:
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
+    async def _request(self, method: str, url: str, **kwargs: object) -> httpx.Response:
+        """Execute an HTTP request with explicit timeout and retry on transient errors.
+
+        Creates a new AsyncClient with ``_GITHUB_TIMEOUT`` for each attempt.
+        Retries up to ``_MAX_RETRIES`` times on ``_RETRYABLE_ERRORS`` (transport-
+        level network exceptions).  HTTP-level error responses (4xx, 5xx) are
+        returned as-is — callers are responsible for raising on bad status codes.
+        After all retries are exhausted the original exception is re-raised.
+
+        Requirements: 313-AC-1, 313-AC-2, 313-AC-3, 313-AC-4, 313-AC-5
+        """
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                async with httpx.AsyncClient(timeout=_GITHUB_TIMEOUT) as client:
+                    resp: httpx.Response = await getattr(client, method)(url, **kwargs)
+                    return resp
+            except _RETRYABLE_ERRORS as exc:
+                last_exc = exc
+                if attempt < _MAX_RETRIES - 1:
+                    delay = _RETRY_BACKOFF * (2**attempt)
+                    logger.warning(
+                        "Transient error on GitHub API attempt %d/%d, retrying in %.1fs: %s",
+                        attempt + 1,
+                        _MAX_RETRIES,
+                        delay,
+                        exc,
+                    )
+                    await asyncio.sleep(delay)
+        raise last_exc  # type: ignore[misc]
+
     # ------------------------------------------------------------------
     # Issue operations (28-REQ-1.* through 28-REQ-4.*)
     # ------------------------------------------------------------------
@@ -185,8 +229,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         q = f"repo:{self._owner}/{self._repo} in:title {title_prefix} state:{state} type:issue"
         url = f"{self._api_base}/search/issues"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params={"q": q}, headers=headers)
+        resp = await self._request("get", url, params={"q": q}, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug("Issue search response (%d): %s", resp.status_code, detail)
@@ -228,8 +271,7 @@ class GitHubPlatform:
         payload: dict[str, object] = {"title": title, "body": body}
         if labels:
             payload["labels"] = labels
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        resp = await self._request("post", url, json=payload, headers=headers)
         if resp.status_code != 201:
             detail = _truncate_response(resp.text)
             logger.debug("Issue creation response (%d): %s", resp.status_code, detail)
@@ -260,8 +302,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
         payload = {"body": body}
-        async with httpx.AsyncClient() as client:
-            resp = await client.patch(url, json=payload, headers=headers)
+        resp = await self._request("patch", url, json=payload, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug("Issue update response (%d): %s", resp.status_code, detail)
@@ -285,8 +326,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/comments"
         payload = {"body": comment}
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        resp = await self._request("post", url, json=payload, headers=headers)
         if resp.status_code != 201:
             detail = _truncate_response(resp.text)
             logger.debug("Issue comment response (%d): %s", resp.status_code, detail)
@@ -322,8 +362,7 @@ class GitHubPlatform:
             "sort": sort,
             "direction": direction,
         }
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params, headers=headers)
+        resp = await self._request("get", url, params=params, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug(
@@ -362,8 +401,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/labels"
         payload = {"labels": [label]}
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        resp = await self._request("post", url, json=payload, headers=headers)
         if resp.status_code not in (200, 201):
             detail = _truncate_response(resp.text)
             logger.debug(
@@ -392,8 +430,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         encoded_label = quote(label, safe="")
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/labels/{encoded_label}"
-        async with httpx.AsyncClient() as client:
-            resp = await client.delete(url, headers=headers)
+        resp = await self._request("delete", url, headers=headers)
         if resp.status_code == 404:
             # Label not present — succeed silently (idempotent)
             logger.debug(
@@ -428,8 +465,7 @@ class GitHubPlatform:
         """
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}/comments"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
+        resp = await self._request("get", url, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug(
@@ -466,8 +502,7 @@ class GitHubPlatform:
         """
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers)
+        resp = await self._request("get", url, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug(
@@ -521,8 +556,7 @@ class GitHubPlatform:
             "base": base,
             "draft": draft,
         }
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
+        resp = await self._request("post", url, json=payload, headers=headers)
         if resp.status_code != 201:
             detail = _truncate_response(resp.text)
             logger.debug("PR creation response (%d): %s", resp.status_code, detail)
@@ -558,8 +592,7 @@ class GitHubPlatform:
         headers = self._auth_headers()
         url = f"{self._api_base}/repos/{self._owner}/{self._repo}/issues/{issue_number}"
         payload = {"state": "closed"}
-        async with httpx.AsyncClient() as client:
-            resp = await client.patch(url, json=payload, headers=headers)
+        resp = await self._request("patch", url, json=payload, headers=headers)
         if resp.status_code != 200:
             detail = _truncate_response(resp.text)
             logger.debug("Issue close response (%d): %s", resp.status_code, detail)
