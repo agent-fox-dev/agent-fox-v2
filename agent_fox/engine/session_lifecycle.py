@@ -17,7 +17,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_fox.core.config import AgentFoxConfig, HookConfig, SecurityConfig
+from agent_fox.core.config import AgentFoxConfig, HookConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
@@ -34,6 +34,8 @@ from agent_fox.engine.sdk_params import (
     resolve_fallback_model,
     resolve_max_budget,
     resolve_max_turns,
+    resolve_model_tier,
+    resolve_security_config,
     resolve_thinking,
 )
 from agent_fox.engine.state import SessionRecord
@@ -47,7 +49,6 @@ from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.filtering import select_relevant_facts
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.knowledge.store import load_all_facts
-from agent_fox.session.archetypes import get_archetype
 from agent_fox.session.context import select_context_with_causal
 from agent_fox.session.prompt import (
     assemble_context,
@@ -151,8 +152,8 @@ class NodeSessionRunner:
         if assessed_tier is not None:
             self._resolved_model_id = resolve_model(assessed_tier.value).model_id
         else:
-            self._resolved_model_id = resolve_model(self._resolve_model_tier()).model_id
-        self._resolved_security = self._resolve_security_config()
+            self._resolved_model_id = resolve_model(resolve_model_tier(self._config, self._archetype)).model_id
+        self._resolved_security = resolve_security_config(self._config, self._archetype)
 
     def _build_prompts(
         self,
@@ -223,62 +224,6 @@ class NodeSessionRunner:
                 task_prompt = f"{retry_context}\n\n{task_prompt}"
 
         return system_prompt, task_prompt
-
-    def _resolve_model_tier(self) -> str:
-        """Resolve model tier for the archetype.
-
-        Priority (highest to lowest):
-          1. archetypes.overrides.<name>.model_tier (unified table)
-          2. archetypes.models.<name> (legacy dict)
-          3. Archetype registry default
-
-        Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2
-        """
-        # 1. Unified per-archetype override table (highest priority)
-        override = self._config.archetypes.overrides.get(self._archetype)
-        if override and override.model_tier:
-            return override.model_tier
-
-        # 2. Legacy dict override
-        config_override = self._config.archetypes.models.get(self._archetype)
-        if config_override:
-            return config_override
-
-        # 3. Fall back to archetype registry default
-        entry = get_archetype(self._archetype)
-        return entry.default_model_tier
-
-    def _resolve_security_config(self) -> SecurityConfig | None:
-        """Resolve security config for the archetype.
-
-        Returns a SecurityConfig with the archetype's allowlist override,
-        or None to use the global default.
-
-        Priority (highest to lowest):
-          1. archetypes.overrides.<name>.allowlist (unified table)
-          2. archetypes.allowlists.<name> (legacy dict)
-          3. Archetype registry default
-          4. None → use global config.security
-
-        Requirements: 26-REQ-3.4, 26-REQ-6.4, 207-REQ-2
-        """
-        # 1. Unified per-archetype override table (highest priority)
-        override = self._config.archetypes.overrides.get(self._archetype)
-        if override and override.allowlist is not None:
-            return SecurityConfig(bash_allowlist=override.allowlist)
-
-        # 2. Legacy dict override
-        config_allowlist = self._config.archetypes.allowlists.get(self._archetype)
-        if config_allowlist is not None:
-            return SecurityConfig(bash_allowlist=config_allowlist)
-
-        # 3. Fall back to archetype registry default
-        entry = get_archetype(self._archetype)
-        if entry.default_allowlist is not None:
-            return SecurityConfig(bash_allowlist=entry.default_allowlist)
-
-        # None means use global config.security
-        return None
 
     def _load_relevant_facts(self) -> list:
         """Load relevant facts, using the pre-computed cache when available.

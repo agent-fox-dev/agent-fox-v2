@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from agent_fox.cli.nightshift import night_shift_cmd
@@ -20,10 +19,9 @@ def _make_config() -> MagicMock:
     config = MagicMock()
     config.max_budget_usd = 10.0
     ns = MagicMock()
-    ns.enabled_streams = ["specs", "fixes", "hunts", "spec_gen"]
+    ns.enabled_streams = ["specs", "fixes", "hunts"]
     ns.merge_strategy = "direct"
     ns.spec_interval = 60
-    ns.spec_gen_interval = 300
     ns.issue_check_interval = 900
     ns.hunt_scan_interval = 14400
     config.night_shift = ns
@@ -64,7 +62,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -77,11 +75,10 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 1
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 [],
                 obj={"config": _make_config(), "quiet": False},
@@ -106,7 +103,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]) as mock_build,
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -119,11 +116,10 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 0
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 ["--no-fixes", "--no-hunts"],
                 obj={"config": _make_config(), "quiet": False},
@@ -135,7 +131,6 @@ class TestCliUsesDaemonRunner:
             assert call_kwargs.kwargs["no_fixes"] is True
             assert call_kwargs.kwargs["no_hunts"] is True
             assert call_kwargs.kwargs["no_specs"] is False
-            assert call_kwargs.kwargs["no_spec_gen"] is False
 
     def test_engine_run_not_called(self) -> None:
         """Engine.run() must NOT be called — DaemonRunner manages lifecycle."""
@@ -151,7 +146,7 @@ class TestCliUsesDaemonRunner:
             patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
             patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
             patch(_PATCHES["engine_cls"]) as mock_engine_cls,
-            patch(_PATCHES["shared_budget"]) as mock_budget_cls,
+            patch(_PATCHES["shared_budget"]),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress
@@ -164,12 +159,11 @@ class TestCliUsesDaemonRunner:
             mock_engine.state = MagicMock()
             mock_engine.state.issues_fixed = 0
             mock_engine.state.hunt_scans_completed = 0
-            mock_engine.state.specs_generated = 0
             mock_engine.run = AsyncMock()
             mock_engine_cls.return_value = mock_engine
 
             runner = CliRunner()
-            result = runner.invoke(
+            runner.invoke(
                 night_shift_cmd,
                 [],
                 obj={"config": _make_config(), "quiet": False},
@@ -180,35 +174,3 @@ class TestCliUsesDaemonRunner:
             mock_engine.run.assert_not_awaited()
             # runner.run() should have been called
             mock_runner.run.assert_awaited_once()
-
-
-class TestSpecGeneratorBudgetWiring:
-    """Verify build_streams passes budget to SpecGeneratorStream."""
-
-    def test_spec_generator_receives_budget(self) -> None:
-        """SpecGeneratorStream._budget is set when build_streams passes it."""
-        from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import build_streams
-
-        config = MagicMock()
-        config.platform.type = "github"
-        ns = MagicMock()
-        ns.enabled_streams = ["spec_gen"]
-        ns.spec_interval = 60
-        ns.spec_gen_interval = 300
-        ns.issue_check_interval = 900
-        ns.hunt_scan_interval = 14400
-        config.night_shift = ns
-
-        budget = SharedBudget(max_cost=10.0)
-        streams = build_streams(
-            config,
-            budget=budget,
-            no_specs=True,
-            no_fixes=True,
-            no_hunts=True,
-            no_spec_gen=False,
-        )
-
-        gen_stream = next(s for s in streams if s.name == "spec-generator")
-        assert gen_stream._budget is budget

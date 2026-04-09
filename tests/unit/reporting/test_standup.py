@@ -230,6 +230,16 @@ class TestIsAgentCommit:
         c = self._commit("Merge branch 'feature/15_standup_formatting-4' into develop")
         assert is_agent_commit(c, "agent-fox") is True
 
+    def test_merge_fix_branch_path(self) -> None:
+        """Merge commits with 'fix/<name> into <target>' are agent commits."""
+        c = self._commit("Merge fix/issue-294-reviewer-parse-failure into develop")
+        assert is_agent_commit(c, "agent-fox") is True
+
+    def test_merge_feat_branch_path(self) -> None:
+        """Merge commits with 'feat/<name> into <target>' are agent commits."""
+        c = self._commit("Merge feat/my-feature into develop")
+        assert is_agent_commit(c, "agent-fox") is True
+
     def test_human_informal_message(self) -> None:
         """Informal commit messages are classified as human."""
         c = self._commit("fixes")

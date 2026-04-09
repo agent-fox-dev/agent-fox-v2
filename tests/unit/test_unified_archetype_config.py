@@ -362,10 +362,10 @@ class TestResolveModelTierWithOverrides:
 
 
 class TestResolveSecurityConfigWithOverrides:
-    """NodeSessionRunner._resolve_security_config checks overrides first."""
+    """resolve_security_config checks overrides first."""
 
     def test_override_allowlist_takes_precedence(self) -> None:
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.engine.sdk_params import resolve_security_config
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
@@ -373,24 +373,22 @@ class TestResolveSecurityConfigWithOverrides:
                 overrides={"coder": PerArchetypeConfig(allowlist=["git", "grep"])},  # new
             )
         )
-        runner = NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
-        sec = runner._resolve_security_config()
+        sec = resolve_security_config(config, "coder")
         assert sec is not None
         assert sec.bash_allowlist == ["git", "grep"]
 
     def test_legacy_allowlist_used_when_no_override(self) -> None:
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.engine.sdk_params import resolve_security_config
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(allowlists={"coder": ["make", "uv"]})
         )
-        runner = NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
-        sec = runner._resolve_security_config()
+        sec = resolve_security_config(config, "coder")
         assert sec is not None
         assert sec.bash_allowlist == ["make", "uv"]
 
     def test_override_none_allowlist_falls_through_to_legacy(self) -> None:
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.engine.sdk_params import resolve_security_config
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
@@ -398,14 +396,13 @@ class TestResolveSecurityConfigWithOverrides:
                 overrides={"coder": PerArchetypeConfig(allowlist=None)},
             )
         )
-        runner = NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
-        sec = runner._resolve_security_config()
+        sec = resolve_security_config(config, "coder")
         assert sec is not None
         assert sec.bash_allowlist == ["make"]
 
     def test_override_empty_allowlist_not_treated_as_none(self) -> None:
         """An explicit empty list [] is a valid allowlist (no commands allowed)."""
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.engine.sdk_params import resolve_security_config
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
@@ -413,8 +410,7 @@ class TestResolveSecurityConfigWithOverrides:
                 overrides={"coder": PerArchetypeConfig(allowlist=[])},  # override with empty
             )
         )
-        runner = NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
-        sec = runner._resolve_security_config()
+        sec = resolve_security_config(config, "coder")
         assert sec is not None
         assert sec.bash_allowlist == []
 

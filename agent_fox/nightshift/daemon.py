@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -104,14 +105,13 @@ class DaemonRunner:
         "spec-executor",
         "fix-pipeline",
         "hunt-scan",
-        "spec-generator",
     ]
 
     def __init__(
         self,
         config: object,
         platform: PlatformProtocol | None,
-        streams: list[WorkStream],
+        streams: Sequence[WorkStream],
         budget: SharedBudget,
         *,
         pid_path: Path | None = None,
@@ -129,7 +129,6 @@ class DaemonRunner:
             "specs": "spec-executor",
             "fixes": "fix-pipeline",
             "hunts": "hunt-scan",
-            "spec_gen": "spec-generator",
         }
         enabled_cfg = getattr(getattr(config, "night_shift", None), "enabled_streams", None)
         if enabled_cfg:

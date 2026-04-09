@@ -1,8 +1,7 @@
-"""Integration smoke tests for spec generator lifecycle.
+"""Integration tests for spec generator lifecycle.
 
-Test Spec: TS-86-SMOKE-1 through TS-86-SMOKE-5, TS-86-20, TS-86-27, TS-86-28
-Requirements: 86-REQ-2.*, 86-REQ-3.*, 86-REQ-4.*, 86-REQ-5.*, 86-REQ-6.*,
-              86-REQ-8.*, 86-REQ-10.*
+Test Spec: TS-86-20, TS-86-27, TS-86-28
+Requirements: 86-REQ-6.*, 86-REQ-8.*
 """
 
 from __future__ import annotations
@@ -14,10 +13,6 @@ from anthropic.types import TextBlock
 
 from agent_fox.nightshift.config import NightShiftConfig
 from agent_fox.nightshift.spec_gen import (
-    LABEL_BLOCKED,
-    LABEL_DONE,
-    LABEL_PENDING,
-    IssueComment,
     SpecGenerator,
     SpecPackage,
 )
@@ -62,31 +57,6 @@ def _make_issue(
     if html_url is None:
         html_url = f"https://github.com/org/repo/issues/{number}"
     return IssueResult(number=number, title=title, html_url=html_url, body=body)
-
-
-def _make_fox_comment(
-    comment_id: int = 100,
-    created_at: str = "2026-01-01T12:00:00Z",
-) -> IssueComment:
-    return IssueComment(
-        id=comment_id,
-        body="## Agent Fox -- Clarification Needed\n\n1. What is X?\n2. How does Y work?",
-        user="agent-fox[bot]",
-        created_at=created_at,
-    )
-
-
-def _make_human_comment(
-    comment_id: int = 101,
-    body: str = "Here are my answers: X is foo, Y works like bar.",
-    created_at: str = "2026-01-02T00:00:00Z",
-) -> IssueComment:
-    return IssueComment(
-        id=comment_id,
-        body=body,
-        user="alice",
-        created_at=created_at,
-    )
 
 
 def _mock_ai_response(text: str = "Generated content") -> MagicMock:
@@ -147,25 +117,30 @@ class TestLandSpec:
         subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(tmp_path), "config", "user.email", "test@test.com"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "config", "user.name", "Test"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         # Create initial commit on develop
         (tmp_path / "README.md").write_text("# Test")
         subprocess.run(
             ["git", "-C", str(tmp_path), "add", "."],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "commit", "-m", "init"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "checkout", "-b", "develop"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         (tmp_path / ".specs").mkdir()
 
@@ -194,7 +169,8 @@ class TestLandSpec:
         # Verify commit message
         log = subprocess.run(
             ["git", "-C", str(tmp_path), "log", "--oneline", "-1"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "feat(spec): generate 87_test_spec from #42" in log.stdout
 
@@ -216,24 +192,29 @@ class TestDirectMergeStrategy:
         subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
         subprocess.run(
             ["git", "-C", str(tmp_path), "config", "user.email", "test@test.com"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "config", "user.name", "Test"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         (tmp_path / "README.md").write_text("# Test")
         subprocess.run(
             ["git", "-C", str(tmp_path), "add", "."],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "commit", "-m", "init"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(tmp_path), "checkout", "-b", "develop"],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         (tmp_path / ".specs").mkdir()
 
@@ -259,369 +240,15 @@ class TestDirectMergeStrategy:
         # Verify on develop branch
         branch = subprocess.run(
             ["git", "-C", str(tmp_path), "branch", "--show-current"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "develop" in branch.stdout
 
         # Verify feature branch deleted
         branches = subprocess.run(
             ["git", "-C", str(tmp_path), "branch"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "spec/87_test_spec" not in branches.stdout
-
-
-# ===========================================================================
-# Integration Smoke Tests
-# ===========================================================================
-
-
-# ---------------------------------------------------------------------------
-# TS-86-SMOKE-1: Happy path — clear issue generates and lands spec
-# Execution Path: Path 1 from design.md
-# ---------------------------------------------------------------------------
-
-
-class TestSmokeHappyPath:
-    """End-to-end test: clear issue produces spec files committed to develop."""
-
-    async def test_happy_path_end_to_end(self, tmp_path: Path) -> None:
-        """TS-86-SMOKE-1: Full pipeline: discover → analyze → generate → land → close."""
-        import subprocess
-
-        from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        # Set up git repo
-        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "config", "user.email", "test@test.com"],
-            check=True, capture_output=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "config", "user.name", "Test"],
-            check=True, capture_output=True,
-        )
-        (tmp_path / "README.md").write_text("# Test")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "commit", "-m", "init"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "checkout", "-b", "develop"], check=True, capture_output=True)
-        (tmp_path / ".specs").mkdir()
-
-        platform = _make_platform()
-        issue = _make_issue(number=42, title="Add widgets")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[])
-
-        config = _make_config()
-        budget = SharedBudget(max_cost=None)
-
-        # Mock AI to return clear analysis and documents
-        # Note: _check_duplicates skips AI call when no specs exist,
-        # so first AI call is from _analyze_issue
-        analysis_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-        doc_resp = _mock_ai_response("Generated document content for spec")
-
-        call_count = 0
-
-        async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return analysis_resp
-            return doc_resp
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=tmp_path,
-        )
-        stream._budget = budget
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            await stream.run_once()
-
-        # Verify spec files exist
-        spec_dirs = list((tmp_path / ".specs").glob("*_*"))
-        assert len(spec_dirs) >= 1
-        spec_dir = spec_dirs[0]
-        assert (spec_dir / "prd.md").exists()
-
-        # Verify issue was closed
-        platform.close_issue.assert_called_once_with(42)
-
-        # Verify done label assigned
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        assert any(label == LABEL_DONE for _, label in assign_calls)
-
-        # Verify cost reported
-        assert budget.total_cost >= 0
-
-
-# ---------------------------------------------------------------------------
-# TS-86-SMOKE-2: Ambiguous issue posts clarification
-# Execution Path: Path 2 from design.md
-# ---------------------------------------------------------------------------
-
-
-class TestSmokeAmbiguousIssue:
-    """End-to-end: ambiguous issue gets clarification comment, label transitions to pending."""
-
-    async def test_ambiguous_posts_clarification(self) -> None:
-        """TS-86-SMOKE-2: Clarification posted, pending label, no spec files."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=42, title="Vague feature")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[])
-
-        config = _make_config()
-        repo_root = Path("/tmp/smoke-test-ambiguous")
-
-        # Note: _check_duplicates skips AI call when no specs exist
-        analysis_resp = _mock_ai_response(
-            '{"clear": false, "questions": ["What is the scope?", "What APIs?"], "summary": "Ambiguous"}'
-        )
-
-        async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            return analysis_resp
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=repo_root,
-        )
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            await stream.run_once()
-
-        # Verify clarification comment posted
-        platform.add_issue_comment.assert_called()
-        comment_body = platform.add_issue_comment.call_args[0][1]
-        assert "## Agent Fox" in comment_body
-
-        # Verify pending label
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        assert any(label == LABEL_PENDING for _, label in assign_calls)
-
-        # Verify no issue close
-        platform.close_issue.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TS-86-SMOKE-3: Pending issue with response triggers re-analysis
-# Execution Path: Path 3 from design.md
-# ---------------------------------------------------------------------------
-
-
-class TestSmokePendingReanalysis:
-    """End-to-end: pending issue with new human comment gets re-analyzed."""
-
-    async def test_pending_reanalysis_generates_spec(self, tmp_path: Path) -> None:
-        """TS-86-SMOKE-3: pending → analyzing → generating → done."""
-        import subprocess
-
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        # Set up git repo
-        subprocess.run(["git", "init", str(tmp_path)], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "config", "user.email", "t@t.com"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "T"], check=True, capture_output=True)
-        (tmp_path / "README.md").write_text("# T")
-        subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "commit", "-m", "init"], check=True, capture_output=True)
-        subprocess.run(["git", "-C", str(tmp_path), "checkout", "-b", "develop"], check=True, capture_output=True)
-        (tmp_path / ".specs").mkdir()
-
-        platform = _make_platform()
-        issue = _make_issue(number=42, title="Widget feature")
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-        human = _make_human_comment(comment_id=2, created_at="2026-01-02T00:00:00Z")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[fox, human])
-
-        config = _make_config()
-
-        # Mock AI: clear on re-analysis, generate docs
-        # Note: _check_duplicates skips AI call when no specs exist
-        clear_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-        doc_resp = _mock_ai_response("Generated document")
-
-        call_count = 0
-
-        async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return clear_resp
-            return doc_resp
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=tmp_path,
-        )
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            await stream.run_once()
-
-        # Verify issue was closed (generated successfully)
-        platform.close_issue.assert_called_once_with(42)
-
-
-# ---------------------------------------------------------------------------
-# TS-86-SMOKE-4: Max rounds triggers escalation
-# Execution Path: Path 4 from design.md
-# ---------------------------------------------------------------------------
-
-
-class TestSmokeMaxRoundsEscalation:
-    """End-to-end: issue hits max rounds and gets escalated."""
-
-    async def test_escalation_at_max_rounds(self) -> None:
-        """TS-86-SMOKE-4: Escalation comment posted, blocked label, NOT closed."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=42, title="Complex feature")
-
-        # Two prior rounds of clarification
-        comments = [
-            _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z"),
-            _make_human_comment(comment_id=2, created_at="2026-01-02T00:00:00Z"),
-            IssueComment(
-                id=3,
-                body="## Agent Fox -- Clarification Needed\n\n1. Still need X?",
-                user="agent-fox[bot]",
-                created_at="2026-01-03T00:00:00Z",
-            ),
-            _make_human_comment(comment_id=4, body="X is Y", created_at="2026-01-04T00:00:00Z"),
-        ]
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=comments)
-
-        config = _make_config(max_clarification_rounds=2)
-
-        # AI still finds ambiguity
-        # Note: _check_duplicates skips AI call when no specs exist
-        ambiguous_resp = _mock_ai_response(
-            '{"clear": false, "questions": ["Still need clarity on Z"], "summary": "Unclear"}'
-        )
-
-        async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            return ambiguous_resp
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/smoke-test-escalation"),
-        )
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            await stream.run_once()
-
-        # Verify escalation comment
-        comment_body = platform.add_issue_comment.call_args[0][1]
-        assert "Specification Blocked" in comment_body or "blocked" in comment_body.lower()
-
-        # Verify blocked label
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        assert any(label == LABEL_BLOCKED for _, label in assign_calls)
-
-        # Verify NOT closed
-        platform.close_issue.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TS-86-SMOKE-5: Cost cap exceeded aborts generation
-# Execution Path: Path 5 from design.md
-# ---------------------------------------------------------------------------
-
-
-class TestSmokeCostCapExceeded:
-    """End-to-end: generation aborted when per-spec cost exceeds budget."""
-
-    async def test_cost_cap_aborts(self) -> None:
-        """TS-86-SMOKE-5: Budget-exceeded comment, blocked label, cost reported."""
-        from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=42, title="Expensive feature")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[])
-
-        config = _make_config(max_budget_usd=0.001)  # Very low
-        budget = SharedBudget(max_cost=None)
-
-        # Expensive AI responses
-        expensive_resp = MagicMock()
-        expensive_resp.content = [TextBlock(type="text", text="Generated content")]
-        expensive_resp.usage.input_tokens = 100000
-        expensive_resp.usage.output_tokens = 50000
-        expensive_resp.usage.cache_read_input_tokens = 0
-        expensive_resp.usage.cache_creation_input_tokens = 0
-
-        # For analysis (clear) — duplicate check skipped when no specs exist
-        clear_resp = _mock_ai_response('{"clear": true, "questions": [], "summary": "ok"}')
-
-        call_count = 0
-
-        async def mock_ai(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return clear_resp
-            return expensive_resp  # generation calls
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/smoke-test-cost"),
-        )
-        stream._budget = budget
-
-        with patch("agent_fox.nightshift.spec_gen.cached_messages_create", mock_ai):
-            await stream.run_once()
-
-        # Verify budget comment posted
-        comment_body = platform.add_issue_comment.call_args[0][1]
-        assert "budget" in comment_body.lower()
-
-        # Verify blocked label
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        assert any(label == LABEL_BLOCKED for _, label in assign_calls)
-
-        # Cost still reported
-        assert budget.total_cost >= 0

@@ -48,12 +48,6 @@ logger = logging.getLogger(__name__)
     default=False,
     help="Disable the hunt-scan stream.",
 )
-@click.option(
-    "--no-spec-gen",
-    is_flag=True,
-    default=False,
-    help="Disable the spec-generator stream.",
-)
 @click.pass_context
 def night_shift_cmd(
     ctx: click.Context,
@@ -61,7 +55,6 @@ def night_shift_cmd(
     no_specs: bool,
     no_fixes: bool,
     no_hunts: bool,
-    no_spec_gen: bool,
 ) -> None:
     """Run the night-shift autonomous maintenance daemon.
 
@@ -125,12 +118,9 @@ def night_shift_cmd(
         no_specs=no_specs,
         no_fixes=no_fixes,
         no_hunts=no_hunts,
-        no_spec_gen=no_spec_gen,
         auto=auto,
         engine=engine,
         budget=budget,
-        platform=platform,
-        repo_root=project_root,
     )
 
     # Create the daemon runner (85-REQ-1.2, 85-REQ-2.1, 85-REQ-4.1)
@@ -191,6 +181,5 @@ def night_shift_cmd(
         f"Night-shift stopped. "
         f"Scans completed: {engine.state.hunt_scans_completed}, "
         f"Issues fixed: {engine.state.issues_fixed}, "
-        f"Specs generated: {engine.state.specs_generated}, "
         f"Total cost: ${daemon_state.total_cost:.4f}"
     )

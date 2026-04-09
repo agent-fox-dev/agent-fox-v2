@@ -10,16 +10,45 @@ to validate end-to-end wiring.
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agent_fox.platform.github import IssueResult
 from agent_fox.ui.progress import ActivityEvent, TaskEvent
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _sdk_param_patches():
+    """Return a contextlib.ExitStack with SDK param resolver patches."""
+    import contextlib
+
+    mock_model = MagicMock()
+    mock_model.model_id = "mock-model-id"
+
+    stack = contextlib.ExitStack()
+    stack.enter_context(patch("agent_fox.core.models.resolve_model", return_value=mock_model))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_model_tier", return_value="standard"))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_security_config", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_turns", return_value=10))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_thinking", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_fallback_model", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_budget", return_value=None))
+    return stack
 
 
 def _make_config(
@@ -131,12 +160,16 @@ class TestFixSessionActivityDisplay:
             activity_callback=activity_events.append,
             task_callback=task_events.append,
         )
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
-        with patch(
-            "agent_fox.session.session.run_session",
-            side_effect=fake_run_session,
+        with (
+            patch(
+                "agent_fox.session.session.run_session",
+                side_effect=fake_run_session,
+            ),
+            _sdk_param_patches(),
         ):
             await pipeline.process_issue(issue, issue_body="Fix the linter warning")
 

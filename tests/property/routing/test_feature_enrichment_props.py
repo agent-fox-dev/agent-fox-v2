@@ -11,6 +11,7 @@ import statistics
 import uuid
 from dataclasses import asdict
 from pathlib import Path
+
 import duckdb
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st

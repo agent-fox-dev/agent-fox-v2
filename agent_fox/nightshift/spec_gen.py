@@ -256,30 +256,6 @@ class SpecGenerator:
         """
         return sum(1 for c in comments if self._is_fox_comment(c) and "Clarification" in c.body)
 
-    def _has_new_human_comment(self, comments: list[IssueComment]) -> bool:
-        """Check if there's a human comment after the last fox comment.
-
-        Requirements: 86-REQ-2.3, 86-REQ-2.4
-        """
-        if not comments:
-            return False
-
-        last_fox_idx = -1
-        for i, c in enumerate(comments):
-            if self._is_fox_comment(c):
-                last_fox_idx = i
-
-        if last_fox_idx == -1:
-            # No fox comments at all — treat as having a new human comment
-            return True
-
-        # Check if any non-fox comment exists after the last fox comment
-        for c in comments[last_fox_idx + 1 :]:
-            if not self._is_fox_comment(c):
-                return True
-
-        return False
-
     # ------------------------------------------------------------------
     # Spec numbering (86-REQ-6.3, 86-REQ-6.E2)
     # ------------------------------------------------------------------
@@ -366,7 +342,9 @@ class SpecGenerator:
             f"I need some additional information before I can generate "
             f"the specification:\n\n"
             f"{numbered}\n\n"
-            f"Please reply to this comment with your answers."
+            f"Please reply to this comment with your answers, then reset "
+            f"the label to `af:spec` (remove `af:spec-pending`) to restart "
+            f"analysis."
         )
 
     def _format_completion_comment(
@@ -401,7 +379,8 @@ class SpecGenerator:
             f"remain unresolved:\n\n"
             f"{numbered}\n\n"
             f"Please provide more detail on the issue description or "
-            f"request manual spec creation."
+            f"request manual spec creation. To retry, reset the label to "
+            f"`af:spec` (remove `af:spec-blocked`)."
         )
 
     def _format_budget_comment(

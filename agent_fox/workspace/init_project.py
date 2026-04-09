@@ -31,6 +31,7 @@ _GITIGNORE_ENTRIES = [
     "!.agent-fox/config.toml",
     "!.agent-fox/memory.jsonl",
     "!.agent-fox/state.jsonl",
+    ".claude/worktrees/",
 ]
 
 CANONICAL_PERMISSIONS: list[str] = [

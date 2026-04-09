@@ -46,7 +46,7 @@ def _make_config(
     """Create a mock config for DaemonRunner."""
     config = MagicMock()
     ns = MagicMock()
-    ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts", "spec_gen"]
+    ns.enabled_streams = enabled_streams or ["specs", "fixes", "hunts"]
     ns.merge_strategy = merge_strategy
     config.night_shift = ns
     return config
@@ -101,25 +101,23 @@ class TestSharedBudget:
 class TestDaemonStreamRegistration:
     """Verify DaemonRunner registers streams and returns their names."""
 
-    def test_register_four_streams(self) -> None:
-        """Runner stores all four registered streams."""
+    def test_register_three_streams(self) -> None:
+        """Runner stores all three registered streams."""
         from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
 
         streams = [
             _make_mock_stream(name="spec-executor"),
             _make_mock_stream(name="fix-pipeline"),
             _make_mock_stream(name="hunt-scan"),
-            _make_mock_stream(name="spec-generator"),
         ]
         budget = SharedBudget(max_cost=None)
         config = _make_config()
         runner = DaemonRunner(config, None, streams, budget)  # type: ignore[arg-type]
-        assert len(runner.streams) == 4
+        assert len(runner.streams) == 3
         assert [s.name for s in runner.streams] == [
             "spec-executor",
             "fix-pipeline",
             "hunt-scan",
-            "spec-generator",
         ]
 
 
@@ -279,7 +277,6 @@ class TestStreamPriorityOrder:
             make_recording_stream("spec-executor"),
             make_recording_stream("fix-pipeline"),
             make_recording_stream("hunt-scan"),
-            make_recording_stream("spec-generator"),
         ]
 
         budget = SharedBudget(max_cost=None)
@@ -294,12 +291,11 @@ class TestStreamPriorityOrder:
         await runner.run()
         await task
 
-        # First 4 entries should be in priority order
-        assert launch_order[:4] == [
+        # First 3 entries should be in priority order
+        assert launch_order[:3] == [
             "spec-executor",
             "fix-pipeline",
             "hunt-scan",
-            "spec-generator",
         ]
 
 
@@ -331,7 +327,6 @@ class TestSimultaneousWakePriority:
             make_recording_stream("spec-executor"),
             make_recording_stream("fix-pipeline"),
             make_recording_stream("hunt-scan"),
-            make_recording_stream("spec-generator"),
         ]
 
         budget = SharedBudget(max_cost=None)
@@ -346,11 +341,10 @@ class TestSimultaneousWakePriority:
         await runner.run()
         await task
 
-        assert execution_order[:4] == [
+        assert execution_order[:3] == [
             "spec-executor",
             "fix-pipeline",
             "hunt-scan",
-            "spec-generator",
         ]
 
 

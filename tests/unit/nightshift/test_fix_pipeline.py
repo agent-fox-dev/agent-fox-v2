@@ -7,7 +7,20 @@ Requirements: 61-REQ-1.2, 61-REQ-6.1, 61-REQ-6.2, 61-REQ-7.2, 61-REQ-1.E2,
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 # ---------------------------------------------------------------------------
 # TS-61-2: Auto flag assigns af:fix label
@@ -277,7 +290,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -296,7 +310,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -319,7 +333,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/7",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)) as mock_harvest:
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")) as mock_harvest:
             await pipeline.process_issue(issue, issue_body="Login is broken.")
 
         mock_harvest.assert_awaited_once()
@@ -342,7 +356,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -361,7 +376,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -384,17 +399,21 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/9",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="error")):
             await pipeline.process_issue(issue, issue_body="Something else is broken.")
 
         mock_platform.close_issue.assert_not_awaited()
-        # A comment about manual merge should be posted
+        # A comment about manual investigation should be posted
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("manual" in c.lower() or "merge" in c.lower() for c in comments)
 
     @pytest.mark.asyncio
-    async def test_issue_not_closed_when_harvest_returns_empty(self) -> None:
-        """When harvest produces no changed files, the issue is NOT closed."""
+    async def test_issue_closed_when_harvest_returns_empty_and_review_passed(self) -> None:
+        """When reviewer PASS but harvest has no new commits, issue IS closed.
+
+        The fix is already present on develop — the issue should be closed
+        to prevent the night-shift from endlessly re-processing it.
+        """
         import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -407,7 +426,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -426,7 +446,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -456,11 +476,11 @@ class TestSuccessfulFixHarvestsAndCloses:
         ):
             await pipeline.process_issue(issue, issue_body="Something is broken.")
 
-        # Issue must NOT be closed when harvest produced no changes
-        mock_platform.close_issue.assert_not_awaited()
-        # A comment about no changes should be posted
-        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
-        assert any("no change" in c.lower() or "no new commit" in c.lower() for c in comments)
+        # Issue IS closed — reviewer confirmed PASS and fix is already on develop
+        mock_platform.close_issue.assert_awaited_once()
+        # Close message should mention fix already present
+        close_msg = str(mock_platform.close_issue.call_args)
+        assert "already present" in close_msg.lower()
 
     @pytest.mark.asyncio
     async def test_issue_not_closed_on_session_failure(self) -> None:
@@ -474,7 +494,8 @@ class TestSuccessfulFixHarvestsAndCloses:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._run_session = AsyncMock(  # type: ignore[method-assign]
             side_effect=RuntimeError("session boom")
         )
@@ -737,7 +758,8 @@ class TestReviewerRetryOnParseFailure:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -758,7 +780,7 @@ class TestReviewerRetryOnParseFailure:
 
         call_count = 0
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             nonlocal call_count
             outcome = MagicMock(
                 input_tokens=10,
@@ -788,7 +810,7 @@ class TestReviewerRetryOnParseFailure:
             html_url="https://github.com/test/repo/issues/42",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=True)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")):
             await pipeline.process_issue(issue, issue_body="Something is broken.")
 
         # Reviewer was called twice (original + retry), and the fix passed
@@ -811,7 +833,8 @@ class TestReviewerRetryOnParseFailure:
         mock_platform = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -823,7 +846,7 @@ class TestReviewerRetryOnParseFailure:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -847,7 +870,7 @@ class TestReviewerRetryOnParseFailure:
             html_url="https://github.com/test/repo/issues/43",
         )
 
-        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value=False)):
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="error")):
             await pipeline.process_issue(issue, issue_body="Another thing is broken.")
 
         # Issue should NOT be closed (max_retries=0 exhausted)

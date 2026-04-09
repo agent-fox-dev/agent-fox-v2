@@ -26,7 +26,6 @@ from agent_fox.nightshift.spec_gen import (
     ReferencedIssue,
     SpecGenerator,
     SpecGenOutcome,
-    SpecGenResult,
     SpecPackage,
 )
 from agent_fox.platform.github import IssueResult
@@ -120,210 +119,12 @@ def _make_generator(
 
 
 @contextlib.contextmanager
-def _mock_gen_methods(
-    gen: SpecGenerator, **method_mocks: Any
-) -> Any:
+def _mock_gen_methods(gen: SpecGenerator, **method_mocks: Any) -> Any:
     """Context manager that patches SpecGenerator methods using patch.object."""
     with contextlib.ExitStack() as stack:
         for method_name, mock_value in method_mocks.items():
             stack.enter_context(patch.object(gen, method_name, mock_value))
         yield
-
-
-# ---------------------------------------------------------------------------
-# TS-86-6: discover af:spec issues
-# Requirements: 86-REQ-2.1
-# ---------------------------------------------------------------------------
-
-
-class TestDiscoverAfSpecIssues:
-    """Verify run_once polls for both af:spec and af:spec-pending issues."""
-
-    async def test_polls_both_labels(self) -> None:
-        """TS-86-6: Both af:spec and af:spec-pending are queried."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue_a = _make_issue(number=1, title="Issue A")
-        issue_b = _make_issue(number=2, title="Issue B")
-
-        # Return different issues for different labels
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue_a]
-            if label == "af:spec-pending":
-                return [issue_b]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        # Mock the generator to track process_issue calls
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock(
-                return_value=SpecGenResult(
-                    outcome=SpecGenOutcome.GENERATED,
-                    issue_number=1,
-                    cost=0.0,
-                )
-            )
-            # No new human comment on pending issue, so it should fall through to af:spec
-            mock_gen._has_new_human_comment = MagicMock(return_value=False)
-            await stream.run_once()
-
-        # Both labels should have been queried
-        call_labels = [call.args[0] for call in platform.list_issues_by_label.call_args_list]
-        assert "af:spec" in call_labels
-        assert "af:spec-pending" in call_labels
-
-
-# ---------------------------------------------------------------------------
-# TS-86-7: sequential processing of oldest issue
-# Requirements: 86-REQ-2.2
-# ---------------------------------------------------------------------------
-
-
-class TestSequentialProcessing:
-    """Verify only the oldest af:spec issue is processed when multiple exist."""
-
-    async def test_processes_only_oldest(self) -> None:
-        """TS-86-7: Only Issue #1 (oldest) is passed to process_issue."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue_1 = _make_issue(number=1, title="Old issue")
-        issue_5 = _make_issue(number=5, title="New issue")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue_1, issue_5]  # sorted by created asc
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock(
-                return_value=SpecGenResult(
-                    outcome=SpecGenOutcome.GENERATED,
-                    issue_number=1,
-                    cost=0.0,
-                )
-            )
-            await stream.run_once()
-
-            # Only the oldest issue should be processed
-            mock_gen.process_issue.assert_called_once()
-            processed_issue = mock_gen.process_issue.call_args[0][0]
-            assert processed_issue.number == 1
-
-
-# ---------------------------------------------------------------------------
-# TS-86-8: pending issue with new human comment triggers re-analysis
-# Requirements: 86-REQ-2.3
-# ---------------------------------------------------------------------------
-
-
-class TestPendingIssueReanalysis:
-    """Verify a pending issue with a new human comment is transitioned to analyzing."""
-
-    async def test_new_human_comment_triggers_transition(self) -> None:
-        """TS-86-8: Label transitions: assign analyzing, remove pending."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-        human = _make_comment(comment_id=2, body="Here are my answers", created_at="2026-01-02T00:00:00Z")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[fox, human])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock(
-                return_value=SpecGenResult(
-                    outcome=SpecGenOutcome.GENERATED,
-                    issue_number=10,
-                    cost=0.0,
-                )
-            )
-            mock_gen._has_new_human_comment = MagicMock(return_value=True)
-            await stream.run_once()
-
-        # Should transition to analyzing
-        assign_calls = [
-            call.args for call in platform.assign_label.call_args_list
-        ]
-        remove_calls = [
-            call.args for call in platform.remove_label.call_args_list
-        ]
-        assert (10, "af:spec-analyzing") in assign_calls
-        assert (10, "af:spec-pending") in remove_calls
-
-
-# ---------------------------------------------------------------------------
-# TS-86-9: pending issue without new comment is skipped
-# Requirements: 86-REQ-2.4
-# ---------------------------------------------------------------------------
-
-
-class TestPendingIssueSkipped:
-    """Verify a pending issue with no new human comment is skipped."""
-
-    async def test_no_new_comment_skips(self) -> None:
-        """TS-86-9: process_issue is not called. No label changes."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-        fox = _make_fox_comment(comment_id=1, created_at="2026-01-01T00:00:00Z")
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-pending":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[fox])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock()
-            mock_gen._has_new_human_comment = MagicMock(return_value=False)
-            await stream.run_once()
-
-            mock_gen.process_issue.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -375,12 +176,8 @@ class TestInitialTransitionToAnalyzing:
         # Mock internal methods to isolate transition behavior
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _generate_spec_package=AsyncMock(
                 return_value=SpecPackage(
                     spec_name="87_widget_support",
@@ -417,12 +214,8 @@ class TestTransitionToGenerating:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _generate_spec_package=AsyncMock(
                 return_value=SpecPackage(
                     spec_name="87_widget_support",
@@ -459,12 +252,8 @@ class TestTransitionToDone:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _generate_spec_package=AsyncMock(
                 return_value=SpecPackage(
                     spec_name="87_widget_support",
@@ -546,9 +335,7 @@ class TestAmbiguousAnalysis:
                     summary="Need more info",
                 )
             ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
         ):
             result = await gen.process_issue(issue)
@@ -653,9 +440,7 @@ class TestEscalationAfterMaxRounds:
                     summary="Ambiguous",
                 )
             ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
         ):
             result = await gen.process_issue(issue)
@@ -823,9 +608,11 @@ class TestDuplicateDetection:
 
         mock_ai = AsyncMock()
         mock_response = MagicMock()
-        mock_response.content = [MagicMock(
-            text='{"is_duplicate": true, "overlapping_spec": "42_webhook_support", "explanation": "Same feature"}'
-        )]
+        mock_response.content = [
+            MagicMock(
+                text='{"is_duplicate": true, "overlapping_spec": "42_webhook_support", "explanation": "Same feature"}'
+            )
+        ]
         mock_response.usage.input_tokens = 100
         mock_response.usage.output_tokens = 50
         mock_response.usage.cache_read_input_tokens = 0
@@ -924,9 +711,7 @@ class TestPRMergeStrategy:
     async def test_creates_draft_pr(self) -> None:
         """TS-86-29: create_pull_request called with correct args."""
         platform = _make_platform()
-        platform.create_pull_request = AsyncMock(
-            return_value=MagicMock(html_url="https://github.com/org/repo/pull/1")
-        )
+        platform.create_pull_request = AsyncMock(return_value=MagicMock(html_url="https://github.com/org/repo/pull/1"))
         config = _make_config()
         config.merge_strategy = "pr"
 
@@ -939,9 +724,7 @@ class TestPRMergeStrategy:
         )
 
         with patch("agent_fox.nightshift.spec_gen.subprocess") as mock_subprocess:
-            mock_subprocess.run = MagicMock(
-                return_value=MagicMock(returncode=0, stdout="abc1234\n")
-            )
+            mock_subprocess.run = MagicMock(return_value=MagicMock(returncode=0, stdout="abc1234\n"))
             await gen._land_spec(package, 42)
 
         platform.create_pull_request.assert_called_once()
@@ -968,12 +751,8 @@ class TestCompletionComment:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _generate_spec_package=AsyncMock(
                 return_value=SpecPackage(
                     spec_name="87_test_spec",
@@ -1038,12 +817,8 @@ class TestCostTracking:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
             _land_spec=AsyncMock(return_value="abc1234"),
             _find_next_spec_number=MagicMock(return_value=87),
@@ -1085,12 +860,8 @@ class TestCostCapAbort:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
             _find_next_spec_number=MagicMock(return_value=87),
         ):
@@ -1108,199 +879,9 @@ class TestCostCapAbort:
 # ---------------------------------------------------------------------------
 
 
-class TestCostReportedToSharedBudget:
-    """Verify run_once reports cost to SharedBudget."""
-
-    async def test_reports_cost(self) -> None:
-        """TS-86-34: SharedBudget.add_cost called with positive value."""
-        from agent_fox.nightshift.daemon import SharedBudget
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=1)
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-
-        config = _make_config()
-        budget = SharedBudget(max_cost=None)
-
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-        stream._budget = budget
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock(
-                return_value=SpecGenResult(
-                    outcome=SpecGenOutcome.GENERATED,
-                    issue_number=1,
-                    spec_name="87_test",
-                    commit_hash="abc1234",
-                    cost=1.50,
-                )
-            )
-            await stream.run_once()
-
-        assert budget.total_cost >= 1.50
-
-
 # ===========================================================================
 # Edge Case Tests
 # ===========================================================================
-
-
-# ---------------------------------------------------------------------------
-# TS-86-E4: no af:spec issues is a no-op
-# Requirements: 86-REQ-2.E1
-# ---------------------------------------------------------------------------
-
-
-class TestNoIssuesNoOp:
-    """Verify run_once does nothing when no issues found."""
-
-    async def test_no_op_on_empty(self) -> None:
-        """TS-86-E4: No calls to process_issue."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        platform.list_issues_by_label = AsyncMock(return_value=[])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock()
-            await stream.run_once()
-
-            mock_gen.process_issue.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TS-86-E5: stale issue is skipped
-# Requirements: 86-REQ-2.E2
-# ---------------------------------------------------------------------------
-
-
-class TestStaleIssueSkipped:
-    """Verify issues with no activity for 30+ days are skipped."""
-
-    async def test_stale_issue_skipped_with_warning(self) -> None:
-        """TS-86-E5: Issue skipped. Warning logged."""
-
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        # Issue with comments older than 30 days
-        old_comment = _make_comment(created_at="2025-01-01T00:00:00Z")
-        issue = _make_issue(number=1)
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-        platform.list_issue_comments = AsyncMock(return_value=[old_comment])
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        with patch.object(stream, "_generator", create=True) as mock_gen:
-            mock_gen.process_issue = AsyncMock()
-            await stream.run_once()
-            # Stale issue should be skipped, so process_issue should not be called
-            mock_gen.process_issue.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TS-86-E6: crash recovery resets stale analyzing label
-# Requirements: 86-REQ-3.E1
-# ---------------------------------------------------------------------------
-
-
-class TestCrashRecoveryAnalyzing:
-    """Verify stale af:spec-analyzing is reset to af:spec."""
-
-    async def test_resets_stale_analyzing(self) -> None:
-        """TS-86-E6: Label reset to af:spec."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-analyzing":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        await stream.run_once()
-
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        remove_calls = [call.args for call in platform.remove_label.call_args_list]
-        assert (10, "af:spec") in assign_calls
-        assert (10, "af:spec-analyzing") in remove_calls
-
-
-# ---------------------------------------------------------------------------
-# TS-86-E7: crash recovery resets stale generating label
-# Requirements: 86-REQ-3.E2
-# ---------------------------------------------------------------------------
-
-
-class TestCrashRecoveryGenerating:
-    """Verify stale af:spec-generating is reset to af:spec."""
-
-    async def test_resets_stale_generating(self) -> None:
-        """TS-86-E7: Label reset to af:spec."""
-        from agent_fox.nightshift.streams import SpecGeneratorStream
-
-        platform = _make_platform()
-        issue = _make_issue(number=10)
-
-        async def list_by_label(label: str, *args: object, **kwargs: object) -> list[IssueResult]:
-            if label == "af:spec-generating":
-                return [issue]
-            return []
-
-        platform.list_issues_by_label = AsyncMock(side_effect=list_by_label)
-
-        config = _make_config()
-        stream = SpecGeneratorStream(
-            config=config,
-            platform=platform,
-            repo_root=Path("/tmp/test-repo"),
-        )
-
-        await stream.run_once()
-
-        assign_calls = [call.args for call in platform.assign_label.call_args_list]
-        remove_calls = [call.args for call in platform.remove_label.call_args_list]
-        assert (10, "af:spec") in assign_calls
-        assert (10, "af:spec-generating") in remove_calls
 
 
 # ---------------------------------------------------------------------------
@@ -1346,9 +927,7 @@ class TestEmptyBodyAmbiguous:
         # Either via direct check or via AI analysis
         with _mock_gen_methods(
             gen,
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
             _analyze_issue=AsyncMock(
                 return_value=AnalysisResult(
@@ -1396,9 +975,7 @@ class TestMaxRoundsFirstAnalysis:
                     summary="Ambiguous",
                 )
             ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
         ):
             result = await gen.process_issue(issue)
@@ -1425,18 +1002,12 @@ class TestApiFailureAborts:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
             _find_next_spec_number=MagicMock(return_value=87),
             # Make generation fail
-            _generate_spec_package=AsyncMock(
-                side_effect=Exception("AI API call failed")
-            ),
+            _generate_spec_package=AsyncMock(side_effect=Exception("AI API call failed")),
         ):
             result = await gen.process_issue(issue)
 
@@ -1556,12 +1127,8 @@ class TestMergeFailureBlocks:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _generate_spec_package=AsyncMock(
                 return_value=SpecPackage(
                     spec_name="87_test_spec",
@@ -1632,12 +1199,8 @@ class TestUnlimitedBudget:
 
         with _mock_gen_methods(
             gen,
-            _analyze_issue=AsyncMock(
-                return_value=AnalysisResult(clear=True, questions=[], summary="ok")
-            ),
-            _check_duplicates=AsyncMock(
-                return_value=DuplicateCheckResult(is_duplicate=False)
-            ),
+            _analyze_issue=AsyncMock(return_value=AnalysisResult(clear=True, questions=[], summary="ok")),
+            _check_duplicates=AsyncMock(return_value=DuplicateCheckResult(is_duplicate=False)),
             _harvest_references=AsyncMock(return_value=[]),
             _land_spec=AsyncMock(return_value="abc1234"),
             _find_next_spec_number=MagicMock(return_value=87),

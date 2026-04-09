@@ -233,3 +233,80 @@ class TestDestroyNonExistentWorktree:
         )
         # Should not raise
         await destroy_worktree(tmp_worktree_repo, ws)
+
+
+class TestCustomBranchName:
+    """Worktree creation with custom branch_name parameter."""
+
+    @pytest.mark.asyncio
+    async def test_custom_branch_name_used(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """When branch_name is provided, the worktree uses it instead of the default."""
+        ws = await create_worktree(
+            tmp_worktree_repo, "fix-issue-42", 0, branch_name="fix/issue-42-linter"
+        )
+        assert ws.branch == "fix/issue-42-linter"
+        branches = list_branches(tmp_worktree_repo)
+        assert "fix/issue-42-linter" in branches
+        assert "feature/fix-issue-42/0" not in branches
+
+    @pytest.mark.asyncio
+    async def test_custom_branch_checked_out_in_worktree(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """The worktree has the custom branch checked out."""
+        import subprocess
+
+        ws = await create_worktree(
+            tmp_worktree_repo, "fix-issue-99", 0, branch_name="fix/issue-99-bug"
+        )
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=ws.path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip() == "fix/issue-99-bug"
+
+
+class TestHyphenatedSpecName:
+    """Spec names with hyphens are accepted (needed for fix-issue-N naming)."""
+
+    @pytest.mark.asyncio
+    async def test_accepts_hyphenated_spec_name(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """A spec name with hyphens passes validation."""
+        ws = await create_worktree(tmp_worktree_repo, "fix-issue-42", 0)
+        assert ws.spec_name == "fix-issue-42"
+        assert ws.path.is_dir()
+
+
+class TestWorktreeCleanupOnFailure:
+    """Worktree cleanup via destroy_worktree in failure scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_destroy_cleans_up_after_session_failure(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """destroy_worktree removes workspace even after simulated failure."""
+        ws = await create_worktree(tmp_worktree_repo, "fix-issue-77", 0)
+        assert ws.path.is_dir()
+
+        # Simulate a session failure, then cleanup
+        try:
+            raise RuntimeError("session exploded")
+        except RuntimeError:
+            pass
+        finally:
+            await destroy_worktree(tmp_worktree_repo, ws)
+
+        assert not ws.path.exists()
+        branches = list_branches(tmp_worktree_repo)
+        assert ws.branch not in branches

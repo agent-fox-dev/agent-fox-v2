@@ -7,12 +7,23 @@ Requirements: 81-REQ-2.3, 81-REQ-2.4, 81-REQ-5.1, 81-REQ-5.2, 81-REQ-5.3,
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agent_fox.platform.github import IssueResult
 from agent_fox.ui.progress import TaskEvent
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 
 def _make_config() -> MagicMock:
@@ -21,7 +32,6 @@ def _make_config() -> MagicMock:
     config.orchestrator.max_sessions = None
     config.night_shift.issue_check_interval = 900
     config.night_shift.hunt_scan_interval = 14400
-    config.night_shift.spec_gen_interval = 300
     return config
 
 
@@ -32,6 +42,29 @@ def _make_issue(number: int = 42, title: str = "Fix bug") -> IssueResult:
         html_url=f"https://github.com/test/repo/issues/{number}",
         body="Detailed bug description.",
     )
+
+
+def _sdk_param_patches():
+    """Return a contextlib.ExitStack with SDK param resolver patches.
+
+    These are needed when tests exercise the real ``_run_session`` method
+    (which resolves model/security/turns/budget/thinking/fallback) rather
+    than mocking ``_run_session`` entirely.
+    """
+    import contextlib
+
+    mock_model = MagicMock()
+    mock_model.model_id = "mock-model-id"
+
+    stack = contextlib.ExitStack()
+    stack.enter_context(patch("agent_fox.core.models.resolve_model", return_value=mock_model))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_model_tier", return_value="standard"))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_security_config", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_turns", return_value=10))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_thinking", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_fallback_model", return_value=None))
+    stack.enter_context(patch("agent_fox.engine.sdk_params.resolve_max_budget", return_value=None))
+    return stack
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +180,16 @@ class TestFixPipelinePassesCallback:
                 mock_outcome.response = ""
             return mock_outcome
 
-        with patch(
-            "agent_fox.session.session.run_session",
-            side_effect=fake_run_session,
+        with (
+            patch(
+                "agent_fox.session.session.run_session",
+                side_effect=fake_run_session,
+            ),
+            _sdk_param_patches(),
         ):
-            pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-            pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+            pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+            pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+            pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
             await pipeline.process_issue(issue, issue_body="Fix the bug")
 
@@ -214,12 +251,16 @@ class TestFixPipelinePassesCallback:
                 mock_outcome.response = ""
             return mock_outcome
 
-        with patch(
-            "agent_fox.session.session.run_session",
-            side_effect=fake_run_session,
+        with (
+            patch(
+                "agent_fox.session.session.run_session",
+                side_effect=fake_run_session,
+            ),
+            _sdk_param_patches(),
         ):
-            pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-            pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+            pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+            pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+            pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
             await pipeline.process_issue(issue, issue_body="Fix the bug")
 
@@ -254,8 +295,9 @@ class TestFixPipelineTaskEvents:
             platform=platform,
             task_callback=events.append,
         )
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -274,7 +316,7 @@ class TestFixPipelineTaskEvents:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=100,
                 output_tokens=50,
@@ -320,8 +362,9 @@ class TestFixPipelineTaskEvents:
             platform=platform,
             task_callback=events.append,
         )
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -340,7 +383,7 @@ class TestFixPipelineTaskEvents:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=100,
                 output_tokens=50,
@@ -383,7 +426,8 @@ class TestFixPipelineTaskEvents:
             platform=platform,
             task_callback=events.append,
         )
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         # Triage succeeds but coder fails
         import json
@@ -399,7 +443,7 @@ class TestFixPipelineTaskEvents:
         )
         call_count = {"n": 0}
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             call_count["n"] += 1
             if archetype == "triage":
                 outcome = MagicMock(
@@ -439,8 +483,9 @@ class TestFixPipelineTaskEvents:
 
         # No task_callback
         pipeline = FixPipeline(config=config, platform=platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -459,7 +504,7 @@ class TestFixPipelineTaskEvents:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=100,
                 output_tokens=50,
@@ -510,8 +555,9 @@ class TestActivityEventForwarded:
             platform=platform,
             activity_callback=events.append,
         )
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
-        pipeline._harvest_and_push = AsyncMock(return_value=True)  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -557,9 +603,12 @@ class TestActivityEventForwarded:
                 mock_outcome.response = ""
             return mock_outcome
 
-        with patch(
-            "agent_fox.session.session.run_session",
-            side_effect=fake_run_session,
+        with (
+            patch(
+                "agent_fox.session.session.run_session",
+                side_effect=fake_run_session,
+            ),
+            _sdk_param_patches(),
         ):
             await pipeline.process_issue(_make_issue(), issue_body="Fix the bug")
 

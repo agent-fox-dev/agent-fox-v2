@@ -77,6 +77,8 @@ class AuditEventType(StrEnum):
     NIGHT_SHIFT_START = "night_shift.start"
     HUNT_SCAN_COMPLETE = "night_shift.hunt_scan_complete"
     ISSUE_CREATED = "night_shift.issue_created"
+    ISSUE_SUPERSEDED = "night_shift.issue_superseded"
+    ISSUE_OBSOLETE = "night_shift.issue_obsolete"
     FIX_START = "night_shift.fix_start"
     FIX_COMPLETE = "night_shift.fix_complete"
     FIX_FAILED = "night_shift.fix_failed"

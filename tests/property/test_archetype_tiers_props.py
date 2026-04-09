@@ -210,33 +210,23 @@ class TestConfigOverridePrecedence:
     @pytest.mark.parametrize("name", _ALL_ARCHETYPES)
     @pytest.mark.parametrize("override", ["SIMPLE", "STANDARD", "ADVANCED"])
     def test_config_override_takes_precedence(self, name: str, override: str) -> None:
-        """With config override, _resolve_model_tier returns override value."""
-        from unittest.mock import MagicMock
-
+        """With config override, resolve_model_tier returns override value."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.knowledge.db import KnowledgeDB
+        from agent_fox.engine.sdk_params import resolve_model_tier
 
-        mock_kb = MagicMock(spec=KnowledgeDB)
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={name: override}))
-        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
-        tier = runner._resolve_model_tier()
+        tier = resolve_model_tier(config, name)
         assert tier == override
 
     @pytest.mark.parametrize("name", _ALL_ARCHETYPES)
     def test_no_override_uses_registry_default(self, name: str) -> None:
         """Without config override, registry default is returned."""
-        from unittest.mock import MagicMock
-
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.knowledge.db import KnowledgeDB
+        from agent_fox.engine.sdk_params import resolve_model_tier
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        mock_kb = MagicMock(spec=KnowledgeDB)
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
-        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
-        tier = runner._resolve_model_tier()
+        tier = resolve_model_tier(config, name)
         expected = ARCHETYPE_REGISTRY[name].default_model_tier
         assert tier == expected
 
@@ -252,18 +242,13 @@ class TestConfigOverridePrecedence:
     @settings(max_examples=50)
     def test_prop_config_override_precedence(self, name: str, override: str | None) -> None:
         """Property: override → returned; no override → registry default."""
-        from unittest.mock import MagicMock
-
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.knowledge.db import KnowledgeDB
+        from agent_fox.engine.sdk_params import resolve_model_tier
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        mock_kb = MagicMock(spec=KnowledgeDB)
         models = {name: override} if override is not None else {}
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models=models))
-        runner = NodeSessionRunner("spec:1", config, archetype=name, knowledge_db=mock_kb)
-        result = runner._resolve_model_tier()
+        result = resolve_model_tier(config, name)
 
         if override is not None:
             assert result == override

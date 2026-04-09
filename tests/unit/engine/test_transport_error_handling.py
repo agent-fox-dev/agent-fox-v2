@@ -16,7 +16,6 @@ from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
 from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
 
-
 # ---------------------------------------------------------------------------
 # Helpers (mirrors test_timeout_escalation.py pattern)
 # ---------------------------------------------------------------------------
