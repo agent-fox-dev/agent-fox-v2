@@ -108,7 +108,7 @@ class TestArchetypePipeline:
             await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")  # type: ignore[arg-type]
 
         assert "triage" in archetypes_used
-        assert "coder" in archetypes_used
+        assert "fix_coder" in archetypes_used
         assert "fix_reviewer" in archetypes_used
 
 
