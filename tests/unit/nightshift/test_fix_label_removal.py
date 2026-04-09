@@ -9,11 +9,22 @@ Verifies that the af:fix label is removed when issues are closed via:
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from agent_fox.platform.github import IssueResult
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 LABEL = "af:fix"
 
@@ -38,7 +49,8 @@ class TestFixPipelineLabelRemoval:
         mock_platform.remove_label = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -57,7 +69,7 @@ class TestFixPipelineLabelRemoval:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,
@@ -98,7 +110,8 @@ class TestFixPipelineLabelRemoval:
         mock_platform.remove_label = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         triage_response = json.dumps(
             {
@@ -117,7 +130,7 @@ class TestFixPipelineLabelRemoval:
             }
         )
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             outcome = MagicMock(
                 input_tokens=10,
                 output_tokens=5,

@@ -13,7 +13,20 @@ posts a branch-name completion comment, so no fallback path exists.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 
 def _make_issue(number: int = 42, title: str = "Fix unused imports") -> object:
@@ -51,7 +64,8 @@ class TestArchetypePipeline:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         archetypes_used: list[str] = []
@@ -73,7 +87,7 @@ class TestArchetypePipeline:
             }
         )
 
-        async def mock_execute(archetype: str, *args: object, **kwargs: object) -> object:
+        async def mock_execute(archetype: str, workspace: object = None, *args: object, **kwargs: object) -> object:
             archetypes_used.append(archetype)
             outcome = MagicMock(
                 input_tokens=10,
@@ -119,7 +133,8 @@ class TestFixProgressComments:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,
@@ -153,7 +168,8 @@ class TestFixCompletionComment:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,
@@ -188,7 +204,8 @@ class TestFixSessionFailure:
         mock_platform.add_issue_comment = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
 
         with patch.object(
             pipeline,

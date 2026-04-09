@@ -74,11 +74,17 @@ async def create_worktree(
     spec_name: str,
     task_group: int,
     base_branch: str = "develop",
+    branch_name: str | None = None,
 ) -> WorkspaceInfo:
     """Create an isolated git worktree for a coding session.
 
     Creates a worktree at .agent-fox/worktrees/{spec_name}/{task_group}
     with a feature branch named feature/{spec_name}/{task_group}.
+
+    When *branch_name* is provided it is used as the git branch instead
+    of the default ``feature/{spec_name}/{task_group}`` convention. The
+    worktree filesystem path is always derived from *spec_name* and
+    *task_group* regardless of the branch name.
 
     If a stale worktree or branch exists, it is removed first.
 
@@ -87,12 +93,12 @@ async def create_worktree(
     Raises:
         WorkspaceError: If worktree creation fails.
     """
-    if not re.fullmatch(r"[a-zA-Z0-9_]+", spec_name):
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+", spec_name):
         raise WorkspaceError(f"Invalid spec name: {spec_name!r}")
 
     worktrees_root = repo_root / ".agent-fox" / "worktrees"
     worktree_path = worktrees_root / spec_name / str(task_group)
-    branch_name = f"feature/{spec_name}/{task_group}"
+    branch_name = branch_name or f"feature/{spec_name}/{task_group}"
 
     # Clean up orphaned empty sibling directories under the spec directory.
     # These are left over from prior crashed or partial cleanup runs.

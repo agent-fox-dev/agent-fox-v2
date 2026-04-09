@@ -7,11 +7,22 @@ Requirements: 82-REQ-7.1, 82-REQ-8.2, 82-REQ-8.3, 82-REQ-7.E1
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from agent_fox.platform.github import IssueResult
+from agent_fox.workspace import WorkspaceInfo
+
+
+def _mock_workspace() -> WorkspaceInfo:
+    return WorkspaceInfo(
+        path=Path("/tmp/mock-worktree"),
+        branch="fix/test-branch",
+        spec_name="fix-issue-42",
+        task_group=0,
+    )
 
 
 def _make_issue(number: int = 42) -> IssueResult:
@@ -98,10 +109,11 @@ class TestFullPipelineHappyPath:
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_outcome(_triage_json(2))
             if archetype == "fix_reviewer":
@@ -151,13 +163,14 @@ class TestRetryLoopWithEscalation:
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         reviewer_call_count = {"n": 0}
         model_ids_used: list[str | None] = []
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_outcome(_triage_json(2))
             if archetype == "fix_reviewer":
@@ -173,13 +186,14 @@ class TestRetryLoopWithEscalation:
         original_run_coder = pipeline._run_coder_session
 
         async def capturing_coder(
+            workspace: object,
             spec: object,
             system_prompt: str,
             task_prompt: str,
             model_id: str | None = None,
         ) -> MagicMock:
             model_ids_used.append(model_id)
-            return await original_run_coder(spec, system_prompt, task_prompt, model_id)  # type: ignore[return-value, arg-type]
+            return await original_run_coder(workspace, spec, system_prompt, task_prompt, model_id)  # type: ignore[return-value, arg-type]
 
         pipeline._run_coder_session = capturing_coder  # type: ignore[assignment]
 
@@ -217,12 +231,13 @@ class TestTriageFailureFallback:
         config.orchestrator.max_retries = 3
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
-        pipeline._create_fix_branch = AsyncMock()  # type: ignore[method-assign]
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
         pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         triage_attempted = {"value": False}
 
-        async def mock_run_session(archetype: str, **kwargs: object) -> MagicMock:
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 triage_attempted["value"] = True
                 raise Exception("backend error")
