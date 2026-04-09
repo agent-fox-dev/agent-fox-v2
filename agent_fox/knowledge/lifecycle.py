@@ -391,9 +391,10 @@ def run_cleanup(
 
     try:
         # Count active facts
-        active_count = conn.execute(
+        _row = conn.execute(
             "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()[0]
+        ).fetchone()
+        active_count = _row[0] if _row is not None else 0
 
         # Only run decay if above threshold (90-REQ-4.2, 90-REQ-4.3)
         if active_count > config.cleanup_fact_threshold:
@@ -404,9 +405,10 @@ def run_cleanup(
             )
 
         # Recount active facts after cleanup
-        active_remaining = conn.execute(
+        _row = conn.execute(
             "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()[0]
+        ).fetchone()
+        active_remaining = _row[0] if _row is not None else 0
 
     except duckdb.Error:
         logger.warning(

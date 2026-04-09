@@ -2,7 +2,7 @@
 
 Test Spec: TS-90-1 through TS-90-4 (dedup), TS-90-9 through TS-90-11 (decay),
            TS-90-12 through TS-90-15 (cleanup), TS-90-E1, TS-90-E2, TS-90-E5,
-           TS-90-E6, TS-90-E7, TS-90-E8
+           TS-90-E6, TS-90-E7, TS-90-E8, TS-324-1, TS-324-2, TS-324-3
 Requirements: 90-REQ-1.*, 90-REQ-3.*, 90-REQ-4.*
 """
 
@@ -710,6 +710,112 @@ class TestCleanupDisabled:
         assert result.facts_expired == 0
         assert result.facts_deduped == 0
         assert result.facts_contradicted == 0
+
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# TS-324-1: run_cleanup active_count None-guard (AC-1)
+# ---------------------------------------------------------------------------
+
+
+class TestRunCleanupActiveCountNoneGuard:
+    """TS-324-1: If fetchone() returns None for the active-count query,
+    run_cleanup defaults active_count to 0 and does not raise TypeError.
+
+    Requirement: fix-issue-324 AC-1
+    """
+
+    def test_active_count_fetchone_none_returns_zero(self) -> None:
+        """Mocking fetchone() → None for the COUNT query must not raise."""
+        # Use a MagicMock connection so execute() is fully controllable
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None
+
+        conn = MagicMock()
+        conn.execute.return_value = mock_cursor
+
+        config = KnowledgeConfig()
+
+        # Must not raise TypeError; None fetchone() should default to 0
+        result = run_cleanup(conn, config)
+
+        assert result.facts_expired == 0
+        assert result.active_facts_remaining == 0
+
+
+# ---------------------------------------------------------------------------
+# TS-324-2: run_cleanup active_remaining None-guard (AC-2)
+# ---------------------------------------------------------------------------
+
+
+class TestRunCleanupActiveRemainingNoneGuard:
+    """TS-324-2: If fetchone() returns None for the post-cleanup recount query,
+    run_cleanup defaults active_remaining to 0 and does not raise TypeError.
+
+    Requirement: fix-issue-324 AC-2
+    """
+
+    def test_active_remaining_fetchone_none_returns_zero(self) -> None:
+        """Second COUNT(*) fetchone() → None must not raise TypeError."""
+        # First execute() returns a real count (above threshold) so decay runs.
+        # Second execute() returns None from fetchone() for the post-cleanup recount.
+        cursor_first = MagicMock()
+        cursor_first.fetchone.return_value = (600,)  # above default threshold
+
+        cursor_second = MagicMock()
+        cursor_second.fetchone.return_value = None  # post-cleanup recount → None
+
+        # run_decay_cleanup also calls execute; make those return benign cursors
+        decay_cursor = MagicMock()
+        decay_cursor.fetchall.return_value = []
+
+        call_count: list[int] = [0]
+
+        def side_effect(query: str, *args: object, **kwargs: object) -> MagicMock:
+            if "SELECT COUNT(*)" in query:
+                call_count[0] += 1
+                return cursor_first if call_count[0] == 1 else cursor_second
+            return decay_cursor
+
+        conn = MagicMock()
+        conn.execute.side_effect = side_effect
+
+        config = KnowledgeConfig()
+
+        result = run_cleanup(conn, config)
+
+        assert result.active_facts_remaining == 0
+
+
+# ---------------------------------------------------------------------------
+# TS-324-3: run_cleanup normal behavior preserved (AC-3)
+# ---------------------------------------------------------------------------
+
+
+class TestRunCleanupNormalBehaviorPreserved:
+    """TS-324-3: When fetchone() returns a valid row, run_cleanup populates
+    active_facts_remaining correctly from fetchone()[0].
+
+    Requirement: fix-issue-324 AC-3
+    """
+
+    def test_normal_cleanup_returns_correct_counts(self) -> None:
+        conn = _setup_db()
+        now = datetime.now(UTC)
+
+        # Insert facts below threshold — no decay should occur
+        for _ in range(5):
+            f = _make_fact(confidence=0.9)
+            _insert_fact(conn, f, created_at_override=now - timedelta(days=10))
+
+        config = KnowledgeConfig()
+
+        result = run_cleanup(conn, config)
+
+        # All 5 facts are active and below threshold, so none expired
+        assert result.facts_expired == 0
+        assert result.active_facts_remaining == 5
 
         conn.close()
 
