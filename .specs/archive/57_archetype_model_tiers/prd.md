@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 89_simplify_routing.
+
 # PRD: Archetype Model Tier Defaults
 
 ## Problem

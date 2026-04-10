@@ -27,9 +27,6 @@ class TestRoutingDefaults:
         """
         config = load_config(minimal_config_toml)
         assert config.routing.retries_before_escalation == 1
-        assert config.routing.training_threshold == 20
-        assert config.routing.accuracy_threshold == 0.75
-        assert config.routing.retrain_interval == 10
 
     def test_routing_defaults_no_file(self) -> None:
         """Verify defaults when no config file exists.
@@ -38,7 +35,6 @@ class TestRoutingDefaults:
         """
         config = load_config(None)
         assert config.routing.retries_before_escalation == 1
-        assert config.routing.training_threshold == 20
 
 
 class TestRoutingClamping:
@@ -51,9 +47,6 @@ class TestRoutingClamping:
         """
         config = load_config(extreme_routing_config_toml)
         assert config.routing.retries_before_escalation == 3  # clamped from 10
-        assert config.routing.training_threshold == 5  # clamped from 2
-        assert config.routing.accuracy_threshold == 0.5  # clamped from 0.1
-        assert config.routing.retrain_interval == 100  # clamped from 200
 
 
 class TestArchetypeCeiling:
@@ -99,31 +92,12 @@ class TestP9ConfigClamping:
     """TS-30-P9: Configuration clamping property."""
 
     @pytest.mark.property
-    @given(
-        retries=st.integers(min_value=-10, max_value=100),
-        threshold=st.integers(min_value=-10, max_value=5000),
-        accuracy=st.floats(min_value=-1.0, max_value=2.0, allow_nan=False),
-        interval=st.integers(min_value=-10, max_value=500),
-    )
+    @given(retries=st.integers(min_value=-10, max_value=100))
     @settings(max_examples=50)
-    def test_p9_config_clamping(
-        self,
-        retries: int,
-        threshold: int,
-        accuracy: float,
-        interval: int,
-    ) -> None:
-        """TS-30-P9: All routing config values clamped to valid ranges.
+    def test_p9_config_clamping(self, retries: int) -> None:
+        """TS-30-P9: Routing config retries clamped to valid range.
 
         Requirement: 30-REQ-5.1, 30-REQ-5.2
         """
-        config = RoutingConfig(
-            retries_before_escalation=retries,
-            training_threshold=threshold,
-            accuracy_threshold=accuracy,
-            retrain_interval=interval,
-        )
+        config = RoutingConfig(retries_before_escalation=retries)
         assert 0 <= config.retries_before_escalation <= 3
-        assert 5 <= config.training_threshold <= 1000
-        assert 0.5 <= config.accuracy_threshold <= 1.0
-        assert 5 <= config.retrain_interval <= 100

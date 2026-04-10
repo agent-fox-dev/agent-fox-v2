@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 89_simplify_routing.
+
 # Implementation Plan: Adaptive Model Routing
 
 <!-- AGENT INSTRUCTIONS

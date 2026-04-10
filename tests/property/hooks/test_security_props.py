@@ -103,9 +103,7 @@ class TestAllowlistEnforcementCompleteness:
         # check_shell_operators may reject args containing dangerous tokens
         # (e.g. '-exec', '-execdir') regardless of allowlist membership.
         expected = check_shell_operators(command) is None
-        assert allowed == expected, (
-            f"Command '{command}' allowed={allowed} but expected allowed={expected}"
-        )
+        assert allowed == expected, f"Command '{command}' allowed={allowed} but expected allowed={expected}"
 
 
 class TestDefaultAllowlistStability:

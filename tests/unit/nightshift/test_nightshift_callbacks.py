@@ -340,7 +340,7 @@ class TestFixPipelineTaskEvents:
         # triage + coder + fix_reviewer = 3 archetype events
         archetype_names = [e.archetype for e in events]
         assert "triage" in archetype_names
-        assert "coder" in archetype_names
+        assert "fix_coder" in archetype_names
         assert "fix_reviewer" in archetype_names
         assert all(e.status == "completed" for e in events)
 
@@ -408,7 +408,7 @@ class TestFixPipelineTaskEvents:
             assert e.duration_s >= 0
             assert e.node_id.startswith("fix-issue-99")
             assert e.status == "completed"
-            assert e.archetype in ("triage", "coder", "fix_reviewer")
+            assert e.archetype in ("triage", "fix_coder", "fix_reviewer")
 
     @pytest.mark.asyncio
     async def test_81_task_event_on_failure(self) -> None:
@@ -466,7 +466,7 @@ class TestFixPipelineTaskEvents:
         # Should have at least one failed event for coder
         failed = [e for e in events if e.status == "failed"]
         assert len(failed) >= 1
-        assert failed[0].archetype == "coder"
+        assert failed[0].archetype == "fix_coder"
         assert failed[0].duration_s >= 0
 
     @pytest.mark.asyncio

@@ -28,6 +28,7 @@ from agent_fox.session.backends.protocol import (
     ToolUseMessage,
 )
 from agent_fox.session.session import run_session
+from agent_fox.ui.progress import ActivityCallback, ActivityEvent, abbreviate_arg
 from agent_fox.workspace import WorkspaceInfo
 
 # -- Mock backend for testing ---
@@ -61,6 +62,9 @@ class MockBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
+        activity_callback: ActivityCallback | None = None,
+        node_id: str = "",
+        archetype: str | None = None,
         tools: list | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
@@ -75,7 +79,30 @@ class MockBackend:
         if self._error is not None:
             raise self._error
 
+        turn = 0
         for msg in self._messages:
+            # Fire activity events from ToolUseMessages when a callback is registered.
+            # This mirrors the behaviour of ClaudeBackend's notification hook so that
+            # session-runner tests (which use MockBackend) remain valid.
+            if activity_callback is not None and isinstance(msg, ToolUseMessage):
+                turn += 1
+                arg = ""
+                for v in msg.tool_input.values():
+                    if isinstance(v, str):
+                        arg = abbreviate_arg(v)
+                        break
+                event = ActivityEvent(
+                    node_id=node_id,
+                    tool_name=msg.tool_name,
+                    argument=arg,
+                    turn=turn,
+                    tokens=0,
+                    archetype=archetype,
+                )
+                try:
+                    activity_callback(event)
+                except Exception:
+                    pass
             yield msg
 
     async def close(self) -> None:
@@ -479,8 +506,6 @@ class TestSessionRunnerActivityCallback:
         default_config: AgentFoxConfig,
     ) -> None:
         """run_session invokes the activity callback for tool-use messages."""
-        from agent_fox.ui.progress import ActivityEvent
-
         events: list[ActivityEvent] = []
 
         backend = MockBackend(
@@ -517,8 +542,6 @@ class TestSessionRunnerActivityTurnAndTokens:
         default_config: AgentFoxConfig,
     ) -> None:
         """Activity events carry incrementing turn and cumulative token counts."""
-        from agent_fox.ui.progress import ActivityEvent
-
         events: list[ActivityEvent] = []
 
         backend = MockBackend(

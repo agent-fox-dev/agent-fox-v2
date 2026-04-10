@@ -115,6 +115,8 @@ async def run_sync_barrier_sequence(
     barrier_callback: Callable[[], None] | None,
     knowledge_db_conn: Any | None,
     reload_config_fn: Callable[[], None] | None = None,
+    knowledge_config: Any | None = None,
+    sink_dispatcher: Any | None = None,
 ) -> None:
     """Execute the sync barrier sequence.
 
@@ -205,6 +207,26 @@ async def run_sync_barrier_sequence(
             compact(knowledge_db_conn)
         except Exception:
             logger.warning("Knowledge compaction failed at barrier", exc_info=True)
+
+    # 90-REQ-4.1, 90-REQ-4.2: Run fact lifecycle cleanup (decay + audit)
+    if knowledge_db_conn is not None and knowledge_config is not None:
+        try:
+            from agent_fox.knowledge.lifecycle import run_cleanup
+
+            cleanup_result = run_cleanup(
+                knowledge_db_conn,
+                knowledge_config,
+                sink_dispatcher=sink_dispatcher,
+            )
+            logger.info(
+                "Fact lifecycle cleanup: expired=%d deduped=%d contradicted=%d remaining=%d",
+                cleanup_result.facts_expired,
+                cleanup_result.facts_deduped,
+                cleanup_result.facts_contradicted,
+                cleanup_result.active_facts_remaining,
+            )
+        except Exception:
+            logger.warning("Fact lifecycle cleanup failed at barrier", exc_info=True)
 
     # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
     try:

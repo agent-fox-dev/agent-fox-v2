@@ -21,6 +21,7 @@ from agent_fox.knowledge.extraction import (
     extract_facts,
     parse_causal_links,
 )
+from agent_fox.knowledge.lifecycle import dedup_new_facts, detect_contradictions
 from agent_fox.knowledge.store import load_all_facts
 
 if TYPE_CHECKING:
@@ -41,23 +42,31 @@ async def extract_and_store_knowledge(
     run_id: str = "",
     embedder: EmbeddingGenerator | None = None,
     causal_context_limit: int = 200,
+    dedup_threshold: float = 0.92,
+    contradiction_threshold: float = 0.8,
+    contradiction_model: str = "SIMPLE",
 ) -> None:
     """Extract facts and causal links from a session transcript.
 
     1. Calls the LLM to extract facts from the transcript.
     2. Writes facts to DuckDB via sync_facts_to_duckdb.
     3. Generates embeddings for new facts (best-effort).
-    4. Checks fact threshold and extracts causal links if >= 5.
-    5. Emits harvest.complete or harvest.empty audit events.
+    4. Runs embedding-based deduplication on new facts.
+    5. Runs contradiction detection on surviving new facts.
+    6. Checks fact threshold and extracts causal links if >= 5.
+    7. Emits harvest.complete or harvest.empty audit events.
 
     Requirements: 05-REQ-1.1, 05-REQ-1.E1, 13-REQ-2.1, 13-REQ-2.2,
                   38-REQ-2.1, 38-REQ-2.3, 39-REQ-3.1,
                   52-REQ-3.1, 52-REQ-3.2, 52-REQ-4.1, 52-REQ-4.2,
-                  52-REQ-4.E1, 52-REQ-5.1, 52-REQ-5.2
+                  52-REQ-4.E1, 52-REQ-5.1, 52-REQ-5.2,
+                  90-REQ-5.1, 90-REQ-5.2, 90-REQ-5.3, 90-REQ-5.4
     """
     facts = await extract_facts(transcript, spec_name, memory_extraction_model, session_id=node_id)
 
     causal_link_count = 0
+    dedup_count = 0
+    contradiction_count = 0
 
     if not facts:
         # 52-REQ-4.2: Emit harvest.empty when non-empty input yields zero facts
@@ -74,6 +83,34 @@ async def extract_and_store_knowledge(
 
     # 52-REQ-3.1, 52-REQ-3.2: Generate embeddings (best-effort)
     _generate_embeddings(knowledge_db, facts, embedder)
+
+    # 90-REQ-5.1, 90-REQ-5.3: Run embedding-based deduplication on new facts
+    conn = knowledge_db.connection
+    try:
+        dedup_result = dedup_new_facts(conn, facts, threshold=dedup_threshold)
+        dedup_count = len(dedup_result.superseded_ids)
+        surviving_facts = dedup_result.surviving_facts
+    except Exception:
+        logger.warning("Dedup failed during harvest; continuing", exc_info=True)
+        surviving_facts = facts
+
+    # 90-REQ-5.2, 90-REQ-5.E1: Run contradiction detection on survivors only
+    if surviving_facts:
+        try:
+            contradiction_result = detect_contradictions(
+                conn,
+                surviving_facts,
+                threshold=contradiction_threshold,
+                model=contradiction_model,
+            )
+            contradiction_count = len(contradiction_result.superseded_ids)
+        except Exception:
+            logger.warning(
+                "Contradiction detection failed during harvest; continuing",
+                exc_info=True,
+            )
+    else:
+        logger.debug("All new facts removed by dedup; skipping contradiction detection")
 
     # 40-REQ-11.4: Emit fact.extracted audit event
     if sink_dispatcher is not None and run_id:
@@ -112,8 +149,16 @@ async def extract_and_store_knowledge(
             non_superseded_count,
         )
 
-    # 52-REQ-4.1: Emit harvest.complete audit event
-    _emit_harvest_complete(sink_dispatcher, run_id, node_id, facts, causal_link_count)
+    # 52-REQ-4.1, 90-REQ-5.4: Emit harvest.complete audit event
+    _emit_harvest_complete(
+        sink_dispatcher,
+        run_id,
+        node_id,
+        facts,
+        causal_link_count,
+        dedup_count=dedup_count,
+        contradiction_count=contradiction_count,
+    )
 
 
 def _count_non_superseded_facts(knowledge_db: KnowledgeDB) -> int:
@@ -172,10 +217,13 @@ def _emit_harvest_complete(
     node_id: str,
     facts: list[Any],
     causal_link_count: int,
+    *,
+    dedup_count: int = 0,
+    contradiction_count: int = 0,
 ) -> None:
     """Emit a harvest.complete audit event.
 
-    Requirements: 52-REQ-4.1, 52-REQ-4.E1
+    Requirements: 52-REQ-4.1, 52-REQ-4.E1, 90-REQ-5.4
     """
     if sink_dispatcher is None or not run_id:
         return
@@ -191,6 +239,8 @@ def _emit_harvest_complete(
                 "fact_count": len(facts),
                 "categories": categories,
                 "causal_link_count": causal_link_count,
+                "dedup_count": dedup_count,
+                "contradiction_count": contradiction_count,
             },
         )
         sink_dispatcher.emit_audit_event(event)

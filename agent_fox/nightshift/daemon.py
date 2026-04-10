@@ -176,22 +176,39 @@ class DaemonRunner:
             key=lambda s: priority_map.get(s.name, max_priority),
         )
 
-    # Short tick duration for the daemon loop. Streams fire on each
-    # tick; the stream's own ``interval`` property is advisory and
-    # used by real stream implementations to pace their work.
+    # Short tick duration between interval checks. The daemon sleeps
+    # for _TICK seconds between polling whether a stream is due to run,
+    # keeping shutdown responsive without busy-looping.
     _TICK: float = 0.05
 
     async def _run_stream_loop(self, stream: WorkStream) -> None:
         """Run a single stream's polling loop.
 
-        Each cycle: run_once() → check budget → short sleep.
-        Exceptions in run_once() are caught and logged; the stream
-        retries on the next cycle (85-REQ-1.4, 85-REQ-1.E1).
+        The first invocation fires immediately. Subsequent invocations
+        wait until ``stream.interval`` seconds have elapsed since the
+        last run_once() call. Between checks the loop sleeps for
+        ``_TICK`` seconds so the daemon stays responsive to shutdown.
 
-        The loop uses a short tick to keep the daemon responsive.
-        Streams are responsible for their own pacing via ``interval``.
+        Exceptions in run_once() are caught and logged; the stream
+        retries after the normal interval (85-REQ-1.4, 85-REQ-1.E1).
         """
+        last_run: float | None = None
+
         while not self._shutdown_event.is_set():
+            now = time.monotonic()
+
+            # Enforce stream interval (skip if not enough time elapsed).
+            if last_run is not None and (now - last_run) < stream.interval:
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(),
+                        timeout=self._TICK,
+                    )
+                    return  # Shutdown requested during sleep.
+                except TimeoutError:
+                    continue
+
+            # Run the stream cycle.
             try:
                 await stream.run_once()
             except Exception:  # noqa: BLE001
@@ -199,6 +216,8 @@ class DaemonRunner:
                     "Stream %r run_once() raised; will retry next cycle",
                     stream.name,
                 )
+
+            last_run = time.monotonic()
 
             # Check budget after each cycle (85-REQ-5.3).
             if self._budget.exceeded:

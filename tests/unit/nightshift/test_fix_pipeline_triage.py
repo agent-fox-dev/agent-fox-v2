@@ -492,7 +492,7 @@ class TestOnlyCoderRetried:
         await pipeline.process_issue(_make_issue(), issue_body="bug")
 
         assert archetype_counts.get("triage", 0) == 1
-        assert archetype_counts.get("coder", 0) == 3
+        assert archetype_counts.get("fix_coder", 0) == 3
         assert archetype_counts.get("fix_reviewer", 0) == 3
 
 

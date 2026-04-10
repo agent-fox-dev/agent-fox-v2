@@ -19,6 +19,7 @@ from claude_agent_sdk.types import (
     AssistantMessage as SDKAssistantMessage,
 )
 from claude_agent_sdk.types import (
+    HookMatcher,
     PermissionResultAllow,
     PermissionResultDeny,
     TextBlock,
@@ -37,6 +38,7 @@ from agent_fox.session.backends.protocol import (
     ResultMessage,
     ToolUseMessage,
 )
+from agent_fox.ui.progress import ActivityCallback, ActivityEvent, abbreviate_arg
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,9 @@ class ClaudeBackend:
         model: str,
         cwd: str,
         permission_callback: PermissionCallback | None = None,
+        activity_callback: ActivityCallback | None = None,
+        node_id: str = "",
+        archetype: str | None = None,
         max_turns: int | None = None,
         max_budget_usd: float | None = None,
         fallback_model: str | None = None,
@@ -137,6 +142,18 @@ class ClaudeBackend:
                 options.thinking = thinking  # type: ignore[assignment]
             except TypeError as exc:
                 logger.warning("SDK does not support 'thinking' parameter, omitting: %s", exc)
+
+        # Register a Notification hook when an activity_callback is provided.
+        # The hook converts SDK NotificationHookInput to ActivityEvent and
+        # forwards it to the callback. (AC-1, AC-2, AC-7 — issue #320)
+        if activity_callback is not None:
+            options.hooks = {
+                "Notification": [
+                    HookMatcher(
+                        hooks=[_build_notification_hook(activity_callback, node_id=node_id, archetype=archetype)],
+                    )
+                ]
+            }
 
         # Transport-layer retry loop (AC-1 through AC-4).
         # Transient errors (connection failure or missing ResultMessage) are
@@ -315,6 +332,65 @@ class ClaudeBackend:
 
     async def close(self) -> None:
         """Release resources (no-op for ClaudeBackend)."""
+
+
+def _build_notification_hook(
+    activity_callback: ActivityCallback,
+    *,
+    node_id: str,
+    archetype: str | None,
+) -> Any:
+    """Return an async Notification hook that emits ActivityEvents.
+
+    The returned function satisfies the HookCallback signature:
+    ``(hook_input, tool_use_id, context) -> Awaitable[HookJSONOutput]``.
+
+    ``NotificationHookInput`` is a TypedDict (subclass of dict) with keys:
+    ``message`` (str), ``title`` (str, optional), ``notification_type`` (str).
+
+    Returns a SyncHookJSONOutput-compatible dict so execution continues.
+
+    Requirements: 320-AC-1, 320-AC-2, 320-AC-5, 320-AC-6
+    """
+    turn_counter = [0]  # mutable int in a list for closure mutation
+
+    async def _notification_hook(
+        hook_input: Any,
+        tool_use_id: Any,  # noqa: ARG001
+        context: Any,  # noqa: ARG001
+    ) -> dict[str, Any]:
+        turn_counter[0] += 1
+
+        # NotificationHookInput is a TypedDict (dict subclass)
+        if isinstance(hook_input, dict):
+            title: str | None = hook_input.get("title")
+            message: str = hook_input.get("message", "")
+            notification_type: str = hook_input.get("notification_type", "")
+        else:
+            title = getattr(hook_input, "title", None)
+            message = getattr(hook_input, "message", "")
+            notification_type = getattr(hook_input, "notification_type", "")
+
+        tool_name = title if title else (notification_type or "notification")
+        argument = abbreviate_arg(message) if message else ""
+
+        event = ActivityEvent(
+            node_id=node_id,
+            tool_name=tool_name,
+            argument=argument,
+            turn=turn_counter[0],
+            tokens=0,
+            archetype=archetype,
+        )
+        try:
+            activity_callback(event)
+        except Exception:
+            logger.debug("Activity callback raised in notification hook; ignoring")
+
+        # Return an empty SyncHookJSONOutput — continue execution
+        return {}
+
+    return _notification_hook
 
 
 def _coerce_int(value: Any) -> int:

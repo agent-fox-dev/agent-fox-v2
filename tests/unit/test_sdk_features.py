@@ -133,6 +133,7 @@ class TestMaxTurnsPassthrough:
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
             from agent_fox.session.backends.protocol import ResultMessage
+
             captured_options.append(options)
             yield ResultMessage(
                 status="completed",
@@ -189,6 +190,7 @@ class TestBudgetPassthrough:
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
             from agent_fox.session.backends.protocol import ResultMessage
+
             captured_options.append(options)
             yield ResultMessage(
                 status="completed",
@@ -246,6 +248,7 @@ class TestFallbackModelPassthrough:
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
             from agent_fox.session.backends.protocol import ResultMessage
+
             captured_options.append(options)
             yield ResultMessage(
                 status="completed",
@@ -305,6 +308,7 @@ class TestThinkingPassthrough:
 
         async def fake_stream(self: Any, *, prompt: str, options: Any) -> Any:
             from agent_fox.session.backends.protocol import ResultMessage
+
             captured_options.append(options)
             yield ResultMessage(
                 status="completed",

@@ -139,10 +139,7 @@ class TestAC1DriftFindingsSanitized:
         assert result is not None
         # The payload must appear but inside a nonce-tagged boundary
         assert injection_payload in result
-        assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary in drift context.\n"
-            f"Got:\n{result}"
-        )
+        assert _has_nonce_tag(result), f"Expected nonce-tagged <untrusted-*> boundary in drift context.\nGot:\n{result}"
 
     def test_drift_boundary_tag_contains_drift_finding_label(self) -> None:
         """Drift boundary tag must use 'drift-finding' as the label."""
@@ -172,20 +169,14 @@ class TestAC1DriftFindingsSanitized:
         # Find all open tags and their nonces
         open_tags = re.findall(r"<untrusted-drift-finding-([0-9a-f]{16})>", result)
         # Find matching close tags for each open nonce
-        matched_pairs = [
-            nonce for nonce in open_tags
-            if f"</untrusted-drift-finding-{nonce}>" in result
-        ]
+        matched_pairs = [nonce for nonce in open_tags if f"</untrusted-drift-finding-{nonce}>" in result]
         # We should have at least 1 matched pair (each finding gets its own boundary)
         assert len(matched_pairs) >= 1, (
-            f"Expected at least 1 matched nonce pair, found: open={open_tags}\n"
-            f"Output:\n{result}"
+            f"Expected at least 1 matched nonce pair, found: open={open_tags}\nOutput:\n{result}"
         )
         # The injected fake nonce must NOT form a matched pair
         fake_nonce = "deadbeef01020304"
-        assert fake_nonce not in open_tags, (
-            "The injected fake nonce appeared as an open tag — injection succeeded!"
-        )
+        assert fake_nonce not in open_tags, "The injected fake nonce appeared as an open tag — injection succeeded!"
 
 
 # ---------------------------------------------------------------------------
@@ -208,8 +199,7 @@ class TestAC2ReviewFindingsSanitized:
         assert result is not None
         assert injection_payload in result
         assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary in review context.\n"
-            f"Got:\n{result}"
+            f"Expected nonce-tagged <untrusted-*> boundary in review context.\nGot:\n{result}"
         )
 
     def test_review_boundary_tag_contains_review_finding_label(self) -> None:
@@ -246,8 +236,7 @@ class TestAC3VerificationEvidenceSanitized:
         assert result is not None
         assert injection_payload in result
         assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary in verification context.\n"
-            f"Got:\n{result}"
+            f"Expected nonce-tagged <untrusted-*> boundary in verification context.\nGot:\n{result}"
         )
 
     def test_verification_boundary_tag_contains_verification_evidence_label(self) -> None:
@@ -287,8 +276,7 @@ class TestAC4SpecFileContentsSanitized:
 
         assert injection in result
         assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary for spec file content.\n"
-            f"Got:\n{result[:500]}"
+            f"Expected nonce-tagged <untrusted-*> boundary for spec file content.\nGot:\n{result[:500]}"
         )
 
     def test_spec_file_boundary_tag_contains_spec_label(self, tmp_path: Path) -> None:
@@ -335,9 +323,7 @@ class TestAC5MemoryFactsUseSanitizePromptContent:
         )
 
         assert injection in result
-        assert _has_nonce_tag(result), (
-            "Expected nonce-tagged boundary for memory facts content."
-        )
+        assert _has_nonce_tag(result), "Expected nonce-tagged boundary for memory facts content."
 
     def test_memory_facts_uses_sanitize_not_just_strip_control(self) -> None:
         """context.py memory facts code path must call sanitize_prompt_content."""
@@ -348,9 +334,7 @@ class TestAC5MemoryFactsUseSanitizePromptContent:
         source = inspect.getsource(context_module)
         # The assemble_context function should use sanitize_prompt_content for facts
         # (not just strip_control_chars which doesn't add nonce boundaries)
-        assert "sanitize_prompt_content" in source, (
-            "context.py does not reference sanitize_prompt_content at all"
-        )
+        assert "sanitize_prompt_content" in source, "context.py does not reference sanitize_prompt_content at all"
 
 
 # ---------------------------------------------------------------------------
@@ -378,8 +362,7 @@ class TestAC6PriorGroupFindingsSanitized:
 
         assert injection_payload in result
         assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary in prior group findings.\n"
-            f"Got:\n{result}"
+            f"Expected nonce-tagged <untrusted-*> boundary in prior group findings.\nGot:\n{result}"
         )
 
     def test_prior_finding_boundary_tag_contains_prior_finding_label(self) -> None:
@@ -473,8 +456,7 @@ class TestAC7PreviousErrorSanitized:
         # The task prompt should contain the error inside a nonce-tagged boundary
         assert error_text in task
         assert _has_nonce_tag(task), (
-            f"Expected nonce-tagged <untrusted-*> boundary around previous_error.\n"
-            f"Got:\n{task}"
+            f"Expected nonce-tagged <untrusted-*> boundary around previous_error.\nGot:\n{task}"
         )
 
 
@@ -505,8 +487,7 @@ class TestAC8SpecBuilderSanitized:
         combined = spec.task_prompt + spec.system_context
         assert injection in combined
         assert _has_nonce_tag(combined), (
-            f"Expected nonce-tagged <untrusted-*> boundary for issue title.\n"
-            f"Got:\n{combined[:500]}"
+            f"Expected nonce-tagged <untrusted-*> boundary for issue title.\nGot:\n{combined[:500]}"
         )
 
     def test_issue_body_wrapped_in_nonce_tag(self) -> None:
@@ -527,8 +508,7 @@ class TestAC8SpecBuilderSanitized:
         combined = spec.task_prompt + spec.system_context
         assert injection in combined
         assert _has_nonce_tag(combined), (
-            f"Expected nonce-tagged <untrusted-*> boundary for issue body.\n"
-            f"Got:\n{combined[:500]}"
+            f"Expected nonce-tagged <untrusted-*> boundary for issue body.\nGot:\n{combined[:500]}"
         )
 
 
@@ -557,8 +537,7 @@ class TestAC9TriagePromptSanitized:
 
         assert injection in prompt
         assert _has_nonce_tag(prompt), (
-            f"Expected nonce-tagged <untrusted-*> boundary for issue title in triage.\n"
-            f"Got:\n{prompt[:500]}"
+            f"Expected nonce-tagged <untrusted-*> boundary for issue title in triage.\nGot:\n{prompt[:500]}"
         )
 
     def test_triage_prompt_wraps_issue_body(self) -> None:
@@ -578,8 +557,7 @@ class TestAC9TriagePromptSanitized:
 
         assert injection in prompt
         assert _has_nonce_tag(prompt), (
-            f"Expected nonce-tagged <untrusted-*> boundary for issue body in triage.\n"
-            f"Got:\n{prompt[:500]}"
+            f"Expected nonce-tagged <untrusted-*> boundary for issue body in triage.\nGot:\n{prompt[:500]}"
         )
 
 
@@ -616,10 +594,7 @@ class TestAC10RetryContextSanitized:
         result = build_retry_context(mock_db, spec_name)
 
         assert injection in result
-        assert _has_nonce_tag(result), (
-            f"Expected nonce-tagged <untrusted-*> boundary in retry context.\n"
-            f"Got:\n{result}"
-        )
+        assert _has_nonce_tag(result), f"Expected nonce-tagged <untrusted-*> boundary in retry context.\nGot:\n{result}"
 
 
 # Need MagicMock at module level for TestAC10

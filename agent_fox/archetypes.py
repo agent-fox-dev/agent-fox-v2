@@ -160,6 +160,17 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         ],
         default_max_turns=120,
     ),
+    "fix_coder": ArchetypeEntry(
+        name="fix_coder",
+        templates=["fix_coding.md"],
+        default_model_tier="STANDARD",
+        injection=None,
+        task_assignable=False,
+        retry_predecessor=False,
+        default_max_turns=300,
+        default_thinking_mode="adaptive",
+        default_thinking_budget=64000,
+    ),
 }
 
 

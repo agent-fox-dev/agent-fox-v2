@@ -13,6 +13,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
 from agent_fox.nightshift.critic import consolidate_findings
 from agent_fox.nightshift.dedup import filter_known_duplicates
@@ -32,7 +33,7 @@ from agent_fox.ui.progress import ActivityCallback, TaskCallback
 logger = logging.getLogger(__name__)
 
 
-def validate_night_shift_prerequisites(config: object) -> None:
+def validate_night_shift_prerequisites(config: AgentFoxConfig) -> None:
     """Validate that the platform is configured for night-shift.
 
     Aborts with exit code 1 if the platform type is 'none' or missing.
@@ -60,7 +61,7 @@ class NightShiftEngine:
 
     def __init__(
         self,
-        config: object,
+        config: AgentFoxConfig,
         platform: object,
         *,
         auto_fix: bool = False,

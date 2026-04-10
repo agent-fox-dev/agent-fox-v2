@@ -372,9 +372,7 @@ class TestParseAuditorOutputBareJson:
 
         response = (
             "Here is my analysis of the test suite.\n\n"
-            "```json\n"
-            + _json.dumps(self._VALID_AUDIT)
-            + "\n```\n\n"
+            "```json\n" + _json.dumps(self._VALID_AUDIT) + "\n```\n\n"
             "End of analysis."
         )
         result = parse_auditor_output(response)

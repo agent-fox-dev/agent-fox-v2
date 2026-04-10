@@ -100,8 +100,6 @@ def _make_handler(
         graph_sync=graph_sync,
         state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
-        routing_assessments={},
-        routing_pipeline=None,
         retries_before_escalation=1,
         max_retries=2,
         task_callback=None,
@@ -232,14 +230,8 @@ class TestTransportInternalRetryNoFailedRecord:
         )
 
         # Verify no failed record exists for node1
-        failed_records = [
-            r
-            for r in state.session_history
-            if r.node_id == "node1" and r.status == "failed"
-        ]
-        assert len(failed_records) == 0, (
-            f"Expected no failed record for node1; found: {failed_records}"
-        )
+        failed_records = [r for r in state.session_history if r.node_id == "node1" and r.status == "failed"]
+        assert len(failed_records) == 0, f"Expected no failed record for node1; found: {failed_records}"
         assert len(state.session_history) == 1
 
     def test_is_transport_error_field_defaults_to_false_on_session_record(self) -> None:

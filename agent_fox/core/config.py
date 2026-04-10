@@ -75,17 +75,14 @@ def _clamped_validator(
 
 
 class RoutingConfig(BaseModel):
-    """Adaptive model routing configuration.
+    """Model routing configuration.
 
-    Requirements: 30-REQ-5.1, 30-REQ-5.2, 30-REQ-5.E1, 30-REQ-5.E2
+    Requirements: 89-REQ-4.1, 89-REQ-4.2
     """
 
     model_config = ConfigDict(extra="ignore")
 
     retries_before_escalation: int = Field(default=1, description="Retries before model escalation")
-    training_threshold: int = Field(default=20, description="Training data threshold")
-    accuracy_threshold: float = Field(default=0.75, description="Accuracy threshold for routing")
-    retrain_interval: int = Field(default=10, description="Retrain interval")
     max_timeout_retries: int = Field(
         default=2,
         description="Maximum timeout retries before falling through to escalation",
@@ -100,9 +97,6 @@ class RoutingConfig(BaseModel):
     )
 
     clamp_retries = _clamped_validator("retries_before_escalation", ge=0, le=3, cast=int)
-    clamp_training = _clamped_validator("training_threshold", ge=5, le=1000, cast=int)
-    clamp_accuracy = _clamped_validator("accuracy_threshold", ge=0.5, le=1.0)
-    clamp_retrain = _clamped_validator("retrain_interval", ge=5, le=100, cast=int)
     clamp_max_timeout_retries = _clamped_validator("max_timeout_retries", ge=0, cast=int)
     clamp_timeout_multiplier = _clamped_validator("timeout_multiplier", ge=1.0)
     clamp_timeout_ceiling_factor = _clamped_validator("timeout_ceiling_factor", ge=1.0)
@@ -255,6 +249,34 @@ class KnowledgeConfig(BaseModel):
     fact_cache_enabled: bool = Field(
         default=True,
         description="Pre-compute fact rankings at plan time",
+    )
+    dedup_similarity_threshold: float = Field(
+        default=0.92,
+        description="Cosine similarity threshold for near-duplicate detection",
+    )
+    contradiction_similarity_threshold: float = Field(
+        default=0.8,
+        description="Cosine similarity threshold for contradiction candidates",
+    )
+    contradiction_model: str = Field(
+        default="SIMPLE",
+        description="Model tier for contradiction classification LLM calls",
+    )
+    decay_half_life_days: float = Field(
+        default=90.0,
+        description="Days for fact confidence to halve",
+    )
+    decay_floor: float = Field(
+        default=0.1,
+        description="Effective confidence below which facts are auto-superseded",
+    )
+    cleanup_fact_threshold: int = Field(
+        default=500,
+        description="Active fact count above which decay cleanup runs",
+    )
+    cleanup_enabled: bool = Field(
+        default=True,
+        description="Enable/disable end-of-run fact lifecycle cleanup",
     )
 
     clamp_ask_top_k = _clamped_validator("ask_top_k", ge=1)

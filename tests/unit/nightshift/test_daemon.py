@@ -160,6 +160,7 @@ class TestStreamExceptionHandling:
 
         stream = _make_mock_stream(
             name="failing-stream",
+            interval=0,
             side_effect=[RuntimeError("fail"), None],
         )
         budget = SharedBudget(max_cost=None)

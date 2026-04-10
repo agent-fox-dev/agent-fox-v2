@@ -1,3 +1,5 @@
+> **SUPERSEDED** by spec 89_simplify_routing.
+
 # Design Document: Adaptive Model Routing
 
 ## Overview

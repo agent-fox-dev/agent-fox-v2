@@ -107,6 +107,56 @@ Full documentation lives in [`docs/`](docs/README.md):
 - [Archetypes](docs/archetypes.md) — agent roles (Coder, Skeptic, Oracle, Auditor, Verifier, …)
 - [Skills](docs/skills.md) — bundled Claude Code slash commands (`/af-spec`, `/af-fix`, …)
 
+## Scope Guard — Stub Enforcement
+
+The Scope Guard subsystem prevents wasted coder sessions by enforcing that
+test-writing task groups produce only stubs (not full implementations) for
+non-test code.
+
+### Stub Enforcement
+
+When a task group has a test-writing archetype, the system:
+
+1. **Prompt Injection** — Injects a `SCOPE_GUARD:STUB_ONLY` directive into the
+   coder session prompt, instructing the agent to produce only type signatures
+   and stub bodies for all non-test code.
+
+2. **Post-Session Validation** — After the session completes, scans all
+   non-test source files modified by the session and verifies that every new or
+   modified function body contains only stub placeholders.
+
+3. **Violation Reporting** — If non-stub implementations are found in non-test
+   code, the session is flagged with a stub-enforcement violation and a warning
+   is emitted to the operator.
+
+### Supported Languages
+
+Stub detection supports the following languages and placeholder patterns:
+
+| Language | Stub Placeholders |
+|:---------|:------------------|
+| **Rust** | `todo!()`, `unimplemented!()`, `panic!("not implemented")` |
+| **Python** | `raise NotImplementedError`, `pass` (as sole body statement) |
+| **TypeScript/JavaScript** | `throw new Error("not implemented")` |
+
+A function body is classified as a stub only if its entire content (after
+stripping comments and whitespace) consists of a single recognized placeholder.
+Any additional statements alongside a placeholder disqualify it as a stub.
+
+### Test Block Exclusion
+
+Stub enforcement applies only to production code. Functions inside
+language-appropriate test blocks are excluded:
+
+- **Rust** — code inside `#[cfg(test)]` modules or `#[test]` functions
+- **Python** — files matching `test_*.py` / `*_test.py`, or functions starting
+  with `test_`, or classes inheriting from `unittest.TestCase`
+- **TypeScript/JavaScript** — files matching `*.test.ts` / `*.spec.ts` /
+  `*.test.js` / `*.spec.js`, or code inside `describe()` / `it()` / `test()`
+  blocks
+
+Files in unsupported languages are skipped with a warning logged.
+
 ## Development
 
 ```bash

@@ -15,7 +15,6 @@ import pytest
 from agent_fox.core.config import (
     AgentFoxConfig,
     ArchetypesConfig,
-    RoutingConfig,
 )
 from agent_fox.core.errors import ConfigError
 from agent_fox.core.models import ModelTier
@@ -150,51 +149,6 @@ def _write_plan(tmp_path: Path, archetype: str = "coder") -> Path:
     return plan_path
 
 
-class _SuccessPipeline:
-    """Mock assessment pipeline that succeeds with SIMPLE tier."""
-
-    async def assess(
-        self,
-        *,
-        node_id: str,
-        spec_name: str,
-        task_group: int,
-        spec_dir: Path,
-        archetype: str,
-        tier_ceiling: ModelTier,
-    ) -> object:
-        from datetime import datetime
-
-        from agent_fox.routing.core import ComplexityAssessment, FeatureVector
-
-        return ComplexityAssessment(
-            id="test-id",
-            node_id=node_id,
-            spec_name=spec_name,
-            task_group=task_group,
-            predicted_tier=ModelTier.SIMPLE,
-            confidence=0.8,
-            assessment_method="heuristic",
-            feature_vector=FeatureVector(
-                subtask_count=3,
-                spec_word_count=100,
-                has_property_tests=False,
-                edge_case_count=1,
-                dependency_count=2,
-                archetype=archetype,
-            ),
-            tier_ceiling=tier_ceiling,
-            created_at=datetime.now(),
-        )
-
-
-class _FailingPipeline:
-    """Mock assessment pipeline that always raises an exception."""
-
-    async def assess(self, **kwargs: object) -> None:
-        raise RuntimeError("Assessment pipeline failed (intentional test error)")
-
-
 class TestCeilingAlwaysAdvanced:
     """TS-57-6: Ceiling is always ADVANCED regardless of archetype default tier."""
 
@@ -204,8 +158,6 @@ class TestCeilingAlwaysAdvanced:
         from agent_fox.engine.assessment import AssessmentManager
 
         mgr = AssessmentManager(
-            routing_config=RoutingConfig(),
-            pipeline=_SuccessPipeline(),
             retries_before_escalation=1,
         )
 
@@ -349,20 +301,17 @@ class TestPipelineFailureFallback:
 
     @pytest.mark.asyncio
     async def test_pipeline_failure_uses_default_with_advanced_ceiling(self) -> None:
-        """Coder node with failing pipeline: starting=STANDARD, ceiling=ADVANCED."""
+        """Coder node without pipeline: starting=STANDARD (archetype default), ceiling=ADVANCED."""
         from agent_fox.engine.assessment import AssessmentManager
 
         mgr = AssessmentManager(
-            routing_config=RoutingConfig(),
-            pipeline=_FailingPipeline(),
             retries_before_escalation=1,
         )
 
         await mgr.assess_node("spec:1", "coder")
 
         ladder = mgr.ladders["spec:1"]
-        # After implementation: starting_tier = coder.default (STANDARD)
-        # ceiling = ADVANCED (hardcoded)
+        # starting_tier = coder.default (STANDARD), ceiling = ADVANCED (hardcoded)
         assert ladder.current_tier == ModelTier.STANDARD
         assert ladder._tier_ceiling == ModelTier.ADVANCED
 

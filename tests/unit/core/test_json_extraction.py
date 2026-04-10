@@ -27,7 +27,7 @@ class TestTwoPassBracketScan:
         """Findings array is returned even when a prose string array appears first."""
         text = (
             'The following requirements were reviewed: ["72-REQ-1.1", "72-REQ-2.3"]. '
-            'Here is the structured output: '
+            "Here is the structured output: "
             '[{"severity": "major", "description": "Missing input validation"}]'
         )
         result = extract_json_array(text)
@@ -38,10 +38,7 @@ class TestTwoPassBracketScan:
 
     def test_multiple_prose_arrays_before_findings_returns_findings(self) -> None:
         """Findings returned even when multiple prose string arrays precede it."""
-        text = (
-            'Section ["A", "B"] and ["C", "D"] reference IDs. '
-            'Output: [{"severity": "minor", "description": "Nit"}]'
-        )
+        text = 'Section ["A", "B"] and ["C", "D"] reference IDs. Output: [{"severity": "minor", "description": "Nit"}]'
         result = extract_json_array(text)
         assert result is not None
         assert len(result) == 1
@@ -74,10 +71,7 @@ class TestTwoPassBracketScan:
 
     def test_prose_string_array_after_findings_returns_findings(self) -> None:
         """Findings array is preferred when prose string array appears after it."""
-        text = (
-            '[{"severity": "major", "description": "Real finding"}] '
-            'See also: ["note-1", "note-2"]'
-        )
+        text = '[{"severity": "major", "description": "Real finding"}] See also: ["note-1", "note-2"]'
         result = extract_json_array(text)
         assert result is not None
         assert len(result) == 1
@@ -136,11 +130,7 @@ class TestFenceWrapperObjectUnwrapping:
 
     def test_fenced_wrapper_without_json_label_unwrapped(self) -> None:
         """Plain fence (no 'json' label) with wrapper object is unwrapped."""
-        text = (
-            "```\n"
-            '{"findings": [{"severity": "minor", "description": "Nit"}]}\n'
-            "```"
-        )
+        text = '```\n{"findings": [{"severity": "minor", "description": "Nit"}]}\n```'
         result = extract_json_array(text)
         assert result is not None
         assert len(result) == 1
@@ -157,11 +147,7 @@ class TestFenceWrapperObjectUnwrapping:
         # Multi-key wrapper is not a valid single-key wrapper — should not be
         # unwrapped by Option A.  Strategy 1 (bracket scan) would still find
         # the inner array if reachable.
-        text = (
-            "```json\n"
-            '{"findings": [{"severity": "major", "description": "x"}], "count": 1}\n'
-            "```"
-        )
+        text = '```json\n{"findings": [{"severity": "major", "description": "x"}], "count": 1}\n```'
         # Strategy 1 should find the inner [...] via bracket scan
         result = extract_json_array(text)
         assert result is not None
@@ -193,9 +179,7 @@ class TestCombinedProseAndWrapper:
         result = extract_json_array(text)
         assert result is not None, "Should extract findings, not the prose string array"
         assert len(result) == 2, f"Expected 2 findings, got {len(result)}: {result}"
-        assert all(isinstance(item, dict) for item in result), (
-            "All items should be dicts, not strings"
-        )
+        assert all(isinstance(item, dict) for item in result), "All items should be dicts, not strings"
         severities = {item["severity"] for item in result}
         assert "major" in severities
         assert "minor" in severities
