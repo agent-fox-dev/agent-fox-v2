@@ -48,7 +48,3 @@ type = "github"
 
 [night_shift]
 hunt_scan_interval = 14400
-
-[night_shift.categories]
-dead_code = false
-todo_fixme = false
