@@ -26,35 +26,35 @@ remove JSONL audit, (4) wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file
     - Create `tests/unit/nightshift/test_cost_tracking.py`
     - Add `__init__.py` if missing in `tests/unit/nightshift/`
     - Write test functions for TS-91-1 through TS-91-13
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-91-1 through TS-91-13_
 
-  - [ ] 1.2 Create edge case tests
+  - [x] 1.2 Create edge case tests
     - Add tests for TS-91-E1, TS-91-E2, TS-91-E3 in the unit test file
     - Tests MUST fail
     - _Test Spec: TS-91-E1, TS-91-E2, TS-91-E3_
 
-  - [ ] 1.3 Create property tests
+  - [x] 1.3 Create property tests
     - Create `tests/property/nightshift/test_cost_tracking_props.py`
     - Add `__init__.py` if missing in `tests/property/nightshift/`
     - Write property tests for TS-91-P1, TS-91-P2, TS-91-P3
     - _Test Spec: TS-91-P1, TS-91-P2, TS-91-P3_
 
-  - [ ] 1.4 Create integration smoke tests
+  - [x] 1.4 Create integration smoke tests
     - Create `tests/integration/nightshift/test_cost_tracking_smoke.py`
     - Add `__init__.py` if missing in `tests/integration/nightshift/`
     - Write smoke tests for TS-91-SMOKE-1, TS-91-SMOKE-2, TS-91-SMOKE-3
     - _Test Spec: TS-91-SMOKE-1, TS-91-SMOKE-2, TS-91-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. SinkDispatcher plumbing and fix session audit emission
   - [ ] 2.1 Add sink_dispatcher parameter to NightShiftEngine
