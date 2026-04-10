@@ -26,28 +26,28 @@ the mandatory wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file
     - Create `tests/unit/session/test_transient_audit.py`
     - Translate TS-92-1 through TS-92-7 into pytest test functions
     - Translate TS-92-E1 through TS-92-E5 into pytest test functions
     - All tests must use `tmp_path` to simulate project root
     - _Test Spec: TS-92-1 through TS-92-7, TS-92-E1 through TS-92-E5_
 
-  - [ ] 1.2 Create property test file
+  - [x] 1.2 Create property test file
     - Create `tests/property/session/test_transient_audit_props.py`
     - Translate TS-92-P1 through TS-92-P4 using Hypothesis
     - _Test Spec: TS-92-P1 through TS-92-P4_
 
-  - [ ] 1.3 Create integration smoke test file
+  - [x] 1.3 Create integration smoke test file
     - Create `tests/integration/session/test_transient_audit_smoke.py`
     - Translate TS-92-SMOKE-1 and TS-92-SMOKE-2
     - _Test Spec: TS-92-SMOKE-1, TS-92-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Change audit report output path and add PASS deletion
   - [ ] 2.1 Change `audit_path` computation in `persist_auditor_results`
