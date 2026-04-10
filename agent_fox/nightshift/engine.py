@@ -15,13 +15,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
+from agent_fox.engine.audit_helpers import emit_audit_event as _emit_audit_event
+from agent_fox.knowledge.audit import AuditEventType, generate_run_id
 from agent_fox.nightshift.critic import consolidate_findings
 from agent_fox.nightshift.dedup import filter_known_duplicates
 from agent_fox.nightshift.dep_graph import build_graph, merge_edges
 from agent_fox.nightshift.finding import (
     create_issues_from_groups,
 )
+from agent_fox.nightshift.fix_pipeline import FixPipeline
 from agent_fox.nightshift.reference_parser import (
     fetch_github_relationships,
     parse_text_references,
@@ -176,10 +178,13 @@ class NightShiftEngine:
         all_edges = explicit_edges + github_edges
 
         # AI triage for batches >= 3 (71-REQ-3.1, 71-REQ-3.5)
+        issue_check_run_id = generate_run_id()
         supersession_pairs: list[tuple[int, int]] = []
         if len(issues) >= 3:
             try:
-                triage = await run_batch_triage(issues, all_edges, self._config)
+                triage = await run_batch_triage(
+                    issues, all_edges, self._config, sink=self._sink, run_id=issue_check_run_id
+                )
                 all_edges = merge_edges(all_edges, triage.edges)
                 supersession_pairs = triage.supersession_pairs
             except Exception:
@@ -206,8 +211,10 @@ class NightShiftEngine:
                 )
                 closed.add(obsolete)
                 _emit_audit_event(
-                    "night_shift.issue_superseded",
-                    {"closed_issue": obsolete, "superseded_by": _keep},
+                    self._sink,
+                    issue_check_run_id,
+                    AuditEventType.ISSUE_SUPERSEDED,
+                    payload={"closed_issue": obsolete, "superseded_by": _keep},
                 )
                 try:
                     await self._platform.remove_label(  # type: ignore[attr-defined]
@@ -262,6 +269,8 @@ class NightShiftEngine:
                             "",  # diff not available in current implementation
                             self._config,
                             self._platform,
+                            sink=self._sink,
+                            run_id=issue_check_run_id,
                         )
                         remaining_nums = {i.number for i in remaining}
                         for obsolete_num in staleness.obsolete_issues:
@@ -273,8 +282,10 @@ class NightShiftEngine:
                             )
                             closed.add(obsolete_num)
                             _emit_audit_event(
-                                "night_shift.issue_obsolete",
-                                {
+                                self._sink,
+                                issue_check_run_id,
+                                AuditEventType.ISSUE_OBSOLETE,
+                                payload={
                                     "closed_issue": obsolete_num,
                                     "fixed_by": issue_num,
                                     "rationale": staleness.rationale.get(obsolete_num, ""),
@@ -322,6 +333,7 @@ class NightShiftEngine:
             logger.info("Hunt scan already in progress, skipping overlapping scan")
             return
 
+        hunt_run_id = generate_run_id()
         self._hunt_scan_in_progress = True
         try:
             findings = await self._run_hunt_scan_inner()
@@ -329,8 +341,10 @@ class NightShiftEngine:
             self._hunt_scan_in_progress = False
 
         _emit_audit_event(
-            "night_shift.hunt_scan_complete",
-            {"findings_count": len(findings)},
+            self._sink,
+            hunt_run_id,
+            AuditEventType.HUNT_SCAN_COMPLETE,
+            payload={"findings_count": len(findings)},
         )
 
         if not findings:
@@ -338,7 +352,7 @@ class NightShiftEngine:
             self._emit_status("Hunt scan complete: 0 issues created from 0 findings", "bold green")
             return
 
-        groups = await consolidate_findings(findings)  # type: ignore[arg-type]
+        groups = await consolidate_findings(findings, sink=self._sink, run_id=hunt_run_id)  # type: ignore[arg-type]
 
         # Dedup gate: skip groups whose fingerprint matches an existing open
         # af:hunt issue. Fails open if the platform API is unavailable.
@@ -356,8 +370,10 @@ class NightShiftEngine:
                 try:
                     await self._platform.assign_label(result.number, "af:fix")  # type: ignore[attr-defined]
                     _emit_audit_event(
-                        "night_shift.issue_created",
-                        {"issue_number": result.number},  # type: ignore[attr-defined]
+                        self._sink,
+                        hunt_run_id,
+                        AuditEventType.ISSUE_CREATED,
+                        payload={"issue_number": result.number},  # type: ignore[attr-defined]
                     )
                 except Exception:
                     logger.warning(
@@ -387,7 +403,7 @@ class NightShiftEngine:
             cache_creation_input_tokens=getattr(metrics, "cache_creation_input_tokens", 0),
         )
 
-    async def _process_fix(self, issue: object) -> None:
+    async def _process_fix(self, issue: object, issue_body: str = "") -> None:
         """Process a single af:fix issue through the fix pipeline.
 
         Builds an in-memory spec from the issue, runs the full archetype
@@ -397,7 +413,6 @@ class NightShiftEngine:
         Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
                       61-REQ-9.3
         """
-        from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.platform.github import IssueResult
 
         if not isinstance(issue, IssueResult):
@@ -405,12 +420,15 @@ class NightShiftEngine:
 
         import time
 
+        fix_run_id = generate_run_id()
         fix_start = time.monotonic()
         self._emit_status(f"Fixing issue #{issue.number}: {issue.title}")
 
         _emit_audit_event(
-            "night_shift.fix_start",
-            {"issue_number": issue.number, "title": issue.title},
+            self._sink,
+            fix_run_id,
+            AuditEventType.FIX_START,
+            payload={"issue_number": issue.number, "title": issue.title},
         )
 
         pipeline = FixPipeline(
@@ -421,8 +439,9 @@ class NightShiftEngine:
             sink_dispatcher=self._sink,
         )
 
+        effective_body = issue_body if issue_body else getattr(issue, "body", "")
         try:
-            metrics = await pipeline.process_issue(issue, issue_body=issue.body)
+            metrics = await pipeline.process_issue(issue, issue_body=effective_body)
             self.state.total_sessions += getattr(metrics, "sessions_run", 0)
             self.state.total_cost += self._calculate_fix_cost(metrics)
             self.state.issues_fixed += 1
@@ -436,8 +455,10 @@ class NightShiftEngine:
             )
 
             _emit_audit_event(
-                "night_shift.fix_complete",
-                {"issue_number": issue.number},
+                self._sink,
+                fix_run_id,
+                AuditEventType.FIX_COMPLETE,
+                payload={"issue_number": issue.number},
             )
         except Exception:
             from agent_fox.ui.progress import format_duration
@@ -454,8 +475,10 @@ class NightShiftEngine:
                 exc_info=True,
             )
             _emit_audit_event(
-                "night_shift.fix_failed",
-                {"issue_number": issue.number},
+                self._sink,
+                fix_run_id,
+                AuditEventType.FIX_FAILED,
+                payload={"issue_number": issue.number},
             )
 
     async def _drain_issues(self) -> bool:

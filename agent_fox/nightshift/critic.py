@@ -12,9 +12,13 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.nightshift.finding import Finding, FindingGroup
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,9 @@ class CriticSummary:
 
 async def consolidate_findings(
     findings: list[Finding],
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> list[FindingGroup]:
     """Replace for the old consolidate_findings() from finding.py.
 
@@ -81,7 +88,7 @@ async def consolidate_findings(
 
     # Critic path — fall back to mechanical on any failure.
     try:
-        response_text = await _run_critic(findings)
+        response_text = await _run_critic(findings, sink=sink, run_id=run_id)
     except Exception as exc:
         logger.warning(
             "Critic AI backend failed; falling back to mechanical grouping: %s",
@@ -139,7 +146,12 @@ def _mechanical_grouping(findings: list[Finding]) -> list[FindingGroup]:
     return groups
 
 
-async def _run_critic(findings: list[Finding]) -> str:
+async def _run_critic(
+    findings: list[Finding],
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
+) -> str:
     """Send findings to Claude for cross-category consolidation.
 
     Returns the raw AI response text.
@@ -171,8 +183,21 @@ async def _run_critic(findings: list[Finding]) -> str:
             messages=[{"role": "user", "content": user_message}],
         )
 
-    response = await retry_api_call_async(_call, context="finding consolidation critic")
+    try:
+        response = await retry_api_call_async(_call, context="finding consolidation critic")
+    except Exception as exc:
+        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost_fail
+
+        emit_auxiliary_cost_fail(sink, run_id, "hunt_critic", exc, model_entry.model_id)
+        raise
+
     track_response_usage(response, model_entry.model_id, "finding consolidation critic")
+
+    # Emit cost for this auxiliary AI call (91-REQ-4.1)
+    from agent_fox.core.config import PricingConfig
+    from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
+
+    emit_auxiliary_cost(sink, run_id, "hunt_critic", response, model_entry.model_id, PricingConfig())
 
     first_block = response.content[0]  # type: ignore[attr-defined]
     response_text = getattr(first_block, "text", None)

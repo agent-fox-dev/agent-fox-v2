@@ -94,14 +94,14 @@ remove JSONL audit, (4) wiring verification.
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 91-REQ-1.*, 91-REQ-2.*, 91-REQ-3.* acceptance criteria met
 
-- [ ] 3. Auxiliary cost tracking and JSONL audit removal
-  - [ ] 3.1 Create cost_helpers module
+- [x] 3. Auxiliary cost tracking and JSONL audit removal
+  - [x] 3.1 Create cost_helpers module
     - Create `agent_fox/nightshift/cost_helpers.py` with `emit_auxiliary_cost()`
     - Function extracts tokens from API response, calculates cost, emits `session.complete`
     - No-op when sink is None or run_id is empty
     - _Requirements: 91-REQ-4.1, 91-REQ-4.E1_
 
-  - [ ] 3.2 Wire auxiliary cost tracking into callers
+  - [x] 3.2 Wire auxiliary cost tracking into callers
     - Update `nightshift/critic.py: consolidate_findings` / `_run_critic` to accept and use `sink` + `run_id`, call `emit_auxiliary_cost` with archetype `hunt_critic`
     - Update `nightshift/triage.py: run_batch_triage` to accept and use `sink` + `run_id`, call `emit_auxiliary_cost` with archetype `batch_triage`
     - Update `nightshift/staleness.py: check_staleness` to accept and use `sink` + `run_id`, call `emit_auxiliary_cost` with archetype `staleness_check`
@@ -109,19 +109,19 @@ remove JSONL audit, (4) wiring verification.
     - Update call sites in `NightShiftEngine` to pass `self._sink` and appropriate run_id
     - _Requirements: 91-REQ-4.1, 91-REQ-4.2, 91-REQ-4.3, 91-REQ-4.4, 91-REQ-4.5_
 
-  - [ ] 3.3 Remove nightshift/audit.py and migrate callers
+  - [x] 3.3 Remove nightshift/audit.py and migrate callers
     - Delete `agent_fox/nightshift/audit.py`
     - Update `NightShiftEngine` to import `emit_audit_event` from `engine/audit_helpers` instead
     - Update all operational event calls to pass `self._sink` and `run_id` as first two args
     - Update `DaemonRunner` to import from `engine/audit_helpers` and accept/pass `sink_dispatcher`
     - _Requirements: 91-REQ-5.1, 91-REQ-5.2, 91-REQ-5.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_cost_tracking.py -k "TS_91_9 or TS_91_10 or TS_91_11 or TS_91_12 or TS_91_13"`
-    - [ ] Smoke tests TS-91-SMOKE-2 and TS-91-SMOKE-3 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 91-REQ-4.*, 91-REQ-5.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_cost_tracking.py -k "TS_91_9 or TS_91_10 or TS_91_11 or TS_91_12 or TS_91_13"`
+    - [x] Smoke tests TS-91-SMOKE-2 and TS-91-SMOKE-3 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 91-REQ-4.*, 91-REQ-5.* acceptance criteria met
 
 - [ ] 4. Wiring verification
   - [ ] 4.1 Trace every execution path from design.md end-to-end

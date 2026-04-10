@@ -187,7 +187,7 @@ class TestPhaseLineFixComplete:
             cache_creation_input_tokens=0,
         )
 
-        with patch("agent_fox.nightshift.fix_pipeline.FixPipeline") as MockPipeline:
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
             mock_instance = AsyncMock()
             mock_instance.process_issue = AsyncMock(return_value=mock_metrics)
             MockPipeline.return_value = mock_instance
@@ -222,7 +222,7 @@ class TestPhaseLineFixFailed:
 
         issue = _make_issue(number=42)
 
-        with patch("agent_fox.nightshift.fix_pipeline.FixPipeline") as MockPipeline:
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
             mock_instance = AsyncMock()
             mock_instance.process_issue = AsyncMock(side_effect=RuntimeError("boom"))
             MockPipeline.return_value = mock_instance
@@ -501,7 +501,7 @@ class TestPropPhaseLineEmission:
             cache_creation_input_tokens=0,
         )
 
-        with patch("agent_fox.nightshift.fix_pipeline.FixPipeline") as MockPipeline:
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
             mock_instance = AsyncMock()
             mock_instance.process_issue = AsyncMock(return_value=mock_metrics)
             MockPipeline.return_value = mock_instance

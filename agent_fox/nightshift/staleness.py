@@ -8,9 +8,13 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.platform.github import IssueResult
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +94,9 @@ async def _run_ai_staleness(
     remaining_issues: list[IssueResult],
     fix_diff: str,
     config: object,
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> StalenessResult:
     """Internal: run the actual AI staleness evaluation using ADVANCED tier.
 
@@ -115,8 +122,22 @@ async def _run_ai_staleness(
             messages=[{"role": "user", "content": prompt}],
         )
 
-    response = await retry_api_call_async(_call, context="staleness check")
+    try:
+        response = await retry_api_call_async(_call, context="staleness check")
+    except Exception as exc:
+        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost_fail
+
+        emit_auxiliary_cost_fail(sink, run_id, "staleness_check", exc, model_entry.model_id)
+        raise
+
     track_response_usage(response, model_entry.model_id, "staleness check")
+
+    # Emit cost for this auxiliary AI call (91-REQ-4.3)
+    from agent_fox.core.config import PricingConfig
+    from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
+
+    pricing = getattr(config, "pricing", PricingConfig())
+    emit_auxiliary_cost(sink, run_id, "staleness_check", response, model_entry.model_id, pricing)
 
     first_block = response.content[0]  # type: ignore[attr-defined]
     response_text = getattr(first_block, "text", None)
@@ -132,6 +153,9 @@ async def check_staleness(
     fix_diff: str,
     config: object,
     platform: object,
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> StalenessResult:
     """Evaluate remaining issues for obsolescence after a fix.
 
@@ -151,7 +175,7 @@ async def check_staleness(
     ai_rationale: dict[int, str] = {}
     ai_failed = False
     try:
-        ai_result = await _run_ai_staleness(fixed_issue, remaining_issues, fix_diff, config)
+        ai_result = await _run_ai_staleness(fixed_issue, remaining_issues, fix_diff, config, sink=sink, run_id=run_id)
         ai_rationale = ai_result.rationale
     except Exception:
         ai_failed = True

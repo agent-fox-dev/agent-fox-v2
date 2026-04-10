@@ -190,7 +190,6 @@ def test_smoke_auxiliary_costs_in_status_report() -> None:
     """
     # FAILS with ModuleNotFoundError until cost_helpers.py is created
     from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost  # type: ignore[import]
-
     from agent_fox.reporting.status import build_status_report_from_audit
 
     conn, sink = _make_in_memory_sink()

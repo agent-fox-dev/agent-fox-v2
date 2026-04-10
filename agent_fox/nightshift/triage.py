@@ -7,11 +7,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.nightshift.dep_graph import DependencyEdge
 from agent_fox.platform.github import IssueResult
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +136,9 @@ async def _run_ai_triage(
     issues: list[IssueResult],
     explicit_edges: list[DependencyEdge],
     config: object,
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> TriageResult:
     """Internal: run the actual AI triage call using ADVANCED model tier.
 
@@ -157,8 +164,22 @@ async def _run_ai_triage(
             messages=[{"role": "user", "content": prompt}],
         )
 
-    response = await retry_api_call_async(_call, context="batch triage")
+    try:
+        response = await retry_api_call_async(_call, context="batch triage")
+    except Exception as exc:
+        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost_fail
+
+        emit_auxiliary_cost_fail(sink, run_id, "batch_triage", exc, model_entry.model_id)
+        raise
+
     track_response_usage(response, model_entry.model_id, "batch triage")
+
+    # Emit cost for this auxiliary AI call (91-REQ-4.2)
+    from agent_fox.core.config import PricingConfig
+    from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
+
+    pricing = getattr(config, "pricing", PricingConfig())
+    emit_auxiliary_cost(sink, run_id, "batch_triage", response, model_entry.model_id, pricing)
 
     # Extract text from response
     first_block = response.content[0]  # type: ignore[attr-defined]
@@ -173,6 +194,9 @@ async def run_batch_triage(
     issues: list[IssueResult],
     explicit_edges: list[DependencyEdge],
     config: object,
+    *,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
 ) -> TriageResult:
     """Run ADVANCED-tier AI analysis on the fix batch.
 
@@ -181,7 +205,7 @@ async def run_batch_triage(
     Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3
     """
     try:
-        return await _run_ai_triage(issues, explicit_edges, config)
+        return await _run_ai_triage(issues, explicit_edges, config, sink=sink, run_id=run_id)
     except TriageError:
         raise
     except Exception as exc:

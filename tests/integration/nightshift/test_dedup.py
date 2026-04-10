@@ -478,7 +478,7 @@ class TestHuntScanSmokeTests:
 
         with patch(
             "agent_fox.nightshift.engine.consolidate_findings",
-            side_effect=lambda findings: _mechanical_grouping(findings),  # type: ignore[arg-type]
+            side_effect=lambda findings, **kwargs: _mechanical_grouping(findings),  # type: ignore[arg-type]
         ):
             # Iteration 1: creates issues
             with caplog.at_level(logging.INFO):
@@ -497,7 +497,7 @@ class TestHuntScanSmokeTests:
 
         with patch(
             "agent_fox.nightshift.engine.consolidate_findings",
-            side_effect=lambda findings: _mechanical_grouping(findings),  # type: ignore[arg-type]
+            side_effect=lambda findings, **kwargs: _mechanical_grouping(findings),  # type: ignore[arg-type]
         ):
             # Iteration 2: same findings, should create nothing
             with caplog.at_level(logging.INFO):
@@ -570,7 +570,7 @@ class TestHuntScanSmokeTests:
 
         with patch(
             "agent_fox.nightshift.engine.consolidate_findings",
-            side_effect=lambda findings: _mechanical_grouping(findings),  # type: ignore[arg-type]
+            side_effect=lambda findings, **kwargs: _mechanical_grouping(findings),  # type: ignore[arg-type]
         ):
             with caplog.at_level(logging.WARNING):
                 await engine._run_hunt_scan()

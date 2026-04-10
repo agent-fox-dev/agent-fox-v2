@@ -22,7 +22,8 @@ if TYPE_CHECKING:
     from agent_fox.nightshift.stream import WorkStream
     from agent_fox.platform.protocol import PlatformProtocol
 
-from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
+from agent_fox.engine.audit_helpers import emit_audit_event as _emit_audit_event
+from agent_fox.knowledge.audit import AuditEventType, generate_run_id
 
 logger = logging.getLogger(__name__)
 
@@ -268,9 +269,12 @@ class DaemonRunner:
             write_pid_file(self._pid_path)
 
         # Emit start audit event.
+        _daemon_run_id = generate_run_id()
         _emit_audit_event(
-            "night_shift.start",
-            {"phase": "start"},
+            None,
+            _daemon_run_id,
+            AuditEventType.NIGHT_SHIFT_START,
+            payload={"phase": "start"},
         )
 
         try:
@@ -314,8 +318,10 @@ class DaemonRunner:
 
         # Emit stop audit event (85-REQ-2.4).
         _emit_audit_event(
-            "night_shift.start",
-            {
+            None,
+            _daemon_run_id,
+            AuditEventType.NIGHT_SHIFT_START,
+            payload={
                 "phase": "stop",
                 "total_cost": state.total_cost,
                 "uptime_seconds": state.uptime_seconds,

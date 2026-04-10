@@ -434,9 +434,8 @@ class TestEmitAuxiliaryCost:
     def test_emit_auxiliary_cost_session_complete(self) -> None:
         """emit_auxiliary_cost emits SESSION_COMPLETE with archetype and cost."""
         # FAILS with ModuleNotFoundError until cost_helpers.py is created
-        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost  # type: ignore[import]
-
         from agent_fox.knowledge.audit import AuditEventType
+        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost  # type: ignore[import]
 
         mock_sink = MagicMock(spec=SinkDispatcher)
 

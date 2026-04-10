@@ -15,10 +15,14 @@ from __future__ import annotations
 import logging
 import subprocess
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.fix.checks import CheckCategory, CheckDescriptor, detect_checks
 from agent_fox.nightshift.categories.base import BaseHuntCategory
 from agent_fox.nightshift.finding import Finding
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +165,14 @@ class QualityGateCategory(BaseHuntCategory):
 
         return _format_failures(failures)
 
-    async def _run_ai_analysis(self, project_root: Path, static_output: str) -> list[Finding]:
+    async def _run_ai_analysis(
+        self,
+        project_root: Path,
+        static_output: str,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[Finding]:
         """Analyse failure output with AI, returning one Finding per check.
 
         Requirements: 67-REQ-3.1, 67-REQ-3.2, 67-REQ-3.3, 67-REQ-3.4, 67-REQ-3.E1
@@ -174,6 +185,8 @@ class QualityGateCategory(BaseHuntCategory):
             check.name: (check, output, exit_code) for check, output, exit_code in self._failures
         }
 
+        _model_id = "claude-opus-4-5"
+
         try:
             from agent_fox.core.json_extraction import extract_json_array
 
@@ -185,10 +198,17 @@ class QualityGateCategory(BaseHuntCategory):
 
             prompt = QUALITY_GATE_PROMPT.format(static_output=static_output)
             response = await backend.messages.create(  # type: ignore[attr-defined]
-                model="claude-opus-4-5",
+                model=_model_id,
                 max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
             )
+
+            # Emit cost for this auxiliary AI call (91-REQ-4.4)
+            from agent_fox.core.config import PricingConfig
+            from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
+
+            emit_auxiliary_cost(sink, run_id, "quality_gate", response, _model_id, PricingConfig())
+
             response_text = response.content[0].text  # type: ignore[attr-defined]
 
             items = extract_json_array(response_text)

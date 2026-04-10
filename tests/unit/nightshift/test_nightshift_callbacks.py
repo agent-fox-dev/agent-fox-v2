@@ -647,7 +647,7 @@ class TestNoneCallbacks:
             cache_creation_input_tokens=0,
         )
 
-        with patch("agent_fox.nightshift.fix_pipeline.FixPipeline") as MockPipeline:
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
             mock_pipeline_instance = AsyncMock()
             mock_pipeline_instance.process_issue = AsyncMock(return_value=mock_metrics)
             MockPipeline.return_value = mock_pipeline_instance
@@ -694,7 +694,7 @@ class TestEnginePassesCallbacksToPipeline:
             cache_creation_input_tokens=0,
         )
 
-        with patch("agent_fox.nightshift.fix_pipeline.FixPipeline") as MockPipeline:
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
             mock_pipeline_instance = AsyncMock()
             mock_pipeline_instance.process_issue = AsyncMock(return_value=mock_metrics)
             MockPipeline.return_value = mock_pipeline_instance

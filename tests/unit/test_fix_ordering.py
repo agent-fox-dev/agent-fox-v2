@@ -597,12 +597,14 @@ class TestObservability:
             await engine._run_issue_check()
 
             # Check audit event "night_shift.issue_obsolete"
-            audit_calls = [c for c in mock_audit.call_args_list if c.args[0] == "night_shift.issue_obsolete"]
+            # New signature: _emit_audit_event(sink, run_id, AuditEventType, payload=...)
+            from agent_fox.knowledge.audit import AuditEventType
+
+            audit_calls = [
+                c for c in mock_audit.call_args_list if len(c.args) >= 3 and c.args[2] == AuditEventType.ISSUE_OBSOLETE
+            ]
             assert len(audit_calls) >= 1
-            if len(audit_calls[0].args) > 1:
-                payload = audit_calls[0].args[1]
-            else:
-                payload = audit_calls[0].kwargs.get("payload", {})
+            payload = audit_calls[0].kwargs.get("payload", {})
             assert payload["closed_issue"] == 20
             assert payload["fixed_by"] == 10
 
@@ -650,12 +652,16 @@ class TestObservability:
             await engine._run_issue_check()
 
             # Verify the night_shift.issue_superseded audit event was emitted
-            audit_calls = [c for c in mock_audit.call_args_list if c.args[0] == "night_shift.issue_superseded"]
+            # New signature: _emit_audit_event(sink, run_id, AuditEventType, payload=...)
+            from agent_fox.knowledge.audit import AuditEventType
+
+            audit_calls = [
+                c
+                for c in mock_audit.call_args_list
+                if len(c.args) >= 3 and c.args[2] == AuditEventType.ISSUE_SUPERSEDED
+            ]
             assert len(audit_calls) >= 1, "Expected at least one night_shift.issue_superseded audit event"
-            if len(audit_calls[0].args) > 1:
-                payload = audit_calls[0].args[1]
-            else:
-                payload = audit_calls[0].kwargs.get("payload", {})
+            payload = audit_calls[0].kwargs.get("payload", {})
             assert payload["closed_issue"] == 20
             assert payload["superseded_by"] == 10
 
