@@ -915,6 +915,13 @@
 - Grouping operations on node collections (e.g., grouping node_states by spec) can be extracted into dedicated query methods on the graph object rather than inline in the engine, improving encapsulation and reusability. _(spec: 92_transient_audit_reports, confidence: 0.60)_
 - Task group completion requires end-to-end wiring verification: trace every execution path from design.md, verify return value propagation, run integration smoke tests, and perform stub/dead-code audits to ensure all paths are live and no unjustified stubs remain. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - Return value propagation verification requires grepping for all callers of functions like completed_spec_names() to confirm none discard the return value, ensuring data flows correctly through the call chain. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Pydantic v2 automatically validates boolean fields, so non-boolean values for `push_fix_branch` will be rejected with a ValidationError without explicit validation code. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When extending function signatures with new optional parameters (e.g., adding `force=False` to `push_to_remote`), default values ensure backward compatibility with existing callers. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Critical operations that may fail (like git push) should catch all exceptions, log warnings with failure reasons, and continue execution rather than propagating exceptions up the call stack. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Integration smoke tests should exercise real code paths (not mocking the main function under test) while mocking external dependencies, to catch wiring issues and integration failures. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Execution order between interdependent operations (e.g., push before harvest) should be explicitly verified in tests by recording call sequences rather than relying on static code inspection. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Configuration features should default to disabled/false when they add new optional behavior, to minimize risk and require explicit opt-in. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When modifying branch naming to include additional information (like issue numbers), ensure the sanitization function handles edge cases like empty titles or special-chars-only inputs gracefully with fallback logic. _(spec: 93_fix_branch_push, confidence: 0.60)_
 
 ## Decisions
 
@@ -1217,6 +1224,9 @@
 - Organizing test files by category (unit, property, integration) with labeled test cases (e.g., TS-92-1, TS-92-E1 for edge cases, TS-92-P1 for property tests, TS-92-SMOKE-1 for smoke tests) provides clear traceability and coverage documentation. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - Create __init__.py files in new test package directories (e.g., tests/integration/session/) to ensure proper package structure and imports. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - When changing audit output locations or deletion semantics, existing tests verifying audit file behavior must be updated to match the new implementation. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Property-based tests using Hypothesis should suppress `HealthCheck.function_scoped_fixture` health checks per project conventions when fixtures are necessary. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Design documents with execution paths, data models, correctness properties, and error handling tables provide a high-confidence foundation for implementation and comprehensive test coverage. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Task groups should be ordered test-first (failing tests), then implementation (making tests pass), then verification (wiring and smoke tests), with explicit checkbox tracking throughout. _(spec: 93_fix_branch_push, confidence: 0.90)_
 
 ## Anti-Patterns
 

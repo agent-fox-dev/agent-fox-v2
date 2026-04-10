@@ -176,7 +176,7 @@ pass `force=True` to the underlying push operation.
 
 | Error Condition | Behavior | Requirement |
 |----------------|----------|-------------|
-| `push_fix_branch` is non-boolean | Pydantic validation error at config load | 93-REQ-1.E1 |
+| `push_fix_branch` is non-coercible to boolean (e.g., `"banana"`, `42`) | Pydantic validation error at config load | 93-REQ-1.E1 |
 | Issue title is empty/special-chars-only | Branch name falls back to `fix/{N}` | 93-REQ-2.E1 |
 | Push to origin fails (network, auth, etc.) | Log warning with reason, continue to harvest | 93-REQ-3.E1, 93-REQ-3.E2 |
 

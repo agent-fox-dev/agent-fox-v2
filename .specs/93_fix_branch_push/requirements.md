@@ -38,8 +38,11 @@ local-only and remote-visible fix branches.
 
 #### Edge Cases
 
-1. [93-REQ-1.E1] IF `push_fix_branch` is set to a non-boolean value, THEN
-   THE system SHALL reject the configuration with a validation error.
+1. [93-REQ-1.E1] IF `push_fix_branch` is set to a value that Pydantic v2 cannot
+   interpret as boolean (e.g., an arbitrary string like `"banana"` or an integer
+   other than 0/1), THEN THE system SHALL reject the configuration with a
+   validation error. Note: Pydantic v2 in lax mode accepts `"yes"`, `"true"`,
+   `"no"`, `"false"`, `0`, and `1` as valid boolean inputs.
 
 ---
 

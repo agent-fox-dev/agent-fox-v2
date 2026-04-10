@@ -264,22 +264,27 @@ for call in mock_run_git.call_args_list:
 
 **Requirement:** 93-REQ-1.E1
 **Type:** unit
-**Description:** Verify that a non-boolean value for `push_fix_branch` raises
-a validation error.
+**Description:** Verify that a value Pydantic v2 cannot interpret as boolean
+raises a validation error. Note: Pydantic v2 lax mode coerces `"yes"`,
+`"true"`, `"no"`, `"false"`, `0`, `1` to booleans, so the test must use a
+value outside that set (e.g., `"banana"` or `42`).
 
 **Preconditions:**
 - None.
 
 **Input:**
-- `NightShiftConfig(push_fix_branch="yes")`
+- `NightShiftConfig(push_fix_branch="banana")`
+- `NightShiftConfig(push_fix_branch=42)`
 
 **Expected:**
-- `ValidationError` is raised.
+- `ValidationError` is raised for both inputs.
 
 **Assertion pseudocode:**
 ```
 ASSERT_RAISES ValidationError:
-    NightShiftConfig(push_fix_branch="yes")
+    NightShiftConfig(push_fix_branch="banana")
+ASSERT_RAISES ValidationError:
+    NightShiftConfig(push_fix_branch=42)
 ```
 
 ---
