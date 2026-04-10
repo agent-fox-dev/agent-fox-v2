@@ -26,28 +26,29 @@ and a wiring verification group.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file
     - Create `tests/unit/nightshift/test_fix_branch_push.py`
     - Implement tests TS-93-1 through TS-93-9 and TS-93-E1 through TS-93-E4
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-93-1 through TS-93-9, TS-93-E1 through TS-93-E4_
+    - Note: TS-93-4 is integration type per test_spec.md; placed in smoke test file
 
-  - [ ] 1.2 Create property test file
+  - [x] 1.2 Create property test file
     - Create `tests/property/nightshift/test_fix_branch_push_props.py`
     - Implement property tests TS-93-P1 through TS-93-P5
     - Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]`
     - _Test Spec: TS-93-P1 through TS-93-P5_
 
-  - [ ] 1.3 Create integration smoke test file
+  - [x] 1.3 Create integration smoke test file
     - Create `tests/integration/nightshift/test_fix_branch_push_smoke.py`
-    - Implement smoke tests TS-93-SMOKE-1 and TS-93-SMOKE-2
-    - _Test Spec: TS-93-SMOKE-1, TS-93-SMOKE-2_
+    - Implement smoke tests TS-93-SMOKE-1, TS-93-SMOKE-2, and TS-93-4
+    - _Test Spec: TS-93-SMOKE-1, TS-93-SMOKE-2, TS-93-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet (18 failures, 5 trivial passes)
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Implement config, branch naming, and push logic
   - [ ] 2.1 Add `push_fix_branch` field to `NightShiftConfig`
