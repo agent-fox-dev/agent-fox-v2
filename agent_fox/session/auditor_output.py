@@ -1,10 +1,13 @@
 """Auditor output persistence, GitHub issue filing, and audit events.
 
-Handles writing audit.md, filing/closing GitHub issues on auditor verdicts,
+Handles writing audit reports, filing/closing GitHub issues on auditor verdicts,
 and creating audit event payloads for the retry loop.
 
 Requirements: 46-REQ-8.1, 46-REQ-8.2, 46-REQ-8.3, 46-REQ-8.4,
-              46-REQ-8.E1, 46-REQ-8.E2, 46-REQ-7.6
+              46-REQ-8.E1, 46-REQ-8.E2, 46-REQ-7.6,
+              92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-1.E1,
+              92-REQ-2.1, 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2,
+              92-REQ-4.2, 92-REQ-4.E1, 92-REQ-4.E2
 """
 
 from __future__ import annotations
@@ -21,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Output persistence (46-REQ-8.1, 46-REQ-8.E2)
+# Output persistence (46-REQ-8.1, 46-REQ-8.E2, 92-REQ-1.1–1.3, 92-REQ-2.1,
+#                    92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2)
 # ---------------------------------------------------------------------------
 
 
@@ -31,16 +35,54 @@ def persist_auditor_results(
     *,
     attempt: int = 1,
 ) -> None:
-    """Write audit findings to spec_dir/audit.md.
+    """Write audit findings to .agent-fox/audit/audit_{spec_name}.md.
+
+    For PASS verdicts, deletes any existing audit report and writes nothing.
+    For non-PASS verdicts, creates the audit directory if needed and writes
+    (or overwrites) the report.
 
     Handles filesystem errors gracefully — logs and does not raise.
 
-    Requirements: 46-REQ-8.1, 46-REQ-8.E2
+    Requirements: 46-REQ-8.1, 46-REQ-8.E2,
+                  92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-1.E1,
+                  92-REQ-2.1, 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2
     """
+    spec_name = spec_dir.name
+    audit_dir = spec_dir.parent.parent / ".agent-fox" / "audit"
+    audit_path = audit_dir / f"audit_{spec_name}.md"
+
+    # PASS verdict: delete existing report and return (do not write).
+    # Requirements: 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2
+    if result.overall_verdict == "PASS":
+        try:
+            audit_path.unlink(missing_ok=True)
+            logger.info("Removed audit report for %s (PASS verdict)", spec_name)
+        except OSError:
+            logger.error(
+                "Failed to delete audit report for %s",
+                spec_name,
+                exc_info=True,
+            )
+        return
+
+    # Non-PASS: ensure output directory exists before writing.
+    # Requirements: 92-REQ-1.2, 92-REQ-1.E1
+    try:
+        audit_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        logger.error(
+            "Failed to create audit directory %s",
+            audit_dir,
+            exc_info=True,
+        )
+        return
+
+    # Write (or overwrite) the audit report.
+    # Requirements: 92-REQ-1.1, 92-REQ-1.3, 92-REQ-2.1
     try:
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         lines = [
-            f"# Audit Report: {spec_dir.name}",
+            f"# Audit Report: {spec_name}",
             "",
             f"**Overall Verdict:** {result.overall_verdict}",
             f"**Date:** {now}",
@@ -67,11 +109,47 @@ def persist_auditor_results(
             ]
         )
 
-        audit_path = spec_dir / "audit.md"
         audit_path.write_text("\n".join(lines))
         logger.info("Wrote audit report to %s", audit_path)
     except OSError:
-        logger.error("Failed to write audit.md to %s", spec_dir, exc_info=True)
+        logger.error("Failed to write audit report to %s", audit_path, exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Completion cleanup (92-REQ-4.2, 92-REQ-4.E1, 92-REQ-4.E2)
+# ---------------------------------------------------------------------------
+
+
+def cleanup_completed_spec_audits(
+    project_root: Path,
+    completed_specs: set[str],
+) -> None:
+    """Delete audit report files for fully-completed specs.
+
+    Iterates the given spec names and deletes each matching audit file
+    from ``.agent-fox/audit/``.  Per-spec OSErrors are logged as warnings
+    and do not stop processing of the remaining specs.
+
+    Args:
+        project_root: Root directory of the project (parent of
+            ``.agent-fox/``).
+        completed_specs: Set of spec folder names (e.g. ``"05_foo"``)
+            whose audit reports should be removed.
+
+    Requirements: 92-REQ-4.2, 92-REQ-4.E1, 92-REQ-4.E2
+    """
+    audit_dir = project_root / ".agent-fox" / "audit"
+    for spec in completed_specs:
+        audit_path = audit_dir / f"audit_{spec}.md"
+        try:
+            audit_path.unlink(missing_ok=True)
+            logger.info("Removed audit report for completed spec %s", spec)
+        except OSError:
+            logger.warning(
+                "Failed to delete audit report for completed spec %s",
+                spec,
+                exc_info=True,
+            )
 
 
 # ---------------------------------------------------------------------------

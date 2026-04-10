@@ -220,7 +220,11 @@ class TestConvergenceNoLLM:
 
 
 class TestAuditFileWritten:
-    """Verify audit.md is written to spec directory."""
+    """Verify audit report is written to .agent-fox/audit/ (not spec directory).
+
+    Updated for 92-REQ-1.1: reports now go to .agent-fox/audit/audit_{spec}.md.
+    A non-PASS overall_verdict is required to trigger a write.
+    """
 
     def test_audit_file_written(self, tmp_path: Path) -> None:
         from agent_fox.session.auditor_output import persist_auditor_results
@@ -228,6 +232,9 @@ class TestAuditFileWritten:
             AuditEntry,
             AuditResult,
         )
+
+        spec_dir = tmp_path / ".specs" / "05_test"
+        spec_dir.mkdir(parents=True)
 
         result = AuditResult(
             entries=[
@@ -244,17 +251,19 @@ class TestAuditFileWritten:
                     notes="Assertion only checks not None",
                 ),
             ],
-            overall_verdict="PASS",
+            overall_verdict="WEAK",
             summary="All entries have adequate tests.",
         )
 
-        persist_auditor_results(tmp_path, result)
+        persist_auditor_results(spec_dir, result)
 
-        audit_path = tmp_path / "audit.md"
+        audit_path = tmp_path / ".agent-fox" / "audit" / "audit_05_test.md"
         assert audit_path.exists()
         content = audit_path.read_text()
         assert "TS-05-1" in content
-        assert "PASS" in content or "FAIL" in content
+        assert "PASS" in content or "WEAK" in content
+        # Report must NOT appear inside the spec directory
+        assert not (spec_dir / "audit.md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -392,28 +401,37 @@ class TestGhUnavailable:
 
 
 class TestAuditWriteFailure:
-    """Verify filesystem error during audit.md write does not block."""
+    """Verify filesystem error during audit report write does not block.
+
+    Updated for 92-REQ-1.1: reports now go to .agent-fox/audit/.
+    PASS verdicts no longer write (they delete), so a non-PASS verdict is
+    required to exercise the write path.  The write failure is injected via
+    mock rather than a bad path so that mkdir can still succeed.
+    """
 
     def test_audit_write_failure(
         self,
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
+        from unittest.mock import patch
+
         from agent_fox.session.auditor_output import persist_auditor_results
         from agent_fox.session.convergence import AuditResult
 
+        spec_dir = tmp_path / ".specs" / "05_test"
+        spec_dir.mkdir(parents=True)
+
         result = AuditResult(
             entries=[],
-            overall_verdict="PASS",
-            summary="ok",
+            overall_verdict="FAIL",
+            summary="bad",
         )
 
-        # Make the spec_dir a non-existent path that can't be written to
-        bad_path = tmp_path / "nonexistent" / "deeply" / "nested"
-
         with caplog.at_level(logging.ERROR):
-            # Should not raise
-            persist_auditor_results(bad_path, result)
+            with patch("pathlib.Path.write_text", side_effect=OSError("disk full")):
+                # Should not raise
+                persist_auditor_results(spec_dir, result)
 
         assert any("error" in r.message.lower() or "audit" in r.message.lower() for r in caplog.records)
 

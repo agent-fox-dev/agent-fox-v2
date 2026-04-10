@@ -49,8 +49,8 @@ the mandatory wiring verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Change audit report output path and add PASS deletion
-  - [ ] 2.1 Change `audit_path` computation in `persist_auditor_results`
+- [x] 2. Change audit report output path and add PASS deletion
+  - [x] 2.1 Change `audit_path` computation in `persist_auditor_results`
     - In `agent_fox/session/auditor_output.py`, change line 70 from
       `audit_path = spec_dir / "audit.md"` to derive path via
       `spec_dir.parent.parent / ".agent-fox" / "audit"`
@@ -58,23 +58,23 @@ the mandatory wiring verification.
     - Name file `f"audit_{spec_dir.name}.md"`
     - _Requirements: 92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3_
 
-  - [ ] 2.2 Add PASS verdict early-return with deletion
+  - [x] 2.2 Add PASS verdict early-return with deletion
     - Before writing, check `result.overall_verdict == "PASS"`
     - If PASS: delete `audit_path` if it exists, then return early
     - Wrap deletion in try/except OSError to log and not raise
     - _Requirements: 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2_
 
-  - [ ] 2.3 Update existing tests in `test_auditor.py`
+  - [x] 2.3 Update existing tests in `test_auditor.py`
     - Update `TestAuditFileWritten.test_audit_file_written` to assert the new
       path (`tmp_path / ".agent-fox" / "audit" / "audit_{name}.md"`)
     - Update `TestAuditWriteFailure` if it references the old path
     - _Requirements: 92-REQ-1.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/session/test_transient_audit.py -k "TS_92_1 or TS_92_2 or TS_92_3 or TS_92_4 or TS_92_5 or TS_92_E1 or TS_92_E2 or TS_92_E3"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-2.1, 92-REQ-3.1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/session/test_transient_audit.py -k "TS_92_1 or TS_92_2 or TS_92_3 or TS_92_4 or TS_92_5 or TS_92_E1 or TS_92_E2 or TS_92_E3"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-2.1, 92-REQ-3.1 acceptance criteria met
 
 - [ ] 3. Add spec completion cleanup
   - [ ] 3.1 Add `completed_spec_names()` to `GraphSync`
