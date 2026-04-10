@@ -468,7 +468,7 @@ class TestHuntScanSmokeTests:
         # Use real consolidate_findings via mechanical path (< 3 findings per category)
         from agent_fox.nightshift.critic import _mechanical_grouping
 
-        async def stub_inner() -> list[object]:
+        async def stub_inner(**kwargs: object) -> list[object]:
             return fixed_findings
 
         engine._run_hunt_scan_inner = stub_inner  # type: ignore[method-assign]
@@ -561,7 +561,7 @@ class TestHuntScanSmokeTests:
         )
         fixed_findings = [finding1, finding2]
 
-        async def stub_inner() -> list[object]:
+        async def stub_inner(**kwargs: object) -> list[object]:
             return fixed_findings
 
         engine._run_hunt_scan_inner = stub_inner  # type: ignore[method-assign]

@@ -112,7 +112,7 @@ class TestTwoPhaseDetection:
             call_order.append("static")
             return "static tool output"
 
-        async def mock_ai(self: object, project_root: object, static_output: str) -> list[object]:
+        async def mock_ai(self: object, project_root: object, static_output: str, **kwargs: object) -> list[object]:
             call_order.append("ai")
             assert "static tool output" in static_output
             return []

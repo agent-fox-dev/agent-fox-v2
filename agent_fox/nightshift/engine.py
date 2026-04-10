@@ -309,7 +309,12 @@ class NightShiftEngine:
                             exc_info=True,
                         )
 
-    async def _run_hunt_scan_inner(self) -> list[object]:
+    async def _run_hunt_scan_inner(
+        self,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[object]:
         """Execute the hunt scan using all enabled hunt categories.
 
         Requirements: 61-REQ-3.1, 61-REQ-3.2, 61-REQ-3.4
@@ -318,7 +323,7 @@ class NightShiftEngine:
 
         registry = HuntCategoryRegistry()
         scanner = HuntScanner(registry, self._config)
-        return await scanner.run(Path.cwd())  # type: ignore[return-value]
+        return await scanner.run(Path.cwd(), sink=sink, run_id=run_id)  # type: ignore[return-value]
 
     async def _run_hunt_scan(self) -> None:
         """Execute a full hunt scan and create issues from findings.
@@ -336,7 +341,7 @@ class NightShiftEngine:
         hunt_run_id = generate_run_id()
         self._hunt_scan_in_progress = True
         try:
-            findings = await self._run_hunt_scan_inner()
+            findings = await self._run_hunt_scan_inner(sink=self._sink, run_id=hunt_run_id)
         finally:
             self._hunt_scan_in_progress = False
 

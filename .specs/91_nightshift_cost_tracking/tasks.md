@@ -123,35 +123,45 @@ remove JSONL audit, (4) wiring verification.
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 91-REQ-4.*, 91-REQ-5.* acceptance criteria met
 
-- [ ] 4. Wiring verification
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+- [x] 4. Wiring verification
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - For each path (fix session, auxiliary cost, operational event), verify the
       entry point actually calls the next function in the chain
     - Confirm no function in the chain is a stub that was never replaced
+    - Fixed wiring gap: quality_gate._run_ai_analysis sink/run_id were never
+      passed from the detect() chain; updated hunt.py, base.py, quality_gate.py,
+      engine.py to thread sink/run_id through HuntScanner → detect() → _run_ai_analysis
+    - Added emit_auxiliary_cost_fail to quality_gate exception path (91-REQ-4.5)
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - For every function that returns data consumed by a caller, confirm the
       caller receives and uses the return value
     - Grep for callers of `emit_auxiliary_cost`, `_emit_session_event`, etc.
+    - All checked: SessionOutcome → _accumulate_metrics + _emit_session_event;
+      FixMetrics → engine state; FindingGroups → _run_hunt_scan; TriageResult →
+      _run_issue_check; StalenessResult → _run_issue_check; all ✓
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - All TS-91-SMOKE-* tests pass using real DuckDB (no stub bypass)
     - _Test Spec: TS-91-SMOKE-1, TS-91-SMOKE-2, TS-91-SMOKE-3_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
-    - Each hit must be justified or replaced
+    - All `return []` entries justified: base class default, empty-input guard,
+      error-isolation fallbacks
+    - All `pass` entries justified: exception-swallowing guards (BLE001)
+    - No `# TODO`, `# stub`, or `NotImplementedError` in touched files
     - Document any intentional stubs with rationale
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

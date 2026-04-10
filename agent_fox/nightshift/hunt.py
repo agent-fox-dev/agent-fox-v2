@@ -8,9 +8,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from agent_fox.nightshift.finding import Finding
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,9 @@ class HuntCategory(Protocol):
         self,
         project_root: Path,
         config: object,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
     ) -> list[Finding]: ...
 
 
@@ -97,7 +103,13 @@ class HuntScanner:
         self._registry = registry
         self._config = config
 
-    async def run(self, project_root: Path) -> list[Finding]:
+    async def run(
+        self,
+        project_root: Path,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[Finding]:
         """Execute all enabled categories in parallel, returning findings.
 
         Categories that fail are logged and skipped; remaining categories
@@ -109,7 +121,7 @@ class HuntScanner:
         if not enabled_cats:
             return []
 
-        tasks = [self._run_category(cat, project_root) for cat in enabled_cats]
+        tasks = [self._run_category(cat, project_root, sink=sink, run_id=run_id) for cat in enabled_cats]
         results = await asyncio.gather(*tasks)
 
         all_findings: list[Finding] = []
@@ -117,13 +129,20 @@ class HuntScanner:
             all_findings.extend(findings)
         return all_findings
 
-    async def _run_category(self, category: HuntCategory, project_root: Path) -> list[Finding]:
+    async def _run_category(
+        self,
+        category: HuntCategory,
+        project_root: Path,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[Finding]:
         """Run a single category with error isolation.
 
         Requirements: 61-REQ-3.E1
         """
         try:
-            return await category.detect(project_root, self._config)
+            return await category.detect(project_root, self._config, sink=sink, run_id=run_id)
         except Exception:
             logger.warning(
                 "Hunt category '%s' failed",

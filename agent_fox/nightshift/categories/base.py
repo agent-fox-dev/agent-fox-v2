@@ -10,8 +10,12 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.nightshift.finding import Finding
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +64,9 @@ class BaseHuntCategory:
         self,
         project_root: Path,
         config: object,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
     ) -> list[Finding]:
         """Execute two-phase detection: static tool then AI analysis.
 
@@ -79,7 +86,7 @@ class BaseHuntCategory:
                 )
                 static_output = ""
 
-        return await self._run_ai_analysis(project_root, static_output)
+        return await self._run_ai_analysis(project_root, static_output, sink=sink, run_id=run_id)
 
     async def _run_static_tool(self, project_root: Path) -> str:
         """Run static tooling and return output as a string.
@@ -88,7 +95,14 @@ class BaseHuntCategory:
         """
         return ""
 
-    async def _run_ai_analysis(self, project_root: Path, static_output: str) -> list[Finding]:
+    async def _run_ai_analysis(
+        self,
+        project_root: Path,
+        static_output: str,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[Finding]:
         """Run AI analysis with optional static tool context.
 
         Override in subclasses.

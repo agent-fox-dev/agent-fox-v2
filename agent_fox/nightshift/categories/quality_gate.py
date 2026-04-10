@@ -97,7 +97,14 @@ class QualityGateCategory(BaseHuntCategory):
         super().__init__(**kwargs)
         self._failures: list[tuple[CheckDescriptor, str, int]] = []
 
-    async def detect(self, project_root: Path, config: object) -> list[Finding]:
+    async def detect(
+        self,
+        project_root: Path,
+        config: object,
+        *,
+        sink: SinkDispatcher | None = None,
+        run_id: str = "",
+    ) -> list[Finding]:
         """Override to catch detect_checks() exceptions at the top level.
 
         Requirements: 67-REQ-1.E1
@@ -106,7 +113,7 @@ class QualityGateCategory(BaseHuntCategory):
         self._timeout = timeout
         self._failures = []
         try:
-            return await super().detect(project_root, config)
+            return await super().detect(project_root, config, sink=sink, run_id=run_id)
         except Exception:
             logger.warning(
                 "quality_gate category failed during detection",
@@ -242,10 +249,14 @@ class QualityGateCategory(BaseHuntCategory):
 
             return findings
 
-        except Exception:
+        except Exception as _exc:
             logger.warning(
                 "quality_gate: AI analysis failed, falling back to mechanical findings",
                 exc_info=True,
             )
+            # Emit session.fail for the failed auxiliary AI call (91-REQ-4.5)
+            from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost_fail
+
+            emit_auxiliary_cost_fail(sink, run_id, "quality_gate", _exc, _model_id)
             # Mechanical fallback: one Finding per failure
             return [_mechanical_finding(check, output) for check, output, _ in self._failures]
