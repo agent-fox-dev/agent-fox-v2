@@ -50,44 +50,44 @@ and a wiring verification group.
     - [x] All spec tests FAIL (red) -- no implementation yet (18 failures, 5 trivial passes)
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Implement config, branch naming, and push logic
-  - [ ] 2.1 Add `push_fix_branch` field to `NightShiftConfig`
+- [x] 2. Implement config, branch naming, and push logic
+  - [x] 2.1 Add `push_fix_branch` field to `NightShiftConfig`
     - Add `push_fix_branch: bool = Field(default=False, ...)` to
       `agent_fox/nightshift/config.py`
     - Pydantic handles boolean validation (93-REQ-1.E1) automatically
     - _Requirements: 93-REQ-1.1, 93-REQ-1.2, 93-REQ-1.E1_
 
-  - [ ] 2.2 Update branch naming in `spec_builder.py`
+  - [x] 2.2 Update branch naming in `spec_builder.py`
     - Modify `sanitise_branch_name(title, issue_number=None)` to include
       issue number: `fix/{N}-{slug}` or `fix/{N}` when slug is empty
     - Update `build_in_memory_spec` to pass `issue.number` to
       `sanitise_branch_name`
     - _Requirements: 93-REQ-2.1, 93-REQ-2.2, 93-REQ-2.E1_
 
-  - [ ] 2.3 Add `force` parameter to `push_to_remote` in `git.py`
+  - [x] 2.3 Add `force` parameter to `push_to_remote` in `git.py`
     - Add `force: bool = False` keyword argument to
       `agent_fox/workspace/git.py: push_to_remote`
     - When `force=True`, prepend `"--force"` to the git push args
     - _Requirements: 93-REQ-3.2_
 
-  - [ ] 2.4 Add `_push_fix_branch_upstream` method to `FixPipeline`
+  - [x] 2.4 Add `_push_fix_branch_upstream` method to `FixPipeline`
     - New async method on `FixPipeline` in `fix_pipeline.py`
     - Calls `push_to_remote(repo_root, spec.branch_name, force=True)`
     - Returns `bool`; catches all exceptions and logs warnings
     - _Requirements: 93-REQ-3.1, 93-REQ-3.2, 93-REQ-3.E1, 93-REQ-3.E2_
 
-  - [ ] 2.5 Wire push step into `process_issue`
+  - [x] 2.5 Wire push step into `process_issue`
     - In `FixPipeline.process_issue`, after coder-reviewer loop returns
       `True` and before `_harvest_and_push`, conditionally call
       `_push_fix_branch_upstream` when
       `self._config.night_shift.push_fix_branch` is `True`
     - _Requirements: 93-REQ-3.1, 93-REQ-3.3, 93-REQ-3.4, 93-REQ-4.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_fix_branch_push.py tests/property/nightshift/test_fix_branch_push_props.py tests/integration/nightshift/test_fix_branch_push_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 93-REQ-1.1, 93-REQ-1.2, 93-REQ-1.E1, 93-REQ-2.1,
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_fix_branch_push.py tests/property/nightshift/test_fix_branch_push_props.py tests/integration/nightshift/test_fix_branch_push_smoke.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 93-REQ-1.1, 93-REQ-1.2, 93-REQ-1.E1, 93-REQ-2.1,
           93-REQ-2.2, 93-REQ-2.E1, 93-REQ-3.1 through 93-REQ-3.4,
           93-REQ-3.E1, 93-REQ-3.E2, 93-REQ-4.1 acceptance criteria met
 

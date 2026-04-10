@@ -26,13 +26,14 @@ class InMemorySpec:
     branch_name: str
 
 
-def sanitise_branch_name(title: str) -> str:
+def sanitise_branch_name(title: str, issue_number: int | None = None) -> str:
     """Convert an issue title to a sanitised branch name.
 
-    Returns ``fix/{sanitised-title}`` where the title is lowercased,
-    special characters are removed, and spaces become hyphens.
+    When ``issue_number`` is provided, returns ``fix/{N}-{slug}`` or
+    ``fix/{N}`` when the sanitised slug is empty.  When ``issue_number``
+    is ``None``, returns ``fix/{slug}`` (backward-compatible behaviour).
 
-    Requirements: 61-REQ-6.2
+    Requirements: 61-REQ-6.2, 93-REQ-2.1, 93-REQ-2.2, 93-REQ-2.E1
     """
     slug = title.lower()
     # Replace spaces and underscores with hyphens
@@ -43,6 +44,11 @@ def sanitise_branch_name(title: str) -> str:
     slug = re.sub(r"-+", "-", slug)
     # Strip leading/trailing hyphens
     slug = slug.strip("-")
+
+    if issue_number is not None:
+        if slug:
+            return f"fix/{issue_number}-{slug}"
+        return f"fix/{issue_number}"
     return f"fix/{slug}"
 
 
@@ -51,7 +57,7 @@ def build_in_memory_spec(issue: IssueResult, issue_body: str) -> InMemorySpec:
 
     Requirements: 61-REQ-6.1
     """
-    branch = sanitise_branch_name(issue.title)
+    branch = sanitise_branch_name(issue.title, issue.number)
     safe_title = sanitize_prompt_content(issue.title, label="issue-title")
     safe_body = sanitize_prompt_content(issue_body, label="issue-body")
     task_prompt = f"Fix the issue: {safe_title}\n\nIssue #{issue.number}\n\n{safe_body}"

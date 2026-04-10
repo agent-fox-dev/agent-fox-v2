@@ -905,6 +905,11 @@ class FixPipeline:
                 # Ladder exhausted — do NOT close issue
                 return metrics
 
+            # Optionally push fix branch to upstream remote (93-REQ-3.1).
+            # Must run BEFORE harvest, which changes the working tree.
+            if self._config.night_shift.push_fix_branch:
+                await self._push_fix_branch_upstream(spec, workspace)
+
             # Harvest fix branch into develop and push to origin (65-REQ-3.2).
             # Must run BEFORE cleanup destroys the feature branch.
             harvest_result = await self._harvest_and_push(spec, workspace)
@@ -990,6 +995,41 @@ class FixPipeline:
             spec.branch_name,
         )
         return metrics
+
+    async def _push_fix_branch_upstream(
+        self,
+        spec: InMemorySpec,
+        workspace: WorkspaceInfo,
+    ) -> bool:
+        """Force-push the fix branch to origin. Returns True on success.
+
+        Logs a warning and returns False on failure — never raises.
+
+        Requirements: 93-REQ-3.1, 93-REQ-3.2, 93-REQ-3.E1, 93-REQ-3.E2
+        """
+        from agent_fox.workspace.git import push_to_remote
+
+        try:
+            success = await push_to_remote(
+                workspace.path,
+                spec.branch_name,
+                force=True,
+            )
+            if not success:
+                logger.warning(
+                    "Failed to push fix branch '%s' to origin",
+                    spec.branch_name,
+                )
+                return False
+            logger.info("Pushed fix branch '%s' to origin", spec.branch_name)
+            return True
+        except Exception as exc:
+            logger.warning(
+                "Failed to push fix branch '%s' to origin: %s",
+                spec.branch_name,
+                exc,
+            )
+            return False
 
     async def _harvest_and_push(
         self,

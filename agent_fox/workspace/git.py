@@ -504,16 +504,25 @@ async def push_to_remote(
     repo_root: Path,
     branch: str,
     remote: str = "origin",
+    *,
+    force: bool = False,
 ) -> bool:
     """Push a branch to the remote. Returns True on success, False on failure.
 
+    When ``force=True``, uses ``--force`` to overwrite the remote branch even
+    if the push is not a fast-forward.
+
     Does not raise — logs a warning on failure.
 
-    Requirements: 19-REQ-3.1
+    Requirements: 19-REQ-3.1, 93-REQ-3.2
     """
     validate_ref_name(branch)
+    args = ["push"]
+    if force:
+        args.append("--force")
+    args.extend([remote, branch])
     rc, _stdout, stderr = await run_git(
-        ["push", remote, branch],
+        args,
         cwd=repo_root,
         check=False,
     )

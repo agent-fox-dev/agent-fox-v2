@@ -74,6 +74,13 @@ class NightShiftConfig(BaseModel):
         description="Merge strategy: 'direct' or 'pr'",
     )
 
+    # --- Fix branch push (spec 93) ---
+
+    push_fix_branch: bool = Field(
+        default=False,
+        description="Push fix branches to origin before harvest",
+    )
+
     # --- Fields used by SpecGenerator (spec 86) ---
     # Retained here because SpecGenerator (spec_gen.py) references them.
     # These will migrate to a dedicated config when spec generation gets
