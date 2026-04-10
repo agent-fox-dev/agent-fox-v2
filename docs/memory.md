@@ -127,6 +127,13 @@
 - Property-based tests can pass before implementation if they test pure mathematical properties or trivial cases, while most other tests will fail as expected during TDD. _(spec: 90_fact_lifecycle, confidence: 0.60)_
 - Enum values like FACT_CLEANUP may already exist in audit event types from prior work; verify existing enums before adding new variants to avoid duplication. _(spec: 90_fact_lifecycle, confidence: 0.60)_
 - Empty return values (`return []`) in contradiction detection and cleanup operations are intentional sentinels representing correct behavior (empty pairs → no verdicts, LLM error → graceful degradation, absent worktrees → no orphans) and must be justified with comments explaining why they are correct, not bugs. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- When SinkDispatcher is None or run_id is empty, all audit emission must gracefully degrade (no-op) without raising exceptions, enabling night-shift to operate without audit infrastructure. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- DuckDB connection failure at CLI startup should log a warning and proceed with sink_dispatcher=None rather than crashing, allowing night-shift to continue operating without audit. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Unit test mocks for archetype resolution and knowledge store access must be properly configured to avoid runtime failures during test execution. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- Lambda mocks may not accept new keyword arguments added to function signatures; update mock definitions when adding parameters like sink/run_id to existing function calls. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Module-level imports in code under test can cause FixPipeline patch targets to become stale; update patch paths after moving or restructuring imports. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Parameters accepted by a function may not be threaded through intermediate layers in a call chain, resulting in dead code. Trace execution paths end-to-end to verify parameters are propagated through all intermediate functions. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Use TYPE_CHECKING guards with forward imports (if TYPE_CHECKING: from module import Type) to avoid circular import issues when adding type hints to modules that depend on types from other modules. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 
 ## Patterns
 
@@ -870,6 +877,25 @@
 - A stub/dead-code audit must search all touched files for `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, and `NotImplementedError`; each hit must be either justified with a comment or replaced with real implementation. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 - Integration smoke tests (TS-90-SMOKE-*) must use real components without stub bypasses to verify end-to-end functionality; all smoke tests passing confirms wiring is live and correct. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 - Wiring verification requires confirming all execution paths from design.md are live (traceable in code), all existing tests still pass, no unjustified stubs remain, and all smoke tests pass before marking the wiring group complete. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Night-shift cost tracking requires wiring a SinkDispatcher through CLI → NightShiftEngine → FixPipeline → run_session to emit audit events to DuckDB, mirroring the orchestrator's audit pattern. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Auxiliary AI calls (critic, batch triage, staleness, quality gate) need SinkDispatcher and run_id threaded through their signatures and must emit session.complete events via a cost_helpers module using descriptive archetypes. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The night_shift_cmd CLI must create a DuckDBSink from the knowledge store path, wrap it in a SinkDispatcher, pass to NightShiftEngine, and close the DB connection in a finally block. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Cost accuracy in session.complete payloads is verified via property tests that validate cost equals calculate_cost() output for any combination of input_tokens, output_tokens, cache_read, and cache_creation. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- When implementing a spec with multiple test categories (unit, property, integration), organize tests across separate test files by category to maintain clarity and separation of concerns. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- When creating comprehensive test suites, include property-based and smoke tests alongside unit and integration tests to provide multi-layered coverage of the specification. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- NightShiftEngine and FixPipeline must accept an optional sink_dispatcher parameter to enable audit event routing to DuckDB; when not provided, it defaults to None for graceful degradation. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The CLI (night_shift_cmd) must create a SinkDispatcher backed by DuckDBSink and pass it to NightShiftEngine; if DuckDB initialization fails, the CLI should gracefully degrade by passing sink_dispatcher=None. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Each process_issue invocation must generate a unique run_id using generate_run_id() and store it as a pipeline instance variable to ensure audit events from the same issue are correlated. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The _run_session method must pass both sink_dispatcher and run_id as keyword arguments to the underlying run_session() call to enable cost tracking at the session level. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- After successful or failed fix sessions, emit_audit_event must be called with event_type SESSION_COMPLETE or SESSION_FAIL respectively, including payload fields: archetype, cost, input_tokens, output_tokens, and error_message (for failures). _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The StatusReport from build_status_report_from_audit must aggregate costs by archetype from audit_events; when fix sessions emit with archetypes like 'triage', 'fix_coder', 'fix_reviewer', the report must include them in cost_by_archetype. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- SinkDispatcher plumbing requires threading through multiple layers: CLI → NightShiftEngine → FixPipeline → _run_session() → run_session(), with per-fix run_id generation needed at each level. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Audit event emission (session.complete/session.fail) must be implemented in terminal points of control flow (_run_triage and _coder_review_loop) to ensure all execution paths are tracked. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Consolidating similar helper functions (like emit_auxiliary_cost) into a single module and routing calls through a centralized location reduces duplication and aids maintainability. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- Exception paths in feature implementations need explicit verification that auxiliary operations (e.g., cost emission) are included, not just the happy path. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- Threading sink and run_id parameters through function call chains requires updating all intermediate signatures (detect, _run_ai_analysis) and all call sites to propagate these values from the entry point to the final sink emission. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- When an exception occurs in an AI analysis fallback path, emit_auxiliary_cost_fail should be called with sink, run_id, category name, the caught exception, and model_id to record the failure in the cost tracking system. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- A wiring verification process should trace every execution path from design.md, confirm return values propagate correctly to callers, run integration smoke tests, and audit for stubs/dead-code before considering wiring complete. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 
 ## Decisions
 
@@ -957,6 +983,10 @@
 - A routing system simplification removes the prediction pipeline (feature extraction, statistical model, LLM assessment, DuckDB persistence) while retaining the escalation ladder mechanism, which demonstrates consistent real-world success (100% coder success after Sonnet-to-Opus escalation). _(spec: 88_fix_coder_archetype, confidence: 0.90)_
 - RoutingConfig should retain escalation-related fields (retries_before_escalation, max_timeout_retries, timeout_multiplier, timeout_ceiling_factor) while removing prediction-only fields (training_threshold, accuracy_threshold, retrain_interval). _(spec: 88_fix_coder_archetype, confidence: 0.90)_
 - Simplifying integration points by removing intermediate pipeline objects and replacing them with direct default instantiation reduces coupling and makes data flow more explicit. _(spec: 89_simplify_routing, confidence: 0.60)_
+- The JSONL-based nightshift/audit.py module must be deleted entirely and replaced with standard engine/audit_helpers.emit_audit_event() calls, passing sink_dispatcher and run_id as first two arguments. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- A new cost_helpers.py module must provide emit_auxiliary_cost() function that calculates cost from API response tokens and emits a SESSION_COMPLETE audit event; it must be a no-op if sink_dispatcher is None. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The existing JSONL-based nightshift/audit.py module must be completely removed; all audit events must route through the standard DuckDB pipeline via emit_audit_event from engine.audit_helpers. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Integration smoke tests require real PricingConfig rather than mock pricing to properly validate cost calculation logic in non-zero cost scenarios. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 
 ## Conventions
 
@@ -1151,6 +1181,14 @@
 - Use systematic test naming conventions (TS-90-1, TS-90-E1, TS-90-P1) to organize related test groups by category (core, edge cases, property tests). _(spec: 90_fact_lifecycle, confidence: 0.90)_
 - Cleanup operations should emit audit events (e.g., FACT_CLEANUP) to maintain auditability of fact lifecycle changes. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 - Replacing NotImplementedError stubs with real implementations requires ensuring all unit tests, property tests, and linter checks pass to validate correctness. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Each FixPipeline.process_issue() invocation must generate a unique run_id via generate_run_id() and use it for all audit events emitted during that invocation's sessions. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Both session.complete (on success) and session.fail (on exception) audit events must be emitted after every run_session() call, carrying token counts, cost, archetype, and error details as appropriate. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Auxiliary cost emission should omit duration_ms since it is not meaningfully measured for direct API calls (only fix sessions track full duration). _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- Write all failing spec tests before implementing functionality (red-green-TDD approach), and verify that pre-existing tests continue to pass to ensure no regressions are introduced. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- The integration smoke tests verify the entire write path using real in-memory DuckDB and real SinkDispatcher; they do not mock emit_audit_event or DuckDBSink, ensuring end-to-end audit correctness. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Property-based tests using Hypothesis must verify that emit_auxiliary_cost never raises for any archetype/run_id combination and that generate_run_id produces unique values across multiple calls. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- Protocol methods require explicit keyword-only parameters (using `*,`) to ensure call sites pass sink and run_id explicitly rather than positionally, preventing accidental omissions during threading. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Empty return values like `return []` in non-error cases should be justified with comments explaining why they are correct (e.g., base class default, empty-input guard) rather than treated as potential bugs. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 
 ## Anti-Patterns
 
@@ -1163,6 +1201,7 @@
 - Custom file tools added 800-1000 tokens of schema overhead per session with minimal utility, as Claude's built-in Read/Grep/Edit tools already covered the same functionality and were part of model training data. _(spec: 68_config_simplification, confidence: 0.90)_
 - Custom fox tools (fox_read, fox_edit, fox_outline, fox_search) had zero production invocations despite being the centerpiece of the design; models consistently preferred Claude's built-in tools instead, making them pure overhead. _(spec: 70_watch_mode, confidence: 0.90)_
 - Fox tools imposed ~1,300 lines of production code, 13 test files, an xxhash dependency, and ~800-1000 input tokens per session in schema overhead, despite minimal usage (fox_edit: 0 invocations). _(spec: 68_config_simplification, confidence: 0.90)_
+- Audit write failures (e.g., DuckDB unavailable) must not crash the fix pipeline; failures should be caught and logged, allowing process_issue to continue and return FixMetrics. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 
 ## Fragile Areas
 
@@ -1205,3 +1244,7 @@
 - Async event loop deprecation warnings in property tests can occur when test infrastructure doesn't properly manage event loop lifecycle; this is a common source of pre-existing test failures. _(spec: 86_spec_generator, confidence: 0.90)_
 - When implementing features with optional enhancements (like commit format appending), some tests may pass without the new feature if the codebase already has alternative code paths that satisfy the test conditions. _(spec: 88_fix_coder_archetype, confidence: 0.60)_
 - An observability mismatch can occur when archetype identifiers are inconsistent between different parts of a pipeline (e.g., prompt generation vs. execution logging). _(spec: 88_fix_coder_archetype, confidence: 0.90)_
+- Cost calculation in session.complete payload must exactly match the result of calculate_cost() for any combination of token counts (input, output, cache_read, cache_creation) to maintain accuracy. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- When refactoring audit call signatures across multiple call sites, audit-related tests must be updated to match the new signature to prevent test failures. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Deleting old audit modules and migrating to a standard engine/audit_helpers module requires careful coordination across multiple dependent modules to avoid breakage. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
+- When adding new parameters to a protocol method, all implementing classes and all call sites in the chain must be updated together, otherwise the parameter will silently fail to propagate. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
