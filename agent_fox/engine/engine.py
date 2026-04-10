@@ -590,6 +590,16 @@ class Orchestrator:
             # Update plan.json with current node statuses so the file
             # reflects actual progress, not just the original pending state.
             self._sync_plan_statuses(state)
+            # Delete audit reports for fully-completed specs (92-REQ-4.1).
+            try:
+                from agent_fox.session.auditor_output import cleanup_completed_spec_audits
+
+                if self._graph_sync is not None:
+                    completed = self._graph_sync.completed_spec_names()
+                    if completed:
+                        cleanup_completed_spec_audits(Path.cwd(), completed)
+            except Exception:
+                logger.warning("Audit report cleanup failed", exc_info=True)
             # Render memory summary so docs/memory.md reflects all
             # extracted facts, not just those captured at sync barriers.
             try:

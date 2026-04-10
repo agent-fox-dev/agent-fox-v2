@@ -231,6 +231,27 @@ class GraphSync:
 
         return True
 
+    def completed_spec_names(self) -> set[str]:
+        """Return the set of spec names where all nodes are completed.
+
+        Groups node_states by spec name (the part before the first ':'
+        in each node ID) and returns only those specs where every node
+        has status ``"completed"``.
+
+        Returns:
+            Set of spec folder names (e.g. ``{"05_foo"}``) that are
+            fully completed.
+
+        Requirements: 92-REQ-4.1
+        """
+        # Group nodes by spec name
+        spec_nodes: dict[str, list[str]] = {}
+        for node_id in self.node_states:
+            spec = _spec_name(node_id)
+            spec_nodes.setdefault(spec, []).append(node_id)
+
+        return {spec for spec, nodes in spec_nodes.items() if all(self.node_states[n] == "completed" for n in nodes)}
+
     def summary(self) -> dict[str, int]:
         """Return counts by status: {pending: N, completed: N, ...}."""
         return dict(Counter(self.node_states.values()))

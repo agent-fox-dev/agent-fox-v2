@@ -76,31 +76,31 @@ the mandatory wiring verification.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-2.1, 92-REQ-3.1 acceptance criteria met
 
-- [ ] 3. Add spec completion cleanup
-  - [ ] 3.1 Add `completed_spec_names()` to `GraphSync`
+- [x] 3. Add spec completion cleanup
+  - [x] 3.1 Add `completed_spec_names()` to `GraphSync`
     - In `agent_fox/engine/graph_sync.py`, add method to `GraphSync`
     - Group `self.node_states` by spec (via `_spec_name`), return set of specs
       where all nodes are `"completed"`
     - _Requirements: 92-REQ-4.1_
 
-  - [ ] 3.2 Add `cleanup_completed_spec_audits` to `auditor_output.py`
+  - [x] 3.2 Add `cleanup_completed_spec_audits` to `auditor_output.py`
     - New function accepting `project_root: Path` and `completed_specs: set[str]`
     - Iterate specs, delete matching `audit_{spec}.md` files
     - Per-spec try/except: log warning on OSError, continue
     - _Requirements: 92-REQ-4.2, 92-REQ-4.E1, 92-REQ-4.E2_
 
-  - [ ] 3.3 Call cleanup from engine finally block
+  - [x] 3.3 Call cleanup from engine finally block
     - In `agent_fox/engine/engine.py`, after `self._sync_plan_statuses(state)`
       in the finally block (~line 592), call
       `cleanup_completed_spec_audits(Path.cwd(), self._graph_sync.completed_spec_names())`
     - Wrap in try/except to avoid disrupting existing finally-block logic
     - _Requirements: 92-REQ-4.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/session/test_transient_audit.py -k "TS_92_6 or TS_92_7 or TS_92_E4 or TS_92_E5"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 92-REQ-4.1, 92-REQ-4.2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/session/test_transient_audit.py -k "TS_92_6 or TS_92_7 or TS_92_E4 or TS_92_E5"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 92-REQ-4.1, 92-REQ-4.2 acceptance criteria met
 
 - [ ] 4. Wiring verification
 
