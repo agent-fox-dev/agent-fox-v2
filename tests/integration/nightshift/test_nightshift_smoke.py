@@ -180,7 +180,7 @@ class TestFixSessionActivityDisplay:
         # Verify TaskEvents: one per archetype (triage + coder + fix_reviewer)
         archetype_names = [e.archetype for e in task_events]
         assert "triage" in archetype_names
-        assert "coder" in archetype_names
+        assert "fix_coder" in archetype_names
         assert "fix_reviewer" in archetype_names
         assert all(e.status == "completed" for e in task_events)
         assert all(e.duration_s >= 0 for e in task_events)
