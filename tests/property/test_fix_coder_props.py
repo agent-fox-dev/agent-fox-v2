@@ -7,7 +7,12 @@ Requirements: 88-REQ-1.2, 88-REQ-1.E1, 88-REQ-2.1, 88-REQ-2.2, 88-REQ-2.3,
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
+
+if TYPE_CHECKING:
+    from agent_fox.core.config import AgentFoxConfig
 
 try:
     from hypothesis import given, settings
@@ -140,7 +145,7 @@ class TestRegistryParity:
 class TestSdkParameterParity:
     """TS-88-P3: Without config overrides, fix_coder resolves same params as coder."""
 
-    def _default_config(self) -> object:
+    def _default_config(self) -> AgentFoxConfig:
         """Build a default AgentFoxConfig with no archetype overrides."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
 
