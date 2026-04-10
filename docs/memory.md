@@ -134,6 +134,8 @@
 - Module-level imports in code under test can cause FixPipeline patch targets to become stale; update patch paths after moving or restructuring imports. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - Parameters accepted by a function may not be threaded through intermediate layers in a call chain, resulting in dead code. Trace execution paths end-to-end to verify parameters are propagated through all intermediate functions. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - Use TYPE_CHECKING guards with forward imports (if TYPE_CHECKING: from module import Type) to avoid circular import issues when adding type hints to modules that depend on types from other modules. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Hypothesis property tests should suppress HealthCheck.function_scoped_fixture when using pytest fixtures like tmp_path to avoid false health warnings. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- The memory.md file containing accumulated architectural decisions, gotchas, and patterns across multiple specs (59-66+) was completely cleared during this session, suggesting memory should be periodically reset between major spec iterations rather than grown indefinitely. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 
 ## Patterns
 
@@ -896,6 +898,23 @@
 - Threading sink and run_id parameters through function call chains requires updating all intermediate signatures (detect, _run_ai_analysis) and all call sites to propagate these values from the entry point to the final sink emission. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - When an exception occurs in an AI analysis fallback path, emit_auxiliary_cost_fail should be called with sink, run_id, category name, the caught exception, and model_id to record the failure in the cost tracking system. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - A wiring verification process should trace every execution path from design.md, confirm return values propagate correctly to callers, run integration smoke tests, and audit for stubs/dead-code before considering wiring complete. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- PASS verdicts should trigger immediate deletion of the audit report file; non-PASS verdicts should write/overwrite the file. This creates two deletion triggers: on PASS verdict and on spec completion. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Filesystem errors during audit directory creation, file deletion, or cleanup should be logged but never raise exceptions; this enables graceful degradation and prevents disrupting the main execution flow. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- The completion cleanup hook must use `GraphSync.completed_spec_names()` to identify specs where all task-graph nodes are in `completed` status, then delete matching audit files; partial failures should continue processing remaining specs. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Audit file overwrite behavior should be idempotent: multiple writes for the same spec produce exactly one file with content matching the last invocation, enabling safe re-runs. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- When writing failing spec tests ahead of implementation, expect most tests to fail as expected, with occasional trivial passes for no-op edge cases (e.g., TS-92-E2 for file-not-found scenarios). _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Verify that new failing spec tests do not cause regressions in the existing test suite, ensuring test isolation and baseline stability. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Use tmp_path fixture to simulate project root in filesystem-dependent tests; extract spec_dir from tmp_path using .specs/{spec_name} pattern. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Use patch.object(Path, 'method_name', ...) instead of patch('pathlib.Path.method_name', ...) for more reliable mocking of Path instance methods in tests. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- When testing partial failure scenarios with mocking, define a closure that delegates to the original method for non-failing cases to allow other specs to proceed. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- Filesystem operations in error-handling code should log rather than raise exceptions; use caplog at appropriate levels (ERROR/WARNING) to verify error handling in tests. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Use data.draw(st.sampled_from(...)) in Hypothesis tests to generate a subset from a pre-computed list, enabling property tests over arbitrary finite sets. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- For idempotency tests, perform multiple writes with varying parameters (e.g., attempt=1, attempt=2) and verify only the latest state persists. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- Audit reports should be written to a centralized `.agent-fox/audit/` directory with spec-specific filenames (`audit_{spec_name}.md`) rather than scattered in individual spec directories. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Cleanup operations in finally blocks should be wrapped in try/except and guarded with None checks to prevent exceptions from masking the original exception or failing when the resource wasn't fully initialized. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Grouping operations on node collections (e.g., grouping node_states by spec) can be extracted into dedicated query methods on the graph object rather than inline in the engine, improving encapsulation and reusability. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- Task group completion requires end-to-end wiring verification: trace every execution path from design.md, verify return value propagation, run integration smoke tests, and perform stub/dead-code audits to ensure all paths are live and no unjustified stubs remain. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Return value propagation verification requires grepping for all callers of functions like completed_spec_names() to confirm none discard the return value, ensuring data flows correctly through the call chain. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 
 ## Decisions
 
@@ -987,6 +1006,9 @@
 - A new cost_helpers.py module must provide emit_auxiliary_cost() function that calculates cost from API response tokens and emits a SESSION_COMPLETE audit event; it must be a no-op if sink_dispatcher is None. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - The existing JSONL-based nightshift/audit.py module must be completely removed; all audit events must route through the standard DuckDB pipeline via emit_audit_event from engine.audit_helpers. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - Integration smoke tests require real PricingConfig rather than mock pricing to properly validate cost calculation logic in non-zero cost scenarios. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Audit reports should be written to `.agent-fox/audit/audit_{spec_name}.md` instead of `.specs/{spec_name}/audit.md` to keep them out of git-tracked directories and prevent them from appearing as untracked files. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- PASS verdicts should trigger early-return with cleanup (file deletion) to avoid persisting successful audit reports, reducing clutter. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Audit cleanup should be triggered after each engine run cycle to maintain consistency, indicating that post-run cleanup is a critical part of the engine's lifecycle management. _(spec: 92_transient_audit_reports, confidence: 0.60)_
 
 ## Conventions
 
@@ -1189,6 +1211,12 @@
 - Property-based tests using Hypothesis must verify that emit_auxiliary_cost never raises for any archetype/run_id combination and that generate_run_id produces unique values across multiple calls. _(spec: 91_nightshift_cost_tracking, confidence: 0.60)_
 - Protocol methods require explicit keyword-only parameters (using `*,`) to ensure call sites pass sink and run_id explicitly rather than positionally, preventing accidental omissions during threading. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - Empty return values like `return []` in non-error cases should be justified with comments explaining why they are correct (e.g., base class default, empty-input guard) rather than treated as potential bugs. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
+- Wiring verification requires tracing all execution paths from the design document end-to-end, confirming return values propagate correctly, running integration smoke tests without mocks, and auditing for stubs/dead-code before marking completion. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- When implementing features with multiple test categories (unit, property, integration), organize tests into separate test files by category and use systematic naming conventions (TS-92-1, TS-92-E1, TS-92-P1, TS-92-SMOKE-1) to maintain clarity. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Test specifications should include correctness properties (invariants validated by tests) alongside functional requirements to ensure deep verification of behavior across arbitrary inputs and edge cases. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- Organizing test files by category (unit, property, integration) with labeled test cases (e.g., TS-92-1, TS-92-E1 for edge cases, TS-92-P1 for property tests, TS-92-SMOKE-1 for smoke tests) provides clear traceability and coverage documentation. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Create __init__.py files in new test package directories (e.g., tests/integration/session/) to ensure proper package structure and imports. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- When changing audit output locations or deletion semantics, existing tests verifying audit file behavior must be updated to match the new implementation. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 
 ## Anti-Patterns
 
