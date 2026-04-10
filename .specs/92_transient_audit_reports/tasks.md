@@ -102,9 +102,9 @@ the mandatory wiring verification.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 92-REQ-4.1, 92-REQ-4.2 acceptance criteria met
 
-- [ ] 4. Wiring verification
+- [x] 4. Wiring verification
 
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - Path 1: `review_persistence.py` → `persist_auditor_results` → writes to
       `.agent-fox/audit/` (verify the call at line 339 still flows through)
     - Path 2: Same entry, PASS verdict → deletion logic (verify branch exists)
@@ -112,27 +112,27 @@ the mandatory wiring verification.
       `cleanup_completed_spec_audits` (verify call chain is live)
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - `completed_spec_names()` returns `set[str]` consumed by
       `cleanup_completed_spec_audits`
     - Grep for callers; confirm none discards the return value
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - `uv run pytest -q tests/integration/session/test_transient_audit_smoke.py`
     - _Test Spec: TS-92-SMOKE-1, TS-92-SMOKE-2_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search files touched by this spec for `return []`, `return None` on
       non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `NotImplementedError`
     - Verify no unjustified stubs remain
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `make check`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `make check`
 
 ## Traceability
 
