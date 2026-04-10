@@ -537,7 +537,8 @@ class TestCleanupReturnsSummary:
 
         assert isinstance(result, CleanupResult)
 
-        remaining = conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()[0]
+        _row = conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()
+        remaining = _row[0] if _row is not None else 0
         assert result.active_facts_remaining == remaining
 
         conn.close()
