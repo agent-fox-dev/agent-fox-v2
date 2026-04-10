@@ -49,9 +49,7 @@ class TestTemplateIsolation:
             "specification": spec_name,
         }
         result = _interpolate(template, variables)
-        assert ".specs/" not in result, (
-            f"Interpolated template contains '.specs/' with spec_name={spec_name!r}"
-        )
+        assert ".specs/" not in result, f"Interpolated template contains '.specs/' with spec_name={spec_name!r}"
 
     def test_raw_template_no_specs_reference(self) -> None:
         """The raw template does not contain '.specs/' before interpolation."""
@@ -155,9 +153,7 @@ class TestSdkParameterParity:
         config = self._default_config()
         coder_tier = resolve_model_tier(config, "coder")
         fix_coder_tier = resolve_model_tier(config, "fix_coder")
-        assert fix_coder_tier == coder_tier, (
-            f"resolve_model_tier: fix_coder={fix_coder_tier!r}, coder={coder_tier!r}"
-        )
+        assert fix_coder_tier == coder_tier, f"resolve_model_tier: fix_coder={fix_coder_tier!r}, coder={coder_tier!r}"
 
     def test_resolve_max_turns_parity(self) -> None:
         """resolve_max_turns returns same value for fix_coder and coder."""
@@ -188,21 +184,15 @@ class TestSdkParameterParity:
 
         # Override only fix_coder's model tier
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={"fix_coder": PerArchetypeConfig(model_tier="ADVANCED")}
-            )
+            archetypes=ArchetypesConfig(overrides={"fix_coder": PerArchetypeConfig(model_tier="ADVANCED")})
         )
         coder_tier = resolve_model_tier(config, "coder")
         fix_coder_tier = resolve_model_tier(config, "fix_coder")
 
         # fix_coder should use the override (ADVANCED)
-        assert fix_coder_tier == "ADVANCED", (
-            f"fix_coder override not applied: got {fix_coder_tier!r}"
-        )
+        assert fix_coder_tier == "ADVANCED", f"fix_coder override not applied: got {fix_coder_tier!r}"
         # coder should still use its registry default (STANDARD)
-        assert coder_tier == "STANDARD", (
-            f"coder was affected by fix_coder override: got {coder_tier!r}"
-        )
+        assert coder_tier == "STANDARD", f"coder was affected by fix_coder override: got {coder_tier!r}"
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @pytest.mark.property
@@ -216,17 +206,11 @@ class TestSdkParameterParity:
         from agent_fox.engine.sdk_params import resolve_model_tier
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={"fix_coder": PerArchetypeConfig(model_tier=tier)}
-            )
+            archetypes=ArchetypesConfig(overrides={"fix_coder": PerArchetypeConfig(model_tier=tier)})
         )
         # Coder should always be STANDARD (its registry default)
         coder_tier = resolve_model_tier(config, "coder")
-        assert coder_tier == "STANDARD", (
-            f"coder tier was affected by fix_coder override: got {coder_tier!r}"
-        )
+        assert coder_tier == "STANDARD", f"coder tier was affected by fix_coder override: got {coder_tier!r}"
         # fix_coder should use the override
         fix_coder_tier = resolve_model_tier(config, "fix_coder")
-        assert fix_coder_tier == tier, (
-            f"fix_coder tier {fix_coder_tier!r} != override {tier!r}"
-        )
+        assert fix_coder_tier == tier, f"fix_coder tier {fix_coder_tier!r} != override {tier!r}"

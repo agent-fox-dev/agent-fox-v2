@@ -57,9 +57,7 @@ _FN_PATTERNS: dict[Language, re.Pattern[str]] = {
 # ---------------------------------------------------------------------------
 
 
-def _extract_brace_body(
-    source: str, open_brace_pos: int
-) -> tuple[str, int, int] | None:
+def _extract_brace_body(source: str, open_brace_pos: int) -> tuple[str, int, int] | None:
     """Extract the body between matched braces starting at *open_brace_pos*.
 
     Returns ``(body_text, start_line, end_line)`` or ``None`` when braces
@@ -100,9 +98,7 @@ def _extract_brace_body(
 # ---------------------------------------------------------------------------
 
 
-def _extract_python_body(
-    source: str, colon_pos: int
-) -> tuple[str, int, int] | None:
+def _extract_python_body(source: str, colon_pos: int) -> tuple[str, int, int] | None:
     """Extract a Python function body based on indentation after the colon."""
     line_start = source.rfind("\n", 0, colon_pos) + 1
     def_indent = len(source[line_start:]) - len(source[line_start:].lstrip())
@@ -152,9 +148,7 @@ def _dedent(text: str) -> str:
     if not non_empty:
         return text
     min_indent = min(len(ln) - len(ln.lstrip()) for ln in non_empty)
-    return "\n".join(
-        ln[min_indent:] if len(ln) >= min_indent else ln for ln in lines
-    )
+    return "\n".join(ln[min_indent:] if len(ln) >= min_indent else ln for ln in lines)
 
 
 # ---------------------------------------------------------------------------
@@ -213,8 +207,14 @@ def _is_function_in_test_context(
     if language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
         basename = os.path.basename(file_path)
         test_pats = [
-            ".test.ts", ".spec.ts", ".test.js", ".spec.js",
-            ".test.tsx", ".spec.tsx", ".test.jsx", ".spec.jsx",
+            ".test.ts",
+            ".spec.ts",
+            ".test.js",
+            ".spec.js",
+            ".test.tsx",
+            ".spec.tsx",
+            ".test.jsx",
+            ".spec.jsx",
         ]
         return any(basename.endswith(p) for p in test_pats)
 
@@ -270,9 +270,7 @@ def _extract_functions_from_source(
             continue
 
         body_text, start_line, end_line = body_result
-        in_test = _is_function_in_test_context(
-            source, match.start(), fn_name, file_path_str, language
-        )
+        in_test = _is_function_in_test_context(source, match.start(), fn_name, file_path_str, language)
         fb = FunctionBody(
             function_id=fn_name,
             file_path=file_path_str,
@@ -305,9 +303,7 @@ def _read_source(file_path: Path) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def extract_function_body(
-    file_path: Path, function_id: str
-) -> FunctionBody | None:
+def extract_function_body(file_path: Path, function_id: str) -> FunctionBody | None:
     """Parse source file, locate function by ID, extract body text and metadata.
 
     Returns ``None`` if the file doesn't exist, can't be read, or the
@@ -322,9 +318,7 @@ def extract_function_body(
         logger.warning("Unsupported language for file: %s", file_path)
         return None
 
-    matches = _extract_functions_from_source(
-        source, str(file_path), language, target_fn=function_id
-    )
+    matches = _extract_functions_from_source(source, str(file_path), language, target_fn=function_id)
     return matches[0] if matches else None
 
 
@@ -352,6 +346,4 @@ def extract_modified_functions(file_change: FileChange) -> list[FunctionBody]:
     if language == Language.UNKNOWN:
         return []
 
-    return _extract_functions_from_source(
-        file_change.diff_text, file_change.file_path, language
-    )
+    return _extract_functions_from_source(file_change.diff_text, file_change.file_path, language)

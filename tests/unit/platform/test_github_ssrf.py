@@ -88,9 +88,7 @@ class TestRejectLinkLocal:
 
     def test_link_local_via_init(self) -> None:
         with pytest.raises(ConfigError):
-            GitHubPlatform(
-                owner="acme", repo="repo", token="tok", url="169.254.169.254"
-            )
+            GitHubPlatform(owner="acme", repo="repo", token="tok", url="169.254.169.254")
 
 
 # ---------------------------------------------------------------------------
@@ -126,9 +124,7 @@ class TestAcceptHostnames:
         _validate_github_url("github.example.com")  # must not raise
 
     def test_enterprise_api_base(self) -> None:
-        platform = GitHubPlatform(
-            owner="acme", repo="repo", token="tok", url="github.example.com"
-        )
+        platform = GitHubPlatform(owner="acme", repo="repo", token="tok", url="github.example.com")
         assert platform._api_base == "https://github.example.com/api/v3"
 
     def test_arbitrary_hostname_accepted(self) -> None:
@@ -151,9 +147,7 @@ class TestAcceptGithubDotCom:
         assert platform._api_base == "https://api.github.com"
 
     def test_github_com_explicit_url(self) -> None:
-        platform = GitHubPlatform(
-            owner="acme", repo="repo", token="tok", url="github.com"
-        )
+        platform = GitHubPlatform(owner="acme", repo="repo", token="tok", url="github.com")
         assert platform._api_base == "https://api.github.com"
 
 
@@ -180,9 +174,7 @@ class TestRejectIPWithPort:
 
     def test_loopback_with_port_via_init(self) -> None:
         with pytest.raises(ConfigError):
-            GitHubPlatform(
-                owner="acme", repo="repo", token="tok", url="127.0.0.1:8080"
-            )
+            GitHubPlatform(owner="acme", repo="repo", token="tok", url="127.0.0.1:8080")
 
 
 # ---------------------------------------------------------------------------
@@ -201,9 +193,7 @@ class TestValidationMessageAndOrdering:
     def test_api_base_not_set_on_error(self) -> None:
         """When validation raises, the platform object must not be created."""
         with pytest.raises(ConfigError):
-            platform = GitHubPlatform(
-                owner="acme", repo="repo", token="tok", url="192.168.0.1"
-            )
+            platform = GitHubPlatform(owner="acme", repo="repo", token="tok", url="192.168.0.1")
             # If we get here, _api_base would be set to a bad value — fail.
             _ = platform._api_base
 

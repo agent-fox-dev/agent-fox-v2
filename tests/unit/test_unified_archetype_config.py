@@ -101,11 +101,7 @@ class TestOverridesTomlParsing:
 
     def test_single_override_parsed(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.coder]\n"
-            'model_tier = "ADVANCED"\n'
-            "max_turns = 200\n"
-        )
+        config_file.write_text('[archetypes.overrides.coder]\nmodel_tier = "ADVANCED"\nmax_turns = 200\n')
         config = load_config(path=config_file)
         assert "coder" in config.archetypes.overrides
         coder = config.archetypes.overrides["coder"]
@@ -129,11 +125,7 @@ class TestOverridesTomlParsing:
 
     def test_thinking_fields_parsed(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.coder]\n"
-            'thinking_mode = "enabled"\n'
-            "thinking_budget = 32000\n"
-        )
+        config_file.write_text('[archetypes.overrides.coder]\nthinking_mode = "enabled"\nthinking_budget = 32000\n')
         config = load_config(path=config_file)
         coder = config.archetypes.overrides["coder"]
         assert coder.thinking_mode == "enabled"
@@ -141,10 +133,7 @@ class TestOverridesTomlParsing:
 
     def test_allowlist_field_parsed(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.skeptic]\n"
-            'allowlist = ["ls", "cat", "git"]\n'
-        )
+        config_file.write_text('[archetypes.overrides.skeptic]\nallowlist = ["ls", "cat", "git"]\n')
         config = load_config(path=config_file)
         assert config.archetypes.overrides["skeptic"].allowlist == ["ls", "cat", "git"]
 
@@ -156,11 +145,7 @@ class TestOverridesTomlParsing:
         """overrides and boolean enable flags work together."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[archetypes]\n"
-            "coder = true\n"
-            "skeptic = true\n"
-            "[archetypes.overrides.coder]\n"
-            'model_tier = "ADVANCED"\n'
+            '[archetypes]\ncoder = true\nskeptic = true\n[archetypes.overrides.coder]\nmodel_tier = "ADVANCED"\n'
         )
         config = load_config(path=config_file)
         assert config.archetypes.coder is True
@@ -201,9 +186,7 @@ class TestResolveMaxTurnsWithOverrides:
         assert resolve_max_turns(config, "coder") is None
 
     def test_legacy_dict_used_when_no_override(self) -> None:
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(max_turns={"coder": 150})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(max_turns={"coder": 150}))
         assert resolve_max_turns(config, "coder") == 150
 
     def test_registry_default_used_when_neither(self) -> None:
@@ -337,9 +320,7 @@ class TestResolveModelTierWithOverrides:
     def test_legacy_models_dict_used_when_no_override(self) -> None:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(models={"coder": "ADVANCED"})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"coder": "ADVANCED"}))
         runner = NodeSessionRunner("spec:1", config, archetype="coder", knowledge_db=_MOCK_KB)
         assert runner._resolved_model_id == "claude-opus-4-6"
 
@@ -380,9 +361,7 @@ class TestResolveSecurityConfigWithOverrides:
     def test_legacy_allowlist_used_when_no_override(self) -> None:
         from agent_fox.engine.sdk_params import resolve_security_config
 
-        config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(allowlists={"coder": ["make", "uv"]})
-        )
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"coder": ["make", "uv"]}))
         sec = resolve_security_config(config, "coder")
         assert sec is not None
         assert sec.bash_allowlist == ["make", "uv"]
@@ -423,16 +402,11 @@ class TestResolveSecurityConfigWithOverrides:
 class TestEndToEndTomlResolution:
     """Full path: TOML file → load_config → resolve functions."""
 
-    def test_model_tier_from_toml_overrides_table(
-        self, tmp_path: Path
-    ) -> None:
+    def test_model_tier_from_toml_overrides_table(self, tmp_path: Path) -> None:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.skeptic]\n"
-            'model_tier = "STANDARD"\n'
-        )
+        config_file.write_text('[archetypes.overrides.skeptic]\nmodel_tier = "STANDARD"\n')
         config = load_config(path=config_file)
         runner = NodeSessionRunner("spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB)
         # Registry default for skeptic is ADVANCED, but override is STANDARD → sonnet
@@ -440,20 +414,13 @@ class TestEndToEndTomlResolution:
 
     def test_max_turns_from_toml_overrides_table(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.coder]\n"
-            "max_turns = 50\n"
-        )
+        config_file.write_text("[archetypes.overrides.coder]\nmax_turns = 50\n")
         config = load_config(path=config_file)
         assert resolve_max_turns(config, "coder") == 50
 
     def test_thinking_from_toml_overrides_table(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.overrides.verifier]\n"
-            'thinking_mode = "enabled"\n'
-            "thinking_budget = 8000\n"
-        )
+        config_file.write_text('[archetypes.overrides.verifier]\nthinking_mode = "enabled"\nthinking_budget = 8000\n')
         config = load_config(path=config_file)
         result = resolve_thinking(config, "verifier")
         assert result == {"type": "enabled", "budget_tokens": 8000}
@@ -461,19 +428,14 @@ class TestEndToEndTomlResolution:
     def test_backwards_compat_legacy_max_turns_dict(self, tmp_path: Path) -> None:
         """Old archetypes.max_turns dict style still works."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            "[archetypes.max_turns]\n"
-            "coder = 150\n"
-        )
+        config_file.write_text("[archetypes.max_turns]\ncoder = 150\n")
         config = load_config(path=config_file)
         assert resolve_max_turns(config, "coder") == 150
 
     def test_backwards_compat_legacy_thinking_dict(self, tmp_path: Path) -> None:
         """Old archetypes.thinking dict style still works."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text(
-            '[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 20000\n'
-        )
+        config_file.write_text('[archetypes.thinking.coder]\nmode = "enabled"\nbudget_tokens = 20000\n')
         config = load_config(path=config_file)
         result = resolve_thinking(config, "coder")
         assert result == {"type": "enabled", "budget_tokens": 20000}

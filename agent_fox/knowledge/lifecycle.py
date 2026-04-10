@@ -129,8 +129,7 @@ def dedup_new_facts(
             superseded_ids = [row[0] for row in rows]
             for old_id in superseded_ids:
                 conn.execute(
-                    "UPDATE memory_facts SET superseded_by = ?::UUID "
-                    "WHERE CAST(id AS VARCHAR) = ?",
+                    "UPDATE memory_facts SET superseded_by = ?::UUID WHERE CAST(id AS VARCHAR) = ?",
                     [new_fact.id, old_id],
                 )
             all_superseded.extend(superseded_ids)
@@ -254,8 +253,7 @@ def detect_contradictions(
 
             if verdict.contradicts:
                 conn.execute(
-                    "UPDATE memory_facts SET superseded_by = ?::UUID "
-                    "WHERE CAST(id AS VARCHAR) = ?",
+                    "UPDATE memory_facts SET superseded_by = ?::UUID WHERE CAST(id AS VARCHAR) = ?",
                     [verdict.new_fact_id, verdict.old_fact_id],
                 )
                 all_superseded.append(verdict.old_fact_id)
@@ -266,9 +264,7 @@ def detect_contradictions(
                     verdict.reason,
                 )
 
-    return ContradictionResult(
-        superseded_ids=all_superseded, verdicts=all_verdicts
-    )
+    return ContradictionResult(superseded_ids=all_superseded, verdicts=all_verdicts)
 
 
 def run_decay_cleanup(
@@ -293,8 +289,7 @@ def run_decay_cleanup(
 
     # Load all active facts with their timestamps and confidence
     rows = conn.execute(
-        "SELECT CAST(id AS VARCHAR), confidence, created_at "
-        "FROM memory_facts WHERE superseded_by IS NULL"
+        "SELECT CAST(id AS VARCHAR), confidence, created_at FROM memory_facts WHERE superseded_by IS NULL"
     ).fetchall()
 
     expired_count = 0
@@ -305,9 +300,7 @@ def run_decay_cleanup(
 
         # Handle NULL/unparseable created_at (90-REQ-3.E1)
         if created_at is None:
-            logger.warning(
-                "Fact %s has NULL created_at; skipping decay", fact_id
-            )
+            logger.warning("Fact %s has NULL created_at; skipping decay", fact_id)
             continue
 
         # Parse created_at to datetime if needed
@@ -353,8 +346,7 @@ def run_decay_cleanup(
         # Auto-supersede if below floor (90-REQ-3.2)
         if effective < decay_floor:
             conn.execute(
-                "UPDATE memory_facts SET superseded_by = id "
-                "WHERE CAST(id AS VARCHAR) = ?",
+                "UPDATE memory_facts SET superseded_by = id WHERE CAST(id AS VARCHAR) = ?",
                 [fact_id],
             )
             expired_count += 1
@@ -391,9 +383,7 @@ def run_cleanup(
 
     try:
         # Count active facts
-        _row = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()
+        _row = conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()
         active_count = _row[0] if _row is not None else 0
 
         # Only run decay if above threshold (90-REQ-4.2, 90-REQ-4.3)
@@ -405,15 +395,11 @@ def run_cleanup(
             )
 
         # Recount active facts after cleanup
-        _row = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()
+        _row = conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()
         active_remaining = _row[0] if _row is not None else 0
 
     except duckdb.Error:
-        logger.warning(
-            "DuckDB unavailable during cleanup; skipping", exc_info=True
-        )
+        logger.warning("DuckDB unavailable during cleanup; skipping", exc_info=True)
         return CleanupResult()
 
     result = CleanupResult(

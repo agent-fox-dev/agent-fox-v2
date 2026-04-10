@@ -110,9 +110,7 @@ async def extract_and_store_knowledge(
                 exc_info=True,
             )
     else:
-        logger.debug(
-            "All new facts removed by dedup; skipping contradiction detection"
-        )
+        logger.debug("All new facts removed by dedup; skipping contradiction detection")
 
     # 40-REQ-11.4: Emit fact.extracted audit event
     if sink_dispatcher is not None and run_id:
@@ -153,8 +151,13 @@ async def extract_and_store_knowledge(
 
     # 52-REQ-4.1, 90-REQ-5.4: Emit harvest.complete audit event
     _emit_harvest_complete(
-        sink_dispatcher, run_id, node_id, facts, causal_link_count,
-        dedup_count=dedup_count, contradiction_count=contradiction_count,
+        sink_dispatcher,
+        run_id,
+        node_id,
+        facts,
+        causal_link_count,
+        dedup_count=dedup_count,
+        contradiction_count=contradiction_count,
     )
 
 

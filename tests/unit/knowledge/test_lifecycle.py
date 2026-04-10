@@ -63,10 +63,7 @@ def _make_similar_embedding(
 
     # Blend: cos(theta) = similarity => theta = arccos(similarity)
     theta = math.acos(max(-1.0, min(1.0, similarity)))
-    result = [
-        math.cos(theta) * b + math.sin(theta) * n
-        for b, n in zip(base, noise)
-    ]
+    result = [math.cos(theta) * b + math.sin(theta) * n for b, n in zip(base, noise)]
     # Normalise
     r_norm = math.sqrt(sum(x * x for x in result))
     if r_norm > 0:
@@ -540,9 +537,7 @@ class TestCleanupReturnsSummary:
 
         assert isinstance(result, CleanupResult)
 
-        remaining = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-        ).fetchone()[0]
+        remaining = conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()[0]
         assert result.active_facts_remaining == remaining
 
         conn.close()

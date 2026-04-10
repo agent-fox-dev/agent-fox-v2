@@ -78,9 +78,7 @@ class TestFixPipelineUsesFix_CodingMd:
         )
 
         # The system prompt must NOT contain .specs/ references
-        assert ".specs/" not in system_prompt, (
-            "System prompt contains '.specs/' — template isolation failed"
-        )
+        assert ".specs/" not in system_prompt, "System prompt contains '.specs/' — template isolation failed"
 
         # The system prompt must reference nightshift (from commit format instruction)
         assert "nightshift" in system_prompt.lower(), (
@@ -88,9 +86,7 @@ class TestFixPipelineUsesFix_CodingMd:
         )
 
         # The task prompt must contain the issue context from spec
-        assert "42" in task_prompt, (
-            "task_prompt does not contain issue number '42'"
-        )
+        assert "42" in task_prompt, "task_prompt does not contain issue number '42'"
 
     @pytest.mark.asyncio
     async def test_run_coder_session_uses_fix_coder_archetype(self) -> None:
@@ -142,9 +138,7 @@ class TestFixPipelineUsesFix_CodingMd:
 
         assert mock_rs.called, "_run_session was not called"
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg == "fix_coder", (
-            f"_run_session called with {first_arg!r}, expected 'fix_coder'"
-        )
+        assert first_arg == "fix_coder", f"_run_session called with {first_arg!r}, expected 'fix_coder'"
 
     def test_system_prompt_does_not_contain_task_group_instructions(self) -> None:
         """System prompt does not contain spec-driven task group instructions."""
@@ -171,6 +165,4 @@ class TestFixPipelineUsesFix_CodingMd:
         assert "Choose exactly one task group" not in system_prompt, (
             "System prompt contains coding.md task group instruction"
         )
-        assert "tasks.md" not in system_prompt, (
-            "System prompt contains 'tasks.md' reference"
-        )
+        assert "tasks.md" not in system_prompt, "System prompt contains 'tasks.md' reference"

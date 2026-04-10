@@ -50,10 +50,7 @@ def _make_similar_embedding(
     if noise_norm > 0:
         noise = [x / noise_norm for x in noise]
     theta = math.acos(max(-1.0, min(1.0, similarity)))
-    result = [
-        math.cos(theta) * b + math.sin(theta) * n
-        for b, n in zip(base, noise)
-    ]
+    result = [math.cos(theta) * b + math.sin(theta) * n for b, n in zip(base, noise)]
     r_norm = math.sqrt(sum(x * x for x in result))
     if r_norm > 0:
         result = [x / r_norm for x in result]
@@ -132,9 +129,7 @@ class TestHarvestDedupThenContradiction:
         _insert_fact(conn, dup_fact, embedding=dup_emb)
 
         contra_emb = _make_similar_embedding(base_emb, 0.85)
-        contra_fact = _make_fact(
-            content="Use kuksa.val.v2.VAL; kuksa.VAL is deprecated"
-        )
+        contra_fact = _make_fact(content="Use kuksa.val.v2.VAL; kuksa.VAL is deprecated")
         _insert_fact(conn, contra_fact, embedding=contra_emb)
 
         novel_emb = _make_embedding(999)
@@ -275,9 +270,7 @@ class TestSmokeContradiction:
         existing = _make_fact(content="Use kuksa.VAL service")
         _insert_fact(conn, existing, embedding=base_emb)
 
-        new = _make_fact(
-            content="Use kuksa.val.v2.VAL; kuksa.VAL is deprecated"
-        )
+        new = _make_fact(content="Use kuksa.val.v2.VAL; kuksa.VAL is deprecated")
         _insert_fact(conn, new, embedding=similar_emb)
 
         # Mock the LLM to confirm contradiction

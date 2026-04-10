@@ -48,10 +48,7 @@ def _make_similar_embedding(
     if noise_norm > 0:
         noise = [x / noise_norm for x in noise]
     theta = math.acos(max(-1.0, min(1.0, similarity)))
-    result = [
-        math.cos(theta) * b + math.sin(theta) * n
-        for b, n in zip(base, noise)
-    ]
+    result = [math.cos(theta) * b + math.sin(theta) * n for b, n in zip(base, noise)]
     r_norm = math.sqrt(sum(x * x for x in result))
     if r_norm > 0:
         result = [x / r_norm for x in result]
@@ -183,9 +180,7 @@ class TestContradictionConfirmedSupersedes:
         old_fact = _make_fact(content="Use kuksa.VAL service for data access")
         _insert_fact(conn, old_fact, embedding=base_emb)
 
-        new_fact = _make_fact(
-            content="Use kuksa.val.v2.VAL service; kuksa.VAL is deprecated"
-        )
+        new_fact = _make_fact(content="Use kuksa.val.v2.VAL service; kuksa.VAL is deprecated")
         _insert_fact(conn, new_fact, embedding=similar_emb)
 
         from agent_fox.knowledge.lifecycle import ContradictionVerdict
@@ -203,9 +198,7 @@ class TestContradictionConfirmedSupersedes:
             "agent_fox.knowledge.contradiction.classify_contradiction_batch",
             return_value=mock_verdicts,
         ):
-            result = detect_contradictions(
-                conn, [new_fact], threshold=0.8, model="SIMPLE"
-            )
+            result = detect_contradictions(conn, [new_fact], threshold=0.8, model="SIMPLE")
 
         assert len(result.superseded_ids) == 1
         assert result.superseded_ids[0] == old_fact.id

@@ -244,9 +244,7 @@ class TestCustomBranchName:
         tmp_worktree_repo: Path,
     ) -> None:
         """When branch_name is provided, the worktree uses it instead of the default."""
-        ws = await create_worktree(
-            tmp_worktree_repo, "fix-issue-42", 0, branch_name="fix/issue-42-linter"
-        )
+        ws = await create_worktree(tmp_worktree_repo, "fix-issue-42", 0, branch_name="fix/issue-42-linter")
         assert ws.branch == "fix/issue-42-linter"
         branches = list_branches(tmp_worktree_repo)
         assert "fix/issue-42-linter" in branches
@@ -260,9 +258,7 @@ class TestCustomBranchName:
         """The worktree has the custom branch checked out."""
         import subprocess
 
-        ws = await create_worktree(
-            tmp_worktree_repo, "fix-issue-99", 0, branch_name="fix/issue-99-bug"
-        )
+        ws = await create_worktree(tmp_worktree_repo, "fix-issue-99", 0, branch_name="fix/issue-99-bug")
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=ws.path,

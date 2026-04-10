@@ -83,12 +83,8 @@ class TestContextRenderingDeterminism:
 
         # Every finding description must appear in both renders
         for finding in findings:
-            assert finding.description in md1, (
-                f"Description '{finding.description}' missing from first render"
-            )
-            assert finding.description in md2, (
-                f"Description '{finding.description}' missing from second render"
-            )
+            assert finding.description in md1, f"Description '{finding.description}' missing from first render"
+            assert finding.description in md2, f"Description '{finding.description}' missing from second render"
 
         # Structural markers must be present in both renders
         assert "## Skeptic Review" in md1

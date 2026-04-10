@@ -19,9 +19,7 @@ from agent_fox.scope_guard.models import (
 from agent_fox.scope_guard.stub_validator import validate_stubs
 
 
-def classify_session(
-    session: SessionResult, task_group: TaskGroup
-) -> ScopeGuardSessionOutcome:
+def classify_session(session: SessionResult, task_group: TaskGroup) -> ScopeGuardSessionOutcome:
     """Classify a session result into an outcome category.
 
     Classification logic (mutually exclusive, checked in order):
@@ -88,13 +86,13 @@ def classify_session(
 
 _COMMENT_LINE_RE = re.compile(
     r"^\s*(?:"
-    r"//|"          # C-style line comment
-    r"#|"           # Python/shell comment
-    r"\*|"          # continuation of block comment
-    r"/\*|"         # block comment open
-    r"\*/|"         # block comment close
-    r"\{-|"         # Haskell block comment open
-    r"-\}"          # Haskell block comment close
+    r"//|"  # C-style line comment
+    r"#|"  # Python/shell comment
+    r"\*|"  # continuation of block comment
+    r"/\*|"  # block comment open
+    r"\*/|"  # block comment close
+    r"\{-|"  # Haskell block comment open
+    r"-\}"  # Haskell block comment close
     r")"
 )
 

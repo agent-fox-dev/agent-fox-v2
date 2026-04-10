@@ -22,6 +22,7 @@ def _mock_workspace() -> WorkspaceInfo:
         task_group=0,
     )
 
+
 # ---------------------------------------------------------------------------
 # TS-61-2: Auto flag assigns af:fix label
 # Requirement: 61-REQ-1.2

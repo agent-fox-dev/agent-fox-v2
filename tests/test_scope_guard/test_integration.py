@@ -136,11 +136,7 @@ class TestSmokeOverlapDetection:
 
         # Overlap between TG2 and TG3 with no dependency → error
         assert result.has_errors is True
-        error_overlaps = [
-            o
-            for o in result.overlaps
-            if o.severity == OverlapSeverity.ERROR
-        ]
+        error_overlaps = [o for o in result.overlaps if o.severity == OverlapSeverity.ERROR]
         assert len(error_overlaps) == 1
         assert set(error_overlaps[0].task_group_numbers) == {2, 3}
 
@@ -191,25 +187,13 @@ class TestSmokePreflightSkip:
     Requirements: 87-REQ-2.1, 87-REQ-2.2, 87-REQ-2.4, 87-REQ-2.5
     """
 
-    def test_fully_implemented_codebase_skips_session(
-        self, tmp_path: Path
-    ) -> None:
+    def test_fully_implemented_codebase_skips_session(self, tmp_path: Path) -> None:
         """All deliverables fully implemented → all-implemented → pre-flight-skip recorded."""
         # Create a codebase with fully implemented functions
         src = tmp_path / "src"
         src.mkdir()
-        (src / "foo.rs").write_text(
-            "fn validate() -> bool {\n"
-            "    let x = compute();\n"
-            "    x > 0\n"
-            "}\n"
-        )
-        (src / "bar.rs").write_text(
-            "fn process() -> i32 {\n"
-            "    let result = compute();\n"
-            "    result\n"
-            "}\n"
-        )
+        (src / "foo.rs").write_text("fn validate() -> bool {\n    let x = compute();\n    x > 0\n}\n")
+        (src / "bar.rs").write_text("fn process() -> i32 {\n    let result = compute();\n    result\n}\n")
 
         task_group = TaskGroup(
             number=2,
@@ -261,8 +245,7 @@ class TestSmokePreflightSkip:
 
         # Verify scope check telemetry
         sc_rows = conn.execute(
-            "SELECT deliverable_count, check_duration_ms "
-            "FROM scope_check_results WHERE task_group_number = 2"
+            "SELECT deliverable_count, check_duration_ms FROM scope_check_results WHERE task_group_number = 2"
         ).fetchall()
         assert len(sc_rows) == 1
         assert sc_rows[0][0] == 2  # two deliverables checked
@@ -286,22 +269,13 @@ class TestSmokeReducedScopePrompt:
     Requirements: 87-REQ-2.3, 87-REQ-5.1
     """
 
-    def test_partial_scope_produces_reduced_prompt(
-        self, tmp_path: Path
-    ) -> None:
+    def test_partial_scope_produces_reduced_prompt(self, tmp_path: Path) -> None:
         """One stub, one implemented → prompt lists only stub as work item."""
         # Create a mixed codebase
         src = tmp_path / "src"
         src.mkdir()
-        (src / "foo.rs").write_text(
-            "fn validate() -> bool {\n    todo!()\n}\n"
-        )
-        (src / "bar.rs").write_text(
-            "fn process() -> i32 {\n"
-            "    let result = compute();\n"
-            "    result\n"
-            "}\n"
-        )
+        (src / "foo.rs").write_text("fn validate() -> bool {\n    todo!()\n}\n")
+        (src / "bar.rs").write_text("fn process() -> i32 {\n    let result = compute();\n    result\n}\n")
 
         task_group = TaskGroup(
             number=2,
@@ -338,21 +312,12 @@ class TestSmokeReducedScopePrompt:
         assert work_start < validate_pos < context_start
         assert context_start < process_pos
 
-    def test_test_writing_partial_scope_includes_stub_directive(
-        self, tmp_path: Path
-    ) -> None:
+    def test_test_writing_partial_scope_includes_stub_directive(self, tmp_path: Path) -> None:
         """Test-writing archetype with partial scope → stub directive injected."""
         src = tmp_path / "src"
         src.mkdir()
-        (src / "foo.rs").write_text(
-            "fn validate() -> bool {\n    todo!()\n}\n"
-        )
-        (src / "bar.rs").write_text(
-            "fn process() -> i32 {\n"
-            "    let result = compute();\n"
-            "    result\n"
-            "}\n"
-        )
+        (src / "foo.rs").write_text("fn validate() -> bool {\n    todo!()\n}\n")
+        (src / "bar.rs").write_text("fn process() -> i32 {\n    let result = compute();\n    result\n}\n")
 
         task_group = TaskGroup(
             number=1,
@@ -406,12 +371,7 @@ class TestSmokeStubEnforcement:
                 FileChange(
                     file_path="src/validator.rs",
                     language=Language.RUST,
-                    diff_text=(
-                        "fn validate() -> bool {\n"
-                        "    let x = compute();\n"
-                        "    x > 0\n"
-                        "}\n"
-                    ),
+                    diff_text=("fn validate() -> bool {\n    let x = compute();\n    x > 0\n}\n"),
                 ),
             ],
             commit_count=2,
@@ -432,9 +392,7 @@ class TestSmokeStubEnforcement:
         assert outcome.classification == SessionClassification.SUCCESS
         assert outcome.stub_violation is True
         assert len(outcome.violation_details) >= 1
-        assert any(
-            v.function_id == "validate" for v in outcome.violation_details
-        )
+        assert any(v.function_id == "validate" for v in outcome.violation_details)
 
         # Record in DuckDB (no mocking)
         conn = duckdb.connect(":memory:")
@@ -442,8 +400,7 @@ class TestSmokeStubEnforcement:
         record_session_outcome(conn, outcome)
 
         rows = conn.execute(
-            "SELECT classification, stub_violation "
-            "FROM session_outcomes WHERE session_id = 'sess-smoke-stub-1'"
+            "SELECT classification, stub_violation FROM session_outcomes WHERE session_id = 'sess-smoke-stub-1'"
         ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "success"
@@ -577,8 +534,7 @@ class TestSmokeNoOpAndFailure:
         record_session_outcome(conn, outcome)
 
         rows = conn.execute(
-            "SELECT classification "
-            "FROM session_outcomes WHERE session_id = 'sess-smoke-fail-1'"
+            "SELECT classification FROM session_outcomes WHERE session_id = 'sess-smoke-fail-1'"
         ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "failure"
@@ -616,8 +572,7 @@ class TestSmokeNoOpAndFailure:
         record_session_outcome(conn, outcome)
 
         rows = conn.execute(
-            "SELECT classification "
-            "FROM session_outcomes WHERE session_id = 'sess-smoke-harv-1'"
+            "SELECT classification FROM session_outcomes WHERE session_id = 'sess-smoke-harv-1'"
         ).fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "harvest-error"
@@ -670,10 +625,7 @@ class TestSmokeNoOpAndFailure:
         record_session_outcome(conn, noop_outcome)
         record_session_outcome(conn, fail_outcome)
 
-        rows = conn.execute(
-            "SELECT session_id, classification FROM session_outcomes "
-            "ORDER BY session_id"
-        ).fetchall()
+        rows = conn.execute("SELECT session_id, classification FROM session_outcomes ORDER BY session_id").fetchall()
         assert len(rows) == 2
         classifications = {r[0]: r[1] for r in rows}
         assert classifications["sess-smoke-both-fail"] == "failure"

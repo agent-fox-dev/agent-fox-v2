@@ -202,9 +202,7 @@ class TestConfigurableTolerance:
         from agent_fox.engine.fact_cache import get_cached_facts
 
         cache_entry = _make_cache_entry(fact_count_at_creation=100)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=101, tolerance=0.0
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=101, tolerance=0.0)
         assert result is None, "tolerance=0.0 should enforce exact count match"
 
     def test_tolerance_zero_exact_match_hits(self) -> None:
@@ -212,9 +210,7 @@ class TestConfigurableTolerance:
         from agent_fox.engine.fact_cache import get_cached_facts
 
         cache_entry = _make_cache_entry(fact_count_at_creation=100)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=100, tolerance=0.0
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=100, tolerance=0.0)
         assert result is not None, "tolerance=0.0 should return cached facts on exact match"
 
     def test_tolerance_10pct_within_range(self) -> None:
@@ -225,9 +221,7 @@ class TestConfigurableTolerance:
         from agent_fox.engine.fact_cache import get_cached_facts
 
         cache_entry = _make_cache_entry(fact_count_at_creation=100)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=105, tolerance=0.1
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=105, tolerance=0.1)
         assert result is not None, "5% drift should be within 10% tolerance"
 
     def test_tolerance_custom_strict(self) -> None:
@@ -235,9 +229,7 @@ class TestConfigurableTolerance:
         from agent_fox.engine.fact_cache import get_cached_facts
 
         cache_entry = _make_cache_entry(fact_count_at_creation=100)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_a", current_fact_count=105, tolerance=0.02
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_a", current_fact_count=105, tolerance=0.02)
         assert result is None, "5% drift should exceed 2% custom tolerance"
 
     def test_missing_spec_always_returns_none(self) -> None:
@@ -245,9 +237,7 @@ class TestConfigurableTolerance:
         from agent_fox.engine.fact_cache import get_cached_facts
 
         cache_entry = _make_cache_entry(fact_count_at_creation=100)
-        result = get_cached_facts(
-            {"spec_a": cache_entry}, "spec_b", current_fact_count=100, tolerance=0.1
-        )
+        result = get_cached_facts({"spec_a": cache_entry}, "spec_b", current_fact_count=100, tolerance=0.1)
         assert result is None
 
 
@@ -359,6 +349,5 @@ class TestBarrierCacheRebuild:
         updated_fact_cache = cast(dict[str, Any], infra["fact_cache"])
         updated_count = updated_fact_cache["spec_a"].fact_count_at_creation
         assert updated_count > original_count, (
-            f"Expected fact_count_at_creation to increase after barrier sync; "
-            f"was {original_count}, got {updated_count}"
+            f"Expected fact_count_at_creation to increase after barrier sync; was {original_count}, got {updated_count}"
         )

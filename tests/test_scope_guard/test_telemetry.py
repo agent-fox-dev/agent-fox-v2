@@ -58,9 +58,7 @@ class TestScopeCheckTelemetryLogging:
             deliverable_count=2,
         )
         record_scope_check(sg_duckdb, scope_result)
-        rows = sg_duckdb.execute(
-            "SELECT * FROM scope_check_results WHERE task_group_number = 2"
-        ).fetchall()
+        rows = sg_duckdb.execute("SELECT * FROM scope_check_results WHERE task_group_number = 2").fetchall()
         assert len(rows) == 1
         # Columns: id, spec_number, task_group_number, overall_status, deliverable_count,
         #          check_duration_ms, deliverable_results, timestamp
@@ -128,8 +126,8 @@ class TestNoopRecordFieldCompleteness:
         ).fetchall()
         assert len(rows) == 1
         row = rows[0]
-        assert row[0] == 7   # spec_number
-        assert row[1] == 2   # task_group_number
+        assert row[0] == 7  # spec_number
+        assert row[1] == 2  # task_group_number
         assert row[2] == 89.5  # duration_seconds
         assert row[3] == 3.00  # cost_dollars
         assert row[4] is not None  # timestamp
@@ -215,8 +213,7 @@ class TestPromptPersistedAndRetrievable:
     @pytest.mark.integration
     def test_prompt_round_trip(self, sg_duckdb: duckdb.DuckDBPyConnection) -> None:
         prompt_text = (
-            "This is a test prompt with <!-- SCOPE_GUARD:STUB_ONLY -->"
-            " directive <!-- /SCOPE_GUARD:STUB_ONLY -->"
+            "This is a test prompt with <!-- SCOPE_GUARD:STUB_ONLY --> directive <!-- /SCOPE_GUARD:STUB_ONLY -->"
         )
         persist_prompt(sg_duckdb, "sess-prompt-1", prompt_text)
         record = get_session_prompt(sg_duckdb, "sess-prompt-1")

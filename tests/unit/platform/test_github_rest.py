@@ -109,9 +109,7 @@ class TestGitHubPlatformRepr:
 
     def test_repr_exact_format_github_com(self) -> None:
         """repr() includes owner, repo, url; token absent (AC-1)."""
-        platform = GitHubPlatform(
-            owner="octocat", repo="hello", token="ghp_secret123", url="github.com"
-        )
+        platform = GitHubPlatform(owner="octocat", repo="hello", token="ghp_secret123", url="github.com")
         result = repr(platform)
         assert result == "GitHubPlatform(owner='octocat', repo='hello', url='github.com')"
         assert "ghp_secret123" not in result
@@ -122,9 +120,7 @@ class TestGitHubPlatformRepr:
 
     def test_repr_enterprise_url_excludes_token(self) -> None:
         """repr() excludes token and includes enterprise url (AC-2)."""
-        platform = GitHubPlatform(
-            owner="corp", repo="app", token="ghp_enterprisetoken", url="github.example.com"
-        )
+        platform = GitHubPlatform(owner="corp", repo="app", token="ghp_enterprisetoken", url="github.example.com")
         result = repr(platform)
         assert "ghp_enterprisetoken" not in result
         assert "github.example.com" in result

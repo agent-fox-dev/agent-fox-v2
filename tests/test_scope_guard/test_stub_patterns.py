@@ -127,15 +127,17 @@ TS_STUBS = [
     'throw new Error("not implemented")',
 ]
 
-NON_STUB_CODE = st.sampled_from([
-    "return 42",
-    "let x = 1;\nx",
-    "x = compute()\nreturn x",
-    "console.log('hello')",
-    "if True:\n    return 1",
-    "for i in range(10):\n    pass",
-    "match x { _ => 0 }",
-])
+NON_STUB_CODE = st.sampled_from(
+    [
+        "return 42",
+        "let x = 1;\nx",
+        "x = compute()\nreturn x",
+        "console.log('hello')",
+        "if True:\n    return 1",
+        "for i in range(10):\n    pass",
+        "match x { _ => 0 }",
+    ]
+)
 
 
 class TestPropertyStubBodyPurity:

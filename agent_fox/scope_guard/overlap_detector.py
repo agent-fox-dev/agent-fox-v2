@@ -38,8 +38,7 @@ def detect_overlaps(spec_graph: SpecGraph) -> OverlapResult:
     for tg in task_groups:
         if not tg.deliverables:
             logger.warning(
-                "Task group %d has no enumerated deliverables; "
-                "excluded from overlap analysis",
+                "Task group %d has no enumerated deliverables; excluded from overlap analysis",
                 tg.number,
             )
         else:
@@ -104,9 +103,7 @@ def _classify_overlaps(
     return records
 
 
-def _determine_severity(
-    tg_numbers: list[int], deps: dict[int, set[int]]
-) -> OverlapSeverity:
+def _determine_severity(tg_numbers: list[int], deps: dict[int, set[int]]) -> OverlapSeverity:
     """Determine overlap severity for a set of task group numbers.
 
     If ANY pair of overlapping task groups has a dependency relationship

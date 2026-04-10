@@ -39,10 +39,7 @@ class TestPerDeliverableStatus:
         )
         result = check_scope(task_group, mixed_codebase)
         assert len(result.deliverable_results) == 2
-        statuses = {
-            dr.deliverable.function_id: dr.status
-            for dr in result.deliverable_results
-        }
+        statuses = {dr.deliverable.function_id: dr.status for dr in result.deliverable_results}
         assert statuses["validate"] == DeliverableStatus.PENDING
         assert statuses["process"] == DeliverableStatus.ALREADY_IMPLEMENTED
         assert result.overall == "partially-implemented"
@@ -94,10 +91,7 @@ class TestStubDetectionForStatus:
             depends_on=[1],
         )
         result = check_scope(task_group, python_stub_codebase)
-        statuses = {
-            dr.deliverable.function_id: dr.status
-            for dr in result.deliverable_results
-        }
+        statuses = {dr.deliverable.function_id: dr.status for dr in result.deliverable_results}
         assert statuses["connect"] == DeliverableStatus.PENDING
         assert statuses["disconnect"] == DeliverableStatus.ALREADY_IMPLEMENTED
 

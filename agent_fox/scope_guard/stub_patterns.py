@@ -156,8 +156,16 @@ def is_test_block(body: str, file_path: str, language: Language) -> bool:
 
     if language in (Language.TYPESCRIPT, Language.JAVASCRIPT):
         # File-level detection
-        test_file_patterns = [".test.ts", ".spec.ts", ".test.js", ".spec.js",
-                              ".test.tsx", ".spec.tsx", ".test.jsx", ".spec.jsx"]
+        test_file_patterns = [
+            ".test.ts",
+            ".spec.ts",
+            ".test.js",
+            ".spec.js",
+            ".test.tsx",
+            ".spec.tsx",
+            ".test.jsx",
+            ".spec.jsx",
+        ]
         if any(basename.endswith(p) for p in test_file_patterns):
             return True
         # Block-level detection

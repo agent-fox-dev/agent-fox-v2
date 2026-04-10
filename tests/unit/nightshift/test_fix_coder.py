@@ -210,9 +210,7 @@ class TestRunCoderSessionArchetype:
 
         assert mock_rs.called, "_run_session was not called"
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg == "fix_coder", (
-            f"Expected _run_session called with 'fix_coder', got {first_arg!r}"
-        )
+        assert first_arg == "fix_coder", f"Expected _run_session called with 'fix_coder', got {first_arg!r}"
 
     @pytest.mark.asyncio
     async def test_run_session_not_called_with_coder(self) -> None:
@@ -246,6 +244,4 @@ class TestRunCoderSessionArchetype:
             )
 
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg != "coder", (
-            "_run_session was called with 'coder' instead of 'fix_coder'"
-        )
+        assert first_arg != "coder", "_run_session was called with 'coder' instead of 'fix_coder'"
