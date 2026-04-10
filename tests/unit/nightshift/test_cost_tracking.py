@@ -30,7 +30,17 @@ def _make_config() -> MagicMock:
     config.orchestrator.max_sessions = None
     config.orchestrator.retries_before_escalation = 1
     config.orchestrator.max_retries = 3
-    config.archetypes = None
+    config.orchestrator.max_budget_usd = 0.0
+    # Use empty dicts so resolve_model_tier and other sdk_params resolvers
+    # fall back to archetype registry defaults cleanly
+    config.archetypes = MagicMock()
+    config.archetypes.overrides = {}
+    config.archetypes.models = {}
+    config.archetypes.max_turns = {}
+    config.archetypes.thinking = {}
+    config.archetypes.allowlists = {}
+    config.models = MagicMock()
+    config.models.fallback_model = ""
     config.pricing = MagicMock()
     config.pricing.models = {}
     config.theme = None
@@ -170,6 +180,8 @@ class TestCliCreatesSinkDispatcher:
             patch("agent_fox.nightshift.engine.NightShiftEngine") as mock_engine_cls,
             patch("agent_fox.nightshift.daemon.SharedBudget"),
             patch("agent_fox.engine.hot_load.discover_new_specs_gated", new_callable=AsyncMock, return_value=[]),
+            # Mock open_knowledge_store so CLI can create a SinkDispatcher without a real DB
+            patch("agent_fox.knowledge.db.open_knowledge_store", return_value=MagicMock()),
         ):
             mock_progress = MagicMock()
             mock_progress_cls.return_value = mock_progress

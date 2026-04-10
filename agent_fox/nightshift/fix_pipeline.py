@@ -18,8 +18,11 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.engine.audit_helpers import emit_audit_event
+from agent_fox.knowledge.audit import AuditEventType, generate_run_id
 from agent_fox.nightshift.fix_types import (
     FixReviewResult,
     TriageResult,
@@ -28,6 +31,9 @@ from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.github import IssueResult
 from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -71,11 +77,14 @@ class FixPipeline:
         platform: object,
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
+        sink_dispatcher: SinkDispatcher | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._activity_callback = activity_callback
         self._task_callback = task_callback
+        self._sink = sink_dispatcher
+        self._run_id: str = ""
 
     async def _run_session(
         self,
@@ -149,6 +158,8 @@ class FixPipeline:
             fallback_model=resolved_fallback,
             thinking=resolved_thinking,
             archetype=archetype,
+            sink_dispatcher=self._sink,
+            run_id=self._run_id,
         )
 
     async def _setup_workspace(self, spec: InMemorySpec) -> WorkspaceInfo:
@@ -191,6 +202,91 @@ class FixPipeline:
         metrics.cache_read_input_tokens += getattr(outcome, "cache_read_input_tokens", 0)
         metrics.cache_creation_input_tokens += getattr(outcome, "cache_creation_input_tokens", 0)
         metrics.sessions_run += 1
+
+    def _get_model_id(self, archetype: str) -> str:
+        """Resolve model_id for the given archetype, with a safe fallback.
+
+        Requirements: 91-REQ-3.1
+        """
+        try:
+            from agent_fox.core.models import resolve_model
+            from agent_fox.engine.sdk_params import resolve_model_tier
+
+            tier = resolve_model_tier(self._config, archetype)
+            return resolve_model(tier).model_id
+        except Exception:
+            return "claude-sonnet-4-6"
+
+    def _emit_session_event(
+        self,
+        outcome: object,
+        archetype: str,
+        run_id: str,
+        *,
+        node_id: str = "",
+        attempt: int = 1,
+    ) -> None:
+        """Emit session.complete or session.fail based on outcome status.
+
+        Best-effort: exceptions from audit infrastructure are logged and
+        swallowed so the fix pipeline is never interrupted.
+
+        Requirements: 91-REQ-3.1, 91-REQ-3.2, 91-REQ-3.E1
+        """
+        from agent_fox.core.config import PricingConfig
+        from agent_fox.core.models import calculate_cost
+
+        status = getattr(outcome, "status", "failed")
+        input_tokens = getattr(outcome, "input_tokens", 0)
+        output_tokens = getattr(outcome, "output_tokens", 0)
+        cache_read = getattr(outcome, "cache_read_input_tokens", 0)
+        cache_creation = getattr(outcome, "cache_creation_input_tokens", 0)
+        duration_ms = getattr(outcome, "duration_ms", 0)
+        error_message = getattr(outcome, "error_message", None)
+
+        model_id = self._get_model_id(archetype)
+        pricing = getattr(self._config, "pricing", PricingConfig())
+
+        if status == "completed":
+            cost = calculate_cost(
+                input_tokens,
+                output_tokens,
+                model_id,
+                pricing,
+                cache_read_input_tokens=cache_read,
+                cache_creation_input_tokens=cache_creation,
+            )
+            emit_audit_event(
+                self._sink,
+                run_id,
+                AuditEventType.SESSION_COMPLETE,
+                node_id=node_id,
+                archetype=archetype,
+                payload={
+                    "archetype": archetype,
+                    "model_id": model_id,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cache_read_input_tokens": cache_read,
+                    "cache_creation_input_tokens": cache_creation,
+                    "cost": cost,
+                    "duration_ms": duration_ms,
+                },
+            )
+        else:
+            emit_audit_event(
+                self._sink,
+                run_id,
+                AuditEventType.SESSION_FAIL,
+                node_id=node_id,
+                archetype=archetype,
+                payload={
+                    "archetype": archetype,
+                    "model_id": model_id,
+                    "error_message": str(error_message) if error_message else "",
+                    "attempt": attempt,
+                },
+            )
 
     # ------------------------------------------------------------------
     # Comment formatting (82-REQ-3.1, 82-REQ-6.1)
@@ -394,13 +490,28 @@ class FixPipeline:
         """
         from agent_fox.session.review_parser import parse_triage_output
 
+        node_id = f"fix-issue-{spec.issue_number}:0:triage"
         try:
             outcome = await self._run_session("triage", workspace, spec=spec)
+            self._emit_session_event(outcome, "triage", self._run_id, node_id=node_id)
         except Exception as exc:
             logger.warning(
                 "Triage session failed for issue #%d: %s",
                 spec.issue_number,
                 exc,
+            )
+            emit_audit_event(
+                self._sink,
+                self._run_id,
+                AuditEventType.SESSION_FAIL,
+                node_id=node_id,
+                archetype="triage",
+                payload={
+                    "archetype": "triage",
+                    "model_id": self._get_model_id("triage"),
+                    "error_message": str(exc),
+                    "attempt": 1,
+                },
             )
             return TriageResult()
 
@@ -488,6 +599,13 @@ class FixPipeline:
                     model_id=model_id,
                 )
                 self._accumulate_metrics(metrics, coder_outcome)
+                self._emit_session_event(
+                    coder_outcome,
+                    "fix_coder",
+                    self._run_id,
+                    node_id=node_id,
+                    attempt=_attempt + 1,
+                )
                 duration = time.monotonic() - t0
                 if self._task_callback is not None:
                     self._task_callback(
@@ -498,8 +616,21 @@ class FixPipeline:
                             archetype="fix_coder",
                         )
                     )
-            except Exception:
+            except Exception as _coder_exc:
                 duration = time.monotonic() - t0
+                emit_audit_event(
+                    self._sink,
+                    self._run_id,
+                    AuditEventType.SESSION_FAIL,
+                    node_id=node_id,
+                    archetype="fix_coder",
+                    payload={
+                        "archetype": "fix_coder",
+                        "model_id": model_id or self._get_model_id("fix_coder"),
+                        "error_message": str(_coder_exc),
+                        "attempt": _attempt + 1,
+                    },
+                )
                 if self._task_callback is not None:
                     self._task_callback(
                         TaskEvent(
@@ -525,6 +656,13 @@ class FixPipeline:
                     task_prompt=reviewer_task,
                 )
                 self._accumulate_metrics(metrics, reviewer_outcome)
+                self._emit_session_event(
+                    reviewer_outcome,
+                    "fix_reviewer",
+                    self._run_id,
+                    node_id=reviewer_node_id,
+                    attempt=_attempt + 1,
+                )
                 duration = time.monotonic() - t0
                 if self._task_callback is not None:
                     self._task_callback(
@@ -535,8 +673,21 @@ class FixPipeline:
                             archetype="fix_reviewer",
                         )
                     )
-            except Exception:
+            except Exception as _reviewer_exc:
                 duration = time.monotonic() - t0
+                emit_audit_event(
+                    self._sink,
+                    self._run_id,
+                    AuditEventType.SESSION_FAIL,
+                    node_id=reviewer_node_id,
+                    archetype="fix_reviewer",
+                    payload={
+                        "archetype": "fix_reviewer",
+                        "model_id": self._get_model_id("fix_reviewer"),
+                        "error_message": str(_reviewer_exc),
+                        "attempt": _attempt + 1,
+                    },
+                )
                 if self._task_callback is not None:
                     self._task_callback(
                         TaskEvent(
@@ -572,6 +723,13 @@ class FixPipeline:
                         task_prompt=reviewer_task,
                     )
                     self._accumulate_metrics(metrics, retry_outcome)
+                    self._emit_session_event(
+                        retry_outcome,
+                        "fix_reviewer",
+                        self._run_id,
+                        node_id=retry_node_id,
+                        attempt=_attempt + 1,
+                    )
                     duration = time.monotonic() - t0
                     if self._task_callback is not None:
                         self._task_callback(
@@ -595,8 +753,21 @@ class FixPipeline:
                             "Reviewer retry also unparseable for issue #%d, treating as FAIL",
                             spec.issue_number,
                         )
-                except Exception:
+                except Exception as _retry_exc:
                     duration = time.monotonic() - t0
+                    emit_audit_event(
+                        self._sink,
+                        self._run_id,
+                        AuditEventType.SESSION_FAIL,
+                        node_id=retry_node_id,
+                        archetype="fix_reviewer",
+                        payload={
+                            "archetype": "fix_reviewer",
+                            "model_id": self._get_model_id("fix_reviewer"),
+                            "error_message": str(_retry_exc),
+                            "attempt": _attempt + 1,
+                        },
+                    )
                     if self._task_callback is not None:
                         self._task_callback(
                             TaskEvent(
@@ -674,6 +845,10 @@ class FixPipeline:
         Requirements: 61-REQ-6.1, 61-REQ-6.E2, 82-REQ-7.1
         """
         metrics = FixMetrics()
+
+        # Generate a unique run_id for all audit events in this fix invocation
+        # (91-REQ-2.1)
+        self._run_id = generate_run_id()
 
         # 61-REQ-6.E2: reject empty issue body
         if not issue_body or not issue_body.strip():

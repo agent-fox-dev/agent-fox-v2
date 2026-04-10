@@ -154,6 +154,24 @@ def night_shift_cmd(
     # Instantiate the platform from config (exits with code 1 on failure).
     platform = create_platform(config, project_root)
 
+    # Create DuckDB-backed SinkDispatcher for audit cost tracking (91-REQ-1.2).
+    # If DuckDB cannot be opened, proceed without cost tracking (91-REQ-1.E1).
+    _knowledge_db = None
+    _sink_dispatcher = None
+    try:
+        from agent_fox.knowledge.db import open_knowledge_store
+        from agent_fox.knowledge.duckdb_sink import DuckDBSink
+        from agent_fox.knowledge.sink import SinkDispatcher
+
+        _knowledge_db = open_knowledge_store(config.knowledge)
+        _db_sink = DuckDBSink(_knowledge_db.connection)
+        _sink_dispatcher = SinkDispatcher([_db_sink])
+    except Exception:
+        logger.warning(
+            "Failed to open knowledge store for night-shift audit — cost tracking will be unavailable for this session",
+            exc_info=True,
+        )
+
     # --- ProgressDisplay setup (81-REQ-2.1) ---------------------------------
     from agent_fox.core.config import ThemeConfig
     from agent_fox.ui.display import create_theme
@@ -176,6 +194,7 @@ def night_shift_cmd(
         activity_callback=progress.activity_callback,
         task_callback=progress.task_callback,
         status_callback=progress.print_status,
+        sink_dispatcher=_sink_dispatcher,
     )
 
     # Shared cost budget (85-REQ-5.1, 85-REQ-5.2)
@@ -265,6 +284,12 @@ def night_shift_cmd(
         try:
             if hasattr(platform, "close"):
                 asyncio.run(platform.close())
+        except Exception:  # noqa: BLE001
+            pass
+        # Close knowledge store connection used for audit (91-REQ-1.2)
+        try:
+            if _knowledge_db is not None:
+                _knowledge_db.close()
         except Exception:  # noqa: BLE001
             pass
 

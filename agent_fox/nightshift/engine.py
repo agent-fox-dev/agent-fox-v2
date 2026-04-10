@@ -12,6 +12,7 @@ import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.nightshift.audit import emit_audit_event as _emit_audit_event
@@ -29,6 +30,9 @@ from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
 from agent_fox.ui.progress import ActivityCallback, TaskCallback
+
+if TYPE_CHECKING:
+    from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +72,7 @@ class NightShiftEngine:
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
         status_callback: Callable[[str, str], None] | None = None,
+        sink_dispatcher: SinkDispatcher | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
@@ -75,6 +80,7 @@ class NightShiftEngine:
         self._activity_callback = activity_callback
         self._task_callback = task_callback
         self._status_callback = status_callback
+        self._sink = sink_dispatcher
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
 
@@ -412,6 +418,7 @@ class NightShiftEngine:
             platform=self._platform,
             activity_callback=self._activity_callback,
             task_callback=self._task_callback,
+            sink_dispatcher=self._sink,
         )
 
         try:

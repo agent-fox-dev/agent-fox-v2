@@ -56,43 +56,43 @@ remove JSONL audit, (4) wiring verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. SinkDispatcher plumbing and fix session audit emission
-  - [ ] 2.1 Add sink_dispatcher parameter to NightShiftEngine
+- [x] 2. SinkDispatcher plumbing and fix session audit emission
+  - [x] 2.1 Add sink_dispatcher parameter to NightShiftEngine
     - Add optional `sink_dispatcher: SinkDispatcher | None = None` to `__init__`
     - Store as `self._sink`
     - Update `_process_fix()` to pass `sink_dispatcher` to FixPipeline
     - _Requirements: 91-REQ-1.1, 91-REQ-1.3_
 
-  - [ ] 2.2 Add sink_dispatcher to FixPipeline
+  - [x] 2.2 Add sink_dispatcher to FixPipeline
     - Add optional `sink_dispatcher` parameter to `__init__`, store as `self._sink`
     - Add `_run_id` instance attribute (initially empty)
     - In `process_issue()`, generate a fresh `run_id` via `generate_run_id()` and store as `self._run_id`
     - _Requirements: 91-REQ-2.1, 91-REQ-2.2_
 
-  - [ ] 2.3 Pass sink and run_id to run_session
+  - [x] 2.3 Pass sink and run_id to run_session
     - Update `_run_session()` to pass `sink_dispatcher=self._sink` and `run_id=self._run_id` to `run_session()`
     - _Requirements: 91-REQ-3.3_
 
-  - [ ] 2.4 Emit session.complete / session.fail after each session
+  - [x] 2.4 Emit session.complete / session.fail after each session
     - Create `_emit_session_event()` method on FixPipeline
     - Call it after every `_run_session()` call in `_run_triage()` and `_coder_review_loop()`
     - Calculate cost via `calculate_cost()` and include in payload
     - On exception in `_run_session()`, emit `session.fail`
     - _Requirements: 91-REQ-3.1, 91-REQ-3.2, 91-REQ-3.E1_
 
-  - [ ] 2.5 Wire SinkDispatcher in CLI
+  - [x] 2.5 Wire SinkDispatcher in CLI
     - In `night_shift_cmd()`, create `SinkDispatcher` backed by `DuckDBSink`
     - Pass it to `NightShiftEngine`
     - Close DB connection in the `finally` block
     - Handle DuckDB open failure gracefully (log warning, pass None)
     - _Requirements: 91-REQ-1.2, 91-REQ-1.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_cost_tracking.py -k "TS_91_1 or TS_91_2 or TS_91_3 or TS_91_4 or TS_91_5 or TS_91_6 or TS_91_7 or TS_91_8 or TS_91_E1 or TS_91_E2 or TS_91_E3"`
-    - [ ] Smoke test TS-91-SMOKE-1 passes
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 91-REQ-1.*, 91-REQ-2.*, 91-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/nightshift/test_cost_tracking.py -k "TS_91_1 or TS_91_2 or TS_91_3 or TS_91_4 or TS_91_5 or TS_91_6 or TS_91_7 or TS_91_8 or TS_91_E1 or TS_91_E2 or TS_91_E3"`
+    - [x] Smoke test TS-91-SMOKE-1 passes
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 91-REQ-1.*, 91-REQ-2.*, 91-REQ-3.* acceptance criteria met
 
 - [ ] 3. Auxiliary cost tracking and JSONL audit removal
   - [ ] 3.1 Create cost_helpers module
