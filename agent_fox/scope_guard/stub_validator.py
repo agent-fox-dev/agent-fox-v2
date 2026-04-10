@@ -20,9 +20,7 @@ from agent_fox.scope_guard.stub_patterns import is_stub_body
 logger = logging.getLogger(__name__)
 
 
-def validate_stubs(
-    modified_files: list[FileChange], task_group: TaskGroup
-) -> StubValidationResult:
+def validate_stubs(modified_files: list[FileChange], task_group: TaskGroup) -> StubValidationResult:
     """Validate that all non-test functions in modified files are stubs.
 
     Scans each non-test source file modified by the session.  For every

@@ -140,8 +140,5 @@ def python_stub_codebase(tmp_path: Path) -> Path:
     src = tmp_path / "src"
     src.mkdir()
     mod = src / "mod.py"
-    mod.write_text(
-        "def connect():\n    raise NotImplementedError\n\n"
-        "def disconnect():\n    socket.close()\n"
-    )
+    mod.write_text("def connect():\n    raise NotImplementedError\n\ndef disconnect():\n    socket.close()\n")
     return tmp_path

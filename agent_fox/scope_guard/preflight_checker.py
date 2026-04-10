@@ -36,8 +36,7 @@ def check_scope(task_group: TaskGroup, codebase_root: Path) -> ScopeCheckResult:
     # Edge case: no deliverables → indeterminate with warning (87-REQ-2.E3)
     if not task_group.deliverables:
         logger.warning(
-            "Task group %d has no enumerated deliverables; "
-            "scope check is inconclusive",
+            "Task group %d has no enumerated deliverables; scope check is inconclusive",
             task_group.number,
         )
         elapsed_ms = (time.monotonic_ns() - start_ns) // 1_000_000

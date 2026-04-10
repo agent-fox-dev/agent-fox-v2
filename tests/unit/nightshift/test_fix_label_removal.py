@@ -26,6 +26,7 @@ def _mock_workspace() -> WorkspaceInfo:
         task_group=0,
     )
 
+
 LABEL = "af:fix"
 
 

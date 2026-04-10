@@ -18,9 +18,7 @@ _TARGET = "agent_fox.platform.github.httpx.AsyncClient"
 _SLEEP_TARGET = "agent_fox.platform.github.asyncio.sleep"
 
 
-def _json_response(
-    status_code: int, json_data: dict[Any, Any] | list[Any] | None = None
-) -> MagicMock:
+def _json_response(status_code: int, json_data: dict[Any, Any] | list[Any] | None = None) -> MagicMock:
     resp = MagicMock()
     resp.status_code = status_code
     resp.text = ""
@@ -90,9 +88,7 @@ class TestExplicitTimeout:
     async def test_create_issue_uses_explicit_timeout(self) -> None:
         """create_issue uses timeout on AsyncClient."""
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
-        resp = _json_response(
-            201, {"number": 1, "title": "t", "html_url": "http://x"}
-        )
+        resp = _json_response(201, {"number": 1, "title": "t", "html_url": "http://x"})
         client = _make_client(post=AsyncMock(return_value=resp))
 
         with patch(_TARGET, return_value=client) as mock_cls:
@@ -245,9 +241,7 @@ class TestAllMethodsUseRetry:
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
         success_resp = _json_response(200, {"items": []})
 
-        mock_get = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("t/o"), success_resp]
-        )
+        mock_get = AsyncMock(side_effect=[httpx.ConnectTimeout("t/o"), success_resp])
         client = _make_client(get=mock_get)
 
         with patch(_TARGET, return_value=client):
@@ -261,13 +255,9 @@ class TestAllMethodsUseRetry:
     async def test_create_issue_retries_on_connect_timeout(self) -> None:
         """create_issue retries on ConnectTimeout."""
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
-        success_resp = _json_response(
-            201, {"number": 5, "title": "t", "html_url": "http://x"}
-        )
+        success_resp = _json_response(201, {"number": 5, "title": "t", "html_url": "http://x"})
 
-        mock_post = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("t/o"), success_resp]
-        )
+        mock_post = AsyncMock(side_effect=[httpx.ConnectTimeout("t/o"), success_resp])
         client = _make_client(post=mock_post)
 
         with patch(_TARGET, return_value=client):
@@ -283,9 +273,7 @@ class TestAllMethodsUseRetry:
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
         success_resp = _json_response(200)
 
-        mock_patch = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("t/o"), success_resp]
-        )
+        mock_patch = AsyncMock(side_effect=[httpx.ConnectTimeout("t/o"), success_resp])
         client = _make_client(patch=mock_patch)
 
         with patch(_TARGET, return_value=client):
@@ -300,9 +288,7 @@ class TestAllMethodsUseRetry:
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
         success_resp = _json_response(200)
 
-        mock_post = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("t/o"), success_resp]
-        )
+        mock_post = AsyncMock(side_effect=[httpx.ConnectTimeout("t/o"), success_resp])
         client = _make_client(post=mock_post)
 
         with patch(_TARGET, return_value=client):
@@ -317,9 +303,7 @@ class TestAllMethodsUseRetry:
         platform = GitHubPlatform(owner="org", repo="repo", token="tok")
         success_resp = _json_response(200)
 
-        mock_delete = AsyncMock(
-            side_effect=[httpx.ConnectTimeout("t/o"), success_resp]
-        )
+        mock_delete = AsyncMock(side_effect=[httpx.ConnectTimeout("t/o"), success_resp])
         client = _make_client(delete=mock_delete)
 
         with patch(_TARGET, return_value=client):

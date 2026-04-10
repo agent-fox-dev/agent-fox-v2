@@ -81,9 +81,7 @@ def init_schema(conn: duckdb.DuckDBPyConnection) -> None:
 # ---------------------------------------------------------------------------
 
 
-def record_session_outcome(
-    conn: duckdb.DuckDBPyConnection, outcome: ScopeGuardSessionOutcome
-) -> None:
+def record_session_outcome(conn: duckdb.DuckDBPyConnection, outcome: ScopeGuardSessionOutcome) -> None:
     """Insert a session outcome record into the telemetry store."""
     violation_details_json: str | None = None
     if outcome.violation_details:
@@ -127,9 +125,7 @@ def record_session_outcome(
 # ---------------------------------------------------------------------------
 
 
-def persist_prompt(
-    conn: duckdb.DuckDBPyConnection, session_id: str, prompt_text: str
-) -> None:
+def persist_prompt(conn: duckdb.DuckDBPyConnection, session_id: str, prompt_text: str) -> None:
     """Store a session prompt with truncation logic.
 
     If prompt exceeds _PROMPT_MAX_LENGTH characters, retain the first and last
@@ -138,11 +134,7 @@ def persist_prompt(
     """
     truncated = len(prompt_text) > _PROMPT_MAX_LENGTH
     if truncated:
-        stored_text = (
-            prompt_text[:_PROMPT_KEEP_CHARS]
-            + _TRUNCATION_MARKER
-            + prompt_text[-_PROMPT_KEEP_CHARS:]
-        )
+        stored_text = prompt_text[:_PROMPT_KEEP_CHARS] + _TRUNCATION_MARKER + prompt_text[-_PROMPT_KEEP_CHARS:]
     else:
         stored_text = prompt_text
 
@@ -164,13 +156,10 @@ def persist_prompt(
     )
 
 
-def get_session_prompt(
-    conn: duckdb.DuckDBPyConnection, session_id: str
-) -> PromptRecord | None:
+def get_session_prompt(conn: duckdb.DuckDBPyConnection, session_id: str) -> PromptRecord | None:
     """Retrieve a session prompt record."""
     rows = conn.execute(
-        "SELECT session_id, prompt_text, truncated, stub_directive_present "
-        "FROM session_prompts WHERE session_id = ?",
+        "SELECT session_id, prompt_text, truncated, stub_directive_present FROM session_prompts WHERE session_id = ?",
         [session_id],
     ).fetchall()
     if not rows:
@@ -189,9 +178,7 @@ def get_session_prompt(
 # ---------------------------------------------------------------------------
 
 
-def record_scope_check(
-    conn: duckdb.DuckDBPyConnection, result: ScopeCheckResult
-) -> None:
+def record_scope_check(conn: duckdb.DuckDBPyConnection, result: ScopeCheckResult) -> None:
     """Record a scope check result in the telemetry store."""
     deliverable_results_json = json.dumps(
         [
@@ -240,9 +227,7 @@ def record_scope_check(
 # ---------------------------------------------------------------------------
 
 
-def query_waste_report(
-    conn: duckdb.DuckDBPyConnection, spec_number: int | None = None
-) -> WasteReport:
+def query_waste_report(conn: duckdb.DuckDBPyConnection, spec_number: int | None = None) -> WasteReport:
     """Query aggregate waste report for no-op and pre-flight-skip sessions."""
     where_clause = ""
     params: list[object] = []

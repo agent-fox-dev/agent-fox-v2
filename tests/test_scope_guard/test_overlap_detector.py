@@ -195,14 +195,26 @@ class TestPropertyOverlapDetectionPrecision:
         spec_graph = SpecGraph(
             spec_number=4,
             task_groups=[
-                TaskGroup(1, 4, "test-writing", [
-                    Deliverable("src/a.rs", "fn_a", 1),
-                    Deliverable("src/b.rs", "fn_b", 1),
-                ], []),
-                TaskGroup(2, 4, "implementation", [
-                    Deliverable("src/a.rs", "fn_a", 2),  # overlap
-                    Deliverable("src/b.rs", "fn_c", 2),  # same file, different function — no overlap
-                ], [1]),
+                TaskGroup(
+                    1,
+                    4,
+                    "test-writing",
+                    [
+                        Deliverable("src/a.rs", "fn_a", 1),
+                        Deliverable("src/b.rs", "fn_b", 1),
+                    ],
+                    [],
+                ),
+                TaskGroup(
+                    2,
+                    4,
+                    "implementation",
+                    [
+                        Deliverable("src/a.rs", "fn_a", 2),  # overlap
+                        Deliverable("src/b.rs", "fn_c", 2),  # same file, different function — no overlap
+                    ],
+                    [1],
+                ),
             ],
         )
         result = detect_overlaps(spec_graph)
@@ -267,19 +279,23 @@ class TestPropertyOverlapEdgeCases:
 
     @pytest.mark.property
     def test_single_task_group_empty_overlaps(self) -> None:
-        result = detect_overlaps(SpecGraph(
-            spec_number=1,
-            task_groups=[TaskGroup(1, 1, "test-writing", [Deliverable("a.rs", "fn_a", 1)], [])],
-        ))
+        result = detect_overlaps(
+            SpecGraph(
+                spec_number=1,
+                task_groups=[TaskGroup(1, 1, "test-writing", [Deliverable("a.rs", "fn_a", 1)], [])],
+            )
+        )
         assert result.overlaps == []
 
     @pytest.mark.property
     def test_empty_deliverables_excluded(self) -> None:
-        result = detect_overlaps(SpecGraph(
-            spec_number=1,
-            task_groups=[
-                TaskGroup(1, 1, "test-writing", [], []),
-                TaskGroup(2, 1, "implementation", [], [1]),
-            ],
-        ))
+        result = detect_overlaps(
+            SpecGraph(
+                spec_number=1,
+                task_groups=[
+                    TaskGroup(1, 1, "test-writing", [], []),
+                    TaskGroup(2, 1, "implementation", [], [1]),
+                ],
+            )
+        )
         assert result.overlaps == []

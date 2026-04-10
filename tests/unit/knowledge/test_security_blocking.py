@@ -294,9 +294,7 @@ class TestNonSecurityCriticalRespectsThreshold:
 class TestSecurityBlockingReasonLabel:
     """AC-6: Blocking reason string includes 'SECURITY' label."""
 
-    def test_security_block_reason_contains_security_label(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_security_block_reason_contains_security_label(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Reason for security-triggered block contains 'security' (case-insensitive)."""
         finding = _make_finding(
             severity="critical",
@@ -355,9 +353,7 @@ class TestSecurityBlockingReasonLabel:
 class TestSecurityBlockingAuditEvent:
     """AC-7: SECURITY_FINDING_BLOCKED audit event is emitted on security block."""
 
-    def test_security_finding_blocked_audit_event_emitted(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_security_finding_blocked_audit_event_emitted(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """A SECURITY_FINDING_BLOCKED audit event is emitted when blocking on security."""
         from agent_fox.knowledge.sink import SinkDispatcher
 
@@ -378,9 +374,7 @@ class TestSecurityBlockingAuditEvent:
             "agent_fox.session.convergence.resolve_block_threshold",
             return_value=3,
         ):
-            decision = evaluate_review_blocking(
-                record, config, knowledge_conn, sink=mock_sink, run_id="test-run"
-            )
+            decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
 
         assert decision.should_block is True
         # Verify emit_audit_event was called on the sink
@@ -391,9 +385,7 @@ class TestSecurityBlockingAuditEvent:
         emitted_event = calls[0][0][0]  # positional arg to emit_audit_event
         assert "security" in emitted_event.event_type.lower()
 
-    def test_no_audit_event_for_non_security_blocking(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_audit_event_for_non_security_blocking(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """No SECURITY_FINDING_BLOCKED event is emitted for threshold-based blocking."""
         from agent_fox.knowledge.sink import SinkDispatcher
 
@@ -416,16 +408,11 @@ class TestSecurityBlockingAuditEvent:
             "agent_fox.session.convergence.resolve_block_threshold",
             return_value=3,
         ):
-            decision = evaluate_review_blocking(
-                record, config, knowledge_conn, sink=mock_sink, run_id="test-run"
-            )
+            decision = evaluate_review_blocking(record, config, knowledge_conn, sink=mock_sink, run_id="test-run")
 
         assert decision.should_block is True
         # Verify NO security-specific event was emitted
-        security_calls = [
-            call for call in mock_sink.emit_audit_event.call_args_list
-            if "security" in str(call).lower()
-        ]
+        security_calls = [call for call in mock_sink.emit_audit_event.call_args_list if "security" in str(call).lower()]
         assert len(security_calls) == 0
 
 

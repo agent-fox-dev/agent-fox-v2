@@ -38,9 +38,7 @@ class TestStubViolationFlaggedInOutcome:
             exit_status="success",
             duration_seconds=120.0,
             cost_dollars=3.50,
-            modified_files=[
-                FileChange("src/foo.rs", Language.RUST, "fn bar() { compute() }")
-            ],
+            modified_files=[FileChange("src/foo.rs", Language.RUST, "fn bar() { compute() }")],
             commit_count=2,
         )
         task_group = TaskGroup(
@@ -234,9 +232,7 @@ class TestPropertyClassificationMutualExclusivity:
             exit_status="success",
             duration_seconds=100.0,
             cost_dollars=3.00,
-            modified_files=[
-                FileChange("src/a.py", Language.PYTHON, "def foo():\n    return 1")
-            ],
+            modified_files=[FileChange("src/a.py", Language.PYTHON, "def foo():\n    return 1")],
             commit_count=1,
         )
         tg = TaskGroup(2, 1, "implementation", [], [1])

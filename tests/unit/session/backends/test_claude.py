@@ -335,9 +335,7 @@ class TestTransportRetry:
             patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
         ):
             messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 messages.append(msg)
 
         # Should yield only the successful ResultMessage (no failed one)
@@ -392,9 +390,7 @@ class TestTransportRetry:
             patch("agent_fox.session.backends.claude.asyncio.sleep") as mock_sleep,
         ):
             messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 messages.append(msg)
 
         assert len(messages) == 1
@@ -451,9 +447,7 @@ class TestTransportRetry:
             patch("agent_fox.session.backends.claude.asyncio.sleep", side_effect=_record_sleep),
         ):
             messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 messages.append(msg)
 
         # Two failed attempts → two sleep calls with increasing delays
@@ -490,9 +484,7 @@ class TestTransportRetry:
             patch("agent_fox.session.backends.claude.asyncio.sleep"),
         ):
             messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 messages.append(msg)
 
         assert len(messages) == 1
@@ -527,9 +519,7 @@ class TestTransportRetry:
             patch("agent_fox.session.backends.claude.asyncio.sleep"),
         ):
             transport_messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 transport_messages.append(msg)
 
         assert len(transport_messages) == 1
@@ -558,9 +548,7 @@ class TestTransportRetry:
 
         with patch.object(backend, "_stream_messages", _session_failure):
             session_messages = []
-            async for msg in backend.execute(
-                "test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"
-            ):
+            async for msg in backend.execute("test", system_prompt="sys", model="claude-sonnet-4-6", cwd="/tmp"):
                 session_messages.append(msg)
 
         assert len(session_messages) == 1
@@ -1175,6 +1163,4 @@ class TestSessionNoExtractActivity:
         with open(session_path, encoding="utf-8") as f:
             content = f.read()
 
-        assert "_extract_activity" not in content, (
-            "_extract_activity must not appear in session.py after refactor"
-        )
+        assert "_extract_activity" not in content, "_extract_activity must not appear in session.py after refactor"

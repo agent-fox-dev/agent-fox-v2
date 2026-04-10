@@ -137,8 +137,7 @@ class TestInlineTestCodeExcluded:
             file_path="test_helpers.py",
             language=Language.PYTHON,
             diff_text=(
-                "def helper() -> int:\n    return compute()\n\n"
-                "def test_helper() -> None:\n    assert helper() == 42\n"
+                "def helper() -> int:\n    return compute()\n\ndef test_helper() -> None:\n    assert helper() == 42\n"
             ),
         )
         task_group = TaskGroup(
@@ -231,10 +230,7 @@ class TestPropertyStubValidationCompleteness:
         file_change = FileChange(
             file_path="src/engine.rs",
             language=Language.RUST,
-            diff_text=(
-                "fn stub_fn() {\n    todo!()\n}\n\n"
-                "fn impl_fn() -> i32 {\n    let x = 1;\n    x + 1\n}\n"
-            ),
+            diff_text=("fn stub_fn() {\n    todo!()\n}\n\nfn impl_fn() -> i32 {\n    let x = 1;\n    x + 1\n}\n"),
         )
         tg = TaskGroup(
             number=1,

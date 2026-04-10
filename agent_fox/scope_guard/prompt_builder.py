@@ -23,9 +23,7 @@ Do NOT implement any business logic in non-test code.
 <!-- /SCOPE_GUARD:STUB_ONLY -->"""
 
 
-def build_prompt(
-    task_group: TaskGroup, scope_result: ScopeCheckResult | None = None
-) -> str:
+def build_prompt(task_group: TaskGroup, scope_result: ScopeCheckResult | None = None) -> str:
     """Build a coder session prompt for the given task group.
 
     For test-writing archetypes the prompt includes the ``SCOPE_GUARD:STUB_ONLY``
@@ -39,10 +37,7 @@ def build_prompt(
     sections: list[str] = []
 
     # Header
-    sections.append(
-        f"# Coder Session Prompt — Spec {task_group.spec_number}, "
-        f"Task Group {task_group.number}"
-    )
+    sections.append(f"# Coder Session Prompt — Spec {task_group.spec_number}, Task Group {task_group.number}")
     sections.append(f"Archetype: {task_group.archetype}")
 
     # Stub directive for test-writing archetypes
@@ -76,11 +71,7 @@ def _filter_pending_deliverables(
     scope_result: ScopeCheckResult,
 ) -> list[Deliverable]:
     """Return only deliverables whose status is PENDING."""
-    return [
-        dr.deliverable
-        for dr in scope_result.deliverable_results
-        if dr.status == DeliverableStatus.PENDING
-    ]
+    return [dr.deliverable for dr in scope_result.deliverable_results if dr.status == DeliverableStatus.PENDING]
 
 
 def _split_deliverables(

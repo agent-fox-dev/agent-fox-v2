@@ -90,9 +90,7 @@ def _setup_db() -> duckdb.DuckDBPyConnection:
 
 
 def _get_active_ids(conn: duckdb.DuckDBPyConnection) -> set[str]:
-    rows = conn.execute(
-        "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE superseded_by IS NULL"
-    ).fetchall()
+    rows = conn.execute("SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE superseded_by IS NULL").fetchall()
     return {r[0] for r in rows}
 
 
@@ -167,9 +165,7 @@ class TestDedupThresholdMonotonicity:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_dedup_threshold_monotonicity(
-        self, t1: float, t2: float, seed: int
-    ) -> None:
+    def test_dedup_threshold_monotonicity(self, t1: float, t2: float, seed: int) -> None:
         # Create DB with t1 (lower threshold)
         conn1 = _setup_db()
         base_emb = _make_embedding(seed)
@@ -183,9 +179,7 @@ class TestDedupThresholdMonotonicity:
 
         # Create identical DB with t2 (higher threshold)
         conn2 = _setup_db()
-        existing2 = _make_fact(
-            fact_id=existing1.id, content="Existing fact"
-        )
+        existing2 = _make_fact(fact_id=existing1.id, content="Existing fact")
         _insert_fact(conn2, existing2, embedding=base_emb)
         new2 = _make_fact(fact_id=new1.id, content="New fact")
         _insert_fact(conn2, new2, embedding=new_emb)
@@ -315,9 +309,7 @@ class TestDecayMonotonicity:
         age2=st.floats(min_value=0.0, max_value=500.0),
     )
     @settings(max_examples=100, deadline=None)
-    def test_decay_monotonicity(
-        self, confidence: float, half_life: float, age1: float, age2: float
-    ) -> None:
+    def test_decay_monotonicity(self, confidence: float, half_life: float, age1: float, age2: float) -> None:
         a1, a2 = min(age1, age2), max(age1, age2)
         eff1 = confidence * (0.5 ** (a1 / half_life))
         eff2 = confidence * (0.5 ** (a2 / half_life))
@@ -398,9 +390,7 @@ class TestConfidenceImmutability:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None,
     )
-    def test_confidence_immutability(
-        self, confidence: float, age_days: int
-    ) -> None:
+    def test_confidence_immutability(self, confidence: float, age_days: int) -> None:
         conn = _setup_db()
         now = datetime.now(UTC)
         fact = _make_fact(confidence=confidence)
@@ -512,9 +502,6 @@ class TestPipelineOrder:
                         surviving_ids = {f.id for f in surviving}
                         for pair in pairs:
                             # new fact should be from surviving list
-                            assert (
-                                pair[0].id in surviving_ids
-                                or pair[1].id in surviving_ids
-                            )
+                            assert pair[0].id in surviving_ids or pair[1].id in surviving_ids
 
         conn.close()
