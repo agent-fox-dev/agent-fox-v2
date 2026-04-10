@@ -91,42 +91,57 @@ and a wiring verification group.
           93-REQ-2.2, 93-REQ-2.E1, 93-REQ-3.1 through 93-REQ-3.4,
           93-REQ-3.E1, 93-REQ-3.E2, 93-REQ-4.1 acceptance criteria met
 
-- [ ] 3. Wiring verification
+- [x] 3. Wiring verification
 
-  - [ ] 3.1 Trace every execution path from design.md end-to-end
+  - [x] 3.1 Trace every execution path from design.md end-to-end
     - For each path (push enabled, push disabled, branch naming), verify the
       entry point actually calls the next function in the chain (read the
       calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
+    - Verified: All paths live in code. Path 1 (enabled): process_issue →
+      check push_fix_branch → _push_fix_branch_upstream → push_to_remote →
+      git push --force → _harvest_and_push. Path 2 (disabled): push step
+      skipped. Path 3 (naming): build_in_memory_spec → sanitise_branch_name
+      → InMemorySpec.branch_name → used in _push_fix_branch_upstream.
 
-  - [ ] 3.2 Verify return values propagate correctly
+  - [x] 3.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - `sanitise_branch_name` -> `build_in_memory_spec` -> `InMemorySpec.branch_name`
     - `_push_fix_branch_upstream` -> `process_issue` (return value logged)
     - `push_to_remote` -> `_push_fix_branch_upstream` (return value used)
     - _Requirements: all_
+    - Verified: sanitise_branch_name return captured as `branch` at
+      spec_builder.py:60, stored in InMemorySpec. push_to_remote return
+      captured as `success` in _push_fix_branch_upstream:1013-1018, branched
+      on. _push_fix_branch_upstream logs outcome internally; caller
+      (process_issue) intentionally does not capture return (method
+      handles all logging per design spec).
 
-  - [ ] 3.3 Run the integration smoke tests
+  - [x] 3.3 Run the integration smoke tests
     - All `TS-93-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/nightshift/test_fix_branch_push_smoke.py`
     - _Test Spec: TS-93-SMOKE-1, TS-93-SMOKE-2_
+    - Result: 3 passed (TS-93-4, TS-93-SMOKE-1, TS-93-SMOKE-2)
 
-  - [ ] 3.4 Stub / dead-code audit
+  - [x] 3.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Result: No hits in fix_pipeline.py, spec_builder.py, config.py, or
+      git.py. All touched files are fully implemented with no unjustified
+      stubs or dead code.
 
-  - [ ] 3.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 3.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q` (4103 passed)
 
 ## Traceability
 
