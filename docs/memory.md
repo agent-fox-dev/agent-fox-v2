@@ -122,6 +122,11 @@
 - Python docstrings (triple quotes) must be explicitly stripped as comments before testing stub patterns, not just line comments. _(spec: 88_fix_coder_archetype, confidence: 0.90)_
 - Whitespace-only commits should be handled explicitly in session classification logic, as they represent a distinct no-op case that differs from successful operations. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.60)_
 - The comment-line regex pattern uses a combined approach detecting C-style (//), Python (#), block comment markers (/* */), and Haskell ({- -}) styles to identify non-functional lines. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.60)_
+- The init_schema() function must be called before recording any telemetry to ensure required tables exist in a DuckDB connection. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When deleting source modules as part of refactoring, proactively identify and delete or update corresponding unit test files to prevent ImportError failures during test collection, even if tests aren't currently run. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Property-based tests can pass before implementation if they test pure mathematical properties or trivial cases, while most other tests will fail as expected during TDD. _(spec: 90_fact_lifecycle, confidence: 0.60)_
+- Enum values like FACT_CLEANUP may already exist in audit event types from prior work; verify existing enums before adding new variants to avoid duplication. _(spec: 90_fact_lifecycle, confidence: 0.60)_
+- Empty return values (`return []`) in contradiction detection and cleanup operations are intentional sentinels representing correct behavior (empty pairs → no verdicts, LLM error → graceful degradation, absent worktrees → no orphans) and must be justified with comments explaining why they are correct, not bugs. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 
 ## Patterns
 
@@ -806,6 +811,65 @@
 - Integration smoke tests (9.1-9.5) for overlap detection, scope checking, prompt building, stub validation, and session classification have been completed and marked as passing in the task specification. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.90)_
 - Smoke tests must not mock core detection and validation functions (overlap_detector, preflight_checker, stub_validator, session_classifier); they require real implementations to verify end-to-end functionality. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.90)_
 - Task group 9 smoke tests verify full execution paths: Path 1 (overlap detection), Path 2 (pre-flight skip), Path 3 (reduced scope prompt), Path 4 (stub enforcement), and Path 5-6 (session classification with telemetry). _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.90)_
+- Smoke tests should exercise full execution paths without mocking the internal components named in those paths, ensuring end-to-end validation of the subsystem. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Overlap detection should classify overlaps as WARNING when a dependency exists between overlapping task groups, but as ERROR when no dependency exists. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Pre-flight scope checking should classify task groups as 'all-implemented' when all deliverables are already fully implemented, enabling pre-flight-skip optimization. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Prompt building should filter deliverables based on scope results, separating pending work items into a 'Work Items' section and already-implemented functions into an 'Already Implemented' section. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Test-writing archetypes with partial scope should include a stub directive (<!-- SCOPE_GUARD:STUB_ONLY -->) in the generated prompt to enforce stub-only implementations. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Session classification should detect stub violations when test-writing sessions produce full implementations instead of stubs, and record this as stub_violation=True in telemetry. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Zero-commit sessions with normal (success) exit status should be classified as NO_OP, while zero-commit sessions with error/timeout exit status should be classified as FAILURE. _(spec: 89_simplify_routing, confidence: 0.90)_
+- DuckDB telemetry tables should store distinct session outcomes and scope check results with proper timestamp and metric tracking for analysis. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When implementing a spec-driven task, create comprehensive failing tests first that cover all spec entries (including regular cases, edge cases marked E, and potential issues marked P) before implementing the actual functionality. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When simplifying a routing system, create comprehensive spec tests first that explicitly verify removed modules raise ImportError and that archetype defaults are used for ladder creation. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Integration smoke tests should verify that dispatch paths work without importing removed modules by checking sys.modules before and after execution. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When removing a prediction pipeline, verify removal by testing that importlib.import_module() raises ImportError for each deleted module path. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Use parametrized tests to verify properties hold across all archetype registry entries and all removed module paths to avoid gaps in coverage. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When archetype defaults are introduced as a replacement for a prediction system, implement fallback logic (e.g., unknown archetypes default to 'coder') and test it explicitly. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When removing DuckDB persistence functions from a routing module, verify removal by checking that function names are not present in the source and that INSERT/SELECT statements are gone. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Escalation ladder behavior (tier ceiling, retry limits, escalation sequence) should be preserved through refactoring and verified with property-based tests across multiple retry/tier configurations. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Use inspect.signature() to verify that refactored constructors no longer accept deprecated parameters (e.g., routing_pipeline). _(spec: 89_simplify_routing, confidence: 0.90)_
+- When removing config fields, test both that old fields are absent and that essential fields are retained to catch incomplete removals. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When gutting modules to remove functionality (e.g., persistence layer), retain essential dataclasses that serve as cross-module contracts rather than deleting them entirely, to preserve type safety and API boundaries. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When simplifying module APIs by removing features, systematically identify and remove all call sites of deprecated functions, not just the function definitions themselves. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When removing optional parameters or pipeline stages from core classes, update all test files that reference those parameters to prevent test failures during refactoring. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When removing prediction-only fields from a config class, ensure to remove both the field definitions and their associated validators to avoid orphaned validation logic. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Deleting multiple related test files requires updating conftest.py to remove fixtures that were only used by those tests, preventing unused fixture warnings or import errors. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Spec archives are organized by directory (e.g., .specs/archive/30_adaptive_model_routing/, .specs/archive/57_archetype_model_tiers/), and bulk updates should be applied consistently across all files in related archive directories. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Task group 6 (Wiring verification) for spec 89_simplify_routing is now complete, with all execution paths traced end-to-end, return values verified, smoke tests passing, and dead-code audit finished. _(spec: 89_simplify_routing, confidence: 0.90)_
+- The memory.md file accumulated 1131+ lines of architectural decisions and gotchas across multiple specs (59-88), but was cleared during spec 89, suggesting that memory should be periodically reset between major spec iterations rather than grown indefinitely. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Task checkpoint completion requires end-to-end wiring verification: tracing every execution path from design.md, verifying return value propagation, running integration smoke tests, and conducting a stub/dead-code audit to ensure all code paths are live with no unjustified stubs. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Comprehensive stub/dead-code audits should grep for common patterns like removed function names, return [], pass statements, and NotImplementedError to ensure no incomplete implementations remain in touched files. _(spec: 89_simplify_routing, confidence: 0.90)_
+- End-to-end wiring verification should trace every execution path from design documentation and verify that return values propagate correctly through the call chain, with particular attention to data structures like ladders being stored and read by downstream consumers. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- After refactoring modules, perform a systematic dead-code audit by grepping for removed function and module names across the codebase to ensure no orphaned imports or calls remain; each hit must be resolved or explicitly justified. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Integration smoke tests should be run as a gating criterion for wiring changes to catch end-to-end breakage before full test suite execution. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- When writing failing spec tests before implementation, create stub modules with NotImplementedError to allow imports to resolve and prevent import errors during test discovery. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Fact lifecycle management requires three distinct phases: embedding-based deduplication, LLM-powered contradiction detection, and age-based decay cleanup with auto-supersession. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Contradiction detection should only process fact pairs that exceed a similarity threshold; dissimilar pairs are filtered before LLM evaluation to reduce API calls. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Confidence values in the database are immutable; decay effects are computed dynamically as effective_confidence = stored_confidence × 0.5^(age_days / half_life_days). _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Decay cleanup only executes when the number of active facts exceeds a configured threshold (cleanup_fact_threshold), preventing unnecessary operations on small knowledge bases. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Facts below a decay floor threshold (default 0.1) are automatically self-superseded rather than deleted, preserving audit history. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- LLM-powered contradiction detection must gracefully degrade on API failures, leaving facts unchanged rather than cascading errors. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Fact pairs for contradiction detection are batched in groups of at most 10 to manage API request sizes and cost. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Deduplication runs before contradiction detection in the harvest pipeline; facts superseded by dedup are never passed to the LLM. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- The superseded_by column tracks which fact replaced another, enabling both versioning and audit trails without hard deletes. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Embedding-based similarity for deduplication uses cosine similarity with a configurable threshold (default 0.92); lower thresholds can only increase superseded counts (monotonicity property). _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Running deduplication twice on the same dataset must produce identical results, validating idempotency of the lifecycle operations. _(spec: 90_fact_lifecycle, confidence: 0.60)_
+- Contradiction verdicts from the LLM must be explicitly confirmed before any supersession occurs; no contradiction = no change to existing facts. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Knowledge fact lifecycle management requires multiple configuration parameters: dedup threshold, decay half-life, decay floor, and cleanup threshold, with a cleanup_enabled flag to gate the cleanup operation. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Deduplication of facts should use cosine similarity queries to identify and merge duplicate knowledge entries. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Confidence decay for aging facts should use an exponential decay formula based on half-life, with a configurable floor value to prevent confidence from dropping below a minimum threshold. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Threshold gating should be used in cleanup operations to prevent spurious removals and ensure only facts meeting specific criteria are acted upon. _(spec: 90_fact_lifecycle, confidence: 0.60)_
+- When implementing batch processing methods that call external APIs, verify that required configuration fields and calling code are already implemented in previous task groups before writing the handler function. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Synchronous API wrappers like cached_messages_create_sync() should be used for batch processing implementations to handle multiple items in a single call and return parsed response objects. _(spec: 90_fact_lifecycle, confidence: 0.60)_
+- When wiring dedup and contradiction detection into a knowledge extraction pipeline, run dedup first on embedded facts, then contradiction detection on survivors, and propagate result counts to completion events. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Optional configuration and dispatcher parameters can be added to barrier sequence runners to enable conditional cleanup operations without breaking existing callers. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Return values from cleanup operations should be captured and logged rather than discarded, as they contain important diagnostic information (CleanupResult) needed for verification and debugging. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- End-to-end tracing of multiple execution paths through design documentation is an effective verification technique for ensuring return values propagate correctly through the system. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- When verifying wiring completeness, trace every execution path from the design document end-to-end by reading actual calling code (not assumptions), confirming no function in the chain is a stub, and verifying return values propagate correctly to callers. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Return values from lifecycle functions (DedupResult, ContradictionResult, CleanupResult) must be captured and used by callers; grep for all callers and verify none discard the result—fix pipeline code that was discarding CleanupResult by updating it to capture and log the counts. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- A stub/dead-code audit must search all touched files for `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, and `NotImplementedError`; each hit must be either justified with a comment or replaced with real implementation. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Integration smoke tests (TS-90-SMOKE-*) must use real components without stub bypasses to verify end-to-end functionality; all smoke tests passing confirms wiring is live and correct. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Wiring verification requires confirming all execution paths from design.md are live (traceable in code), all existing tests still pass, no unjustified stubs remain, and all smoke tests pass before marking the wiring group complete. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 
 ## Decisions
 
@@ -892,6 +956,7 @@
 - Git merge operations benefit from removing the --no-ff flag to allow fast-forward merges when appropriate, simplifying history without sacrificing merge tracking where needed. _(spec: 86_spec_generator, confidence: 0.60)_
 - A routing system simplification removes the prediction pipeline (feature extraction, statistical model, LLM assessment, DuckDB persistence) while retaining the escalation ladder mechanism, which demonstrates consistent real-world success (100% coder success after Sonnet-to-Opus escalation). _(spec: 88_fix_coder_archetype, confidence: 0.90)_
 - RoutingConfig should retain escalation-related fields (retries_before_escalation, max_timeout_retries, timeout_multiplier, timeout_ceiling_factor) while removing prediction-only fields (training_threshold, accuracy_threshold, retrain_interval). _(spec: 88_fix_coder_archetype, confidence: 0.90)_
+- Simplifying integration points by removing intermediate pipeline objects and replacing them with direct default instantiation reduces coupling and makes data flow more explicit. _(spec: 89_simplify_routing, confidence: 0.60)_
 
 ## Conventions
 
@@ -1075,6 +1140,17 @@
 - Stub and dead-code audits should systematically search touched files for patterns like 'return []', 'pass', 'NotImplementedError', and '# TODO' comments to verify no unjustified stubs remain. _(spec: 88_fix_coder_archetype, confidence: 0.90)_
 - A complete subsystem checkpoint should include schema initialization, outcome recording, data persistence, check recording, and aggregation reporting. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.60)_
 - Organize smoke tests into multiple test classes (5+ classes for medium complexity features) to logically group related test cases by functional area or execution path. _(spec: 87_coder_sessions_over_implement_scope_caus, confidence: 0.60)_
+- Organize routing tests into separate unit and integration test files, with unit tests covering detailed test cases and integration tests covering smoke/happy-path scenarios. _(spec: 89_simplify_routing, confidence: 0.60)_
+- Use consistent naming conventions for test identifiers (TS-XX-N for numbered tests, TS-XX-E for edge cases, TS-XX-P for potential issues, TS-XX-SMOKE for smoke tests) to maintain traceability between spec and test code. _(spec: 89_simplify_routing, confidence: 0.60)_
+- Superseded specification documents should have a SUPERSEDED deprecation banner in the first 5 lines to clearly communicate that they are archived. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Test regressions after deleting imported modules are predictable and must be fixed as part of the deletion task, not deferred or treated as separate issues. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Test files for removed modules should be deleted as part of the refactoring process to maintain test suite coherence and prevent orphaned tests. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When refactoring a config module to remove fields, systematically check all test files that reference the config to update or remove those references. _(spec: 89_simplify_routing, confidence: 0.90)_
+- When archiving superseded specs, add SUPERSEDED deprecation banners to the top of archived spec files to clearly mark their deprecated status. _(spec: 89_simplify_routing, confidence: 0.90)_
+- A full test suite must pass (make check) as a final verification gate before considering a feature complete, ensuring no regressions were introduced during implementation. _(spec: 89_simplify_routing, confidence: 0.90)_
+- Use systematic test naming conventions (TS-90-1, TS-90-E1, TS-90-P1) to organize related test groups by category (core, edge cases, property tests). _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Cleanup operations should emit audit events (e.g., FACT_CLEANUP) to maintain auditability of fact lifecycle changes. _(spec: 90_fact_lifecycle, confidence: 0.90)_
+- Replacing NotImplementedError stubs with real implementations requires ensuring all unit tests, property tests, and linter checks pass to validate correctness. _(spec: 90_fact_lifecycle, confidence: 0.90)_
 
 ## Anti-Patterns
 
