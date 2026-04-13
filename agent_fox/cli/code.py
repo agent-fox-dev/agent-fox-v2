@@ -200,13 +200,8 @@ def code_cmd(
         if json_mode:
             json_io.emit_line({"status": "interrupted"})
         sys.exit(130)
-    except AgentFoxError as exc:
-        logger.debug("Execution failed", exc_info=True)
-        if json_mode:
-            json_io.emit_error(str(exc))
-            sys.exit(1)
-        click.echo(f"Error: {exc}", err=True)
-        sys.exit(1)
+    except AgentFoxError:
+        raise
     except Exception as exc:
         # 16-REQ-1.E2: unexpected exceptions
         logger.debug("Unexpected error during execution", exc_info=True)

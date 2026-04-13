@@ -48,6 +48,32 @@ class FixProgressEvent:
 FixProgressCallback = Callable[[FixProgressEvent], None]
 
 
+def make_progress_emitter(
+    phase: str,
+    max_passes: int,
+    callback: FixProgressCallback | None,
+) -> Callable[..., None]:
+    """Create a progress-emit closure for the fix/improve loops.
+
+    Returns a callable ``emit(stage, pass_number, detail="")`` that is a
+    no-op when *callback* is None.
+    """
+
+    def _emit(stage: str, *, pass_number: int, detail: str = "") -> None:
+        if callback is not None:
+            callback(
+                FixProgressEvent(
+                    phase=phase,
+                    pass_number=pass_number,
+                    max_passes=max_passes,
+                    stage=stage,
+                    detail=detail,
+                )
+            )
+
+    return _emit
+
+
 @dataclass(frozen=True, slots=True)
 class CheckEvent:
     """Progress event from a single quality check execution.

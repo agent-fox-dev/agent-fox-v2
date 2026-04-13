@@ -26,7 +26,7 @@ from agent_fox.fix.analyzer import (
     query_oracle_context,
 )
 from agent_fox.fix.checks import CheckDescriptor
-from agent_fox.fix.events import FixProgressCallback, FixProgressEvent
+from agent_fox.fix.events import FixProgressCallback, make_progress_emitter
 
 logger = logging.getLogger(__name__)
 
@@ -304,18 +304,7 @@ async def run_improve_loop(
                   31-REQ-7.*, 31-REQ-8.*
     """
 
-    def _emit(stage: str, detail: str = "", *, pass_number: int) -> None:
-        """Helper: invoke progress_callback if set."""
-        if progress_callback is not None:
-            progress_callback(
-                FixProgressEvent(
-                    phase="improve",
-                    pass_number=pass_number,
-                    max_passes=max_passes,
-                    stage=stage,
-                    detail=detail,
-                )
-            )
+    _emit = make_progress_emitter("improve", max_passes, progress_callback)
 
     pass_results: list[ImprovePassResult] = []
     total_cost = 0.0

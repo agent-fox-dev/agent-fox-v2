@@ -96,19 +96,7 @@ def main(ctx: click.Context, verbose: bool, quiet: bool, json_mode: bool) -> Non
     effective_quiet = quiet or (json_mode and not verbose)
     setup_logging(verbose=verbose, quiet=effective_quiet)
 
-    try:
-        config = load_config(Path(".agent-fox/config.toml"))
-    except AgentFoxError as exc:
-        logger.debug("Config load failed", exc_info=True)
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    config = load_config(Path(".agent-fox/config.toml"))
 
     ctx.obj["config"] = config
     ctx.obj["verbose"] = verbose

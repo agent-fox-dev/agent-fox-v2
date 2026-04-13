@@ -102,38 +102,45 @@ class SinkDispatcher:
         """Add a sink to the dispatch list."""
         self._sinks.append(sink)
 
-    def _dispatch(self, method: str, *args: object) -> None:
-        """Call *method* on every sink, logging and swallowing failures."""
-        for sink in self._sinks:
-            try:
-                getattr(sink, method)(*args)
-            except Exception:
-                logger.warning(
-                    "Sink %s failed on %s",
-                    type(sink).__name__,
-                    method,
-                    exc_info=True,
-                )
-
     def record_session_outcome(self, outcome: SessionOutcome) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        self._dispatch("record_session_outcome", outcome)
+        for sink in self._sinks:
+            try:
+                sink.record_session_outcome(outcome)
+            except Exception:
+                logger.warning("Sink %s failed on record_session_outcome", type(sink).__name__, exc_info=True)
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        self._dispatch("record_tool_call", call)
+        for sink in self._sinks:
+            try:
+                sink.record_tool_call(call)
+            except Exception:
+                logger.warning("Sink %s failed on record_tool_call", type(sink).__name__, exc_info=True)
 
     def record_tool_error(self, error: ToolError) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        self._dispatch("record_tool_error", error)
+        for sink in self._sinks:
+            try:
+                sink.record_tool_error(error)
+            except Exception:
+                logger.warning("Sink %s failed on record_tool_error", type(sink).__name__, exc_info=True)
 
     def emit_audit_event(self, event: AuditEvent) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures.
 
         Requirement: 40-REQ-4.2, 40-REQ-4.E1
         """
-        self._dispatch("emit_audit_event", event)
+        for sink in self._sinks:
+            try:
+                sink.emit_audit_event(event)
+            except Exception:
+                logger.warning("Sink %s failed on emit_audit_event", type(sink).__name__, exc_info=True)
 
     def close(self) -> None:
         """Close all sinks."""
-        self._dispatch("close")
+        for sink in self._sinks:
+            try:
+                sink.close()
+            except Exception:
+                logger.warning("Sink %s failed on close", type(sink).__name__, exc_info=True)

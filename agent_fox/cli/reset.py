@@ -15,7 +15,6 @@ from pathlib import Path
 
 import click
 
-from agent_fox.core.errors import AgentFoxError
 from agent_fox.core.paths import AGENT_FOX_DIR
 from agent_fox.engine.reset import (
     HardResetResult,
@@ -280,24 +279,13 @@ def _handle_spec_reset(
             click.echo("Reset cancelled.")
             return
 
-    try:
-        result = reset_spec(
-            spec_name=spec_name,
-            state_path=state_path,
-            plan_path=plan_path,
-            worktrees_dir=worktrees_dir,
-            repo_path=project_root,
-        )
-    except AgentFoxError as exc:
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    result = reset_spec(
+        spec_name=spec_name,
+        state_path=state_path,
+        plan_path=plan_path,
+        worktrees_dir=worktrees_dir,
+        repo_path=project_root,
+    )
 
     if json_mode:
         from agent_fox.cli.json_io import emit
@@ -329,34 +317,23 @@ def _handle_hard_reset(
             click.echo("Hard reset cancelled.")
             return
 
-    try:
-        if task_id is not None:
-            result = hard_reset_task(
-                task_id=task_id,
-                state_path=state_path,
-                plan_path=plan_path,
-                worktrees_dir=worktrees_dir,
-                repo_path=project_root,
-                memory_path=memory_path,
-            )
-        else:
-            result = hard_reset_all(
-                state_path=state_path,
-                plan_path=plan_path,
-                worktrees_dir=worktrees_dir,
-                repo_path=project_root,
-                memory_path=memory_path,
-            )
-    except AgentFoxError as exc:
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    if task_id is not None:
+        result = hard_reset_task(
+            task_id=task_id,
+            state_path=state_path,
+            plan_path=plan_path,
+            worktrees_dir=worktrees_dir,
+            repo_path=project_root,
+            memory_path=memory_path,
+        )
+    else:
+        result = hard_reset_all(
+            state_path=state_path,
+            plan_path=plan_path,
+            worktrees_dir=worktrees_dir,
+            repo_path=project_root,
+            memory_path=memory_path,
+        )
 
     if json_mode:
         from agent_fox.cli.json_io import emit
@@ -376,24 +353,13 @@ def _handle_soft_task_reset(
     project_root: Path,
 ) -> None:
     """Handle single-task soft reset."""
-    try:
-        result = reset_task(
-            task_id=task_id,
-            state_path=state_path,
-            plan_path=plan_path,
-            worktrees_dir=worktrees_dir,
-            repo_path=project_root,
-        )
-    except AgentFoxError as exc:
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    result = reset_task(
+        task_id=task_id,
+        state_path=state_path,
+        plan_path=plan_path,
+        worktrees_dir=worktrees_dir,
+        repo_path=project_root,
+    )
 
     if json_mode:
         from agent_fox.cli.json_io import emit
@@ -413,23 +379,12 @@ def _handle_soft_reset_all(
     project_root: Path,
 ) -> None:
     """Handle full soft reset (existing behavior)."""
-    try:
-        from agent_fox.engine.reset import (
-            _RESETTABLE_STATUSES,
-            _load_state_or_raise,
-        )
+    from agent_fox.engine.reset import (
+        _RESETTABLE_STATUSES,
+        _load_state_or_raise,
+    )
 
-        state = _load_state_or_raise(state_path)
-    except AgentFoxError as exc:
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    state = _load_state_or_raise(state_path)
 
     # Find tasks that would be reset
     resettable = [(tid, status) for tid, status in state.node_states.items() if status in _RESETTABLE_STATUSES]
@@ -466,23 +421,12 @@ def _handle_soft_reset_all(
             click.echo("Reset cancelled.")
             return
 
-    try:
-        result = reset_all(
-            state_path=state_path,
-            plan_path=plan_path,
-            worktrees_dir=worktrees_dir,
-            repo_path=project_root,
-        )
-    except AgentFoxError as exc:
-        if json_mode:
-            from agent_fox.cli.json_io import emit_error
-
-            emit_error(str(exc))
-            ctx.exit(1)
-            return
-        click.echo(f"Error: {exc}", err=True)
-        ctx.exit(1)
-        return
+    result = reset_all(
+        state_path=state_path,
+        plan_path=plan_path,
+        worktrees_dir=worktrees_dir,
+        repo_path=project_root,
+    )
 
     if json_mode:
         from agent_fox.cli.json_io import emit

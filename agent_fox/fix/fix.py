@@ -17,7 +17,7 @@ from pathlib import Path
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.fix.checks import FailureRecord, detect_checks, run_checks
 from agent_fox.fix.clusterer import cluster_failures
-from agent_fox.fix.events import CheckCallback, FixProgressCallback, FixProgressEvent
+from agent_fox.fix.events import CheckCallback, FixProgressCallback, make_progress_emitter
 from agent_fox.fix.spec_gen import FixSpec, cleanup_fix_specs, generate_fix_spec
 
 # A session runner callable: takes a FixSpec and returns cost consumed.
@@ -94,23 +94,12 @@ async def run_fix_loop(
     pre-76 implementation (fully backward compatible).
     """
 
-    def _emit(stage: str, detail: str = "", *, pass_num: int) -> None:
-        """Helper: invoke progress_callback if set."""
-        if progress_callback is not None:
-            progress_callback(
-                FixProgressEvent(
-                    phase="repair",
-                    pass_number=pass_num,
-                    max_passes=max_passes,
-                    stage=stage,
-                    detail=detail,
-                )
-            )
-
     # Clamp max_passes to >= 1 (08-REQ-7.E1)
     if max_passes < 1:
         logger.warning("max_passes=%d is invalid, clamping to 1", max_passes)
         max_passes = 1
+
+    _emit = make_progress_emitter("repair", max_passes, progress_callback)
 
     # Step 1: Detect available quality checks (once)
     checks = detect_checks(project_root)
@@ -134,7 +123,7 @@ async def run_fix_loop(
             passes_completed = pass_num
 
             # Emit pass-start milestone (76-REQ-4.1)
-            _emit("checks_start", pass_num=pass_num)
+            _emit("checks_start", pass_number=pass_num)
 
             # Step 2a: Run all checks, collect failures
             failures, _passed = run_checks(checks, project_root, check_callback=check_callback)
@@ -145,7 +134,7 @@ async def run_fix_loop(
                 current_failures = []
                 current_clusters_count = 0
                 # Emit all-passed milestone (76-REQ-4.2)
-                _emit("all_passed", pass_num=pass_num)
+                _emit("all_passed", pass_number=pass_num)
                 break
 
             current_failures = failures
@@ -156,7 +145,7 @@ async def run_fix_loop(
             total_clusters_seen += len(clusters)
 
             # Emit clusters-found milestone (76-REQ-4.3)
-            _emit("clusters_found", detail=str(len(clusters)), pass_num=pass_num)
+            _emit("clusters_found", detail=str(len(clusters)), pass_number=pass_num)
 
             # Step 2d: Generate fix specs for each cluster
             # Step 2e: Run coding sessions for each fix spec
@@ -176,11 +165,11 @@ async def run_fix_loop(
 
                 if session_runner is not None:
                     # Emit session-start milestone (76-REQ-4.4)
-                    _emit("session_start", detail=cluster.label, pass_num=pass_num)
+                    _emit("session_start", detail=cluster.label, pass_number=pass_num)
                     try:
                         session_cost = await session_runner(fix_spec)
                         total_cost += session_cost
-                        _emit("session_done", pass_num=pass_num)
+                        _emit("session_done", pass_number=pass_num)
                     except Exception:
                         logger.warning(
                             "Fix session failed for '%s'",
@@ -188,7 +177,7 @@ async def run_fix_loop(
                             exc_info=True,
                         )
                         # Emit session-error milestone (76-REQ-4.E2)
-                        _emit("session_error", detail=cluster.label, pass_num=pass_num)
+                        _emit("session_error", detail=cluster.label, pass_number=pass_num)
                 sessions_consumed += 1
 
             # Clean up fix specs after each pass
@@ -197,7 +186,7 @@ async def run_fix_loop(
             if cost_limit_hit:
                 termination_reason = TerminationReason.COST_LIMIT
                 # Emit cost-limit milestone (76-REQ-4.E1)
-                _emit("cost_limit", pass_num=pass_num)
+                _emit("cost_limit", pass_number=pass_num)
                 break
 
         else:
@@ -208,7 +197,7 @@ async def run_fix_loop(
                 termination_reason = TerminationReason.ALL_FIXED
                 current_failures = []
                 current_clusters_count = 0
-                _emit("all_passed", pass_num=max_passes)
+                _emit("all_passed", pass_number=max_passes)
             else:
                 termination_reason = TerminationReason.MAX_PASSES
                 current_failures = final_failures

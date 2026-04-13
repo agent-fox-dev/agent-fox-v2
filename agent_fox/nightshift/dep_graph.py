@@ -7,6 +7,7 @@ Requirements: 71-REQ-4.1, 71-REQ-4.2, 71-REQ-4.3, 71-REQ-4.E1,
 from __future__ import annotations
 
 import logging
+from bisect import insort
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -79,21 +80,9 @@ def _kahn_sort(
             in_degree[succ] -= 1
             if in_degree[succ] == 0:
                 # Insert in sorted position to maintain order
-                _insert_sorted(ready, succ)
+                insort(ready, succ)
 
     return result
-
-
-def _insert_sorted(lst: list[int], val: int) -> None:
-    """Insert val into a sorted list maintaining sorted order."""
-    lo, hi = 0, len(lst)
-    while lo < hi:
-        mid = (lo + hi) // 2
-        if lst[mid] < val:
-            lo = mid + 1
-        else:
-            hi = mid
-    lst.insert(lo, val)
 
 
 def _break_all_cycles(
