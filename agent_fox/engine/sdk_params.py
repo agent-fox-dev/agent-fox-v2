@@ -57,39 +57,54 @@ def resolve_max_turns(config: AgentFoxConfig, archetype: str, *, mode: str | Non
     return effective.default_max_turns
 
 
-def resolve_thinking(config: AgentFoxConfig, archetype: str) -> dict | None:
+def resolve_thinking(config: AgentFoxConfig, archetype: str, *, mode: str | None = None) -> dict | None:
     """Resolve thinking configuration for the given archetype.
 
     Resolution order (highest to lowest priority):
-      1. archetypes.overrides.<name>.thinking_mode / thinking_budget (unified table)
-      2. archetypes.thinking.<name> (legacy dict)
-      3. Archetype registry default
+      1. archetypes.overrides.<name>.modes.<mode>.thinking_mode / thinking_budget (mode-level override)
+      2. archetypes.overrides.<name>.thinking_mode / thinking_budget (unified table)
+      3. archetypes.thinking.<name> (legacy dict)
+      4. Archetype registry default (via resolve_effective_config for mode)
     Returns None when mode is ``disabled``.
 
-    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1, 207-REQ-2
+    Requirements: 56-REQ-4.1, 56-REQ-4.2, 56-REQ-4.3, 56-REQ-5.1, 207-REQ-2,
+                  97-REQ-4.3, 97-REQ-3.3
     """
-    # 1. Unified per-archetype override table (highest priority)
+    from agent_fox.archetypes import resolve_effective_config
+
     override = config.archetypes.overrides.get(archetype)
+
+    # 1. Mode-level config override (highest priority)
+    if mode is not None and override is not None:
+        mode_cfg = override.modes.get(mode)
+        if mode_cfg is not None and mode_cfg.thinking_mode is not None:
+            if mode_cfg.thinking_mode == "disabled":
+                return None
+            budget = mode_cfg.thinking_budget if mode_cfg.thinking_budget is not None else 10000
+            return {"type": mode_cfg.thinking_mode, "budget_tokens": budget}
+
+    # 2. Unified per-archetype override table
     if override is not None and override.thinking_mode is not None:
         if override.thinking_mode == "disabled":
             return None
         budget = override.thinking_budget if override.thinking_budget is not None else 10000
         return {"type": override.thinking_mode, "budget_tokens": budget}
 
-    # 2. Legacy dict
+    # 3. Legacy dict
     configured = config.archetypes.thinking.get(archetype)
     if configured is not None:
         if configured.mode == "disabled":
             return None
         return {"type": configured.mode, "budget_tokens": configured.budget_tokens}
 
-    # 3. Registry default
+    # 4. Registry default (via mode-resolved effective config)
     entry = get_archetype(archetype)
-    if entry.default_thinking_mode == "disabled":
+    effective = resolve_effective_config(entry, mode)
+    if effective.default_thinking_mode == "disabled":
         return None
     return {
-        "type": entry.default_thinking_mode,
-        "budget_tokens": entry.default_thinking_budget,
+        "type": effective.default_thinking_mode,
+        "budget_tokens": effective.default_thinking_budget,
     }
 
 
@@ -127,12 +142,17 @@ def resolve_max_budget(config: AgentFoxConfig) -> float | None:
     return budget
 
 
-def clamp_instances(archetype: str, instances: int) -> int:
+def clamp_instances(archetype: str, instances: int, *, mode: str | None = None) -> int:
     """Clamp instance counts to valid ranges.
 
-    - Coder: always 1 (26-REQ-4.E1).
+    - Coder: always 1 regardless of mode (26-REQ-4.E1, 97-REQ-4.5).
     - Any archetype: max 5 (26-REQ-4.E2).
     - Minimum: 1.
+
+    The mode parameter is accepted for API consistency but does not affect
+    clamping behavior — coder is always clamped to 1 regardless of mode.
+
+    Requirements: 26-REQ-4.E1, 26-REQ-4.E2, 97-REQ-4.5
     """
     if archetype == "coder" and instances > 1:
         logger.warning(
@@ -196,6 +216,8 @@ def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | No
 def resolve_security_config(
     config: AgentFoxConfig,
     archetype: str,
+    *,
+    mode: str | None = None,
 ) -> SecurityConfig | None:
     """Resolve security config for the given archetype.
 
@@ -203,27 +225,43 @@ def resolve_security_config(
     or None to use the global default.
 
     Priority (highest to lowest):
-      1. archetypes.overrides.<name>.allowlist (unified table)
-      2. archetypes.allowlists.<name> (legacy dict)
-      3. Archetype registry default
-      4. None -> use global config.security
+      1. archetypes.overrides.<name>.modes.<mode>.allowlist (mode-level override)
+      2. archetypes.overrides.<name>.allowlist (unified table)
+      3. archetypes.allowlists.<name> (legacy dict)
+      4. Archetype registry default (via resolve_effective_config for mode)
+      5. None -> use global config.security
 
-    Requirements: 26-REQ-3.4, 26-REQ-6.4, 207-REQ-2
+    An empty list allowlist ([]) produces SecurityConfig(bash_allowlist=[]) which
+    blocks all Bash commands (97-REQ-5.2). A None allowlist means "inherit from
+    the next level down" (97-REQ-5.E1).
+
+    Requirements: 26-REQ-3.4, 26-REQ-6.4, 207-REQ-2, 97-REQ-4.4, 97-REQ-3.3,
+                  97-REQ-5.1, 97-REQ-5.2, 97-REQ-5.E1
     """
-    # 1. Unified per-archetype override table (highest priority)
+    from agent_fox.archetypes import resolve_effective_config
+
     override = config.archetypes.overrides.get(archetype)
+
+    # 1. Mode-level config override (highest priority)
+    if mode is not None and override is not None:
+        mode_cfg = override.modes.get(mode)
+        if mode_cfg is not None and mode_cfg.allowlist is not None:
+            return SecurityConfig(bash_allowlist=mode_cfg.allowlist)
+
+    # 2. Unified per-archetype override table
     if override and override.allowlist is not None:
         return SecurityConfig(bash_allowlist=override.allowlist)
 
-    # 2. Legacy dict override
+    # 3. Legacy dict override
     config_allowlist = config.archetypes.allowlists.get(archetype)
     if config_allowlist is not None:
         return SecurityConfig(bash_allowlist=config_allowlist)
 
-    # 3. Fall back to archetype registry default
+    # 4. Fall back to archetype registry default (via mode-resolved effective config)
     entry = get_archetype(archetype)
-    if entry.default_allowlist is not None:
-        return SecurityConfig(bash_allowlist=entry.default_allowlist)
+    effective = resolve_effective_config(entry, mode)
+    if effective.default_allowlist is not None:
+        return SecurityConfig(bash_allowlist=effective.default_allowlist)
 
     # None means use global config.security
     return None

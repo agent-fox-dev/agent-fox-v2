@@ -108,31 +108,31 @@ verifies end-to-end wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/graph/types.py agent_fox/core/config.py`
 
-- [ ] 4. Update SDK resolution and security for modes
-  - [ ] 4.1 Add `mode` parameter to `resolve_model_tier()`
+- [x] 4. Update SDK resolution and security for modes
+  - [x] 4.1 Add `mode` parameter to `resolve_model_tier()`
     - Add `*, mode: str | None = None` keyword argument
     - Implement 4-tier priority resolution (config mode > config arch > registry mode > registry base)
     - _Requirements: 97-REQ-4.1, 97-REQ-3.3_
 
-  - [ ] 4.2 Add `mode` parameter to `resolve_max_turns()` and `resolve_thinking()`
+  - [x] 4.2 Add `mode` parameter to `resolve_max_turns()` and `resolve_thinking()`
     - Same 4-tier priority pattern
     - _Requirements: 97-REQ-4.2, 97-REQ-4.3_
 
-  - [ ] 4.3 Add `mode` parameter to `resolve_security_config()`
+  - [x] 4.3 Add `mode` parameter to `resolve_security_config()`
     - Same 4-tier priority pattern
     - Empty allowlist produces SecurityConfig(bash_allowlist=[])
     - _Requirements: 97-REQ-4.4, 97-REQ-5.1, 97-REQ-5.2, 97-REQ-5.E1_
 
-  - [ ] 4.4 Update `clamp_instances()` to accept mode parameter
+  - [x] 4.4 Update `clamp_instances()` to accept mode parameter
     - Coder always clamped to 1 regardless of mode
     - _Requirements: 97-REQ-4.5_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/engine/test_sdk_params_modes.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "priority or allowlist"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/sdk_params.py agent_fox/hooks/security.py`
-    - [ ] Requirements 97-REQ-4.1 through 97-REQ-5.E1 met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/engine/test_sdk_params_modes.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "priority or allowlist"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/sdk_params.py agent_fox/hooks/security.py`
+    - [x] Requirements 97-REQ-4.1 through 97-REQ-5.E1 met
 
 - [ ] 5. Wire mode through session lifecycle
   - [ ] 5.1 Add `mode` parameter to `NodeSessionRunner.__init__()`

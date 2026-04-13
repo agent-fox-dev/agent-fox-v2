@@ -202,6 +202,7 @@ class NodeSessionRunner:
         config: AgentFoxConfig,
         *,
         archetype: str = "coder",
+        mode: str | None = None,
         instances: int = 1,
         hook_config: HookConfig | None = None,
         no_hooks: bool = False,
@@ -218,7 +219,8 @@ class NodeSessionRunner:
         self._node_id = node_id
         self._config = config
         self._archetype = archetype
-        self._instances = clamp_instances(archetype, instances)
+        self._mode = mode  # 97-REQ-5.3: mode for per-mode configuration resolution
+        self._instances = clamp_instances(archetype, instances, mode=mode)
         self._hook_config = hook_config
         self._no_hooks = no_hooks
         self._sink = sink_dispatcher
@@ -236,12 +238,14 @@ class NodeSessionRunner:
         self._task_group = parsed.group_number
 
         # 30-REQ-7.2: Use assessed tier from adaptive routing if provided,
-        # otherwise fall back to static resolution (26-REQ-4.4).
+        # otherwise fall back to static resolution (26-REQ-4.4, 97-REQ-5.3).
         if assessed_tier is not None:
             self._resolved_model_id = resolve_model(assessed_tier.value).model_id
         else:
-            self._resolved_model_id = resolve_model(resolve_model_tier(self._config, self._archetype)).model_id
-        self._resolved_security = resolve_security_config(self._config, self._archetype)
+            self._resolved_model_id = resolve_model(
+                resolve_model_tier(self._config, self._archetype, mode=self._mode)
+            ).model_id
+        self._resolved_security = resolve_security_config(self._config, self._archetype, mode=self._mode)
 
     def _build_prompts(
         self,
