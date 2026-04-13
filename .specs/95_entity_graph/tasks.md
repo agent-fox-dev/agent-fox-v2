@@ -74,21 +74,21 @@ builder.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Schema, data models, and entity store
-  - [ ] 2.1 Create `agent_fox/knowledge/entities.py`
+- [x] 2. Schema, data models, and entity store
+  - [x] 2.1 Create `agent_fox/knowledge/entities.py`
     - Define `EntityType(StrEnum)`, `EdgeType(StrEnum)`, `Entity`,
       `EntityEdge`, `AnalysisResult`, `LinkResult` dataclasses
     - Define `normalize_path(path, repo_root=None)` utility function
     - _Requirements: 95-REQ-1.2, 95-REQ-1.3, 95-REQ-1.4, 95-REQ-2.2_
 
-  - [ ] 2.2 Add migration v8 to `agent_fox/knowledge/migrations.py`
+  - [x] 2.2 Add migration v8 to `agent_fox/knowledge/migrations.py`
     - Create `entity_graph`, `entity_edges`, `fact_entities` tables
     - Create indexes: natural key, deleted_at, entity_path, edge source/target,
       fact_entity entity
     - Register migration in the `MIGRATIONS` list
     - _Requirements: 95-REQ-1.1, 95-REQ-2.1, 95-REQ-3.1_
 
-  - [ ] 2.3 Create `agent_fox/knowledge/entity_store.py`
+  - [x] 2.3 Create `agent_fox/knowledge/entity_store.py`
     - Implement `upsert_entities()`: UUID assignment, natural key dedup,
       soft-delete restoration
     - Implement `upsert_edges()`: referential integrity check, self-edge
@@ -104,16 +104,16 @@ builder.
       95-REQ-2.E1, 95-REQ-3.2, 95-REQ-3.3, 95-REQ-3.E1, 95-REQ-7.1,
       95-REQ-7.2, 95-REQ-7.E1, 95-REQ-7.E2_
 
-  - [ ] 2.4 Add `tree-sitter` and `tree-sitter-python` to project dependencies
+  - [x] 2.4 Add `tree-sitter` and `tree-sitter-python` to project dependencies
     - Update `pyproject.toml` dependencies
     - Run `uv sync --group dev`
     - _Requirements: (infrastructure for 95-REQ-4.*)_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_entity_store.py -k "schema or uuid or path_norm or entity_type or edge_table or relationship or referential or dedup or self_ref or soft_del or gc or fact_entity"`
-    - [ ] Property tests P1, P2, P5, P6 pass: `uv run pytest -q tests/property/knowledge/test_entity_graph_props.py -k "normalization or idempotency or integrity or cascade"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_entity_store.py -k "schema or uuid or path_norm or entity_type or edge_table or relationship or referential or dedup or self_ref or soft_del or gc or fact_entity"`
+    - [x] Property tests P1, P2, P5, P6 pass: `uv run pytest -q tests/property/knowledge/test_entity_graph_props.py -k "normalization or idempotency or integrity or cascade"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
     - [ ] Requirements 95-REQ-1.*, 95-REQ-2.*, 95-REQ-3.*, 95-REQ-7.* acceptance criteria met
 
 - [ ] 3. Tree-sitter static analysis

@@ -277,6 +277,52 @@ def _migrate_v7(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE review_findings ADD COLUMN IF NOT EXISTS category TEXT")
 
 
+def _migrate_v8(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add entity_graph, entity_edges, and fact_entities tables.
+
+    FK constraints on entity_edges and fact_entities are intentionally omitted
+    due to a DuckDB 1.5.x bug where FK checks incorrectly block UPDATE statements
+    on referenced tables even when the referenced column value does not change.
+    Referential integrity is enforced at the application layer in entity_store.py.
+    See docs/errata/95_entity_graph.md for details.
+
+    Requirements: 95-REQ-1.1, 95-REQ-2.1, 95-REQ-3.1
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS entity_graph (
+            id           UUID PRIMARY KEY,
+            entity_type  VARCHAR NOT NULL,
+            entity_name  VARCHAR NOT NULL,
+            entity_path  VARCHAR NOT NULL,
+            created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            deleted_at   TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS entity_edges (
+            source_id    UUID NOT NULL,
+            target_id    UUID NOT NULL,
+            relationship VARCHAR NOT NULL,
+            PRIMARY KEY (source_id, target_id, relationship)
+        );
+
+        CREATE TABLE IF NOT EXISTS fact_entities (
+            fact_id      UUID NOT NULL,
+            entity_id    UUID NOT NULL,
+            PRIMARY KEY (fact_id, entity_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_entity_natural_key
+            ON entity_graph(entity_type, entity_path, entity_name);
+        CREATE INDEX IF NOT EXISTS idx_entity_deleted
+            ON entity_graph(deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_entity_path
+            ON entity_graph(entity_path);
+        CREATE INDEX IF NOT EXISTS idx_edge_source ON entity_edges(source_id);
+        CREATE INDEX IF NOT EXISTS idx_edge_target ON entity_edges(target_id);
+        CREATE INDEX IF NOT EXISTS idx_fact_entity_entity ON fact_entities(entity_id);
+    """)
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -308,6 +354,11 @@ MIGRATIONS: list[Migration] = [
         version=7,
         description="add category column to review_findings for security classification",
         apply=_migrate_v7,
+    ),
+    Migration(
+        version=8,
+        description="add entity_graph, entity_edges, and fact_entities tables",
+        apply=_migrate_v8,
     ),
 ]
 

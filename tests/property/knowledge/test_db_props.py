@@ -31,6 +31,10 @@ EXPECTED_TABLES = {
     "execution_outcomes",
     "drift_findings",
     "audit_events",
+    # Added by migration v8 (spec 95: entity graph)
+    "entity_graph",
+    "entity_edges",
+    "fact_entities",
 }
 
 
@@ -65,8 +69,8 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            # v1..v7 (review, routing, drift, confidence, audit, security category)
-            assert version_count[0] == 7
+            # v1..v8 (review, routing, drift, confidence, audit, security category, entity graph)
+            assert version_count[0] == 8
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

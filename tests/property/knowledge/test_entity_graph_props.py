@@ -338,7 +338,7 @@ def test_referential_integrity(
         "SELECT source_id, target_id FROM entity_edges"
     ).fetchall()
     existing_entity_ids = {
-        r[0]
+        str(r[0])
         for r in entity_conn.execute("SELECT id FROM entity_graph").fetchall()
     }
     for src_id, tgt_id in edges:
@@ -348,7 +348,7 @@ def test_referential_integrity(
     # Verify all fact-entity links reference existing entities and facts
     links = entity_conn.execute("SELECT fact_id, entity_id FROM fact_entities").fetchall()
     existing_fact_ids = {
-        r[0]
+        str(r[0])
         for r in entity_conn.execute("SELECT id FROM memory_facts").fetchall()
     }
     for fid, eid in links:
