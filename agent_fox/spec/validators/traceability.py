@@ -374,9 +374,7 @@ def check_untraced_edge_cases(
         if heading:
             section = heading.group(1).strip()
             normalized = _normalize_heading(section)
-            in_edge_section = (
-                "edge" in normalized and "case" in normalized and "test" in normalized
-            )
+            in_edge_section = "edge" in normalized and "case" in normalized and "test" in normalized
             continue
         if in_edge_section:
             edge_section_text += line + "\n"
