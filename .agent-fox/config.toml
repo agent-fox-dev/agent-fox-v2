@@ -18,26 +18,18 @@ coding = "STANDARD"
 [archetypes]
 ## Enable coder archetype (default: true)
 coder = true
-## Enable skeptic archetype (default: true)
-skeptic = true
+## Enable reviewer archetype (replaces skeptic, oracle, auditor; default: true)
+reviewer = true
 ## Enable verifier archetype (default: true)
 verifier = true
-## Enable oracle archetype (default: true)
-oracle = true
-## Enable auditor archetype (default: true)
-auditor = true
 
 [archetypes.instances]
-## Number of verifier instances (1-5, default: 2)
-verifier = 2
+## Number of verifier instances (max 1, default: 1)
+verifier = 1
 
 [archetypes.thinking.coder]
 mode = "adaptive"
 budget_tokens = 32000
-
-[archetypes.thinking.skeptic]
-mode = "enabled"
-budget_tokens = 16000
 
 [archetypes.thinking.verifier]
 mode = "adaptive"

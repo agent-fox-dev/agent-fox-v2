@@ -280,14 +280,10 @@ class TestOldEntriesRemoved:
 
     def test_old_fallback(self) -> None:
         """TS-98-15 (7.2): get_archetype('skeptic') logs warning and falls back to coder."""
+        import io
         import logging
 
         from agent_fox.archetypes import get_archetype
-
-        with pytest.warns(None) as record:  # noqa: F841
-            pass  # just capture context
-
-        import io
 
         log_stream = io.StringIO()
         handler = logging.StreamHandler(log_stream)

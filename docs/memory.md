@@ -1,3 +1,5 @@
 # Agent-Fox Memory
 
-_No facts have been recorded yet._
+## Decisions
+
+- Test fact content _(spec: spec_a, confidence: 0.80)_

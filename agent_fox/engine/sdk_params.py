@@ -146,17 +146,24 @@ def clamp_instances(archetype: str, instances: int, *, mode: str | None = None) 
     """Clamp instance counts to valid ranges.
 
     - Coder: always 1 regardless of mode (26-REQ-4.E1, 97-REQ-4.5).
+    - Verifier: always 1 (single-instance, 98-REQ-6.2).
     - Any archetype: max 5 (26-REQ-4.E2).
     - Minimum: 1.
 
     The mode parameter is accepted for API consistency but does not affect
     clamping behavior — coder is always clamped to 1 regardless of mode.
 
-    Requirements: 26-REQ-4.E1, 26-REQ-4.E2, 97-REQ-4.5
+    Requirements: 26-REQ-4.E1, 26-REQ-4.E2, 97-REQ-4.5, 98-REQ-6.2
     """
     if archetype == "coder" and instances > 1:
         logger.warning(
             "Coder archetype does not support multi-instance; clamped instances from %d to 1",
+            instances,
+        )
+        return 1
+    if archetype == "verifier" and instances != 1:
+        logger.warning(
+            "Verifier archetype is always single-instance; clamped instances from %d to 1",
             instances,
         )
         return 1

@@ -387,3 +387,62 @@ def converge_auditor(
         overall_verdict=overall,
         summary=merged_summary,
     )
+
+
+# ---------------------------------------------------------------------------
+# Reviewer convergence dispatch (spec 98)
+# Requirements: 98-REQ-5.1, 98-REQ-5.2, 98-REQ-5.3, 98-REQ-5.E1
+# ---------------------------------------------------------------------------
+
+
+def converge_reviewer(
+    results: list,
+    mode: str,
+    *,
+    block_threshold: int = 3,
+) -> Any:
+    """Dispatch convergence to the correct algorithm by reviewer mode.
+
+    Routing:
+    - ``"pre-review"`` and ``"drift-review"`` → :func:`converge_skeptic`
+      (majority-gated blocking on ``list[list[Finding]]`` results)
+    - ``"audit-review"`` → :func:`converge_auditor`
+      (union / worst-verdict-wins on ``list[AuditResult]`` results)
+    - ``"fix-review"`` → single-instance passthrough (raises if multiple)
+    - Any other mode → :exc:`ValueError`
+
+    Args:
+        results: Instance results.  Type depends on mode:
+            - pre-review / drift-review: ``list[list[Finding]]``
+            - audit-review: ``list[AuditResult]``
+            - fix-review: single-element ``list``
+        mode: Reviewer mode string (``"pre-review"``, ``"drift-review"``,
+            ``"audit-review"``, or ``"fix-review"``).
+        block_threshold: Passed to :func:`converge_skeptic` for pre/drift modes.
+
+    Returns:
+        - For pre-review / drift-review: ``tuple[list[Finding], bool]``
+        - For audit-review: :class:`AuditResult`
+        - For fix-review: the single element in *results*
+
+    Raises:
+        ValueError: If *mode* is unknown or None.
+
+    Requirements: 98-REQ-5.1, 98-REQ-5.2, 98-REQ-5.3, 98-REQ-5.E1
+    """
+    if mode in ("pre-review", "drift-review"):
+        return converge_skeptic(results, block_threshold=block_threshold)
+    elif mode == "audit-review":
+        return converge_auditor(results)
+    elif mode == "fix-review":
+        if len(results) != 1:
+            raise ValueError(
+                f"fix-review mode does not support multi-instance convergence; "
+                f"expected 1 result, got {len(results)}"
+            )
+        return results[0]
+    else:
+        raise ValueError(
+            f"Unknown reviewer mode: {mode!r}. "
+            f"Valid modes are: 'pre-review', 'drift-review', 'audit-review', 'fix-review'."
+        )

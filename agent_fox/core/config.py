@@ -364,16 +364,26 @@ PerArchetypeConfig.model_rebuild()
 class ArchetypeInstancesConfig(BaseModel):
     """Per-archetype instance count configuration.
 
-    Requirements: 26-REQ-6.2, 46-REQ-2.2
+    Requirements: 26-REQ-6.2, 46-REQ-2.2, 98-REQ-8.3
     """
 
     model_config = ConfigDict(extra="ignore")
 
-    skeptic: int = Field(default=1, description="Number of skeptic instances")
-    verifier: int = Field(default=2, description="Number of verifier instances")
-    auditor: int = Field(default=1, description="Number of auditor instances")
+    reviewer: int = Field(default=1, description="Number of reviewer instances (replaces skeptic+auditor)")
+    verifier: int = Field(default=1, description="Number of verifier instances (max clamped to 1)")
 
-    clamp_instances = _clamped_validator("skeptic", "verifier", "auditor", ge=1, le=5)
+    clamp_reviewer = _clamped_validator("reviewer", ge=1, le=5)
+
+    @field_validator("verifier")
+    @classmethod
+    def clamp_verifier_to_one(cls, v: int) -> int:
+        """Verifier is always single-instance (98-REQ-6.2)."""
+        if v != 1:
+            logger.warning(
+                "verifier instances clamped from %d to 1 (maximum is 1)",
+                v,
+            )
+        return 1
 
 
 class SkepticConfig(BaseModel):
@@ -423,36 +433,58 @@ class AuditorConfig(BaseModel):
     clamp_max_retries = _clamped_validator("max_retries", ge=0, cast=int)
 
 
-class ArchetypesConfig(BaseModel):
-    """Archetype enable/disable toggles and per-archetype configuration.
+class ReviewerConfig(BaseModel):
+    """Reviewer-specific configuration, replacing SkepticConfig + OracleSettings + AuditorConfig.
 
-    Requirements: 26-REQ-6.1 through 26-REQ-6.5, 26-REQ-6.E1, 46-REQ-2.1
+    Contains mode-specific settings keyed by mode name concept, stored as flat fields.
+
+    Requirements: 98-REQ-8.2
     """
 
     model_config = ConfigDict(extra="ignore")
 
+    pre_review_block_threshold: int = Field(
+        default=3,
+        description="Finding count to block merge for pre-review mode",
+    )
+    drift_review_block_threshold: int | None = Field(
+        default=None,
+        description="Drift count to block for drift-review mode (None = advisory only)",
+    )
+    audit_min_ts_entries: int = Field(
+        default=5,
+        description="Minimum TS entries to trigger audit-review injection",
+    )
+    audit_max_retries: int = Field(
+        default=2,
+        description="Maximum audit-review/coder retry iterations",
+    )
+
+    clamp_pre_review = _clamped_validator("pre_review_block_threshold", ge=0)
+    clamp_audit_min_ts = _clamped_validator("audit_min_ts_entries", ge=1, cast=int)
+    clamp_audit_retries = _clamped_validator("audit_max_retries", ge=0, cast=int)
+
+
+class ArchetypesConfig(BaseModel):
+    """Archetype enable/disable toggles and per-archetype configuration.
+
+    Requirements: 26-REQ-6.1 through 26-REQ-6.5, 26-REQ-6.E1, 46-REQ-2.1,
+                  98-REQ-8.1, 98-REQ-8.2, 98-REQ-8.3, 98-REQ-8.E1
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     coder: bool = Field(default=True, description="Enable coder archetype")
-    skeptic: bool = Field(default=True, description="Enable skeptic archetype")
+    reviewer: bool = Field(default=True, description="Enable reviewer archetype (replaces skeptic, oracle, auditor)")
     verifier: bool = Field(default=True, description="Enable verifier archetype")
-    oracle: bool = Field(default=True, description="Enable oracle archetype")
-    auditor: bool = Field(default=True, description="Enable auditor archetype")
 
     instances: ArchetypeInstancesConfig = Field(
         default_factory=ArchetypeInstancesConfig,
         description="Per-archetype instance counts",
     )
-    skeptic_config: SkepticConfig = Field(
-        default_factory=SkepticConfig,
-        alias="skeptic_settings",
-        description="Skeptic-specific configuration",
-    )
-    oracle_settings: OracleSettings = Field(
-        default_factory=OracleSettings,
-        description="Oracle-specific configuration",
-    )
-    auditor_config: AuditorConfig = Field(
-        default_factory=AuditorConfig,
-        description="Auditor-specific configuration",
+    reviewer_config: ReviewerConfig = Field(
+        default_factory=ReviewerConfig,
+        description="Reviewer-specific configuration (replaces skeptic_config, oracle_settings, auditor_config)",
     )
     models: dict[str, str] = Field(default_factory=dict, description="Per-archetype model overrides")
     allowlists: dict[str, list[str]] = Field(default_factory=dict, description="Per-archetype command allowlists")
@@ -491,6 +523,39 @@ class ArchetypesConfig(BaseModel):
             if turns < 0:
                 raise ValueError(f"max_turns for '{archetype}' must be >= 0, got {turns}")
         return v
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_old_archetype_keys(cls, data: Any) -> Any:
+        """Raise a validation error when old archetype config keys are used.
+
+        Requirements: 98-REQ-1.E1, 98-REQ-8.E1
+        """
+        if not isinstance(data, dict):
+            return data
+        old_keys = {
+            "skeptic": "reviewer (pre-review mode)",
+            "oracle": "reviewer (drift-review mode)",
+            "auditor": "reviewer (audit-review mode)",
+            "skeptic_config": "reviewer_config",
+            "skeptic_settings": "reviewer_config",
+            "oracle_settings": "reviewer_config",
+            "auditor_config": "reviewer_config",
+            "fix_reviewer": "reviewer (fix-review mode)",
+            "fix_coder": "coder (fix mode)",
+        }
+        found = [k for k in old_keys if k in data]
+        if found:
+            guidance = "; ".join(
+                f"'{k}' → use '{old_keys[k]}'" for k in found
+            )
+            raise ValueError(
+                f"Obsolete archetype config key(s) detected: {found!r}. "
+                f"Please migrate to the reviewer archetype with modes. "
+                f"Migration: {guidance}. "
+                f"See docs for the new reviewer config schema."
+            )
+        return data
 
 
 class ModelPricing(BaseModel):
