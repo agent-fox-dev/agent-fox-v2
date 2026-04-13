@@ -134,27 +134,27 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/core/config.py`
 
-- [ ] 5. Merge templates
-  - [ ] 5.1 Create `reviewer.md` template
+- [x] 5. Merge templates
+  - [x] 5.1 Create `reviewer.md` template
     - Shared review identity and rules section
     - Mode-specific sections for pre-review, drift-review, audit-review, fix-review
     - Consolidate content from skeptic.md, oracle.md, auditor.md, fix_reviewer.md
     - _Requirements: 98-REQ-3.1, 98-REQ-3.2_
 
-  - [ ] 5.2 Remove old template files
+  - [x] 5.2 Remove old template files
     - Remove skeptic.md, oracle.md, auditor.md, fix_reviewer.md
     - Keep fix_coding.md for coder:fix mode
     - _Requirements: 98-REQ-3.3_
 
-  - [ ] 5.3 Update prompt builder for mode-aware template loading
+  - [x] 5.3 Update prompt builder for mode-aware template loading
     - When archetype="reviewer", load reviewer.md
     - When archetype="coder" and mode="fix", load fix_coding.md
     - _Requirements: 98-REQ-3.2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/templates/test_reviewer_template.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/templates/test_reviewer_template.py`
+    - [-] All existing tests still pass: consolidation-expected failures deferred to task group 6 (tests referencing deleted template files: test_review_parse_resilience.py, test_skeptic.py, test_auditor.py, test_oracle/test_registry.py; ~20 new failures, 2 fixed)
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
 
 - [ ] 6. Checkpoint — Update existing tests
   - [ ] 6.1 Update existing archetype tests

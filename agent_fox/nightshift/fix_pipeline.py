@@ -367,7 +367,8 @@ class FixPipeline:
             context=context,
             task_group=0,
             spec_name=f"fix-issue-{spec.issue_number}",
-            archetype="fix_coder",
+            archetype="coder",
+            mode="fix",
         )
 
         # Build task prompt, injecting reviewer feedback on retry
