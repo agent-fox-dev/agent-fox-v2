@@ -185,17 +185,22 @@ Each phase builds on the previous one.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 96-REQ-7.* acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each of the 2 paths, verify the entry point actually calls the next
       function in the chain (read the calling code, do not assume)
     - Path 1: barrier.py -> run_consolidation -> each step -> DuckDB mutations
     - Path 2: engine.py finally block -> run_consolidation -> each step
     - Confirm no function in the chain is a stub
     - _Requirements: all_
+    - **Verified:** barrier.py lines 237-261 call run_consolidation after
+      lifecycle cleanup. engine.py lines 607-632 in finally block call
+      run_consolidation for remaining specs. All 6 pipeline steps have real
+      DuckDB mutations (no stubs). analyze_codebase and link_facts called from
+      _refresh_entity_graph and _link_unlinked_facts respectively.
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - Key return value chains:
       - `analyze_codebase()` -> `_refresh_entity_graph()` -> `ConsolidationResult.entity_refresh`
       - `link_facts()` -> `_link_unlinked_facts()` -> `ConsolidationResult.facts_linked`
@@ -205,21 +210,32 @@ Each phase builds on the previous one.
       - `_prune_redundant_chains()` -> `ConsolidationResult.pruning`
     - Grep for callers; confirm none discards the return
     - _Requirements: all_
+    - **Verified:** All 6 return values assigned in run_consolidation (lines
+      904-999) and included in ConsolidationResult. link_result.links_created
+      assigned to facts_linked (line 919). No callers discard returns.
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-96-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/knowledge/test_consolidation_smoke.py`
     - _Test Spec: TS-96-SMOKE-1, TS-96-SMOKE-2_
+    - **Verified:** 2 passed in 6.31s
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - **Verified:** Two `return []` hits found, both justified:
+      - barrier.py:47 — returns empty orphan list when worktrees dir missing
+        (correct guard per 51-REQ-2.E1)
+      - engine.py:1145 — returns empty predecessors list when _graph_sync is
+        None (correct guard for uninitialized state)
+      No `# TODO`, `# stub`, `NotImplementedError`, or `pass` stubs in any
+      consolidation-touched file.
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - Verify that `run_consolidation` is called from production code in both:
       (a) `engine/barrier.py` (sync barrier path)
       (b) `engine/engine.py` (end-of-run path)
@@ -227,13 +243,19 @@ Each phase builds on the previous one.
       called from `consolidation.py` (not just from tests)
     - Confirm no circular imports are introduced
     - _Requirements: all_
+    - **Verified:** run_consolidation imported and called in barrier.py (line
+      30 import, line 247 call). engine.py imports and calls it in finally
+      block (lines 609, 617). consolidation.py imports analyze_codebase
+      (line 28) and link_facts (line 27) at module level and calls them in
+      _refresh_entity_graph and _link_unlinked_facts. No circular imports
+      (Python import of all three modules succeeds without error).
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
