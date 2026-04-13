@@ -98,6 +98,9 @@ A session is not complete until:
 
 1. `make check` or `make test` passes (no regressions).
 2. Changes are committed with a clear conventional commit message.
+   - **Always include tracked state files** in the commit:
+     `.agent-fox/memory.jsonl`, `.agent-fox/state.jsonl`, and
+     `docs/memory.md`. These are git-tracked and must not be left dirty.
 3. Changes are merged into `develop` locally.
 4. `git status` shows a clean working tree.
 5. You provide a brief handoff note summarizing what was done and what remains.
