@@ -7,7 +7,8 @@ knowledge ingestion. Keeps engine.py thin.
 Requirements: 51-REQ-2.1, 51-REQ-2.2, 51-REQ-2.3, 51-REQ-2.E1,
               51-REQ-3.1, 51-REQ-3.2, 51-REQ-3.3, 51-REQ-3.E1,
               51-REQ-3.E2, 51-REQ-3.E3,
-              06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3
+              06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3,
+              96-REQ-7.1, 96-REQ-7.3
 """
 
 from __future__ import annotations
@@ -22,6 +23,13 @@ from agent_fox.workspace.git import run_git
 from agent_fox.workspace.merge_lock import MergeLock
 
 logger = logging.getLogger(__name__)
+
+# Module-level import so tests can patch agent_fox.engine.barrier.run_consolidation.
+# Falls back to None if the consolidation module is unavailable.
+try:
+    from agent_fox.knowledge.consolidation import run_consolidation
+except ImportError:  # pragma: no cover
+    run_consolidation = None  # type: ignore[assignment]
 
 
 def verify_worktrees(repo_root: Path) -> list[Path]:
@@ -117,6 +125,8 @@ async def run_sync_barrier_sequence(
     reload_config_fn: Callable[[], None] | None = None,
     knowledge_config: Any | None = None,
     sink_dispatcher: Any | None = None,
+    completed_specs_fn: Callable[[], set[str]] | None = None,
+    consolidated_specs: set[str] | None = None,
 ) -> None:
     """Execute the sync barrier sequence.
 
@@ -227,6 +237,35 @@ async def run_sync_barrier_sequence(
             )
         except Exception:
             logger.warning("Fact lifecycle cleanup failed at barrier", exc_info=True)
+
+    # 96-REQ-7.1, 96-REQ-7.3: Run consolidation pipeline for newly completed specs.
+    # Runs after lifecycle cleanup and before summary regeneration so that
+    # the exclusive barrier window provides write isolation.
+    if (
+        run_consolidation is not None
+        and knowledge_db_conn is not None
+        and completed_specs_fn is not None
+        and consolidated_specs is not None
+    ):
+        try:
+            all_completed = completed_specs_fn()
+            new_completed = all_completed - consolidated_specs
+            if new_completed:
+                consolidation_result = await run_consolidation(
+                    knowledge_db_conn,
+                    repo_root,
+                    new_completed,
+                    model="claude-3-5-haiku-20241022",
+                    sink_dispatcher=sink_dispatcher,
+                )
+                consolidated_specs.update(new_completed)
+                logger.info(
+                    "Consolidation complete at barrier: linked=%d errors=%s",
+                    consolidation_result.facts_linked,
+                    consolidation_result.errors,
+                )
+        except Exception:
+            logger.warning("Consolidation pipeline failed at barrier", exc_info=True)
 
     # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
     try:

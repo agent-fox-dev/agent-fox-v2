@@ -290,7 +290,11 @@ def test_git_verification_accuracy(
 
         if not is_deleted:
             (tmp_path / file_path).write_text("content")
-        # If deleted: file does not exist on disk
+        else:
+            # Explicitly remove the file if it exists from a previous Hypothesis
+            # example (entity_conn and tmp_path are reused across examples when
+            # suppress_health_check=[HealthCheck.function_scoped_fixture] is set).
+            (tmp_path / file_path).unlink(missing_ok=True)
 
     _verify_against_git(entity_conn, tmp_path, 0.5)
 

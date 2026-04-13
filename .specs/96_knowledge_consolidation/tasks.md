@@ -68,21 +68,21 @@ Each phase builds on the previous one.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Core consolidation module (deterministic steps)
-  - [ ] 2.1 Create `agent_fox/knowledge/consolidation.py` with data models
+- [x] 2. Core consolidation module (deterministic steps)
+  - [x] 2.1 Create `agent_fox/knowledge/consolidation.py` with data models
     - Define `CONSOLIDATION_STALE_SENTINEL` (uuid5)
     - Define `VerificationResult`, `MergeResult`, `PromotionResult`,
       `PruneResult`, `ConsolidationResult` dataclasses
     - _Requirements: 96-REQ-1.1, 96-REQ-3.4_
 
-  - [ ] 2.2 Implement pipeline skeleton (`run_consolidation`)
+  - [x] 2.2 Implement pipeline skeleton (`run_consolidation`)
     - Async entry point that calls each step in order
     - Wrap each step in try/except: log warning, record error name, continue
     - Emit `consolidation.complete` audit event on completion
     - Handle zero-facts early exit
     - _Requirements: 96-REQ-1.1, 96-REQ-1.2, 96-REQ-1.3, 96-REQ-1.E1_
 
-  - [ ] 2.3 Implement git verification step (`_verify_against_git`)
+  - [x] 2.3 Implement git verification step (`_verify_against_git`)
     - Query `fact_entities JOIN entity_graph` for active facts with file links
     - Check file existence on disk for each linked file
     - Run `git diff --numstat` for facts with commit_sha
@@ -94,7 +94,7 @@ Each phase builds on the previous one.
     - _Requirements: 96-REQ-3.1, 96-REQ-3.2, 96-REQ-3.3, 96-REQ-3.4,
       96-REQ-3.E1, 96-REQ-3.E2_
 
-  - [ ] 2.4 Implement entity graph integration helpers
+  - [x] 2.4 Implement entity graph integration helpers
     - `_refresh_entity_graph(conn, repo_root)`: call `analyze_codebase`,
       handle missing tables gracefully
     - `_link_unlinked_facts(conn, repo_root)`: query unlinked facts (LEFT JOIN
@@ -104,12 +104,12 @@ Each phase builds on the previous one.
     - _Requirements: 96-REQ-2.1, 96-REQ-2.2, 96-REQ-2.3, 96-REQ-1.E2,
       96-REQ-2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for deterministic steps pass: `uv run pytest -q tests/unit/knowledge/test_consolidation.py -k "pipeline or step_fail or audit or entity_refresh or unlinked or git_verify or supersede or halve or verification_result or no_facts or missing_tables or invalid_repo or no_links or no_commit_sha"`
-    - [ ] Property tests P1, P2, P6 pass: `uv run pytest -q tests/property/knowledge/test_consolidation_props.py -k "independence or git_accuracy or confidence"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 96-REQ-1.*, 96-REQ-2.*, 96-REQ-3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for deterministic steps pass: `uv run pytest -q tests/unit/knowledge/test_consolidation.py -k "pipeline or step_fail or audit or entity_refresh or unlinked or git_verify or supersede or halve or verification_result or no_facts or missing_tables or invalid_repo or no_links or no_commit_sha"`
+    - [x] Property tests P1, P2, P6 pass: `uv run pytest -q tests/property/knowledge/test_consolidation_props.py -k "independence or git_accuracy or confidence"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 96-REQ-1.*, 96-REQ-2.*, 96-REQ-3.* acceptance criteria met
 
 - [ ] 3. LLM-powered consolidation steps
   - [ ] 3.1 Implement cross-spec fact merging (`_merge_related_facts`)
