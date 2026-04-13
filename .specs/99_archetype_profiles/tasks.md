@@ -144,9 +144,9 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/`
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - Path 1: Prompt with project profile
     - Path 2: Prompt with default profile fallback
     - Path 3: Custom archetype session
@@ -154,34 +154,34 @@ wiring.
     - Confirm no stub functions in the chain
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - load_profile returns string consumed by build_system_prompt
     - init_profiles returns list of paths
     - get_archetype returns ArchetypeEntry used by session runner
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - TS-99-SMOKE-1: Prompt with project profile
     - TS-99-SMOKE-2: Custom archetype session
     - TS-99-SMOKE-3: Init then load
     - _Test Spec: TS-99-SMOKE-1 through TS-99-SMOKE-3_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search touched files for stubs and TODO markers
     - Verify old template loading code is removed or adapted
     - _Requirements: all_
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - Verify build_system_prompt is called with project_dir from session_lifecycle
     - Verify get_archetype accepts project_dir from callers
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 ## Traceability
 
