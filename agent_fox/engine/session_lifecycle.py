@@ -295,6 +295,7 @@ class NodeSessionRunner:
             spec_name=self._spec_name,
             archetype=self._archetype,
             mode=self._mode,
+            project_dir=repo_root,
         )
         task_prompt = build_task_prompt(
             task_group=self._task_group,

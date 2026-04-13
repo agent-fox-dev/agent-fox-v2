@@ -4,7 +4,7 @@ Loads rich templates from agent_fox/_templates/prompts/ with placeholder
 interpolation and frontmatter stripping.
 
 Requirements: 15-REQ-1.1, 15-REQ-1.2, 15-REQ-1.E1, 15-REQ-2.1 through
-              15-REQ-5.E1
+              15-REQ-5.E1, 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from agent_fox.session.context import (  # noqa: F401
     render_verification_context,
     select_context_with_causal,
 )
+from agent_fox.session.profiles import load_profile
 from agent_fox.session.steering import (  # noqa: F401
     STEERING_PLACEHOLDER_SENTINEL,
     load_steering,
@@ -119,16 +120,25 @@ def _interpolate(template: str, variables: dict[str, str]) -> str:
 
 def build_system_prompt(
     context: str,
-    task_group: int,
-    spec_name: str,
+    task_group: int = 0,
+    spec_name: str = "",
     role: str | None = None,
     archetype: str | None = None,
     mode: str | None = None,
+    project_dir: Path | None = None,
 ) -> str:
     """Build the system prompt from templates and context.
 
+    When *project_dir* is provided, assembles a 3-layer prompt:
+      - Layer 1: Project context from ``CLAUDE.md`` (omitted if missing).
+      - Layer 2: Archetype profile loaded via :func:`load_profile`.
+      - Layer 3: Task context (the *context* argument).
+
+    When *project_dir* is ``None``, falls back to the legacy template-based
+    approach for backward compatibility.
+
     Args:
-        context: Assembled spec documents and memory facts.
+        context: Assembled spec documents and memory facts (task context).
         task_group: The target task group number.
         spec_name: The specification name (e.g. ``03_session_and_workspace``).
         role: **Deprecated.** Legacy prompt role (e.g. ``"coding"``).
@@ -137,6 +147,9 @@ def build_system_prompt(
             Takes precedence over *role* when both are provided.
         mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
             future per-mode template resolution (spec 98).
+        project_dir: Root of the project directory.  When provided, enables
+            3-layer prompt assembly (99-REQ-1.1).  Pass ``None`` to use the
+            legacy template-based assembly.
 
     Returns:
         Complete system prompt string.
@@ -144,10 +157,10 @@ def build_system_prompt(
     Raises:
         ValueError: If neither *role* nor *archetype* resolves to a valid
             archetype entry.
-        ConfigError: If a template file is missing.
+        ConfigError: If a template file is missing (legacy path only).
 
     Requirement: 15-REQ-2.2, 15-REQ-2.3, 15-REQ-2.4, 15-REQ-2.5, 15-REQ-2.E2,
-                 26-REQ-3.5
+                 26-REQ-3.5, 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
     """
     from agent_fox.session.archetypes import get_archetype
 
@@ -164,6 +177,27 @@ def build_system_prompt(
     else:
         resolved = "coder"
 
+    # --- 3-layer assembly when project_dir is provided ---
+    # Requirements: 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
+    if project_dir is not None:
+        layers: list[str] = []
+
+        # Layer 1: project context (CLAUDE.md) — omit if missing (99-REQ-1.E1)
+        claude_md = project_dir / "CLAUDE.md"
+        if claude_md.exists():
+            layers.append(claude_md.read_text(encoding="utf-8"))
+
+        # Layer 2: archetype profile — empty string if not found (99-REQ-1.E2)
+        profile = load_profile(resolved, project_dir=project_dir)
+        if profile:
+            layers.append(profile)
+
+        # Layer 3: task context
+        layers.append(f"## Context\n\n{context}\n")
+
+        return "\n\n".join(layers)
+
+    # --- Legacy template-based assembly (no project_dir) ---
     entry = get_archetype(resolved)
 
     # Derive number and specification from spec_name (e.g. "03_session")

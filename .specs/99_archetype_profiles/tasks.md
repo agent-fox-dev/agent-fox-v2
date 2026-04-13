@@ -96,8 +96,8 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/`
 
-- [ ] 4. Update prompt assembly to 3-layer
-  - [ ] 4.1 Update `build_system_prompt()` in `session/prompt.py`
+- [x] 4. Update prompt assembly to 3-layer
+  - [x] 4.1 Update `build_system_prompt()` in `session/prompt.py`
     - Accept `project_dir` parameter
     - Layer 1: Load CLAUDE.md (omit if missing)
     - Layer 2: Load profile via `load_profile()`
@@ -105,14 +105,14 @@ wiring.
     - Concatenate with clear delineation
     - _Requirements: 99-REQ-1.1, 99-REQ-1.2, 99-REQ-1.3, 99-REQ-1.E1, 99-REQ-1.E2_
 
-  - [ ] 4.2 Update `NodeSessionRunner._build_prompts()` to pass project_dir
+  - [x] 4.2 Update `NodeSessionRunner._build_prompts()` to pass project_dir
     - Thread repo_root as project_dir to build_system_prompt
     - _Requirements: 99-REQ-1.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/session/test_prompt_layers.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/`
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/session/test_prompt_layers.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/`
 
 - [ ] 5. Custom archetypes and init --profiles
   - [ ] 5.1 Add `CustomArchetypeConfig` to config schema
