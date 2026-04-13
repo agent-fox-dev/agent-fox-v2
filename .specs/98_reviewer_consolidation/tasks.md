@@ -80,39 +80,39 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q` (pre-existing failures noted; consolidation-expected failures deferred to task group 6)
     - [x] No linter warnings: `uv run ruff check agent_fox/archetypes.py`
 
-- [ ] 3. Update injection and convergence
-  - [ ] 3.1 Update `ArchetypeEntry` NamedTuple in injection.py with mode field
+- [x] 3. Update injection and convergence
+  - [x] 3.1 Update `ArchetypeEntry` NamedTuple in injection.py with mode field
     - Add `mode: str | None = None` field
     - _Requirements: 98-REQ-4.1_
 
-  - [ ] 3.2 Update `collect_enabled_auto_pre()` for reviewer modes
+  - [x] 3.2 Update `collect_enabled_auto_pre()` for reviewer modes
     - Check `archetypes.reviewer` toggle
     - Return entries with mode="pre-review" and mode="drift-review"
     - Apply drift-review gating (oracle gating)
     - _Requirements: 98-REQ-4.1, 98-REQ-4.4, 98-REQ-4.5_
 
-  - [ ] 3.3 Update `ensure_graph_archetypes()` for reviewer mode nodes
+  - [x] 3.3 Update `ensure_graph_archetypes()` for reviewer mode nodes
     - Create Node(archetype="reviewer", mode=...) for auto_pre and auto_mid
     - Update auditor injection to reviewer:audit-review
     - _Requirements: 98-REQ-4.2, 98-REQ-4.3_
 
-  - [ ] 3.4 Implement `converge_reviewer()` dispatch function
+  - [x] 3.4 Implement `converge_reviewer()` dispatch function
     - pre-review, drift-review → converge_skeptic
     - audit-review → converge_auditor
     - fix-review → passthrough (single instance)
     - Unknown mode → ValueError
     - _Requirements: 98-REQ-5.1, 98-REQ-5.2, 98-REQ-5.3, 98-REQ-5.E1_
 
-  - [ ] 3.5 Update verifier instance clamping
+  - [x] 3.5 Update verifier instance clamping
     - Clamp verifier to max 1 in clamp_instances()
     - Update ArchetypeInstancesConfig default from 2 to 1
     - _Requirements: 98-REQ-6.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/graph/test_injection_modes.py tests/unit/session/test_convergence_dispatch.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/graph/injection.py agent_fox/session/convergence.py agent_fox/engine/sdk_params.py`
-    - [ ] Requirements 98-REQ-4.* and 98-REQ-5.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/graph/test_injection_modes.py tests/unit/session/test_convergence_dispatch.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/graph/injection.py agent_fox/session/convergence.py agent_fox/engine/sdk_params.py`
+    - [x] Requirements 98-REQ-4.* and 98-REQ-5.* met
 
 - [ ] 4. Update config schema
   - [ ] 4.1 Create `ReviewerConfig` model
