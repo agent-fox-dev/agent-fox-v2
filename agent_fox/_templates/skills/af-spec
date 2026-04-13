@@ -15,8 +15,7 @@ specification package consisting of four artifacts:
 3. **Test Specification** (executable test contracts)
 4. **Implementation Tasks Document** (trackable checklist + verification plan)
 
-Follow the steps below **in order**. Do not skip steps. Do not proceed to the
-next step until the current step is fully complete and the user has confirmed.
+Follow the steps below **in order**. Do not skip steps.
 
 ## Project Steering Directives
 
@@ -63,9 +62,29 @@ of this step to post the finalized PRD back to GitHub.
   explicit.
 
 Present all issues to the user as a numbered list grouped by category. Ask the
-user to clarify each one and record their answers.
+user to clarify each one.
 
-Ask the user if they want:
+#### If the user delegates decisions to you
+
+If the user responds with something like "use your judgement", "your decision",
+"go on", "continue", or any other indication that they want you to decide rather
+than provide specific answers:
+
+1. **Think through every issue deeply.** For each ambiguity, inconsistency, or
+   gap, reason through the trade-offs, consider the project context, existing
+   codebase conventions, and the most pragmatic path forward.
+2. **Make a concrete decision for each issue.** Do not leave anything open or
+   mark it as "TBD".
+3. **Rewrite the PRD** incorporating all your decisions. Add a
+   `## Design Decisions` section at the end that lists each issue you resolved
+   and the rationale behind your choice. Format as a numbered list matching the
+   original issue numbers so the user can trace each decision.
+4. **Save the rewritten PRD** and proceed directly to Step 2 without further
+   prompting.
+
+#### If the user provides specific answers
+
+Record their answers and ask if they want:
 
 - you to add their answers to the PRD, in a `## Clarifications` section, or
 - you to improve the original PRD with their clarifications and rewrite the
@@ -98,7 +117,12 @@ Format the comment as:
 
 If posting fails, warn the user but do not block the rest of the workflow.
 
-**Do NOT proceed to Step 2 until all issues are resolved.**
+**Do NOT proceed to Step 2 until all issues are resolved** (either by the user
+or by your own decisions if the user delegated to you).
+
+After the PRD is finalized, proceed through Steps 2-6 without pausing for
+review. Generate all remaining spec documents in sequence. The user will review
+the complete set of spec documents once all five are written.
 
 ---
 
@@ -342,9 +366,6 @@ If none of these approaches work, the requirement is likely underspecified — r
 - A single spec SHOULD address **one cohesive feature or concern**. If the PRD describes multiple independent features, create a separate spec for each and link them via the `## Dependencies` table.
 - When splitting, prefer vertical slices (end-to-end for one feature) over horizontal slices (all models, then all views, etc.).
 
-- If `$ARGUMENTS` is a file path, present the draft to the user for review before proceeding.
-- If `$ARGUMENTS` is a description or prompt, proceed directly to Step 4
-
 ### Requirements vs. Design Decisions
 
 A requirement describes **what** the system must do. A design decision
@@ -511,9 +532,6 @@ A task group is complete when ALL of the following are true:
 7. Feature branch is merged back to `develop`
 8. `tasks.md` checkboxes are updated to reflect completion
 ```
-
-- If `$ARGUMENTS` is a file path, present the draft to the user for review before proceeding.
-- If `$ARGUMENTS` is a description or prompt, proceed directly to Step 5
 
 ---
 
@@ -707,8 +725,6 @@ After writing all test cases, verify complete coverage:
 If any requirement or property lacks a test case, add one or document why
 testing is infeasible (this should be rare — see Step 3 guidelines on
 testability).
-
-Present the draft to the user for review before proceeding.
 
 ---
 
@@ -932,8 +948,6 @@ traceable in code — no exceptions, no deferrals.
 - The verification subtask (N.V) does not count toward the limit.
 
 These are guidelines, not hard rules. A group with 7 subtasks is acceptable if the subtasks are trivially small. A group with 2 subtasks is fine if each is substantial.
-
-Present the draft to the user for review.
 
 ---
 
