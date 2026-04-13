@@ -153,8 +153,8 @@ builder.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 95-REQ-4.* acceptance criteria met
 
-- [ ] 4. Fact-entity linking and graph queries
-  - [ ] 4.1 Create `agent_fox/knowledge/entity_linker.py`
+- [x] 4. Fact-entity linking and graph queries
+  - [x] 4.1 Create `agent_fox/knowledge/entity_linker.py`
     - Implement `_extract_paths_from_diff(commit_sha, repo_root)`: run
       `git diff --name-only` via subprocess, return repo-relative paths
     - Implement `link_facts(conn, facts, repo_root)`: iterate facts, extract
@@ -164,9 +164,10 @@ builder.
     - _Requirements: 95-REQ-5.1, 95-REQ-5.2, 95-REQ-5.3, 95-REQ-5.4,
       95-REQ-5.E1, 95-REQ-5.E2_
 
-  - [ ] 4.2 Create `agent_fox/knowledge/entity_query.py`
-    - Implement `traverse_neighbors()`: recursive CTE BFS, max_depth,
-      max_entities, relationship_types filter, soft-delete exclusion
+  - [x] 4.2 Create `agent_fox/knowledge/entity_query.py`
+    - Implement `traverse_neighbors()`: Python-level BFS (avoids recursive CTE
+      cycle issues), max_depth, max_entities, relationship_types filter,
+      soft-delete exclusion
     - Implement `get_facts_for_entities()`: join fact_entities with
       memory_facts, exclude superseded
     - Implement `find_related_facts()`: convenience function composing
@@ -174,13 +175,13 @@ builder.
     - _Requirements: 95-REQ-6.1, 95-REQ-6.2, 95-REQ-6.3, 95-REQ-6.4,
       95-REQ-6.5, 95-REQ-6.E1, 95-REQ-6.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_entity_linker.py tests/unit/knowledge/test_entity_query.py`
-    - [ ] Property tests P3 and P4 pass: `uv run pytest -q tests/property/knowledge/test_entity_graph_props.py -k "traversal or soft_delete"`
-    - [ ] Smoke tests 2, 3, 4 pass: `uv run pytest -q tests/integration/knowledge/test_entity_graph_smoke.py -k "SMOKE_2 or SMOKE_3 or SMOKE_4 or linking or query or gc"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 95-REQ-5.*, 95-REQ-6.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_entity_linker.py tests/unit/knowledge/test_entity_query.py`
+    - [x] Property tests P3 and P4 pass: `uv run pytest -q tests/property/knowledge/test_entity_graph_props.py -k "traversal or soft_delete"`
+    - [x] Smoke tests 2, 3, 4 pass: `uv run pytest -q tests/integration/knowledge/test_entity_graph_smoke.py -k "SMOKE_2 or SMOKE_3 or SMOKE_4 or linking or query or gc"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 95-REQ-5.*, 95-REQ-6.* acceptance criteria met
 
 - [ ] 5. Wiring verification
 
