@@ -132,10 +132,10 @@ class TestExtractEntities:
 
     def test_extract_file_class_method_function(self, simple_python_file: Path) -> None:
         """Extracts file entity, Foo class, Foo.bar method, and baz function."""
-        from tree_sitter import Parser
+        from tree_sitter import Language, Parser
         from tree_sitter_python import language as py_language  # type: ignore[import]
 
-        parser = Parser(py_language())
+        parser = Parser(Language(py_language()))
         tree = _parse_file(simple_python_file, parser)
         assert tree is not None
 
@@ -149,10 +149,10 @@ class TestExtractEntities:
 
     def test_entity_types_assigned_correctly(self, simple_python_file: Path) -> None:
         """Extracted entities have correct EntityType values."""
-        from tree_sitter import Parser
+        from tree_sitter import Language, Parser
         from tree_sitter_python import language as py_language  # type: ignore[import]
 
-        parser = Parser(py_language())
+        parser = Parser(Language(py_language()))
         tree = _parse_file(simple_python_file, parser)
         assert tree is not None
 
@@ -178,7 +178,7 @@ class TestExtractEdges:
 
     def test_extract_contains_imports_extends(self, tmp_path: Path) -> None:
         """Extracts contains, imports, and extends edges from a Python file."""
-        from tree_sitter import Parser
+        from tree_sitter import Language, Parser
         from tree_sitter_python import language as py_language  # type: ignore[import]
 
         src_dir = tmp_path / "src"
@@ -199,7 +199,7 @@ def top_func() -> None:
 """
         )
 
-        parser = Parser(py_language())
+        parser = Parser(Language(py_language()))
         tree = _parse_file(py_file, parser)
         assert tree is not None
 
@@ -310,7 +310,7 @@ class TestImportResolution:
 
     def test_import_edge_resolved_via_module_map(self, tmp_path: Path) -> None:
         """Imports edge resolves dotted Python paths via module map."""
-        from tree_sitter import Parser
+        from tree_sitter import Language, Parser
         from tree_sitter_python import language as py_language  # type: ignore[import]
 
         src_dir = tmp_path / "agent_fox" / "knowledge"
@@ -327,7 +327,7 @@ class TestImportResolution:
             "agent_fox.knowledge.db": "agent_fox/knowledge/db.py",
         }
 
-        parser = Parser(py_language())
+        parser = Parser(Language(py_language()))
         tree = _parse_file(importer, parser)
         assert tree is not None
 

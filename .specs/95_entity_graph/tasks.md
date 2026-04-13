@@ -116,29 +116,29 @@ builder.
     - [x] No linter warnings introduced: `make lint`
     - [ ] Requirements 95-REQ-1.*, 95-REQ-2.*, 95-REQ-3.*, 95-REQ-7.* acceptance criteria met
 
-- [ ] 3. Tree-sitter static analysis
-  - [ ] 3.1 Create `agent_fox/knowledge/static_analysis.py`
+- [x] 3. Tree-sitter static analysis
+  - [x] 3.1 Create `agent_fox/knowledge/static_analysis.py`
     - Implement `_scan_python_files(repo_root)`: walk directory tree, respect
       `.gitignore`, collect `*.py` files
     - Implement `_build_module_map(repo_root, py_files)`: map dotted Python
       paths to repo-relative file paths, identify `__init__.py`-based packages
     - _Requirements: 95-REQ-4.1, 95-REQ-4.6_
 
-  - [ ] 3.2 Implement tree-sitter entity extraction
+  - [x] 3.2 Implement tree-sitter entity extraction
     - Implement `_parse_file(file_path, parser)`: parse a Python file with
       tree-sitter, return Tree or None on error
     - Implement `_extract_entities(tree, rel_path)`: extract file, class, and
       function entities from parsed tree, use qualified names for methods
     - _Requirements: 95-REQ-4.2, 95-REQ-4.E1_
 
-  - [ ] 3.3 Implement tree-sitter edge extraction
+  - [x] 3.3 Implement tree-sitter edge extraction
     - Implement `_extract_edges(tree, rel_path, entities, module_map)`: extract
       contains, imports, and extends edges
     - Resolve imports via module map, log warning for unresolvable imports
     - Extract extends edges from class base lists
     - _Requirements: 95-REQ-4.3, 95-REQ-4.6_
 
-  - [ ] 3.4 Implement `analyze_codebase()` orchestrator
+  - [x] 3.4 Implement `analyze_codebase()` orchestrator
     - Scan files, build module map, extract module entities from packages
     - Parse each file, extract entities and edges
     - Call `upsert_entities()`, `upsert_edges()`, `soft_delete_missing()`
@@ -146,12 +146,12 @@ builder.
     - Validate repo_root exists and is a directory
     - _Requirements: 95-REQ-4.4, 95-REQ-4.5, 95-REQ-4.E2, 95-REQ-4.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_static_analysis.py`
-    - [ ] Smoke test 1 passes: `uv run pytest -q tests/integration/knowledge/test_entity_graph_smoke.py -k "SMOKE_1 or smoke_1 or analysis"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 95-REQ-4.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_static_analysis.py`
+    - [x] Smoke test 1 passes: `uv run pytest -q tests/integration/knowledge/test_entity_graph_smoke.py -k "SMOKE_1 or smoke_1 or analysis"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 95-REQ-4.* acceptance criteria met
 
 - [ ] 4. Fact-entity linking and graph queries
   - [ ] 4.1 Create `agent_fox/knowledge/entity_linker.py`
