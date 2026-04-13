@@ -114,13 +114,13 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/session/`
 
-- [ ] 5. Custom archetypes and init --profiles
-  - [ ] 5.1 Add `CustomArchetypeConfig` to config schema
+- [x] 5. Custom archetypes and init --profiles
+  - [x] 5.1 Add `CustomArchetypeConfig` to config schema
     - `permissions: str` field with validation
     - `archetypes.custom` dict in ArchetypesConfig
     - _Requirements: 99-REQ-4.2_
 
-  - [ ] 5.2 Update `get_archetype()` for custom archetype fallback
+  - [x] 5.2 Update `get_archetype()` for custom archetype fallback
     - Accept optional project_dir and config parameters
     - Check ARCHETYPE_REGISTRY first
     - Check for custom profile + permission preset
@@ -128,21 +128,21 @@ wiring.
     - Raise error for invalid preset
     - _Requirements: 99-REQ-4.1, 99-REQ-4.3, 99-REQ-4.4, 99-REQ-4.E1, 99-REQ-4.E2_
 
-  - [ ] 5.3 Implement `init_profiles()` function
+  - [x] 5.3 Implement `init_profiles()` function
     - Copy default profiles to `.agent-fox/profiles/`
     - Create directory structure if needed
     - Skip existing files
     - Return list of created paths
     - _Requirements: 99-REQ-3.1, 99-REQ-3.2, 99-REQ-3.3, 99-REQ-3.E1_
 
-  - [ ] 5.4 Add `--profiles` flag to `init` CLI command
+  - [x] 5.4 Add `--profiles` flag to `init` CLI command
     - Wire init_profiles to CLI
     - _Requirements: 99-REQ-3.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/core/test_custom_archetypes.py tests/unit/cli/test_init_profiles.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/core/test_custom_archetypes.py tests/unit/cli/test_init_profiles.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
 
 - [ ] 6. Wiring verification
 

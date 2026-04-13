@@ -465,6 +465,24 @@ class ReviewerConfig(BaseModel):
     clamp_audit_retries = _clamped_validator("audit_max_retries", ge=0, cast=int)
 
 
+class CustomArchetypeConfig(BaseModel):
+    """Configuration for a custom (project-defined) archetype.
+
+    Specifies which built-in archetype's permission profile the custom
+    archetype should inherit. Validated semantically at runtime by
+    ``get_archetype()`` — the config layer only validates types/syntax.
+
+    Requirements: 99-REQ-4.2
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    permissions: str = Field(
+        default="coder",
+        description="Built-in archetype name whose permissions to inherit",
+    )
+
+
 class ArchetypesConfig(BaseModel):
     """Archetype enable/disable toggles and per-archetype configuration.
 
@@ -502,6 +520,14 @@ class ArchetypesConfig(BaseModel):
             "Unified per-archetype configuration tables. "
             "TOML: [archetypes.overrides.<name>]. "
             "Takes precedence over models/max_turns/thinking/allowlists dicts."
+        ),
+    )
+    custom: dict[str, CustomArchetypeConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Custom archetype configurations keyed by archetype name. "
+            "TOML: [archetypes.custom.<name>]. "
+            "Requirements: 99-REQ-4.2"
         ),
     )
 
