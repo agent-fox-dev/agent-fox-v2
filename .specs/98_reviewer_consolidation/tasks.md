@@ -114,25 +114,25 @@ wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/graph/injection.py agent_fox/session/convergence.py agent_fox/engine/sdk_params.py`
     - [x] Requirements 98-REQ-4.* and 98-REQ-5.* met
 
-- [ ] 4. Update config schema
-  - [ ] 4.1 Create `ReviewerConfig` model
+- [x] 4. Update config schema
+  - [x] 4.1 Create `ReviewerConfig` model
     - Fields: pre_review_block_threshold, drift_review_block_threshold, audit_min_ts_entries, audit_max_retries
     - _Requirements: 98-REQ-8.2_
 
-  - [ ] 4.2 Update `ArchetypesConfig`
+  - [x] 4.2 Update `ArchetypesConfig`
     - Replace skeptic/oracle/auditor toggles with single reviewer toggle
     - Replace skeptic_config/oracle_settings/auditor_config with reviewer_config
     - Update ArchetypeInstancesConfig (reviewer replaces skeptic+auditor, verifier max=1)
     - _Requirements: 98-REQ-8.1, 98-REQ-8.3_
 
-  - [ ] 4.3 Add old key validation
+  - [x] 4.3 Add old key validation
     - Detect old config keys and raise ValidationError with migration guidance
     - _Requirements: 98-REQ-1.E1, 98-REQ-8.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/core/test_reviewer_consolidation.py -k "config or toggle or reviewer_config or old_key"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/core/config.py`
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/core/test_reviewer_consolidation.py -k "config or toggle or reviewer_config or old_key"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/core/config.py`
 
 - [ ] 5. Merge templates
   - [ ] 5.1 Create `reviewer.md` template

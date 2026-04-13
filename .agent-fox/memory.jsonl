@@ -1,2 +1,1 @@
-{"id": "eb393d7d-a444-4a51-a172-18418825ed27", "content": "Test fact content", "category": "decision", "spec_name": "spec_a", "keywords": [], "confidence": 0.8, "created_at": "2026-04-13T22:20:54.685796+00:00", "supersedes": null, "commit_sha": "abc123"}
-{"id": "e47fe8d5-7b82-473f-8137-927a5beb0377", "content": "Test fact content", "category": "decision", "spec_name": "spec_a", "keywords": [], "confidence": 0.8, "created_at": "2026-04-13T22:26:13.681972+00:00", "supersedes": null, "commit_sha": "abc123"}
+{"id": "9d185189-3bf0-432c-8689-c712d431de1b", "content": "Test fact content", "category": "decision", "spec_name": "spec_a", "keywords": [], "confidence": 0.8, "created_at": "2026-04-13T22:32:30.257844+00:00", "supersedes": null, "commit_sha": "abc123"}
