@@ -1,6 +1,6 @@
 """Knowledge source ingestion for the Fox Ball.
 
-Ingests additional knowledge sources (ADRs, git commits) into the
+Ingests additional knowledge sources (ADRs, git commits, errata) into the
 knowledge store alongside session-extracted facts.
 
 Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3, 40-REQ-11.6
@@ -30,7 +30,7 @@ logger = logging.getLogger("agent_fox.knowledge.ingest")
 class IngestResult:
     """Summary of an ingestion run."""
 
-    source_type: str  # "adr" | "git"
+    source_type: str  # "adr" | "git" | "errata"
     facts_added: int
     facts_skipped: int  # already ingested
     embedding_failures: int
@@ -133,6 +133,75 @@ class KnowledgeIngestor:
 
         return IngestResult(
             source_type="adr",
+            facts_added=facts_added,
+            facts_skipped=facts_skipped,
+            embedding_failures=embedding_failures,
+        )
+
+    def ingest_errata(self, errata_dir: Path | None = None) -> IngestResult:
+        """Ingest errata from docs/errata/ as facts.
+
+        Each errata markdown file is parsed into a single fact with:
+        - content: the erratum title and body
+        - category: "errata"
+        - spec_name: the erratum filename (e.g., "93_ts93_4_placement.md")
+        - commit_sha: None (errata are not tied to a specific commit)
+
+        Skips errata that have already been ingested (by checking
+        for existing facts with the same spec_name and category).
+
+        Args:
+            errata_dir: Override for the errata directory. Defaults to
+                        docs/errata/ under the project root.
+
+        Returns:
+            An IngestResult summarizing what was ingested.
+        """
+        target_dir = errata_dir if errata_dir is not None else (self._project_root / "docs" / "errata")
+
+        if not target_dir.exists() or not target_dir.is_dir():
+            return IngestResult(
+                source_type="errata",
+                facts_added=0,
+                facts_skipped=0,
+                embedding_failures=0,
+            )
+
+        facts_added = 0
+        facts_skipped = 0
+        embedding_failures = 0
+
+        for md_file in sorted(target_dir.glob("*.md")):
+            filename = md_file.name
+
+            if self._is_already_ingested(
+                category="errata",
+                identifier=filename,
+            ):
+                facts_skipped += 1
+                continue
+
+            title, body = self._parse_adr(md_file)
+            content = f"{title}\n\n{body}" if title else body
+            fact_id = str(uuid.uuid4())
+
+            self._conn.execute(
+                """
+                INSERT INTO memory_facts
+                    (id, content, category, spec_name, session_id,
+                     commit_sha, confidence, created_at)
+                VALUES (?::UUID, ?, 'errata', ?, NULL, NULL, 0.9,
+                        CURRENT_TIMESTAMP)
+                """,
+                [fact_id, content, filename],
+            )
+            facts_added += 1
+
+            if not self._store_embedding(fact_id, content, f"erratum {filename}"):
+                embedding_failures += 1
+
+        return IngestResult(
+            source_type="errata",
             facts_added=facts_added,
             facts_skipped=facts_skipped,
             embedding_failures=embedding_failures,
@@ -275,6 +344,7 @@ class KnowledgeIngestor:
 
         For ADRs: checks spec_name == identifier.
         For git commits: checks commit_sha == identifier.
+        For errata: checks spec_name == identifier.
         """
         if category == "adr":
             row = self._conn.execute(
@@ -284,6 +354,11 @@ class KnowledgeIngestor:
         elif category == "git":
             row = self._conn.execute(
                 "SELECT COUNT(*) FROM memory_facts WHERE category = 'git' AND commit_sha = ?",
+                [identifier],
+            ).fetchone()
+        elif category == "errata":
+            row = self._conn.execute(
+                "SELECT COUNT(*) FROM memory_facts WHERE category = 'errata' AND spec_name = ?",
                 [identifier],
             ).fetchone()
         else:
@@ -300,11 +375,11 @@ def run_background_ingestion(
     sink_dispatcher: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> None:
-    """Run background knowledge ingestion (ADRs + git commits).
+    """Run background knowledge ingestion (ADRs + git commits + errata).
 
     Creates an EmbeddingGenerator and KnowledgeIngestor, then ingests
-    ADRs and recent git commits. Best-effort: all failures are logged
-    and silently ignored.
+    ADRs, recent git commits, and errata documents. Best-effort: all
+    failures are logged and silently ignored.
 
     Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3, 40-REQ-11.6
     """
@@ -342,6 +417,22 @@ def run_background_ingestion(
                 source_type="git",
                 source_path=str(project_root),
                 item_count=git_result.facts_added,
+            )
+
+        errata_result = ingestor.ingest_errata()
+        if errata_result.facts_added > 0:
+            logger.info(
+                "Ingested %d erratum/errata (%d skipped)",
+                errata_result.facts_added,
+                errata_result.facts_skipped,
+            )
+            # 40-REQ-11.6: Emit knowledge.ingested audit event for errata
+            _emit_knowledge_ingested(
+                sink_dispatcher,
+                run_id,
+                source_type="errata",
+                source_path=str(project_root / "docs" / "errata"),
+                item_count=errata_result.facts_added,
             )
     except Exception:
         logger.warning("Background knowledge ingestion failed", exc_info=True)
