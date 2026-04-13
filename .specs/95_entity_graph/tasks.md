@@ -183,9 +183,9 @@ builder.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 95-REQ-5.*, 95-REQ-6.* acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each of the 4 paths, verify the entry point calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -193,8 +193,22 @@ builder.
     - Every path must be live in production code -- errata or deferrals do not
       satisfy this check
     - _Requirements: all_
+    - Path 1 (analyze_codebase): `_scan_python_files` → `_build_module_map` →
+      `_parse_file` → `_extract_entities` → `_extract_edges` →
+      `upsert_entities` → `upsert_edges` → `soft_delete_missing` → returns
+      `AnalysisResult` — all calls confirmed live at lines 521–705 of
+      `static_analysis.py`
+    - Path 2 (link_facts): `_extract_paths_from_diff` → `find_entities_by_paths`
+      → `create_fact_entity_links` → returns `LinkResult` — all calls confirmed
+      live at lines 85–111 of `entity_linker.py`
+    - Path 3 (find_related_facts): `find_entities_by_path` →
+      `traverse_neighbors` → `get_facts_for_entities` → returns `list[Fact]`
+      — all calls confirmed live at lines 223–240 of `entity_query.py`
+    - Path 4 (gc_stale_entities): inline — finds stale IDs, cascade-deletes
+      edges, cascade-deletes links, hard-deletes entities — all steps confirmed
+      live at lines 300–338 of `entity_store.py`
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
@@ -203,34 +217,55 @@ builder.
       - `_extract_paths_from_diff()` -> `link_facts()` -> `find_entities_by_paths()` -> `create_fact_entity_links()`
       - `find_entities_by_path()` -> `traverse_neighbors()` -> `get_facts_for_entities()` -> `find_related_facts()`
     - _Requirements: all_
+    - Confirmed: `entities = _extract_entities(...)` consumed at line 572–574;
+      `upserted_ids = upsert_entities(...)` consumed at line 589–591;
+      `paths = _extract_paths_from_diff(...)` consumed at line 85/98;
+      `entities = find_entities_by_paths(...)` consumed at line 98/103;
+      `n = create_fact_entity_links(...)` consumed at line 103–104;
+      `entities = find_entities_by_path(...)` consumed at lines 223/228;
+      `all_entities = traverse_neighbors(...)` consumed at line 237;
+      `return get_facts_for_entities(...)` returned directly at line 240
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-95-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/knowledge/test_entity_graph_smoke.py`
     - _Test Spec: TS-95-SMOKE-1 through TS-95-SMOKE-4_
+    - Result: 5 passed (SMOKE-1 through SMOKE-4 + fixture test)
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Intentional justified stubs found (all are correct Optional/guard returns):
+      - `entity_store.py`: `return []` in `find_entities_by_paths` when paths
+        is empty — correct guard for empty input (avoids SQL with empty IN list)
+      - `static_analysis.py`: multiple `return None` in `_load_gitignore_spec`,
+        `_file_to_dotted_path`, `_parse_file`, `_get_identifier` — all return
+        `str | None` or Optional; early returns are per requirement 95-REQ-4.E1
+      - `entity_query.py`: `return []` in `traverse_neighbors`,
+        `get_facts_for_entities`, `find_related_facts` when input is empty or
+        no entities match — correct per 95-REQ-6.E1 (return empty list)
+    - No unjustified stubs found
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - This spec is standalone (no cross-spec callers expected). Verify that
       all four public entry points (`analyze_codebase`, `link_facts`,
       `find_related_facts`, `gc_stale_entities`) are importable and callable
       from outside the knowledge package
     - Confirm no circular imports are introduced
     - _Requirements: all_
+    - Confirmed: all 4 entry points import successfully; no circular imports
+      detected; `callable()` returns True for all 4 functions
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All public entry points are importable without circular imports
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All public entry points are importable without circular imports
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
