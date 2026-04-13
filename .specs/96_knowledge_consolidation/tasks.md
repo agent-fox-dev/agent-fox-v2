@@ -26,14 +26,14 @@ Each phase builds on the previous one.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/unit/knowledge/test_consolidation.py` for TS-96-1
       through TS-96-20, TS-96-E1 through TS-96-E9
     - Create `tests/unit/engine/test_consolidation_barrier.py` for TS-96-21
       through TS-96-24, TS-96-E10, TS-96-E11
-    - Create `tests/property/knowledge/test_consolidation_props.py` for
-      TS-96-P1 through TS-96-P6
+    - Create `tests/property/knowledge/test_knowledge_consolidation_props.py` for
+      TS-96-P1 through TS-96-P6 (renamed; see docs/errata/96_test_naming.md)
     - Create `tests/integration/knowledge/test_consolidation_smoke.py` for
       TS-96-SMOKE-1 and TS-96-SMOKE-2
     - Use existing DuckDB fixtures; add fixtures for entity graph tables
@@ -41,32 +41,32 @@ Each phase builds on the previous one.
     - _Test Spec: TS-96-1 through TS-96-24, TS-96-E1 through TS-96-E11,
       TS-96-P1 through TS-96-P6, TS-96-SMOKE-1, TS-96-SMOKE-2_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - One test function per TS-96-{N} entry (24 tests)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - Import from `agent_fox.knowledge.consolidation`
     - _Test Spec: TS-96-1 through TS-96-24_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - One test function per TS-96-E{N} entry (11 tests)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-96-E1 through TS-96-E11_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - One property test per TS-96-P{N} entry (6 tests)
     - Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]`
     - _Test Spec: TS-96-P1 through TS-96-P6_
 
-  - [ ] 1.5 Translate integration smoke tests from test_spec.md
+  - [x] 1.5 Translate integration smoke tests from test_spec.md
     - One test per TS-96-SMOKE-{N} entry (2 tests)
     - Use real DuckDB connections with migrations through v8
     - Mock subprocess (git) and LLM calls
     - _Test Spec: TS-96-SMOKE-1, TS-96-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Core consolidation module (deterministic steps)
   - [ ] 2.1 Create `agent_fox/knowledge/consolidation.py` with data models
