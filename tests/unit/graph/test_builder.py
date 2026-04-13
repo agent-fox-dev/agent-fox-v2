@@ -287,6 +287,187 @@ class TestBuildGraphCrossSpecGroupLevel:
         assert "01_alpha:4" not in beta_1_preds
 
 
+class TestCrossSpecEdgePropagationToReviewNodes:
+    """Cross-spec edges propagate to auto_pre review predecessors of the target.
+
+    When a cross-spec dependency targets coder group N, the auto_pre review
+    node (skeptic/oracle) that gates group N should also receive a cross-spec
+    edge from the same source. This prevents the review node from running
+    before the dependency is met.
+
+    Fixes: https://github.com/agent-fox-dev/agent-fox/issues/337
+    """
+
+    def test_skeptic_receives_cross_spec_edge(self) -> None:
+        """Skeptic (group 0) gets a cross-spec edge when group 1 has one."""
+        from agent_fox.core.config import ArchetypesConfig
+
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
+            "02_beta": [_make_group(1, "Beta 1"), _make_group(2, "Beta 2")],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+
+        graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
+
+        beta_skeptic_preds = graph.predecessors("02_beta:0")
+        assert "01_alpha:2" in beta_skeptic_preds
+
+    def test_original_cross_spec_edge_preserved(self) -> None:
+        """The declared cross-spec edge to the coder group is still present."""
+        from agent_fox.core.config import ArchetypesConfig
+
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
+            "02_beta": [_make_group(1, "Beta 1"), _make_group(2, "Beta 2")],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+
+        graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
+
+        beta_1_preds = graph.predecessors("02_beta:1")
+        assert "01_alpha:2" in beta_1_preds
+
+    def test_no_propagation_without_archetypes(self) -> None:
+        """No extra edges when archetypes are not injected (no auto_pre nodes)."""
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
+            "02_beta": [_make_group(1, "Beta 1"), _make_group(2, "Beta 2")],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+
+        graph = build_graph(specs, groups, cross_deps)
+
+        assert "02_beta:0" not in graph.nodes
+
+    def test_propagation_with_suffixed_auto_pre_ids(self) -> None:
+        """Propagation works with suffixed IDs (e.g. spec:0:skeptic, spec:0:oracle)."""
+        from agent_fox.core.config import ArchetypesConfig
+
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
+            "02_beta": [_make_group(1, "Beta 1"), _make_group(2, "Beta 2")],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+        config = ArchetypesConfig(skeptic=True, oracle=True, auditor=False)
+
+        graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
+
+        skeptic_preds = graph.predecessors("02_beta:0:skeptic")
+        oracle_preds = graph.predecessors("02_beta:0:oracle")
+        assert "01_alpha:2" in skeptic_preds
+        assert "01_alpha:2" in oracle_preds
+
+    def test_no_propagation_to_non_predecessor_groups(self) -> None:
+        """Cross-spec edges don't propagate to groups that aren't predecessors."""
+        from agent_fox.core.config import ArchetypesConfig
+
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [
+                _make_group(1, "Alpha 1"),
+                _make_group(2, "Alpha 2"),
+                _make_group(3, "Alpha 3"),
+            ],
+            "02_beta": [
+                _make_group(1, "Beta 1"),
+                _make_group(2, "Beta 2"),
+                _make_group(3, "Beta 3"),
+            ],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=2,
+                to_spec="01_alpha",
+                to_group=3,
+            ),
+        ]
+        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+
+        graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
+
+        beta_skeptic_preds = graph.predecessors("02_beta:0")
+        assert "01_alpha:3" not in beta_skeptic_preds
+
+    def test_propagation_for_dep_on_first_group(self) -> None:
+        """Cross-spec dep on group 1 propagates to the skeptic at group 0."""
+        from agent_fox.core.config import ArchetypesConfig
+
+        specs = [
+            _make_spec("01_alpha", 1),
+            _make_spec("02_beta", 2),
+        ]
+        groups = {
+            "01_alpha": [_make_group(1, "Alpha 1"), _make_group(2, "Alpha 2")],
+            "02_beta": [_make_group(1, "Beta 1"), _make_group(2, "Beta 2")],
+        }
+        cross_deps = [
+            CrossSpecDep(
+                from_spec="02_beta",
+                from_group=1,
+                to_spec="01_alpha",
+                to_group=2,
+            ),
+        ]
+        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+
+        graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
+
+        assert "02_beta:0" in graph.nodes
+        skeptic_preds = graph.predecessors("02_beta:0")
+        assert "01_alpha:2" in skeptic_preds
+
+
 class TestDanglingCrossSpecRef:
     """TS-02-E5: Dangling cross-spec reference raises PlanError."""
 

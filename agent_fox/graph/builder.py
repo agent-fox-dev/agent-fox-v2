@@ -175,12 +175,28 @@ def _add_cross_spec_edges(
     cross_deps: list[CrossSpecDep],
     task_groups: dict[str, list[TaskGroupDef]],
     nodes: dict[str, Node],
+    existing_edges: list[Edge] | None = None,
 ) -> list[Edge]:
     """Add cross-spec dependency edges, validating no dangling refs.
 
+    After creating each declared edge, propagates the cross-spec dependency
+    to any direct intra-spec predecessors of the target that are review
+    archetype nodes (e.g. skeptic, oracle at group 0).  This ensures
+    pre-review nodes do not run before the dependency they are reviewing
+    has been met.
+
     02-REQ-3.E1: raises PlanError on dangling references.
+    Fixes: #337 — propagate cross-spec deps to auto_pre review nodes.
     """
     edges: list[Edge] = []
+
+    # Build a lookup of direct intra-spec predecessors per node so we can
+    # propagate cross-spec edges to review nodes that gate the target.
+    intra_preds: dict[str, list[str]] = defaultdict(list)
+    if existing_edges is not None:
+        for edge in existing_edges:
+            if edge.kind == "intra_spec":
+                intra_preds[edge.target].append(edge.source)
 
     for dep in cross_deps:
         from_group = _resolve_sentinel_group(
@@ -215,6 +231,13 @@ def _add_cross_spec_edges(
             )
 
         edges.append(Edge(source=source_id, target=target_id, kind="cross_spec"))
+
+        # Propagate to direct intra-spec predecessors that are review nodes.
+        # This covers auto_pre nodes (skeptic/oracle) that gate the target.
+        for pred_id in intra_preds.get(target_id, []):
+            pred_node = nodes.get(pred_id)
+            if pred_node is not None and pred_node.archetype != "coder":
+                edges.append(Edge(source=source_id, target=pred_id, kind="cross_spec"))
 
     return edges
 
@@ -381,7 +404,7 @@ def build_graph(
             node.archetype,
         )
 
-    cross_edges = _add_cross_spec_edges(cross_deps, task_groups, nodes)
+    cross_edges = _add_cross_spec_edges(cross_deps, task_groups, nodes, intra_edges)
 
     return TaskGraph(
         nodes=nodes,
