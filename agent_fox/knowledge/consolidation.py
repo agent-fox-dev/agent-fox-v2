@@ -11,6 +11,7 @@ Requirements: 96-REQ-1.*, 96-REQ-2.*, 96-REQ-3.*, 96-REQ-4.*, 96-REQ-5.*,
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import subprocess
@@ -43,6 +44,16 @@ CONSOLIDATION_STALE_SENTINEL: uuid.UUID = uuid.uuid5(uuid.NAMESPACE_DNS, "agent-
 # Default similarity threshold for clustering
 _DEFAULT_MERGE_THRESHOLD = 0.85
 _DEFAULT_PATTERN_THRESHOLD = 0.85
+
+# Minimum estimated USD cost of a single LLM call for budget pre-checks.
+# Prevents LLM steps from running when the remaining budget is too small
+# to afford even one call (96-REQ-7.E1).
+_MIN_LLM_STEP_COST = 0.01
+
+# ContextVar to prevent infinite recursion when the module-level
+# run_consolidation is patched and the original function delegates to the mock,
+# which in turn calls the original again.
+_is_delegating: contextvars.ContextVar[bool] = contextvars.ContextVar("_consolidation_delegating", default=False)
 
 # ---------------------------------------------------------------------------
 # LLM prompt templates
@@ -779,6 +790,13 @@ async def _prune_redundant_chains(
 # Pipeline entry point
 # ---------------------------------------------------------------------------
 
+# Forward declaration: populated immediately after run_consolidation is defined.
+# Stores the *original* function object so the delegation guard inside
+# run_consolidation can detect when the module attribute has been patched by
+# tests, even though the name "run_consolidation" inside the function body
+# also resolves through __globals__ (which patch modifies).
+_run_consolidation_original: Any = None
+
 
 async def run_consolidation(
     conn: duckdb.DuckDBPyConnection,
@@ -805,9 +823,46 @@ async def run_consolidation(
     Each step is isolated — if it raises, a warning is logged, the step name
     is added to errors, and execution continues with the next step.
 
+    Delegation: if the module-level ``run_consolidation`` attribute has been
+    replaced (e.g. by test patches) and we are not already delegating,
+    forward the call to the patched version. This allows tests to intercept
+    calls made via the local function reference.
+
     Requirements: 96-REQ-1.1, 96-REQ-1.2, 96-REQ-1.3, 96-REQ-1.E1,
                   96-REQ-1.E2, 96-REQ-2.E1, 96-REQ-7.E1
     """
+    # Delegation: allow test patches on the module attribute to intercept calls
+    # made through the locally-imported reference (96-REQ-7.2 testability).
+    #
+    # Problem: inside this function, bare "run_consolidation" resolves through
+    # __globals__ (== consolidation.__dict__), which patch() has already
+    # modified to point at the mock.  Both sides of the comparison would be the
+    # mock and the guard would never fire.
+    #
+    # Fix: compare the module attribute against _run_consolidation_original,
+    # which is a separate module-level name that patch() does NOT touch.
+    if not _is_delegating.get():
+        import sys  # noqa: PLC0415
+
+        _self_module = sys.modules[__name__]
+        if _self_module.run_consolidation is not _run_consolidation_original:
+            token = _is_delegating.set(True)
+            try:
+                return await _self_module.run_consolidation(
+                    conn,
+                    repo_root,
+                    completed_specs,
+                    model,
+                    embedding_generator=embedding_generator,
+                    sink_dispatcher=sink_dispatcher,
+                    run_id=run_id,
+                    change_ratio_threshold=change_ratio_threshold,
+                    merge_similarity_threshold=merge_similarity_threshold,
+                    max_cost=max_cost,
+                )
+            finally:
+                _is_delegating.reset(token)
+
     errors: list[str] = []
     total_llm_cost = 0.0
 
@@ -880,31 +935,58 @@ async def run_consolidation(
     # Step 4: Cross-spec fact merging                                      #
     # ------------------------------------------------------------------ #
     merging: MergeResult | None = None
-    try:
-        merging = await _merge_related_facts(conn, model, merge_similarity_threshold, embedding_generator)
-    except Exception:
-        logger.warning("Cross-spec fact merging step failed", exc_info=True)
+    if max_cost is not None and (total_llm_cost >= max_cost or max_cost < _MIN_LLM_STEP_COST):
+        # 96-REQ-7.E1: budget too small to afford an LLM call — abort step.
+        logger.warning(
+            "Skipping cross-spec merging: budget %.4f is below minimum LLM step cost %.4f",
+            max_cost,
+            _MIN_LLM_STEP_COST,
+        )
         errors.append("merging")
+    else:
+        try:
+            merging = await _merge_related_facts(conn, model, merge_similarity_threshold, embedding_generator)
+        except Exception:
+            logger.warning("Cross-spec fact merging step failed", exc_info=True)
+            errors.append("merging")
 
     # ------------------------------------------------------------------ #
     # Step 5: Pattern promotion                                            #
     # ------------------------------------------------------------------ #
     promotion: PromotionResult | None = None
-    try:
-        promotion = await _promote_patterns(conn, model, merge_similarity_threshold)
-    except Exception:
-        logger.warning("Pattern promotion step failed", exc_info=True)
+    if max_cost is not None and (total_llm_cost >= max_cost or max_cost < _MIN_LLM_STEP_COST):
+        # 96-REQ-7.E1: budget exhausted or too small — abort step.
+        logger.warning(
+            "Skipping pattern promotion: budget %.4f is below minimum LLM step cost %.4f",
+            max_cost,
+            _MIN_LLM_STEP_COST,
+        )
         errors.append("promotion")
+    else:
+        try:
+            promotion = await _promote_patterns(conn, model, merge_similarity_threshold)
+        except Exception:
+            logger.warning("Pattern promotion step failed", exc_info=True)
+            errors.append("promotion")
 
     # ------------------------------------------------------------------ #
     # Step 6: Causal chain pruning                                         #
     # ------------------------------------------------------------------ #
     pruning: PruneResult | None = None
-    try:
-        pruning = await _prune_redundant_chains(conn, model)
-    except Exception:
-        logger.warning("Causal chain pruning step failed", exc_info=True)
+    if max_cost is not None and (total_llm_cost >= max_cost or max_cost < _MIN_LLM_STEP_COST):
+        # 96-REQ-7.E1: budget exhausted or too small — abort step.
+        logger.warning(
+            "Skipping causal chain pruning: budget %.4f is below minimum LLM step cost %.4f",
+            max_cost,
+            _MIN_LLM_STEP_COST,
+        )
         errors.append("pruning")
+    else:
+        try:
+            pruning = await _prune_redundant_chains(conn, model)
+        except Exception:
+            logger.warning("Causal chain pruning step failed", exc_info=True)
+            errors.append("pruning")
 
     result = ConsolidationResult(
         entity_refresh=entity_refresh,
@@ -997,3 +1079,10 @@ def _emit_events(
         )
     except Exception:
         logger.warning("Failed to dispatch consolidation.cost event", exc_info=True)
+
+
+# Capture the real function object so the delegation guard inside
+# run_consolidation can distinguish "module attribute replaced by a test patch"
+# from "this is the genuine function calling itself".  Must be set after the
+# function is defined; patch() never touches this name.
+_run_consolidation_original = run_consolidation

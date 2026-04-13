@@ -145,8 +145,8 @@ Each phase builds on the previous one.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 96-REQ-4.*, 96-REQ-5.*, 96-REQ-6.* acceptance criteria met
 
-- [ ] 4. Orchestrator integration
-  - [ ] 4.1 Hook consolidation into sync barrier (`engine/barrier.py`)
+- [x] 4. Orchestrator integration
+  - [x] 4.1 Hook consolidation into sync barrier (`engine/barrier.py`)
     - Add consolidation step after lifecycle cleanup (line ~229), before
       memory summary regeneration
     - Accept `completed_specs_fn`, `consolidation_fn`, and `consolidated_specs`
@@ -156,14 +156,14 @@ Each phase builds on the previous one.
     - Add consolidated spec names to the tracking set
     - _Requirements: 96-REQ-7.1, 96-REQ-7.3_
 
-  - [ ] 4.2 Hook consolidation into end-of-run (`engine/engine.py`)
+  - [x] 4.2 Hook consolidation into end-of-run (`engine/engine.py`)
     - In the finally block, after `cleanup_completed_spec_audits`, determine
       specs not yet consolidated (`completed - _consolidated_specs`)
     - Call `run_consolidation` for remaining specs
     - Log result at INFO level
     - _Requirements: 96-REQ-7.2_
 
-  - [ ] 4.3 Wire consolidated_specs tracking through the engine
+  - [x] 4.3 Wire consolidated_specs tracking through the engine
     - Add `_consolidated_specs: set[str]` to the engine instance
     - Pass it through to `run_sync_barrier_sequence`
     - Pass `completed_spec_names` function to barrier
@@ -171,19 +171,19 @@ Each phase builds on the previous one.
       embedding_generator, sink_dispatcher, run_id)
     - _Requirements: 96-REQ-7.1, 96-REQ-7.2, 96-REQ-7.3_
 
-  - [ ] 4.4 Add consolidation cost tracking
+  - [x] 4.4 Add consolidation cost tracking
     - Track LLM costs within `run_consolidation` (sum of individual step costs)
     - Emit `consolidation.cost` audit event with cost breakdown
     - Implement budget check: abort step if remaining budget exceeded
     - Report consolidation cost in `ConsolidationResult.total_llm_cost`
     - _Requirements: 96-REQ-7.4, 96-REQ-7.E1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for orchestrator integration pass: `uv run pytest -q tests/unit/engine/test_consolidation_barrier.py`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/knowledge/test_consolidation_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 96-REQ-7.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for orchestrator integration pass: `uv run pytest -q tests/unit/engine/test_consolidation_barrier.py`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/knowledge/test_consolidation_smoke.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 96-REQ-7.* acceptance criteria met
 
 - [ ] 5. Wiring verification
 

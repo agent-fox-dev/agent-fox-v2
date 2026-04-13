@@ -219,6 +219,9 @@ class Orchestrator:
         self._audit_dir = audit_dir
         self._audit_db_conn = audit_db_conn
         self._knowledge_db_conn = knowledge_db_conn
+        # 96-REQ-7.1, 96-REQ-7.2: Track which specs have been consolidated
+        # at sync barriers so end-of-run can skip them.
+        self._consolidated_specs: set[str] = set()
         # 66-REQ-7.1, 66-REQ-7.2: Config hot-reload state
         self._config_reloader = ConfigReloader(config_path, full_config)
 
@@ -601,6 +604,32 @@ class Orchestrator:
                         cleanup_completed_spec_audits(Path.cwd(), completed)
             except Exception:
                 logger.warning("Audit report cleanup failed", exc_info=True)
+            # 96-REQ-7.2: Run consolidation for specs not consolidated at barriers.
+            try:
+                from agent_fox.knowledge.consolidation import (  # noqa: PLC0415
+                    run_consolidation as _run_consolidation,
+                )
+
+                if self._knowledge_db_conn is not None and self._graph_sync is not None:
+                    all_completed = self._graph_sync.completed_spec_names()
+                    remaining = all_completed - self._consolidated_specs
+                    if remaining:
+                        eor_result = await _run_consolidation(
+                            self._knowledge_db_conn,
+                            self._plan_path.parent,
+                            remaining,
+                            model="claude-3-5-haiku-20241022",
+                            sink_dispatcher=self._sink,
+                            run_id=self._run_id,
+                        )
+                        self._consolidated_specs.update(remaining)
+                        logger.info(
+                            "End-of-run consolidation: linked=%d errors=%s",
+                            eor_result.facts_linked,
+                            eor_result.errors,
+                        )
+            except Exception:
+                logger.warning("End-of-run consolidation failed", exc_info=True)
             # Render memory summary so docs/memory.md reflects all
             # extracted facts, not just those captured at sync barriers.
             try:
@@ -1158,7 +1187,17 @@ class Orchestrator:
             barrier_callback=self._barrier_callback,
             knowledge_db_conn=self._knowledge_db_conn,
             reload_config_fn=self._reload_config,
+            knowledge_config=self._config.knowledge if hasattr(self._config, "knowledge") else None,
+            sink_dispatcher=self._sink,
+            completed_specs_fn=self._completed_spec_names,
+            consolidated_specs=self._consolidated_specs,
         )
+
+    def _completed_spec_names(self) -> set[str]:
+        """Return the set of fully completed spec names from the task graph."""
+        if self._graph_sync is None:
+            return set()
+        return self._graph_sync.completed_spec_names()
 
     async def _try_end_of_run_discovery(self, state: ExecutionState) -> bool:
         """Run a sync barrier at end-of-run to check for new specs.

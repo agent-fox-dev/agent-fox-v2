@@ -209,15 +209,6 @@ async def run_sync_barrier_sequence(
         except Exception:
             logger.warning("Barrier callback failed", exc_info=True)
 
-    # Compact knowledge base: deduplicate and resolve supersession (fixes #211)
-    if knowledge_db_conn is not None:
-        try:
-            from agent_fox.knowledge.compaction import compact
-
-            compact(knowledge_db_conn)
-        except Exception:
-            logger.warning("Knowledge compaction failed at barrier", exc_info=True)
-
     # 90-REQ-4.1, 90-REQ-4.2: Run fact lifecycle cleanup (decay + audit)
     if knowledge_db_conn is not None and knowledge_config is not None:
         try:
@@ -239,8 +230,10 @@ async def run_sync_barrier_sequence(
             logger.warning("Fact lifecycle cleanup failed at barrier", exc_info=True)
 
     # 96-REQ-7.1, 96-REQ-7.3: Run consolidation pipeline for newly completed specs.
-    # Runs after lifecycle cleanup and before summary regeneration so that
-    # the exclusive barrier window provides write isolation.
+    # Runs after lifecycle cleanup and before compaction so that consolidation sees
+    # the full set of active facts. Compaction then cleans up any redundancies
+    # introduced by consolidation (merged/superseded facts).
+    # The exclusive barrier window provides write isolation.
     if (
         run_consolidation is not None
         and knowledge_db_conn is not None
@@ -266,6 +259,18 @@ async def run_sync_barrier_sequence(
                 )
         except Exception:
             logger.warning("Consolidation pipeline failed at barrier", exc_info=True)
+
+    # Compact knowledge base: deduplicate and resolve supersession (fixes #211).
+    # Runs after consolidation so that consolidation sees the full active fact set,
+    # and compaction then cleans up any superseded or duplicate facts introduced
+    # by the consolidation pipeline.
+    if knowledge_db_conn is not None:
+        try:
+            from agent_fox.knowledge.compaction import compact
+
+            compact(knowledge_db_conn)
+        except Exception:
+            logger.warning("Knowledge compaction failed at barrier", exc_info=True)
 
     # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
     try:
