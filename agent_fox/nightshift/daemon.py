@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -26,6 +26,32 @@ from agent_fox.engine.audit_helpers import emit_audit_event as _emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType, generate_run_id
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Idle display helpers
+# ---------------------------------------------------------------------------
+
+_STREAM_DISPLAY_NAMES: dict[str, str] = {
+    "fix-pipeline": "fix check",
+    "hunt-scan": "hunt scan",
+    "spec-executor": "spec check",
+}
+
+
+def _format_idle_text(stream_name: str, remaining_seconds: float) -> str:
+    """Format idle spinner text for the next scheduled stream run."""
+    display = _STREAM_DISPLAY_NAMES.get(stream_name, stream_name)
+    s = int(remaining_seconds)
+    if s < 60:
+        wait = f"{s}s"
+    elif s < 3600:
+        wait = f"{s // 60}m"
+    else:
+        h, m = divmod(s, 3600)
+        m //= 60
+        wait = f"{h}h {m}m" if m else f"{h}h"
+    return f"Idle \u2014 next {display} in {wait}"
 
 
 # ---------------------------------------------------------------------------
@@ -116,12 +142,15 @@ class DaemonRunner:
         budget: SharedBudget,
         *,
         pid_path: Path | None = None,
+        idle_callback: Callable[[str], None] | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._streams = list(streams)
         self._budget = budget
         self._pid_path = pid_path
+        self._idle_callback = idle_callback
+        self._next_run_times: dict[str, float] = {}
         self._shutting_down = False
         self._shutdown_event = asyncio.Event()
 
@@ -177,10 +206,22 @@ class DaemonRunner:
             key=lambda s: priority_map.get(s.name, max_priority),
         )
 
+    def _update_idle_display(self, stream_name: str, next_run_at: float) -> None:
+        """Update the spinner with the soonest next stream run."""
+        self._next_run_times[stream_name] = next_run_at
+        if self._idle_callback is None:
+            return
+        soonest = min(self._next_run_times, key=self._next_run_times.get)  # type: ignore[arg-type]
+        remaining = max(0.0, self._next_run_times[soonest] - time.monotonic())
+        self._idle_callback(_format_idle_text(soonest, remaining))
+
     # Short tick duration between interval checks. The daemon sleeps
     # for _TICK seconds between polling whether a stream is due to run,
     # keeping shutdown responsive without busy-looping.
     _TICK: float = 0.05
+
+    # Refresh the idle spinner text every ~30 seconds (600 ticks).
+    _IDLE_REFRESH_TICKS: int = 600
 
     async def _run_stream_loop(self, stream: WorkStream) -> None:
         """Run a single stream's polling loop.
@@ -194,12 +235,19 @@ class DaemonRunner:
         retries after the normal interval (85-REQ-1.4, 85-REQ-1.E1).
         """
         last_run: float | None = None
+        idle_ticks = 0
 
         while not self._shutdown_event.is_set():
             now = time.monotonic()
 
             # Enforce stream interval (skip if not enough time elapsed).
             if last_run is not None and (now - last_run) < stream.interval:
+                idle_ticks += 1
+                if idle_ticks % self._IDLE_REFRESH_TICKS == 0:
+                    self._update_idle_display(
+                        stream.name,
+                        last_run + stream.interval,
+                    )
                 try:
                     await asyncio.wait_for(
                         self._shutdown_event.wait(),
@@ -208,6 +256,8 @@ class DaemonRunner:
                     return  # Shutdown requested during sleep.
                 except TimeoutError:
                     continue
+
+            idle_ticks = 0
 
             # Run the stream cycle.
             try:
@@ -219,6 +269,7 @@ class DaemonRunner:
                 )
 
             last_run = time.monotonic()
+            self._update_idle_display(stream.name, last_run + stream.interval)
 
             # Check budget after each cycle (85-REQ-5.3).
             if self._budget.exceeded:

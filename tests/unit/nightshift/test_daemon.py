@@ -420,3 +420,118 @@ class TestDisabledSpecExecutorNoPriorityDelay:
         await runner.run()
         await task
         assert fix.run_once.call_count >= 1
+
+
+# ---------------------------------------------------------------------------
+# Idle display helpers
+# ---------------------------------------------------------------------------
+
+
+class TestFormatIdleText:
+    """Verify _format_idle_text produces human-readable idle messages."""
+
+    def test_seconds(self) -> None:
+        from agent_fox.nightshift.daemon import _format_idle_text
+
+        assert _format_idle_text("fix-pipeline", 45) == "Idle \u2014 next fix check in 45s"
+
+    def test_minutes(self) -> None:
+        from agent_fox.nightshift.daemon import _format_idle_text
+
+        assert _format_idle_text("fix-pipeline", 900) == "Idle \u2014 next fix check in 15m"
+
+    def test_hours_and_minutes(self) -> None:
+        from agent_fox.nightshift.daemon import _format_idle_text
+
+        assert _format_idle_text("hunt-scan", 14400) == "Idle \u2014 next hunt scan in 4h"
+
+    def test_hours_with_remainder(self) -> None:
+        from agent_fox.nightshift.daemon import _format_idle_text
+
+        assert _format_idle_text("hunt-scan", 5400) == "Idle \u2014 next hunt scan in 1h 30m"
+
+    def test_unknown_stream_name_passthrough(self) -> None:
+        from agent_fox.nightshift.daemon import _format_idle_text
+
+        result = _format_idle_text("custom-stream", 120)
+        assert "custom-stream" in result
+        assert "2m" in result
+
+
+class TestIdleCallback:
+    """Verify DaemonRunner calls idle_callback after run_once completes."""
+
+    async def test_idle_callback_called_after_run_once(self, tmp_path: Path) -> None:
+        """idle_callback receives idle text after a stream cycle."""
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        captured: list[str] = []
+        stream = _make_mock_stream(name="fix-pipeline", interval=1, enabled=True)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config,
+            None,
+            [stream],
+            budget,
+            pid_path=tmp_path / "d.pid",
+            idle_callback=captured.append,
+        )
+
+        async def shutdown_after_delay() -> None:
+            await asyncio.sleep(0.15)
+            runner.request_shutdown()
+
+        task = asyncio.create_task(shutdown_after_delay())
+        await runner.run()
+        await task
+        assert len(captured) >= 1
+        assert "Idle" in captured[0]
+        assert "fix check" in captured[0]
+
+    async def test_no_idle_callback_no_error(self, tmp_path: Path) -> None:
+        """DaemonRunner works without idle_callback (default None)."""
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        stream = _make_mock_stream(name="fix-pipeline", interval=1, enabled=True)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config,
+            None,
+            [stream],
+            budget,
+            pid_path=tmp_path / "d.pid",
+        )
+        runner.request_shutdown()
+        await runner.run()  # should not raise
+
+    async def test_idle_shows_soonest_stream(self, tmp_path: Path) -> None:
+        """When multiple streams are registered, idle text shows the soonest."""
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        captured: list[str] = []
+        fast = _make_mock_stream(name="fix-pipeline", interval=1, enabled=True)
+        slow = _make_mock_stream(name="hunt-scan", interval=9999, enabled=True)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config,
+            None,
+            [fast, slow],
+            budget,
+            pid_path=tmp_path / "d.pid",
+            idle_callback=captured.append,
+        )
+
+        async def shutdown_after_delay() -> None:
+            await asyncio.sleep(0.3)
+            runner.request_shutdown()
+
+        task = asyncio.create_task(shutdown_after_delay())
+        await runner.run()
+        await task
+        # After both streams have run once, the soonest next check
+        # should be fix-pipeline (1s interval vs 9999s).
+        last_msg = captured[-1]
+        assert "fix check" in last_msg

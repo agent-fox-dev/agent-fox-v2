@@ -242,6 +242,7 @@ def night_shift_cmd(
         streams=streams,
         budget=budget,
         pid_path=pid_path,
+        idle_callback=progress.update_spinner_text,
     )
 
     # --- Signal handling ----------------------------------------------------
