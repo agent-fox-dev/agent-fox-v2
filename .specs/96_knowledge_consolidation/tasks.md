@@ -111,8 +111,8 @@ Each phase builds on the previous one.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 96-REQ-1.*, 96-REQ-2.*, 96-REQ-3.* acceptance criteria met
 
-- [ ] 3. LLM-powered consolidation steps
-  - [ ] 3.1 Implement cross-spec fact merging (`_merge_related_facts`)
+- [x] 3. LLM-powered consolidation steps
+  - [x] 3.1 Implement cross-spec fact merging (`_merge_related_facts`)
     - Find clusters of similar facts across different specs using embedding
       cosine similarity above configurable threshold
     - Build LLM prompt with cluster facts, call LLM for merge/link decision
@@ -123,7 +123,7 @@ Each phase builds on the previous one.
     - _Requirements: 96-REQ-4.1, 96-REQ-4.2, 96-REQ-4.3, 96-REQ-4.4,
       96-REQ-4.E1, 96-REQ-4.E2_
 
-  - [ ] 3.2 Implement pattern promotion (`_promote_patterns`)
+  - [x] 3.2 Implement pattern promotion (`_promote_patterns`)
     - Find groups of similar active facts spanning 3+ distinct spec_name values
     - Check for existing pattern links (skip if already linked to pattern fact)
     - Build LLM prompt, call for pattern confirmation and description
@@ -131,19 +131,19 @@ Each phase builds on the previous one.
     - Add causal edges from original facts to pattern fact
     - _Requirements: 96-REQ-5.1, 96-REQ-5.2, 96-REQ-5.3, 96-REQ-5.E1_
 
-  - [ ] 3.3 Implement causal chain pruning (`_prune_redundant_chains`)
+  - [x] 3.3 Implement causal chain pruning (`_prune_redundant_chains`)
     - Query `fact_causes` for chains A->B->C where direct A->C exists
     - Build LLM prompt with facts A, B, C for intermediate evaluation
     - Remove edges A->B and B->C if B not meaningful (preserve A->C)
     - Handle LLM failures (preserve all edges)
     - _Requirements: 96-REQ-6.1, 96-REQ-6.2, 96-REQ-6.3, 96-REQ-6.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for LLM steps pass: `uv run pytest -q tests/unit/knowledge/test_consolidation.py -k "cluster or merge_class or merge_action or link_action or pattern or chain or prune or embed_fail or llm_fail or duplicate_pattern or chain_eval"`
-    - [ ] Property tests P3, P4, P5 pass: `uv run pytest -q tests/property/knowledge/test_consolidation_props.py -k "idempotency or threshold or preservation"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 96-REQ-4.*, 96-REQ-5.*, 96-REQ-6.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for LLM steps pass: `uv run pytest -q tests/unit/knowledge/test_consolidation.py -k "cluster or merge_class or merge_action or link_action or pattern or chain or prune or embed_fail or llm_fail or duplicate_pattern or chain_eval"`
+    - [x] Property tests P3, P4, P5 pass: `uv run pytest -q tests/property/knowledge/test_consolidation_props.py -k "idempotency or threshold or preservation"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 96-REQ-4.*, 96-REQ-5.*, 96-REQ-6.* acceptance criteria met
 
 - [ ] 4. Orchestrator integration
   - [ ] 4.1 Hook consolidation into sync barrier (`engine/barrier.py`)

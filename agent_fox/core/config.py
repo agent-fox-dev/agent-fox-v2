@@ -345,9 +345,7 @@ class PerArchetypeConfig(BaseModel):
     modes: dict[str, PerArchetypeConfig] = Field(
         default_factory=dict,
         description=(
-            "Per-mode overrides for this archetype. "
-            "TOML: [archetypes.overrides.<name>.modes.<mode>]. "
-            "97-REQ-3.1"
+            "Per-mode overrides for this archetype. TOML: [archetypes.overrides.<name>.modes.<mode>]. 97-REQ-3.1"
         ),
     )
 
