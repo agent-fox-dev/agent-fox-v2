@@ -4,11 +4,14 @@ Thin CLI wrapper that delegates to ``workspace.init_project`` for
 all initialization logic, then handles output formatting.
 
 Requirements: 01-REQ-3.1, 01-REQ-3.2, 01-REQ-3.3, 01-REQ-3.4,
-              01-REQ-3.5, 01-REQ-3.E1, 01-REQ-3.E2
+              01-REQ-3.5, 01-REQ-3.E1, 01-REQ-3.E2,
+              99-REQ-3.1, 99-REQ-3.2, 99-REQ-3.3, 99-REQ-3.E1
 """
 
 from __future__ import annotations
 
+import logging
+import shutil
 from pathlib import Path
 
 import click
@@ -18,6 +21,45 @@ from agent_fox.workspace.init_project import (
     init_project,
 )
 
+logger = logging.getLogger(__name__)
+
+# Package-embedded default profiles directory (mirrors profiles.py resolution)
+_DEFAULT_PROFILES_DIR: Path = (
+    Path(__file__).resolve().parent.parent / "_templates" / "profiles"
+)
+
+
+def init_profiles(project_dir: Path) -> list[Path]:
+    """Copy default archetype profiles into ``.agent-fox/profiles/``.
+
+    Copies all ``*.md`` files from the package-embedded
+    ``_templates/profiles/`` directory into
+    ``<project_dir>/.agent-fox/profiles/``.  Existing files are skipped
+    without modification.  The destination directory is created if absent.
+
+    Args:
+        project_dir: Root of the project directory.
+
+    Returns:
+        List of newly created profile file paths.  Files that already
+        existed are not included.
+
+    Requirements: 99-REQ-3.1, 99-REQ-3.2, 99-REQ-3.3, 99-REQ-3.E1
+    """
+    profiles_dest = project_dir / ".agent-fox" / "profiles"
+    profiles_dest.mkdir(parents=True, exist_ok=True)
+
+    created: list[Path] = []
+    for src_file in sorted(_DEFAULT_PROFILES_DIR.glob("*.md")):
+        dest_file = profiles_dest / src_file.name
+        if dest_file.exists():
+            logger.debug("Preserving existing profile: %s", dest_file)
+            continue
+        shutil.copy2(src_file, dest_file)
+        created.append(dest_file)
+
+    return created
+
 
 @click.command("init")
 @click.option(
@@ -26,8 +68,14 @@ from agent_fox.workspace.init_project import (
     default=False,
     help="Install bundled Claude Code skills into .claude/skills/.",
 )
+@click.option(
+    "--profiles",
+    is_flag=True,
+    default=False,
+    help="Copy default archetype profiles into .agent-fox/profiles/.",
+)
 @click.pass_context
-def init_cmd(ctx: click.Context, skills: bool) -> None:
+def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
     """Initialize the current project for agent-fox.
 
     Creates the .agent-fox/ directory structure with a default
@@ -90,3 +138,9 @@ def init_cmd(ctx: click.Context, skills: bool) -> None:
         click.echo("Created .specs/steering.md.")
     if result.skills_installed:
         click.echo(f"Installed {result.skills_installed} skills.")
+    if profiles:
+        created_profiles = init_profiles(project_root)
+        if created_profiles:
+            click.echo(f"Installed {len(created_profiles)} archetype profiles.")
+        else:
+            click.echo("All archetype profiles already exist; nothing to install.")

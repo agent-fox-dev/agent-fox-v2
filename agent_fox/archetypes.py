@@ -16,6 +16,11 @@ from __future__ import annotations
 import dataclasses
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agent_fox.core.config import AgentFoxConfig
 
 logger = logging.getLogger(__name__)
 
@@ -197,17 +202,84 @@ def resolve_effective_config(
     return dataclasses.replace(entry, **overrides)
 
 
-def get_archetype(name: str) -> ArchetypeEntry:
-    """Look up an archetype by name, falling back to 'coder'.
+def _resolve_custom_preset(
+    name: str,
+    config: AgentFoxConfig | None,
+) -> str:
+    """Resolve the permission preset name for a custom archetype.
+
+    Returns the preset name (a built-in archetype name).  Defaults to
+    ``'coder'`` if no preset is configured and logs a warning.
+
+    Requirements: 99-REQ-4.E1
+    """
+    if config is not None:
+        custom_cfg = config.archetypes.custom.get(name)
+        if custom_cfg is not None:
+            return custom_cfg.permissions
+
+    logger.warning(
+        "Custom archetype '%s' has no permission preset in config; "
+        "defaulting to 'coder' permissions",
+        name,
+    )
+    return "coder"
+
+
+def get_archetype(
+    name: str,
+    *,
+    project_dir: Path | None = None,
+    config: AgentFoxConfig | None = None,
+) -> ArchetypeEntry:
+    """Look up an archetype by name, with custom archetype fallback.
+
+    Resolution order:
+    1. ``ARCHETYPE_REGISTRY[name]`` — built-in archetypes.
+    2. Custom archetype — profile exists at
+       ``<project_dir>/.agent-fox/profiles/<name>.md`` and a permission
+       preset is resolved from *config*.
+    3. Fallback to ``'coder'`` with a warning.
 
     Args:
         name: Archetype name to look up.
+        project_dir: Project root directory used to locate custom profiles.
+            Pass ``None`` to skip custom archetype resolution.
+        config: Loaded ``AgentFoxConfig`` providing custom archetype
+            permission presets.  Pass ``None`` to use the default preset.
 
     Returns:
-        The matching ArchetypeEntry, or the coder entry if not found.
+        The matching ``ArchetypeEntry``.
+
+    Raises:
+        ConfigError: When a custom archetype's permission preset references
+            a non-existent built-in archetype (99-REQ-4.E2).
+
+    Requirements: 99-REQ-4.1, 99-REQ-4.3, 99-REQ-4.4, 99-REQ-4.E1,
+                  99-REQ-4.E2
     """
+    # 1. Built-in registry lookup
     entry = ARCHETYPE_REGISTRY.get(name)
-    if entry is None:
-        logger.warning("Unknown archetype '%s', falling back to 'coder'", name)
-        return ARCHETYPE_REGISTRY["coder"]
-    return entry
+    if entry is not None:
+        return entry
+
+    # 2. Custom archetype fallback
+    if project_dir is not None:
+        from agent_fox.session.profiles import has_custom_profile
+
+        if has_custom_profile(name, project_dir):
+            preset_name = _resolve_custom_preset(name, config)
+            preset_entry = ARCHETYPE_REGISTRY.get(preset_name)
+            if preset_entry is None:
+                from agent_fox.core.errors import ConfigError
+
+                raise ConfigError(
+                    f"Custom archetype '{name}' references invalid permission "
+                    f"preset '{preset_name}'. Valid built-in archetypes: "
+                    f"{list(ARCHETYPE_REGISTRY.keys())}",
+                )
+            return dataclasses.replace(preset_entry, name=name)
+
+    # 3. Final fallback to coder
+    logger.warning("Unknown archetype '%s', falling back to 'coder'", name)
+    return ARCHETYPE_REGISTRY["coder"]
