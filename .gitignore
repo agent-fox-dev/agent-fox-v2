@@ -27,3 +27,4 @@ hack/**
 
 # other
 **/.env
+MagicMock/**

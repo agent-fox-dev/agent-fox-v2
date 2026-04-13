@@ -82,7 +82,7 @@ agent-fox night-shift --auto
 
 Requires a GitHub platform configured in `.agent-fox/config.toml` (`[platform] type = "github"`).
 See the [Night Shift CLI reference](docs/cli-reference.md#night-shift) and
-[configuration](docs/configuration.md#night_shift) for full details.
+[configuration](docs/config-reference.md#night_shift) for full details.
 
 ### Spec-driven Development
 

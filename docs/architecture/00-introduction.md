@@ -116,6 +116,14 @@ batch triage with supersession detection, the fix pipeline (Skeptic, Coder,
 Verifier), in-memory spec construction, engine lifecycle, cost limits,
 staleness detection.
 
+### [Part 5: Knowledge System Architecture](05-knowledge-system-architecture.md)
+
+The knowledge system is the institutional memory of an autonomous coding
+orchestrator. It captures what the coding agent learns during sessions — patterns
+discovered, pitfalls encountered, architectural decisions made, conventions established
+— and makes that knowledge available to future sessions so the same mistakes are
+never repeated and the same discoveries never need to happen twice.
+
 ## Reading Order
 
 The documents are numbered to follow the user's workflow:
@@ -124,6 +132,7 @@ The documents are numbered to follow the user's workflow:
 2. **Planning** — how intent becomes a machine-readable plan
 3. **Execution** — how the plan is carried out
 4. **Night-shift** — how the system maintains itself
+5. **Knowledge System Architecture** — understand how institutional knowledge is curated
 
 Read them in order for a complete picture, or jump to any part for a specific
 topic. Each document is self-contained but cross-references the others where

@@ -73,6 +73,6 @@ clear error message rather than running with degraded functionality.
 | Document | Description |
 |----------|-------------|
 | [CLI Reference](cli-reference.md) | All commands, flags, and exit codes |
-| [Configuration](configuration.md) | Every `config.toml` section and option |
+| [Configuration](config-reference.md) | Every `config.toml` section and option |
 | [Archetypes](archetypes.md) | Agent archetype details and configuration |
 | [Skills](skills.md) | Claude Code skill reference |
