@@ -71,30 +71,30 @@ wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/session/profiles.py`
 
-- [ ] 3. Create default profiles
-  - [ ] 3.1 Create `agent_fox/_templates/profiles/` directory
+- [x] 3. Create default profiles
+  - [x] 3.1 Create `agent_fox/_templates/profiles/` directory
     - _Requirements: 99-REQ-2.1_
 
-  - [ ] 3.2 Create default profile for coder
+  - [x] 3.2 Create default profile for coder
     - 4 sections: Identity, Rules, Focus areas, Output format
     - Incorporate content from current coding.md template
     - _Requirements: 99-REQ-2.2, 99-REQ-2.3_
 
-  - [ ] 3.3 Create default profile for reviewer
+  - [x] 3.3 Create default profile for reviewer
     - 4 sections with mode-specific guidance noted
     - Incorporate content from current reviewer.md template
     - _Requirements: 99-REQ-2.2, 99-REQ-2.3_
 
-  - [ ] 3.4 Create default profiles for verifier and maintainer
+  - [x] 3.4 Create default profiles for verifier and maintainer
     - 4 sections each
     - Verifier from current verifier.md template
     - Maintainer as new profile (placeholder until Spec 100)
     - _Requirements: 99-REQ-2.2, 99-REQ-2.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/templates/test_default_profiles.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/templates/test_default_profiles.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
 
 - [ ] 4. Update prompt assembly to 3-layer
   - [ ] 4.1 Update `build_system_prompt()` in `session/prompt.py`
