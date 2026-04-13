@@ -278,9 +278,14 @@ class KnowledgeConfig(BaseModel):
         default=True,
         description="Enable/disable end-of-run fact lifecycle cleanup",
     )
+    cross_spec_top_k: int = Field(
+        default=15,
+        description="Number of cross-spec facts to retrieve via vector search (0 to disable)",
+    )
 
     clamp_ask_top_k = _clamped_validator("ask_top_k", ge=1)
     clamp_confidence = _clamped_validator("confidence_threshold", ge=0.0, le=1.0)
+    clamp_cross_spec_top_k = _clamped_validator("cross_spec_top_k", ge=0, cast=int)
 
 
 class ThinkingConfig(BaseModel):

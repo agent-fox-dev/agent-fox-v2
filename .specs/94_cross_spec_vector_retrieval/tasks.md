@@ -57,30 +57,30 @@ session lifecycle and factory, and group 4 performs wiring verification.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `make lint`
 
-- [ ] 2. Config field and subtask description extraction
-  - [ ] 2.1 Add `cross_spec_top_k` to `KnowledgeConfig`
+- [x] 2. Config field and subtask description extraction
+  - [x] 2.1 Add `cross_spec_top_k` to `KnowledgeConfig`
     - Add `cross_spec_top_k: int = Field(default=15, description="...")` to
       `agent_fox/core/config.py` in the `KnowledgeConfig` class
     - _Requirements: 94-REQ-4.1, 94-REQ-4.2_
 
-  - [ ] 2.2 Implement `extract_subtask_descriptions` function
+  - [x] 2.2 Implement `extract_subtask_descriptions` function
     - Add the function to `agent_fox/engine/session_lifecycle.py`
     - Parse `tasks.md` via existing `parse_tasks()`, locate matching group,
       iterate body lines to extract first non-metadata bullet per subtask
     - Import `_SUBTASK_PATTERN` from `agent_fox/spec/parser`
     - _Requirements: 94-REQ-1.1, 94-REQ-1.2_
 
-  - [ ] 2.3 Handle extraction edge cases
+  - [x] 2.3 Handle extraction edge cases
     - Return empty list when `tasks.md` is missing (94-REQ-1.E1)
     - Return empty list when task group not found (94-REQ-1.E2)
     - Return empty list when all bullets are metadata (94-REQ-1.E2)
     - _Requirements: 94-REQ-1.E1, 94-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_cross_spec_retrieval.py -k "extract or config or TS_94_1 or TS_94_2 or TS_94_7 or TS_94_E1 or TS_94_E2 or TS_94_E3"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 94-REQ-1.1, 94-REQ-1.2, 94-REQ-1.E1, 94-REQ-1.E2, 94-REQ-4.1, 94-REQ-4.2 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_cross_spec_retrieval.py -k "extract or config or TS_94_1 or TS_94_2 or TS_94_7 or TS_94_E1 or TS_94_E2 or TS_94_E3"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 94-REQ-1.1, 94-REQ-1.2, 94-REQ-1.E1, 94-REQ-1.E2, 94-REQ-4.1, 94-REQ-4.2 acceptance criteria met
 
 - [ ] 3. Cross-spec retrieval method and factory wiring
   - [ ] 3.1 Add `embedder` parameter to `NodeSessionRunner.__init__`

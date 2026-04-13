@@ -237,6 +237,7 @@ persists facts learned across sessions for use as context in future sessions.
 | `decay_floor` | float | `0.1` | — | Effective confidence below which facts are auto-superseded |
 | `cleanup_fact_threshold` | int | `500` | — | Active fact count above which decay cleanup runs |
 | `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
+| `cross_spec_top_k` | int | `15` | ≥ 0 | Number of cross-spec facts retrieved via vector search during context assembly (0 to disable) |
 
 **Example:**
 
