@@ -109,28 +109,12 @@ class TestExtractionConfidence:
     @pytest.mark.asyncio
     async def test_extraction_stores_float(self) -> None:
         """Extracted facts have float confidence from string LLM output."""
-        mock_response = MagicMock()
-        mock_response.content = [
-            MagicMock(
-                text='[{"content": "Test fact", "category": "gotcha", "confidence": "high", "keywords": ["test"]}]'
-            )
-        ]
-        mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
+        response_text = '[{"content": "Test fact", "category": "gotcha", "confidence": "high", "keywords": ["test"]}]'
 
-        mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-
-        with (
-            patch(
-                "agent_fox.knowledge.extraction.create_async_anthropic_client",
-                return_value=mock_client,
-            ),
-            patch(
-                "agent_fox.knowledge.extraction.resolve_model",
-                return_value=MagicMock(model_id="test-model"),
-            ),
+        with patch(
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(response_text, MagicMock()),
         ):
             from agent_fox.knowledge.extraction import extract_facts
 

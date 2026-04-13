@@ -1,7 +1,7 @@
-"""Shared text-sanitisation helpers for knowledge query modules.
+"""Shared text-sanitisation helpers.
 
-Used by patterns and temporal rendering to strip ANSI escapes and
-escape markdown special characters in database-sourced content.
+Strip ANSI escapes and escape markdown special characters in
+database-sourced or user-supplied content.
 """
 
 from __future__ import annotations

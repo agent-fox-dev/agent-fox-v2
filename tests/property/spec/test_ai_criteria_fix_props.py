@@ -13,9 +13,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.spec.validator import SEVERITY_HINT, Finding
+from agent_fox.spec.validators import SEVERITY_HINT, Finding
 
-_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
+_MOCK_AI_CALL = "agent_fox.spec.ai_validation.ai_call"
 
 
 # -- Strategies ----------------------------------------------------------------
@@ -91,7 +91,7 @@ class TestIdRoundtrip:
         replacement: str,
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         tmp_dir = tmp_path_factory.mktemp("spec")
         req_path = tmp_dir / "requirements.md"
@@ -127,7 +127,7 @@ class TestFileIntegrity:
         n_reqs: int,
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         tmp_dir = tmp_path_factory.mktemp("spec")
         req_path = tmp_dir / "requirements.md"
@@ -172,19 +172,12 @@ class TestEarsInPrompt:
 
         response_text = json.dumps({"rewrites": []})
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())) as mock_ai_call:
             findings = [_make_finding(f"99-REQ-1.{i}") for i in range(1, n_findings + 1)]
             req_text = _make_bracket_fixture("99-REQ-1.1")
 
             await rewrite_criteria("spec", req_text, findings, "model")
 
-            prompt = str(mock_client.messages.create.call_args)
+            prompt = str(mock_ai_call.call_args)
             assert "SHALL" in prompt
             assert "EARS" in prompt

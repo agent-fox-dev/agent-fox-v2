@@ -209,9 +209,7 @@ class TestPushFailureResilience:
             side_effect=exc_type("fail"),
         ):
             # Must not raise
-            await pipeline.process_issue(
-                _make_issue(), issue_body="fix body"
-            )
+            await pipeline.process_issue(_make_issue(), issue_body="fix body")
 
         mock_harvest.assert_awaited_once()
 

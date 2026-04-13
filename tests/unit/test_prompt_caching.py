@@ -270,7 +270,10 @@ class TestAuxiliaryModulesUseHelper:
         assert full_path.exists(), f"Module not found: {full_path}"
 
         source = full_path.read_text(encoding="utf-8")
-        assert "cached_messages_create" in source, f"{module_path} does not call cached_messages_create"
+        caching_helpers = ("cached_messages_create", "ai_call", "ai_call_sync", "nightshift_ai_call")
+        assert any(h in source for h in caching_helpers), (
+            f"{module_path} does not call any caching helper ({', '.join(caching_helpers)})"
+        )
         assert ".messages.create(" not in source, f"{module_path} still has a raw .messages.create() call"
 
 

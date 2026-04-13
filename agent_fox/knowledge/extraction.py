@@ -10,9 +10,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from anthropic.types import TextBlock
-
-from agent_fox.core.client import cached_messages_create, create_async_anthropic_client
+from agent_fox.core.client import ai_call
 from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.core.llm_validation import (
     MAX_CONTENT_LENGTH,
@@ -20,10 +18,7 @@ from agent_fox.core.llm_validation import (
     truncate_field,
     validate_keywords,
 )
-from agent_fox.core.models import resolve_model
 from agent_fox.core.prompt_safety import sanitize_prompt_content
-from agent_fox.core.retry import retry_api_call_async
-from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.knowledge.facts import Category, Fact, parse_confidence
 
 logger = logging.getLogger("agent_fox.knowledge.extraction")
@@ -73,33 +68,19 @@ async def extract_facts(
         A list of Fact objects extracted from the transcript.
         Returns an empty list if extraction fails or yields no facts.
     """
-    model_entry = resolve_model(model_name)
     safe_transcript = sanitize_prompt_content(transcript, label="transcript", max_chars=100_000)
     prompt = EXTRACTION_PROMPT.format(transcript=safe_transcript)
 
-    async def _call() -> object:
-        client = create_async_anthropic_client()
-        return await cached_messages_create(
-            client,
-            model=model_entry.model_id,
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    raw_text, _response = await ai_call(
+        model_tier=model_name,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+        context="fact extraction",
+    )
 
-    response = await retry_api_call_async(_call, context="fact extraction")
-
-    track_response_usage(response, model_entry.model_id, "fact extraction")
-
-    first_block = response.content[0]  # type: ignore[attr-defined]
-    if isinstance(first_block, TextBlock):
-        raw_text: str = first_block.text
-    else:
-        # Fallback for types with a .text attribute (e.g. test mocks)
-        maybe_text: str | None = getattr(first_block, "text", None)
-        if maybe_text is None:
-            logger.warning("Extraction response has no text content, skipping")
-            return []
-        raw_text = maybe_text
+    if raw_text is None:
+        logger.warning("Extraction response has no text content, skipping")
+        return []
 
     try:
         facts = _parse_extraction_response(raw_text, spec_name, session_id)

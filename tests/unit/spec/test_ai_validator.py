@@ -22,7 +22,7 @@ from agent_fox.spec.discovery import SpecInfo
 # -- Fixtures ------------------------------------------------------------------
 
 FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures" / "specs"
-_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
+_MOCK_AI_CALL = "agent_fox.spec.ai_validation.ai_call"
 
 
 def _make_spec_info(
@@ -59,11 +59,8 @@ class TestAIUnavailableGracefulFallback:
     async def test_auth_error_returns_empty(self) -> None:
         """Authentication error returns empty findings list."""
         specs = [_make_spec_info()]
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception("Authentication failed")
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = Exception("Authentication failed")
 
             findings = await run_ai_validation(specs, "STANDARD")
 
@@ -73,11 +70,8 @@ class TestAIUnavailableGracefulFallback:
     async def test_auth_error_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Authentication error produces a log warning."""
         specs = [_make_spec_info()]
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception("Authentication failed")
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = Exception("Authentication failed")
 
             with caplog.at_level(logging.WARNING):
                 await run_ai_validation(specs, "STANDARD")
@@ -110,13 +104,8 @@ class TestAIFindingsSeverityAndRule:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",
@@ -141,13 +130,8 @@ class TestAIFindingsSeverityAndRule:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",
@@ -171,13 +155,8 @@ class TestAIFindingsSeverityAndRule:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",
@@ -201,13 +180,8 @@ class TestAIPromptConstruction:
     @pytest.mark.asyncio
     async def test_prompt_includes_criteria_text(self) -> None:
         """AI prompt contains acceptance criteria from requirements.md."""
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text='{"issues": []}')]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = ('{"issues": []}', MagicMock())
 
             await analyze_acceptance_criteria(
                 "test_spec",
@@ -216,9 +190,9 @@ class TestAIPromptConstruction:
             )
 
             # Verify the API was called
-            assert mock_client.messages.create.called
+            assert mock_ai.called
             # Check that the prompt includes criteria text from the fixture
-            call_args = mock_client.messages.create.call_args
+            call_args = mock_ai.call_args
             # The prompt should contain acceptance criteria text
             prompt_text = str(call_args)
             assert "99-REQ-1.1" in prompt_text or "SHALL" in prompt_text
@@ -238,13 +212,8 @@ class TestAIResponseParsing:
         """Empty issues list in response produces no findings."""
         response_text = '{"issues": []}'
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",
@@ -257,13 +226,8 @@ class TestAIResponseParsing:
     @pytest.mark.asyncio
     async def test_malformed_json_returns_empty(self) -> None:
         """Malformed JSON response produces no findings (graceful handling)."""
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text="not valid json")]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = ("not valid json", MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",
@@ -285,13 +249,8 @@ class TestAIResponseParsing:
             "```"
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=fenced)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (fenced, MagicMock())
 
             findings = await analyze_acceptance_criteria(
                 "test_spec",

@@ -14,11 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent_fox.spec.discovery import SpecInfo
-from agent_fox.spec.validator import Finding, sort_findings
+from agent_fox.spec.validators import Finding, sort_findings
 
 # -- Constants ----------------------------------------------------------------
 
-_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
+_MOCK_AI_CALL = "agent_fox.spec.ai_validation.ai_call"
 
 
 # -- Helpers ------------------------------------------------------------------
@@ -82,12 +82,9 @@ def _make_spec(
     )
 
 
-def _make_mock_ai_response(results: list[dict]) -> MagicMock:
-    """Create a mock AI response with structured JSON results."""
-    response_text = json.dumps({"results": results})
-    mock_response = MagicMock()
-    mock_response.content = [MagicMock(text=response_text)]
-    return mock_response
+def _make_mock_ai_response_text(results: list[dict]) -> str:
+    """Create the JSON response text for a mock ai_call return value."""
+    return json.dumps({"results": results})
 
 
 # -- TS-21-1: Extract backtick identifiers from Relationship text -------------
@@ -258,7 +255,7 @@ class TestAIValidatesFound:
             raw_relationship="Uses `Config` for settings",
         )
 
-        mock_response = _make_mock_ai_response(
+        response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "Config",
@@ -269,12 +266,7 @@ class TestAIValidatesFound:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())):
             findings = await validate_dependency_interfaces(
                 "01_core", "# Design\n\nConfig is a dataclass.", [ref], "STANDARD"
             )
@@ -306,7 +298,7 @@ class TestAIFlagsUnresolved:
             raw_relationship="Uses `SnippetStore`",
         )
 
-        mock_response = _make_mock_ai_response(
+        response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "SnippetStore",
@@ -317,12 +309,7 @@ class TestAIFlagsUnresolved:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())):
             findings = await validate_dependency_interfaces(
                 "01_core", "# Design\n\nStore is the main type.", [ref], "STANDARD"
             )
@@ -359,15 +346,11 @@ class TestMissingDesignSkips:
 
         specs = [_make_spec("10_downstream", spec_dir)]
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai_call:
             findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
-            assert mock_client.messages.create.call_count == 0
+            assert mock_ai_call.call_count == 0
 
 
 # -- TS-21-9: AI unavailable skips rule ---------------------------------------
@@ -395,12 +378,7 @@ class TestAIUnavailableSkips:
 
         specs = [_make_spec("10_downstream", spec_dir)]
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception("Auth failed")
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, side_effect=Exception("Auth failed")):
             findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
@@ -420,12 +398,7 @@ class TestAIUnavailableSkips:
 
         specs = [_make_spec("10_downstream", spec_dir)]
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception("Auth failed")
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, side_effect=Exception("Auth failed")):
             with caplog.at_level(logging.WARNING):
                 _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
@@ -457,15 +430,11 @@ class TestMalformedResponse:
             raw_relationship="Uses `Config`",
         )
 
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text="not valid json {{}}")]
-
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(
+            _MOCK_AI_CALL,
+            new_callable=AsyncMock,
+            return_value=("not valid json {{}}", MagicMock()),
+        ):
             findings = await validate_dependency_interfaces("01_core", "# Design doc", [ref], "STANDARD")
 
             assert len(findings) == 0
@@ -505,7 +474,7 @@ class TestBatchSameUpstream:
             _make_spec("11_spec_b", spec_b_dir),
         ]
 
-        mock_response = _make_mock_ai_response(
+        response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "Config",
@@ -522,20 +491,15 @@ class TestBatchSameUpstream:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())) as mock_ai_call:
             _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert _findings is not None
             # Only one AI call for the single upstream spec 01_core
-            assert mock_client.messages.create.call_count == 1
+            assert mock_ai_call.call_count == 1
 
             # Verify both identifiers were sent in the prompt
-            call_args = mock_client.messages.create.call_args
+            call_args = mock_ai_call.call_args
             prompt = str(call_args)
             assert "Config" in prompt
             assert "Store" in prompt
@@ -565,15 +529,11 @@ class TestNoBactickTokensZeroCalls:
 
         specs = [_make_spec("10_downstream", spec_dir)]
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai_call:
             findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert len(findings) == 0
-            assert mock_client.messages.create.call_count == 0
+            assert mock_ai_call.call_count == 0
 
 
 # -- TS-21-13: Findings have correct severity and format ----------------------
@@ -600,7 +560,7 @@ class TestFindingSeverityFormat:
             raw_relationship="Uses `BadRef`",
         )
 
-        mock_response = _make_mock_ai_response(
+        response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "BadRef",
@@ -611,12 +571,7 @@ class TestFindingSeverityFormat:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())):
             findings = await validate_dependency_interfaces("01_core", "# Design", [ref], "STANDARD")
 
             assert all(f.severity == "warning" for f in findings)
@@ -644,7 +599,7 @@ class TestFindingSeverityFormat:
         specs = [_make_spec("10_downstream", spec_dir)]
 
         # Mock: acceptance criteria returns empty, stale-dep flags BadRef
-        stale_response = _make_mock_ai_response(
+        stale_response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "BadRef",
@@ -654,18 +609,14 @@ class TestFindingSeverityFormat:
                 }
             ]
         )
-        criteria_response = MagicMock()
-        criteria_response.content = [MagicMock(text='{"issues": []}')]
+        criteria_response_text = '{"issues": []}'
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai_call:
             # First call = acceptance criteria, second call = stale-dep
-            mock_client.messages.create.side_effect = [
-                criteria_response,
-                stale_response,
+            mock_ai_call.side_effect = [
+                (criteria_response_text, MagicMock()),
+                (stale_response_text, MagicMock()),
             ]
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
 
             findings = await run_ai_validation(specs, "STANDARD", specs_dir=tmp_path)
 
@@ -726,7 +677,7 @@ class TestMultipleUpstreamsSeparateCalls:
 
         specs = [_make_spec("10_downstream", spec_dir)]
 
-        mock_response = _make_mock_ai_response(
+        response_text = _make_mock_ai_response_text(
             [
                 {
                     "identifier": "Config",
@@ -737,16 +688,11 @@ class TestMultipleUpstreamsSeparateCalls:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock, return_value=(response_text, MagicMock())) as mock_ai_call:
             _findings = await run_stale_dependency_validation(specs, tmp_path, "STANDARD")
 
             assert _findings is not None  # may or may not have findings
-            assert mock_client.messages.create.call_count == 2
+            assert mock_ai_call.call_count == 2
 
 
 # -- TS-21-15: Fix replaces stale identifier with AI suggestion ----------------
@@ -760,7 +706,7 @@ class TestFixReplacesIdentifier:
 
     def test_replace_stale_identifier(self, tmp_path: Path) -> None:
         """Stale identifier is replaced with AI suggestion."""
-        from agent_fox.spec.fixer import IdentifierFix, fix_stale_dependency
+        from agent_fox.spec.fixers import IdentifierFix, fix_stale_dependency
 
         prd_path = _write_prd(
             tmp_path,
@@ -794,7 +740,7 @@ class TestFixSkipsNoSuggestion:
 
     def test_empty_suggestion_skips(self, tmp_path: Path) -> None:
         """Empty suggestion string causes skip."""
-        from agent_fox.spec.fixer import IdentifierFix, fix_stale_dependency
+        from agent_fox.spec.fixers import IdentifierFix, fix_stale_dependency
 
         prd_path = _write_prd(
             tmp_path,
@@ -825,7 +771,7 @@ class TestFixSkipsAlreadyPresent:
 
     def test_already_fixed_skips(self, tmp_path: Path) -> None:
         """Skip when original is gone and suggestion already present."""
-        from agent_fox.spec.fixer import IdentifierFix, fix_stale_dependency
+        from agent_fox.spec.fixers import IdentifierFix, fix_stale_dependency
 
         # prd.md already has `Store`, not `SnippetStore`
         prd_path = _write_prd(
@@ -857,7 +803,7 @@ class TestFixPreservesSurrounding:
 
     def test_surrounding_text_preserved(self, tmp_path: Path) -> None:
         """Only the target identifier is replaced; others remain."""
-        from agent_fox.spec.fixer import IdentifierFix, fix_stale_dependency
+        from agent_fox.spec.fixers import IdentifierFix, fix_stale_dependency
 
         prd_path = _write_prd(
             tmp_path,

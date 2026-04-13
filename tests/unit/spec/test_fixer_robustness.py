@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.spec.fixer import (
+from agent_fox.spec.fixers import (
     fix_inconsistent_req_id_format,
     fix_missing_correctness_properties,
     fix_missing_coverage_matrix,

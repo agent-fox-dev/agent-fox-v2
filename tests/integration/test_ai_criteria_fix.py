@@ -57,14 +57,10 @@ class TestNoRewriteWithoutAiFlag:
         original_dir = os.getcwd()
         os.chdir(tmp_path)
         try:
-            with patch("agent_fox.spec.ai_validation.create_async_anthropic_client") as mock_cls:
-                mock_client = AsyncMock()
-                mock_client.__aenter__.return_value = mock_client
-                mock_cls.return_value = mock_client
-
+            with patch("agent_fox.spec.ai_validation.ai_call", new_callable=AsyncMock) as mock_ai:
                 runner.invoke(main, ["lint-specs", "--fix"])
                 # No AI rewrite call should have been made
-                assert mock_client.messages.create.call_count == 0
+                assert mock_ai.call_count == 0
         finally:
             os.chdir(original_dir)
 
@@ -116,25 +112,15 @@ class TestNoReRewrite:
                     }
                 )
 
-                with patch("agent_fox.spec.ai_validation.create_async_anthropic_client") as mock_cls:
-                    mock_client = AsyncMock()
-
+                with patch("agent_fox.spec.ai_validation.ai_call", new_callable=AsyncMock) as mock_ai:
                     # First call: AI analysis, returns vague finding
                     # Second call: rewrite, returns replacement
                     # Third call: re-validation AI analysis
-                    mock_response_analysis = MagicMock()
-                    mock_response_analysis.content = [MagicMock(text=ai_analysis_response)]
-
-                    mock_response_rewrite = MagicMock()
-                    mock_response_rewrite.content = [MagicMock(text=rewrite_response)]
-
-                    mock_client.messages.create.side_effect = [
-                        mock_response_analysis,  # initial AI analysis
-                        mock_response_rewrite,  # rewrite call
-                        mock_response_analysis,  # re-validation AI analysis
+                    mock_ai.side_effect = [
+                        (ai_analysis_response, MagicMock()),  # initial AI analysis
+                        (rewrite_response, MagicMock()),  # rewrite call
+                        (ai_analysis_response, MagicMock()),  # re-validation AI analysis
                     ]
-                    mock_client.__aenter__.return_value = mock_client
-                    mock_cls.return_value = mock_client
 
                     runner.invoke(main, ["lint-specs", "--ai", "--fix"])
 
@@ -143,6 +129,6 @@ class TestNoReRewrite:
                     #  NOT analysis + rewrite + re-analysis + re-rewrite)
                     # The rewrite call count should be exactly 1
                     # Total API calls: analysis(1) + rewrite(1) + re-analysis(1) = 3
-                    assert mock_client.messages.create.call_count <= 3
+                    assert mock_ai.call_count <= 3
         finally:
             os.chdir(original_dir)

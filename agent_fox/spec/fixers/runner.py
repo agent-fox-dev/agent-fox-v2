@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo
-from agent_fox.spec.validator import Finding
+from agent_fox.spec.validators import Finding
 
 from .archetype import fix_invalid_archetype_tag, fix_malformed_archetype_tag
 from .checkbox import fix_invalid_checkbox_state

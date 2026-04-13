@@ -12,11 +12,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent_fox.spec.validator import SEVERITY_HINT, Finding
+from agent_fox.spec.validators import SEVERITY_HINT, Finding
 
 # -- Constants -----------------------------------------------------------------
 
-_MOCK_CLIENT = "agent_fox.spec.ai_validation.create_async_anthropic_client"
+_MOCK_AI_CALL = "agent_fox.spec.ai_validation.ai_call"
 
 # -- Fixture content -----------------------------------------------------------
 
@@ -106,13 +106,8 @@ class TestRewriteProducesReplacement:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
@@ -146,18 +141,13 @@ class TestEarsKeywordsInPrompt:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
-            call_args = mock_client.messages.create.call_args
+            call_args = mock_ai.call_args
             prompt = str(call_args)
             assert "SHALL" in prompt
             assert "WHEN" in prompt
@@ -189,13 +179,8 @@ class TestPromptIncludesFullRequirements:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             await rewrite_criteria(
@@ -205,7 +190,7 @@ class TestPromptIncludesFullRequirements:
                 "standard-model",
             )
 
-            prompt = str(mock_client.messages.create.call_args)
+            prompt = str(mock_ai.call_args)
             assert "UNIQUE_MARKER_STRING" in prompt
 
 
@@ -226,18 +211,13 @@ class TestRewritePreservesIntent:
 
         response_text = _make_mock_rewrite_response([])
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
-            prompt = str(mock_client.messages.create.call_args).lower()
+            prompt = str(mock_ai.call_args).lower()
             assert "intent" in prompt
 
 
@@ -258,18 +238,13 @@ class TestRewritePreventFixLoops:
 
         response_text = _make_mock_rewrite_response([])
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1", rule="implementation-leak")]
             await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
-            prompt = str(mock_client.messages.create.call_args).lower()
+            prompt = str(mock_ai.call_args).lower()
             assert "pass" in prompt or "not be flagged" in prompt
 
 
@@ -298,13 +273,8 @@ class TestResponseJsonParsed:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
@@ -347,13 +317,8 @@ class TestBatchingOneCallPerSpec:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [
                 _make_finding("99-REQ-1.1"),
@@ -362,7 +327,7 @@ class TestBatchingOneCallPerSpec:
             ]
             await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
 
-            assert mock_client.messages.create.call_count == 1
+            assert mock_ai.call_count == 1
 
 
 # ==============================================================================
@@ -380,15 +345,11 @@ class TestNoCallWithoutFindings:
     async def test_empty_findings_returns_empty(self) -> None:
         from agent_fox.spec.ai_validation import rewrite_criteria
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
-
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
             result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, [], "standard-model")
 
             assert result == {}
-            assert mock_client.messages.create.call_count == 0
+            assert mock_ai.call_count == 0
 
 
 # ==============================================================================
@@ -416,13 +377,8 @@ class TestStandardModelUsed:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             await rewrite_criteria(
@@ -432,10 +388,8 @@ class TestStandardModelUsed:
                 "standard-model-id",
             )
 
-            call_kwargs = mock_client.messages.create.call_args
-            assert call_kwargs.kwargs.get("model") == "standard-model-id" or (
-                call_kwargs.args and call_kwargs.args[0] == "standard-model-id"
-            )
+            call_kwargs = mock_ai.call_args
+            assert call_kwargs.kwargs.get("model_tier") == "standard-model-id"
 
 
 # ==============================================================================
@@ -450,7 +404,7 @@ class TestRewriteAppliedToFile:
     """
 
     def test_replacement_written_to_file(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
@@ -477,7 +431,7 @@ class TestBracketIdPreserved:
     """
 
     def test_bracket_id_in_output(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
@@ -502,7 +456,7 @@ class TestBoldIdPreserved:
     """
 
     def test_bold_id_in_output(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BOLD)
@@ -527,7 +481,7 @@ class TestFixResultRuleNames:
     """
 
     def test_fix_results_have_correct_rules(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
@@ -558,7 +512,7 @@ class TestFixResultMatchingRule:
     """
 
     def test_rule_matches_original_finding(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
@@ -598,7 +552,7 @@ class TestFixableRulesExtended:
     """
 
     def test_ai_rules_in_fixable_set(self) -> None:
-        from agent_fox.spec.fixer import AI_FIXABLE_RULES
+        from agent_fox.spec.fixers import AI_FIXABLE_RULES
 
         assert "vague-criterion" in AI_FIXABLE_RULES
         assert "implementation-leak" in AI_FIXABLE_RULES
@@ -619,11 +573,8 @@ class TestApiFailureLeavesFileUnchanged:
     async def test_api_exception_returns_empty(self) -> None:
         from agent_fox.spec.ai_validation import rewrite_criteria
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.messages.create.side_effect = Exception("API timeout")
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.side_effect = Exception("API timeout")
 
             findings = [_make_finding("99-REQ-1.1")]
             result = await rewrite_criteria(
@@ -648,7 +599,7 @@ class TestMissingCriterionSkipped:
     """
 
     def test_phantom_criterion_skipped(self, tmp_path: Path) -> None:
-        from agent_fox.spec.fixer import fix_ai_criteria
+        from agent_fox.spec.fixers import fix_ai_criteria
 
         req_path = tmp_path / "requirements.md"
         req_path.write_text(REQUIREMENTS_BRACKET)
@@ -691,13 +642,8 @@ class TestFencedJsonParsed:
             "```"
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=fenced)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (fenced, MagicMock())
 
             findings = [_make_finding("99-REQ-1.1")]
             result = await rewrite_criteria("test_spec", REQUIREMENTS_BRACKET, findings, "standard-model")
@@ -730,13 +676,8 @@ class TestOmittedCriterionSkipped:
             ]
         )
 
-        with patch(_MOCK_CLIENT) as mock_cls:
-            mock_client = AsyncMock()
-            mock_response = MagicMock()
-            mock_response.content = [MagicMock(text=response_text)]
-            mock_client.messages.create.return_value = mock_response
-            mock_client.__aenter__.return_value = mock_client
-            mock_cls.return_value = mock_client
+        with patch(_MOCK_AI_CALL, new_callable=AsyncMock) as mock_ai:
+            mock_ai.return_value = (response_text, MagicMock())
 
             findings = [
                 _make_finding("99-REQ-1.1"),

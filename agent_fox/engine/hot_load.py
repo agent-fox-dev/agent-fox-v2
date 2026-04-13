@@ -19,7 +19,7 @@ from agent_fox.graph.resolver import resolve_order
 from agent_fox.graph.types import Edge, Node, NodeStatus, TaskGraph
 from agent_fox.spec.discovery import SpecInfo, discover_specs  # noqa: F401
 from agent_fox.spec.parser import parse_cross_deps, parse_tasks
-from agent_fox.spec.validator import EXPECTED_FILES, Finding, validate_specs
+from agent_fox.spec.validators import EXPECTED_FILES, Finding, validate_specs
 from agent_fox.workspace.git import run_git
 
 logger = logging.getLogger("agent_fox.engine.hot_load")

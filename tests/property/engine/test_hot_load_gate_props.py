@@ -26,7 +26,7 @@ from agent_fox.engine.hot_load import (
     is_spec_tracked_on_develop,
     lint_spec_gate,
 )
-from agent_fox.spec.validator import EXPECTED_FILES
+from agent_fox.spec.validators import EXPECTED_FILES
 
 # Strategy for spec states
 spec_state_strategy = st.fixed_dictionaries(
@@ -268,7 +268,7 @@ class TestLintGateCorrectness:
         raises: bool,
     ) -> None:
         """Passes iff no error findings and no exception."""
-        from agent_fox.spec.validator import Finding
+        from agent_fox.spec.validators import Finding
 
         findings = [
             Finding(

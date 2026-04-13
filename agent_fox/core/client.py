@@ -287,3 +287,104 @@ def create_async_anthropic_client() -> anthropic.AsyncAnthropic:
         return AsyncAnthropicBedrock()  # type: ignore[return-value]
 
     return anthropic.AsyncAnthropic()
+
+
+# ---------------------------------------------------------------------------
+# Response text extraction (shared helper)
+# ---------------------------------------------------------------------------
+
+
+def extract_response_text(response: Any) -> str | None:
+    """Extract text from the first content block of an Anthropic API response.
+
+    Returns the text string, or None if the response has no text content.
+    Works with both real SDK response objects and test mocks.
+    """
+    content = getattr(response, "content", None)
+    if not content:
+        return None
+    return getattr(content[0], "text", None)
+
+
+# ---------------------------------------------------------------------------
+# High-level AI call helpers
+# ---------------------------------------------------------------------------
+
+
+async def ai_call(
+    *,
+    model_tier: str,
+    max_tokens: int,
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+    context: str,
+    cache_policy: CachePolicy = CachePolicy.DEFAULT,
+) -> tuple[str | None, Any]:
+    """Async AI call: resolve model, create client, retry, track usage, extract text.
+
+    Combines the repeated pattern of resolve_model + create_async_client +
+    cached_messages_create + retry + track_response_usage + extract text
+    into a single call.
+
+    Returns:
+        A tuple of (response_text_or_none, raw_response). Callers should
+        check for None text and handle accordingly.
+    """
+    from agent_fox.core.models import resolve_model
+    from agent_fox.core.retry import retry_api_call_async
+    from agent_fox.core.token_tracker import track_response_usage
+
+    model_entry = resolve_model(model_tier)
+
+    async def _call() -> Any:
+        client = create_async_anthropic_client()
+        return await cached_messages_create(
+            client,
+            model=model_entry.model_id,
+            max_tokens=max_tokens,
+            messages=messages,
+            system=system,
+            cache_policy=cache_policy,
+        )
+
+    response = await retry_api_call_async(_call, context=context)
+    track_response_usage(response, model_entry.model_id, context)
+    return extract_response_text(response), response
+
+
+def ai_call_sync(
+    *,
+    model_tier: str,
+    max_tokens: int,
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+    context: str,
+    cache_policy: CachePolicy = CachePolicy.DEFAULT,
+) -> tuple[str | None, Any]:
+    """Synchronous AI call: resolve model, create client, retry, track usage, extract text.
+
+    Synchronous variant of :func:`ai_call` for callers that cannot use async.
+
+    Returns:
+        A tuple of (response_text_or_none, raw_response).
+    """
+    from agent_fox.core.models import resolve_model
+    from agent_fox.core.retry import retry_api_call
+    from agent_fox.core.token_tracker import track_response_usage
+
+    model_entry = resolve_model(model_tier)
+    client = create_anthropic_client()
+
+    def _call() -> Any:
+        return cached_messages_create_sync(
+            client,
+            model=model_entry.model_id,
+            max_tokens=max_tokens,
+            messages=messages,
+            system=system,
+            cache_policy=cache_policy,
+        )
+
+    response = retry_api_call(_call, context=context)
+    track_response_usage(response, model_entry.model_id, context)
+    return extract_response_text(response), response

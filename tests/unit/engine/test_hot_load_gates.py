@@ -232,7 +232,7 @@ class TestLintGateAcceptsClean:
 
     def test_warnings_only_passes(self, tmp_path: Path) -> None:
         """Spec with only warning-level findings passes."""
-        from agent_fox.spec.validator import Finding
+        from agent_fox.spec.validators import Finding
 
         mock_findings = [
             Finding(
@@ -279,7 +279,7 @@ class TestLintGateRejectsErrors:
 
     def test_error_finding_fails_gate(self, tmp_path: Path) -> None:
         """Spec with error-severity finding is rejected."""
-        from agent_fox.spec.validator import Finding
+        from agent_fox.spec.validators import Finding
 
         mock_findings = [
             Finding(

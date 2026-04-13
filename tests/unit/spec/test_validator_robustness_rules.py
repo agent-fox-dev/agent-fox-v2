@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     check_coverage_matrix_completeness,
     check_design_completeness,
     check_inconsistent_req_id_format,

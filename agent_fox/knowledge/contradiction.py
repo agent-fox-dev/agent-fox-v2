@@ -55,24 +55,16 @@ def classify_contradiction_batch(
     pairs_text = "\n".join(pairs_lines)
     prompt = CONTRADICTION_PROMPT.format(pairs=pairs_text)
 
-    from agent_fox.core.client import cached_messages_create_sync, create_anthropic_client
+    from agent_fox.core.client import ai_call_sync
     from agent_fox.core.json_extraction import extract_json_array
-    from agent_fox.core.models import resolve_model
-    from agent_fox.core.retry import retry_api_call
-
-    model_entry = resolve_model(model)
-    client = create_anthropic_client()
-
-    def _call():
-        return cached_messages_create_sync(
-            client,
-            model=model_entry.model_id,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
 
     try:
-        response = retry_api_call(_call, context="contradiction classification")
+        output_text, _response = ai_call_sync(
+            model_tier=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+            context="contradiction classification",
+        )
     except Exception:
         logger.warning(
             "Contradiction LLM call failed for batch of %d pair(s)",
@@ -81,10 +73,8 @@ def classify_contradiction_batch(
         )
         return []
 
-    # Extract text from response
-    output_text = ""
-    if response.content:
-        output_text = response.content[0].text
+    if output_text is None:
+        output_text = ""
 
     # Parse JSON array from response (90-REQ-2.E3: malformed → non-contradiction)
     items = extract_json_array(output_text)

@@ -15,7 +15,7 @@ from agent_fox.spec.parser import (
     _SUBTASK_PATTERN,
     _TABLE_SEP,
 )
-from agent_fox.spec.validator import Finding
+from agent_fox.spec.validators import Finding
 
 from .types import (
     _IDENTIFIER_PATTERN,

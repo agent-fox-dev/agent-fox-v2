@@ -4,13 +4,17 @@ Emits session.complete audit events for direct Anthropic API calls that
 don't go through run_session(). Examples: finding consolidation critic,
 batch triage, staleness check, quality gate analysis.
 
+Also provides :func:`nightshift_ai_call`, a high-level async AI call
+helper that wraps :func:`~agent_fox.core.client.ai_call` with
+cost emission on success and failure.
+
 Requirements: 91-REQ-4.1, 91-REQ-4.2, 91-REQ-4.3, 91-REQ-4.4, 91-REQ-4.E1
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from agent_fox.core.config import PricingConfig
@@ -139,3 +143,47 @@ def emit_auxiliary_cost_fail(
             archetype,
             exc_info=True,
         )
+
+
+async def nightshift_ai_call(
+    *,
+    model_tier: str,
+    max_tokens: int,
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+    context: str,
+    cost_label: str,
+    config: object,
+    sink: SinkDispatcher | None = None,
+    run_id: str = "",
+) -> tuple[str | None, Any]:
+    """Async AI call with nightshift cost tracking.
+
+    Wraps :func:`~agent_fox.core.client.ai_call` and emits
+    ``emit_auxiliary_cost`` on success or ``emit_auxiliary_cost_fail``
+    on API failure.
+
+    Returns:
+        A tuple of (response_text_or_none, raw_response).
+    """
+    from agent_fox.core.client import ai_call
+    from agent_fox.core.config import PricingConfig
+    from agent_fox.core.models import resolve_model
+
+    model_entry = resolve_model(model_tier)
+
+    try:
+        text, response = await ai_call(
+            model_tier=model_tier,
+            max_tokens=max_tokens,
+            messages=messages,
+            system=system,
+            context=context,
+        )
+    except Exception as exc:
+        emit_auxiliary_cost_fail(sink, run_id, cost_label, exc, model_entry.model_id)
+        raise
+
+    pricing = getattr(config, "pricing", PricingConfig())
+    emit_auxiliary_cost(sink, run_id, cost_label, response, model_entry.model_id, pricing)
+    return text, response

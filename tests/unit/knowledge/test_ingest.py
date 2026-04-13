@@ -366,9 +366,7 @@ class TestIngestErrataDeduplication:
         assert second_result.facts_added == 0
         assert second_result.facts_skipped == 1
 
-        count = schema_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE category = 'errata'"
-        ).fetchone()
+        count = schema_conn.execute("SELECT COUNT(*) FROM memory_facts WHERE category = 'errata'").fetchone()
         assert count is not None
         assert count[0] == 1
 
@@ -385,9 +383,7 @@ class TestIngestErrataDeduplication:
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
         ingestor.ingest_errata(errata_dir=errata_dir)
 
-        assert ingestor._is_already_ingested(
-            category="errata", identifier="93_ts93_4_placement.md"
-        )
+        assert ingestor._is_already_ingested(category="errata", identifier="93_ts93_4_placement.md")
 
     def test_is_already_ingested_errata_false(
         self,
@@ -398,9 +394,7 @@ class TestIngestErrataDeduplication:
         """AC-5: _is_already_ingested returns False for nonexistent errata spec_name."""
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
 
-        assert not ingestor._is_already_ingested(
-            category="errata", identifier="nonexistent.md"
-        )
+        assert not ingestor._is_already_ingested(category="errata", identifier="nonexistent.md")
 
 
 class TestIngestErrataMissingDirectory:
@@ -466,9 +460,7 @@ class TestRunBackgroundIngestionErrata:
         ):
             run_background_ingestion(schema_conn, config, tmp_path)
 
-        count = schema_conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE category = 'errata'"
-        ).fetchone()
+        count = schema_conn.execute("SELECT COUNT(*) FROM memory_facts WHERE category = 'errata'").fetchone()
         assert count is not None
         assert count[0] >= 1
 
@@ -497,14 +489,10 @@ class TestRunBackgroundIngestionErrata:
             patch("agent_fox.knowledge.ingest.subprocess.run", return_value=mock_git_result),
             patch("agent_fox.knowledge.ingest._emit_knowledge_ingested") as mock_emit,
         ):
-            run_background_ingestion(
-                schema_conn, config, tmp_path, sink_dispatcher=mock_sink, run_id="test-run-1"
-            )
+            run_background_ingestion(schema_conn, config, tmp_path, sink_dispatcher=mock_sink, run_id="test-run-1")
 
         # Check that _emit_knowledge_ingested was called with source_type='errata'
-        errata_calls = [
-            c for c in mock_emit.call_args_list if c.kwargs.get("source_type") == "errata"
-        ]
+        errata_calls = [c for c in mock_emit.call_args_list if c.kwargs.get("source_type") == "errata"]
         assert len(errata_calls) == 1
         assert errata_calls[0].kwargs["item_count"] == 1
         assert "errata" in errata_calls[0].kwargs["source_path"]

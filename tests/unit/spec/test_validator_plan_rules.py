@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     _check_circular_dependency,
     _check_coarse_dependency,
 )

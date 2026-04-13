@@ -13,11 +13,8 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 
-from agent_fox.core.client import cached_messages_create_sync, create_anthropic_client
+from agent_fox.core.client import ai_call_sync
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.core.models import resolve_model
-from agent_fox.core.retry import retry_api_call
-from agent_fox.core.token_tracker import track_response_usage
 from agent_fox.fix.checks import FailureRecord
 
 logger = logging.getLogger(__name__)
@@ -66,31 +63,19 @@ def _ai_cluster(
 
     Falls back to _fallback_cluster on any error (API, parse, validation).
     """
-    # 08-REQ-3.1: use STANDARD tier for clustering
-    model_entry = resolve_model("STANDARD")
-
     # Build the clustering prompt
     prompt = _build_clustering_prompt(failures)
 
-    # Call the Anthropic API
-    client = create_anthropic_client()
-    response = retry_api_call(
-        lambda: cached_messages_create_sync(
-            client,
-            model=model_entry.model_id,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        ),
+    # 08-REQ-3.1: use STANDARD tier for clustering
+    response_text, _response = ai_call_sync(
+        model_tier="STANDARD",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
         context="failure clustering",
     )
 
-    track_response_usage(response, model_entry.model_id, "failure clustering")
-
-    # Extract the text response
-    content_block = response.content[0]
-    if not hasattr(content_block, "text"):
+    if response_text is None:
         raise ValueError("AI response did not contain a text block")
-    response_text: str = content_block.text  # type: ignore[union-attr]
 
     # Parse the JSON response
     return _parse_ai_response(response_text, failures)
