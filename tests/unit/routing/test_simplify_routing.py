@@ -12,7 +12,6 @@ Test spec entries: TS-89-1 through TS-89-13, TS-89-E1,
 
 from __future__ import annotations
 
-import dataclasses
 import importlib
 import inspect
 from pathlib import Path
@@ -90,52 +89,13 @@ async def test_ladder_created_without_pipeline() -> None:
         "agent_fox.routing.features",
         "agent_fox.routing.calibration",
         "agent_fox.routing.duration",
+        "agent_fox.routing.core",
     ],
 )
 def test_pipeline_modules_deleted(module_path: str) -> None:
     """Importing removed prediction pipeline modules raises ImportError."""
     with pytest.raises(ImportError):
         importlib.import_module(module_path)
-
-
-# ---------------------------------------------------------------------------
-# TS-89-5: DuckDB persistence functions removed from core
-# Requirement: 89-REQ-2.2
-# ---------------------------------------------------------------------------
-
-
-def test_duckdb_functions_removed() -> None:
-    """core.py does not export DuckDB persistence functions."""
-    import agent_fox.routing.core as core
-
-    removed_names = [
-        "persist_assessment",
-        "persist_outcome",
-        "count_outcomes",
-        "query_outcomes",
-        "_feature_vector_to_json",
-    ]
-    for name in removed_names:
-        assert not hasattr(core, name), f"DuckDB function '{name}' should have been removed from routing.core"
-
-
-# ---------------------------------------------------------------------------
-# TS-89-6: Dataclasses retained in core
-# Requirement: 89-REQ-2.4
-# ---------------------------------------------------------------------------
-
-
-def test_dataclasses_retained() -> None:
-    """FeatureVector, ComplexityAssessment, ExecutionOutcome are still importable."""
-    from agent_fox.routing.core import (
-        ComplexityAssessment,
-        ExecutionOutcome,
-        FeatureVector,
-    )
-
-    assert dataclasses.is_dataclass(FeatureVector)
-    assert dataclasses.is_dataclass(ComplexityAssessment)
-    assert dataclasses.is_dataclass(ExecutionOutcome)
 
 
 # ---------------------------------------------------------------------------
@@ -332,28 +292,6 @@ def test_prop_pipeline_modules_not_importable(module_path: str) -> None:
     """All removed prediction pipeline modules raise ImportError when imported."""
     with pytest.raises(ImportError):
         importlib.import_module(module_path)
-
-
-# ---------------------------------------------------------------------------
-# TS-89-P3: No DuckDB routing writes (property)
-# Validates: 89-REQ-2.2, 89-REQ-3.1
-# ---------------------------------------------------------------------------
-
-
-def test_prop_no_duckdb_routing_writes() -> None:
-    """routing/core.py contains no DuckDB INSERT or SELECT statements."""
-    source = Path("agent_fox/routing/core.py").read_text()
-    assert "INSERT INTO" not in source, "agent_fox/routing/core.py must not contain INSERT INTO (DuckDB write)"
-    # Check for SELECT only in the context of function definitions that were removed
-    removed_functions = [
-        "persist_assessment",
-        "persist_outcome",
-        "count_outcomes",
-        "query_outcomes",
-        "_feature_vector_to_json",
-    ]
-    for fn_name in removed_functions:
-        assert f"def {fn_name}" not in source, f"agent_fox/routing/core.py must not contain removed function: {fn_name}"
 
 
 # ---------------------------------------------------------------------------
