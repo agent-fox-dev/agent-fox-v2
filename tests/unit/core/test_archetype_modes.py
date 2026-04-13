@@ -317,16 +317,12 @@ class TestUnknownModeFallback:
 
     def test_unknown_mode_logs_warning(self, caplog: object) -> None:
         """TS-97-E1: Unknown mode logs a warning."""
-        import pytest
-
         from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
+
         entry = ArchetypeEntry(
             name="test",
             modes={"fast": ModeConfig(model_tier="SIMPLE")},
         )
-        with pytest.warns(None):
-            pass  # just to clear any previous warnings
-
         with caplog.at_level(logging.WARNING):  # type: ignore[attr-defined]
             resolve_effective_config(entry, "unknown_mode")
 

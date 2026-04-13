@@ -70,26 +70,26 @@ verifies end-to-end wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement ModeConfig and ArchetypeEntry.modes
-  - [ ] 2.1 Add ModeConfig dataclass to `agent_fox/archetypes.py`
+- [x] 2. Implement ModeConfig and ArchetypeEntry.modes
+  - [x] 2.1 Add ModeConfig dataclass to `agent_fox/archetypes.py`
     - Frozen dataclass with 8 optional override fields (all default None)
     - _Requirements: 97-REQ-1.1_
 
-  - [ ] 2.2 Add `modes` field to ArchetypeEntry
+  - [x] 2.2 Add `modes` field to ArchetypeEntry
     - Type: `dict[str, ModeConfig]`, default: `field(default_factory=dict)`
     - _Requirements: 97-REQ-1.2_
 
-  - [ ] 2.3 Implement `resolve_effective_config()` function
+  - [x] 2.3 Implement `resolve_effective_config()` function
     - Accept ArchetypeEntry and optional mode name
     - Merge non-None ModeConfig fields onto base, return new ArchetypeEntry
     - Log warning for unknown mode names, return base unchanged
     - _Requirements: 97-REQ-1.3, 97-REQ-1.4, 97-REQ-1.5, 97-REQ-1.E1, 97-REQ-1.E2_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/core/test_archetype_modes.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "override or inherit or null_mode"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/archetypes.py`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/core/test_archetype_modes.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "override or inherit or null_mode"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/archetypes.py`
 
 - [ ] 3. Add Node.mode and config schema
   - [ ] 3.1 Add `mode` field to Node dataclass
