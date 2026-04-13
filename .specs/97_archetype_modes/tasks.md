@@ -91,22 +91,22 @@ verifies end-to-end wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/archetypes.py`
 
-- [ ] 3. Add Node.mode and config schema
-  - [ ] 3.1 Add `mode` field to Node dataclass
+- [x] 3. Add Node.mode and config schema
+  - [x] 3.1 Add `mode` field to Node dataclass
     - Type: `str | None`, default: `None`
     - Ensure serialization/deserialization handles mode field
     - _Requirements: 97-REQ-2.1, 97-REQ-2.2, 97-REQ-2.3, 97-REQ-2.E1_
 
-  - [ ] 3.2 Add `modes` field to PerArchetypeConfig
+  - [x] 3.2 Add `modes` field to PerArchetypeConfig
     - Type: `dict[str, PerArchetypeConfig]`, default: empty dict
     - Self-referential Pydantic model for nested mode overrides
     - _Requirements: 97-REQ-3.1, 97-REQ-3.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/graph/test_node_mode.py tests/unit/core/test_config_modes.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "round_trip"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/graph/types.py agent_fox/core/config.py`
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/graph/test_node_mode.py tests/unit/core/test_config_modes.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_mode_properties.py -k "round_trip"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/graph/types.py agent_fox/core/config.py`
 
 - [ ] 4. Update SDK resolution and security for modes
   - [ ] 4.1 Add `mode` parameter to `resolve_model_tier()`

@@ -19,30 +19,42 @@ from agent_fox.session.archetypes import get_archetype
 logger = logging.getLogger(__name__)
 
 
-def resolve_max_turns(config: AgentFoxConfig, archetype: str) -> int | None:
+def resolve_max_turns(config: AgentFoxConfig, archetype: str, *, mode: str | None = None) -> int | None:
     """Resolve max_turns for the given archetype.
 
     Resolution order (highest to lowest priority):
-      1. archetypes.overrides.<name>.max_turns (unified table)
-      2. archetypes.max_turns.<name> (legacy dict)
-      3. Archetype registry default
+      1. archetypes.overrides.<name>.modes.<mode>.max_turns (mode-level override)
+      2. archetypes.overrides.<name>.max_turns (unified table)
+      3. archetypes.max_turns.<name> (legacy dict)
+      4. Archetype registry default (via resolve_effective_config for mode)
     Returns None when configured as 0 (unlimited).
 
-    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1, 207-REQ-2
+    Requirements: 56-REQ-1.1, 56-REQ-1.2, 56-REQ-1.4, 56-REQ-5.1, 207-REQ-2,
+                  97-REQ-4.2, 97-REQ-3.3
     """
-    # 1. Unified per-archetype override table (highest priority)
+    from agent_fox.archetypes import resolve_effective_config
+
     override = config.archetypes.overrides.get(archetype)
+
+    # 1. Mode-level config override (highest priority)
+    if mode is not None and override is not None:
+        mode_override = override.modes.get(mode)
+        if mode_override is not None and mode_override.max_turns is not None:
+            return mode_override.max_turns if mode_override.max_turns > 0 else None
+
+    # 2. Unified per-archetype override table
     if override is not None and override.max_turns is not None:
         return override.max_turns if override.max_turns > 0 else None
 
-    # 2. Legacy dict
+    # 3. Legacy dict
     configured = config.archetypes.max_turns.get(archetype)
     if configured is not None:
         return configured if configured > 0 else None  # 0 = unlimited
 
-    # 3. Registry default
+    # 4. Registry default (via mode-resolved effective config)
     entry = get_archetype(archetype)
-    return entry.default_max_turns
+    effective = resolve_effective_config(entry, mode)
+    return effective.default_max_turns
 
 
 def resolve_thinking(config: AgentFoxConfig, archetype: str) -> dict | None:
@@ -145,29 +157,40 @@ def clamp_instances(archetype: str, instances: int) -> int:
     return instances
 
 
-def resolve_model_tier(config: AgentFoxConfig, archetype: str) -> str:
+def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | None = None) -> str:
     """Resolve model tier for the given archetype.
 
     Priority (highest to lowest):
-      1. archetypes.overrides.<name>.model_tier (unified table)
-      2. archetypes.models.<name> (legacy dict)
-      3. Archetype registry default
+      1. archetypes.overrides.<name>.modes.<mode>.model_tier (mode-level override)
+      2. archetypes.overrides.<name>.model_tier (unified table)
+      3. archetypes.models.<name> (legacy dict)
+      4. Archetype registry default (via resolve_effective_config for mode)
 
-    Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2
+    Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2, 97-REQ-4.1, 97-REQ-3.3
     """
-    # 1. Unified per-archetype override table (highest priority)
+    from agent_fox.archetypes import resolve_effective_config
+
     override = config.archetypes.overrides.get(archetype)
+
+    # 1. Mode-level config override (highest priority)
+    if mode is not None and override is not None:
+        mode_override = override.modes.get(mode)
+        if mode_override is not None and mode_override.model_tier:
+            return mode_override.model_tier
+
+    # 2. Unified per-archetype override table
     if override and override.model_tier:
         return override.model_tier
 
-    # 2. Legacy dict override
+    # 3. Legacy dict override
     config_override = config.archetypes.models.get(archetype)
     if config_override:
         return config_override
 
-    # 3. Fall back to archetype registry default
+    # 4. Fall back to archetype registry default (via mode-resolved effective config)
     entry = get_archetype(archetype)
-    return entry.default_model_tier
+    effective = resolve_effective_config(entry, mode)
+    return effective.default_model_tier
 
 
 def resolve_security_config(

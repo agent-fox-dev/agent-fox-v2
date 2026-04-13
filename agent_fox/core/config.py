@@ -342,6 +342,14 @@ class PerArchetypeConfig(BaseModel):
         default=None,
         description="Bash command allowlist override. None = use registry default.",
     )
+    modes: dict[str, PerArchetypeConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Per-mode overrides for this archetype. "
+            "TOML: [archetypes.overrides.<name>.modes.<mode>]. "
+            "97-REQ-3.1"
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_thinking(self) -> Self:
@@ -349,6 +357,10 @@ class PerArchetypeConfig(BaseModel):
         if self.thinking_mode == "enabled" and self.thinking_budget is not None and self.thinking_budget <= 0:
             raise ValueError("thinking_budget must be > 0 when thinking_mode is 'enabled'")
         return self
+
+
+# Required for self-referential Pydantic model (modes: dict[str, PerArchetypeConfig])
+PerArchetypeConfig.model_rebuild()
 
 
 class ArchetypeInstancesConfig(BaseModel):

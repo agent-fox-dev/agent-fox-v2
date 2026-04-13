@@ -45,6 +45,7 @@ def _node_from_dict(data: dict[str, Any]) -> Node:
         subtask_count=data.get("subtask_count", 0),
         body=data.get("body", ""),
         archetype=data.get("archetype", "coder"),
+        mode=data.get("mode", None),
         instances=data.get("instances", 1),
     )
 
