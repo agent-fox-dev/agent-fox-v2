@@ -26,36 +26,36 @@ session lifecycle and factory, and group 4 performs wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file
     - Create `tests/unit/engine/test_cross_spec_retrieval.py`
     - Add `__init__.py` if missing in `tests/unit/engine/`
     - Write test functions for TS-94-1 through TS-94-10
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-94-1 through TS-94-10_
 
-  - [ ] 1.2 Create edge case tests
+  - [x] 1.2 Create edge case tests
     - Add tests for TS-94-E1 through TS-94-E7 in the unit test file
     - Tests MUST fail
     - _Test Spec: TS-94-E1 through TS-94-E7_
 
-  - [ ] 1.3 Create property tests
+  - [x] 1.3 Create property tests
     - Create `tests/property/engine/test_cross_spec_retrieval_props.py`
     - Add `__init__.py` if missing in `tests/property/engine/`
     - Write property tests for TS-94-P1 through TS-94-P5
     - Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]`
     - _Test Spec: TS-94-P1 through TS-94-P5_
 
-  - [ ] 1.4 Create integration smoke tests
+  - [x] 1.4 Create integration smoke tests
     - Create `tests/integration/engine/test_cross_spec_retrieval_smoke.py`
     - Add `__init__.py` if missing in `tests/integration/engine/`
     - Write smoke tests for TS-94-SMOKE-1 and TS-94-SMOKE-2
     - _Test Spec: TS-94-SMOKE-1, TS-94-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Config field and subtask description extraction
   - [ ] 2.1 Add `cross_spec_top_k` to `KnowledgeConfig`
