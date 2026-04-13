@@ -1,8 +1,7 @@
 """Night Shift configuration models.
 
 Requirements: 61-REQ-9.1, 61-REQ-9.2, 61-REQ-9.E1,
-              85-REQ-9.1, 85-REQ-9.E1, 85-REQ-9.E2,
-              86-REQ-9.1, 86-REQ-9.2, 86-REQ-9.3, 86-REQ-9.E1
+              85-REQ-9.1, 85-REQ-9.E1, 85-REQ-9.E2
 """
 
 from __future__ import annotations
@@ -80,39 +79,6 @@ class NightShiftConfig(BaseModel):
         default=False,
         description="Push fix branches to origin before harvest",
     )
-
-    # --- Fields used by SpecGenerator (spec 86) ---
-    # Retained here because SpecGenerator (spec_gen.py) references them.
-    # These will migrate to a dedicated config when spec generation gets
-    # its own command.
-
-    max_clarification_rounds: int = Field(
-        default=3,
-        description="Max clarification rounds before escalation (min 1)",
-    )
-    max_budget_usd: float = Field(
-        default=2.0,
-        description="Per-spec generation cost cap in USD (0 = unlimited)",
-    )
-    spec_gen_model_tier: str = Field(
-        default="ADVANCED",
-        description="Model tier for spec generation (SIMPLE/STANDARD/ADVANCED)",
-    )
-
-    @field_validator("max_clarification_rounds")
-    @classmethod
-    def clamp_max_clarification_rounds(cls, v: int) -> int:
-        """Clamp max_clarification_rounds to a minimum of 1.
-
-        Requirements: 86-REQ-9.E1
-        """
-        if v < 1:
-            logger.warning(
-                "Config field 'max_clarification_rounds' value %d below minimum, clamped to 1",
-                v,
-            )
-            return 1
-        return v
 
     @field_validator("spec_interval")
     @classmethod
