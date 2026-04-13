@@ -26,34 +26,34 @@ wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/core/test_reviewer_consolidation.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/core/test_reviewer_consolidation.py`
     - Registry tests: reviewer entry, mode configs, old entries removed (TS-98-1 through TS-98-6, TS-98-13, TS-98-15)
     - Config tests: reviewer toggle, ReviewerConfig, instances (TS-98-16, TS-98-17, TS-98-14)
     - Edge cases: old config keys, coder no mode, reviewer disabled (TS-98-E1, TS-98-E2, TS-98-E3)
     - _Test Spec: TS-98-1 through TS-98-6, TS-98-13 through TS-98-17, TS-98-E1 through TS-98-E3_
 
-  - [ ] 1.2 Create `tests/unit/graph/test_injection_modes.py`
+  - [x] 1.2 Create `tests/unit/graph/test_injection_modes.py`
     - Injection tests: auto_pre collection, node creation, drift gating (TS-98-8, TS-98-9, TS-98-10)
     - _Test Spec: TS-98-8, TS-98-9, TS-98-10_
 
-  - [ ] 1.3 Create `tests/unit/session/test_convergence_dispatch.py`
+  - [x] 1.3 Create `tests/unit/session/test_convergence_dispatch.py`
     - Convergence dispatch: pre-review, audit-review routing (TS-98-11, TS-98-12)
     - Edge case: unknown mode (TS-98-E4)
     - _Test Spec: TS-98-11, TS-98-12, TS-98-E4_
 
-  - [ ] 1.4 Create `tests/unit/templates/test_reviewer_template.py`
+  - [x] 1.4 Create `tests/unit/templates/test_reviewer_template.py`
     - Template existence and mode markers (TS-98-7)
     - _Test Spec: TS-98-7_
 
-  - [ ] 1.5 Create `tests/property/test_reviewer_properties.py`
+  - [x] 1.5 Create `tests/property/test_reviewer_properties.py`
     - Property tests: mode-archetype mapping, convergence dispatch, injection consistency, verifier clamping, coder fix equivalence, old names rejected (TS-98-P1 through TS-98-P6)
     - _Test Spec: TS-98-P1 through TS-98-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Restructure archetype registry
   - [ ] 2.1 Define reviewer archetype with 4 modes in ARCHETYPE_REGISTRY
