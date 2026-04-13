@@ -166,6 +166,11 @@ def build_system_prompt(
 
     entry = get_archetype(resolved)
 
+    # Apply mode-specific overrides (98-REQ-3.2, 98-REQ-2.2)
+    from agent_fox.archetypes import resolve_effective_config
+
+    effective_entry = resolve_effective_config(entry, mode)
+
     # Derive number and specification from spec_name (e.g. "03_session")
     parts = spec_name.split("_", 1)
     number = parts[0] if len(parts) > 1 else spec_name
@@ -178,8 +183,8 @@ def build_system_prompt(
         "specification": specification,
     }
 
-    # Load and compose templates from the archetype registry
-    template_names = entry.templates
+    # Load and compose templates from the effective (mode-resolved) archetype config
+    template_names = effective_entry.templates
     sections: list[str] = []
     for name in template_names:
         raw = _load_template(name)
