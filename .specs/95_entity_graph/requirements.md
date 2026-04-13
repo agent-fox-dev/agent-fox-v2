@@ -37,12 +37,14 @@ knowledge harvest pipeline and session context builder is deferred to a future
   links.
 - **Qualified name** -- For methods, the dot-separated form
   `ClassName.method_name`. Top-level functions use the bare name.
-- **Module map** -- A mapping from dotted Python import paths to repo-relative
-  file paths, built by scanning the directory tree.
+- **Module map** -- A language-specific mapping from import identifiers to
+  repo-relative file paths, built by scanning the directory tree. The format
+  varies by language (e.g., dotted paths for Python, package directories for
+  Go, relative paths for TypeScript).
 - **Traversal** -- A breadth-first walk of the entity graph from one or more
   starting entities, following edges in both directions.
 - **Tree-sitter** -- An incremental parsing library used for static analysis of
-  Python source files.
+  source files across all supported languages.
 - **Analysis result** -- The return value of a codebase analysis operation,
   containing counts of entities upserted, edges upserted, and entities
   soft-deleted.
@@ -139,26 +141,28 @@ entities they reference so that facts can be retrieved based on code topology.
 
 ### Requirement 4: Tree-Sitter Static Analysis
 
-**User Story:** As a developer, I want to analyze a Python codebase using
-tree-sitter to automatically populate the entity graph with structural
-information.
+**User Story:** As a developer, I want to analyze a codebase using tree-sitter
+to automatically populate the entity graph with structural information for all
+supported languages.
 
 #### Acceptance Criteria
 
 1. [95-REQ-4.1] WHEN the analysis function is invoked with a repository root
-   path, THE system SHALL scan all Python source files (`*.py`) under that
-   path, excluding files matched by `.gitignore`.
+   path, THE system SHALL scan all source files matching extensions registered
+   in the language analyzer registry, excluding files matched by `.gitignore`.
 
-2. [95-REQ-4.2] WHEN a Python file is parsed, THE system SHALL extract entities
-   of type `file` (one per `.py` file), `module` (one per directory containing
-   `__init__.py`), `class` (one per class definition), and `function` (one per
-   function or method definition, using qualified names for methods) AND upsert
-   them into `entity_graph`.
+2. [95-REQ-4.2] WHEN a source file is parsed, THE system SHALL extract entities
+   of type `file` (one per source file), `module` (language-specific: Python
+   packages, Go packages, Rust modules, Java packages, C++ namespaces, Ruby
+   modules), `class` (language-specific: classes, structs, interfaces, enums,
+   traits), and `function` (one per function or method definition, using
+   qualified names for methods) AND upsert them into `entity_graph`.
 
-3. [95-REQ-4.3] WHEN a Python file is parsed, THE system SHALL extract
+3. [95-REQ-4.3] WHEN a source file is parsed, THE system SHALL extract
    `contains` edges (module to file, file to class, file to function, class to
    method), `imports` edges (file to imported file or module), and `extends`
-   edges (subclass to superclass) AND upsert them into `entity_edges`.
+   edges (subclass to superclass, where the language supports inheritance) AND
+   upsert them into `entity_edges`.
 
 4. [95-REQ-4.4] WHEN the analysis function completes, THE system SHALL return
    an `AnalysisResult` containing counts of entities upserted, edges upserted,
@@ -169,21 +173,22 @@ information.
    `deleted_at` timestamp rather than hard-deleting it.
 
 6. [95-REQ-4.6] WHEN resolving an import statement to a target entity, THE
-   system SHALL use a module map built from the scanned directory tree to
-   resolve dotted Python paths to repo-relative file paths AND skip
-   unresolvable imports with a logged warning.
+   system SHALL use a language-specific module map to resolve import
+   identifiers to repo-relative file paths AND skip unresolvable imports with
+   a logged warning.
 
 #### Edge Cases
 
-1. [95-REQ-4.E1] IF a Python file cannot be parsed by tree-sitter (e.g.,
+1. [95-REQ-4.E1] IF a source file cannot be parsed by tree-sitter (e.g.,
    syntax error), THEN THE system SHALL log a warning, skip that file, and
    continue with the remaining files.
 
 2. [95-REQ-4.E2] IF the repository root path does not exist or is not a
    directory, THEN THE system SHALL raise a ValueError.
 
-3. [95-REQ-4.E3] IF no Python files are found under the repository root, THEN
-   THE system SHALL return an `AnalysisResult` with all counts set to zero.
+3. [95-REQ-4.E3] IF no source files are found under the repository root for
+   any registered language, THEN THE system SHALL return an `AnalysisResult`
+   with all counts set to zero.
 
 ### Requirement 5: Fact-Entity Linking via Git Diff
 

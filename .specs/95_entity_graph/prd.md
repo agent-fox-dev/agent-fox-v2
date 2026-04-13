@@ -28,9 +28,9 @@ Add an entity graph subsystem to the knowledge layer:
      they reference.
 
 2. **Population via tree-sitter static analysis:**
-   - Parse Python source files using tree-sitter to extract entity nodes
-     (modules, classes, functions) and relationship edges (imports, inheritance,
-     containment).
+   - Parse source files using tree-sitter to extract entity nodes (modules,
+     classes, functions) and relationship edges (imports, inheritance,
+     containment) for all supported languages.
    - Produce a complete entity graph for the codebase in a single analysis pass.
    - Support incremental updates: re-analyze changed files, soft-delete removed
      entities, add new ones.
@@ -105,9 +105,12 @@ Add an entity graph subsystem to the knowledge layer:
     acceptable (extra links) but false negatives mean missed associations. This
     is a best-effort enrichment, not a guarantee.
 
-12. **Python-only static analysis.** Tree-sitter analysis targets Python source
-    files only (consistent with the agent-fox codebase). Support for other
-    languages is out of scope.
+12. **Multi-language static analysis.** Tree-sitter analysis supports all
+    major programming languages via per-language analyzer modules. Each
+    language has its own tree-sitter grammar, entity extraction rules, and
+    import resolution strategy. Spec 102 provides the detailed per-language
+    implementation plan. All languages are treated equally -- there is no
+    "primary" or "fallback" language.
 
 13. **Qualified names for methods.** Top-level functions use their bare name
     (e.g., `embed_text`). Methods use a dot-qualified name (e.g.,

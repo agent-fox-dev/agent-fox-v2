@@ -55,8 +55,9 @@ flowchart TD
    edge CRUD, soft-delete, garbage collection, fact-entity link management,
    path-based entity lookup.
 3. **`agent_fox/knowledge/static_analysis.py`** -- Tree-sitter analysis:
-   Python file scanning, entity and edge extraction, module map construction,
-   import resolution, full codebase analysis orchestration.
+   multi-language source file scanning, entity and edge extraction via
+   per-language analyzers, module map construction, import resolution, full
+   codebase analysis orchestration.
 4. **`agent_fox/knowledge/entity_linker.py`** -- Fact-entity linking: git diff
    path extraction, fact-to-entity association via commit SHA.
 
@@ -68,16 +69,18 @@ DuckDB schema is extended via migration v8 in
 ### Path 1: Full codebase analysis
 
 1. `static_analysis.py: analyze_codebase(repo_root, conn)` -- entry point
-2. `static_analysis.py: _scan_python_files(repo_root)` -> `list[Path]`
-3. `static_analysis.py: _build_module_map(repo_root, py_files)` -> `dict[str, str]`
-4. For each Python file:
-   a. `static_analysis.py: _parse_file(file_path, parser)` -> `tree_sitter.Tree`
-   b. `static_analysis.py: _extract_entities(tree, rel_path)` -> `list[Entity]`
-   c. `static_analysis.py: _extract_edges(tree, rel_path, entities, module_map)` -> `list[EntityEdge]`
-5. `entity_store.py: upsert_entities(conn, all_entities)` -> `int` (count)
-6. `entity_store.py: upsert_edges(conn, all_edges)` -> `int` (count)
-7. `entity_store.py: soft_delete_missing(conn, found_entity_keys)` -> `int` (count)
-8. Returns `AnalysisResult(entities_upserted, edges_upserted, entities_soft_deleted)`
+2. `lang/registry.py: detect_languages(repo_root)` -> `list[LanguageAnalyzer]`
+3. For each detected language:
+   a. `lang/registry.py: _scan_files(repo_root, analyzer.file_extensions)` -> `list[Path]`
+   b. `analyzer.build_module_map(repo_root, files)` -> `dict[str, str]`
+   c. For each source file:
+      - `static_analysis.py: _parse_file(file_path, parser)` -> `tree_sitter.Tree`
+      - `analyzer.extract_entities(tree, rel_path)` -> `list[Entity]`
+      - `analyzer.extract_edges(tree, rel_path, entities, module_map)` -> `list[EntityEdge]`
+4. `entity_store.py: upsert_entities(conn, all_entities)` -> `int` (count)
+5. `entity_store.py: upsert_edges(conn, all_edges)` -> `int` (count)
+6. `entity_store.py: soft_delete_missing(conn, found_entity_keys)` -> `int` (count)
+7. Returns `AnalysisResult(entities_upserted, edges_upserted, entities_soft_deleted, languages_analyzed)`
 
 ### Path 2: Fact-entity linking via git diff
 
@@ -169,13 +172,13 @@ def analyze_codebase(repo_root: Path, conn) -> AnalysisResult: ...
 
 Internal functions:
 ```python
-def _scan_python_files(repo_root: Path) -> list[Path]: ...
-def _build_module_map(repo_root: Path, py_files: list[Path]) -> dict[str, str]: ...
 def _parse_file(file_path: Path, parser: Parser) -> Tree | None: ...
-def _extract_entities(tree: Tree, rel_path: str) -> list[Entity]: ...
-def _extract_edges(tree: Tree, rel_path: str, entities: list[Entity],
-                   module_map: dict[str, str]) -> list[EntityEdge]: ...
 ```
+
+Language-specific operations (entity extraction, edge extraction, module
+map construction) are delegated to per-language `LanguageAnalyzer`
+implementations registered in the language analyzer registry. See Spec 102
+for the detailed per-language analyzer design.
 
 ### Entity Linker (`entity_linker.py`)
 
@@ -372,9 +375,9 @@ or `fact_entities` SHALL reference that entity's ID after GC completes.
 | Edge source or target does not exist | Raise error | 95-REQ-2.3 |
 | Self-referencing edge (source == target) | Raise ValueError | 95-REQ-2.E1 |
 | Fact or entity missing for link creation | Raise error | 95-REQ-3.2 |
-| Python file unparseable by tree-sitter | Log warning, skip file | 95-REQ-4.E1 |
+| Source file unparseable by tree-sitter | Log warning, skip file | 95-REQ-4.E1 |
 | Repo root does not exist | Raise ValueError | 95-REQ-4.E2 |
-| No Python files found | Return zero-count AnalysisResult | 95-REQ-4.E3 |
+| No source files found for any language | Return zero-count AnalysisResult | 95-REQ-4.E3 |
 | Import cannot be resolved via module map | Log warning, skip import | 95-REQ-4.6 |
 | Fact has no commit_sha | Skip, increment skipped count | 95-REQ-5.4 |
 | commit_sha not in local repo | Log warning, skip fact | 95-REQ-5.E1 |
@@ -388,10 +391,11 @@ or `fact_entities` SHALL reference that entity's ID after GC completes.
 - **Python 3.12+** -- consistent with project baseline.
 - **DuckDB** -- existing knowledge store database; entity graph tables are
   added via migration v8.
-- **tree-sitter** (`tree-sitter` package) -- incremental parser for Python
-  static analysis.
-- **tree-sitter-python** (`tree-sitter-python` package) -- Python language
-  grammar for tree-sitter.
+- **tree-sitter** (`tree-sitter` package) -- incremental parser for
+  multi-language static analysis.
+- **tree-sitter-*** grammar packages -- per-language grammars for tree-sitter
+  (Python, Go, Rust, TypeScript, JavaScript, Java, C, C++, Ruby). See Spec
+  102 for the full list.
 - **subprocess** (stdlib) -- invoking `git diff --name-only` for fact-entity
   linking.
 - **pathlib** / **posixpath** (stdlib) -- path normalization.
