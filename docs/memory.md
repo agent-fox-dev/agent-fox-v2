@@ -136,6 +136,7 @@
 - Use TYPE_CHECKING guards with forward imports (if TYPE_CHECKING: from module import Type) to avoid circular import issues when adding type hints to modules that depend on types from other modules. _(spec: 91_nightshift_cost_tracking, confidence: 0.90)_
 - Hypothesis property tests should suppress HealthCheck.function_scoped_fixture when using pytest fixtures like tmp_path to avoid false health warnings. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - The memory.md file containing accumulated architectural decisions, gotchas, and patterns across multiple specs (59-66+) was completely cleared during this session, suggesting memory should be periodically reset between major spec iterations rather than grown indefinitely. _(spec: 92_transient_audit_reports, confidence: 0.90)_
+- Negative-assertion tests (tests that verify something should NOT happen) may pass trivially if the implementation is absent, so these require careful review during implementation to ensure they're actually validating behavior. _(spec: 93_fix_branch_push, confidence: 0.60)_
 
 ## Patterns
 
@@ -922,6 +923,19 @@
 - Execution order between interdependent operations (e.g., push before harvest) should be explicitly verified in tests by recording call sequences rather than relying on static code inspection. _(spec: 93_fix_branch_push, confidence: 0.90)_
 - Configuration features should default to disabled/false when they add new optional behavior, to minimize risk and require explicit opt-in. _(spec: 93_fix_branch_push, confidence: 0.90)_
 - When modifying branch naming to include additional information (like issue numbers), ensure the sanitization function handles edge cases like empty titles or special-chars-only inputs gracefully with fallback logic. _(spec: 93_fix_branch_push, confidence: 0.60)_
+- When implementing a specification, write failing spec tests first before implementation. Organize tests into unit, property, and integration categories to cover all test cases comprehensively. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When a test specification classifies a test as 'integration' type but task instructions place it in a unit test file, create an erratum document and move the test to the correct integration test file to respect the type annotation. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Branch names should always contain the issue number as a required invariant, typically in the format 'fix/{issue_number}-{slug}' to maintain traceability. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When a feature must execute in a specific order (e.g., push before harvest), verify this ordering invariant with both unit tests and property-based tests to ensure it holds across multiple execution paths. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Push operations that may fail should be wrapped in try-except blocks to allow dependent operations (like harvest) to proceed, with failures logged as warnings rather than exceptions. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Use Pydantic ValidationError to reject invalid type conversions (e.g., non-boolean values for boolean config fields) rather than relying on implicit coercion. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When adding optional parameters to existing functions, consider whether the parameter should be positional or keyword-only, and ensure backward compatibility by making new parameters optional with sensible defaults. _(spec: 93_fix_branch_push, confidence: 0.60)_
+- Configuration classes benefit from boolean flags that control conditional behavior, allowing runtime decisions about which pipeline steps to execute. _(spec: 93_fix_branch_push, confidence: 0.60)_
+- Wiring verification requires tracing every execution path from the design document end-to-end, confirming entry points call the next function in the chain and no function is a stub (return [], return None, pass, raise NotImplementedError). _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Return value propagation verification requires confirming that every function returning data has its return value captured and used by the caller, tracing the complete chain from origin to final use. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Stub and dead-code audits must search for specific patterns (return [], return None, pass, # TODO, # stub, NotImplementedError) and either justify each hit with a comment explaining why it is intentional or replace it with real implementation. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Integration smoke tests serve as final verification that all components work together with real implementations (no stubs), providing confidence that wiring is complete and correct. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- A comprehensive wiring verification group (3.V) consolidates multiple sub-checks: smoke tests pass, no unjustified stubs remain, execution paths are live and traceable, and all existing tests still pass. _(spec: 93_fix_branch_push, confidence: 0.90)_
 
 ## Decisions
 
@@ -1016,6 +1030,7 @@
 - Audit reports should be written to `.agent-fox/audit/audit_{spec_name}.md` instead of `.specs/{spec_name}/audit.md` to keep them out of git-tracked directories and prevent them from appearing as untracked files. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - PASS verdicts should trigger early-return with cleanup (file deletion) to avoid persisting successful audit reports, reducing clutter. _(spec: 92_transient_audit_reports, confidence: 0.90)_
 - Audit cleanup should be triggered after each engine run cycle to maintain consistency, indicating that post-run cleanup is a critical part of the engine's lifecycle management. _(spec: 92_transient_audit_reports, confidence: 0.60)_
+- Remote branches should not be automatically deleted after merge; let users explicitly manage remote branch lifecycle to avoid accidental data loss. _(spec: 93_fix_branch_push, confidence: 0.90)_
 
 ## Conventions
 
@@ -1227,6 +1242,12 @@
 - Property-based tests using Hypothesis should suppress `HealthCheck.function_scoped_fixture` health checks per project conventions when fixtures are necessary. _(spec: 93_fix_branch_push, confidence: 0.90)_
 - Design documents with execution paths, data models, correctness properties, and error handling tables provide a high-confidence foundation for implementation and comprehensive test coverage. _(spec: 93_fix_branch_push, confidence: 0.90)_
 - Task groups should be ordered test-first (failing tests), then implementation (making tests pass), then verification (wiring and smoke tests), with explicit checkbox tracking throughout. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- When writing test suites for a specification, verify that no regressions occur in existing tests to ensure new test code doesn't break the current system. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]` when writing property-based tests that depend on pytest fixtures to avoid Hypothesis health check warnings. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Use force=True flag when pushing fix branches to remote to ensure local corrections overwrite any conflicting remote state. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Document test placement decisions and spec contradictions in erratum files (e.g., docs/errata/) to maintain clarity when implementation deviates from original specifications. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Configuration fields that control optional features should default to False (disabled) to maintain backward compatibility and secure-by-default behavior. _(spec: 93_fix_branch_push, confidence: 0.90)_
+- Running comprehensive test suites (unit, property, and integration tests) after feature implementation helps verify both new functionality and absence of regressions in existing code. _(spec: 93_fix_branch_push, confidence: 0.90)_
 
 ## Anti-Patterns
 
