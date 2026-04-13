@@ -31,6 +31,12 @@ Test cases for the robust complete spec.
 **Requirement:** 99-REQ-1.E1
 **Type:** unit
 
+## Integration Smoke Tests
+
+### Smoke Test 1: End-to-end widget creation
+
+Start the system, create a widget, verify it appears in the list.
+
 ## Coverage Matrix
 
 | Requirement | Test Spec Entry | Type |

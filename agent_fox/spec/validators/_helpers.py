@@ -27,6 +27,7 @@ SEVERITY_ORDER = {SEVERITY_ERROR: 0, SEVERITY_WARNING: 1, SEVERITY_HINT: 2}
 
 EXPECTED_FILES = ["prd.md", "requirements.md", "design.md", "test_spec.md", "tasks.md"]
 MAX_SUBTASKS_PER_GROUP = 6
+MAX_REQUIREMENTS = 10
 
 # Regex patterns for parsing
 _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
@@ -55,8 +56,8 @@ _TABLE_SEP_ROW = re.compile(r"^\s*\|[\s\-:|]+\|\s*$")
 
 _SECTION_SCHEMAS: dict[str, list[tuple[str, bool]]] = {
     "requirements.md": [
-        ("Introduction", False),
-        ("Glossary", False),
+        ("Introduction", True),
+        ("Glossary", True),
         ("Requirements", True),
     ],
     "design.md": [
@@ -67,6 +68,7 @@ _SECTION_SCHEMAS: dict[str, list[tuple[str, bool]]] = {
         ("Operational Readiness", False),
         ("Correctness Properties", True),
         ("Error Handling", True),
+        ("Execution Paths", True),
         ("Technology Stack", False),
         ("Definition of Done", True),
         ("Testing Strategy", False),
@@ -75,6 +77,7 @@ _SECTION_SCHEMAS: dict[str, list[tuple[str, bool]]] = {
         ("Overview", False),
         ("Test Cases", True),
         ("Edge Case Tests", False),
+        ("Integration Smoke Tests", True),
         ("Property Test Cases", False),
         ("Coverage Matrix", True),
     ],
@@ -101,6 +104,7 @@ def _spec_prefix(spec_name: str) -> str | None:
 # Re-export imported helpers so other sub-modules can use them via _helpers.
 __all__ = [
     "EXPECTED_FILES",
+    "MAX_REQUIREMENTS",
     "MAX_SUBTASKS_PER_GROUP",
     "SEVERITY_ERROR",
     "SEVERITY_HINT",

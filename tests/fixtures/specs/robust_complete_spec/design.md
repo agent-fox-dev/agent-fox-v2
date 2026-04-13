@@ -30,6 +30,14 @@ Widget data model.
 |----------------|----------|-------------|
 | Invalid data   | Return error | [99-REQ-1.E1] |
 
+## Execution Paths
+
+### Happy Path
+
+1. Input validated
+2. Widget created
+3. ID assigned
+
 ## Technology Stack
 
 Python 3.12

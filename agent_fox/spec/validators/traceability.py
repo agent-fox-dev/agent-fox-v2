@@ -19,6 +19,9 @@ from agent_fox.spec.validators._helpers import (
 )
 from agent_fox.spec.validators.finding import Finding
 
+# Pattern that matches only edge-case requirement IDs: [NN-REQ-N.EN]
+_EDGE_CASE_REQ_ID = re.compile(r"\[(\d{2}-REQ-\d+\.E\d+)\]")
+
 
 def check_untraced_requirements(
     spec_name: str,
@@ -333,6 +336,67 @@ def check_traceability_table_completeness(
                 line=None,
             )
         )
+    return findings
+
+
+def check_untraced_edge_cases(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that every edge-case requirement has an entry in Edge Case Tests.
+
+    Rule: untraced-edge-case
+    Severity: warning
+    Extracts [NN-REQ-N.EN] IDs from requirements.md and verifies each
+    appears in the '## Edge Case Tests' section of test_spec.md.
+    """
+    req_path = spec_path / "requirements.md"
+    ts_path = spec_path / "test_spec.md"
+
+    if not req_path.is_file() or not ts_path.is_file():
+        return []
+
+    req_text = req_path.read_text(encoding="utf-8")
+    edge_case_ids = sorted(set(_EDGE_CASE_REQ_ID.findall(req_text)))
+
+    if not edge_case_ids:
+        return []
+
+    ts_text = ts_path.read_text(encoding="utf-8")
+
+    # Extract only the Edge Case Tests section text
+    lines = ts_text.splitlines()
+    in_edge_section = False
+    edge_section_text = ""
+
+    for line in lines:
+        heading = _H2_HEADING.match(line)
+        if heading:
+            section = heading.group(1).strip()
+            normalized = _normalize_heading(section)
+            in_edge_section = (
+                "edge" in normalized and "case" in normalized and "test" in normalized
+            )
+            continue
+        if in_edge_section:
+            edge_section_text += line + "\n"
+
+    findings: list[Finding] = []
+    for edge_id in edge_case_ids:
+        if edge_id not in edge_section_text:
+            findings.append(
+                Finding(
+                    spec_name=spec_name,
+                    file="test_spec.md",
+                    rule="untraced-edge-case",
+                    severity=SEVERITY_WARNING,
+                    message=(
+                        f"Edge case requirement {edge_id} is not referenced in the "
+                        f"'## Edge Case Tests' section of test_spec.md"
+                    ),
+                    line=None,
+                )
+            )
     return findings
 
 

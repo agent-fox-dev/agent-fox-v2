@@ -166,6 +166,70 @@ def check_archetype_tags(
     return findings
 
 
+def check_first_group_title(
+    spec_name: str,
+    task_groups: list[TaskGroupDef],
+) -> list[Finding]:
+    """Check that the first task group title contains 'fail' and 'test'.
+
+    Rule: wrong-first-group
+    Severity: warning
+    The first task group should write failing tests from test_spec.md.
+    Returns no finding if the task_groups list is empty.
+    """
+    if not task_groups:
+        return []
+    first = task_groups[0]
+    title_lower = first.title.lower()
+    if "fail" in title_lower and "test" in title_lower:
+        return []
+    return [
+        Finding(
+            spec_name=spec_name,
+            file="tasks.md",
+            rule="wrong-first-group",
+            severity=SEVERITY_WARNING,
+            message=(
+                f"First task group title '{first.title}' must contain 'fail' and 'test' "
+                f"(group 1 should write failing tests from test_spec.md)"
+            ),
+            line=None,
+        )
+    ]
+
+
+def check_last_group_title(
+    spec_name: str,
+    task_groups: list[TaskGroupDef],
+) -> list[Finding]:
+    """Check that the last task group title contains 'wiring' and 'verification'.
+
+    Rule: wrong-last-group
+    Severity: warning
+    The final task group should be the wiring/verification step.
+    Returns no finding if the task_groups list is empty.
+    """
+    if not task_groups:
+        return []
+    last = task_groups[-1]
+    title_lower = last.title.lower()
+    if "wiring" in title_lower and "verification" in title_lower:
+        return []
+    return [
+        Finding(
+            spec_name=spec_name,
+            file="tasks.md",
+            rule="wrong-last-group",
+            severity=SEVERITY_WARNING,
+            message=(
+                f"Last task group title '{last.title}' must contain 'wiring' and 'verification' "
+                f"(final group should wire everything together and verify)"
+            ),
+            line=None,
+        )
+    ]
+
+
 def check_checkbox_states(
     spec_name: str,
     tasks_path: Path,

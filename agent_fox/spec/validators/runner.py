@@ -25,6 +25,8 @@ from agent_fox.spec.validators.requirements import (
     check_inconsistent_req_id_format,
     check_missing_acceptance_criteria,
     check_missing_ears_keyword,
+    check_non_bracket_req_id_format,
+    check_too_many_requirements,
 )
 from agent_fox.spec.validators.schema import (
     check_design_completeness,
@@ -33,6 +35,8 @@ from agent_fox.spec.validators.schema import (
 from agent_fox.spec.validators.tasks import (
     check_archetype_tags,
     check_checkbox_states,
+    check_first_group_title,
+    check_last_group_title,
     check_missing_verification,
     check_oversized_groups,
 )
@@ -42,6 +46,7 @@ from agent_fox.spec.validators.traceability import (
     check_missing_traceability_table,
     check_orphan_error_refs,
     check_traceability_table_completeness,
+    check_untraced_edge_cases,
     check_untraced_properties,
     check_untraced_requirements,
     check_untraced_test_specs,
@@ -114,11 +119,13 @@ def validate_specs(
         # 1. Missing files check
         findings.extend(check_missing_files(spec.name, spec.path))
 
-        # 2. Task-based checks (oversized groups, missing verification)
+        # 2. Task-based checks (oversized groups, missing verification, group titles)
         if spec.name in parsed_groups:
             groups = parsed_groups[spec.name]
             findings.extend(check_oversized_groups(spec.name, groups))
             findings.extend(check_missing_verification(spec.name, groups))
+            findings.extend(check_first_group_title(spec.name, groups))
+            findings.extend(check_last_group_title(spec.name, groups))
 
         # 2b. Archetype tag and checkbox state checks
         tasks_path = spec.path / "tasks.md"
@@ -162,6 +169,8 @@ def validate_specs(
         # 11. Requirement ID format consistency
         if (spec.path / "requirements.md").is_file():
             findings.extend(check_inconsistent_req_id_format(spec.name, spec.path))
+            findings.extend(check_non_bracket_req_id_format(spec.name, spec.path))
+            findings.extend(check_too_many_requirements(spec.name, spec.path))
 
         # -- Phase 3: Traceability chain checks --
         # 12. Test spec -> tasks traceability
@@ -183,6 +192,10 @@ def validate_specs(
         # 16. Traceability table completeness
         if (spec.path / "requirements.md").is_file() and (spec.path / "tasks.md").is_file():
             findings.extend(check_traceability_table_completeness(spec.name, spec.path))
+
+        # 16b. Edge case traceability
+        if (spec.path / "requirements.md").is_file() and (spec.path / "test_spec.md").is_file():
+            findings.extend(check_untraced_edge_cases(spec.name, spec.path))
 
         # -- Phase 4: Section schema validation --
         # 17. Section schema checks

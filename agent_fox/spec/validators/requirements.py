@@ -11,6 +11,7 @@ from agent_fox.spec.validators._helpers import (
     _REQ_ID_BRACKET,
     _REQUIREMENT_HEADING,
     _REQUIREMENT_ID,
+    MAX_REQUIREMENTS,
     SEVERITY_ERROR,
     SEVERITY_HINT,
     SEVERITY_WARNING,
@@ -181,6 +182,78 @@ def check_inconsistent_req_id_format(
                 message=(
                     "requirements.md mixes [NN-REQ-N.N] and **NN-REQ-N.N:** "
                     "formats. Use one format consistently (prefer [brackets])."
+                ),
+                line=None,
+            )
+        ]
+    return []
+
+
+def check_non_bracket_req_id_format(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that requirement IDs use bracket format, not bold-only format.
+
+    Rule: non-bracket-req-id-format
+    Severity: warning
+    Flags specs where all requirement IDs use **NN-REQ-N.N:** bold format
+    exclusively and none use the preferred [NN-REQ-N.N] bracket format.
+    """
+    req_path = spec_path / "requirements.md"
+    if not req_path.is_file():
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+
+    has_bracket = bool(_REQ_ID_BRACKET.search(text))
+    has_bold = bool(_REQ_ID_BOLD.search(text))
+
+    if has_bold and not has_bracket:
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="requirements.md",
+                rule="non-bracket-req-id-format",
+                severity=SEVERITY_WARNING,
+                message=(
+                    "requirements.md uses **NN-REQ-N.N:** bold format for all "
+                    "requirement IDs. Use [NN-REQ-N.N] bracket format instead."
+                ),
+                line=None,
+            )
+        ]
+    return []
+
+
+def check_too_many_requirements(
+    spec_name: str,
+    spec_path: Path,
+) -> list[Finding]:
+    """Check that a spec does not have more than MAX_REQUIREMENTS requirements.
+
+    Rule: too-many-requirements
+    Severity: warning
+    Counts '### Requirement N:' headings in requirements.md and emits a
+    warning if the count exceeds MAX_REQUIREMENTS.
+    """
+    req_path = spec_path / "requirements.md"
+    if not req_path.is_file():
+        return []
+
+    text = req_path.read_text(encoding="utf-8")
+    count = sum(1 for line in text.splitlines() if _REQUIREMENT_HEADING.match(line))
+
+    if count > MAX_REQUIREMENTS:
+        return [
+            Finding(
+                spec_name=spec_name,
+                file="requirements.md",
+                rule="too-many-requirements",
+                severity=SEVERITY_WARNING,
+                message=(
+                    f"requirements.md has {count} requirements (max {MAX_REQUIREMENTS}). "
+                    f"Consider splitting into multiple specs."
                 ),
                 line=None,
             )
