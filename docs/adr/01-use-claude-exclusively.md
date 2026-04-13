@@ -28,8 +28,7 @@ tool use, streaming, and code-generation quality that meets our bar.
 ## Decision
 
 Agent-fox uses Claude as the exclusive LLM provider for all coding agent
-archetypes (coder, oracle, skeptic, verifier, auditor, librarian,
-cartographer, coordinator).
+archetypes (coder, oracle, skeptic, verifier, auditor, coordinator).
 
 Specifically:
 

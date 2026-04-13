@@ -45,8 +45,6 @@ _ROLE_TO_ARCHETYPE: dict[str, str] = {
     "coding": "coder",
     "skeptic": "skeptic",
     "verifier": "verifier",
-    "librarian": "librarian",
-    "cartographer": "cartographer",
 }
 
 # Regex to match YAML frontmatter at the very start of a file

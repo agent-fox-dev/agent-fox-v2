@@ -14,9 +14,6 @@ mode.
 | **Oracle** | Validate spec assumptions against codebase | auto, before first coder group | disabled |
 | **Auditor** | Validate test code against test_spec contracts | auto, mid-execution | disabled |
 | **Verifier** | Check code quality after coding | auto, after last coder group | enabled |
-| **Librarian** | Documentation tasks | manual assignment | disabled |
-| **Cartographer** | Architecture mapping | manual assignment | disabled |
-
 When both Skeptic and Oracle are enabled, they run in parallel before the
 first coder group. If either produces blocking findings, coder sessions are
 not started.
@@ -217,41 +214,6 @@ verifier = 1
 
 ---
 
-## Librarian
-
-**Purpose:** Create and maintain project documentation.
-
-- **Model tier:** STANDARD (default)
-- **Injection:** `manual` — must be explicitly assigned to a task group
-- **Default:** Disabled
-
-The librarian focuses on documentation quality: README updates, API docs,
-ADRs, setup guides, and inline docstrings. Assign it to specific task
-groups in `tasks.md`:
-
-```markdown
-- [ ] 5. Update documentation [archetype: librarian]
-```
-
----
-
-## Cartographer
-
-**Purpose:** Map and document codebase architecture.
-
-- **Model tier:** STANDARD (default)
-- **Injection:** `manual` — must be explicitly assigned to a task group
-- **Default:** Disabled
-
-The cartographer produces architecture documentation, module diagrams, and
-component interaction maps. Assign it to specific task groups in `tasks.md`:
-
-```markdown
-- [ ] 6. Map architecture [archetype: cartographer]
-```
-
----
-
 ## Model Selection and Escalation
 
 ### Default Model Tiers
@@ -266,8 +228,6 @@ runs the session:
 | **Verifier** | ADVANCED | Claude Opus |
 | **Coder** | STANDARD | Claude Sonnet |
 | **Auditor** | STANDARD | Claude Sonnet |
-| **Librarian** | STANDARD | Claude Sonnet |
-| **Cartographer** | STANDARD | Claude Sonnet |
 | **Coordinator** | STANDARD | Claude Sonnet |
 
 Review-oriented archetypes (Skeptic, Oracle, Verifier) default to ADVANCED
@@ -360,9 +320,6 @@ skeptic = true        # enabled by default
 verifier = true       # enabled by default
 oracle = false        # disabled by default
 auditor = false       # disabled by default
-librarian = false     # disabled by default
-cartographer = false  # disabled by default
-
 # Instance counts (for multi-instance convergence)
 [archetypes.instances]
 skeptic = 1

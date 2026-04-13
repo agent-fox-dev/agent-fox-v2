@@ -35,8 +35,6 @@ class TestRegistryCompleteness:
             "coder",
             "skeptic",
             "verifier",
-            "librarian",
-            "cartographer",
             "oracle",
             "auditor",
             "triage",
@@ -121,8 +119,6 @@ class TestPropertyRegistryCompleteness:
             "coder",
             "skeptic",
             "verifier",
-            "librarian",
-            "cartographer",
         }
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
 
@@ -155,8 +151,6 @@ class TestPropertyArchetypeFallback:
                     "coder",
                     "skeptic",
                     "verifier",
-                    "librarian",
-                    "cartographer",
                 }
             )
         )

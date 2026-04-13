@@ -40,9 +40,6 @@ automated review and verification at different stages of the pipeline:
 | **Oracle** | Validates spec assumptions against codebase | disabled |
 | **Auditor** | Validates test code against test_spec contracts | disabled |
 | **Verifier** | Checks code quality after coding | enabled |
-| **Librarian** | Documentation tasks | disabled |
-| **Cartographer** | Architecture mapping | disabled |
-
 See the [archetypes reference](archetypes.md) for details on each archetype.
 
 ### Adaptive Model Routing

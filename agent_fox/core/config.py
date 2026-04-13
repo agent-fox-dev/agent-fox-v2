@@ -424,8 +424,6 @@ class ArchetypesConfig(BaseModel):
     coder: bool = Field(default=True, description="Enable coder archetype")
     skeptic: bool = Field(default=True, description="Enable skeptic archetype")
     verifier: bool = Field(default=True, description="Enable verifier archetype")
-    librarian: bool = Field(default=False, description="Enable librarian archetype")
-    cartographer: bool = Field(default=False, description="Enable cartographer archetype")
     oracle: bool = Field(default=True, description="Enable oracle archetype")
     auditor: bool = Field(default=True, description="Enable auditor archetype")
 

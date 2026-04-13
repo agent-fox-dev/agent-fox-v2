@@ -251,22 +251,13 @@ MISSING, MISALIGNED). The Auditor operates at STANDARD tier with read-only
 access plus the ability to run `uv` commands for test collection. Like the
 Verifier, it can trigger predecessor retries.
 
-**Cartographer** maps architecture changes after implementation. It documents
-module structure, component interactions, new interfaces, and dependency edges.
-It operates at STANDARD tier and is manually injected (not automatic).
-
-**Librarian** maintains project documentation. It updates docs, creates ADRs,
-and adds docstrings for new public interfaces. It operates at STANDARD tier
-and is manually injected.
-
 ### Archetype Design Rationale
 
 The split between STANDARD and ADVANCED model tiers reflects a cost-quality
 tradeoff. Review agents (Skeptic, Oracle, Verifier) use the more capable
 ADVANCED tier because their task — finding problems — requires deeper reasoning
 and broader context awareness. A missed critical finding is more expensive than
-the cost difference between model tiers. Implementation agents (Coder,
-Librarian, Cartographer) use STANDARD because their task — writing code that
+the cost difference between model tiers. Implementation agents (Coder and others) use STANDARD because their task — writing code that
 follows specifications — is more constrained and benefits less from the
 additional reasoning capability.
 

@@ -170,8 +170,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
     ("ArchetypesConfig", "skeptic"): "Code review — flags issues before merge",
     ("ArchetypesConfig", "verifier"): ("Post-code verification — runs tests, checks correctness"),
-    ("ArchetypesConfig", "librarian"): "Enable librarian archetype",
-    ("ArchetypesConfig", "cartographer"): "Enable cartographer archetype",
     ("ArchetypesConfig", "oracle"): ("Spec-drift detection — compares code against specs"),
     ("ArchetypesConfig", "auditor"): ("Test-quality gate — ensures test coverage meets standards"),
     ("ArchetypesConfig", "models"): "Per-archetype model overrides",

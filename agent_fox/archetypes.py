@@ -87,22 +87,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         retry_predecessor=True,
         default_max_turns=120,
     ),
-    "librarian": ArchetypeEntry(
-        name="librarian",
-        templates=["librarian.md"],
-        default_model_tier="STANDARD",
-        injection="manual",
-        task_assignable=True,
-        default_max_turns=150,
-    ),
-    "cartographer": ArchetypeEntry(
-        name="cartographer",
-        templates=["cartographer.md"],
-        default_model_tier="STANDARD",
-        injection="manual",
-        task_assignable=True,
-        default_max_turns=150,
-    ),
     "auditor": ArchetypeEntry(
         name="auditor",
         templates=["auditor.md"],

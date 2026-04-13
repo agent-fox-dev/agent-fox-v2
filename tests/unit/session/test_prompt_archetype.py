@@ -156,14 +156,14 @@ class TestRunnerUsesArchetype:
             runner = NodeSessionRunner(
                 "spec:3",
                 config,
-                archetype="librarian",
+                archetype="auditor",
                 knowledge_db=_MOCK_KB,
             )
         except TypeError:
             pytest.fail("NodeSessionRunner should accept archetype parameter")
 
         # Verify the archetype was stored
-        assert runner._archetype == "librarian"
+        assert runner._archetype == "auditor"
 
     def test_runner_accepts_instances_param(self) -> None:
         from agent_fox.core.config import AgentFoxConfig
@@ -308,8 +308,8 @@ class TestPropertyAssignmentPriority:
     def test_prop_priority_layers(self, has_tag: bool, has_coord: bool) -> None:
         # Test will be fully implemented when build_graph supports all layers
         # For now, validate the priority concept
-        tag = "librarian" if has_tag else None
-        coord = "cartographer" if has_coord else None
+        tag = "auditor" if has_tag else None
+        coord = "oracle" if has_coord else None
         default = "coder"
 
         expected = tag or coord or default

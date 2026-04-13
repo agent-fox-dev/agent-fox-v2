@@ -136,8 +136,6 @@ A pipeline or automation script that drives agent-fox in `--json` mode, consumin
 - WHEN the Oracle archetype is enabled, the system SHALL run a codebase-verification session that checks specification assumptions against the actual codebase before coding begins.
 - WHEN the Auditor archetype is enabled, the system SHALL run a test-quality audit after each test-writing session, and trigger a coder retry if the audit finds missing, misaligned, or excessively weak tests.
 - WHEN the Verifier archetype is enabled, the system SHALL run a post-implementation quality review after the last coding session, and trigger a coder retry with verifier feedback if the review fails.
-- WHEN a task group is manually assigned the Librarian archetype, the system SHALL run a documentation-focused session for that group instead of a coding session.
-- WHEN a task group is manually assigned the Cartographer archetype, the system SHALL run an architecture-mapping session for that group.
 
 ### 5.5 Status and Reporting
 

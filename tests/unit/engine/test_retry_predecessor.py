@@ -255,13 +255,13 @@ class TestNonCoderPredecessor:
         entry = get_archetype("verifier")
         assert entry.retry_predecessor is True
 
-    def test_librarian_predecessor_reset(self) -> None:
-        """Retry-predecessor works when predecessor is librarian, not coder."""
+    def test_auditor_predecessor_reset(self) -> None:
+        """Retry-predecessor works when predecessor is auditor, not coder."""
         plan_nodes = {
             "spec:3": {
                 "spec_name": "spec",
                 "group_number": 3,
-                "archetype": "librarian",
+                "archetype": "auditor",
             },
             "spec:4": {
                 "spec_name": "spec",
@@ -299,7 +299,7 @@ class TestNonCoderPredecessor:
             error_tracker,
         )
 
-        # Librarian predecessor should be reset
+        # Auditor predecessor should be reset
         assert state.node_states["spec:3"] == "pending"
         assert state.node_states["spec:4"] == "pending"
 

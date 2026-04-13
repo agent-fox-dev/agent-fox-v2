@@ -32,8 +32,8 @@ LLM inference, no probabilistic decisions. Given the same specs and
 configuration, it produces the same graph every time. This means the human can
 inspect the plan, predict what will happen, and trust the execution order.
 
-**Agents have roles, not just prompts.** Seven agent archetypes (Coder, Skeptic,
-Oracle, Auditor, Verifier, Cartographer, Librarian) define distinct roles with
+**Agents have roles, not just prompts.** Five agent archetypes (Coder, Skeptic,
+Oracle, Auditor, Verifier) define distinct roles with
 different model tiers, tool allowlists, and output contracts. Review agents
 cannot modify code. Implementation agents cannot skip quality checks. The
 separation of concerns is enforced by the system, not by prompt suggestions.

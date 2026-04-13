@@ -27,7 +27,7 @@ from agent_fox.reporting.status import extract_spec_name
 model_ids = st.sampled_from(["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6"])
 token_counts = st.integers(min_value=0, max_value=1_000_000)
 price_values = st.floats(min_value=0.0, max_value=100.0, allow_nan=False)
-archetype_names = st.sampled_from(["coder", "skeptic", "verifier", "oracle", "librarian", "cartographer"])
+archetype_names = st.sampled_from(["coder", "skeptic", "verifier", "oracle", "auditor"])
 
 
 class TestAccumulatorCompleteness:

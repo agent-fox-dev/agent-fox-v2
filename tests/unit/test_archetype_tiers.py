@@ -99,9 +99,9 @@ class TestCoderDefaultStandard:
 
 
 class TestRemainingArchetypesStandard:
-    """TS-57-5: Auditor, Librarian, Cartographer default to STANDARD."""
+    """TS-57-5: Auditor defaults to STANDARD."""
 
-    @pytest.mark.parametrize("name", ["auditor", "librarian", "cartographer"])
+    @pytest.mark.parametrize("name", ["auditor"])
     def test_archetype_defaults_to_standard(self, name: str) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 

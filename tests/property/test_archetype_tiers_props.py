@@ -26,7 +26,7 @@ _TIER_ORDER: dict[ModelTier, int] = {
 }
 
 _ADVANCED_ARCHETYPES = {"skeptic", "oracle", "verifier"}
-_STANDARD_ARCHETYPES = {"coder", "auditor", "librarian", "cartographer"}
+_STANDARD_ARCHETYPES = {"coder", "auditor"}
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ class TestRegistryDefaultsMatchSpec:
             assert got == "ADVANCED", f"Expected {name} to have ADVANCED tier, got {got!r}"
 
     def test_standard_archetypes_all_standard(self) -> None:
-        """Coder, Auditor, Librarian, Cartographer, Coordinator must all be STANDARD."""
+        """Coder and Auditor must be STANDARD."""
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         for name in _STANDARD_ARCHETYPES:

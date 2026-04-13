@@ -26,8 +26,6 @@ class TestArchetypeToggles:
         assert cfg.coder is True
         assert cfg.skeptic is True
         assert cfg.verifier is True
-        assert cfg.librarian is False
-        assert cfg.cartographer is False
         assert cfg.oracle is True
         assert cfg.auditor is True
 

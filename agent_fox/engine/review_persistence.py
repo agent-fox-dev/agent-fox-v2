@@ -162,7 +162,7 @@ def persist_review_findings(
     - verifier -> parse_verification_results -> insert_verdicts
     - oracle   -> parse_drift_findings    -> insert_drift_findings
 
-    Non-review archetypes (coder, librarian, etc.) are silently skipped.
+    Non-review archetypes (coder, etc.) are silently skipped.
 
     When initial extraction fails and session_handle is alive, a single
     format retry is attempted by appending a user message requesting

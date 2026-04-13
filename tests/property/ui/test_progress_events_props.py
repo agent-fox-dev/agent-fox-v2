@@ -27,8 +27,6 @@ _ARCHETYPES = [
     "verifier",
     "oracle",
     "auditor",
-    "librarian",
-    "cartographer",
 ]
 
 

@@ -178,13 +178,13 @@ class TestArchetypeTagExtraction:
     ) -> None:
         from agent_fox.spec.parser import parse_tasks
 
-        tasks_md = "## Tasks\n\n- [ ] 3. Update docs [archetype: cartographer]\n  - [ ] 3.1 Write docs\n"
+        tasks_md = "## Tasks\n\n- [ ] 3. Update docs [archetype: auditor]\n  - [ ] 3.1 Write docs\n"
         path = tmp_path / "tasks.md"  # type: ignore[operator]
         path.write_text(tasks_md)
 
         groups = parse_tasks(path)
         assert len(groups) == 1
-        assert groups[0].archetype == "cartographer"
+        assert groups[0].archetype == "auditor"
         assert "[archetype:" not in groups[0].title
         assert "Update docs" in groups[0].title
 
@@ -216,10 +216,10 @@ class TestThreeLayerPriority:
         from agent_fox.graph.builder import build_graph
 
         specs = [_spec()]
-        task_groups = {"spec": [_tgd(3, "Task", archetype="librarian")]}
+        task_groups = {"spec": [_tgd(3, "Task", archetype="oracle")]}
 
         graph = build_graph(specs, task_groups, [])
-        assert graph.nodes["spec:3"].archetype == "librarian"
+        assert graph.nodes["spec:3"].archetype == "oracle"
 
 
 # -------------------------------------------------------------------
@@ -440,8 +440,6 @@ class TestPropertyInjectionStructure:
             if n.archetype
             in {
                 "verifier",
-                "librarian",
-                "cartographer",
             }
         ]
         for a, b in combinations(post_nodes, 2):

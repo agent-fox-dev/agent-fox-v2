@@ -263,8 +263,6 @@ Archetype enable/disable toggles and per-archetype advanced configuration.
 | `verifier` | bool | `true` | — | Enable the Verifier archetype (post-code correctness checks) |
 | `oracle` | bool | `true` | — | Enable the Oracle archetype (spec-drift detection) |
 | `auditor` | bool | `true` | — | Enable the Auditor archetype (test-quality gate) |
-| `librarian` | bool | `false` | — | Enable the Librarian archetype (documentation management) |
-| `cartographer` | bool | `false` | — | Enable the Cartographer archetype (codebase mapping) |
 | `instances` | table | see below | — | Per-archetype instance counts |
 | `skeptic_settings` | table | see below | — | Skeptic-specific configuration |
 | `oracle_settings` | table | see below | — | Oracle-specific configuration |
@@ -282,9 +280,6 @@ skeptic = true
 verifier = true
 oracle = true
 auditor = true
-librarian = false
-cartographer = false
-
 # Override model tiers per archetype
 models = {coder = "STANDARD", skeptic = "ADVANCED"}
 

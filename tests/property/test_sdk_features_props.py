@@ -56,8 +56,6 @@ class TestZeroTurnsUnlimited:
                 "skeptic",
                 "verifier",
                 "auditor",
-                "librarian",
-                "cartographer",
             ]
         )
     )
@@ -179,8 +177,6 @@ class TestConfigOverridePrecedence:
                 "skeptic",
                 "verifier",
                 "auditor",
-                "librarian",
-                "cartographer",
             ]
         ),
         override_turns=st.integers(min_value=1, max_value=500),
