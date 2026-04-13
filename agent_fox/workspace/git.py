@@ -168,6 +168,40 @@ async def branch_used_by_worktree(
     return False
 
 
+async def _resolve_worktree_conflict(
+    repo_path: Path,
+    stderr: str,
+    retry_args: list[str],
+    live_error_msg: str,
+) -> tuple[int, str]:
+    """Handle a "used by worktree" git error: prune stale entries and retry.
+
+    If the worktree directory exists on disk (live), raises WorkspaceError.
+    If the directory is gone (stale entry), prunes worktree metadata and
+    retries the command once.
+
+    Returns (returncode, stderr) of the retry attempt.
+
+    Requirements: 80-REQ-2.1, 80-REQ-2.E1
+    """
+    match = _WORKTREE_IN_USE_RE.search(stderr)
+    worktree_path = Path(match.group(1)) if match else None
+
+    if worktree_path is not None and worktree_path.exists():
+        raise WorkspaceError(live_error_msg, branch=retry_args[-1])
+
+    logger.debug(
+        "Git command blocked by stale worktree entry; pruning and retrying",
+    )
+    await run_git(["worktree", "prune"], cwd=repo_path, check=False)
+    rc2, _stdout2, stderr2 = await run_git(
+        retry_args,
+        cwd=repo_path,
+        check=False,
+    )
+    return rc2, stderr2
+
+
 async def delete_branch(
     repo_path: Path,
     branch_name: str,
@@ -189,8 +223,9 @@ async def delete_branch(
     """
     validate_ref_name(branch_name)
     flag = "-D" if force else "-d"
+    retry_args = ["branch", flag, "--", branch_name]
     returncode, _stdout, stderr = await run_git(
-        ["branch", flag, "--", branch_name],
+        retry_args,
         cwd=repo_path,
         check=False,
     )
@@ -203,29 +238,12 @@ async def delete_branch(
             )
             return
 
-        # Check if deletion is blocked by a worktree reference
         if "used by worktree" in stderr:
-            match = _WORKTREE_IN_USE_RE.search(stderr)
-            worktree_path = Path(match.group(1)) if match else None
-
-            # If the referenced worktree directory actually exists, the branch is
-            # legitimately in use — raise so the caller knows it's not stale.
-            if worktree_path is not None and worktree_path.exists():
-                raise WorkspaceError(
-                    f"Branch '{branch_name}' is in use by a live worktree at {worktree_path}; cannot delete",
-                    branch=branch_name,
-                )
-
-            # Stale registry entry: prune and retry once (80-REQ-2.1)
-            logger.debug(
-                "Branch '%s' is locked by a stale worktree entry; pruning and retrying",
-                branch_name,
-            )
-            await run_git(["worktree", "prune"], cwd=repo_path, check=False)
-            rc2, _stdout2, stderr2 = await run_git(
-                ["branch", flag, "--", branch_name],
-                cwd=repo_path,
-                check=False,
+            rc2, stderr2 = await _resolve_worktree_conflict(
+                repo_path,
+                stderr,
+                retry_args,
+                f"Branch '{branch_name}' is in use by a live worktree; cannot delete",
             )
             if rc2 != 0:
                 # Retry also failed — non-fatal, log warning and return (80-REQ-2.2)
@@ -234,7 +252,6 @@ async def delete_branch(
                     branch_name,
                     stderr2.strip() or stderr.strip(),
                 )
-                return
             return
 
         # Some other failure
@@ -260,8 +277,9 @@ async def checkout_branch(
         WorkspaceError: If checkout fails or ref name is invalid.
     """
     validate_ref_name(branch_name)
+    retry_args = ["checkout", branch_name]
     returncode, _stdout, stderr = await run_git(
-        ["checkout", branch_name],
+        retry_args,
         cwd=repo_path,
         check=False,
     )
@@ -269,30 +287,14 @@ async def checkout_branch(
         return
 
     if "used by worktree" in stderr:
-        match = _WORKTREE_IN_USE_RE.search(stderr)
-        worktree_path = Path(match.group(1)) if match else None
-
-        # Live worktree — cannot steal the branch from it.
-        if worktree_path is not None and worktree_path.exists():
-            raise WorkspaceError(
-                f"Cannot checkout '{branch_name}': branch is in use by a live worktree at {worktree_path}",
-                branch=branch_name,
-            )
-
-        # Stale registry entry: prune and retry once.
-        logger.debug(
-            "Checkout of '%s' blocked by stale worktree entry; pruning and retrying",
-            branch_name,
-        )
-        await run_git(["worktree", "prune"], cwd=repo_path, check=False)
-        rc2, _stdout2, stderr2 = await run_git(
-            ["checkout", branch_name],
-            cwd=repo_path,
-            check=False,
+        rc2, _stderr2 = await _resolve_worktree_conflict(
+            repo_path,
+            stderr,
+            retry_args,
+            f"Cannot checkout '{branch_name}': branch is in use by a live worktree",
         )
         if rc2 == 0:
             return
-
         raise WorkspaceError(
             f"git checkout failed (exit code {rc2})",
             command=f"git checkout {branch_name}",
