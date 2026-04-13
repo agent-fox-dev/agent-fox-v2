@@ -26,8 +26,8 @@ builder.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Set up test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Set up test file structure
     - Create `tests/unit/knowledge/test_entity_store.py` for TS-95-1 through
       TS-95-11, TS-95-E1 through TS-95-E4, TS-95-E12, TS-95-E13
     - Create `tests/unit/knowledge/test_static_analysis.py` for TS-95-12
@@ -45,7 +45,7 @@ builder.
     - _Test Spec: TS-95-1 through TS-95-28, TS-95-E1 through TS-95-E13,
       TS-95-P1 through TS-95-P6, TS-95-SMOKE-1 through TS-95-SMOKE-4_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - One test function per TS-95-{N} entry (28 tests)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - Import from `agent_fox.knowledge.entities`,
@@ -53,26 +53,26 @@ builder.
       `agent_fox.knowledge.entity_linker`, `agent_fox.knowledge.entity_query`
     - _Test Spec: TS-95-1 through TS-95-28_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - One test function per TS-95-E{N} entry (13 tests)
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-95-E1 through TS-95-E13_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - One property test per TS-95-P{N} entry (6 tests)
     - Use Hypothesis with `suppress_health_check=[HealthCheck.function_scoped_fixture]`
     - _Test Spec: TS-95-P1 through TS-95-P6_
 
-  - [ ] 1.5 Translate integration smoke tests from test_spec.md
+  - [x] 1.5 Translate integration smoke tests from test_spec.md
     - One test per TS-95-SMOKE-{N} entry (4 tests)
     - Use real DuckDB connections, real tree-sitter parser
     - Mock only subprocess (git) calls
     - _Test Spec: TS-95-SMOKE-1 through TS-95-SMOKE-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `make lint`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `make lint`
 
 - [ ] 2. Schema, data models, and entity store
   - [ ] 2.1 Create `agent_fox/knowledge/entities.py`
