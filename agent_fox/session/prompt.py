@@ -123,6 +123,7 @@ def build_system_prompt(
     spec_name: str,
     role: str | None = None,
     archetype: str | None = None,
+    mode: str | None = None,
 ) -> str:
     """Build the system prompt from templates and context.
 
@@ -134,6 +135,8 @@ def build_system_prompt(
             Mapped to archetype internally.
         archetype: Archetype name for template resolution via registry.
             Takes precedence over *role* when both are provided.
+        mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
+            future per-mode template resolution (spec 98).
 
     Returns:
         Complete system prompt string.
@@ -199,6 +202,7 @@ def build_task_prompt(
     task_group: int,
     spec_name: str,
     archetype: str = "coder",
+    mode: str | None = None,
 ) -> str:
     """Build an enriched task prompt.
 
@@ -209,6 +213,13 @@ def build_task_prompt(
     For non-coder archetypes (skeptic, verifier, etc.): returns a concise
     prompt that defers to the system prompt template for detailed
     instructions.
+
+    Args:
+        task_group: The target task group number.
+        spec_name: The specification name.
+        archetype: Archetype name (defaults to ``"coder"``).
+        mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
+            future per-mode prompt customisation (spec 98).
 
     Raises:
         ValueError: If *task_group* < 1 for coder archetype.

@@ -88,6 +88,7 @@ class SerialRunner:
         previous_error: str | None,
         *,
         archetype: str = "coder",
+        mode: str | None = None,
         instances: int = 1,
         assessed_tier: Any | None = None,
         run_id: str = "",
@@ -98,6 +99,7 @@ class SerialRunner:
         runner = self._session_runner_factory(
             node_id,
             archetype=archetype,
+            mode=mode,
             instances=instances,
             assessed_tier=assessed_tier,
             run_id=run_id,
@@ -309,12 +311,12 @@ class Orchestrator:
         state: ExecutionState,
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
-    ) -> tuple[str, int, str | None, str, int, Any | None] | None:
+    ) -> tuple[str, int, str | None, str, int, Any | None, str | None] | None:
         """Assess a node and check whether it may launch.
 
         Returns a tuple of (verdict, attempt, previous_error, archetype,
-        instances, assessed_tier) if the node is allowed to launch, or
-        None if it was blocked/limited.  The caller must still check
+        instances, assessed_tier, mode) if the node is allowed to launch,
+        or None if it was blocked/limited.  The caller must still check
         ``verdict`` — ``"blocked"`` and ``"limited"`` are returned via
         the tuple so the caller can distinguish them.
 
@@ -342,12 +344,13 @@ class Orchestrator:
         attempt_tracker[node_id] = attempt
         previous_error = error_tracker.get(node_id)
         instances = self._get_node_instances(node_id)
+        mode = self._get_node_mode(node_id)
 
         # 30-REQ-7.2: Pass assessed tier from escalation ladder
         ladder = self._routing.ladders.get(node_id)
         assessed_tier = ladder.current_tier if ladder else None
 
-        return (verdict, attempt, previous_error, archetype, instances, assessed_tier)
+        return (verdict, attempt, previous_error, archetype, instances, assessed_tier, mode)
 
     def _init_run(
         self,
@@ -848,6 +851,7 @@ class Orchestrator:
                 node_archetype,
                 node_instances,
                 assessed_tier,
+                node_mode,
             ) = launch
 
             if not first_dispatch:
@@ -871,6 +875,7 @@ class Orchestrator:
                 attempt,
                 previous_error,
                 archetype=node_archetype,
+                mode=node_mode,
                 instances=node_instances,
                 assessed_tier=assessed_tier,
                 run_id=self._run_id,
@@ -1023,7 +1028,7 @@ class Orchestrator:
             if launch is None:
                 continue
 
-            _, attempt, previous_error, archetype, instances, assessed_tier = launch
+            _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
             self._graph_sync.mark_in_progress(node_id)
 
             # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
@@ -1040,6 +1045,7 @@ class Orchestrator:
                     attempt,
                     previous_error,
                     archetype=archetype,
+                    mode=node_mode,
                     instances=instances,
                     assessed_tier=assessed_tier,
                     run_id=self._run_id,
@@ -1098,6 +1104,11 @@ class Orchestrator:
         """Get the instance count for a node from the task graph."""
         node = self._get_node(node_id)
         return node.instances if node else 1
+
+    def _get_node_mode(self, node_id: str) -> str | None:
+        """Get the mode for a node from the task graph (97-REQ-5.3)."""
+        node = self._get_node(node_id)
+        return node.mode if node else None
 
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""

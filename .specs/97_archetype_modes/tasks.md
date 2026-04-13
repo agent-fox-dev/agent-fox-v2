@@ -134,25 +134,25 @@ verifies end-to-end wiring.
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/sdk_params.py agent_fox/hooks/security.py`
     - [x] Requirements 97-REQ-4.1 through 97-REQ-5.E1 met
 
-- [ ] 5. Wire mode through session lifecycle
-  - [ ] 5.1 Add `mode` parameter to `NodeSessionRunner.__init__()`
+- [x] 5. Wire mode through session lifecycle
+  - [x] 5.1 Add `mode` parameter to `NodeSessionRunner.__init__()`
     - Store as `self._mode`
     - Pass to `resolve_model_tier()`, `resolve_security_config()` in init
     - Pass to `resolve_max_turns()`, `resolve_thinking()` where called
     - _Requirements: 97-REQ-5.3_
 
-  - [ ] 5.2 Update engine dispatch to pass `node.mode` to NodeSessionRunner
+  - [x] 5.2 Update engine dispatch to pass `node.mode` to NodeSessionRunner
     - Where the engine creates NodeSessionRunner from a Node, pass `mode=node.mode`
     - _Requirements: 97-REQ-5.3_
 
-  - [ ] 5.3 Update `build_system_prompt()` and `build_task_prompt()` to accept mode
+  - [x] 5.3 Update `build_system_prompt()` and `build_task_prompt()` to accept mode
     - Thread mode parameter for future template resolution (profiles spec)
     - _Requirements: 97-REQ-5.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Smoke tests pass: `uv run pytest -q tests/unit/engine/test_sdk_params_modes.py -k "smoke or session"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/engine/ agent_fox/session/`
+  - [x] 5.V Verify task group 5
+    - [x] Smoke tests pass: `uv run pytest -q tests/unit/engine/test_sdk_params_modes.py -k "smoke or session"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/engine/ agent_fox/session/`
 
 - [ ] 6. Wiring verification
 

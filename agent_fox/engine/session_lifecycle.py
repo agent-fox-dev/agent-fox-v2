@@ -294,11 +294,13 @@ class NodeSessionRunner:
             task_group=self._task_group,
             spec_name=self._spec_name,
             archetype=self._archetype,
+            mode=self._mode,
         )
         task_prompt = build_task_prompt(
             task_group=self._task_group,
             spec_name=self._spec_name,
             archetype=self._archetype,
+            mode=self._mode,
         )
 
         if previous_error and attempt > 1:
@@ -525,8 +527,8 @@ class NodeSessionRunner:
         if self._max_turns_override is not None:
             resolved_max_turns: int | None = self._max_turns_override
         else:
-            resolved_max_turns = resolve_max_turns(self._config, self._archetype)
-        resolved_thinking = resolve_thinking(self._config, self._archetype)
+            resolved_max_turns = resolve_max_turns(self._config, self._archetype, mode=self._mode)
+        resolved_thinking = resolve_thinking(self._config, self._archetype, mode=self._mode)
         resolved_fallback = resolve_fallback_model(self._config)
         resolved_budget = resolve_max_budget(self._config)
 

@@ -94,6 +94,7 @@ class ParallelRunner:
         previous_error: str | None,
         *,
         archetype: str = "coder",
+        mode: str | None = None,
         instances: int = 1,
         assessed_tier: Any | None = None,
         run_id: str = "",
@@ -111,6 +112,7 @@ class ParallelRunner:
             attempt: The attempt number (1-indexed).
             previous_error: Error message from prior attempt, if any.
             archetype: Archetype name from the plan node.
+            mode: Optional mode variant for the archetype (97-REQ-5.3).
             instances: Instance count from the plan node.
             assessed_tier: Model tier from adaptive routing assessment.
             run_id: Audit run identifier for correlation.
@@ -126,6 +128,7 @@ class ParallelRunner:
                 attempt,
                 previous_error,
                 archetype=archetype,
+                mode=mode,
                 instances=instances,
                 assessed_tier=assessed_tier,
                 run_id=run_id,
@@ -243,6 +246,7 @@ class ParallelRunner:
         previous_error: str | None,
         *,
         archetype: str = "coder",
+        mode: str | None = None,
         instances: int = 1,
         assessed_tier: Any | None = None,
         run_id: str = "",
@@ -253,6 +257,7 @@ class ParallelRunner:
         runner = self._session_runner_factory(
             node_id,
             archetype=archetype,
+            mode=mode,
             instances=instances,
             assessed_tier=assessed_tier,
             run_id=run_id,
