@@ -9,12 +9,14 @@ Requirements: 93-REQ-2.1, 93-REQ-2.2, 93-REQ-3.1, 93-REQ-3.2, 93-REQ-3.3,
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from agent_fox.nightshift.fix_pipeline import FixPipeline
 from agent_fox.platform.github import IssueResult
 from agent_fox.workspace import WorkspaceInfo
 
@@ -40,9 +42,8 @@ def _make_issue(number: int = 1, title: str = "test") -> IssueResult:
     )
 
 
-def _make_pipeline(*, push_fix_branch: bool, merge_strategy: str = "direct") -> object:
+def _make_pipeline(*, push_fix_branch: bool, merge_strategy: str = "direct") -> FixPipeline:
     """Create a FixPipeline with mocked dependencies."""
-    from agent_fox.nightshift.fix_pipeline import FixPipeline
 
     config = MagicMock()
     config.night_shift.push_fix_branch = push_fix_branch
@@ -92,10 +93,10 @@ class TestPushGatingInvariant:
         pipeline = _make_pipeline(push_fix_branch=False)
 
         push_upstream = AsyncMock(return_value=True)
-        pipeline._push_fix_branch_upstream = push_upstream  # type: ignore[union-attr]
+        pipeline._push_fix_branch_upstream = push_upstream  # type: ignore[method-assign]
 
         issue = _make_issue(number=issue_number, title=title or "test")
-        await pipeline.process_issue(issue, issue_body="fix body")  # type: ignore[union-attr]
+        await pipeline.process_issue(issue, issue_body="fix body")
 
         push_upstream.assert_not_called()
 
@@ -152,19 +153,23 @@ class TestPushBeforeHarvestOrdering:
 
         call_order: list[str] = []
 
-        original_harvest = pipeline._harvest_and_push  # type: ignore[union-attr]
+        original_harvest = pipeline._harvest_and_push
 
-        async def tracking_harvest(*args: object, **kwargs: object) -> str:
+        async def tracking_harvest(*args: Any, **kwargs: Any) -> str:
             call_order.append("harvest")
-            return await original_harvest(*args, **kwargs)  # type: ignore[misc]
+            return await original_harvest(*args, **kwargs)
 
-        pipeline._harvest_and_push = tracking_harvest  # type: ignore[union-attr]
+        pipeline._harvest_and_push = tracking_harvest  # type: ignore[method-assign]
 
-        push_upstream = AsyncMock(side_effect=lambda *a, **k: call_order.append("push") or True)
-        pipeline._push_fix_branch_upstream = push_upstream  # type: ignore[union-attr]
+        async def push_side_effect(*a: object, **k: object) -> bool:
+            call_order.append("push")
+            return True
+
+        push_upstream = AsyncMock(side_effect=push_side_effect)
+        pipeline._push_fix_branch_upstream = push_upstream  # type: ignore[method-assign]
 
         issue = _make_issue(number=issue_number, title=title)
-        await pipeline.process_issue(issue, issue_body="fix body")  # type: ignore[union-attr]
+        await pipeline.process_issue(issue, issue_body="fix body")
 
         assert "push" in call_order, "push was not called"
         assert "harvest" in call_order, "harvest was not called"
@@ -196,7 +201,7 @@ class TestPushFailureResilience:
         pipeline = _make_pipeline(push_fix_branch=True)
 
         mock_harvest = AsyncMock(return_value="merged")
-        pipeline._harvest_and_push = mock_harvest  # type: ignore[union-attr]
+        pipeline._harvest_and_push = mock_harvest  # type: ignore[method-assign]
 
         with patch(
             "agent_fox.workspace.git.push_to_remote",
@@ -204,7 +209,7 @@ class TestPushFailureResilience:
             side_effect=exc_type("fail"),
         ):
             # Must not raise
-            await pipeline.process_issue(  # type: ignore[union-attr]
+            await pipeline.process_issue(
                 _make_issue(), issue_body="fix body"
             )
 
