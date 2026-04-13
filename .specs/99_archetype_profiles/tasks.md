@@ -57,8 +57,8 @@ wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement profile loading module
-  - [ ] 2.1 Create `agent_fox/session/profiles.py`
+- [x] 2. Implement profile loading module
+  - [x] 2.1 Create `agent_fox/session/profiles.py`
     - `load_profile(archetype, project_dir)` function
     - Check project dir first, package default second
     - Strip YAML frontmatter
@@ -66,10 +66,10 @@ wiring.
     - `has_custom_profile(name, project_dir)` function
     - _Requirements: 99-REQ-5.1, 99-REQ-5.2, 99-REQ-5.3, 99-REQ-5.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/session/test_profiles.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/session/profiles.py`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/session/test_profiles.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/session/profiles.py`
 
 - [ ] 3. Create default profiles
   - [ ] 3.1 Create `agent_fox/_templates/profiles/` directory
