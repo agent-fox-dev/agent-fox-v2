@@ -82,36 +82,39 @@ session lifecycle and factory, and group 4 performs wiring verification.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 94-REQ-1.1, 94-REQ-1.2, 94-REQ-1.E1, 94-REQ-1.E2, 94-REQ-4.1, 94-REQ-4.2 acceptance criteria met
 
-- [ ] 3. Cross-spec retrieval method and factory wiring
-  - [ ] 3.1 Add `embedder` parameter to `NodeSessionRunner.__init__`
+- [x] 3. Cross-spec retrieval method and factory wiring
+  - [x] 3.1 Add `embedder` parameter to `NodeSessionRunner.__init__`
     - Add optional `embedder: EmbeddingGenerator | None = None` parameter
     - Store as `self._embedder`
     - _Requirements: 94-REQ-6.1, 94-REQ-6.2_
 
-  - [ ] 3.2 Implement `_retrieve_cross_spec_facts` method
+  - [x] 3.2 Implement `_retrieve_cross_spec_facts` method
     - Add the method to `NodeSessionRunner`
     - Check guards: `self._embedder is None` or `cross_spec_top_k == 0` → return input
     - Call `extract_subtask_descriptions`, embed, search, convert, merge, deduplicate
     - Wrap entire body in try/except for graceful degradation
     - _Requirements: 94-REQ-2.1, 94-REQ-2.2, 94-REQ-3.1, 94-REQ-3.2, 94-REQ-5.1_
 
-  - [ ] 3.3 Wire into `_build_prompts`
+  - [x] 3.3 Wire into `_build_prompts`
     - Call `_retrieve_cross_spec_facts(spec_dir, relevant)` after
       `_load_relevant_facts()` and before `_enhance_with_causal()`
-    - Use the merged result for causal enhancement
+    - Use the merged result for causal enhancement; also enables cross-spec
+      retrieval when no spec-specific facts exist (addresses Skeptic finding)
     - _Requirements: 94-REQ-3.2_
 
-  - [ ] 3.4 Update session runner factory in `run.py`
+  - [x] 3.4 Update session runner factory in `run.py`
     - Create `EmbeddingGenerator(config.knowledge)` in the factory setup
     - Wrap in try/except, set to `None` on failure
     - Pass `embedder=embedder` to `NodeSessionRunner`
+    - Moved `open_knowledge_store`, `DuckDBSink`, `run_background_ingestion`
+      to module-level imports so tests can patch them at `agent_fox.engine.run.X`
     - _Requirements: 94-REQ-6.1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_cross_spec_retrieval.py tests/integration/engine/test_cross_spec_retrieval_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `make lint`
-    - [ ] Requirements 94-REQ-2.*, 94-REQ-3.*, 94-REQ-5.1, 94-REQ-6.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_cross_spec_retrieval.py tests/integration/engine/test_cross_spec_retrieval_smoke.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `make lint`
+    - [x] Requirements 94-REQ-2.*, 94-REQ-3.*, 94-REQ-5.1, 94-REQ-6.* acceptance criteria met
 
 - [ ] 4. Wiring verification
 

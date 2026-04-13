@@ -19,6 +19,9 @@ from typing import TYPE_CHECKING, Any
 
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import ExecutionState
+from agent_fox.knowledge.db import open_knowledge_store
+from agent_fox.knowledge.duckdb_sink import DuckDBSink
+from agent_fox.knowledge.ingest import run_background_ingestion
 
 if TYPE_CHECKING:
     from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
@@ -88,9 +91,7 @@ def _setup_infrastructure(
     from agent_fox.core.paths import AUDIT_DIR, PLAN_PATH
     from agent_fox.engine.fact_cache import precompute_fact_rankings
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
-    from agent_fox.knowledge.db import open_knowledge_store
-    from agent_fox.knowledge.duckdb_sink import DuckDBSink
-    from agent_fox.knowledge.ingest import run_background_ingestion
+    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
 
     resolved_plan = plan_path or PLAN_PATH
@@ -140,6 +141,18 @@ def _setup_infrastructure(
 
     hook_cfg = config.hooks
 
+    # 94-REQ-6.1: Create a shared EmbeddingGenerator for cross-spec retrieval.
+    # A single model instance is shared across all sessions in the run to avoid
+    # repeated model loading (~1-2s per load on Apple Silicon).
+    embedder: EmbeddingGenerator | None = None
+    try:
+        embedder = EmbeddingGenerator(config.knowledge)
+    except Exception:
+        logger.debug(
+            "Failed to create EmbeddingGenerator; cross-spec retrieval disabled",
+            exc_info=True,
+        )
+
     def session_runner_factory(
         node_id: str,
         *,
@@ -166,6 +179,7 @@ def _setup_infrastructure(
             fact_cache=fact_cache,
             timeout_override=timeout_override,
             max_turns_override=max_turns_override,
+            embedder=embedder,
         )
 
     return {
@@ -293,7 +307,6 @@ async def run_code(
 def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
     """Run ingestion, export facts, and rebuild fact cache at sync barrier."""
     from agent_fox.engine.fact_cache import precompute_fact_rankings
-    from agent_fox.knowledge.ingest import run_background_ingestion
     from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, export_facts_to_jsonl
 
     knowledge_db = infra["knowledge_db"]
@@ -331,7 +344,6 @@ def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
     """Clean up infrastructure resources."""
-    from agent_fox.knowledge.ingest import run_background_ingestion
     from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, export_facts_to_jsonl
 
     knowledge_db = infra["knowledge_db"]

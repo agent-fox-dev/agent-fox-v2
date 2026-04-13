@@ -46,7 +46,10 @@ from agent_fox.hooks.hooks import (
 )
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
+from agent_fox.knowledge.embeddings import EmbeddingGenerator
+from agent_fox.knowledge.facts import Fact
 from agent_fox.knowledge.filtering import select_relevant_facts
+from agent_fox.knowledge.search import SearchResult, VectorSearch
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
 from agent_fox.knowledge.store import load_all_facts
 from agent_fox.session.context import select_context_with_causal
@@ -210,6 +213,7 @@ class NodeSessionRunner:
         fact_cache: dict[str, RankedFactCache] | None = None,
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
+        embedder: EmbeddingGenerator | None = None,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -225,6 +229,8 @@ class NodeSessionRunner:
         # 75-REQ-3.5: Per-node timeout/turns overrides from timeout-aware escalation
         self._timeout_override = timeout_override
         self._max_turns_override = max_turns_override
+        # 94-REQ-6.1, 94-REQ-6.2: Optional shared embedding generator for cross-spec retrieval
+        self._embedder = embedder
         parsed = parse_node_id(node_id)
         self._spec_name = parsed.spec_name
         self._task_group = parsed.group_number
@@ -258,9 +264,12 @@ class NodeSessionRunner:
         memory_facts: list[str] | None = None
         try:
             relevant = self._load_relevant_facts()
-            if relevant:
+            # 94-REQ-3.2: Merge with cross-spec facts before causal enhancement
+            # (also runs when relevant is empty, so cross-spec can provide facts)
+            merged = self._retrieve_cross_spec_facts(spec_dir, relevant)
+            if merged:
                 # 13-REQ-7.1: Enhance with causal context if DB available
-                memory_facts = self._enhance_with_causal(relevant)
+                memory_facts = self._enhance_with_causal(merged)
         except Exception:
             logger.warning(
                 "Failed to load memory facts for %s, continuing without",
@@ -332,6 +341,95 @@ class NodeSessionRunner:
             self._spec_name,
             relevant_facts,
         )
+
+    def _retrieve_cross_spec_facts(
+        self,
+        spec_dir: Path,
+        relevant_facts: list[Fact],
+    ) -> list[Fact]:
+        """Retrieve and merge cross-spec facts via vector similarity search.
+
+        Extracts subtask descriptions from the current task group, embeds them,
+        searches across all facts, and merges with the spec-specific facts
+        (deduplicating by fact ID). Returns the merged list. If any step fails
+        or cross-spec retrieval is disabled, returns relevant_facts unchanged.
+
+        Args:
+            spec_dir: Path to the current spec folder.
+            relevant_facts: Spec-specific facts from _load_relevant_facts().
+
+        Returns:
+            Merged fact list (spec-specific + cross-spec, deduplicated by ID).
+
+        Requirements: 94-REQ-2.1, 94-REQ-2.2, 94-REQ-3.1, 94-REQ-3.2,
+                      94-REQ-4.2, 94-REQ-5.1, 94-REQ-6.2
+        """
+        # 94-REQ-6.2: Skip if no embedder provided
+        if self._embedder is None:
+            logger.debug(
+                "Cross-spec retrieval skipped for %s: no embedder",
+                self._spec_name,
+            )
+            return relevant_facts
+
+        # 94-REQ-4.2: Skip if cross_spec_top_k is 0 (disabled)
+        top_k = self._config.knowledge.cross_spec_top_k
+        if top_k == 0:
+            logger.debug(
+                "Cross-spec retrieval skipped for %s: cross_spec_top_k=0",
+                self._spec_name,
+            )
+            return relevant_facts
+
+        try:
+            # 94-REQ-1.1: Extract subtask descriptions
+            descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
+            if not descriptions:
+                logger.debug(
+                    "Cross-spec retrieval skipped for %s: no subtask descriptions",
+                    self._spec_name,
+                )
+                return relevant_facts
+
+            # 94-REQ-2.1: Concatenate and embed
+            query = "\n".join(descriptions)
+            embedding = self._embedder.embed_text(query)
+
+            # 94-REQ-2.E1: Skip if embedding failed
+            if embedding is None:
+                logger.debug(
+                    "Cross-spec retrieval skipped for %s: embed_text returned None",
+                    self._spec_name,
+                )
+                return relevant_facts
+
+            # 94-REQ-2.2: Vector search across all facts
+            vs = VectorSearch(self._knowledge_db.connection, self._config.knowledge)
+            results = vs.search(embedding, top_k=top_k, exclude_superseded=True)
+
+            # 94-REQ-2.E2: Skip merge if no results
+            if not results:
+                return relevant_facts
+
+            # 94-REQ-3.1: Merge and deduplicate by ID
+            merged = merge_cross_spec_facts(relevant_facts, results)
+            added = len(merged) - len(relevant_facts)
+            logger.debug(
+                "Cross-spec retrieval added %d facts for %s group %d",
+                added,
+                self._spec_name,
+                self._task_group,
+            )
+            return merged
+
+        except Exception:
+            # 94-REQ-5.1: Graceful degradation — never break session startup
+            logger.debug(
+                "Cross-spec retrieval skipped for %s: exception in pipeline",
+                self._spec_name,
+                exc_info=True,
+            )
+            return relevant_facts
 
     def _build_hook_context(self, workspace: WorkspaceInfo) -> HookContext:
         """Build a HookContext for pre/post-session hooks."""
@@ -1023,6 +1121,46 @@ def enhance_with_causal(
         keyword_facts=keyword_dicts,
     )
     return [f["content"] for f in enhanced]
+
+
+def merge_cross_spec_facts(
+    spec_facts: list[Fact],
+    cross_results: list[SearchResult],
+) -> list[Fact]:
+    """Merge cross-spec search results with spec-specific facts, deduplicating by ID.
+
+    Spec-specific facts take precedence: if a cross-spec result has the same
+    ID as a spec-specific fact, the spec-specific version is kept.
+
+    Args:
+        spec_facts: Spec-specific facts (output of _load_relevant_facts).
+        cross_results: SearchResults from VectorSearch.
+
+    Returns:
+        Merged list: all spec_facts followed by any cross-spec facts whose
+        IDs are not already in spec_facts. Order is preserved.
+
+    Requirements: 94-REQ-3.1, 94-REQ-3.E1
+    """
+    existing_ids = {f.id for f in spec_facts}
+    merged: list[Fact] = list(spec_facts)
+    for result in cross_results:
+        if result.fact_id not in existing_ids:
+            merged.append(
+                Fact(
+                    id=result.fact_id,
+                    content=result.content,
+                    category=result.category,
+                    spec_name=result.spec_name,
+                    keywords=[],
+                    confidence=1.0,
+                    created_at="",
+                    session_id=result.session_id,
+                    commit_sha=result.commit_sha,
+                )
+            )
+            existing_ids.add(result.fact_id)
+    return merged
 
 
 def build_retry_context(

@@ -240,9 +240,8 @@ def test_graceful_degradation_identity(
         st.text(
             alphabet=st.characters(
                 whitelist_categories=("Lu", "Ll", "Nd"),
-                whitelist_characters=" _()[]",
-                blacklist_characters="_",
-            ).filter(lambda c: c != "_"),
+                whitelist_characters=" ()[]",
+            ),
             min_size=2,
             max_size=40,
         ).filter(lambda s: s.strip() and not s.startswith("_")),
