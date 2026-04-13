@@ -277,7 +277,8 @@ class TestIndependenceFromMergeStrategy:
 
             await pipeline.process_issue(_make_issue(), issue_body="fix this")
 
-            push_upstream.assert_awaited_once(), f"push not called for strategy={strategy}"
+            push_upstream.assert_awaited_once()
+            assert push_upstream.await_count == 1, f"push not called for strategy={strategy}"
             push_upstream.reset_mock()
 
 

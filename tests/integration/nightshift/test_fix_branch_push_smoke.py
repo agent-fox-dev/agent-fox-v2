@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -94,7 +95,7 @@ def _make_outcome(response: str = "") -> MagicMock:
     return outcome
 
 
-def _make_session_runner(reviewer_outcome: str = "PASS") -> object:
+def _make_session_runner(reviewer_outcome: str = "PASS") -> Any:
     """Return a mock _run_session that produces triage, coder, and reviewer outputs."""
 
     async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
@@ -133,8 +134,16 @@ class TestPushBeforeHarvestIntegration:
 
         call_order: list[str] = []
 
-        mock_harvest = AsyncMock(side_effect=lambda *a, **k: call_order.append("harvest") or "merged")
-        mock_push = AsyncMock(side_effect=lambda *a, **k: call_order.append("push") or True)
+        async def harvest_side_effect(*a: object, **k: object) -> str:
+            call_order.append("harvest")
+            return "merged"
+
+        async def push_side_effect(*a: object, **k: object) -> bool:
+            call_order.append("push")
+            return True
+
+        mock_harvest = AsyncMock(side_effect=harvest_side_effect)
+        mock_push = AsyncMock(side_effect=push_side_effect)
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
@@ -179,7 +188,11 @@ class TestFullPipelinePushEnabled:
 
         call_order: list[str] = []
 
-        mock_harvest = AsyncMock(side_effect=lambda *a, **k: call_order.append("harvest") or "merged")
+        async def harvest_side_effect_2(*a: object, **k: object) -> str:
+            call_order.append("harvest")
+            return "merged"
+
+        mock_harvest = AsyncMock(side_effect=harvest_side_effect_2)
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
@@ -192,10 +205,10 @@ class TestFullPipelinePushEnabled:
         if hasattr(pipeline, "_push_fix_branch_upstream"):
             original_push_upstream = pipeline._push_fix_branch_upstream
 
-        async def tracking_push(*args: object, **kwargs: object) -> bool:
+        async def tracking_push(*args: Any, **kwargs: Any) -> bool:
             call_order.append("push")
             if original_push_upstream is not None:
-                return await original_push_upstream(*args, **kwargs)  # type: ignore[misc]
+                return await original_push_upstream(*args, **kwargs)
             return True
 
         pipeline._push_fix_branch_upstream = tracking_push  # type: ignore[method-assign]
@@ -262,10 +275,10 @@ class TestFullPipelinePushDisabled:
         push_upstream_called = {"called": False}
         original_push_upstream = getattr(pipeline, "_push_fix_branch_upstream", None)
 
-        async def tracking_push(*args: object, **kwargs: object) -> bool:
+        async def tracking_push(*args: Any, **kwargs: Any) -> bool:
             push_upstream_called["called"] = True
             if original_push_upstream is not None:
-                return await original_push_upstream(*args, **kwargs)  # type: ignore[misc]
+                return await original_push_upstream(*args, **kwargs)
             return True
 
         pipeline._push_fix_branch_upstream = tracking_push  # type: ignore[method-assign]
