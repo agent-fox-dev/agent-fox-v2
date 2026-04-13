@@ -25,8 +25,8 @@ verifies end-to-end wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file `tests/unit/core/test_archetype_modes.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file `tests/unit/core/test_archetype_modes.py`
     - Unit tests for ModeConfig defaults (TS-97-1)
     - Unit tests for ArchetypeEntry.modes field (TS-97-2)
     - Unit tests for resolve_effective_config with valid mode (TS-97-3)
@@ -35,19 +35,19 @@ verifies end-to-end wiring.
     - Edge case tests for empty modes dict (TS-97-E2)
     - _Test Spec: TS-97-1 through TS-97-4, TS-97-E1, TS-97-E2_
 
-  - [ ] 1.2 Create test file `tests/unit/graph/test_node_mode.py`
+  - [x] 1.2 Create test file `tests/unit/graph/test_node_mode.py`
     - Unit tests for Node.mode field (TS-97-5)
     - Unit tests for Node serialization round-trip (TS-97-6)
     - Edge case tests for Node with None mode (TS-97-E3)
     - _Test Spec: TS-97-5, TS-97-6, TS-97-E3_
 
-  - [ ] 1.3 Create test file `tests/unit/core/test_config_modes.py`
+  - [x] 1.3 Create test file `tests/unit/core/test_config_modes.py`
     - Unit tests for PerArchetypeConfig.modes field (TS-97-7)
     - Unit tests for TOML parsing with mode sections (TS-97-8)
     - Edge case tests for missing mode config fallback (TS-97-E4)
     - _Test Spec: TS-97-7, TS-97-8, TS-97-E4_
 
-  - [ ] 1.4 Create test file `tests/unit/engine/test_sdk_params_modes.py`
+  - [x] 1.4 Create test file `tests/unit/engine/test_sdk_params_modes.py`
     - Unit tests for resolve_model_tier with mode (TS-97-9, TS-97-10)
     - Unit tests for resolve_security_config with empty allowlist mode (TS-97-11)
     - Unit tests for security hook blocking with empty allowlist (TS-97-12)
@@ -56,7 +56,7 @@ verifies end-to-end wiring.
     - Edge case tests for mode allowlist inheritance (TS-97-E6)
     - _Test Spec: TS-97-9 through TS-97-13, TS-97-E5, TS-97-E6_
 
-  - [ ] 1.5 Create test file `tests/property/test_mode_properties.py`
+  - [x] 1.5 Create test file `tests/property/test_mode_properties.py`
     - Property tests: override semantics (TS-97-P1)
     - Property tests: inheritance semantics (TS-97-P2)
     - Property tests: null mode identity (TS-97-P3)
@@ -65,10 +65,10 @@ verifies end-to-end wiring.
     - Property tests: serialization round-trip (TS-97-P6)
     - _Test Spec: TS-97-P1 through TS-97-P6_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement ModeConfig and ArchetypeEntry.modes
   - [ ] 2.1 Add ModeConfig dataclass to `agent_fox/archetypes.py`
