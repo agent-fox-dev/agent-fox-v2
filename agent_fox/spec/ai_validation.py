@@ -16,17 +16,13 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from anthropic.types import TextBlock
-
-from agent_fox.core.client import cached_messages_create, create_async_anthropic_client
+from agent_fox.core.client import ai_call
 from agent_fox.core.json_extraction import extract_json_object
-from agent_fox.core.retry import retry_api_call_async
-from agent_fox.core.token_tracker import record_auxiliary_usage, track_response_usage
+from agent_fox.core.token_tracker import record_auxiliary_usage
 from agent_fox.spec.discovery import SpecInfo
 from agent_fox.spec.parser import _DEP_TABLE_HEADER_ALT, _parse_table_rows
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     SEVERITY_HINT,
     SEVERITY_WARNING,
     Finding,
@@ -42,24 +38,6 @@ def _load_ai_template(name: str) -> str:
     """Load an AI validation prompt template by name."""
     path = _AI_TEMPLATE_DIR / name
     return path.read_text(encoding="utf-8")
-
-
-# -- Response text extraction --------------------------------------------------
-
-
-def _extract_response_text(response: Any, context: str) -> str | None:
-    """Extract text from an AI response, handling TextBlock union.
-
-    Returns the text content of the first block, or None if unavailable.
-    Logs a warning with *context* when no text is found.
-    """
-    first_block = response.content[0]
-    if isinstance(first_block, TextBlock):
-        return first_block.text
-    maybe_text: str | None = getattr(first_block, "text", None)
-    if maybe_text is None:
-        _ai_logger.warning("AI response for %s has no text content, skipping", context)
-    return maybe_text
 
 
 def _extract_json(text: str) -> dict:
@@ -88,26 +66,19 @@ async def _ai_call_and_parse(
     failure (network, auth, parse). Logs warnings on failure.
     """
     try:
-
-        async def _call() -> object:
-            client = create_async_anthropic_client()
-            return await cached_messages_create(
-                client,
-                model=model,
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-
-        response = await retry_api_call_async(_call, context=context)
+        response_text, _response = await ai_call(
+            model_tier=model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+            context=context,
+        )
     except Exception as exc:
         _ai_logger.warning("AI call failed for %s: %s", context, exc)
         record_auxiliary_usage(0, 0, model)
         return None
 
-    track_response_usage(response, model, context)
-
-    response_text = _extract_response_text(response, context)
     if response_text is None:
+        _ai_logger.warning("AI response for %s has no text content, skipping", context)
         return None
 
     try:
@@ -249,22 +220,16 @@ async def validate_dependency_interfaces(
         identifiers_json=identifiers_json,
     )
 
-    async def _call() -> object:
-        client = create_async_anthropic_client()
-        return await cached_messages_create(
-            client,
-            model=model,
-            max_tokens=4096,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    context = f"stale-dep check on '{upstream_spec}'"
+    response_text, _response = await ai_call(
+        model_tier=model,
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+        context=context,
+    )
 
-    response = await retry_api_call_async(_call, context=f"stale-dep check on '{upstream_spec}'")
-
-    track_response_usage(response, model, "stale-dep check")
-
-    # Extract text from response
-    response_text = _extract_response_text(response, f"stale-dep check on '{upstream_spec}'")
     if response_text is None:
+        _ai_logger.warning("AI response for %s has no text content, skipping", context)
         return []
 
     try:

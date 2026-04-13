@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import duckdb
 
-from agent_fox.knowledge._text_utils import escape_markdown, strip_ansi
+from agent_fox.core._text_utils import escape_markdown, strip_ansi
 from agent_fox.knowledge.causal import CausalFact, traverse_causal_chain
 from agent_fox.knowledge.search import SearchResult
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_fox.spec.discovery import SpecInfo
-from agent_fox.spec.fixer import (
+from agent_fox.spec.fixers import (
     apply_fixes,
     fix_ai_test_spec_entries,
     fix_coarse_dependency,
@@ -20,7 +20,7 @@ from agent_fox.spec.fixer import (
     fix_missing_verification,
     fix_traceability_table_mismatch,
 )
-from agent_fox.spec.validator import Finding
+from agent_fox.spec.validators import Finding
 
 # -- Helpers -------------------------------------------------------------------
 

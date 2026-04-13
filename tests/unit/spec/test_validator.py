@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from agent_fox.spec.parser import SubtaskDef, TaskGroupDef
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     Finding,
     check_archetype_tags,
     check_broken_dependencies,

@@ -15,7 +15,7 @@ from pathlib import Path
 from agent_fox.core.errors import PlanError
 from agent_fox.core.models import resolve_model
 from agent_fox.spec.discovery import SpecInfo, discover_specs
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     Finding,
     compute_exit_code,
     sort_findings,
@@ -123,7 +123,7 @@ def run_lint_specs(
     # Apply fixes if requested
     all_fix_results: list = []
     if fix:
-        from agent_fox.spec.fixer import apply_fixes
+        from agent_fox.spec.fixers import apply_fixes
 
         known_specs = _build_known_specs(discovered)
         fix_results = apply_fixes(findings, discovered, specs_dir, known_specs)

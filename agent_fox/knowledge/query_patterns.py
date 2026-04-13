@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import duckdb
 
-from agent_fox.knowledge._text_utils import escape_markdown
+from agent_fox.core._text_utils import escape_markdown
 
 logger = logging.getLogger("agent_fox.knowledge.patterns")
 

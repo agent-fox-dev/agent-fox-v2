@@ -15,7 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.spec.parser import SubtaskDef, TaskGroupDef
-from agent_fox.spec.validator import (
+from agent_fox.spec.validators import (
     EXPECTED_FILES,
     SEVERITY_ERROR,
     SEVERITY_HINT,

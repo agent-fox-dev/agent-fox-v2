@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import secrets
 
-from agent_fox.knowledge._text_utils import strip_ansi
+from agent_fox.core._text_utils import strip_ansi
 
 # Matches C0 control characters except tab (0x09), newline (0x0a),
 # and carriage return (0x0d).

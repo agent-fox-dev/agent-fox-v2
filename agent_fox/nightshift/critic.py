@@ -159,48 +159,25 @@ async def _run_critic(
 
     Requirements: 73-REQ-7.3
     """
-    from agent_fox.core.client import (
-        cached_messages_create,
-        create_async_anthropic_client,
-    )
-    from agent_fox.core.models import resolve_model
-    from agent_fox.core.retry import retry_api_call_async
-    from agent_fox.core.token_tracker import track_response_usage
+    from agent_fox.nightshift.cost_helpers import nightshift_ai_call
 
-    model_entry = resolve_model("ADVANCED")
     user_message = _build_critic_user_message(findings)
 
     logger.debug("Critic system prompt:\n%s", _CRITIC_SYSTEM_PROMPT)
     logger.debug("Critic user message:\n%s", user_message)
 
-    async def _call() -> object:
-        client = create_async_anthropic_client()
-        return await cached_messages_create(
-            client,
-            model=model_entry.model_id,
-            max_tokens=8192,
-            system=_CRITIC_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        )
+    response_text, _response = await nightshift_ai_call(
+        model_tier="ADVANCED",
+        max_tokens=8192,
+        messages=[{"role": "user", "content": user_message}],
+        system=_CRITIC_SYSTEM_PROMPT,
+        context="finding consolidation critic",
+        cost_label="hunt_critic",
+        config=object(),  # critic has no config; PricingConfig default used
+        sink=sink,
+        run_id=run_id,
+    )
 
-    try:
-        response = await retry_api_call_async(_call, context="finding consolidation critic")
-    except Exception as exc:
-        from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost_fail
-
-        emit_auxiliary_cost_fail(sink, run_id, "hunt_critic", exc, model_entry.model_id)
-        raise
-
-    track_response_usage(response, model_entry.model_id, "finding consolidation critic")
-
-    # Emit cost for this auxiliary AI call (91-REQ-4.1)
-    from agent_fox.core.config import PricingConfig
-    from agent_fox.nightshift.cost_helpers import emit_auxiliary_cost
-
-    emit_auxiliary_cost(sink, run_id, "hunt_critic", response, model_entry.model_id, PricingConfig())
-
-    first_block = response.content[0]  # type: ignore[attr-defined]
-    response_text = getattr(first_block, "text", None)
     if response_text is None:
         raise ValueError("AI critic response has no text content")
 

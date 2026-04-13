@@ -136,9 +136,7 @@ def test_routing_pipeline_param_present() -> None:
     from agent_fox.engine.result_handler import SessionResultHandler
 
     sig = inspect.signature(SessionResultHandler.__init__)
-    assert "routing_pipeline" in sig.parameters, (
-        "SessionResultHandler.__init__ must have routing_pipeline parameter"
-    )
+    assert "routing_pipeline" in sig.parameters, "SessionResultHandler.__init__ must have routing_pipeline parameter"
 
 
 # ---------------------------------------------------------------------------

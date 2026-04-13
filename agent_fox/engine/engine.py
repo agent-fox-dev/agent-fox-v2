@@ -528,10 +528,8 @@ class Orchestrator:
                     self._state_manager.save(state)
                     return state
 
-                # 39-REQ-1.1: Sort ready tasks by predicted duration
-                duration_hints = self._compute_duration_hints()
                 assert self._graph_sync is not None  # noqa: S101
-                ready = self._graph_sync.ready_tasks(duration_hints=duration_hints)
+                ready = self._graph_sync.ready_tasks()
 
                 # 39-REQ-9.3: Filter conflicting tasks when enabled
                 if self._planning_config.file_conflict_detection and self._is_parallel and len(ready) > 1:
@@ -697,17 +695,6 @@ class Orchestrator:
             # ── Step 7: Decide next action (70-REQ-2.3, 70-REQ-2.4) ──
             if new_tasks:
                 return None  # Caller re-enters dispatch loop
-
-    def _compute_duration_hints(self) -> dict[str, int] | None:
-        """Compute duration hints for ready task ordering.
-
-        Duration-based ordering has been removed along with the prediction
-        pipeline. This method always returns None, preserving the call sites
-        without requiring further changes.
-
-        Requirements: 89-REQ-6.1
-        """
-        return None
 
     def _filter_file_conflicts(self, ready: list[str]) -> list[str]:
         """Filter conflicting tasks from the ready set.
@@ -996,7 +983,7 @@ class Orchestrator:
 
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
-                new_ready = graph_sync.ready_tasks(duration_hints=self._compute_duration_hints())
+                new_ready = graph_sync.ready_tasks()
                 await self._fill_parallel_pool(
                     pool,
                     new_ready,

@@ -179,7 +179,20 @@ class TestCallSiteInstrumentation:
     """TS-34-5: All auxiliary call sites are instrumented."""
 
     def test_all_sites(self) -> None:
-        """TS-34-5: All six auxiliary call sites track token usage."""
+        """TS-34-5: All six auxiliary call sites track token usage.
+
+        Modules may instrument usage directly via ``record_auxiliary_usage``
+        / ``track_response_usage``, or indirectly through the ``ai_call``,
+        ``ai_call_sync``, and ``nightshift_ai_call`` wrappers which handle
+        token tracking internally.
+        """
+        _VALID_MARKERS = {
+            "record_auxiliary_usage",
+            "track_response_usage",
+            "ai_call",
+            "ai_call_sync",
+            "nightshift_ai_call",
+        }
         files = [
             "agent_fox/knowledge/extraction.py",
             "agent_fox/engine/knowledge_harvest.py",
@@ -189,7 +202,7 @@ class TestCallSiteInstrumentation:
         ]
         for filepath in files:
             content = Path(filepath).read_text()
-            assert "record_auxiliary_usage" in content or "track_response_usage" in content, (
+            assert any(marker in content for marker in _VALID_MARKERS), (
                 f"{filepath} does not track auxiliary token usage"
             )
 

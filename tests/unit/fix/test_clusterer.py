@@ -45,7 +45,7 @@ class TestFallbackClusteringByCheck:
         )
 
         with patch(
-            "agent_fox.fix.clusterer.create_anthropic_client",
+            "agent_fox.fix.clusterer.ai_call_sync",
             side_effect=ConnectionError("no API"),
         ):
             clusters = cluster_failures(
@@ -74,7 +74,7 @@ class TestFallbackClusteringByCheck:
         ]
 
         with patch(
-            "agent_fox.fix.clusterer.create_anthropic_client",
+            "agent_fox.fix.clusterer.ai_call_sync",
             side_effect=ConnectionError("no API"),
         ):
             clusters = cluster_failures(failures, mock_config)
@@ -125,12 +125,10 @@ class TestAIClusteringSemanticGroups:
             }
         )
 
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text=ai_response)]
-        mock_client.return_value.messages.create.return_value = mock_response
-
-        with patch("agent_fox.fix.clusterer.create_anthropic_client", mock_client):
+        with patch(
+            "agent_fox.fix.clusterer.ai_call_sync",
+            return_value=(ai_response, MagicMock()),
+        ):
             clusters = cluster_failures([f1, f2, f3], mock_config)
 
         assert len(clusters) == 2
@@ -167,12 +165,10 @@ class TestAIClusteringUnparseableResponse:
         f1 = make_failure_record(check=pytest_check, output="test failed")
         f2 = make_failure_record(check=ruff_check, output="lint error")
 
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text="This is not valid JSON")]
-        mock_client.return_value.messages.create.return_value = mock_response
-
-        with patch("agent_fox.fix.clusterer.create_anthropic_client", mock_client):
+        with patch(
+            "agent_fox.fix.clusterer.ai_call_sync",
+            return_value=("This is not valid JSON", MagicMock()),
+        ):
             clusters = cluster_failures([f1, f2], mock_config)
 
         # Fallback: one cluster per check

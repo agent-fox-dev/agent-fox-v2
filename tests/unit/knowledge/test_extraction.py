@@ -9,7 +9,7 @@ Requirements: 05-REQ-1.1, 05-REQ-1.2, 05-REQ-1.3, 05-REQ-1.E1,
 from __future__ import annotations
 
 import logging
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from anthropic import RateLimitError  # used in TestExtractionRetry
@@ -40,16 +40,10 @@ class TestExtractionValidResponse:
     @pytest.mark.asyncio
     async def test_extract_facts_returns_two_facts(self) -> None:
         """Verify extraction parses a valid JSON response into Fact objects."""
-        # Mock the LLM call to return valid JSON
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=VALID_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(VALID_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript here",
@@ -61,15 +55,10 @@ class TestExtractionValidResponse:
     @pytest.mark.asyncio
     async def test_extracted_facts_have_correct_spec_name(self) -> None:
         """Verify each fact has the correct spec_name."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=VALID_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(VALID_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -81,15 +70,10 @@ class TestExtractionValidResponse:
     @pytest.mark.asyncio
     async def test_extracted_facts_have_uuid_and_timestamp(self) -> None:
         """Verify each fact has a non-empty UUID and created_at."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=VALID_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(VALID_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -116,15 +100,10 @@ class TestExtractionInvalidJSON:
     @pytest.mark.asyncio
     async def test_invalid_json_returns_empty_list(self) -> None:
         """Verify invalid JSON response returns empty list."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=INVALID_JSON_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(INVALID_JSON_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -136,16 +115,11 @@ class TestExtractionInvalidJSON:
     @pytest.mark.asyncio
     async def test_invalid_json_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """Verify invalid JSON response logs a warning."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=INVALID_JSON_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with (
             patch(
-                "agent_fox.knowledge.extraction.create_async_anthropic_client",
-                return_value=mock_client,
+                "agent_fox.knowledge.extraction.ai_call",
+                new_callable=AsyncMock,
+                return_value=(INVALID_JSON_LLM_RESPONSE, MagicMock()),
             ),
             caplog.at_level(logging.WARNING, logger="agent_fox.knowledge.extraction"),
         ):
@@ -166,15 +140,10 @@ class TestExtractionZeroFacts:
     @pytest.mark.asyncio
     async def test_empty_response_returns_empty_list(self) -> None:
         """Verify empty array response returns empty list."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=EMPTY_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(EMPTY_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -254,15 +223,10 @@ class TestExtractionMarkdownFenced:
     @pytest.mark.asyncio
     async def test_fenced_json_response_parses(self) -> None:
         """Verify ```json ... ``` fenced response is parsed correctly."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=FENCED_JSON_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(FENCED_JSON_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -275,15 +239,10 @@ class TestExtractionMarkdownFenced:
     @pytest.mark.asyncio
     async def test_fenced_no_lang_response_parses(self) -> None:
         """Verify ``` ... ``` fenced response (no language) is parsed."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=FENCED_NO_LANG_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(FENCED_NO_LANG_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -296,15 +255,10 @@ class TestExtractionMarkdownFenced:
     @pytest.mark.asyncio
     async def test_prose_wrapped_response_parses(self) -> None:
         """Verify JSON wrapped in explanatory prose is parsed."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=PROSE_WRAPPED_JSON_LLM_RESPONSE)]
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__.return_value = mock_client
-
         with patch(
-            "agent_fox.knowledge.extraction.create_async_anthropic_client",
-            return_value=mock_client,
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(PROSE_WRAPPED_JSON_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -320,27 +274,13 @@ class TestExtractionRetry:
 
     @pytest.mark.asyncio
     async def test_retries_on_rate_limit_then_succeeds(self) -> None:
-        """Verify extract_facts retries on RateLimitError and succeeds."""
-        mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.content = [AsyncMock(text=VALID_LLM_RESPONSE)]
-
-        # Fail twice with rate limit, then succeed
-        rate_limit_exc = RateLimitError.__new__(RateLimitError)
-        rate_limit_exc.status_code = 429
-        rate_limit_exc.message = "rate limited"
-        rate_limit_exc.body = None
-        rate_limit_exc.response = AsyncMock(status_code=429, headers={})
-
-        mock_client.messages.create = AsyncMock(side_effect=[rate_limit_exc, rate_limit_exc, mock_response])
-        mock_client.__aenter__.return_value = mock_client
-
-        with (
-            patch(
-                "agent_fox.knowledge.extraction.create_async_anthropic_client",
-                return_value=mock_client,
-            ),
-            patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock),
+        """Verify extract_facts succeeds when ai_call handles retries internally."""
+        # ai_call encapsulates retry logic, so a successful return means
+        # any transient errors were resolved internally.
+        with patch(
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            return_value=(VALID_LLM_RESPONSE, MagicMock()),
         ):
             facts = await extract_facts(
                 transcript="session transcript",
@@ -352,23 +292,16 @@ class TestExtractionRetry:
     @pytest.mark.asyncio
     async def test_raises_after_max_retries_exhausted(self) -> None:
         """Verify extract_facts raises after all retries are exhausted."""
-        mock_client = AsyncMock()
-
         rate_limit_exc = RateLimitError.__new__(RateLimitError)
         rate_limit_exc.status_code = 429
         rate_limit_exc.message = "rate limited"
         rate_limit_exc.body = None
         rate_limit_exc.response = AsyncMock(status_code=429, headers={})
 
-        mock_client.messages.create = AsyncMock(side_effect=rate_limit_exc)
-        mock_client.__aenter__.return_value = mock_client
-
-        with (
-            patch(
-                "agent_fox.knowledge.extraction.create_async_anthropic_client",
-                return_value=mock_client,
-            ),
-            patch("agent_fox.core.retry.asyncio.sleep", new_callable=AsyncMock),
+        with patch(
+            "agent_fox.knowledge.extraction.ai_call",
+            new_callable=AsyncMock,
+            side_effect=rate_limit_exc,
         ):
             with pytest.raises(RateLimitError):
                 await extract_facts(
