@@ -154,9 +154,9 @@ verifies end-to-end wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/engine/ agent_fox/session/`
 
-- [ ] 6. Wiring verification
+- [x] 6. Wiring verification
 
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - Path 1: Node(mode) → NodeSessionRunner → resolve_model_tier(mode) → resolve_effective_config(mode)
     - Path 2: Node(mode) → NodeSessionRunner → resolve_security_config(mode) → make_pre_tool_use_hook → block/allow
     - Path 3: Node(mode) → resolve_max_turns(mode) → config mode lookup → registry mode lookup
@@ -164,35 +164,41 @@ verifies end-to-end wiring.
     - Confirm no function in the chain is a stub
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - resolve_effective_config returns ArchetypeEntry consumed by SDK functions
     - resolve_security_config returns SecurityConfig consumed by make_pre_tool_use_hook
     - Grep for callers; confirm none discards the return value
+    - Fixed critical bug: session_runner_factory in run.py was not forwarding mode
+      to NodeSessionRunner — added mode parameter to factory signature and call.
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - TS-97-SMOKE-1: End-to-end mode resolution
     - TS-97-SMOKE-2: Security hook with mode
     - TS-97-SMOKE-3: Graph serialization with mode
     - _Test Spec: TS-97-SMOKE-1 through TS-97-SMOKE-3_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search touched files for `return []`, `return None` on non-Optional returns,
       `pass` in non-abstract methods, `# TODO`, `NotImplementedError`
-    - Each hit must be justified or replaced
+    - All hits are justified: empty-list returns for missing tasks/specs,
+      exception-swallowing pass in signal handlers, None returns for Optional fields.
     - _Requirements: all_
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - This spec has no upstream callers yet (mode injection comes in spec 98)
     - Verify all new public functions are importable and have correct signatures
+    - All functions verified importable with mode parameter: resolve_model_tier,
+      resolve_max_turns, resolve_thinking, resolve_security_config, clamp_instances,
+      NodeSessionRunner, Node, PerArchetypeConfig, ArchetypeEntry.
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 ## Traceability
 

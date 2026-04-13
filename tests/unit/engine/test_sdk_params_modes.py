@@ -1,6 +1,7 @@
 """Unit tests for SDK resolution functions with mode support.
 
-Test Spec: TS-97-9, TS-97-10, TS-97-11, TS-97-12, TS-97-13, TS-97-E5, TS-97-E6
+Test Spec: TS-97-9, TS-97-10, TS-97-11, TS-97-12, TS-97-13, TS-97-E5, TS-97-E6,
+           TS-97-SMOKE-1, TS-97-SMOKE-2
 Requirements: 97-REQ-4.1, 97-REQ-4.2, 97-REQ-4.3, 97-REQ-4.4, 97-REQ-4.5,
               97-REQ-4.E1, 97-REQ-5.1, 97-REQ-5.2, 97-REQ-5.3, 97-REQ-5.E1
 """
@@ -477,3 +478,138 @@ class TestModeAllowlistNoneInheritsBase:
         # Falls back to the archetype-level allowlist
         assert result is not None
         assert result.bash_allowlist == ["ls", "cat"]
+
+
+# ---------------------------------------------------------------------------
+# Integration Smoke Tests
+# Test Spec: TS-97-SMOKE-1, TS-97-SMOKE-2
+# Requirements: 97-REQ-5.3 (all resolution paths end-to-end)
+# ---------------------------------------------------------------------------
+
+
+class TestIntegrationSmoke:
+    """End-to-end mode resolution smoke tests.
+
+    These tests exercise the full resolution chain without mocking internal
+    components — NodeSessionRunner through resolve_* functions through
+    resolve_effective_config.
+
+    Test Spec: TS-97-SMOKE-1, TS-97-SMOKE-2
+    """
+
+    def test_smoke1_node_mode_flows_to_model_resolution(self, monkeypatch: object) -> None:
+        """TS-97-SMOKE-1: End-to-end mode resolution from NodeSessionRunner.
+
+        Verifies that a mode-specific model tier override in the registry flows
+        through NodeSessionRunner.__init__ → resolve_model_tier → resolve_effective_config
+        to produce a mode-specific model ID.
+
+        Must NOT be satisfied by mocking resolve_model_tier or resolve_effective_config.
+        """
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY, ArchetypeEntry, ModeConfig
+        from agent_fox.core.models import resolve_model
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        # Register a test archetype with a mode that overrides model_tier to SIMPLE.
+        test_arch = ArchetypeEntry(
+            name="test_smoke1",
+            templates=[],
+            default_model_tier="STANDARD",
+            modes={"fast": ModeConfig(model_tier="SIMPLE")},
+        )
+
+        # Monkeypatch the registry at its canonical location (agent_fox.archetypes).
+        # get_archetype() reads from this dict, so patching here covers all callers.
+        patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke1": test_arch}
+        monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+        # Also patch the re-exported reference in session.archetypes (used by sdk_params).
+        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "s:0",
+            config,
+            archetype="test_smoke1",
+            mode="fast",
+            knowledge_db=_MOCK_KB,
+        )
+
+        expected_model_id = resolve_model("SIMPLE").model_id
+        assert runner._resolved_model_id == expected_model_id
+
+    def test_smoke2_empty_allowlist_mode_blocks_bash(self, monkeypatch: object) -> None:
+        """TS-97-SMOKE-2: Security hook with mode having empty allowlist blocks all Bash.
+
+        Verifies that a mode with allowlist=[] in the registry produces a hook
+        that blocks every Bash command — exercises the full chain:
+        NodeSessionRunner → resolve_security_config → make_pre_tool_use_hook.
+
+        Must NOT be satisfied by mocking make_pre_tool_use_hook or
+        build_effective_allowlist.
+        """
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY, ArchetypeEntry, ModeConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.hooks.security import make_pre_tool_use_hook
+
+        # Register a test archetype with a mode that has no shell access.
+        test_arch = ArchetypeEntry(
+            name="test_smoke2",
+            templates=[],
+            default_model_tier="STANDARD",
+            default_allowlist=["ls", "cat"],  # base has allowlist
+            modes={"no-shell": ModeConfig(allowlist=[])},  # mode blocks all
+        )
+
+        patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke2": test_arch}
+        monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "s:0",
+            config,
+            archetype="test_smoke2",
+            mode="no-shell",
+            knowledge_db=_MOCK_KB,
+        )
+
+        # The resolved security config should have an empty allowlist.
+        assert runner._resolved_security is not None
+        assert runner._resolved_security.bash_allowlist == []
+
+        # The hook created from that config should block all Bash commands.
+        hook = make_pre_tool_use_hook(runner._resolved_security)
+        result = hook(tool_name="Bash", tool_input={"command": "ls -la"})
+        assert result["decision"] == "block"
+
+    def test_smoke2_non_bash_tools_not_blocked(self, monkeypatch: object) -> None:
+        """TS-97-SMOKE-2 corollary: Non-Bash tools are not affected by empty allowlist."""
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY, ArchetypeEntry, ModeConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+        from agent_fox.hooks.security import make_pre_tool_use_hook
+
+        test_arch = ArchetypeEntry(
+            name="test_smoke2b",
+            templates=[],
+            default_model_tier="STANDARD",
+            modes={"no-shell": ModeConfig(allowlist=[])},
+        )
+
+        patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke2b": test_arch}
+        monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
+
+        config = AgentFoxConfig()
+        runner = NodeSessionRunner(
+            "s:0",
+            config,
+            archetype="test_smoke2b",
+            mode="no-shell",
+            knowledge_db=_MOCK_KB,
+        )
+
+        hook = make_pre_tool_use_hook(runner._resolved_security)
+        # Non-Bash tools should not be blocked
+        result = hook(tool_name="Read", tool_input={"file_path": "/tmp/foo"})
+        # Should not return a block decision (None means allow)
+        assert result is None or result.get("decision") != "block"
