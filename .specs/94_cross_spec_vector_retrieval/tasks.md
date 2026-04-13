@@ -116,38 +116,78 @@ session lifecycle and factory, and group 4 performs wiring verification.
     - [x] No linter warnings introduced: `make lint`
     - [x] Requirements 94-REQ-2.*, 94-REQ-3.*, 94-REQ-5.1, 94-REQ-6.* acceptance criteria met
 
-- [ ] 4. Wiring verification
+- [x] 4. Wiring verification
 
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
       `pass`, `raise NotImplementedError`) that was never replaced
     - _Requirements: all_
+    - **Path 1 verified** (`session_lifecycle.py`):
+      - `_build_prompts` (line 269) → `_retrieve_cross_spec_facts` ✓
+      - `_retrieve_cross_spec_facts` (line 386) → `extract_subtask_descriptions` ✓
+      - `_retrieve_cross_spec_facts` (line 396) → `self._embedder.embed_text` ✓
+      - `_retrieve_cross_spec_facts` (line 408) → `VectorSearch(conn, config).search` ✓
+      - `_retrieve_cross_spec_facts` (line 415) → `merge_cross_spec_facts` ✓
+      - `_build_prompts` (line 272) → `_enhance_with_causal(merged)` ✓
+    - **Path 2 verified** (graceful degradation): early returns at lines 373,
+      380, 392, 404, 412 all return `relevant_facts` unchanged ✓
+    - **Factory verified** (`run.py` lines 144-182): `EmbeddingGenerator`
+      created once, passed as `embedder=embedder` to every `NodeSessionRunner` ✓
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
+    - `extract_subtask_descriptions()` → stored in `descriptions` (line 386),
+      used to build query string (line 394) ✓
+    - `embed_text()` → stored in `embedding` (line 396), passed to
+      `VectorSearch.search()` (line 408) ✓
+    - `VectorSearch.search()` → stored in `results` (line 408), passed to
+      `merge_cross_spec_facts()` (line 415) ✓
+    - `merge_cross_spec_facts()` → stored in `merged` (line 415), returned
+      from `_retrieve_cross_spec_facts()` ✓
+    - `_retrieve_cross_spec_facts()` → stored in `merged` (line 269),
+      passed to `_enhance_with_causal()` (line 272) ✓
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - All `TS-94-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-94-SMOKE-1, TS-94-SMOKE-2_
+    - **Result: 24/24 tests pass** (17 unit + 5 property + 2 integration)
+    - Smoke tests use real DuckDB and real `VectorSearch`; embedder is a
+      mock that returns a deterministic fixed vector (acceptable per spec)
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - **Audit results — all hits are justified:**
+      - `session_lifecycle.py:99` — `return []` in `extract_subtask_descriptions`
+        when `tasks.md` does not exist (94-REQ-1.E1 ✓)
+      - `session_lifecycle.py:105` — `return []` after `read_text` failure;
+        debug-logged, safe fallback (94-REQ-1.E1 ✓)
+      - `session_lifecycle.py:112` — `return []` after `parse_tasks` failure;
+        debug-logged, safe fallback (94-REQ-1.E2 ✓)
+      - `session_lifecycle.py:115` — `return []` when task group not found
+        (94-REQ-1.E2 ✓)
+      - `session_lifecycle.py:1087` — `return []` in fact-loading helper when
+        no facts exist; Optional-style empty-collection return, unrelated to spec 94
+      - `session_lifecycle.py:452,461` — `return None` in
+        `_read_session_artifacts` whose declared return type is `dict | None`;
+        not a stub, fully typed Optional return, unrelated to spec 94
+      - No `pass`, `# TODO`, `# stub`, or `NotImplementedError` found in any
+        spec-94-touched file
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
