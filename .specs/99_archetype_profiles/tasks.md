@@ -26,36 +26,36 @@ wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/session/test_profiles.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/session/test_profiles.py`
     - Profile loading tests: project override, default fallback, frontmatter stripping (TS-99-2, TS-99-3, TS-99-11, TS-99-12)
     - Edge cases: missing profile, None project_dir (TS-99-E2, TS-99-E6)
     - _Test Spec: TS-99-2, TS-99-3, TS-99-11, TS-99-12, TS-99-E2, TS-99-E6_
 
-  - [ ] 1.2 Create `tests/unit/session/test_prompt_layers.py`
+  - [x] 1.2 Create `tests/unit/session/test_prompt_layers.py`
     - 3-layer assembly tests: order, missing CLAUDE.md (TS-99-1, TS-99-E1)
     - _Test Spec: TS-99-1, TS-99-E1_
 
-  - [ ] 1.3 Create `tests/unit/templates/test_default_profiles.py`
+  - [x] 1.3 Create `tests/unit/templates/test_default_profiles.py`
     - Default profile existence and structure (TS-99-4, TS-99-5)
     - _Test Spec: TS-99-4, TS-99-5_
 
-  - [ ] 1.4 Create `tests/unit/cli/test_init_profiles.py`
+  - [x] 1.4 Create `tests/unit/cli/test_init_profiles.py`
     - Init creates files, preserves existing, creates dirs (TS-99-6, TS-99-7, TS-99-E3)
     - _Test Spec: TS-99-6, TS-99-7, TS-99-E3_
 
-  - [ ] 1.5 Create `tests/unit/core/test_custom_archetypes.py`
+  - [x] 1.5 Create `tests/unit/core/test_custom_archetypes.py`
     - Custom archetype detection, permission preset, task group, edge cases (TS-99-8, TS-99-9, TS-99-10, TS-99-E4, TS-99-E5)
     - _Test Spec: TS-99-8, TS-99-9, TS-99-10, TS-99-E4, TS-99-E5_
 
-  - [ ] 1.6 Create `tests/property/test_profile_properties.py`
+  - [x] 1.6 Create `tests/property/test_profile_properties.py`
     - Property tests: layer order, override precedence, completeness, idempotence, permission inheritance (TS-99-P1 through TS-99-P5)
     - _Test Spec: TS-99-P1 through TS-99-P5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement profile loading module
   - [ ] 2.1 Create `agent_fox/session/profiles.py`
