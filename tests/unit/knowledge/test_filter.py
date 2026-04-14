@@ -7,6 +7,10 @@ Requirements: 05-REQ-4.1, 05-REQ-4.2, 05-REQ-4.3, 05-REQ-4.E1
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
+
 from agent_fox.knowledge.filtering import select_relevant_facts
 from tests.unit.knowledge.conftest import make_fact
 

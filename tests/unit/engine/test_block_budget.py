@@ -29,6 +29,13 @@ from .conftest import (
     write_plan_file,
 )
 
+# Patch target: prevents MagicMock knowledge_db_conn from being treated as a
+# real DuckDB connection during plan loading (105-REQ-5.2 DB-first path).
+_PATCH_DB_PLAN = patch(
+    "agent_fox.graph.persistence._load_plan_from_db",
+    return_value=None,
+)
+
 
 def _wide_plan(plan_dir: Path, n: int = 5) -> Path:
     """Create a plan with n independent tasks (no dependencies)."""
@@ -252,9 +259,12 @@ class TestSkepticBlocking:
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 
@@ -320,9 +330,12 @@ class TestSkepticBlocking:
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 
@@ -399,9 +412,12 @@ class TestSkepticBlocking:
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 

@@ -174,6 +174,7 @@ class TestJsonlConfidence:
         assert fact.confidence == 0.9
         assert isinstance(fact.confidence, float)
 
+    @pytest.mark.skip(reason="JSONL append_facts removed per spec 104-REQ-6")
     def test_write_float_confidence(self, tmp_path: Path) -> None:
         """TS-37-8: Writing facts to JSONL outputs float confidence."""
         jsonl_path = tmp_path / "memory.jsonl"

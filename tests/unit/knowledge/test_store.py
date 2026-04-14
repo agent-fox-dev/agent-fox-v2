@@ -7,6 +7,10 @@ Requirements: 05-REQ-3.1, 05-REQ-3.3, 05-REQ-3.E1, 05-REQ-4.1, 05-REQ-4.E2
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
+
 import json
 from pathlib import Path
 

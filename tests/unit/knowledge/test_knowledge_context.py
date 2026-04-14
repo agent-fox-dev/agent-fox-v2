@@ -9,6 +9,10 @@ Requirements: 42-REQ-1.*, 42-REQ-2.*, 42-REQ-3.*
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
+
 import uuid
 
 import duckdb

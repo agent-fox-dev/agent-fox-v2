@@ -10,5 +10,4 @@ from pathlib import Path
 
 AGENT_FOX_DIR = ".agent-fox"
 DEFAULT_DB_PATH = Path(".agent-fox/knowledge.duckdb")
-MEMORY_PATH = Path(".agent-fox/memory.jsonl")
 AUDIT_DIR = Path(".agent-fox/audit")

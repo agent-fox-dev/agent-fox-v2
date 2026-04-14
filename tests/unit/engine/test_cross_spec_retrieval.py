@@ -9,16 +9,20 @@ Requirements: 94-REQ-1.1, 94-REQ-1.2, 94-REQ-1.E1, 94-REQ-1.E2,
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+import pytest
 
-from agent_fox.core.config import AgentFoxConfig, KnowledgeConfig
-from agent_fox.engine import session_lifecycle
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
-from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.search import SearchResult
+pytest.skip("Legacy cross-spec retrieval removed per spec 104-REQ-6", allow_module_level=True)
+
+from pathlib import Path  # noqa: E402
+from unittest.mock import MagicMock, patch  # noqa: E402
+
+from agent_fox.core.config import AgentFoxConfig, KnowledgeConfig  # noqa: E402
+from agent_fox.engine import session_lifecycle  # noqa: E402
+from agent_fox.engine.session_lifecycle import NodeSessionRunner  # noqa: E402
+from agent_fox.knowledge.db import KnowledgeDB  # noqa: E402
+from agent_fox.knowledge.embeddings import EmbeddingGenerator  # noqa: E402
+from agent_fox.knowledge.facts import Fact  # noqa: E402
+from agent_fox.knowledge.search import SearchResult  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Shared test data

@@ -189,6 +189,7 @@ class TestMemoryStoreDuckDBOnly:
         assert not tmp_jsonl.exists()
 
 
+@pytest.mark.skip(reason="export_facts_to_jsonl removed per spec 104-REQ-6")
 class TestJSONLExport:
     """TS-39-8: export_facts_to_jsonl writes DuckDB facts to JSONL."""
 
@@ -264,7 +265,7 @@ class TestCompactionViaDuckDB:
             _make_fact_row(fact_id=id5, content="Superseding fact"),
         )
 
-        original, surviving = compact(knowledge_conn, tmp_jsonl)
+        original, surviving = compact(knowledge_conn)
         assert original == 5
         assert surviving == 3
 
@@ -273,11 +274,8 @@ class TestCompactionViaDuckDB:
         assert rows is not None
         assert rows[0] >= surviving
 
-        # JSONL should contain 3 lines
-        lines = tmp_jsonl.read_text().strip().split("\n")
-        assert len(lines) == 3
 
-
+@pytest.mark.skip(reason="export_facts_to_jsonl removed per spec 104-REQ-6")
 class TestJSONLExportFailure:
     """TS-39-10: JSONL export failure logs warning, DuckDB unaffected."""
 

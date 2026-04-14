@@ -210,8 +210,8 @@ class TestExecuteErrorHandling:
             ),
             patch.object(runner, "_run_and_harvest", _fake_run_and_harvest),
             patch(
-                "agent_fox.engine.session_lifecycle.load_all_facts",
-                return_value=[],
+                "agent_fox.engine.session_lifecycle.assemble_context",
+                return_value="context",
             ),
         ):
             await runner.execute("spec:1", 2, previous_error="type error in foo")

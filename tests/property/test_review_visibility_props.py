@@ -18,6 +18,7 @@ import uuid
 from datetime import UTC, datetime
 
 import duckdb
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -73,6 +74,7 @@ def finding_row_strategy():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(reason="JsonlSink removed in refactor(103); _truncate_response no longer exists")
 class TestResponseTruncationProperty:
     """TS-84-P1: For any response string, truncation is correct."""
 

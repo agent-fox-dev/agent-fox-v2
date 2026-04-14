@@ -40,23 +40,16 @@ class TestModuleExistence:
     def test_store_module(self) -> None:
         """agent_fox.knowledge.store contains MemoryStore, load funcs, etc."""
         from agent_fox.knowledge.store import (
-            DEFAULT_MEMORY_PATH,
             MemoryStore,
-            append_facts,
-            export_facts_to_jsonl,
             load_all_facts,
             load_facts_by_spec,
-            write_facts,
         )
 
         assert MemoryStore is not None
         assert load_all_facts is not None
         assert load_facts_by_spec is not None
-        assert append_facts is not None
-        assert write_facts is not None
-        assert export_facts_to_jsonl is not None
-        assert DEFAULT_MEMORY_PATH is not None
 
+    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
     def test_filtering_module(self) -> None:
         """agent_fox.knowledge.filtering contains select_relevant_facts."""
         from agent_fox.knowledge.filtering import select_relevant_facts

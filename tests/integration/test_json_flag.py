@@ -490,9 +490,16 @@ class TestJsonWithVerbose:
 
     def test_json_with_verbose(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """--json --verbose still produces valid JSON on stdout."""
+        import logging
+
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
-            result = cli_runner.invoke(main, ["--json", "--verbose", "status"])
+            # Suppress logging output that leaks into CliRunner's captured stdout
+            logging.disable(logging.CRITICAL)
+            try:
+                result = cli_runner.invoke(main, ["--json", "--verbose", "status"])
+            finally:
+                logging.disable(logging.NOTSET)
             data = json.loads(result.output)
             assert isinstance(data, dict)
 

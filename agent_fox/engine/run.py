@@ -25,7 +25,6 @@ from agent_fox.knowledge.ingest import run_background_ingestion
 
 if TYPE_CHECKING:
     from agent_fox.core.config import AgentFoxConfig, OrchestratorConfig
-    from agent_fox.engine.fact_cache import RankedFactCache
 
 logger = logging.getLogger(__name__)
 
@@ -81,20 +80,16 @@ def _setup_infrastructure(
     plan_path: Path | None = None,
     activity_callback: ActivityCallback | None = None,
 ) -> dict[str, Any]:
-    """Set up knowledge DB, sinks, fact cache, and other infrastructure.
+    """Set up knowledge DB, sinks, and other infrastructure.
 
     Returns a dict of infrastructure components needed by the orchestrator.
     This is separated from run_code so the orchestrator construction can
     be tested independently.
     """
     from agent_fox.core.paths import AUDIT_DIR
-    from agent_fox.engine.fact_cache import precompute_fact_rankings
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
-
-    _default_plan_path = Path(".agent-fox/plan.json")
-    resolved_plan = plan_path or _default_plan_path
 
     # Create DuckDB sink for session outcome recording
     sink_dispatcher = SinkDispatcher()
@@ -117,28 +112,7 @@ def _setup_infrastructure(
     except Exception:
         logger.warning("Background ingestion failed", exc_info=True)
 
-    # Pre-compute fact rankings if enabled
-    fact_cache: dict[str, RankedFactCache] | None = None
-    try:
-        if config.knowledge.fact_cache_enabled:
-            import json as _json
-
-            plan_data = _json.loads(resolved_plan.read_text(encoding="utf-8"))
-            nodes = plan_data.get("nodes", {})
-            spec_names = sorted({n.get("spec_name", "") for n in nodes.values() if n.get("spec_name")})
-            if spec_names:
-                fact_cache = precompute_fact_rankings(
-                    knowledge_db.connection,
-                    spec_names,
-                    confidence_threshold=config.knowledge.confidence_threshold,
-                )
-    except Exception:
-        logger.warning(
-            "Failed to pre-compute fact rankings; will use live computation",
-            exc_info=True,
-        )
-
-    # 94-REQ-6.1: Create a shared EmbeddingGenerator for cross-spec retrieval.
+    # 94-REQ-6.1: Create a shared EmbeddingGenerator for vector retrieval.
     # A single model instance is shared across all sessions in the run to avoid
     # repeated model loading (~1-2s per load on Apple Silicon).
     embedder: EmbeddingGenerator | None = None
@@ -146,7 +120,7 @@ def _setup_infrastructure(
         embedder = EmbeddingGenerator(config.knowledge)
     except Exception:
         logger.debug(
-            "Failed to create EmbeddingGenerator; cross-spec retrieval disabled",
+            "Failed to create EmbeddingGenerator; vector retrieval disabled",
             exc_info=True,
         )
 
@@ -173,7 +147,6 @@ def _setup_infrastructure(
             activity_callback=activity_callback,
             assessed_tier=assessed_tier,
             run_id=run_id,
-            fact_cache=fact_cache,
             timeout_override=timeout_override,
             max_turns_override=max_turns_override,
             embedder=embedder,
@@ -182,7 +155,6 @@ def _setup_infrastructure(
     return {
         "sink_dispatcher": sink_dispatcher,
         "knowledge_db": knowledge_db,
-        "fact_cache": fact_cache,
         "session_runner_factory": session_runner_factory,
         "audit_dir": AUDIT_DIR,
     }
@@ -295,10 +267,7 @@ async def run_code(
 
 
 def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
-    """Run ingestion, export facts, and rebuild fact cache at sync barrier."""
-    from agent_fox.engine.fact_cache import precompute_fact_rankings
-    from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, export_facts_to_jsonl
-
+    """Run ingestion at sync barrier."""
     knowledge_db = infra["knowledge_db"]
     try:
         run_background_ingestion(
@@ -308,34 +277,10 @@ def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
         )
     except Exception:
         logger.warning("Barrier ingestion failed", exc_info=True)
-    try:
-        export_facts_to_jsonl(knowledge_db.connection, DEFAULT_MEMORY_PATH)
-    except Exception:
-        logger.warning("Barrier JSONL export failed", exc_info=True)
-
-    # Rebuild the fact cache in-place so all holders of the shared dict
-    # (including session_runner_factory closures) see the refreshed rankings.
-    fact_cache = infra.get("fact_cache")
-    if fact_cache is not None:
-        try:
-            spec_names = list(fact_cache.keys())
-            if spec_names:
-                new_cache = precompute_fact_rankings(
-                    knowledge_db.connection,
-                    spec_names,
-                    confidence_threshold=config.knowledge.confidence_threshold,
-                )
-                fact_cache.clear()
-                fact_cache.update(new_cache)
-                logger.debug("Barrier sync: rebuilt fact cache for %d specs", len(spec_names))
-        except Exception:
-            logger.warning("Barrier fact cache rebuild failed", exc_info=True)
 
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
     """Clean up infrastructure resources."""
-    from agent_fox.knowledge.store import DEFAULT_MEMORY_PATH, export_facts_to_jsonl
-
     knowledge_db = infra["knowledge_db"]
 
     # Re-ingest to capture new commits/ADRs
@@ -347,12 +292,6 @@ def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
         )
     except Exception:
         logger.warning("Final ingestion failed", exc_info=True)
-
-    # Export facts to JSONL
-    try:
-        export_facts_to_jsonl(knowledge_db.connection, DEFAULT_MEMORY_PATH)
-    except Exception:
-        logger.warning("Final JSONL export failed", exc_info=True)
 
     # Close sinks and DB
     try:

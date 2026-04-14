@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from agent_fox.knowledge.store import read_all_facts
 from tests.unit.knowledge.conftest import create_schema
@@ -84,12 +85,12 @@ class TestReadAllFactsFallbackToReadOnlyDB:
 
     def test_falls_through_when_db_missing(self, tmp_path: Path) -> None:
         db_path = tmp_path / "nonexistent.duckdb"
-        jsonl_path = tmp_path / "memory.jsonl"
 
-        facts = read_all_facts(None, db_path=db_path, jsonl_path=jsonl_path)
+        facts = read_all_facts(None, db_path=db_path)
         assert facts == []
 
 
+@pytest.mark.skip(reason="JSONL fallback removed per spec 104-REQ-6")
 class TestReadAllFactsFallbackToJSONL:
     """Tier 3: fall back to JSONL when DuckDB is unavailable."""
 
@@ -133,6 +134,7 @@ class TestReadAllFactsFallbackOnConnFailure:
         assert len(facts) == 1
         assert facts[0].content == "from file fallback"
 
+    @pytest.mark.skip(reason="JSONL fallback removed per spec 104-REQ-6")
     def test_falls_back_to_jsonl_on_all_db_failure(self, tmp_path: Path) -> None:
         jsonl_path = tmp_path / "memory.jsonl"
         _write_jsonl(jsonl_path, [_make_jsonl_fact("last resort")])

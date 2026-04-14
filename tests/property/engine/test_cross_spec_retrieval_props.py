@@ -9,22 +9,26 @@ Requirements: 94-REQ-3.1, 94-REQ-3.E1, 94-REQ-4.1, 94-REQ-2.2,
 
 from __future__ import annotations
 
-import math
-import uuid
-from pathlib import Path
-from unittest.mock import MagicMock
+import pytest
 
-import duckdb
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
+pytest.skip("Legacy cross-spec retrieval removed per spec 104-REQ-6", allow_module_level=True)
 
-from agent_fox.core.config import AgentFoxConfig, KnowledgeConfig
-from agent_fox.engine import session_lifecycle
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
-from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.search import SearchResult, VectorSearch
+import math  # noqa: E402
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
+import duckdb  # noqa: E402
+from hypothesis import HealthCheck, given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
+
+from agent_fox.core.config import AgentFoxConfig, KnowledgeConfig  # noqa: E402
+from agent_fox.engine import session_lifecycle  # noqa: E402
+from agent_fox.engine.session_lifecycle import NodeSessionRunner  # noqa: E402
+from agent_fox.knowledge.db import KnowledgeDB  # noqa: E402
+from agent_fox.knowledge.embeddings import EmbeddingGenerator  # noqa: E402
+from agent_fox.knowledge.facts import Fact  # noqa: E402
+from agent_fox.knowledge.search import SearchResult, VectorSearch  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Hypothesis strategies

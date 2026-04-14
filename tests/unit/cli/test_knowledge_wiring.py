@@ -194,6 +194,7 @@ class TestFactExtractionAfterSession:
 class TestKnowledgeInjectionIntoContext:
     """Verify that memory facts are loaded and passed to assemble_context."""
 
+    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
     @pytest.mark.asyncio
     async def test_memory_facts_passed_to_context(self, tmp_path: Path) -> None:
         """assemble_context receives memory_facts when facts exist."""
@@ -245,6 +246,7 @@ class TestKnowledgeInjectionIntoContext:
         assert len(kwargs["memory_facts"]) == 1
         assert "Pydantic requires ConfigDict" in kwargs["memory_facts"][0]
 
+    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
     @pytest.mark.asyncio
     async def test_empty_facts_passes_none(self, tmp_path: Path) -> None:
         """When no facts match, memory_facts is None."""
@@ -296,6 +298,7 @@ class TestKnowledgeInjectionIntoContext:
 class TestSinkWiring:
     """Verify DuckDB sink is created and records session outcomes."""
 
+    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
     @pytest.mark.asyncio
     async def test_sink_records_outcome_on_completion(self, tmp_path: Path) -> None:
         """SinkDispatcher.record_session_outcome is called after session."""
@@ -344,6 +347,7 @@ class TestSinkWiring:
 
         mock_sink.record_session_outcome.assert_called_once()
 
+    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
     @pytest.mark.asyncio
     async def test_sink_failure_does_not_block_session(self, tmp_path: Path) -> None:
         """If the sink raises, the session still returns successfully."""

@@ -6,6 +6,8 @@ Requirements: 39-REQ-4.1, 39-REQ-4.2, 39-REQ-4.3
 
 from __future__ import annotations
 
+import pytest
+
 from tests.unit.knowledge.conftest import make_fact
 
 # ---------------------------------------------------------------------------
@@ -19,6 +21,7 @@ class TestConfidenceFiltering:
     Requirements: 39-REQ-4.1, 39-REQ-4.2, 39-REQ-4.3
     """
 
+    @pytest.mark.skip(reason="select_relevant_facts removed per spec 104-REQ-6")
     def test_threshold_filtering(self) -> None:
         """TS-39-11: Facts below confidence threshold are excluded.
 
@@ -51,6 +54,7 @@ class TestConfidenceFiltering:
         config = KnowledgeConfig(confidence_threshold=0.7)
         assert config.confidence_threshold == 0.7
 
+    @pytest.mark.skip(reason="select_relevant_facts removed per spec 104-REQ-6")
     def test_filter_before_scoring(self) -> None:
         """TS-39-13: Confidence filtering occurs before keyword scoring.
 
@@ -84,6 +88,7 @@ class TestConfidenceFiltering:
         assert "low_conf" not in result_ids, "Low-confidence fact should be excluded regardless of keyword score"
         assert "high_conf" in result_ids
 
+    @pytest.mark.skip(reason="select_relevant_facts removed per spec 104-REQ-6")
     def test_default_threshold(self) -> None:
         """Default confidence threshold is 0.5."""
         from agent_fox.knowledge.filtering import select_relevant_facts

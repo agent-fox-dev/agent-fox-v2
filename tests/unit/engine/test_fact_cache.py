@@ -13,6 +13,10 @@ invalidation now use deltas that exceed the 10% default tolerance.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
+
 import uuid
 from pathlib import Path
 from typing import Any, cast

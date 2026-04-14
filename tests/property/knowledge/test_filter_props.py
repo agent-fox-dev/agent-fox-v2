@@ -7,6 +7,10 @@ Requirement: 05-REQ-4.3
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
+
 import uuid
 
 from hypothesis import given, settings

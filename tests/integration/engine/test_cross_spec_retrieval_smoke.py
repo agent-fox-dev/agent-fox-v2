@@ -10,12 +10,16 @@ The knowledge store uses an in-memory DuckDB connection to avoid filesystem I/O.
 
 from __future__ import annotations
 
-import math
-import uuid
-from pathlib import Path
-from unittest.mock import MagicMock
+import pytest
 
-import duckdb
+pytest.skip("Legacy cross-spec retrieval removed per spec 104-REQ-6", allow_module_level=True)
+
+import math  # noqa: E402
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
+import duckdb  # noqa: E402
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.engine.session_lifecycle import NodeSessionRunner

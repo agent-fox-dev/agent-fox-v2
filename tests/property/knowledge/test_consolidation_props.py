@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 
 import duckdb
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -97,6 +98,7 @@ class TestDuckDBRoundTrip:
         conn.close()
 
 
+@pytest.mark.skip(reason="export_facts_to_jsonl removed per spec 104-REQ-6")
 class TestExportImportRoundTrip:
     """TS-39-P3: Exported JSONL matches DuckDB contents."""
 
