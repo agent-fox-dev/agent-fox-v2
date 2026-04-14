@@ -190,6 +190,29 @@ def schema_conn(in_memory_conn: duckdb.DuckDBPyConnection) -> duckdb.DuckDBPyCon
     return in_memory_conn
 
 
+@pytest.fixture
+def knowledge_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
+    """In-memory DuckDB with the full production schema (v9+).
+
+    Creates the base schema (including ``memory_facts.keywords``) and
+    applies all registered migrations through the latest version. Use
+    this fixture for tests that need the complete knowledge store schema,
+    including entity_graph tables and the keywords column required for
+    fingerprint-based deduplication.
+
+    Requirements: 101-REQ-4.E3, 101-REQ-5.6, 101-REQ-6.6
+    """
+    from agent_fox.knowledge.migrations import run_migrations
+
+    conn = duckdb.connect(":memory:")
+    run_migrations(conn)
+    yield conn  # type: ignore[misc]
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
 # -- Seed data helpers for Time Vision (spec 13) --------------------------------
 
 
