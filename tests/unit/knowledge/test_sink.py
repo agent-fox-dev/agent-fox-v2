@@ -7,12 +7,9 @@ Requirements: 11-REQ-4.1, 11-REQ-4.2, 11-REQ-4.3
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import duckdb
 
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
-from agent_fox.knowledge.jsonl_sink import JsonlSink
 from agent_fox.knowledge.sink import (
     SessionOutcome,
     SessionSink,
@@ -131,11 +128,6 @@ class TestSessionSinkProtocolStructuralTyping:
         sink = DuckDBSink(conn)
         assert isinstance(sink, SessionSink)
         conn.close()
-
-    def test_jsonl_sink_isinstance(self, tmp_path: Path) -> None:
-        """Verify JsonlSink satisfies the SessionSink protocol."""
-        sink = JsonlSink(directory=tmp_path)
-        assert isinstance(sink, SessionSink)
 
     def test_mock_sink_isinstance(self) -> None:
         """Verify that a mock sink also satisfies the protocol."""

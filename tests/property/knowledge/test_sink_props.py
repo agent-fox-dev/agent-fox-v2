@@ -14,8 +14,8 @@ import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from agent_fox.knowledge.agent_trace import AgentTraceSink
 from agent_fox.knowledge.duckdb_sink import DuckDBSink
-from agent_fox.knowledge.jsonl_sink import JsonlSink
 from agent_fox.knowledge.sink import SessionSink, ToolCall, ToolError
 from tests.unit.knowledge.conftest import create_schema
 
@@ -23,7 +23,7 @@ from tests.unit.knowledge.conftest import create_schema
 class TestSinkProtocolCompliance:
     """TS-11-P3: Sink protocol compliance.
 
-    For any sink class in [DuckDBSink, JsonlSink], isinstance(instance,
+    For any sink class in [DuckDBSink, AgentTraceSink], isinstance(instance,
     SessionSink) is True.
 
     Property 3 from design.md.
@@ -36,10 +36,10 @@ class TestSinkProtocolCompliance:
         assert isinstance(instance, SessionSink)
         conn.close()
 
-    def test_jsonl_sink_satisfies_protocol(self) -> None:
-        """JsonlSink satisfies the SessionSink protocol."""
+    def test_agent_trace_sink_satisfies_protocol(self) -> None:
+        """AgentTraceSink satisfies the SessionSink protocol."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            instance = JsonlSink(directory=Path(tmpdir))
+            instance = AgentTraceSink(audit_dir=Path(tmpdir), run_id="test")
             assert isinstance(instance, SessionSink)
 
 

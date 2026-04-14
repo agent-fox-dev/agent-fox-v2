@@ -19,34 +19,7 @@ from agent_fox.knowledge.review_store import (
     ReviewFinding,
     insert_findings,
 )
-from agent_fox.knowledge.sink import SessionOutcome
 from tests.unit.knowledge.conftest import SCHEMA_DDL
-
-
-class TestResponsePersistedE2E:
-    """TS-84-SMOKE-1: Response persisted end-to-end.
-
-    Verify a real JsonlSink writes the response field to disk.
-    """
-
-    def test_response_in_jsonl(self, tmp_path: Path) -> None:
-        from agent_fox.knowledge.jsonl_sink import JsonlSink
-
-        sink = JsonlSink(tmp_path, session_id="smoke")
-        outcome = SessionOutcome(
-            response="test output from review archetype",
-            node_id="s:0",
-            status="completed",
-        )
-        sink.record_session_outcome(outcome)
-        sink.close()
-
-        # Read back the JSONL file
-        jsonl_files = sorted(tmp_path.glob("*.jsonl"))
-        assert jsonl_files
-        line = jsonl_files[-1].read_text().strip().splitlines()[-1]
-        record = json.loads(line)
-        assert record["response"] == "test output from review archetype"
 
 
 class TestFindingsPersistenceAuditE2E:

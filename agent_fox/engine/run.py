@@ -100,12 +100,11 @@ def _setup_infrastructure(
     knowledge_db = open_knowledge_store(config.knowledge)
     sink_dispatcher.add(DuckDBSink(knowledge_db.connection, debug=debug))
 
-    # Attach JSONL audit sink when debug is active
+    # Attach agent trace sink when debug is active (103-REQ-1.1, 103-REQ-7.2)
     if debug:
-        from agent_fox.knowledge.jsonl_sink import JsonlSink
+        from agent_fox.knowledge.agent_trace import AgentTraceSink
 
-        jsonl_dir = Path(".agent-fox")
-        sink_dispatcher.add(JsonlSink(jsonl_dir))
+        sink_dispatcher.add(AgentTraceSink(AUDIT_DIR, ""))
 
     # Ingest at startup
     try:
