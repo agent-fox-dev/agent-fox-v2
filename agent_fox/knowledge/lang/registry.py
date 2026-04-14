@@ -127,9 +127,13 @@ def _load_gitignore_spec(repo_root: Path):  # type: ignore[return]
 def detect_languages(repo_root: Path) -> list[LanguageAnalyzer]:
     """Return the subset of registered analyzers that have matching files in repo_root.
 
+    Builds a fresh registry on each call so that grammar availability is
+    checked at call time. This allows tests to mock grammar imports and have
+    the mock take effect during detection (TS-102-E2).
+
     Requirements: 102-REQ-1.3
     """
-    registry = get_default_registry()
+    registry = _build_default_registry()
     detected: list[LanguageAnalyzer] = []
     for analyzer in registry.all_analyzers():
         files = _scan_files(repo_root, analyzer.file_extensions)

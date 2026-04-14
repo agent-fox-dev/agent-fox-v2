@@ -128,35 +128,38 @@ verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/ agent_fox/knowledge/static_analysis.py`
 
-- [ ] 3. Go, Rust, and Java analyzers
-  - [ ] 3.1 Create `agent_fox/knowledge/lang/go_lang.py`
+- [x] 3. Go, Rust, and Java analyzers
+  - [x] 3.1 Create `agent_fox/knowledge/lang/go_lang.py`
     - `GoAnalyzer` class implementing `LanguageAnalyzer`
     - Entity extraction: struct, interface, function, method
     - Edge extraction: contains, imports (package resolution)
     - Module map: package directory mapping
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.E1_
-  - [ ] 3.2 Create `agent_fox/knowledge/lang/rust_lang.py`
+  - [x] 3.2 Create `agent_fox/knowledge/lang/rust_lang.py`
     - `RustAnalyzer` class implementing `LanguageAnalyzer`
     - Entity extraction: struct, enum, trait, function, impl methods
     - Edge extraction: contains, imports (use declarations)
     - Module map: crate-relative mod resolution
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.E1_
-  - [ ] 3.3 Create `agent_fox/knowledge/lang/java_lang.py`
+  - [x] 3.3 Create `agent_fox/knowledge/lang/java_lang.py`
     - `JavaAnalyzer` class implementing `LanguageAnalyzer`
     - Entity extraction: class, interface, enum, method, package
     - Edge extraction: contains, imports, extends, implements
     - Module map: fully qualified class name to file path
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3_
-  - [ ] 3.4 Register Go, Rust, Java analyzers in default registry
-  - [ ] 3.5 Add `tree-sitter-go`, `tree-sitter-rust`, `tree-sitter-java`
+  - [x] 3.4 Register Go, Rust, Java analyzers in default registry
+    - Already registered in task group 2; also fixed detect_languages to
+      build a fresh registry (not cached singleton) for test patchability
+  - [x] 3.5 Add `tree-sitter-go`, `tree-sitter-rust`, `tree-sitter-java`
     to `pyproject.toml`
+    - Already added in task group 2
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Go analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k go`
-    - [ ] Rust analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k rust`
-    - [ ] Java analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k java`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
+  - [x] 3.V Verify task group 3
+    - [x] Go analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k go`
+    - [x] Rust analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k rust`
+    - [x] Java analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k java`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
 
 - [ ] 4. TypeScript/JavaScript, C/C++, and Ruby analyzers
   - [ ] 4.1 Create `agent_fox/knowledge/lang/typescript_lang.py`
