@@ -17,7 +17,8 @@ class TestSecurityAllowlistEnforcementEndToEnd:
         from agent_fox.security.security import make_pre_tool_use_hook  # noqa: PLC0415
 
         hook = make_pre_tool_use_hook(SecurityConfig())
-        result = hook(tool_name="Bash", tool_input={"command": "rm -rf /"})
+        # docker is not on the default allowlist
+        result = hook(tool_name="Bash", tool_input={"command": "docker run evil/image"})
         assert result["decision"] == "block"
 
     def test_allowed_bash_command_passes_through(self) -> None:

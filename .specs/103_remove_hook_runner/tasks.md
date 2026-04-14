@@ -76,26 +76,26 @@ then delete hooks/, then clean up the engine.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Relocate security module
-  - [ ] 2.1 Create `agent_fox/security/` package
+- [x] 2. Relocate security module
+  - [x] 2.1 Create `agent_fox/security/` package
     - Create `agent_fox/security/__init__.py`
     - Move `agent_fox/hooks/security.py` to `agent_fox/security/security.py`
     - Update the module's logger name from `agent_fox.hooks.security` to
       `agent_fox.security.security`
     - _Requirements: 103-REQ-2.1_
 
-  - [ ] 2.2 Update all import sites in production code
+  - [x] 2.2 Update all import sites in production code
     - `agent_fox/session/session.py`: update import path
     - _Requirements: 103-REQ-2.2_
 
-  - [ ] 2.3 Update all import sites in test code
+  - [x] 2.3 Update all import sites in test code
     - `tests/unit/session/test_security.py`
     - `tests/property/session/test_security_props.py`
     - `tests/property/test_mode_properties.py`
     - `tests/unit/engine/test_sdk_params_modes.py`
     - _Requirements: 103-REQ-2.2_
 
-  - [ ] 2.4 Relocate existing security tests
+  - [x] 2.4 Relocate existing security tests
     - Move `tests/unit/hooks/test_security.py` to
       `tests/unit/security/test_security.py`
     - Move `tests/property/hooks/test_security_props.py` to
@@ -103,11 +103,11 @@ then delete hooks/, then clean up the engine.
     - Update imports within moved test files
     - _Requirements: 103-REQ-2.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests TS-103-4, TS-103-SMOKE-1 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 103-REQ-2.1, 103-REQ-2.2, 103-REQ-2.3 met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests TS-103-4, TS-103-SMOKE-1 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 103-REQ-2.1, 103-REQ-2.2, 103-REQ-2.3 met
 
 - [ ] 3. Remove hook runner and config types
   - [ ] 3.1 Delete hook runner module and old hooks package

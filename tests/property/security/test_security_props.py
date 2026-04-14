@@ -13,7 +13,7 @@ from hypothesis import strategies as st
 
 from agent_fox.core.config import SecurityConfig
 from agent_fox.core.errors import SecurityError
-from agent_fox.hooks.security import (
+from agent_fox.security.security import (
     DEFAULT_ALLOWLIST,
     build_effective_allowlist,
     check_command_allowed,

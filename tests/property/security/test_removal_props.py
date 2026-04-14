@@ -53,11 +53,10 @@ class TestSecurityModuleFunctionalEquivalence:
     @settings(max_examples=50)
     def test_build_effective_allowlist_returns_frozenset(self, cmd: str) -> None:
         """build_effective_allowlist always returns a frozenset."""
+        from agent_fox.core.config import SecurityConfig  # noqa: PLC0415
         from agent_fox.security.security import (  # noqa: PLC0415
             build_effective_allowlist,
         )
-
-        from agent_fox.core.config import SecurityConfig  # noqa: PLC0415
 
         cfg = SecurityConfig()
         allowlist = build_effective_allowlist(cfg)

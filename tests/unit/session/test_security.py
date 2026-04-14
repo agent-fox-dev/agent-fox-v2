@@ -7,7 +7,7 @@ Requirements: 03-REQ-8.1, 03-REQ-8.2, 03-REQ-8.E1
 from __future__ import annotations
 
 from agent_fox.core.config import AgentFoxConfig
-from agent_fox.hooks.security import make_pre_tool_use_hook
+from agent_fox.security.security import make_pre_tool_use_hook
 
 
 class TestAllowlistHookEnforcement:

@@ -259,7 +259,7 @@ class TestSecurityHookWithEmptyAllowlist:
 
     def test_hook_blocks_ls_with_empty_allowlist(self) -> None:
         """TS-97-12: Hook with empty allowlist blocks 'ls'."""
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         hook = make_pre_tool_use_hook(SecurityConfig(bash_allowlist=[]))
         result = hook(tool_name="Bash", tool_input={"command": "ls"})
@@ -267,7 +267,7 @@ class TestSecurityHookWithEmptyAllowlist:
 
     def test_hook_blocks_git_with_empty_allowlist(self) -> None:
         """Hook with empty allowlist blocks 'git status'."""
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         hook = make_pre_tool_use_hook(SecurityConfig(bash_allowlist=[]))
         result = hook(tool_name="Bash", tool_input={"command": "git status"})
@@ -275,7 +275,7 @@ class TestSecurityHookWithEmptyAllowlist:
 
     def test_hook_allows_non_bash_tools(self) -> None:
         """Non-Bash tools pass through even with empty allowlist."""
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         hook = make_pre_tool_use_hook(SecurityConfig(bash_allowlist=[]))
         result = hook(tool_name="Read", tool_input={"file_path": "/some/file"})
@@ -283,7 +283,7 @@ class TestSecurityHookWithEmptyAllowlist:
 
     def test_hook_mode_parameter_accepted(self) -> None:
         """TS-97-5.1: make_pre_tool_use_hook mode parameter is accepted (if added)."""
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         # Per design, mode is resolved upstream — hook still takes SecurityConfig only.
         # This test verifies the hook blocks all Bash when SecurityConfig.bash_allowlist=[].
@@ -542,7 +542,7 @@ class TestIntegrationSmoke:
         """
         from agent_fox.archetypes import ARCHETYPE_REGISTRY, ArchetypeEntry, ModeConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         # Register a test archetype with a mode that has no shell access.
         test_arch = ArchetypeEntry(
@@ -579,7 +579,7 @@ class TestIntegrationSmoke:
         """TS-97-SMOKE-2 corollary: Non-Bash tools are not affected by empty allowlist."""
         from agent_fox.archetypes import ARCHETYPE_REGISTRY, ArchetypeEntry, ModeConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.hooks.security import make_pre_tool_use_hook
+        from agent_fox.security.security import make_pre_tool_use_hook
 
         test_arch = ArchetypeEntry(
             name="test_smoke2b",
