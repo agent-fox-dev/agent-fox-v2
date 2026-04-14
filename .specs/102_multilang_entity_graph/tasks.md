@@ -233,42 +233,45 @@ verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q` (pre-existing failures unchanged)
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/ tests/`
 
-- [ ] 6. Wiring verification
-  - [ ] 6.1 Trace execution paths from design.md
+- [x] 6. Wiring verification
+  - [x] 6.1 Trace execution paths from design.md
     - Path 1: analyze_codebase -> detect_languages -> per-language dispatch
       -> upsert -> soft-delete -> AnalysisResult
     - Path 2: Python-only codebase -> PythonAnalyzer -> identical output
     - Path 3: Mixed-language -> all analyzers -> aggregated result
     - Confirm no function in the chain is a stub
+    - All three paths confirmed live via code inspection and test coverage
 
-  - [ ] 6.2 Verify cross-module imports
+  - [x] 6.2 Verify cross-module imports
     - `static_analysis.py` imports from `lang.registry` and `lang.base`
     - Each analyzer imports from `lang.base`
     - `registry.py` imports all analyzer classes
     - No circular imports introduced
+    - Verified by `python -c "import agent_fox.knowledge.static_analysis"` and
+      importing all lang submodules without error
 
-  - [ ] 6.3 Run integration smoke tests
+  - [x] 6.3 Run integration smoke tests
     - TS-102-SMOKE-1 through TS-102-SMOKE-3 pass
     - `uv run pytest -q tests/integration/knowledge/test_multilang_smoke.py`
+    - 7 passed
 
-  - [ ] 6.4 Stub / dead-code audit
-    - Search touched files for stubs, TODOs, NotImplementedError
-    - Verify no dead code introduced
-    - Verify `_scan_python_files` is either removed or delegates to
-      `_scan_files`
+  - [x] 6.4 Stub / dead-code audit
+    - No NotImplementedError, TODO, or FIXME found in agent_fox/knowledge/
+    - No dead code introduced
+    - `_scan_python_files` delegates to `_scan_files(repo_root, {".py"})` (backward compat wrapper)
 
-  - [ ] 6.5 Backward compatibility verification
+  - [x] 6.5 Backward compatibility verification
     - Run existing Spec 95 tests: `uv run pytest -q tests/unit/knowledge/test_static_analysis.py tests/unit/knowledge/test_entity_store.py tests/unit/knowledge/test_entity_query.py tests/unit/knowledge/test_entity_linker.py`
-    - All must pass without modification
+    - 57 passed — all pass without modification
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] All cross-module imports work without circular dependencies
-    - [ ] All existing Spec 95 tests pass unchanged
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass (7 passed)
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] All cross-module imports work without circular dependencies
+    - [x] All existing Spec 95 tests pass unchanged (57 passed)
+    - [x] All existing tests still pass: `uv run pytest -q` (pre-existing failures unchanged)
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 ## Traceability
 
