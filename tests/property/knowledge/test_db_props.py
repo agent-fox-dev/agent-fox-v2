@@ -35,6 +35,11 @@ EXPECTED_TABLES = {
     "entity_graph",
     "entity_edges",
     "fact_entities",
+    # Added by migration v11 (spec 105: DB-based plan state)
+    "plan_nodes",
+    "plan_edges",
+    "plan_meta",
+    "runs",
 }
 
 
@@ -69,9 +74,10 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            # v1..v10 (review, routing, drift, confidence, audit, security category,
-            #          entity graph, multi-language entity graph, keywords)
-            assert version_count[0] == 10
+            # v1..v11 (review, routing, drift, confidence, audit, security category,
+            #          entity graph, multi-language entity graph, keywords,
+            #          plan_nodes/edges/meta/runs added by v11)
+            assert version_count[0] == 11
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

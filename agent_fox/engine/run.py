@@ -87,13 +87,14 @@ def _setup_infrastructure(
     This is separated from run_code so the orchestrator construction can
     be tested independently.
     """
-    from agent_fox.core.paths import AUDIT_DIR, PLAN_PATH
+    from agent_fox.core.paths import AUDIT_DIR
     from agent_fox.engine.fact_cache import precompute_fact_rankings
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
 
-    resolved_plan = plan_path or PLAN_PATH
+    _default_plan_path = Path(".agent-fox/plan.json")
+    resolved_plan = plan_path or _default_plan_path
 
     # Create DuckDB sink for session outcome recording
     sink_dispatcher = SinkDispatcher()
@@ -222,8 +223,6 @@ async def run_code(
 
     Requirements: 59-REQ-4.1, 59-REQ-4.2, 59-REQ-4.3, 59-REQ-4.E1
     """
-    from agent_fox.core.paths import PLAN_PATH, STATE_PATH
-
     # Apply CLI overrides to OrchestratorConfig
     try:
         orch_config = _apply_overrides(
@@ -236,8 +235,8 @@ async def run_code(
     except Exception:
         orch_config = config.orchestrator
 
-    plan_path = PLAN_PATH
-    state_path = STATE_PATH
+    plan_path = Path(".agent-fox/plan.json")
+    state_path = Path(".agent-fox/state.jsonl")
     specs_path = Path(specs_dir) if specs_dir else Path(".specs")
 
     # Set up infrastructure (knowledge DB, sinks, fact cache, etc.)

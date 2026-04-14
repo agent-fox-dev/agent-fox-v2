@@ -401,9 +401,7 @@ def generate_standup(
 
     # Resolve default paths if not provided
     if plan_path is None:
-        from agent_fox.core.paths import PLAN_PATH
-
-        plan_path = PLAN_PATH
+        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
     if repo_path is None:
         repo_path = Path.cwd()
 

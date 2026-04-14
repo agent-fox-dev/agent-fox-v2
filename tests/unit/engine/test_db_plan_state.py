@@ -295,21 +295,10 @@ def test_run_lifecycle(db_conn: duckdb.DuckDBPyConnection) -> None:
 # -- Tests: TS-105-9 PLAN_PATH and STATE_PATH removed -------------------------
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Removing PLAN_PATH/STATE_PATH from core/paths.py requires updating all "
-        "callers (cli/code.py, engine/run.py, etc.). Implemented in task group 4.4."
-    ),
-    strict=True,
-)
 def test_plan_path_removed() -> None:
     """TS-105-9: PLAN_PATH and STATE_PATH are no longer importable from core.paths.
 
     Requirements: 105-REQ-5.1, 105-REQ-3.3, 105-REQ-5.3
-
-    NOTE: This test is xfail until task group 4.4 removes the constants and
-    updates all callers.  The traceability table in tasks.md lists this as
-    "Implemented By Task: 4.4".
     """
     with pytest.raises((ImportError, AttributeError)):
         from agent_fox.core.paths import PLAN_PATH  # noqa: F401

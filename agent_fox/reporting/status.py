@@ -293,29 +293,53 @@ def generate_status(
     # Resolve plan_path if not provided
     _plan_path_was_none = plan_path is None
     if plan_path is None:
-        from agent_fox.core.paths import PLAN_PATH
+        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
 
-        plan_path = PLAN_PATH
+    # Try loading plan from DB when connection is available (105-REQ-6.1)
+    graph = None
+    if db_conn is not None:
+        try:
+            from agent_fox.graph.persistence import load_plan as _load_plan_db
 
-    # Load the plan (required when explicitly provided)
-    try:
-        graph = load_plan_or_raise(plan_path)
-    except Exception:
-        if not _plan_path_was_none:
-            raise
-        # Return empty report when plan_path was not explicitly given
-        return StatusReport(
-            counts={},
-            total_tasks=0,
-            input_tokens=0,
-            output_tokens=0,
-            estimated_cost=0.0,
-            problem_tasks=[],
-            per_spec={},
-        )
+            graph = _load_plan_db(db_conn)
+        except Exception:
+            logger.debug("Failed to load plan from DB, falling back to file", exc_info=True)
+
+    # Fall back to file-based plan loading
+    if graph is None:
+        try:
+            graph = load_plan_or_raise(plan_path)
+        except Exception:
+            if not _plan_path_was_none:
+                raise
+            # Return empty report when plan_path was not explicitly given
+            return StatusReport(
+                counts={},
+                total_tasks=0,
+                input_tokens=0,
+                output_tokens=0,
+                estimated_cost=0.0,
+                problem_tasks=[],
+                per_spec={},
+            )
 
     # Load execution state (optional - may not exist yet)
+    # Also try DB for node states when available (105-REQ-6.1)
     state = _load_state(state_path)
+    if state is None and db_conn is not None:
+        try:
+            from agent_fox.engine.state import load_execution_state as _load_exec_state
+
+            db_node_states = _load_exec_state(db_conn)
+            if db_node_states:
+                from agent_fox.engine.state import ExecutionState as _ExecState
+
+                state = _ExecState(
+                    plan_hash="",
+                    node_states=db_node_states,
+                )
+        except Exception:
+            logger.debug("Failed to load node states from DB", exc_info=True)
 
     # Determine node statuses: seed from graph (honours tasks.md [x]
     # checkboxes), then overlay any state.jsonl overrides for nodes the

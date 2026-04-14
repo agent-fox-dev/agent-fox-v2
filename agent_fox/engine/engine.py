@@ -428,6 +428,15 @@ class Orchestrator:
                 if node.status.value == "blocked":
                     state.node_states[node_id] = "blocked"
 
+        # 105-REQ-4.2: Create a run record in DB when connection is available
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.engine.state import create_run as _create_run
+
+                _create_run(self._knowledge_db_conn, self._run_id, plan_hash)
+            except Exception:
+                logger.debug("Failed to create DB run record", exc_info=True)
+
         self._graph_sync = GraphSync(state.node_states, edges_dict)
         self._result_handler = SessionResultHandler(
             graph_sync=self._graph_sync,
@@ -787,11 +796,24 @@ class Orchestrator:
         return {}
 
     def _load_graph(self) -> TaskGraph:
-        """Load plan.json as a typed TaskGraph.
+        """Load plan as a typed TaskGraph.
+
+        Tries DB first when a knowledge DB connection is available (105-REQ-5.2).
+        Falls back to file-based load.
 
         Raises:
-            PlanError: if plan.json is missing or corrupted
+            PlanError: if no plan is found in DB or file
         """
+        # 105-REQ-5.2: Try DB-based load first
+        if self._knowledge_db_conn is not None:
+            try:
+                graph = load_plan(self._knowledge_db_conn)
+                if graph is not None:
+                    return graph
+            except Exception:
+                logger.debug("DB plan load failed, falling back to file", exc_info=True)
+
+        # Fall back to file-based load
         graph = load_plan(self._plan_path)
         if graph is None:
             if not self._plan_path.exists():
@@ -806,7 +828,15 @@ class Orchestrator:
         return graph
 
     def _compute_plan_hash(self) -> str:
-        """Compute plan hash, returning empty string if file doesn't exist."""
+        """Compute plan hash from in-memory graph when available, else from file."""
+        # 105-REQ-1.4: Use graph-based hash when graph is loaded
+        if self._graph is not None:
+            try:
+                from agent_fox.graph.persistence import compute_plan_hash
+
+                return compute_plan_hash(self._graph)
+            except Exception:
+                pass
         if self._plan_path.exists():
             return StateManager.compute_plan_hash(self._plan_path)
         return ""
@@ -1382,12 +1412,14 @@ class Orchestrator:
         return False
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:
-        """Write current node statuses back into plan.json.
+        """Write current node statuses back to DB and optionally to plan.json.
 
-        Updates each node's ``status`` field in the graph to match
-        the execution state, then persists via save_plan. This keeps
-        the plan file in sync with reality so ``agent-fox status`` and
-        direct inspection of plan.json show accurate progress.
+        Updates each node's ``status`` field in the graph to match the
+        execution state, then persists via DB (primary, 105-REQ-2.1) and
+        file-based save_plan (fallback for backward compat).
+
+        Requirements: 105-REQ-2.4 (status persisted per transition, not batch),
+                      but this method is retained for end-of-run sync barrier use.
         """
         if self._graph is None or not state.node_states:
             return
@@ -1401,6 +1433,21 @@ class Orchestrator:
 
         if not changed:
             return
+
+        # 105-REQ-2.1: Persist node statuses to DB when connection is available
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.engine.state import persist_node_status as _persist
+
+                for nid, current_status in state.node_states.items():
+                    _persist(
+                        self._knowledge_db_conn,
+                        nid,
+                        current_status,
+                        blocked_reason=state.blocked_reasons.get(nid),
+                    )
+            except Exception:
+                logger.debug("Failed to persist node statuses to DB", exc_info=True)
 
         try:
             save_plan(self._graph, self._plan_path)
