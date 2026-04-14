@@ -31,20 +31,20 @@ MAX_REQUIREMENTS = 10
 
 # Regex patterns for parsing
 _REQUIREMENT_HEADING = re.compile(r"^###\s+Requirement\s+(\d+):\s*(.+)$")
-_REQUIREMENT_ID = re.compile(r"(?:\[|\*\*)(\d{2}-REQ-\d+\.\d+)(?:\]|[:\*])")
+_REQUIREMENT_ID = re.compile(r"(?:\[|\*\*)(\d+-REQ-\d+\.\d+)(?:\]|[:\*])")
 _GROUP_REF = re.compile(r"\bgroup\s+(\d+)\b", re.IGNORECASE)
 
 # EARS keyword detection -- all EARS patterns include SHALL
 _EARS_KEYWORD = re.compile(r"\bSHALL\b")
 
 # Requirement ID format variants (for inconsistency detection)
-_REQ_ID_BRACKET = re.compile(r"\[(\d{2}-REQ-\d+\.(?:\d+|E\d+))\]")
-_REQ_ID_BOLD = re.compile(r"\*\*(\d{2}-REQ-\d+\.(?:\d+|E\d+))[:\*]")
+_REQ_ID_BRACKET = re.compile(r"\[(\d+-REQ-\d+\.(?:\d+|E\d+))\]")
+_REQ_ID_BOLD = re.compile(r"\*\*(\d+-REQ-\d+\.(?:\d+|E\d+))[:\*]")
 
 # Design document section patterns
 _PROPERTY_HEADING = re.compile(r"^###\s+Property\s+\d+", re.IGNORECASE)
 
-_TS_REFERENCE = re.compile(r"TS-\d{2}-(?:P|E)?\d+")
+_TS_REFERENCE = re.compile(r"TS-\d+-(?:P|E)?\d+")
 
 # Markdown table row detection
 _TABLE_PIPE_ROW = re.compile(r"^\s*\|.+\|")
@@ -92,12 +92,12 @@ _SECTION_SCHEMAS: dict[str, list[tuple[str, bool]]] = {
 
 
 def _spec_prefix(spec_name: str) -> str | None:
-    """Extract the two-digit numeric prefix from a spec name (e.g. '28').
+    """Extract the numeric prefix from a spec name (e.g. '28', '100').
 
-    Returns None if the name doesn't start with a two-digit prefix,
+    Returns None if the name doesn't start with a numeric prefix,
     which disables prefix-based filtering.
     """
-    m = re.match(r"(\d{2})_", spec_name)
+    m = re.match(r"(\d+)_", spec_name)
     return m.group(1) if m else None
 
 

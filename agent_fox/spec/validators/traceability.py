@@ -20,7 +20,7 @@ from agent_fox.spec.validators._helpers import (
 from agent_fox.spec.validators.finding import Finding
 
 # Pattern that matches only edge-case requirement IDs: [NN-REQ-N.EN]
-_EDGE_CASE_REQ_ID = re.compile(r"\[(\d{2}-REQ-\d+\.E\d+)\]")
+_EDGE_CASE_REQ_ID = re.compile(r"\[(\d+-REQ-\d+\.E\d+)\]")
 
 
 def check_untraced_requirements(
@@ -142,8 +142,8 @@ def check_untraced_properties(
 
     ts_text = ts_path.read_text(encoding="utf-8")
 
-    # Extract spec number from spec_name (first two digits)
-    spec_num_match = re.match(r"(\d{2})", spec_name)
+    # Extract spec number prefix from spec_name
+    spec_num_match = re.match(r"(\d+)", spec_name)
     spec_num = spec_num_match.group(1) if spec_num_match else "00"
 
     findings: list[Finding] = []

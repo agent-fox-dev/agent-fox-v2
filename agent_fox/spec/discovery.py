@@ -14,8 +14,8 @@ from agent_fox.core.errors import PlanError
 
 logger = logging.getLogger(__name__)
 
-# Pattern: two-digit prefix, underscore, descriptive name
-_SPEC_DIR_PATTERN = re.compile(r"^(\d{2})_(.+)$")
+# Pattern: numeric prefix (2+ digits), underscore, descriptive name
+_SPEC_DIR_PATTERN = re.compile(r"^(\d+)_(.+)$")
 
 
 @dataclass(frozen=True)

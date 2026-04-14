@@ -20,8 +20,8 @@ _MOCK_AI_CALL = "agent_fox.spec.ai_validation.ai_call"
 
 # -- Strategies ----------------------------------------------------------------
 
-# Criterion ID: two digits, hyphen, REQ, hyphen, digit(s).digit(s)
-criterion_id_strategy = st.from_regex(r"[0-9]{2}-REQ-[1-9]\.[1-9]", fullmatch=True)
+# Criterion ID: numeric prefix, hyphen, REQ, hyphen, digit(s).digit(s)
+criterion_id_strategy = st.from_regex(r"[0-9]{2,3}-REQ-[1-9]\.[1-9]", fullmatch=True)
 
 # Non-empty replacement text (printable ASCII, no empty)
 replacement_strategy = st.text(

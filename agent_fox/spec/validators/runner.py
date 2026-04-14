@@ -80,7 +80,7 @@ def validate_specs(
     # filtered subset.  Dependency validation needs to resolve references to
     # specs that may have been filtered out (e.g. already-implemented specs).
     known_specs: dict[str, list[int]] = {}
-    _spec_dir_pattern = re.compile(r"^\d{2}_.+$")
+    _spec_dir_pattern = re.compile(r"^\d+_.+$")
     for entry in sorted(specs_dir.iterdir()):
         if not entry.is_dir() or not _spec_dir_pattern.match(entry.name):
             continue

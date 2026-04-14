@@ -48,8 +48,8 @@ def _make_graph(spec_names: list[str]) -> TaskGraph:
     )
 
 
-# Strategy for spec names: two-digit prefix followed by underscore and name
-_spec_name = st.from_regex(r"[0-9]{2}_[a-z_]{3,15}", fullmatch=True)
+# Strategy for spec names: numeric prefix followed by underscore and name
+_spec_name = st.from_regex(r"[0-9]{2,3}_[a-z_]{3,15}", fullmatch=True)
 
 
 class TestHotLoadMonotonicity:

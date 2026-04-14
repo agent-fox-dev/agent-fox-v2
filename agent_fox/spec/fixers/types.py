@@ -22,7 +22,7 @@ _CRITERION_BOLD = re.compile(
     r"^(\s*\d+\.\s*)\*\*({cid}):\*\*\s*(.*)$",
 )
 
-_REQ_ID_IN_MESSAGE = re.compile(r"\b(\d{2}-REQ-\d+\.(?:\d+|E\d+))\b")
+_REQ_ID_IN_MESSAGE = re.compile(r"\b(\d+-REQ-\d+\.(?:\d+|E\d+))\b")
 
 
 @dataclass(frozen=True)

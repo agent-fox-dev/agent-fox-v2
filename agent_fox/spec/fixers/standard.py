@@ -298,7 +298,7 @@ def fix_inconsistent_req_id_format(
     text = req_path.read_text(encoding="utf-8")
 
     # Pattern: **05-REQ-1.2:** or **05-REQ-1.E1:**
-    bold_pattern = re.compile(r"\*\*(\d{2}-REQ-\d+\.(?:\d+|E\d+)):\*\*")
+    bold_pattern = re.compile(r"\*\*(\d+-REQ-\d+\.(?:\d+|E\d+)):\*\*")
 
     new_text, count = bold_pattern.subn(r"[\1]", text)
     if count == 0:

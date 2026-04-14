@@ -23,10 +23,10 @@ VALID_CHECKBOX_CHARS = {" ", "x", "-", "~"}
 CHECKBOX_LINE = re.compile(r"^(\s*)- \[(.)\](\s+\*?\s*)(\d+)[\.\s]")
 
 # Test spec entry headings: ### TS-NN-N, ### TS-NN-PN, ### TS-NN-EN
-TS_ENTRY_HEADING = re.compile(r"^###\s+(TS-\d{2}-(?:P|E)?\d+)")
+TS_ENTRY_HEADING = re.compile(r"^###\s+(TS-\d+-(?:P|E)?\d+)")
 
 # Permissive requirement ID pattern — matches bare IDs in tables/prose
-REQ_ID_BARE = re.compile(r"(\d{2}-REQ-\d+\.(?:\d+|E\d+))")
+REQ_ID_BARE = re.compile(r"(\d+-REQ-\d+\.(?:\d+|E\d+))")
 
 
 def normalize_heading(text: str) -> str:
