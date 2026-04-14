@@ -99,18 +99,24 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
             languages_analyzed=(),
         )
 
-    all_entities: list[Entity] = []
-    sentinel_edges: list[EntityEdge] = []
+    # Collect per-language entity batches and sentinel edges separately so that
+    # upsert_entities() can be called with the correct language tag for each batch.
+    lang_entity_batches: list[tuple[str, list[Entity]]] = []
+    all_sentinel_edges: list[EntityEdge] = []
     analyzed_languages: list[str] = []
 
     for analyzer in analyzers:
         try:
+            lang_entities: list[Entity] = []
+            lang_edges: list[EntityEdge] = []
             _analyze_language(
                 repo_root=repo_root,
                 analyzer=analyzer,
-                all_entities=all_entities,
-                sentinel_edges=sentinel_edges,
+                all_entities=lang_entities,
+                sentinel_edges=lang_edges,
             )
+            lang_entity_batches.append((analyzer.language_name, lang_entities))
+            all_sentinel_edges.extend(lang_edges)
             analyzed_languages.append(analyzer.language_name)
         except Exception as exc:  # noqa: BLE001
             logger.error(
@@ -122,6 +128,9 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
 
     languages_analyzed = tuple(sorted(analyzed_languages))
 
+    # Flatten entity list (preserving per-language order) for lookup-map construction
+    all_entities: list[Entity] = [e for _, batch in lang_entity_batches for e in batch]
+
     if not all_entities:
         entities_soft_deleted = soft_delete_missing(conn, set())
         return AnalysisResult(
@@ -131,9 +140,13 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
             languages_analyzed=languages_analyzed,
         )
 
-    # --- Upsert entities ---
-    upserted_ids = upsert_entities(conn, all_entities)
-    entities_upserted = len(upserted_ids)
+    # --- Upsert entities per language (tags each entity with its source language) ---
+    all_upserted_ids: list[str] = []
+    for lang_name, lang_entities in lang_entity_batches:
+        lang_ids = upsert_entities(conn, lang_entities, language=lang_name)
+        all_upserted_ids.extend(lang_ids)
+
+    entities_upserted = len(all_upserted_ids)
 
     # Build lookup maps for sentinel resolution
     natural_key_to_db_id: dict[tuple[str, str, str], str] = {}
@@ -141,7 +154,7 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
     path_to_file_entity_id: dict[str, str] = {}
     class_name_to_db_id: dict[str, str] = {}
 
-    for entity, db_id in zip(all_entities, upserted_ids):
+    for entity, db_id in zip(all_entities, all_upserted_ids):
         key = (str(entity.entity_type), entity.entity_path, entity.entity_name)
         natural_key_to_db_id[key] = db_id
         placeholder_to_db_id[entity.id] = db_id
@@ -176,7 +189,7 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
 
     # Resolve sentinel edges
     seen_edge_keys: set[tuple[str, str, str]] = set()
-    for edge in sentinel_edges:
+    for edge in all_sentinel_edges:
         source_id = placeholder_to_db_id.get(edge.source_id, edge.source_id)
         target_id = edge.target_id
 

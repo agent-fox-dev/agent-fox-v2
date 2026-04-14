@@ -201,36 +201,37 @@ verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
 
-- [ ] 5. Schema migration and orchestrator integration
-  - [ ] 5.1 Add migration v9 to `agent_fox/knowledge/migrations.py`
+- [x] 5. Schema migration and orchestrator integration
+  - [x] 5.1 Add migration v9 to `agent_fox/knowledge/migrations.py`
     - Add nullable `language` VARCHAR column to `entity_graph`
     - Backfill existing entities with `language = 'python'`
+    - Uses `ADD COLUMN IF NOT EXISTS` for idempotency (CP-6)
     - _Requirements: 102-REQ-5.1, 102-REQ-5.2, 102-REQ-5.E1_
-  - [ ] 5.2 Update `agent_fox/knowledge/entity_store.py`
-    - `upsert_entities()`: accept optional `language` parameter, write to
-      column on insert, update NULL language on existing entities
-    - `_row_to_entity()`: read `language` column (ignored in Entity
-      dataclass but stored in DB)
+  - [x] 5.2 Update `agent_fox/knowledge/entity_store.py`
+    - `upsert_entities()`: accept optional `language` parameter (default None
+      for backward compatibility), write to column on insert, update NULL
+      language on existing entities
+    - `_row_to_entity()`: unchanged — SELECT queries use explicit column
+      lists (not SELECT *), so adding the language column does not break
+      existing row-to-entity conversion
     - _Requirements: 102-REQ-5.3, 102-REQ-6.3_
-  - [ ] 5.3 Update `agent_fox/knowledge/entities.py`
-    - Add `languages_analyzed: tuple[str, ...] = ()` to `AnalysisResult`
+  - [x] 5.3 Update `agent_fox/knowledge/entities.py`
+    - `languages_analyzed: tuple[str, ...] = ()` already added in task 2.5
     - _Requirements: 102-REQ-4.3_
-  - [ ] 5.4 Update `agent_fox/knowledge/static_analysis.py`
-    - Refactor `analyze_codebase()` to use `detect_languages()` and
-      dispatch to per-language analyzers
-    - Aggregate entity/edge counts across all languages
-    - Pass language name to `upsert_entities()`
-    - Populate `languages_analyzed` in `AnalysisResult`
-    - Isolate per-language failures (try/except per analyzer)
+  - [x] 5.4 Update `agent_fox/knowledge/static_analysis.py`
+    - Refactored `analyze_codebase()` to collect entities per-language, then
+      call `upsert_entities(conn, lang_entities, language=lang_name)` per
+      batch so each entity is tagged with its source language in the DB
+    - Per-language failure isolation with try/except already in place
     - _Requirements: 102-REQ-4.1, 102-REQ-4.2, 102-REQ-4.4, 102-REQ-4.5,
       102-REQ-4.E1, 102-REQ-4.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Orchestration tests pass: `uv run pytest -q tests/unit/knowledge/test_multilang_analysis.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py`
-    - [ ] Smoke tests pass: `uv run pytest -q tests/integration/knowledge/test_multilang_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/ tests/`
+  - [x] 5.V Verify task group 5
+    - [x] Orchestration tests pass: `uv run pytest -q tests/unit/knowledge/test_multilang_analysis.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py`
+    - [x] Smoke tests pass: `uv run pytest -q tests/integration/knowledge/test_multilang_smoke.py`
+    - [x] All existing tests still pass: `uv run pytest -q` (pre-existing failures unchanged)
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/ tests/`
 
 - [ ] 6. Wiring verification
   - [ ] 6.1 Trace execution paths from design.md

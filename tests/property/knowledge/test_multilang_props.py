@@ -79,7 +79,6 @@ class TestEntityValidity:
     ) -> None:
         """For any valid Python class name and method, extract_entities returns valid entities."""
         from agent_fox.knowledge.lang.python_lang import PythonAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = _make_python_source(class_name, method_name)
@@ -111,7 +110,6 @@ class TestEntityValidity:
     ) -> None:
         """For any valid Go struct and function name, extract_entities returns valid entities."""
         from agent_fox.knowledge.lang.go_lang import GoAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = _make_go_source(struct_name, func_name)
@@ -154,7 +152,6 @@ class TestEdgeReferentialIntegrity:
     ) -> None:
         """Python edge source/target IDs are entity IDs or well-formed sentinel strings."""
         from agent_fox.knowledge.lang.python_lang import PythonAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = _make_python_source(class_name, method_name)
@@ -196,7 +193,6 @@ class TestEdgeReferentialIntegrity:
     ) -> None:
         """Go edge source/target IDs are entity IDs or well-formed sentinel strings."""
         from agent_fox.knowledge.lang.go_lang import GoAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = _make_go_source(struct_name, func_name)
@@ -322,18 +318,27 @@ class TestScanSubset:
         txt_count: int,
     ) -> None:
         """_scan_files with {.py, .go} returns only .py and .go files."""
+        import shutil
+
         from agent_fox.knowledge.lang.registry import _scan_files
+
+        # Hypothesis shares tmp_path across all examples within a test invocation.
+        # Use a fresh subdirectory each example to prevent file accumulation.
+        scan_dir = tmp_path / "scan"
+        if scan_dir.exists():
+            shutil.rmtree(scan_dir)
+        scan_dir.mkdir()
 
         # Create files of different types
         for i in range(py_count):
-            (tmp_path / f"file{i}.py").write_text("")
+            (scan_dir / f"file{i}.py").write_text("")
         for i in range(go_count):
-            (tmp_path / f"file{i}.go").write_text("")
+            (scan_dir / f"file{i}.go").write_text("")
         for i in range(txt_count):
-            (tmp_path / f"file{i}.txt").write_text("")
+            (scan_dir / f"file{i}.txt").write_text("")
 
         extensions = {".py", ".go"}
-        result = _scan_files(tmp_path, extensions)
+        result = _scan_files(scan_dir, extensions)
 
         # Every returned file must have an extension in the requested set
         for path in result:
@@ -341,7 +346,7 @@ class TestScanSubset:
                 f"Returned path {path} has extension {path.suffix!r} not in {extensions}"
             )
 
-        # Count must be <= total files with matching extensions
+        # Count must match total files with matching extensions
         expected_count = py_count + go_count
         assert len(result) == expected_count, (
             f"Expected {expected_count} files, got {len(result)}"

@@ -323,6 +323,22 @@ def _migrate_v8(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+def _migrate_v9(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add language column to entity_graph and backfill existing rows.
+
+    Adds a nullable VARCHAR column so every entity can be tagged with the
+    source language that produced it (e.g. 'python', 'go', 'typescript').
+    Pre-existing entities are backfilled with 'python' because all entities
+    created before this migration were produced by the Python analyzer.
+
+    Uses IF NOT EXISTS so the migration is safe to run multiple times.
+
+    Requirements: 102-REQ-5.1, 102-REQ-5.2, 102-REQ-5.E1
+    """
+    conn.execute("ALTER TABLE entity_graph ADD COLUMN IF NOT EXISTS language VARCHAR")
+    conn.execute("UPDATE entity_graph SET language = 'python' WHERE language IS NULL")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -359,6 +375,11 @@ MIGRATIONS: list[Migration] = [
         version=8,
         description="add entity_graph, entity_edges, and fact_entities tables",
         apply=_migrate_v8,
+    ),
+    Migration(
+        version=9,
+        description="add language column to entity_graph for multi-language support",
+        apply=_migrate_v9,
     ),
 ]
 

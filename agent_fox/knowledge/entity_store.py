@@ -32,17 +32,28 @@ def _row_to_entity(row: tuple) -> Entity:
     )
 
 
-def upsert_entities(conn: duckdb.DuckDBPyConnection, entities: list[Entity]) -> list[str]:
+def upsert_entities(
+    conn: duckdb.DuckDBPyConnection,
+    entities: list[Entity],
+    language: str | None = None,
+) -> list[str]:
     """Upsert entities by natural key (entity_type, entity_path, entity_name).
 
     - If an active entity with the same natural key exists, return its ID.
+      If *language* is provided and the existing entity's language is NULL,
+      update it to *language*.
     - If a soft-deleted entity with the same natural key exists, restore it
-      (clear deleted_at) and return its original ID.
+      (clear deleted_at) and return its original ID.  If *language* is
+      provided and the restored entity's language is NULL, update it too.
     - Otherwise, insert the entity with a new UUID v4 and return its ID.
+      The *language* value is written to the language column on insert.
 
     Returns a list of IDs in the same order as the input list.
 
-    Requirements: 95-REQ-1.2, 95-REQ-1.E1, 95-REQ-1.E2
+    The *language* parameter is optional so that existing callers that do not
+    pass it continue to work without modification (102-REQ-6.3).
+
+    Requirements: 95-REQ-1.2, 95-REQ-1.E1, 95-REQ-1.E2, 102-REQ-5.3
     """
     result_ids: list[str] = []
 
@@ -69,6 +80,12 @@ def upsert_entities(conn: duckdb.DuckDBPyConnection, entities: list[Entity]) -> 
                     "UPDATE entity_graph SET deleted_at = NULL WHERE id = ?",
                     [existing_id_str],
                 )
+            # Backfill language if not set and caller provided one
+            if language is not None:
+                conn.execute(
+                    "UPDATE entity_graph SET language = ? WHERE id = ? AND language IS NULL",
+                    [language, existing_id_str],
+                )
             result_ids.append(existing_id_str)
         else:
             # Insert new entity with UUID v4
@@ -76,10 +93,10 @@ def upsert_entities(conn: duckdb.DuckDBPyConnection, entities: list[Entity]) -> 
             conn.execute(
                 """
                 INSERT INTO entity_graph
-                    (id, entity_type, entity_name, entity_path, created_at, deleted_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, NULL)
+                    (id, entity_type, entity_name, entity_path, created_at, deleted_at, language)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, NULL, ?)
                 """,
-                [new_id, str(entity.entity_type), entity.entity_name, entity.entity_path],
+                [new_id, str(entity.entity_type), entity.entity_name, entity.entity_path, language],
             )
             result_ids.append(new_id)
 

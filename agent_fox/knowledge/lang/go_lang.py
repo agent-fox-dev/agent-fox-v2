@@ -144,12 +144,15 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
             )
             if pkg_name:
                 dir_path = normalize_path(str(Path(rel_path).parent))
+                # For root-level files dir_path is "" (empty); fall back to
+                # the file's rel_path so entity_path is always non-empty.
+                module_path = dir_path if dir_path else rel_path
                 entities.append(
                     Entity(
                         id=str(uuid.uuid4()),
                         entity_type=EntityType.MODULE,
                         entity_name=pkg_name,
-                        entity_path=dir_path,
+                        entity_path=module_path,
                         created_at=now,
                         deleted_at=None,
                     )
