@@ -70,24 +70,24 @@ nightshift pipeline. Group 4 creates the template. Group 5 verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/archetypes.py agent_fox/nightshift/extraction.py`
 
-- [ ] 3. Update nightshift pipeline
-  - [ ] 3.1 Update `run_batch_triage()` to use maintainer:hunt
+- [x] 3. Update nightshift pipeline
+  - [x] 3.1 Update `run_batch_triage()` to use maintainer:hunt
     - Change model tier resolution from triage to maintainer:hunt
     - Change security config resolution from triage to maintainer:hunt
     - _Requirements: 100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2_
 
-  - [ ] 3.2 Update triage prompt builder for maintainer template
+  - [x] 3.2 Update triage prompt builder for maintainer template
     - Load maintainer.md hunt section content for triage prompts
     - _Requirements: 100-REQ-5.3_
 
-  - [ ] 3.3 Update existing nightshift tests
+  - [x] 3.3 Update existing nightshift tests
     - Migrate tests referencing triage archetype to maintainer:hunt
     - _Requirements: 100-REQ-2.2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_triage_migration.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/nightshift/`
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/nightshift/test_triage_migration.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/nightshift/`
 
 - [ ] 4. Create maintainer template
   - [ ] 4.1 Create `agent_fox/_templates/prompts/maintainer.md`

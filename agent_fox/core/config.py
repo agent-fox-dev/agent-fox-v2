@@ -555,10 +555,28 @@ class ArchetypesConfig(BaseModel):
     def reject_old_archetype_keys(cls, data: Any) -> Any:
         """Raise a validation error when old archetype config keys are used.
 
-        Requirements: 98-REQ-1.E1, 98-REQ-8.E1
+        Keys that were deprecated (not obsolete) are silently stripped with a
+        warning logged, rather than raising a hard error.
+
+        Requirements: 98-REQ-1.E1, 98-REQ-8.E1, 100-REQ-2.E1
         """
         if not isinstance(data, dict):
             return data
+
+        # Deprecated keys that are silently stripped with a deprecation warning
+        # (100-REQ-2.E1: triage absorbed into maintainer:hunt in spec 100)
+        deprecated_keys = {"triage": "maintainer:hunt"}
+        found_deprecated = [k for k in deprecated_keys if k in data]
+        if found_deprecated:
+            for key in found_deprecated:
+                logger.warning(
+                    "Deprecated config key 'archetypes.%s' will be ignored. "
+                    "The triage archetype has been absorbed into maintainer:hunt. "
+                    "Please remove this key from your config. (100-REQ-2.E1)",
+                    key,
+                )
+            data = {k: v for k, v in data.items() if k not in found_deprecated}
+
         old_keys = {
             "skeptic": "reviewer (pre-review mode)",
             "oracle": "reviewer (drift-review mode)",

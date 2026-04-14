@@ -1,6 +1,10 @@
 """AI batch triage: prompt construction, response parsing, order recommendation.
 
-Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3, 71-REQ-3.E1, 71-REQ-3.E2
+Uses maintainer:hunt archetype identity for model tier and security config
+resolution (100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2).
+
+Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3, 71-REQ-3.E1, 71-REQ-3.E2,
+              100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2, 100-REQ-5.3
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.core.prompt_safety import sanitize_prompt_content
+from agent_fox.engine.sdk_params import resolve_model_tier, resolve_security_config
 from agent_fox.nightshift.dep_graph import DependencyEdge
 from agent_fox.platform.github import IssueResult
 
@@ -140,16 +145,29 @@ async def _run_ai_triage(
     sink: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> TriageResult:
-    """Internal: run the actual AI triage call using ADVANCED model tier.
+    """Internal: run the actual AI triage call using maintainer:hunt archetype.
 
-    Requirements: 71-REQ-3.2 (ADVANCED tier)
+    Resolves model tier and security config from maintainer:hunt archetype
+    identity (100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2).
+
+    Requirements: 71-REQ-3.2, 100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2, 100-REQ-5.3
     """
     from agent_fox.nightshift.cost_helpers import nightshift_ai_call
+
+    # Resolve model tier and security config via maintainer:hunt archetype identity
+    # (100-REQ-5.1, 100-REQ-5.2, 100-REQ-2.2)
+    tier = resolve_model_tier(config, "maintainer", mode="hunt")
+    _security = resolve_security_config(config, "maintainer", mode="hunt")
+    logger.debug(
+        "Batch triage using maintainer:hunt — tier=%s, allowlist=%s",
+        tier,
+        getattr(_security, "bash_allowlist", None),
+    )
 
     prompt = _build_triage_prompt(issues, explicit_edges)
 
     response_text, _response = await nightshift_ai_call(
-        model_tier="ADVANCED",
+        model_tier=tier,
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
         context="batch triage",
@@ -173,11 +191,15 @@ async def run_batch_triage(
     sink: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> TriageResult:
-    """Run ADVANCED-tier AI analysis on the fix batch.
+    """Run AI analysis on the fix batch using maintainer:hunt archetype identity.
+
+    Model tier and security config are resolved from the maintainer:hunt
+    archetype registry entry (100-REQ-2.2, 100-REQ-5.1, 100-REQ-5.2).
 
     Raises TriageError on failure (caller falls back to explicit refs).
 
-    Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3
+    Requirements: 71-REQ-3.1, 71-REQ-3.2, 71-REQ-3.3, 100-REQ-2.2, 100-REQ-5.1,
+                  100-REQ-5.2, 100-REQ-5.3
     """
     try:
         return await _run_ai_triage(issues, explicit_edges, config, sink=sink, run_id=run_id)
