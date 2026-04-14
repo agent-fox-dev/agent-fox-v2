@@ -28,8 +28,8 @@ and group 4 verifies end-to-end wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for AgentTraceSink
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for AgentTraceSink
     - Create `tests/unit/knowledge/test_agent_trace.py`
     - Translate TS-103-1 through TS-103-11 into pytest test functions
     - Tests import `AgentTraceSink` and `truncate_tool_input` from
@@ -38,7 +38,7 @@ and group 4 verifies end-to-end wiring.
     - _Test Spec: TS-103-1, TS-103-2, TS-103-3, TS-103-4, TS-103-5,
       TS-103-6, TS-103-7, TS-103-8, TS-103-9, TS-103-10, TS-103-11_
 
-  - [ ] 1.2 Create unit test file for JsonlSink removal verification
+  - [x] 1.2 Create unit test file for JsonlSink removal verification
     - Create `tests/unit/knowledge/test_agent_trace_removal.py`
     - Translate TS-103-12 and TS-103-13 into pytest tests
     - TS-103-12: assert `agent_fox/knowledge/jsonl_sink.py` does not exist
@@ -48,7 +48,7 @@ and group 4 verifies end-to-end wiring.
       in group 3
     - _Test Spec: TS-103-12, TS-103-13_
 
-  - [ ] 1.3 Create unit test for audit retention preservation
+  - [x] 1.3 Create unit test for audit retention preservation
     - Add test to `tests/unit/knowledge/test_agent_trace.py` (or a separate
       file if preferred)
     - Translate TS-103-14: set up DuckDB with two runs, create both
@@ -56,14 +56,14 @@ and group 4 verifies end-to-end wiring.
       `max_runs=1`, assert agent files survive
     - _Test Spec: TS-103-14_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/knowledge/test_agent_trace_props.py`
     - Translate TS-103-P1 (event completeness), TS-103-P2 (truncation
       invariants), TS-103-P3 (file location)
     - Use Hypothesis strategies for dict generation and sequence generation
     - _Test Spec: TS-103-P1, TS-103-P2, TS-103-P3_
 
-  - [ ] 1.5 Create integration smoke tests
+  - [x] 1.5 Create integration smoke tests
     - Create `tests/integration/test_agent_trace_smoke.py`
     - Translate TS-103-SMOKE-1: mock backend yielding a sequence of canonical
       messages, real `AgentTraceSink`, real `_execute_query`, verify trace
@@ -72,10 +72,10 @@ and group 4 verifies end-to-end wiring.
       are created
     - _Test Spec: TS-103-SMOKE-1, TS-103-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Implement AgentTraceSink and truncate_tool_input
   - [ ] 2.1 Create `agent_fox/knowledge/agent_trace.py`
