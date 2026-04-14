@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
+from agent_fox.core.models import ensure_iso
 from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.knowledge.facts import Fact, parse_confidence
 
@@ -182,17 +183,10 @@ def _row_to_fact(row: tuple) -> Fact:
         spec_name=spec_name or "",
         keywords=list(keywords) if keywords else [],
         confidence=parse_confidence(confidence),
-        created_at=_ensure_iso(created_at),
+        created_at=ensure_iso(created_at),
         session_id=session_id,
         commit_sha=commit_sha,
     )
-
-
-def _ensure_iso(ts: object) -> str:
-    """Convert a timestamp to ISO 8601 string."""
-    from agent_fox.core.models import ensure_iso
-
-    return ensure_iso(ts)
 
 
 class MemoryStore:

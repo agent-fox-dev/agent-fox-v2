@@ -39,10 +39,11 @@ class TestSelectRelevantFactsRemoved:
 
     def test_compute_relevance_score_not_importable(self) -> None:
         """_compute_relevance_score (helper) must also be removed."""
-        module = importlib.import_module("agent_fox.knowledge.filtering")
-        assert not hasattr(module, "_compute_relevance_score"), (
-            "_compute_relevance_score should have been deleted from filtering.py"
-        )
+        with pytest.raises((ImportError, ModuleNotFoundError, AttributeError)):
+            module = importlib.import_module("agent_fox.knowledge.filtering")
+            assert not hasattr(module, "_compute_relevance_score"), (
+                "_compute_relevance_score should have been deleted from filtering.py"
+            )
 
 
 # ---------------------------------------------------------------------------
