@@ -77,8 +77,8 @@ and group 4 verifies end-to-end wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Implement AgentTraceSink and truncate_tool_input
-  - [ ] 2.1 Create `agent_fox/knowledge/agent_trace.py`
+- [x] 2. Implement AgentTraceSink and truncate_tool_input
+  - [x] 2.1 Create `agent_fox/knowledge/agent_trace.py`
     - Implement `truncate_tool_input(tool_input, max_len=10_000)` helper
     - Implement `AgentTraceSink` class satisfying the `SessionSink` protocol
     - Methods: `record_session_init`, `record_assistant_message`,
@@ -91,12 +91,12 @@ and group 4 verifies end-to-end wiring.
     - _Requirements: 1.1, 1.2, 1.3, 1.E1, 1.E2, 2.1, 2.2, 3.1, 3.2,
       4.1, 4.2, 4.3, 4.E1, 5.1, 6.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_agent_trace_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 1.*, 2.*, 3.*, 4.*, 5.*, 6.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_agent_trace_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 1.*, 2.*, 3.*, 4.*, 5.*, 6.* acceptance criteria met
 
 - [ ] 3. Wire sink into session runner, remove old JsonlSink
   - [ ] 3.1 Modify `agent_fox/session/session.py` — emit trace events

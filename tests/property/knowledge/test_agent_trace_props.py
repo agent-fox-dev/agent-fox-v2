@@ -13,9 +13,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_fox.knowledge.agent_trace import AgentTraceSink, truncate_tool_input
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
+
+from agent_fox.knowledge.agent_trace import AgentTraceSink, truncate_tool_input
 
 # ---------------------------------------------------------------------------
 # Hypothesis strategies
@@ -113,7 +114,7 @@ class TestEventCompleteness:
             max_size=20,
         )
     )
-    @settings(max_examples=50)
+    @settings(max_examples=50, suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_event_completeness(self, tmp_path: Path, call_types: list[int]) -> None:
         """Number of lines equals number of record calls, all valid JSON."""
         import uuid
@@ -210,7 +211,7 @@ class TestFileLocation:
     """
 
     @given(run_id=_run_id_strategy)
-    @settings(max_examples=30)
+    @settings(max_examples=30, suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_file_location(self, tmp_path: Path, run_id: str) -> None:
         """After any write, the trace file is at agent_{run_id}.jsonl."""
         import uuid
