@@ -46,6 +46,8 @@ class AnalysisResult:
     entities_upserted: int
     edges_upserted: int
     entities_soft_deleted: int
+    languages_analyzed: tuple[str, ...] = ()
+    """Sorted tuple of language names analyzed in this run (102-REQ-4.3)."""
 
 
 @dataclass(frozen=True)

@@ -88,15 +88,15 @@ verifies wiring.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Language analyzer framework and Python refactoring
-  - [ ] 2.1 Create `agent_fox/knowledge/lang/__init__.py`
+- [x] 2. Language analyzer framework and Python refactoring
+  - [x] 2.1 Create `agent_fox/knowledge/lang/__init__.py`
     - Package init with exports
-  - [ ] 2.2 Create `agent_fox/knowledge/lang/base.py`
+  - [x] 2.2 Create `agent_fox/knowledge/lang/base.py`
     - `LanguageAnalyzer` protocol with `language_name`, `file_extensions`,
       `make_parser()`, `extract_entities()`, `extract_edges()`,
       `build_module_map()`
     - _Requirements: 102-REQ-1.1_
-  - [ ] 2.3 Create `agent_fox/knowledge/lang/registry.py`
+  - [x] 2.3 Create `agent_fox/knowledge/lang/registry.py`
     - `LanguageRegistry` class with `register()`, `get_analyzer()`,
       `all_analyzers()`
     - `get_default_registry()` factory
@@ -105,24 +105,28 @@ verifies wiring.
       and non-git fallback
     - _Requirements: 102-REQ-1.2, 102-REQ-1.3, 102-REQ-1.4, 102-REQ-1.E1,
       102-REQ-1.E2_
-  - [ ] 2.4 Create `agent_fox/knowledge/lang/python_lang.py`
+  - [x] 2.4 Create `agent_fox/knowledge/lang/python_lang.py`
     - `PythonAnalyzer` class implementing `LanguageAnalyzer`
     - Refactor `_extract_entities`, `_extract_edges`, `_build_module_map`,
       `_make_parser` from `static_analysis.py` into this module
     - Preserve exact behavior for backward compatibility
     - _Requirements: 102-REQ-6.1, 102-REQ-6.2_
-  - [ ] 2.5 Refactor `agent_fox/knowledge/static_analysis.py`
+  - [x] 2.5 Refactor `agent_fox/knowledge/static_analysis.py`
     - Replace inline Python extraction with `PythonAnalyzer` usage
     - Update `_scan_python_files` to use `_scan_files` from registry
     - Preserve `analyze_codebase()` signature and behavior
-    - _Requirements: 102-REQ-4.5, 102-REQ-6.1_
+    - Added `languages_analyzed` to `AnalysisResult` (partial task 5.3)
+    - Also created stub files for all other language analyzers (go, rust,
+      typescript, javascript, java, c, cpp, ruby) and added all grammar
+      packages to pyproject.toml to enable framework detection tests
+    - _Requirements: 102-REQ-4.3, 102-REQ-4.5, 102-REQ-6.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Framework tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_framework.py`
-    - [ ] Python analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k python`
-    - [ ] Python backward compat tests pass: `uv run pytest -q tests/unit/knowledge/test_multilang_analysis.py -k backward`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/ agent_fox/knowledge/static_analysis.py`
+  - [x] 2.V Verify task group 2
+    - [x] Framework tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_framework.py`
+    - [x] Python analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k python`
+    - [x] Python backward compat tests pass: `uv run pytest -q tests/unit/knowledge/test_multilang_analysis.py -k backward`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/ agent_fox/knowledge/static_analysis.py`
 
 - [ ] 3. Go, Rust, and Java analyzers
   - [ ] 3.1 Create `agent_fox/knowledge/lang/go_lang.py`
