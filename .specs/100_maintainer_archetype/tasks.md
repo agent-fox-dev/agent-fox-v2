@@ -49,26 +49,26 @@ nightshift pipeline. Group 4 creates the template. Group 5 verifies wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Define maintainer archetype and extraction types
-  - [ ] 2.1 Add maintainer entry to ARCHETYPE_REGISTRY
+- [x] 2. Define maintainer archetype and extraction types
+  - [x] 2.1 Add maintainer entry to ARCHETYPE_REGISTRY
     - hunt mode: analysis allowlist, STANDARD, task_assignable=False
     - extraction mode: empty allowlist, STANDARD, task_assignable=False
     - _Requirements: 100-REQ-1.1, 100-REQ-1.2, 100-REQ-1.3, 100-REQ-1.4_
 
-  - [ ] 2.2 Remove triage entry from ARCHETYPE_REGISTRY
+  - [x] 2.2 Remove triage entry from ARCHETYPE_REGISTRY
     - _Requirements: 100-REQ-2.1, 100-REQ-1.E1_
 
-  - [ ] 2.3 Create `agent_fox/nightshift/extraction.py`
+  - [x] 2.3 Create `agent_fox/nightshift/extraction.py`
     - ExtractionInput dataclass (session_id, transcript, spec_name, archetype, mode)
     - ExtractionResult dataclass (facts, session_id, status)
     - extract_knowledge() stub function
     - _Requirements: 100-REQ-4.1, 100-REQ-4.2, 100-REQ-4.3, 100-REQ-4.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/core/test_maintainer_archetype.py -k "registry or extraction"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/test_maintainer_properties.py -k "mode_config or triage_removed or extraction"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/archetypes.py agent_fox/nightshift/extraction.py`
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/core/test_maintainer_archetype.py -k "registry or extraction"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/test_maintainer_properties.py -k "mode_config or triage_removed or extraction"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/archetypes.py agent_fox/nightshift/extraction.py`
 
 - [ ] 3. Update nightshift pipeline
   - [ ] 3.1 Update `run_batch_triage()` to use maintainer:hunt

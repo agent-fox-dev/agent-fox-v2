@@ -9,6 +9,8 @@ without cross-module coupling.
 Requirements: 26-REQ-3.1, 26-REQ-3.2, 26-REQ-3.3, 26-REQ-3.E1
              97-REQ-1.1, 97-REQ-1.2, 97-REQ-1.3, 97-REQ-1.4, 97-REQ-1.5,
              97-REQ-1.E1, 97-REQ-1.E2
+             100-REQ-1.1, 100-REQ-1.2, 100-REQ-1.3, 100-REQ-1.4,
+             100-REQ-1.E1, 100-REQ-2.1
 """
 
 from __future__ import annotations
@@ -118,21 +120,25 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         retry_predecessor=True,
         default_max_turns=120,
     ),
-    "triage": ArchetypeEntry(
-        name="triage",
-        templates=["triage.md"],
-        default_model_tier="ADVANCED",
+    # "triage" was removed in spec 100 and absorbed into maintainer:hunt.
+    # get_archetype("triage") falls back to "coder" with a warning (100-REQ-1.E1).
+    "maintainer": ArchetypeEntry(
+        name="maintainer",
+        templates=["maintainer.md"],
+        default_model_tier="STANDARD",
         injection=None,
         task_assignable=False,
-        default_allowlist=[
-            "ls",
-            "cat",
-            "git",
-            "wc",
-            "head",
-            "tail",
-        ],
         default_max_turns=80,
+        modes={
+            "hunt": ModeConfig(
+                # Read-only analysis allowlist (100-REQ-1.2)
+                allowlist=["ls", "cat", "git", "wc", "head", "tail"],
+            ),
+            "extraction": ModeConfig(
+                # No shell access for extraction mode (100-REQ-1.3)
+                allowlist=[],
+            ),
+        },
     ),
 }
 

@@ -25,8 +25,10 @@ _TIER_ORDER: dict[ModelTier, int] = {
     ModelTier.ADVANCED: 2,
 }
 
-_ADVANCED_ARCHETYPES = {"triage"}
-_STANDARD_ARCHETYPES = {"coder", "reviewer", "verifier"}
+# "triage" was removed in spec 100 and absorbed into maintainer:hunt (STANDARD tier).
+# "maintainer" is now in the registry with STANDARD tier.
+_ADVANCED_ARCHETYPES: set[str] = set()
+_STANDARD_ARCHETYPES = {"coder", "reviewer", "verifier", "maintainer"}
 
 
 # ---------------------------------------------------------------------------

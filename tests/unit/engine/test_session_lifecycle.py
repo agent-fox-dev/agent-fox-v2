@@ -84,9 +84,11 @@ class TestResolveSecurityConfig:
         runner = NodeSessionRunner("spec:1", AgentFoxConfig(), knowledge_db=_MOCK_KB)
         assert runner._resolved_security is None
 
-    def test_triage_returns_default_allowlist(self) -> None:
-        """Triage has a default allowlist from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="triage", knowledge_db=_MOCK_KB)
+    def test_maintainer_hunt_returns_default_allowlist(self) -> None:
+        """maintainer:hunt has a default allowlist from the registry (replaces triage)."""
+        runner = NodeSessionRunner(
+            "spec:1", AgentFoxConfig(), archetype="maintainer", mode="hunt", knowledge_db=_MOCK_KB
+        )
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist is not None
         assert "ls" in runner._resolved_security.bash_allowlist
@@ -94,8 +96,10 @@ class TestResolveSecurityConfig:
 
     def test_config_allowlist_overrides_registry(self) -> None:
         """Config allowlist override takes priority over registry default."""
-        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"triage": ["echo", "pwd"]}))
-        runner = NodeSessionRunner("spec:1", config, archetype="triage", knowledge_db=_MOCK_KB)
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"maintainer": ["echo", "pwd"]}))
+        runner = NodeSessionRunner(
+            "spec:1", config, archetype="maintainer", mode="hunt", knowledge_db=_MOCK_KB
+        )
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["echo", "pwd"]
 

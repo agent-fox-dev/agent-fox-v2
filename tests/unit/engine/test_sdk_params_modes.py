@@ -430,21 +430,26 @@ class TestModeAllowlistNoneInheritsBase:
     """Verify mode with None allowlist inherits base archetype allowlist."""
 
     def test_mode_with_none_allowlist_inherits_archetype_allowlist(self) -> None:
-        """TS-97-E6: Mode with None allowlist uses archetype's allowlist."""
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+        """TS-97-E6: Mode with None allowlist uses archetype's allowlist.
+
+        Uses maintainer:hunt as the concrete example (replaces triage which was
+        removed in spec 100). maintainer:hunt has an explicit allowlist, and
+        using a non-existent mode falls back to the base entry's allowlist via
+        resolve_effective_config.
+        """
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY, resolve_effective_config
         from agent_fox.engine.sdk_params import resolve_security_config
 
-        # Use a config with no overrides; the mode doesn't have allowlist set
-        # Registry entry for triage has default_allowlist=["ls", "cat", "git", ...]
+        # maintainer:hunt has allowlist=["ls", "cat", "git", "wc", "head", "tail"]
         config = AgentFoxConfig()
-        # triage registry default_allowlist is not None
-        entry = ARCHETYPE_REGISTRY["triage"]
-        assert entry.default_allowlist is not None
+        entry = ARCHETYPE_REGISTRY["maintainer"]
+        hunt_cfg = resolve_effective_config(entry, "hunt")
+        assert hunt_cfg.default_allowlist is not None
 
-        result = resolve_security_config(config, "triage", mode="some-mode")
-        # Should inherit triage's default allowlist (no mode override)
+        result = resolve_security_config(config, "maintainer", mode="hunt")
+        # Should return maintainer:hunt allowlist
         assert result is not None
-        assert result.bash_allowlist == entry.default_allowlist
+        assert set(result.bash_allowlist) == set(hunt_cfg.default_allowlist)
 
     def test_mode_with_none_allowlist_from_registry_mode_inherits(self) -> None:
         """Mode ModeConfig(allowlist=None) means inherit from base archetype."""

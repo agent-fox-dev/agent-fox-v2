@@ -31,11 +31,13 @@ class TestRegistryCompleteness:
     def test_all_archetypes_present(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
+        # "triage" was removed in spec 100 and absorbed into maintainer:hunt.
+        # "maintainer" was added in spec 100.
         expected = {
             "coder",
             "reviewer",
             "verifier",
-            "triage",
+            "maintainer",
         }
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
@@ -58,13 +60,16 @@ class TestRegistryCompleteness:
 class TestPerArchetypeAllowlist:
     """Verify archetype allowlist override is used instead of global."""
 
-    def test_triage_has_default_allowlist(self) -> None:
+    def test_maintainer_hunt_has_default_allowlist(self) -> None:
+        """maintainer:hunt has the read-only analysis allowlist (replaces triage)."""
+        from agent_fox.archetypes import resolve_effective_config
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        entry = ARCHETYPE_REGISTRY["triage"]
-        assert entry.default_allowlist is not None
-        assert isinstance(entry.default_allowlist, list)
-        assert len(entry.default_allowlist) > 0
+        entry = ARCHETYPE_REGISTRY["maintainer"]
+        cfg = resolve_effective_config(entry, "hunt")
+        assert cfg.default_allowlist is not None
+        assert isinstance(cfg.default_allowlist, list)
+        assert len(cfg.default_allowlist) > 0
 
     def test_coder_has_no_allowlist_override(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
@@ -147,7 +152,7 @@ class TestPropertyArchetypeFallback:
                     "coder",
                     "reviewer",
                     "verifier",
-                    "triage",
+                    "maintainer",
                 }
             )
         )
