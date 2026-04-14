@@ -3,7 +3,7 @@
 
 [orchestrator]
 ## Maximum parallel sessions (1-8, default: 2)
-parallel = 3
+parallel = 5
 ## Shell command to run after each coder session (default: "")
 quality_gate = "make test"
 ## Maximum USD spend per session, 0 = unlimited (default: 8.0)
@@ -13,7 +13,7 @@ max_blocked_fraction = 0.4
 
 [models]
 ## Model tier for coding tasks (default: "ADVANCED")
-coding = "STANDARD"
+coding = "ADVANCED"
 
 [archetypes]
 ## Enable coder archetype (default: true)
