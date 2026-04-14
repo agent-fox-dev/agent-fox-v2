@@ -26,38 +26,38 @@ plan has 5 task groups sized for single coding sessions.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for AdaptiveRetriever
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for AdaptiveRetriever
     - Create `tests/unit/knowledge/test_adaptive_retrieval.py`
     - Translate TS-104-1 through TS-104-16 into pytest test functions
     - Tests import from `agent_fox.knowledge.retrieval` (does not exist yet)
     - Use in-memory DuckDB fixtures with schema from migrations
     - _Test Spec: TS-104-1 through TS-104-16_
 
-  - [ ] 1.2 Create unit test file for legacy removal verification
+  - [x] 1.2 Create unit test file for legacy removal verification
     - Create `tests/unit/knowledge/test_legacy_removal.py`
     - Translate TS-104-17, TS-104-18, TS-104-E8 into pytest tests
     - These tests will fail initially (old functions still exist); they'll
       be inverted or adjusted in group 4
     - _Test Spec: TS-104-17, TS-104-18, TS-104-E8_
 
-  - [ ] 1.3 Create property tests
+  - [x] 1.3 Create property tests
     - Create `tests/property/knowledge/test_retrieval_props.py`
     - Translate TS-104-P1 through TS-104-P7
     - Use Hypothesis strategies for signal lists, profiles, fact DAGs
     - _Test Spec: TS-104-P1 through TS-104-P7_
 
-  - [ ] 1.4 Create integration smoke tests
+  - [x] 1.4 Create integration smoke tests
     - Create `tests/integration/test_adaptive_retrieval_smoke.py`
     - Translate TS-104-SMOKE-1 and TS-104-SMOKE-2
     - SMOKE-1 uses in-memory DuckDB with full schema, mock embedder,
       real retriever
     - _Test Spec: TS-104-SMOKE-1, TS-104-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Implement core retriever: signals, RRF fusion, intent profiles
   - [ ] 2.1 Create `agent_fox/knowledge/retrieval.py` — data types
