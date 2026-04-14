@@ -302,6 +302,7 @@ class TestExtractionInput:
     def test_extraction_input_is_frozen(self) -> None:
         """TS-100-8: ExtractionInput must be a frozen dataclass."""
         import pytest
+
         from agent_fox.nightshift.extraction import ExtractionInput
 
         ei = ExtractionInput(
