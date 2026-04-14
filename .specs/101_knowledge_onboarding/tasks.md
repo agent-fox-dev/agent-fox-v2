@@ -26,8 +26,8 @@ together. Group 6 verifies wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/knowledge/test_git_mining.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/knowledge/test_git_mining.py`
     - Git numstat parsing (TS-101-17)
     - File frequency computation (TS-101-18)
     - Co-change count computation (TS-101-19)
@@ -39,7 +39,7 @@ together. Group 6 verifies wiring.
     - _Test Spec: TS-101-7, TS-101-8, TS-101-10, TS-101-15, TS-101-16,
       TS-101-17, TS-101-18, TS-101-19_
 
-  - [ ] 1.2 Create `tests/unit/knowledge/test_code_analysis.py`
+  - [x] 1.2 Create `tests/unit/knowledge/test_code_analysis.py`
     - Code analysis creates facts (TS-101-20)
     - File prioritization (TS-101-21)
     - CodeAnalysisResult fields (TS-101-23)
@@ -51,7 +51,7 @@ together. Group 6 verifies wiring.
     - _Test Spec: TS-101-20, TS-101-21, TS-101-23, TS-101-24, TS-101-31,
       TS-101-E7, TS-101-E8, TS-101-E9_
 
-  - [ ] 1.3 Create `tests/unit/knowledge/test_doc_mining.py`
+  - [x] 1.3 Create `tests/unit/knowledge/test_doc_mining.py`
     - Doc mining creates facts (TS-101-25)
     - Doc file collection (TS-101-26)
     - DocMiningResult fields (TS-101-28)
@@ -62,7 +62,7 @@ together. Group 6 verifies wiring.
     - _Test Spec: TS-101-25, TS-101-26, TS-101-28, TS-101-29,
       TS-101-E10, TS-101-E11, TS-101-E12_
 
-  - [ ] 1.4 Create `tests/unit/knowledge/test_onboard.py`
+  - [x] 1.4 Create `tests/unit/knowledge/test_onboard.py`
     - Entity graph phase runs (TS-101-3)
     - Entity graph phase skippable (TS-101-4)
     - Ingestion phase runs (TS-101-5)
@@ -83,14 +83,14 @@ together. Group 6 verifies wiring.
       TS-101-13, TS-101-22, TS-101-27, TS-101-30, TS-101-E2 through
       TS-101-E6_
 
-  - [ ] 1.5 Create `tests/unit/cli/test_onboard_cmd.py`
+  - [x] 1.5 Create `tests/unit/cli/test_onboard_cmd.py`
     - Command registration (TS-101-1)
     - Default path (TS-101-2)
     - JSON output (TS-101-14)
     - Invalid path (TS-101-E1)
     - _Test Spec: TS-101-1, TS-101-2, TS-101-14, TS-101-E1_
 
-  - [ ] 1.6 Create `tests/property/knowledge/test_onboard_props.py`
+  - [x] 1.6 Create `tests/property/knowledge/test_onboard_props.py`
     - Threshold monotonicity (TS-101-P1)
     - Onboard idempotency (TS-101-P2)
     - Mining fact validity (TS-101-P3)
@@ -98,17 +98,17 @@ together. Group 6 verifies wiring.
     - LLM fact validity (TS-101-P5)
     - _Test Spec: TS-101-P1 through TS-101-P5_
 
-  - [ ] 1.7 Create `tests/integration/knowledge/test_onboard_smoke.py`
+  - [x] 1.7 Create `tests/integration/knowledge/test_onboard_smoke.py`
     - Full pipeline smoke test (TS-101-SMOKE-1)
     - Git mining end-to-end (TS-101-SMOKE-2)
     - Code analysis end-to-end (TS-101-SMOKE-3)
     - Doc mining end-to-end (TS-101-SMOKE-4)
     - _Test Spec: TS-101-SMOKE-1 through TS-101-SMOKE-4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Git pattern mining module
   - [ ] 2.1 Create `agent_fox/knowledge/git_mining.py`
