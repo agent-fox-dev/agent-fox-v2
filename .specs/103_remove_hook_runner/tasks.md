@@ -34,14 +34,14 @@ then delete hooks/, then clean up the engine.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test directory structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test directory structure
     - Create `tests/unit/security/__init__.py`
     - Create `tests/unit/security/conftest.py` with `security_config` fixture
     - Create `tests/property/security/__init__.py`
     - _Test Spec: TS-103-1 through TS-103-7, TS-103-E1, TS-103-E2_
 
-  - [ ] 1.2 Write unit tests for removal assertions
+  - [x] 1.2 Write unit tests for removal assertions
     - `tests/unit/security/test_removal.py`:
       - TS-103-1: HookConfig absent from AgentFoxConfig
       - TS-103-2: HookError absent from errors module
@@ -49,7 +49,7 @@ then delete hooks/, then clean up the engine.
       - TS-103-7: config_gen has no HookConfig references
     - _Test Spec: TS-103-1, TS-103-2, TS-103-3, TS-103-7_
 
-  - [ ] 1.3 Write unit tests for relocation and ReloadResult
+  - [x] 1.3 Write unit tests for relocation and ReloadResult
     - `tests/unit/security/test_relocation.py`:
       - TS-103-4: Security module importable at new path
       - TS-103-E1: Old hooks package import fails
@@ -58,7 +58,7 @@ then delete hooks/, then clean up the engine.
       - TS-103-6: ConfigReloader returns ReloadResult
     - _Test Spec: TS-103-4, TS-103-5, TS-103-6, TS-103-E1_
 
-  - [ ] 1.4 Write property tests
+  - [x] 1.4 Write property tests
     - `tests/property/security/test_removal_props.py`:
       - TS-103-P1: Security module functional equivalence
       - TS-103-P2: Hook runner absence in production code
@@ -66,15 +66,15 @@ then delete hooks/, then clean up the engine.
       - TS-103-P4: TOML backward compatibility
     - _Test Spec: TS-103-P1, TS-103-P2, TS-103-P3, TS-103-P4_
 
-  - [ ] 1.5 Write integration smoke test
+  - [x] 1.5 Write integration smoke test
     - `tests/unit/security/test_smoke.py`:
       - TS-103-SMOKE-1: Security allowlist enforcement end-to-end
     - _Test Spec: TS-103-SMOKE-1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Relocate security module
   - [ ] 2.1 Create `agent_fox/security/` package
