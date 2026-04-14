@@ -159,9 +159,7 @@ class TestMissingModeSectionFallback:
         from agent_fox.engine.sdk_params import resolve_max_turns
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={"reviewer": PerArchetypeConfig(max_turns=100, modes={})}
-            )
+            archetypes=ArchetypesConfig(overrides={"reviewer": PerArchetypeConfig(max_turns=100, modes={})})
         )
         result = resolve_max_turns(config, "reviewer", mode="pre-review")
         assert result == 100
@@ -172,9 +170,7 @@ class TestMissingModeSectionFallback:
         from agent_fox.engine.sdk_params import resolve_model_tier
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={"reviewer": PerArchetypeConfig(model_tier="ADVANCED", modes={})}
-            )
+            archetypes=ArchetypesConfig(overrides={"reviewer": PerArchetypeConfig(model_tier="ADVANCED", modes={})})
         )
         result = resolve_model_tier(config, "reviewer", mode="pre-review")
         assert result == "ADVANCED"

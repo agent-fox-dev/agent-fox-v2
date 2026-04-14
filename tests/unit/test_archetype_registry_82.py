@@ -1,7 +1,7 @@
-"""Tests for triage and fix_reviewer archetype registration.
+"""Tests for triage archetype registration.
 
-Test Spec: TS-82-1, TS-82-2, TS-82-6, TS-82-7
-Requirements: 82-REQ-1.1, 82-REQ-1.2, 82-REQ-4.1, 82-REQ-4.2
+Test Spec: TS-82-1, TS-82-2
+Requirements: 82-REQ-1.1, 82-REQ-1.2
 """
 
 from __future__ import annotations
@@ -87,79 +87,5 @@ class TestTriageSystemPrompt:
         assert "triage" in prompt_lower or "acceptance criteria" in prompt_lower
 
 
-# ---------------------------------------------------------------------------
-# TS-82-6: Fix reviewer archetype registered in registry
-# Requirement: 82-REQ-4.1
-# ---------------------------------------------------------------------------
-
-
-class TestFixReviewerArchetypeRegistered:
-    """Verify the registry contains a 'fix_reviewer' entry with correct config."""
-
-    def test_fix_reviewer_entry_exists(self) -> None:
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
-
-        assert "fix_reviewer" in ARCHETYPE_REGISTRY
-
-    def test_fix_reviewer_template(self) -> None:
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
-
-        entry = ARCHETYPE_REGISTRY["fix_reviewer"]
-        assert entry.templates == ["fix_reviewer.md"]
-
-    def test_fix_reviewer_model_tier(self) -> None:
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
-
-        entry = ARCHETYPE_REGISTRY["fix_reviewer"]
-        assert entry.default_model_tier == "ADVANCED"
-
-    def test_fix_reviewer_allowlist_includes_test_commands(self) -> None:
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
-
-        entry = ARCHETYPE_REGISTRY["fix_reviewer"]
-        assert entry.default_allowlist is not None
-        assert "uv" in entry.default_allowlist
-        assert "make" in entry.default_allowlist
-
-
-# ---------------------------------------------------------------------------
-# TS-82-7: Fix reviewer system prompt loads template
-# Requirement: 82-REQ-4.2
-# ---------------------------------------------------------------------------
-
-
-class TestFixReviewerSystemPrompt:
-    """Verify build_system_prompt loads fix_reviewer.md and interpolates."""
-
-    def test_prompt_contains_spec_name(self) -> None:
-        from agent_fox.session.prompt import build_system_prompt
-
-        prompt = build_system_prompt(
-            context="criteria context",
-            task_group=0,
-            spec_name="fix-issue-99",
-            archetype="fix_reviewer",
-        )
-        assert "fix-issue-99" in prompt
-
-    def test_prompt_contains_context(self) -> None:
-        from agent_fox.session.prompt import build_system_prompt
-
-        prompt = build_system_prompt(
-            context="criteria context",
-            task_group=0,
-            spec_name="fix-issue-99",
-            archetype="fix_reviewer",
-        )
-        assert "criteria context" in prompt
-
-    def test_prompt_references_verdict(self) -> None:
-        from agent_fox.session.prompt import build_system_prompt
-
-        prompt = build_system_prompt(
-            context="criteria context",
-            task_group=0,
-            spec_name="fix-issue-99",
-            archetype="fix_reviewer",
-        )
-        assert "verdict" in prompt.lower()
+# TestFixReviewerArchetypeRegistered and TestFixReviewerSystemPrompt removed:
+# fix_reviewer consolidated into reviewer archetype with mode="fix-review".

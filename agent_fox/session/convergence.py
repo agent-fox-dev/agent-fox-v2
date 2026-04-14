@@ -437,8 +437,7 @@ def converge_reviewer(
     elif mode == "fix-review":
         if len(results) != 1:
             raise ValueError(
-                f"fix-review mode does not support multi-instance convergence; "
-                f"expected 1 result, got {len(results)}"
+                f"fix-review mode does not support multi-instance convergence; expected 1 result, got {len(results)}"
             )
         return results[0]
     else:

@@ -320,7 +320,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""
@@ -386,7 +386,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""
@@ -456,7 +456,7 @@ class TestSuccessfulFixHarvestsAndCloses:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""
@@ -791,7 +791,7 @@ class TestReviewerRetryOnParseFailure:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 call_count += 1
                 if call_count == 1:
                     # First reviewer call: unparseable
@@ -856,7 +856,7 @@ class TestReviewerRetryOnParseFailure:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 # Always unparseable
                 outcome.response = "I looked at the code and everything seems fine."
             else:

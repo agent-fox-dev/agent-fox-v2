@@ -1,4 +1,4 @@
-"""Property tests for the oracle archetype.
+"""Property tests for the reviewer (drift-review mode) archetype.
 
 Test Spec: TS-32-P1 through TS-32-P8
 Requirements: Properties 1-8 from design.md
@@ -76,17 +76,19 @@ def _tgd(number: int, title: str = "T"):
 
 
 class TestPropertyRegistryCompleteness:
-    """Oracle registry entry always has required fields."""
+    """Reviewer registry entry always has required fields for drift-review mode."""
 
     def test_registry_completeness(self) -> None:
-        """TS-32-P1: Oracle entry has auto_pre, task_assignable, allowlist."""
+        """TS-32-P1: Reviewer entry with drift-review mode has auto_pre, task_assignable, allowlist."""
+        from agent_fox.archetypes import resolve_effective_config
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        entry = ARCHETYPE_REGISTRY["oracle"]
-        assert entry.injection == "auto_pre"
-        assert entry.task_assignable is True
-        assert entry.default_allowlist is not None
-        assert len(entry.default_allowlist) > 0
+        entry = ARCHETYPE_REGISTRY["reviewer"]
+        resolved = resolve_effective_config(entry, mode="drift-review")
+        assert resolved.injection == "auto_pre"
+        assert resolved.task_assignable is True
+        assert resolved.default_allowlist is not None
+        assert len(resolved.default_allowlist) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -97,17 +99,17 @@ class TestPropertyRegistryCompleteness:
 
 
 class TestPropertyMultiAutoPre:
-    """With both oracle and skeptic, auto_pre nodes are distinct."""
+    """With reviewer enabled, pre-review and drift-review auto_pre nodes are distinct."""
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @given(num_groups=st.integers(min_value=1, max_value=10))
     @settings(max_examples=10)
     def test_multi_auto_pre(self, num_groups: int) -> None:
-        """TS-32-P2: Two distinct auto_pre nodes, both with edges to first coder."""
+        """TS-32-P2: Two distinct auto_pre nodes (pre-review + drift-review), both with edges to first coder."""
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(oracle=True, skeptic=True)
+        config = ArchetypesConfig(reviewer=True)
         specs = [_spec()]
         task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, num_groups + 1)]}
 
@@ -140,31 +142,25 @@ class TestPropertyMultiAutoPre:
 
 
 class TestPropertyBackwardCompat:
-    """Single auto_pre archetype uses {spec}:0 format."""
+    """Reviewer auto_pre modes produce suffixed node IDs."""
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
-    @given(archetype=st.sampled_from(["oracle", "skeptic"]))
+    @given(num_groups=st.integers(min_value=1, max_value=3))
     @settings(max_examples=4)
-    def test_backward_compat(self, archetype: str) -> None:
-        """TS-32-P3: Single auto_pre uses {spec}:0 without suffix."""
+    def test_reviewer_nodes_have_mode_suffix(self, num_groups: int) -> None:
+        """TS-32-P3: Reviewer auto_pre nodes use suffixed IDs with mode."""
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        kwargs = {archetype: True}
-        # Ensure the other auto_pre is disabled
-        if archetype == "oracle":
-            kwargs["skeptic"] = False
-        else:
-            kwargs["oracle"] = False
-
-        config = ArchetypesConfig(**kwargs)  # type: ignore[arg-type]
+        config = ArchetypesConfig(reviewer=True)
         specs = [_spec()]
-        task_groups = {"spec": [_tgd(1, "T1")]}
+        task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, num_groups + 1)]}
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        assert "spec:0" in graph.nodes
-        assert not any(":0:" in nid for nid in graph.nodes)
+        auto_pre_nodes = [n for n in graph.nodes.values() if n.group_number == 0]
+        assert len(auto_pre_nodes) == 2
+        assert all(n.archetype == "reviewer" for n in auto_pre_nodes)
 
 
 # ---------------------------------------------------------------------------
@@ -384,25 +380,28 @@ class TestPropertyRenderCompleteness:
 
 
 class TestPropertyHotLoadInjection:
-    """Hot-loaded specs get oracle nodes in pending state."""
+    """Hot-loaded specs get reviewer nodes in pending state."""
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @given(num_specs=st.integers(min_value=1, max_value=5))
     @settings(max_examples=5)
     def test_hot_load_injection(self, num_specs: int) -> None:
-        """TS-32-P8: Each new spec gets an oracle node in pending state."""
+        """TS-32-P8: Each new spec gets reviewer nodes in pending state."""
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
         from agent_fox.graph.types import NodeStatus
 
-        config = ArchetypesConfig(oracle=True, skeptic=False)
+        config = ArchetypesConfig(reviewer=True)
         specs = [_spec(f"spec_{i}") for i in range(num_specs)]
         task_groups = {f"spec_{i}": [_tgd(1, f"T{i}")] for i in range(num_specs)}
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
         for i in range(num_specs):
-            oracle_id = f"spec_{i}:0"
-            assert oracle_id in graph.nodes, f"Missing oracle node {oracle_id}"
-            assert graph.nodes[oracle_id].archetype == "oracle"
-            assert graph.nodes[oracle_id].status == NodeStatus.PENDING
+            # Reviewer creates auto_pre nodes with mode suffixes
+            reviewer_nodes = [
+                n for n in graph.nodes.values() if n.spec_name == f"spec_{i}" and n.archetype == "reviewer"
+            ]
+            assert len(reviewer_nodes) > 0, f"Missing reviewer nodes for spec_{i}"
+            for node in reviewer_nodes:
+                assert node.status == NodeStatus.PENDING

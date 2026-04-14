@@ -208,11 +208,11 @@ class TestSupersession:
 # ---------------------------------------------------------------------------
 
 
-class TestHotLoadOracleInjection:
-    """Newly hot-loaded specs receive oracle nodes."""
+class TestHotLoadReviewerInjection:
+    """Newly hot-loaded specs receive reviewer nodes."""
 
-    def test_hot_load_oracle_injection(self) -> None:
-        """TS-32-13: Hot-loaded spec gets an oracle node in pending state.
+    def test_hot_load_reviewer_injection(self) -> None:
+        """TS-32-13: Hot-loaded spec gets reviewer nodes in pending state.
 
         This test validates the graph structure after injection.
         Full hot-load integration depends on task group 4 implementation.
@@ -222,10 +222,11 @@ class TestHotLoadOracleInjection:
 
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
+        from agent_fox.graph.types import NodeStatus
         from agent_fox.spec.discovery import SpecInfo
         from agent_fox.spec.parser import TaskGroupDef
 
-        config = ArchetypesConfig(oracle=True)
+        config = ArchetypesConfig(reviewer=True)
         new_spec = SpecInfo(
             name="new_feature",
             prefix=99,
@@ -253,10 +254,8 @@ class TestHotLoadOracleInjection:
             archetypes_config=config,
         )
 
-        # Oracle node should exist (suffixed because multiple auto_pre archetypes)
-        assert "new_feature:0:oracle" in graph.nodes
-        assert graph.nodes["new_feature:0:oracle"].archetype == "oracle"
-        # Should start as pending
-        from agent_fox.graph.types import NodeStatus
-
-        assert graph.nodes["new_feature:0:oracle"].status == NodeStatus.PENDING
+        # Reviewer nodes should exist (suffixed with mode identifiers)
+        reviewer_nodes = [n for n in graph.nodes.values() if n.spec_name == "new_feature" and n.archetype == "reviewer"]
+        assert len(reviewer_nodes) > 0, "Missing reviewer nodes for new_feature"
+        for node in reviewer_nodes:
+            assert node.status == NodeStatus.PENDING

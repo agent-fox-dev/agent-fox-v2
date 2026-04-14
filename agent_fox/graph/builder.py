@@ -74,16 +74,17 @@ def _inject_auto_mid_nodes(
 
             # Fractional group number to place between groups
             group_num = group.number
-            # Use a fractional ID: e.g. spec:1:auditor
-            node_id = f"{spec.name}:{group_num}:auditor"
+            # Use a mode-aware ID: e.g. spec:1:reviewer:audit-review
+            node_id = f"{spec.name}:{group_num}:reviewer:audit-review"
 
             nodes[node_id] = Node(
                 id=node_id,
                 spec_name=spec.name,
                 group_number=group_num,
-                title="Auditor Review",
+                title="Reviewer (audit-review)",
                 optional=False,
-                archetype="auditor",
+                archetype="reviewer",
+                mode="audit-review",
                 instances=instances if isinstance(instances, int) else 1,
             )
 
@@ -272,15 +273,26 @@ def _inject_archetype_nodes(
         use_suffix = len(enabled_auto_pre) > 1
 
         for arch in enabled_auto_pre:
-            node_id = f"{spec.name}:0:{arch.name}" if use_suffix else f"{spec.name}:0"
+            # Build unique node_id incorporating mode when present
+            if use_suffix:
+                mode_suffix = f":{arch.mode}" if arch.mode else ""
+                node_id = f"{spec.name}:0:{arch.name}{mode_suffix}"
+            else:
+                node_id = f"{spec.name}:0"
             instances = resolve_instances(archetypes_config, arch.name)
+            # Human-readable title with mode
+            if arch.mode:
+                title = f"{arch.name.capitalize()} ({arch.mode})"
+            else:
+                title = f"{arch.name.capitalize()} Review"
             nodes[node_id] = Node(
                 id=node_id,
                 spec_name=spec.name,
                 group_number=0,
-                title=f"{arch.name.capitalize()} Review",
+                title=title,
                 optional=False,
                 archetype=arch.name,
+                mode=arch.mode,
                 instances=instances,
             )
             # Edge from auto_pre node to first real group

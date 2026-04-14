@@ -96,9 +96,7 @@ class TestTraversalMaxDepth:
     Requirement: 95-REQ-6.1
     """
 
-    def test_linear_graph_traversal_max_depth_2(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_linear_graph_traversal_max_depth_2(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Linear A->B->C->D: traversal from A with depth=2 returns A,B,C not D."""
         a = _make_entity("a.py", "src/a.py")
         b = _make_entity("b.py", "src/b.py")
@@ -134,9 +132,7 @@ class TestTraversalMaxEntities:
     Requirement: 95-REQ-6.2
     """
 
-    def test_star_graph_max_entities_5(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_star_graph_max_entities_5(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Star graph A->B1..B10: traversal with max_entities=5 returns 5 entities."""
         a = _make_entity("a.py", "src/a.py")
         a_id = _upsert(entity_conn, a)
@@ -162,9 +158,7 @@ class TestTraversalRelationshipFilter:
     Requirement: 95-REQ-6.3
     """
 
-    def test_filter_by_imports_excludes_contains(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_filter_by_imports_excludes_contains(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Traversal filtered to IMPORTS excludes entities reached only via CONTAINS."""
         a = _make_entity("a.py", "src/a.py")
         b = _make_entity("b.py", "src/b.py")
@@ -177,9 +171,7 @@ class TestTraversalRelationshipFilter:
         _add_edge(entity_conn, a_id, b_id, EdgeType.CONTAINS)
         _add_edge(entity_conn, a_id, c_id, EdgeType.IMPORTS)
 
-        result = traverse_neighbors(
-            entity_conn, [a_id], relationship_types=[EdgeType.IMPORTS]
-        )
+        result = traverse_neighbors(entity_conn, [a_id], relationship_types=[EdgeType.IMPORTS])
         result_ids = {e.id for e in result}
 
         assert c_id in result_ids
@@ -197,9 +189,7 @@ class TestGetFactsForEntities:
     Requirement: 95-REQ-6.4
     """
 
-    def test_returns_active_facts_excludes_superseded(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_returns_active_facts_excludes_superseded(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Active fact F1 returned; superseded fact F2 excluded."""
         entity = _make_entity("e.py", "src/e.py")
         entity_id = _upsert(entity_conn, entity)
@@ -233,9 +223,7 @@ class TestFindRelatedFacts:
     Requirement: 95-REQ-6.5
     """
 
-    def test_find_related_facts_returns_linked_facts(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_find_related_facts_returns_linked_facts(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Facts linked to file entity and its class entity are returned."""
         file_entity = _make_entity("foo.py", "src/foo.py")
         class_entity = _make_entity("Foo", "src/foo.py", EntityType.CLASS)
@@ -258,9 +246,7 @@ class TestFindRelatedFacts:
         assert f1_id in fact_ids
         assert f2_id in fact_ids
 
-    def test_find_related_facts_deduplicates(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_find_related_facts_deduplicates(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Facts linked to multiple entities appear only once in results."""
         file_entity = _make_entity("foo.py", "src/foo.py")
         class_entity = _make_entity("Foo", "src/foo.py", EntityType.CLASS)
@@ -293,16 +279,12 @@ class TestTraversalNoMatchingEntities:
     Requirement: 95-REQ-6.E1
     """
 
-    def test_nonexistent_path_returns_empty_list(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_nonexistent_path_returns_empty_list(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """find_related_facts returns [] for a path with no matching entity."""
         facts = find_related_facts(entity_conn, "nonexistent.py")
         assert facts == []
 
-    def test_empty_entity_ids_returns_empty_list(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_empty_entity_ids_returns_empty_list(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """traverse_neighbors returns [] for an empty entity_ids list."""
         result = traverse_neighbors(entity_conn, [])
         assert result == []
@@ -319,9 +301,7 @@ class TestTraversalExcludesSoftDeleted:
     Requirement: 95-REQ-6.E2
     """
 
-    def test_soft_deleted_neighbor_excluded(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_soft_deleted_neighbor_excluded(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Entity A (active) with edge to B (soft-deleted): traversal returns only A."""
         a = _make_entity("a.py", "src/a.py")
         b = _make_entity("b.py", "src/b.py")
@@ -342,9 +322,7 @@ class TestTraversalExcludesSoftDeleted:
         assert a_id in result_ids
         assert b_id not in result_ids
 
-    def test_include_deleted_flag_includes_soft_deleted(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_include_deleted_flag_includes_soft_deleted(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """With include_deleted=True, soft-deleted entities appear in traversal."""
         a = _make_entity("a.py", "src/a.py")
         b = _make_entity("b.py", "src/b.py")

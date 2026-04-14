@@ -24,9 +24,7 @@ from agent_fox.workspace.init_project import (
 logger = logging.getLogger(__name__)
 
 # Package-embedded default profiles directory (mirrors profiles.py resolution)
-_DEFAULT_PROFILES_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "_templates" / "profiles"
-)
+_DEFAULT_PROFILES_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "profiles"
 
 
 def init_profiles(project_dir: Path) -> list[Path]:

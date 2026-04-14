@@ -68,9 +68,7 @@ class TestCollectEnabledAutoPreReviewerModes:
         try:
             names_and_modes = [(e.name, e.mode) for e in entries]
         except AttributeError as err:
-            pytest.fail(
-                f"ArchetypeEntry in injection.py lacks 'mode' field: {err}"
-            )
+            pytest.fail(f"ArchetypeEntry in injection.py lacks 'mode' field: {err}")
 
         assert ("reviewer", "pre-review") in names_and_modes, (
             f"Expected ('reviewer', 'pre-review') in entries, got {names_and_modes}"
@@ -88,12 +86,10 @@ class TestCollectEnabledAutoPreReviewerModes:
 
         old_names = {e.name for e in entries}
         assert "skeptic" not in old_names, (
-            f"'skeptic' should not be in auto_pre entries after consolidation, "
-            f"got {old_names}"
+            f"'skeptic' should not be in auto_pre entries after consolidation, got {old_names}"
         )
         assert "oracle" not in old_names, (
-            f"'oracle' should not be in auto_pre entries after consolidation, "
-            f"got {old_names}"
+            f"'oracle' should not be in auto_pre entries after consolidation, got {old_names}"
         )
 
     def test_reviewer_enable_check(self) -> None:
@@ -104,9 +100,7 @@ class TestCollectEnabledAutoPreReviewerModes:
         config_off = _make_reviewer_config(reviewer=False)
         entries_off = collect_enabled_auto_pre(config_off)
         reviewer_names = [e.name for e in entries_off if e.name == "reviewer"]
-        assert len(reviewer_names) == 0, (
-            f"Expected no reviewer entries when reviewer=False, got {reviewer_names}"
-        )
+        assert len(reviewer_names) == 0, f"Expected no reviewer entries when reviewer=False, got {reviewer_names}"
 
 
 # ---------------------------------------------------------------------------
@@ -127,18 +121,13 @@ class TestInjectReviewerModeNodes:
         config = _make_reviewer_config(reviewer=True)
         ensure_graph_archetypes(graph, config)
 
-        reviewer_nodes = [
-            n for n in graph.nodes.values() if n.archetype == "reviewer"
-        ]
+        reviewer_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer"]
         assert len(reviewer_nodes) >= 1, (
-            f"Expected at least one reviewer node, got nodes: "
-            f"{[(n.archetype, n.mode) for n in graph.nodes.values()]}"
+            f"Expected at least one reviewer node, got nodes: {[(n.archetype, n.mode) for n in graph.nodes.values()]}"
         )
 
         modes = {n.mode for n in reviewer_nodes}
-        assert "pre-review" in modes, (
-            f"Expected 'pre-review' mode in reviewer nodes, got modes: {modes}"
-        )
+        assert "pre-review" in modes, f"Expected 'pre-review' mode in reviewer nodes, got modes: {modes}"
 
     def test_no_old_archetype_nodes(self) -> None:
         """TS-98-9: After injection, no nodes with archetype 'skeptic' or 'oracle'."""
@@ -151,12 +140,10 @@ class TestInjectReviewerModeNodes:
 
         all_archetypes = {n.archetype for n in graph.nodes.values()}
         assert "skeptic" not in all_archetypes, (
-            f"'skeptic' should not appear as a node archetype after consolidation, "
-            f"got archetypes: {all_archetypes}"
+            f"'skeptic' should not appear as a node archetype after consolidation, got archetypes: {all_archetypes}"
         )
         assert "oracle" not in all_archetypes, (
-            f"'oracle' should not appear as a node archetype after consolidation, "
-            f"got archetypes: {all_archetypes}"
+            f"'oracle' should not appear as a node archetype after consolidation, got archetypes: {all_archetypes}"
         )
 
 
@@ -193,12 +180,10 @@ class TestDriftReviewGating:
                     pytest.fail("ArchetypeEntry lacks 'mode' field")
 
         assert "pre-review" in reviewer_modes, (
-            f"pre-review should still be injected when spec has no code, "
-            f"got modes: {reviewer_modes}"
+            f"pre-review should still be injected when spec has no code, got modes: {reviewer_modes}"
         )
         assert "drift-review" not in reviewer_modes, (
-            f"drift-review should be skipped when spec has no existing code, "
-            f"got modes: {reviewer_modes}"
+            f"drift-review should be skipped when spec has no existing code, got modes: {reviewer_modes}"
         )
 
     def test_drift_gating_has_code_spec(self, tmp_path: Path) -> None:
@@ -227,6 +212,5 @@ class TestDriftReviewGating:
                     pytest.fail("ArchetypeEntry lacks 'mode' field")
 
         assert "drift-review" in reviewer_modes, (
-            f"drift-review should be included when spec references existing code, "
-            f"got modes: {reviewer_modes}"
+            f"drift-review should be included when spec references existing code, got modes: {reviewer_modes}"
         )

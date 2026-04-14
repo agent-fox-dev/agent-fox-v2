@@ -37,13 +37,13 @@ class TestClampInstances:
         assert clamp_instances("coder", 1) == 1
 
     def test_non_coder_max_five(self) -> None:
-        assert clamp_instances("skeptic", 10) == 5
+        assert clamp_instances("reviewer", 10) == 5
 
     def test_non_coder_min_one(self) -> None:
         assert clamp_instances("verifier", 0) == 1
 
     def test_valid_value_unchanged(self) -> None:
-        assert clamp_instances("skeptic", 3) == 3
+        assert clamp_instances("reviewer", 3) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -65,10 +65,10 @@ class TestResolveModelTier:
         runner = NodeSessionRunner("spec:1", config, knowledge_db=_MOCK_KB)
         assert runner._resolved_model_id == "claude-haiku-4-5"
 
-    def test_skeptic_defaults_to_advanced(self) -> None:
-        """Skeptic archetype defaults to ADVANCED from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB)
-        assert runner._resolved_model_id == "claude-opus-4-6"
+    def test_reviewer_defaults_to_standard(self) -> None:
+        """Reviewer archetype defaults to STANDARD from the registry."""
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="reviewer", knowledge_db=_MOCK_KB)
+        assert runner._resolved_model_id == "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +84,9 @@ class TestResolveSecurityConfig:
         runner = NodeSessionRunner("spec:1", AgentFoxConfig(), knowledge_db=_MOCK_KB)
         assert runner._resolved_security is None
 
-    def test_skeptic_returns_default_allowlist(self) -> None:
-        """Skeptic has a default allowlist from the registry."""
-        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="skeptic", knowledge_db=_MOCK_KB)
+    def test_triage_returns_default_allowlist(self) -> None:
+        """Triage has a default allowlist from the registry."""
+        runner = NodeSessionRunner("spec:1", AgentFoxConfig(), archetype="triage", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist is not None
         assert "ls" in runner._resolved_security.bash_allowlist
@@ -94,8 +94,8 @@ class TestResolveSecurityConfig:
 
     def test_config_allowlist_overrides_registry(self) -> None:
         """Config allowlist override takes priority over registry default."""
-        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"skeptic": ["echo", "pwd"]}))
-        runner = NodeSessionRunner("spec:1", config, archetype="skeptic", knowledge_db=_MOCK_KB)
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"triage": ["echo", "pwd"]}))
+        runner = NodeSessionRunner("spec:1", config, archetype="triage", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["echo", "pwd"]
 

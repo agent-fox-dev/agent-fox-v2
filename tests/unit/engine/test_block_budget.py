@@ -17,9 +17,8 @@ import pytest
 
 from agent_fox.core.config import (
     ArchetypesConfig,
-    OracleSettings,
     OrchestratorConfig,
-    SkepticConfig,
+    ReviewerConfig,
 )
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import RunStatus
@@ -37,21 +36,22 @@ def _wide_plan(plan_dir: Path, n: int = 5) -> Path:
     return write_plan_file(plan_dir, nodes=nodes, edges=[])
 
 
-def _chain_with_skeptic(plan_dir: Path) -> Path:
-    """Create a plan: skeptic -> coder -> verifier.
+def _chain_with_reviewer(plan_dir: Path) -> Path:
+    """Create a plan: reviewer:pre-review -> coder -> verifier.
 
-    skeptic node: spec_a:1:skeptic
+    reviewer node: spec_a:0:reviewer:pre-review
     coder node: spec_a:1
     verifier node: spec_a:1:verifier
     """
     return write_plan_file(
         plan_dir,
         nodes={
-            "spec_a:1:skeptic": {
-                "title": "Skeptic review",
+            "spec_a:0:reviewer:pre-review": {
+                "title": "Reviewer (pre-review)",
                 "spec_name": "spec_a",
-                "group_number": 1,
-                "archetype": "skeptic",
+                "group_number": 0,
+                "archetype": "reviewer",
+                "mode": "pre-review",
             },
             "spec_a:1": {
                 "title": "Implement spec_a",
@@ -68,7 +68,7 @@ def _chain_with_skeptic(plan_dir: Path) -> Path:
         },
         edges=[
             {
-                "source": "spec_a:1:skeptic",
+                "source": "spec_a:0:reviewer:pre-review",
                 "target": "spec_a:1",
                 "kind": "intra_spec",
             },
@@ -78,7 +78,7 @@ def _chain_with_skeptic(plan_dir: Path) -> Path:
                 "kind": "intra_spec",
             },
         ],
-        order=["spec_a:1:skeptic", "spec_a:1", "spec_a:1:verifier"],
+        order=["spec_a:0:reviewer:pre-review", "spec_a:1", "spec_a:1:verifier"],
     )
 
 
@@ -205,23 +205,22 @@ class TestSkepticBlocking:
     """Tests for skeptic/oracle blocking integration in the engine."""
 
     @pytest.mark.asyncio
-    async def test_skeptic_blocks_coder_on_critical_findings(
+    async def test_reviewer_blocks_coder_on_critical_findings(
         self,
         tmp_plan_dir: Path,
         tmp_state_path: Path,
     ) -> None:
-        """When skeptic finds criticals above threshold, coder is blocked."""
-        plan_path = _chain_with_skeptic(tmp_plan_dir)
+        """When reviewer:pre-review finds criticals above threshold, coder is blocked."""
+        plan_path = _chain_with_reviewer(tmp_plan_dir)
 
         runner = MockSessionRunner()
-        # Skeptic session completes successfully
         runner.configure(
-            "spec_a:1:skeptic",
+            "spec_a:0:reviewer:pre-review",
             [
                 MockSessionOutcome(
-                    "spec_a:1:skeptic",
+                    "spec_a:0:reviewer:pre-review",
                     "completed",
-                    archetype="skeptic",
+                    archetype="reviewer",
                 )
             ],
         )
@@ -236,8 +235,8 @@ class TestSkepticBlocking:
 
         mock_conn = MagicMock()
 
-        archetypes_config = ArchetypesConfig(  # type: ignore[call-arg]
-            skeptic_config=SkepticConfig(block_threshold=3),
+        archetypes_config = ArchetypesConfig(
+            reviewer_config=ReviewerConfig(pre_review_block_threshold=3),
         )
 
         config = OrchestratorConfig(
@@ -267,22 +266,22 @@ class TestSkepticBlocking:
         assert state.node_states["spec_a:1:verifier"] == "blocked"
 
     @pytest.mark.asyncio
-    async def test_skeptic_does_not_block_below_threshold(
+    async def test_reviewer_does_not_block_below_threshold(
         self,
         tmp_plan_dir: Path,
         tmp_state_path: Path,
     ) -> None:
         """When critical count <= threshold, coder proceeds normally."""
-        plan_path = _chain_with_skeptic(tmp_plan_dir)
+        plan_path = _chain_with_reviewer(tmp_plan_dir)
 
         runner = MockSessionRunner()
         runner.configure(
-            "spec_a:1:skeptic",
+            "spec_a:0:reviewer:pre-review",
             [
                 MockSessionOutcome(
-                    "spec_a:1:skeptic",
+                    "spec_a:0:reviewer:pre-review",
                     "completed",
-                    archetype="skeptic",
+                    archetype="reviewer",
                 )
             ],
         )
@@ -304,8 +303,8 @@ class TestSkepticBlocking:
             mock_findings.append(finding)
 
         mock_conn = MagicMock()
-        archetypes_config = ArchetypesConfig(  # type: ignore[call-arg]
-            skeptic_config=SkepticConfig(block_threshold=3),
+        archetypes_config = ArchetypesConfig(
+            reviewer_config=ReviewerConfig(pre_review_block_threshold=3),
         )
 
         config = OrchestratorConfig(
@@ -331,20 +330,21 @@ class TestSkepticBlocking:
         assert state.node_states["spec_a:1"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_oracle_advisory_mode_does_not_block(
+    async def test_drift_review_advisory_mode_does_not_block(
         self,
         tmp_plan_dir: Path,
         tmp_state_path: Path,
     ) -> None:
-        """Oracle with block_threshold=None is advisory-only."""
+        """Drift-review with block_threshold=None is advisory-only."""
         plan_path = write_plan_file(
             tmp_plan_dir,
             nodes={
-                "spec_a:1:oracle": {
-                    "title": "Oracle review",
+                "spec_a:0:reviewer:drift-review": {
+                    "title": "Reviewer (drift-review)",
                     "spec_name": "spec_a",
-                    "group_number": 1,
-                    "archetype": "oracle",
+                    "group_number": 0,
+                    "archetype": "reviewer",
+                    "mode": "drift-review",
                 },
                 "spec_a:1": {
                     "title": "Implement",
@@ -355,22 +355,22 @@ class TestSkepticBlocking:
             },
             edges=[
                 {
-                    "source": "spec_a:1:oracle",
+                    "source": "spec_a:0:reviewer:drift-review",
                     "target": "spec_a:1",
                     "kind": "intra_spec",
                 },
             ],
-            order=["spec_a:1:oracle", "spec_a:1"],
+            order=["spec_a:0:reviewer:drift-review", "spec_a:1"],
         )
 
         runner = MockSessionRunner()
         runner.configure(
-            "spec_a:1:oracle",
+            "spec_a:0:reviewer:drift-review",
             [
                 MockSessionOutcome(
-                    "spec_a:1:oracle",
+                    "spec_a:0:reviewer:drift-review",
                     "completed",
-                    archetype="oracle",
+                    archetype="reviewer",
                 )
             ],
         )
@@ -379,11 +379,11 @@ class TestSkepticBlocking:
             [MockSessionOutcome("spec_a:1", "completed")],
         )
 
-        # Many criticals but oracle is advisory
+        # Many criticals but drift-review is advisory (threshold=None)
         mock_findings = [MagicMock(severity="critical") for _ in range(10)]
         mock_conn = MagicMock()
         archetypes_config = ArchetypesConfig(
-            oracle_settings=OracleSettings(block_threshold=None),
+            reviewer_config=ReviewerConfig(drift_review_block_threshold=None),
         )
 
         config = OrchestratorConfig(
@@ -414,17 +414,17 @@ class TestSkepticBlocking:
         tmp_plan_dir: Path,
         tmp_state_path: Path,
     ) -> None:
-        """Without a knowledge DB connection, skeptic blocking is skipped."""
-        plan_path = _chain_with_skeptic(tmp_plan_dir)
+        """Without a knowledge DB connection, reviewer blocking is skipped."""
+        plan_path = _chain_with_reviewer(tmp_plan_dir)
 
         runner = MockSessionRunner()
         runner.configure(
-            "spec_a:1:skeptic",
+            "spec_a:0:reviewer:pre-review",
             [
                 MockSessionOutcome(
-                    "spec_a:1:skeptic",
+                    "spec_a:0:reviewer:pre-review",
                     "completed",
-                    archetype="skeptic",
+                    archetype="reviewer",
                 )
             ],
         )

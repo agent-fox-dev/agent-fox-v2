@@ -177,14 +177,10 @@ def test_upsert_idempotency(
     Property 2 from design.md; Requirements: 95-REQ-1.E1, 95-REQ-2.4, 95-REQ-3.3
     """
     ids_first = set(upsert_entities(entity_conn, entities))
-    count_first = entity_conn.execute(
-        "SELECT COUNT(*) FROM entity_graph"
-    ).fetchone()[0]
+    count_first = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()[0]
 
     ids_second = set(upsert_entities(entity_conn, entities))
-    count_second = entity_conn.execute(
-        "SELECT COUNT(*) FROM entity_graph"
-    ).fetchone()[0]
+    count_second = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()[0]
 
     assert ids_first == ids_second, "Same entities should produce same IDs"
     assert count_first == count_second, "Entity count should not grow on re-upsert"
@@ -285,13 +281,9 @@ def test_soft_delete_exclusion(
     result_ids = {e.id for e in result}
 
     for did in deleted_ids:
-        assert did not in result_ids, (
-            f"Soft-deleted entity {did} appeared in default traversal"
-        )
+        assert did not in result_ids, f"Soft-deleted entity {did} appeared in default traversal"
     for e in result:
-        assert e.deleted_at is None, (
-            f"Entity with deleted_at={e.deleted_at} appeared in default traversal"
-        )
+        assert e.deleted_at is None, f"Entity with deleted_at={e.deleted_at} appeared in default traversal"
 
 
 # ---------------------------------------------------------------------------
@@ -320,11 +312,13 @@ def test_referential_integrity(
     for i in range(len(entity_ids) - 1):
         upsert_edges(
             entity_conn,
-            [EntityEdge(
-                source_id=entity_ids[i],
-                target_id=entity_ids[i + 1],
-                relationship=EdgeType.CONTAINS,
-            )],
+            [
+                EntityEdge(
+                    source_id=entity_ids[i],
+                    target_id=entity_ids[i + 1],
+                    relationship=EdgeType.CONTAINS,
+                )
+            ],
         )
 
     # Add fact-entity links
@@ -334,23 +328,15 @@ def test_referential_integrity(
         create_fact_entity_links(entity_conn, fact_id, [entity_ids[0]])
 
     # Verify all edges reference existing entities
-    edges = entity_conn.execute(
-        "SELECT source_id, target_id FROM entity_edges"
-    ).fetchall()
-    existing_entity_ids = {
-        str(r[0])
-        for r in entity_conn.execute("SELECT id FROM entity_graph").fetchall()
-    }
+    edges = entity_conn.execute("SELECT source_id, target_id FROM entity_edges").fetchall()
+    existing_entity_ids = {str(r[0]) for r in entity_conn.execute("SELECT id FROM entity_graph").fetchall()}
     for src_id, tgt_id in edges:
         assert str(src_id) in existing_entity_ids, f"Edge source {src_id} not in entity_graph"
         assert str(tgt_id) in existing_entity_ids, f"Edge target {tgt_id} not in entity_graph"
 
     # Verify all fact-entity links reference existing entities and facts
     links = entity_conn.execute("SELECT fact_id, entity_id FROM fact_entities").fetchall()
-    existing_fact_ids = {
-        str(r[0])
-        for r in entity_conn.execute("SELECT id FROM memory_facts").fetchall()
-    }
+    existing_fact_ids = {str(r[0]) for r in entity_conn.execute("SELECT id FROM memory_facts").fetchall()}
     for fid, eid in links:
         assert str(fid) in existing_fact_ids, f"Link fact_id {fid} not in memory_facts"
         assert str(eid) in existing_entity_ids, f"Link entity_id {eid} not in entity_graph"
@@ -406,19 +392,13 @@ def test_gc_cascade_completeness(
             "SELECT COUNT(*) FROM entity_edges WHERE source_id = ? OR target_id = ?",
             [stale_id, stale_id],
         ).fetchone()[0]
-        assert edge_count == 0, (
-            f"Edge still references hard-deleted entity {stale_id}"
-        )
+        assert edge_count == 0, f"Edge still references hard-deleted entity {stale_id}"
 
         link_count = entity_conn.execute(
             "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?",
             [stale_id],
         ).fetchone()[0]
-        assert link_count == 0, (
-            f"Fact link still references hard-deleted entity {stale_id}"
-        )
+        assert link_count == 0, f"Fact link still references hard-deleted entity {stale_id}"
 
-        entity_row = entity_conn.execute(
-            "SELECT id FROM entity_graph WHERE id = ?", [stale_id]
-        ).fetchone()
+        entity_row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [stale_id]).fetchone()
         assert entity_row is None, f"Stale entity {stale_id} still in entity_graph after GC"

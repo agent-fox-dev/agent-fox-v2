@@ -24,16 +24,14 @@ class TestArchetypeToggles:
 
         cfg = ArchetypesConfig()
         assert cfg.coder is True
-        assert cfg.skeptic is True
+        assert cfg.reviewer is True
         assert cfg.verifier is True
-        assert cfg.oracle is True
-        assert cfg.auditor is True
 
-    def test_disable_skeptic(self) -> None:
+    def test_disable_reviewer(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
 
-        cfg = ArchetypesConfig(skeptic=False, verifier=True)
-        assert cfg.skeptic is False
+        cfg = ArchetypesConfig(reviewer=False, verifier=True)
+        assert cfg.reviewer is False
         assert cfg.verifier is True
         assert cfg.coder is True  # always
 
@@ -51,27 +49,27 @@ class TestInstanceCounts:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
         cfg = ArchetypeInstancesConfig()
-        assert cfg.skeptic == 1
-        assert cfg.verifier == 2  # default changed from 1 to 2 (spec 68-REQ-2.6)
+        assert cfg.reviewer == 1
+        assert cfg.verifier == 1  # 98-REQ-6.2: single instance
 
     def test_custom_instances(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        cfg = ArchetypeInstancesConfig(skeptic=3, verifier=2)
-        assert cfg.skeptic == 3
-        assert cfg.verifier == 2
+        cfg = ArchetypeInstancesConfig(reviewer=3, verifier=1)
+        assert cfg.reviewer == 3
+        assert cfg.verifier == 1
 
     def test_instance_clamped_to_5(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        cfg = ArchetypeInstancesConfig(skeptic=10)
-        assert cfg.skeptic == 5
+        cfg = ArchetypeInstancesConfig(reviewer=10)
+        assert cfg.reviewer == 5
 
     def test_instance_clamped_to_1(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        cfg = ArchetypeInstancesConfig(skeptic=0)
-        assert cfg.skeptic == 1
+        cfg = ArchetypeInstancesConfig(reviewer=0)
+        assert cfg.reviewer == 1
 
 
 # ---------------------------------------------------------------------------
@@ -86,8 +84,8 @@ class TestModelTierOverride:
     def test_model_override_stored(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
 
-        cfg = ArchetypesConfig(models={"skeptic": "SIMPLE"})
-        assert cfg.models["skeptic"] == "SIMPLE"
+        cfg = ArchetypesConfig(models={"reviewer": "SIMPLE"})
+        assert cfg.models["reviewer"] == "SIMPLE"
 
     def test_empty_models_default(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
@@ -108,8 +106,8 @@ class TestAllowlistOverride:
     def test_allowlist_override_stored(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
 
-        cfg = ArchetypesConfig(allowlists={"skeptic": ["ls", "cat"]})
-        assert cfg.allowlists["skeptic"] == ["ls", "cat"]
+        cfg = ArchetypesConfig(allowlists={"reviewer": ["ls", "cat"]})
+        assert cfg.allowlists["reviewer"] == ["ls", "cat"]
 
     def test_empty_allowlists_default(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
@@ -152,8 +150,8 @@ class TestMissingArchetypesSection:
         # AgentFoxConfig without archetypes should use defaults
         cfg = AgentFoxConfig()
         assert cfg.archetypes.coder is True
-        assert cfg.archetypes.skeptic is True
-        assert cfg.archetypes.instances.skeptic == 1
+        assert cfg.archetypes.reviewer is True
+        assert cfg.archetypes.instances.reviewer == 1
 
     def test_load_config_without_archetypes(
         self,
@@ -166,5 +164,5 @@ class TestMissingArchetypesSection:
 
         cfg = load_config(config_path)
         assert cfg.archetypes.coder is True
-        assert cfg.archetypes.skeptic is True
-        assert cfg.archetypes.instances.skeptic == 1
+        assert cfg.archetypes.reviewer is True
+        assert cfg.archetypes.instances.reviewer == 1

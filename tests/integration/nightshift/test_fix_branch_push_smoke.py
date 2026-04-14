@@ -101,7 +101,7 @@ def _make_session_runner(reviewer_outcome: str = "PASS") -> Any:
     async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
         if archetype == "triage":
             return _make_outcome(_triage_json(2))
-        if archetype == "fix_reviewer":
+        if archetype == "reviewer":
             return _make_outcome(_review_json(reviewer_outcome, ["AC-1", "AC-2"]))
         return _make_outcome()  # coder
 

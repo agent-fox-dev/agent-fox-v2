@@ -51,9 +51,7 @@ def test_frontmatter_stripping(tmp_path: Path) -> None:
 
     profiles_dir = tmp_path / ".agent-fox" / "profiles"
     profiles_dir.mkdir(parents=True)
-    (profiles_dir / "test_arch.md").write_text(
-        "---\nname: test\n---\n# Profile Content"
-    )
+    (profiles_dir / "test_arch.md").write_text("---\nname: test\n---\n# Profile Content")
 
     content = load_profile("test_arch", project_dir=tmp_path)
 
@@ -85,9 +83,7 @@ def test_missing_profile(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> No
         content = load_profile("nonexistent_archetype", project_dir=tmp_path)
 
     assert content == ""
-    assert any(
-        "nonexistent_archetype" in record.message for record in caplog.records
-    )
+    assert any("nonexistent_archetype" in record.message for record in caplog.records)
 
 
 def test_none_project_dir() -> None:

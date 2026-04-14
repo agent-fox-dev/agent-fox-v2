@@ -61,9 +61,7 @@ def _archetype_entry_strategy():  # type: ignore[return]
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "task_assignable": st.booleans(),
             "retry_predecessor": st.booleans(),
-            "default_allowlist": st.one_of(
-                st.none(), st.lists(st.text(min_size=1, max_size=10), max_size=5)
-            ),
+            "default_allowlist": st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=10), max_size=5)),
             "default_max_turns": st.integers(min_value=1, max_value=500),
             "default_thinking_mode": st.sampled_from(_VALID_THINKING_MODES),
             "default_thinking_budget": st.integers(min_value=1000, max_value=100000),
@@ -96,9 +94,7 @@ class TestModeOverrideSemantics:
 
     @given(base_params=_archetype_entry_strategy(), mode_params=_mode_config_strategy())
     @settings(max_examples=50)
-    def test_non_none_mode_fields_override_base(
-        self, base_params: dict, mode_params: dict
-    ) -> None:
+    def test_non_none_mode_fields_override_base(self, base_params: dict, mode_params: dict) -> None:
         """For any non-None field in ModeConfig, resolved entry has that value."""
         from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
 
@@ -127,9 +123,7 @@ class TestModeInheritanceSemantics:
 
     @given(base_params=_archetype_entry_strategy(), mode_params=_mode_config_strategy())
     @settings(max_examples=50)
-    def test_none_mode_fields_inherit_base(
-        self, base_params: dict, mode_params: dict
-    ) -> None:
+    def test_none_mode_fields_inherit_base(self, base_params: dict, mode_params: dict) -> None:
         """For any None field in ModeConfig, resolved entry has the base value."""
         from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
 
@@ -181,9 +175,7 @@ class TestNullModeIdentity:
         ]:
             base_val = getattr(entry, entry_field)
             resolved_val = getattr(resolved, entry_field)
-            assert resolved_val == base_val, (
-                f"Field {entry_field!r}: expected {base_val!r}, got {resolved_val!r}"
-            )
+            assert resolved_val == base_val, f"Field {entry_field!r}: expected {base_val!r}, got {resolved_val!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -279,9 +271,7 @@ class TestEmptyAllowlistBlocksAll:
 
         hook = make_pre_tool_use_hook(SecurityConfig(bash_allowlist=[]))
         result = hook(tool_name="Bash", tool_input={"command": safe_cmd})
-        assert result["decision"] == "block", (
-            f"Expected block for command {safe_cmd!r}, got {result['decision']!r}"
-        )
+        assert result["decision"] == "block", f"Expected block for command {safe_cmd!r}, got {result['decision']!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +310,4 @@ class TestSerializationRoundTrip:
         )
         serialized = _serialize(node)
         deserialized = _node_from_dict(serialized)
-        assert deserialized.mode == mode, (
-            f"Round-trip failed: expected mode {mode!r}, got {deserialized.mode!r}"
-        )
+        assert deserialized.mode == mode, f"Round-trip failed: expected mode {mode!r}, got {deserialized.mode!r}"

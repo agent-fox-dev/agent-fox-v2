@@ -101,9 +101,7 @@ class TestGitDiffPathExtraction:
     Requirement: 95-REQ-5.1
     """
 
-    def test_git_diff_called_with_commit_sha(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_git_diff_called_with_commit_sha(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """_extract_paths_from_diff is called with the fact's commit_sha."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id, commit_sha="abc123")
@@ -146,9 +144,7 @@ class TestFactEntityLinkCreationFromDiff:
     Requirement: 95-REQ-5.2
     """
 
-    def test_links_created_for_matched_files(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_links_created_for_matched_files(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Two fact-entity rows are created when diff returns two matching paths."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id, commit_sha="abc123")
@@ -176,9 +172,7 @@ class TestFactEntityLinkCreationFromDiff:
         with patch("subprocess.run", return_value=mock_result):
             link_facts(entity_conn, [fact], tmp_path)
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
         assert count == 2
 
 
@@ -193,9 +187,7 @@ class TestLinkResultCounts:
     Requirement: 95-REQ-5.3
     """
 
-    def test_link_result_has_correct_counts(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_link_result_has_correct_counts(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """LinkResult reflects one processed, one skipped, one link created."""
         fact_with_sha_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_with_sha_id, commit_sha="abc123")
@@ -252,9 +244,7 @@ class TestSkipFactsWithoutCommitSha:
     Requirement: 95-REQ-5.4
     """
 
-    def test_null_commit_sha_skipped(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_null_commit_sha_skipped(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Fact with commit_sha=None increments facts_skipped."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id, commit_sha=None)
@@ -340,9 +330,7 @@ class TestUnmatchedDiffPaths:
     Requirement: 95-REQ-5.E2
     """
 
-    def test_unmatched_paths_create_no_links(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_unmatched_paths_create_no_links(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """No links created when git diff returns paths not in entity_graph."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id, commit_sha="abc123")

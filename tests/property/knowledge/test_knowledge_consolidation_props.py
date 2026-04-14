@@ -83,9 +83,7 @@ def _insert_entity(conn: duckdb.DuckDBPyConnection, entity_id: str, entity_path:
     )
 
 
-def _link_fact_entity(
-    conn: duckdb.DuckDBPyConnection, fact_id: str, entity_id: str
-) -> None:
+def _link_fact_entity(conn: duckdb.DuckDBPyConnection, fact_id: str, entity_id: str) -> None:
     """Link fact to entity."""
     conn.execute(
         "INSERT INTO fact_entities (fact_id, entity_id) VALUES (?, ?)",
@@ -93,9 +91,7 @@ def _link_fact_entity(
     )
 
 
-def _insert_edge(
-    conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str
-) -> None:
+def _insert_edge(conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str) -> None:
     """Insert causal edge."""
     conn.execute(
         "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?, ?)",
@@ -103,9 +99,7 @@ def _insert_edge(
     )
 
 
-def _edge_exists(
-    conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str
-) -> bool:
+def _edge_exists(conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str) -> bool:
     """Check causal edge existence."""
     row = conn.execute(
         "SELECT 1 FROM fact_causes WHERE cause_id = ? AND effect_id = ?",
@@ -184,9 +178,7 @@ def test_step_independence(failure_mask: int, entity_conn: duckdb.DuckDBPyConnec
             patch(
                 "agent_fox.knowledge.consolidation._refresh_entity_graph",
                 side_effect=(
-                    RuntimeError("forced entity_refresh failure")
-                    if failure_mask & 1
-                    else MagicMock(return_value=None)
+                    RuntimeError("forced entity_refresh failure") if failure_mask & 1 else MagicMock(return_value=None)
                 ),
             ),
             patch(
@@ -312,9 +304,7 @@ def test_git_verification_accuracy(
                 f"Fact {fact_id} with deleted file should be superseded"
             )
         else:
-            assert superseded_by is None, (
-                f"Fact {fact_id} with existing file should not be superseded"
-            )
+            assert superseded_by is None, f"Fact {fact_id} with existing file should not be superseded"
 
 
 # ---------------------------------------------------------------------------
@@ -354,16 +344,14 @@ def test_merge_idempotency(
 
     async def _run_merge() -> MergeResult:
         with patch("agent_fox.knowledge.consolidation._call_llm_json", _mock_llm):
-            return await _merge_related_facts(
-                entity_conn, "claude-3-5-haiku-20241022", 0.85, None
-            )
+            return await _merge_related_facts(entity_conn, "claude-3-5-haiku-20241022", 0.85, None)
 
     asyncio.get_event_loop().run_until_complete(_run_merge())
 
     # Count active facts after first pass
-    count_after_first = entity_conn.execute(
-        "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-    ).fetchone()[0]
+    count_after_first = entity_conn.execute("SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL").fetchone()[
+        0
+    ]
 
     # Run again with same mock
     asyncio.get_event_loop().run_until_complete(_run_merge())
@@ -406,9 +394,7 @@ def test_pattern_threshold(
             [fact_id, vec],
         )
 
-    llm_mock = AsyncMock(
-        return_value={"is_pattern": True, "description": "Confirmed pattern"}
-    )
+    llm_mock = AsyncMock(return_value={"is_pattern": True, "description": "Confirmed pattern"})
 
     async def _run() -> PromotionResult:
         with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
@@ -417,9 +403,7 @@ def test_pattern_threshold(
     asyncio.get_event_loop().run_until_complete(_run())
 
     # For every created pattern fact, verify source facts span 3+ specs
-    pattern_facts = entity_conn.execute(
-        "SELECT id FROM memory_facts WHERE category = 'pattern'"
-    ).fetchall()
+    pattern_facts = entity_conn.execute("SELECT id FROM memory_facts WHERE category = 'pattern'").fetchall()
 
     for (pattern_id,) in pattern_facts:
         # Find source facts via causal edges (cause -> pattern_fact)
@@ -435,9 +419,7 @@ def test_pattern_threshold(
                 source_ids,
             ).fetchall()
 
-            assert len(spec_names) >= 3, (
-                f"Pattern fact {pattern_id} created from {len(spec_names)} spec(s) < 3"
-            )
+            assert len(spec_names) >= 3, f"Pattern fact {pattern_id} created from {len(spec_names)} spec(s) < 3"
 
 
 # ---------------------------------------------------------------------------
@@ -482,16 +464,10 @@ def test_chain_preservation(
 
     for a_id, b_id, c_id in chains:
         # Direct A->C must be preserved
-        assert _edge_exists(entity_conn, a_id, c_id), (
-            f"Direct edge {a_id}->{c_id} was removed (should be preserved)"
-        )
+        assert _edge_exists(entity_conn, a_id, c_id), f"Direct edge {a_id}->{c_id} was removed (should be preserved)"
         # A->B and B->C must be removed
-        assert not _edge_exists(entity_conn, a_id, b_id), (
-            f"Edge {a_id}->{b_id} still exists (should be pruned)"
-        )
-        assert not _edge_exists(entity_conn, b_id, c_id), (
-            f"Edge {b_id}->{c_id} still exists (should be pruned)"
-        )
+        assert not _edge_exists(entity_conn, a_id, b_id), f"Edge {a_id}->{b_id} still exists (should be pruned)"
+        assert not _edge_exists(entity_conn, b_id, c_id), f"Edge {b_id}->{c_id} still exists (should be pruned)"
 
 
 # ---------------------------------------------------------------------------

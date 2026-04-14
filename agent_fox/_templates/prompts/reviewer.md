@@ -114,7 +114,7 @@ for concrete, specific issues — not vague concerns.
   authentication, authorization, secrets handling)?
 - Does the spec introduce new attack surface?
 
-### Output Format (pre-review)
+### OUTPUT FORMAT (pre-review)
 
 Output your findings as a **structured JSON block** in the following format.
 The session runner will parse this JSON and ingest it into the knowledge store.
@@ -167,7 +167,7 @@ Each finding object MAY have:
 - Do NOT run tests, build commands, or any write operations.
 - Focus on verifiable, objective issues — not stylistic preferences.
 
-### Critical Reminders (pre-review)
+### CRITICAL REMINDERS (pre-review)
 
 The harvester that ingests your output is a strict JSON parser. Any output
 that wraps your JSON in markdown fences or includes prose around the JSON
@@ -272,7 +272,7 @@ If you cannot determine whether an assumption is valid (the code is too
 complex, or the reference is ambiguous), report it as an **observation**
 with a note that verification was inconclusive.
 
-### Output Format (drift-review)
+### OUTPUT FORMAT (drift-review)
 
 Output your findings as a **structured JSON block** in the following format.
 The session runner will parse this JSON and store it in the knowledge store.
@@ -341,7 +341,7 @@ assumptions were verified and which artifact categories were checked.
 - Do NOT run tests, build commands, or any write operations.
 - Focus on verifiable, objective facts — not opinions about spec quality.
 
-### Critical Reminders (drift-review)
+### CRITICAL REMINDERS (drift-review)
 
 The harvester that ingests your output is a strict JSON parser. Any output
 that wraps your JSON in markdown fences or includes prose around the JSON
@@ -427,7 +427,7 @@ The overall verdict is **FAIL** if ANY of the following are true:
 
 Otherwise, the overall verdict is **PASS**.
 
-### Output Format (audit-review)
+### OUTPUT FORMAT (audit-review)
 
 You MUST produce a structured JSON output at the end of your analysis with
 the following schema. Output ONLY the bare JSON object — no markdown fences,
@@ -477,7 +477,7 @@ in the schema below.
   full test suite.
 - Do NOT run build commands, formatters, linters, or any write operations.
 
-### Critical Reminders (audit-review)
+### CRITICAL REMINDERS (audit-review)
 
 The harvester that ingests your output is a strict JSON parser. Any output
 that wraps your JSON in markdown fences or includes prose around the JSON
@@ -571,7 +571,7 @@ For each acceptance criterion:
 - Do previously passing tests still pass after the fix?
 - Does the linter pass (`uv run ruff check`)?
 
-### Output Format (fix-review)
+### OUTPUT FORMAT (fix-review)
 
 Output your verification results as a **structured JSON block** in the
 following format. Output ONLY the bare JSON object — no markdown fences,
@@ -621,7 +621,7 @@ The top-level object MUST also have:
 - Reference specific criterion IDs in your assessment.
 - Run tests to verify they pass — do not assume based on code reading alone.
 
-### Critical Reminders (fix-review)
+### CRITICAL REMINDERS (fix-review)
 
 The downstream parser is a strict JSON parser. Any output that wraps your
 JSON in markdown fences or includes prose around the JSON block **will fail

@@ -70,8 +70,7 @@ class TestConvergeReviewerPreReview:
         expected = converge_skeptic(results, block_threshold=3)
 
         assert result == expected, (
-            f"pre-review convergence should match converge_skeptic output. "
-            f"Expected {expected}, got {result}"
+            f"pre-review convergence should match converge_skeptic output. Expected {expected}, got {result}"
         )
 
     def test_pre_review_blocking(self) -> None:
@@ -87,10 +86,7 @@ class TestConvergeReviewerPreReview:
         ]
         # block_threshold=0 means any critical blocks
         _, blocked = converge_reviewer(results, mode="pre-review", block_threshold=0)
-        assert blocked is True, (
-            "pre-review should block when majority agree on critical finding "
-            "and block_threshold=0"
-        )
+        assert blocked is True, "pre-review should block when majority agree on critical finding and block_threshold=0"
 
     def test_drift_review_routes_to_skeptic(self) -> None:
         """TS-98-11: converge_reviewer(results, 'drift-review') uses skeptic algorithm."""
@@ -108,8 +104,7 @@ class TestConvergeReviewerPreReview:
         expected = converge_skeptic(results, block_threshold=5)
 
         assert result == expected, (
-            f"drift-review convergence should match converge_skeptic output. "
-            f"Expected {expected}, got {result}"
+            f"drift-review convergence should match converge_skeptic output. Expected {expected}, got {result}"
         )
 
 
@@ -155,9 +150,7 @@ class TestConvergeReviewerAuditReview:
             _make_audit_result("FAIL"),
         ]
         result = converge_reviewer(audit_results, mode="audit-review")
-        assert result.overall_verdict == "FAIL", (
-            f"audit-review should propagate FAIL, got {result.overall_verdict}"
-        )
+        assert result.overall_verdict == "FAIL", f"audit-review should propagate FAIL, got {result.overall_verdict}"
 
 
 # ---------------------------------------------------------------------------

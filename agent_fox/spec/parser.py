@@ -42,7 +42,7 @@ _ARCHETYPE_TAG = re.compile(r"\[archetype:\s*(\w+)\]")
 # Known archetype names for validation
 _KNOWN_ARCHETYPES = {
     "coder",
-    "skeptic",
+    "reviewer",
     "verifier",
 }
 

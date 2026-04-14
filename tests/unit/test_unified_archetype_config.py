@@ -114,14 +114,14 @@ class TestOverridesTomlParsing:
             "[archetypes.overrides.coder]\n"
             'model_tier = "ADVANCED"\n'
             "max_turns = 200\n"
-            "[archetypes.overrides.skeptic]\n"
+            "[archetypes.overrides.reviewer]\n"
             'model_tier = "STANDARD"\n'
             "max_turns = 50\n"
         )
         config = load_config(path=config_file)
         assert config.archetypes.overrides["coder"].model_tier == "ADVANCED"
-        assert config.archetypes.overrides["skeptic"].model_tier == "STANDARD"
-        assert config.archetypes.overrides["skeptic"].max_turns == 50
+        assert config.archetypes.overrides["reviewer"].model_tier == "STANDARD"
+        assert config.archetypes.overrides["reviewer"].max_turns == 50
 
     def test_thinking_fields_parsed(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
@@ -133,9 +133,9 @@ class TestOverridesTomlParsing:
 
     def test_allowlist_field_parsed(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.toml"
-        config_file.write_text('[archetypes.overrides.skeptic]\nallowlist = ["ls", "cat", "git"]\n')
+        config_file.write_text('[archetypes.overrides.reviewer]\nallowlist = ["ls", "cat", "git"]\n')
         config = load_config(path=config_file)
-        assert config.archetypes.overrides["skeptic"].allowlist == ["ls", "cat", "git"]
+        assert config.archetypes.overrides["reviewer"].allowlist == ["ls", "cat", "git"]
 
     def test_overrides_empty_by_default(self) -> None:
         config = AgentFoxConfig()
@@ -145,7 +145,7 @@ class TestOverridesTomlParsing:
         """overrides and boolean enable flags work together."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            '[archetypes]\ncoder = true\nskeptic = true\n[archetypes.overrides.coder]\nmodel_tier = "ADVANCED"\n'
+            '[archetypes]\ncoder = true\nreviewer = true\n[archetypes.overrides.coder]\nmodel_tier = "ADVANCED"\n'
         )
         config = load_config(path=config_file)
         assert config.archetypes.coder is True
@@ -172,10 +172,10 @@ class TestResolveMaxTurnsWithOverrides:
     def test_override_takes_precedence_over_registry(self) -> None:
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
-                overrides={"skeptic": PerArchetypeConfig(max_turns=40)},
+                overrides={"reviewer": PerArchetypeConfig(max_turns=40)},
             )
         )
-        assert resolve_max_turns(config, "skeptic") == 40
+        assert resolve_max_turns(config, "reviewer") == 40
 
     def test_override_zero_means_unlimited(self) -> None:
         config = AgentFoxConfig(
@@ -219,10 +219,10 @@ class TestResolveThinkingWithOverrides:
     def test_override_thinking_mode_enabled(self) -> None:
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
-                overrides={"skeptic": PerArchetypeConfig(thinking_mode="enabled", thinking_budget=16000)},
+                overrides={"reviewer": PerArchetypeConfig(thinking_mode="enabled", thinking_budget=16000)},
             )
         )
-        result = resolve_thinking(config, "skeptic")
+        result = resolve_thinking(config, "reviewer")
         assert result == {"type": "enabled", "budget_tokens": 16000}
 
     def test_override_thinking_mode_adaptive(self) -> None:
@@ -263,10 +263,10 @@ class TestResolveThinkingWithOverrides:
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
-                thinking={"skeptic": ThinkingConfig(mode="adaptive", budget_tokens=8000)},
+                thinking={"reviewer": ThinkingConfig(mode="adaptive", budget_tokens=8000)},
             )
         )
-        result = resolve_thinking(config, "skeptic")
+        result = resolve_thinking(config, "reviewer")
         assert result == {"type": "adaptive", "budget_tokens": 8000}
 
     def test_override_none_thinking_mode_falls_through(self) -> None:
@@ -310,10 +310,10 @@ class TestResolveModelTierWithOverrides:
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
-                overrides={"skeptic": PerArchetypeConfig(model_tier="STANDARD")},
+                overrides={"reviewer": PerArchetypeConfig(model_tier="STANDARD")},
             )
         )
-        runner = NodeSessionRunner("spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB)
+        runner = NodeSessionRunner("spec:0", config, archetype="reviewer", knowledge_db=_MOCK_KB)
         # STANDARD → claude-sonnet-4-6
         assert runner._resolved_model_id == "claude-sonnet-4-6"
 
@@ -406,10 +406,10 @@ class TestEndToEndTomlResolution:
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
         config_file = tmp_path / "config.toml"
-        config_file.write_text('[archetypes.overrides.skeptic]\nmodel_tier = "STANDARD"\n')
+        config_file.write_text('[archetypes.overrides.reviewer]\nmodel_tier = "STANDARD"\n')
         config = load_config(path=config_file)
-        runner = NodeSessionRunner("spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB)
-        # Registry default for skeptic is ADVANCED, but override is STANDARD → sonnet
+        runner = NodeSessionRunner("spec:0", config, archetype="reviewer", knowledge_db=_MOCK_KB)
+        # Registry default for reviewer is STANDARD, override also STANDARD → sonnet
         assert runner._resolved_model_id == "claude-sonnet-4-6"
 
     def test_max_turns_from_toml_overrides_table(self, tmp_path: Path) -> None:

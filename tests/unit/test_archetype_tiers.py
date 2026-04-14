@@ -2,6 +2,11 @@
 
 Test Spec: TS-57-1 through TS-57-14, TS-57-E1 through TS-57-E3
 Requirements: 57-REQ-1.1 through 57-REQ-3.E1, 57-REQ-4.1 through 57-REQ-4.3
+
+Updated for spec 98 (reviewer consolidation):
+- skeptic/oracle → reviewer (STANDARD base, fix-review mode = ADVANCED)
+- verifier → STANDARD (was ADVANCED, per 98-REQ-6.1)
+- auditor → reviewer:audit-review (STANDARD)
 """
 
 from __future__ import annotations
@@ -25,54 +30,35 @@ _MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 
 # ---------------------------------------------------------------------------
-# TS-57-1: Skeptic Default Tier Is ADVANCED
-# Requirement: 57-REQ-1.1
+# TS-57-1/2 (updated): Reviewer base defaults to STANDARD
+# Requirement: 57-REQ-1.1, 57-REQ-1.2 (updated by 98-REQ-1.1)
 # ---------------------------------------------------------------------------
 
 
-class TestSkepticDefaultAdvanced:
-    """TS-57-1: Verify Skeptic archetype defaults to ADVANCED."""
+class TestReviewerDefaultStandard:
+    """Verify reviewer archetype base defaults to STANDARD (was skeptic/oracle ADVANCED)."""
 
-    def test_skeptic_default_tier_is_advanced(self) -> None:
-        """ARCHETYPE_REGISTRY["skeptic"].default_model_tier must be ADVANCED."""
+    def test_reviewer_default_tier_is_standard(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        entry = ARCHETYPE_REGISTRY["skeptic"]
-        assert entry.default_model_tier == "ADVANCED"
+        entry = ARCHETYPE_REGISTRY["reviewer"]
+        assert entry.default_model_tier == "STANDARD"
 
 
 # ---------------------------------------------------------------------------
-# TS-57-2: Oracle Default Tier Is ADVANCED
-# Requirement: 57-REQ-1.2
+# TS-57-3 (updated): Verifier Default Tier Is STANDARD
+# Requirement: 57-REQ-1.3 (updated by 98-REQ-6.1)
 # ---------------------------------------------------------------------------
 
 
-class TestOracleDefaultAdvanced:
-    """TS-57-2: Verify Oracle archetype defaults to ADVANCED."""
+class TestVerifierDefaultStandard:
+    """TS-57-3 (updated): Verify Verifier defaults to STANDARD (was ADVANCED)."""
 
-    def test_oracle_default_tier_is_advanced(self) -> None:
-        """ARCHETYPE_REGISTRY["oracle"].default_model_tier must be ADVANCED."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-
-        entry = ARCHETYPE_REGISTRY["oracle"]
-        assert entry.default_model_tier == "ADVANCED"
-
-
-# ---------------------------------------------------------------------------
-# TS-57-3: Verifier Default Tier Is ADVANCED
-# Requirement: 57-REQ-1.3
-# ---------------------------------------------------------------------------
-
-
-class TestVerifierDefaultAdvanced:
-    """TS-57-3: Verify Verifier archetype defaults to ADVANCED."""
-
-    def test_verifier_default_tier_is_advanced(self) -> None:
-        """ARCHETYPE_REGISTRY["verifier"].default_model_tier must be ADVANCED."""
+    def test_verifier_default_tier_is_standard(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["verifier"]
-        assert entry.default_model_tier == "ADVANCED"
+        assert entry.default_model_tier == "STANDARD"
 
 
 # ---------------------------------------------------------------------------
@@ -93,15 +79,15 @@ class TestCoderDefaultStandard:
 
 
 # ---------------------------------------------------------------------------
-# TS-57-5: Remaining Archetypes Default to STANDARD
-# Requirement: 57-REQ-1.5
+# TS-57-5 (updated): All base archetypes default to STANDARD
+# Requirement: 57-REQ-1.5 (updated by 98-REQ-1.1, 98-REQ-6.1)
 # ---------------------------------------------------------------------------
 
 
 class TestRemainingArchetypesStandard:
-    """TS-57-5: Auditor defaults to STANDARD."""
+    """All base archetypes default to STANDARD tier."""
 
-    @pytest.mark.parametrize("name", ["auditor"])
+    @pytest.mark.parametrize("name", ["coder", "reviewer", "verifier"])
     def test_archetype_defaults_to_standard(self, name: str) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
@@ -243,11 +229,10 @@ class TestNoOverrideUsesRegistry:
     """TS-57-10: Without config override, registry default is used."""
 
     def test_no_override_uses_registry_default(self) -> None:
-        """Skeptic with no override should use registry default (ADVANCED = Opus)."""
+        """Reviewer with no override should use registry default (STANDARD = Sonnet)."""
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
-        runner = NodeSessionRunner("spec:0", config, archetype="skeptic", knowledge_db=_MOCK_KB)
-        # After the fix, Skeptic defaults to ADVANCED → Opus
-        assert runner._resolved_model_id == "claude-opus-4-6"
+        runner = NodeSessionRunner("spec:0", config, archetype="reviewer", knowledge_db=_MOCK_KB)
+        assert runner._resolved_model_id == "claude-sonnet-4-6"
 
 
 # ---------------------------------------------------------------------------
@@ -347,24 +332,11 @@ class TestDocsListDefaultTiers:
         assert "ADVANCED" in content
         assert "STANDARD" in content
 
-    def test_docs_show_review_archetypes_as_advanced(self) -> None:
+    def test_docs_show_reviewer_archetype(self) -> None:
         docs_path = Path("docs/archetypes.md")
         content = docs_path.read_text()
-        # Skeptic, Oracle, Verifier must appear near ADVANCED
-        for name in ["skeptic", "oracle", "verifier"]:
-            # Check that the word ADVANCED appears in the section for each archetype
-            # Look for ADVANCED anywhere near the archetype name in the content
-            name_idx = content.lower().find(f"## {name}")
-            if name_idx == -1:
-                # Try finding the archetype name in a table
-                name_idx = content.lower().find(name)
-            assert name_idx != -1, f"{name} not found in docs"
-            # Find the next occurrence of ADVANCED after the archetype name
-            # or in the same table row
-            section_start = max(0, name_idx - 200)
-            section_end = min(len(content), name_idx + 500)
-            section = content[section_start:section_end]
-            assert "ADVANCED" in section, f"Expected ADVANCED near '{name}' section in docs/archetypes.md"
+        # Reviewer must appear in the docs
+        assert "reviewer" in content.lower(), "reviewer not found in docs/archetypes.md"
 
     def test_docs_show_coder_as_standard(self) -> None:
         docs_path = Path("docs/archetypes.md")

@@ -90,7 +90,7 @@ class TestFixPipelineUsesFix_CodingMd:
 
     @pytest.mark.asyncio
     async def test_run_coder_session_uses_fix_coder_archetype(self) -> None:
-        """_run_coder_session calls _run_session with 'fix_coder'.
+        """_run_coder_session calls _run_session with 'coder'.
 
         Uses real _build_coder_prompt, mocks only _run_session to avoid
         actual execution.
@@ -138,7 +138,7 @@ class TestFixPipelineUsesFix_CodingMd:
 
         assert mock_rs.called, "_run_session was not called"
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg == "fix_coder", f"_run_session called with {first_arg!r}, expected 'fix_coder'"
+        assert first_arg == "coder", f"_run_session called with {first_arg!r}, expected 'coder'"
 
     def test_system_prompt_does_not_contain_task_group_instructions(self) -> None:
         """System prompt does not contain spec-driven task group instructions."""

@@ -187,7 +187,7 @@ class TestReviewOnlyGraphNoCoder:
         assert "coder" not in node_archetypes
 
     def test_review_archetypes_present(self, tmp_path: Path) -> None:
-        """TS-53-10: Skeptic, Oracle, and Verifier nodes are present."""
+        """TS-53-10: Reviewer and Verifier nodes are present."""
         spec_dir = tmp_path / ".specs" / "03_api"
         spec_dir.mkdir(parents=True)
         (spec_dir / "requirements.md").write_text("# Requirements\n")
@@ -196,9 +196,8 @@ class TestReviewOnlyGraphNoCoder:
         graph = build_review_only_graph(tmp_path / ".specs", archetypes_config=None)
 
         node_archetypes = {n.archetype for n in graph.nodes.values()}
-        assert "skeptic" in node_archetypes
+        assert "reviewer" in node_archetypes
         assert "verifier" in node_archetypes
-        assert "oracle" in node_archetypes
 
 
 # ---------------------------------------------------------------------------

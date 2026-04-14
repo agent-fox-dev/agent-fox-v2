@@ -50,9 +50,7 @@ class TestReviewerTemplate:
         if not template.exists():
             pytest.skip("reviewer.md not yet created")
         content = template.read_text(encoding="utf-8").lower()
-        assert "pre-review" in content, (
-            "reviewer.md should contain a 'pre-review' section (98-REQ-3.1)"
-        )
+        assert "pre-review" in content, "reviewer.md should contain a 'pre-review' section (98-REQ-3.1)"
 
     def test_reviewer_template_has_drift_review_section(self) -> None:
         """TS-98-7: reviewer.md contains drift-review mode section."""
@@ -60,9 +58,7 @@ class TestReviewerTemplate:
         if not template.exists():
             pytest.skip("reviewer.md not yet created")
         content = template.read_text(encoding="utf-8").lower()
-        assert "drift-review" in content, (
-            "reviewer.md should contain a 'drift-review' section (98-REQ-3.1)"
-        )
+        assert "drift-review" in content, "reviewer.md should contain a 'drift-review' section (98-REQ-3.1)"
 
     def test_reviewer_template_has_audit_review_section(self) -> None:
         """TS-98-7: reviewer.md contains audit-review mode section."""
@@ -70,9 +66,7 @@ class TestReviewerTemplate:
         if not template.exists():
             pytest.skip("reviewer.md not yet created")
         content = template.read_text(encoding="utf-8").lower()
-        assert "audit-review" in content, (
-            "reviewer.md should contain an 'audit-review' section (98-REQ-3.1)"
-        )
+        assert "audit-review" in content, "reviewer.md should contain an 'audit-review' section (98-REQ-3.1)"
 
     def test_reviewer_template_has_fix_review_section(self) -> None:
         """TS-98-7: reviewer.md contains fix-review mode section."""
@@ -80,21 +74,15 @@ class TestReviewerTemplate:
         if not template.exists():
             pytest.skip("reviewer.md not yet created")
         content = template.read_text(encoding="utf-8").lower()
-        assert "fix-review" in content, (
-            "reviewer.md should contain a 'fix-review' section (98-REQ-3.1)"
-        )
+        assert "fix-review" in content, "reviewer.md should contain a 'fix-review' section (98-REQ-3.1)"
 
     def test_reviewer_template_all_modes(self) -> None:
         """TS-98-7: reviewer.md contains all 4 mode sections in one check."""
         template = _template_path("reviewer.md")
-        assert template.exists(), (
-            "reviewer.md does not exist — 98-REQ-3.1 not implemented"
-        )
+        assert template.exists(), "reviewer.md does not exist — 98-REQ-3.1 not implemented"
         content = template.read_text(encoding="utf-8").lower()
         for mode in ("pre-review", "drift-review", "audit-review", "fix-review"):
-            assert mode in content, (
-                f"reviewer.md missing '{mode}' section (98-REQ-3.1)"
-            )
+            assert mode in content, f"reviewer.md missing '{mode}' section (98-REQ-3.1)"
 
 
 # ---------------------------------------------------------------------------
@@ -109,10 +97,7 @@ class TestFixCodingTemplateRetained:
     def test_fix_coding_retained(self) -> None:
         """TS-98-7 (3.3): fix_coding.md template still exists separately."""
         template = _template_path("fix_coding.md")
-        assert template.exists(), (
-            f"fix_coding.md should be retained as a separate template at {template} "
-            "(98-REQ-3.3)"
-        )
+        assert template.exists(), f"fix_coding.md should be retained as a separate template at {template} (98-REQ-3.3)"
 
     def test_fix_coding_not_merged_into_reviewer(self) -> None:
         """TS-98-7 (3.3): fix_coding.md content is separate from reviewer.md."""

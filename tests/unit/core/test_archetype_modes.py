@@ -42,6 +42,7 @@ class TestModeConfigDefaults:
         assert dataclasses.is_dataclass(mc)
         # Frozen dataclasses raise FrozenInstanceError on assignment
         import pytest
+
         with pytest.raises((TypeError, AttributeError)):
             mc.model_tier = "SIMPLE"  # type: ignore[misc]
 
@@ -110,6 +111,7 @@ class TestArchetypeEntryModesField:
         import pytest
 
         from agent_fox.archetypes import ArchetypeEntry
+
         entry = ArchetypeEntry(name="test")
         with pytest.raises((TypeError, AttributeError)):
             entry.modes = {}  # type: ignore[misc]

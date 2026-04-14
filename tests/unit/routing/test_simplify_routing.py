@@ -51,7 +51,7 @@ async def test_ladder_ceiling_advanced() -> None:
     from agent_fox.engine.assessment import AssessmentManager
 
     manager = AssessmentManager(retries_before_escalation=1)
-    await manager.assess_node("some_spec:1", "oracle")
+    await manager.assess_node("some_spec:1", "reviewer")
 
     ladder = manager.ladders["some_spec:1"]
     assert ladder._tier_ceiling == ModelTier.ADVANCED
@@ -69,11 +69,11 @@ async def test_ladder_created_without_pipeline() -> None:
     from agent_fox.engine.assessment import AssessmentManager
 
     manager = AssessmentManager(retries_before_escalation=2)
-    await manager.assess_node("spec:2", "skeptic")
+    await manager.assess_node("spec:2", "reviewer")
 
     assert "spec:2" in manager.ladders
-    # skeptic default tier is ADVANCED
-    assert manager.ladders["spec:2"].current_tier == ModelTier.ADVANCED
+    # reviewer default tier is STANDARD
+    assert manager.ladders["spec:2"].current_tier == ModelTier.STANDARD
 
 
 # ---------------------------------------------------------------------------

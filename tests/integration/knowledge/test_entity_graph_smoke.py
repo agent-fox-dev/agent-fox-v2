@@ -89,9 +89,7 @@ class TestFullCodebaseAnalysis:
     Execution Path 1 from design.md
     """
 
-    def test_analysis_populates_entity_graph(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_analysis_populates_entity_graph(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Real tree-sitter analysis of a Python package creates entities and edges."""
         # Set up a minimal Python package
         pkg = tmp_path / "pkg"
@@ -121,24 +119,16 @@ def create_user() -> None:
 
         result = analyze_codebase(tmp_path, entity_conn)
 
-        assert result.entities_upserted >= 6, (
-            f"Expected >= 6 entities, got {result.entities_upserted}"
-        )
-        assert result.edges_upserted >= 4, (
-            f"Expected >= 4 edges, got {result.edges_upserted}"
-        )
+        assert result.entities_upserted >= 6, f"Expected >= 6 entities, got {result.entities_upserted}"
+        assert result.edges_upserted >= 4, f"Expected >= 4 edges, got {result.edges_upserted}"
 
-        entities = entity_conn.execute(
-            "SELECT entity_name FROM entity_graph"
-        ).fetchall()
+        entities = entity_conn.execute("SELECT entity_name FROM entity_graph").fetchall()
         names = {e[0] for e in entities}
 
         assert "User" in names, "Class entity 'User' should be present"
         assert "create_user" in names, "Function entity 'create_user' should be present"
 
-    def test_analysis_creates_contains_edges(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_analysis_creates_contains_edges(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """analyze_codebase creates contains edges from files to classes."""
         pkg = tmp_path / "pkg"
         pkg.mkdir()
@@ -170,9 +160,7 @@ class TestFactEntityLinkingSmoke:
     Execution Path 2 from design.md
     """
 
-    def test_link_facts_creates_fact_entity_rows(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_link_facts_creates_fact_entity_rows(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """link_facts creates two fact_entities rows for two matching files."""
         # Populate entity graph with file entities
         foo = _make_file_entity("foo.py", "src/foo.py")
@@ -206,9 +194,7 @@ class TestFactEntityLinkingSmoke:
 
         assert result.links_created == 2, f"Expected 2 links, got {result.links_created}"
 
-        rows = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]
-        ).fetchone()[0]
+        rows = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
         assert rows == 2, f"Expected 2 fact_entities rows, got {rows}"
 
 
@@ -223,9 +209,7 @@ class TestGraphQueryForRelatedFacts:
     Execution Path 3 from design.md
     """
 
-    def test_find_related_facts_returns_neighbor_facts(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_find_related_facts_returns_neighbor_facts(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """find_related_facts returns facts linked to file and neighboring entities."""
         # Set up entity graph
         file_entity = _make_file_entity("foo.py", "src/foo.py")
@@ -285,9 +269,7 @@ class TestGarbageCollectionSmoke:
     Execution Path 4 from design.md
     """
 
-    def test_gc_removes_stale_preserves_active(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_gc_removes_stale_preserves_active(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC removes E1 (stale) with its edges/links and preserves E2 (active)."""
         # E1: stale entity with edge and fact link
         e1 = _make_file_entity("stale.py", "src/stale.py")
@@ -321,15 +303,11 @@ class TestGarbageCollectionSmoke:
         assert removed == 1, f"Expected 1 entity removed, got {removed}"
 
         # E1 should be gone
-        e1_row = entity_conn.execute(
-            "SELECT id FROM entity_graph WHERE id = ?", [e1_id]
-        ).fetchone()
+        e1_row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [e1_id]).fetchone()
         assert e1_row is None, "E1 should be removed by GC"
 
         # E2 should still be there
-        e2_row = entity_conn.execute(
-            "SELECT id FROM entity_graph WHERE id = ?", [e2_id]
-        ).fetchone()
+        e2_row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [e2_id]).fetchone()
         assert e2_row is not None, "E2 (active) should not be removed by GC"
 
         # Edge referencing E1 should be gone
@@ -340,7 +318,7 @@ class TestGarbageCollectionSmoke:
         assert edge_count == 0, "Edges referencing removed E1 should be cascade-deleted"
 
         # Fact link referencing E1 should be gone
-        link_count = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [e1_id]
-        ).fetchone()[0]
+        link_count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [e1_id]).fetchone()[
+            0
+        ]
         assert link_count == 0, "Fact links referencing removed E1 should be cascade-deleted"

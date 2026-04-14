@@ -100,9 +100,7 @@ class TestEntityTableSchema:
     Requirement: 95-REQ-1.1
     """
 
-    def test_entity_graph_columns_exist(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_entity_graph_columns_exist(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify entity_graph has all required columns with correct types."""
         rows = entity_conn.execute(
             """
@@ -139,9 +137,7 @@ class TestEntityUUIDAssignment:
     Requirement: 95-REQ-1.2
     """
 
-    def test_upserted_entity_has_uuid_v4_id(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_upserted_entity_has_uuid_v4_id(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Returned ID is a valid UUID v4 string."""
         entity = _make_entity()
         entity_ids = upsert_entities(entity_conn, [entity])
@@ -196,9 +192,7 @@ class TestEntityTypeSupport:
     Requirement: 95-REQ-1.4
     """
 
-    def test_all_entity_types_storable(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_all_entity_types_storable(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Entities of all four types are stored and retrievable."""
         types = [EntityType.FILE, EntityType.MODULE, EntityType.CLASS, EntityType.FUNCTION]
         for et in types:
@@ -211,9 +205,7 @@ class TestEntityTypeSupport:
 
         for et in types:
             results = find_entities_by_path(entity_conn, f"src/{et}_entity.py")
-            assert any(e.entity_type == et for e in results), (
-                f"Entity type {et} not found after upsert"
-            )
+            assert any(e.entity_type == et for e in results), f"Entity type {et} not found after upsert"
 
 
 # ---------------------------------------------------------------------------
@@ -227,9 +219,7 @@ class TestEdgeTableSchema:
     Requirement: 95-REQ-2.1
     """
 
-    def test_entity_edges_columns_exist(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_entity_edges_columns_exist(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """entity_edges has source_id, target_id, relationship columns."""
         rows = entity_conn.execute(
             """
@@ -261,9 +251,7 @@ class TestEdgeRelationshipTypes:
     Requirement: 95-REQ-2.2
     """
 
-    def test_all_relationship_types_storable(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_all_relationship_types_storable(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """edges with contains, imports, and extends relationships are stored."""
         src = _make_entity(entity_name="src.py", entity_path="src/src.py")
         tgt = _make_entity(entity_name="tgt.py", entity_path="src/tgt.py")
@@ -277,9 +265,7 @@ class TestEdgeRelationshipTypes:
                 [EntityEdge(source_id=src_id, target_id=tgt_id, relationship=rel)],
             )
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()[0]
         assert count == 3
 
 
@@ -294,9 +280,7 @@ class TestEdgeReferentialIntegrity:
     Requirement: 95-REQ-2.3
     """
 
-    def test_missing_target_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_target_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Edge with valid source but non-existent target raises an error."""
         src = _make_entity()
         src_id = upsert_entities(entity_conn, [src])[0]
@@ -308,9 +292,7 @@ class TestEdgeReferentialIntegrity:
                 [EntityEdge(source_id=src_id, target_id=fake_target, relationship=EdgeType.CONTAINS)],
             )
 
-    def test_missing_source_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_source_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Edge with valid target but non-existent source raises an error."""
         tgt = _make_entity(entity_name="tgt.py", entity_path="src/tgt.py")
         tgt_id = upsert_entities(entity_conn, [tgt])[0]
@@ -334,9 +316,7 @@ class TestEdgeDeduplication:
     Requirement: 95-REQ-2.4
     """
 
-    def test_duplicate_edge_not_inserted(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_duplicate_edge_not_inserted(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Upserting the same edge twice keeps edge count at 1."""
         src = _make_entity(entity_name="a.py", entity_path="src/a.py")
         tgt = _make_entity(entity_name="b.py", entity_path="src/b.py")
@@ -365,9 +345,7 @@ class TestFactEntityTableSchema:
     Requirement: 95-REQ-3.1
     """
 
-    def test_fact_entities_columns_exist(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_fact_entities_columns_exist(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """fact_entities has fact_id and entity_id columns."""
         rows = entity_conn.execute(
             """
@@ -396,9 +374,7 @@ class TestFactEntityReferentialIntegrity:
     Requirement: 95-REQ-3.2
     """
 
-    def test_missing_entity_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_entity_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Link with valid fact_id but non-existent entity_id raises an error."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id)
@@ -407,9 +383,7 @@ class TestFactEntityReferentialIntegrity:
         with pytest.raises(Exception):
             create_fact_entity_links(entity_conn, fact_id, [fake_entity_id])
 
-    def test_missing_fact_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_missing_fact_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Link with non-existent fact_id but valid entity_id raises an error."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -430,9 +404,7 @@ class TestFactEntityDeduplication:
     Requirement: 95-REQ-3.3
     """
 
-    def test_duplicate_link_not_inserted(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_duplicate_link_not_inserted(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Creating the same link twice keeps link count at 1."""
         fact_id = str(uuid.uuid4())
         _insert_fact(entity_conn, fact_id)
@@ -442,9 +414,7 @@ class TestFactEntityDeduplication:
         create_fact_entity_links(entity_conn, fact_id, [entity_id])
         create_fact_entity_links(entity_conn, fact_id, [entity_id])  # duplicate
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
         assert count == 1
 
 
@@ -459,9 +429,7 @@ class TestSoftDeletePreserves:
     Requirement: 95-REQ-7.1
     """
 
-    def test_soft_delete_sets_deleted_at(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_soft_delete_sets_deleted_at(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """soft_delete_missing marks entity with deleted_at timestamp."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -469,15 +437,11 @@ class TestSoftDeletePreserves:
         # Soft-delete by passing empty found set (entity not in found set)
         soft_delete_missing(entity_conn, set())
 
-        row = entity_conn.execute(
-            "SELECT deleted_at FROM entity_graph WHERE id = ?", [entity_id]
-        ).fetchone()
+        row = entity_conn.execute("SELECT deleted_at FROM entity_graph WHERE id = ?", [entity_id]).fetchone()
         assert row is not None
         assert row[0] is not None, "deleted_at should be set after soft delete"
 
-    def test_soft_delete_preserves_edges(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_soft_delete_preserves_edges(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Edges still exist after entity is soft-deleted."""
         src = _make_entity(entity_name="a.py", entity_path="src/a.py")
         tgt = _make_entity(entity_name="b.py", entity_path="src/b.py")
@@ -489,14 +453,10 @@ class TestSoftDeletePreserves:
         # Soft-delete src
         soft_delete_missing(entity_conn, set())
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()[0]
         assert count > 0, "Edges should still exist after soft delete"
 
-    def test_soft_delete_preserves_fact_links(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_soft_delete_preserves_fact_links(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Fact-entity links still exist after entity is soft-deleted."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -507,9 +467,7 @@ class TestSoftDeletePreserves:
         # Soft-delete by passing empty found set
         soft_delete_missing(entity_conn, set())
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [entity_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [entity_id]).fetchone()[0]
         assert count > 0, "Fact-entity links should still exist after soft delete"
 
 
@@ -524,9 +482,7 @@ class TestGCCascade:
     Requirement: 95-REQ-7.2
     """
 
-    def test_gc_removes_stale_entity(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_gc_removes_stale_entity(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC removes entity soft-deleted beyond retention period."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -541,14 +497,10 @@ class TestGCCascade:
         count = gc_stale_entities(entity_conn, retention_days=7)
         assert count == 1
 
-        row = entity_conn.execute(
-            "SELECT id FROM entity_graph WHERE id = ?", [entity_id]
-        ).fetchone()
+        row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [entity_id]).fetchone()
         assert row is None, "Stale entity should be removed by GC"
 
-    def test_gc_cascades_edges(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_gc_cascades_edges(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC removes edges referencing the hard-deleted entity."""
         src = _make_entity(entity_name="a.py", entity_path="src/a.py")
         tgt = _make_entity(entity_name="b.py", entity_path="src/b.py")
@@ -558,9 +510,7 @@ class TestGCCascade:
 
         # Soft-delete src 30 days ago
         old_ts = datetime.now(tz=UTC) - timedelta(days=30)
-        entity_conn.execute(
-            "UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, src_id]
-        )
+        entity_conn.execute("UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, src_id])
 
         gc_stale_entities(entity_conn, retention_days=7)
 
@@ -570,9 +520,7 @@ class TestGCCascade:
         ).fetchone()[0]
         assert edge_count == 0, "Edges referencing removed entity should be cascade-deleted"
 
-    def test_gc_cascades_fact_links(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_gc_cascades_fact_links(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC removes fact_entities links referencing the hard-deleted entity."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -581,9 +529,7 @@ class TestGCCascade:
         create_fact_entity_links(entity_conn, fact_id, [entity_id])
 
         old_ts = datetime.now(tz=UTC) - timedelta(days=30)
-        entity_conn.execute(
-            "UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, entity_id]
-        )
+        entity_conn.execute("UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, entity_id])
 
         gc_stale_entities(entity_conn, retention_days=7)
 
@@ -592,9 +538,7 @@ class TestGCCascade:
         ).fetchone()[0]
         assert link_count == 0, "Fact links referencing removed entity should be cascade-deleted"
 
-    def test_gc_does_not_touch_active_entities(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_gc_does_not_touch_active_entities(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC leaves active entities untouched."""
         stale = _make_entity(entity_name="stale.py", entity_path="src/stale.py")
         active = _make_entity(entity_name="active.py", entity_path="src/active.py")
@@ -602,16 +546,12 @@ class TestGCCascade:
         active_id = upsert_entities(entity_conn, [active])[0]
 
         old_ts = datetime.now(tz=UTC) - timedelta(days=30)
-        entity_conn.execute(
-            "UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, stale_id]
-        )
+        entity_conn.execute("UPDATE entity_graph SET deleted_at = ? WHERE id = ?", [old_ts, stale_id])
 
         count = gc_stale_entities(entity_conn, retention_days=7)
         assert count == 1
 
-        active_row = entity_conn.execute(
-            "SELECT id FROM entity_graph WHERE id = ?", [active_id]
-        ).fetchone()
+        active_row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [active_id]).fetchone()
         assert active_row is not None, "Active entity should remain after GC"
 
 
@@ -626,9 +566,7 @@ class TestUpsertExistingActive:
     Requirement: 95-REQ-1.E1
     """
 
-    def test_same_natural_key_returns_same_id(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_same_natural_key_returns_same_id(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Second upsert of same natural key returns the first entity's ID."""
         entity1 = _make_entity(EntityType.FILE, "foo.py", "src/foo.py")
         entity2 = Entity(
@@ -645,9 +583,7 @@ class TestUpsertExistingActive:
 
         assert id1 == id2, "Same natural key should return the original entity ID"
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM entity_graph WHERE entity_path = 'src/foo.py'"
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM entity_graph WHERE entity_path = 'src/foo.py'").fetchone()[0]
         assert count == 1
 
 
@@ -662,9 +598,7 @@ class TestUpsertRestoresSoftDeleted:
     Requirement: 95-REQ-1.E2
     """
 
-    def test_upsert_clears_deleted_at(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_upsert_clears_deleted_at(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Re-upserting a soft-deleted entity clears deleted_at."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -688,9 +622,7 @@ class TestUpsertRestoresSoftDeleted:
 
         assert restored_id == entity_id, "Restored entity should keep original ID"
 
-        row = entity_conn.execute(
-            "SELECT deleted_at FROM entity_graph WHERE id = ?", [entity_id]
-        ).fetchone()
+        row = entity_conn.execute("SELECT deleted_at FROM entity_graph WHERE id = ?", [entity_id]).fetchone()
         assert row[0] is None, "deleted_at should be NULL after restore"
 
 
@@ -705,9 +637,7 @@ class TestSelfEdgeRejected:
     Requirement: 95-REQ-2.E1
     """
 
-    def test_self_edge_raises_value_error(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_self_edge_raises_value_error(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Edge from entity to itself raises ValueError."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -730,9 +660,7 @@ class TestLinkToSoftDeletedEntity:
     Requirement: 95-REQ-3.E1
     """
 
-    def test_link_to_soft_deleted_entity_succeeds(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_link_to_soft_deleted_entity_succeeds(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Creating a link to a soft-deleted entity does not raise an error."""
         entity = _make_entity()
         entity_id = upsert_entities(entity_conn, [entity])[0]
@@ -748,9 +676,7 @@ class TestLinkToSoftDeletedEntity:
         # Creating link to soft-deleted entity should succeed
         create_fact_entity_links(entity_conn, fact_id, [entity_id])
 
-        count = entity_conn.execute(
-            "SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]
-        ).fetchone()[0]
+        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
         assert count == 1
 
 
@@ -765,16 +691,12 @@ class TestGCInvalidRetentionDays:
     Requirement: 95-REQ-7.E1
     """
 
-    def test_zero_retention_days_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_zero_retention_days_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """gc_stale_entities(conn, 0) raises ValueError."""
         with pytest.raises(ValueError):
             gc_stale_entities(entity_conn, retention_days=0)
 
-    def test_negative_retention_days_raises(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_negative_retention_days_raises(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """gc_stale_entities(conn, -5) raises ValueError."""
         with pytest.raises(ValueError):
             gc_stale_entities(entity_conn, retention_days=-5)
@@ -791,9 +713,7 @@ class TestGCNoEligibleEntities:
     Requirement: 95-REQ-7.E2
     """
 
-    def test_no_stale_entities_returns_zero(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_stale_entities_returns_zero(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC returns 0 when no entities are soft-deleted beyond retention."""
         # Insert active entities
         entity = _make_entity()
@@ -802,9 +722,7 @@ class TestGCNoEligibleEntities:
         count = gc_stale_entities(entity_conn, retention_days=7)
         assert count == 0
 
-    def test_empty_graph_returns_zero(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_empty_graph_returns_zero(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """GC returns 0 on an empty entity graph."""
         count = gc_stale_entities(entity_conn, retention_days=7)
         assert count == 0

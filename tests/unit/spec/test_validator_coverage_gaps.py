@@ -203,10 +203,7 @@ class TestTooManyRequirements:
     def _make_requirements(self, count: int) -> str:
         lines = ["## Requirements\n"]
         for i in range(1, count + 1):
-            lines.append(
-                f"### Requirement {i}: Req {i}\n\n"
-                f"[05-REQ-{i}.1] The system SHALL do thing {i}.\n"
-            )
+            lines.append(f"### Requirement {i}: Req {i}\n\n[05-REQ-{i}.1] The system SHALL do thing {i}.\n")
         return "\n".join(lines)
 
     def test_eleven_requirements_produces_one_finding(self, tmp_path: Path) -> None:
@@ -263,10 +260,7 @@ class TestExactlyTenRequirements:
     def _make_requirements(self, count: int) -> str:
         lines = ["## Requirements\n"]
         for i in range(1, count + 1):
-            lines.append(
-                f"### Requirement {i}: Req {i}\n\n"
-                f"[05-REQ-{i}.1] The system SHALL do thing {i}.\n"
-            )
+            lines.append(f"### Requirement {i}: Req {i}\n\n[05-REQ-{i}.1] The system SHALL do thing {i}.\n")
         return "\n".join(lines)
 
     def test_ten_requirements_produces_no_finding(self, tmp_path: Path) -> None:
@@ -447,9 +441,7 @@ class TestTracedEdgeCases:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
         req_content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n"
-            "[05-REQ-1.E1] The system SHALL handle edge case 1.\n"
+            "## Requirements\n\n### Requirement 1: Core\n\n[05-REQ-1.E1] The system SHALL handle edge case 1.\n"
         )
         _write_requirements(spec_path, req_content)
         ts_content = (
@@ -482,24 +474,17 @@ class TestIntroductionSectionRequired:
         )
         _write_requirements(spec_path, content)
         findings = check_section_schema(SPEC_NAME, spec_path)
-        intro_findings = [
-            f for f in findings if f.file == "requirements.md" and "Introduction" in f.message
-        ]
+        intro_findings = [f for f in findings if f.file == "requirements.md" and "Introduction" in f.message]
         assert len(intro_findings) == 1
         assert intro_findings[0].severity == "warning"
 
     def test_rule_is_missing_section(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
-        content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n[05-REQ-1.1] The system SHALL work.\n"
-        )
+        content = "## Requirements\n\n### Requirement 1: Core\n\n[05-REQ-1.1] The system SHALL work.\n"
         _write_requirements(spec_path, content)
         findings = check_section_schema(SPEC_NAME, spec_path)
-        intro_findings = [
-            f for f in findings if f.file == "requirements.md" and "Introduction" in f.message
-        ]
+        intro_findings = [f for f in findings if f.file == "requirements.md" and "Introduction" in f.message]
         assert intro_findings[0].rule == "missing-section"
 
 
@@ -522,9 +507,7 @@ class TestGlossarySectionRequired:
         )
         _write_requirements(spec_path, content)
         findings = check_section_schema(SPEC_NAME, spec_path)
-        glossary_findings = [
-            f for f in findings if f.file == "requirements.md" and "Glossary" in f.message
-        ]
+        glossary_findings = [f for f in findings if f.file == "requirements.md" and "Glossary" in f.message]
         assert len(glossary_findings) == 1
         assert glossary_findings[0].severity == "warning"
 
@@ -538,9 +521,7 @@ class TestGlossarySectionRequired:
         )
         _write_requirements(spec_path, content)
         findings = check_section_schema(SPEC_NAME, spec_path)
-        glossary_findings = [
-            f for f in findings if f.file == "requirements.md" and "Glossary" in f.message
-        ]
+        glossary_findings = [f for f in findings if f.file == "requirements.md" and "Glossary" in f.message]
         assert glossary_findings[0].rule == "missing-section"
 
 
@@ -555,11 +536,7 @@ class TestNonBracketReqIdFormat:
     def test_bold_only_produces_warning(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
-        content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n"
-            "**05-REQ-1.1:** The system SHALL work.\n"
-        )
+        content = "## Requirements\n\n### Requirement 1: Core\n\n**05-REQ-1.1:** The system SHALL work.\n"
         _write_requirements(spec_path, content)
         findings = check_non_bracket_req_id_format(SPEC_NAME, spec_path)
         assert len(findings) >= 1
@@ -568,11 +545,7 @@ class TestNonBracketReqIdFormat:
     def test_rule_is_non_bracket_req_id_format(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
-        content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n"
-            "**05-REQ-1.1:** The system SHALL work.\n"
-        )
+        content = "## Requirements\n\n### Requirement 1: Core\n\n**05-REQ-1.1:** The system SHALL work.\n"
         _write_requirements(spec_path, content)
         findings = check_non_bracket_req_id_format(SPEC_NAME, spec_path)
         assert findings[0].rule == "non-bracket-req-id-format"
@@ -580,11 +553,7 @@ class TestNonBracketReqIdFormat:
     def test_bracket_format_produces_no_finding(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
-        content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n"
-            "[05-REQ-1.1] The system SHALL work.\n"
-        )
+        content = "## Requirements\n\n### Requirement 1: Core\n\n[05-REQ-1.1] The system SHALL work.\n"
         _write_requirements(spec_path, content)
         findings = check_non_bracket_req_id_format(SPEC_NAME, spec_path)
         assert len(findings) == 0
@@ -618,11 +587,7 @@ class TestNoEdgeCaseRequirementsProducesNoFindings:
     def test_no_findings_when_no_edge_cases(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
-        req_content = (
-            "## Requirements\n\n"
-            "### Requirement 1: Core\n\n"
-            "[05-REQ-1.1] The system SHALL do something.\n"
-        )
+        req_content = "## Requirements\n\n### Requirement 1: Core\n\n[05-REQ-1.1] The system SHALL do something.\n"
         _write_requirements(spec_path, req_content)
         ts_content = "## Test Cases\n\nTS-05-1: Test something.\n"
         (spec_path / "test_spec.md").write_text(ts_content, encoding="utf-8")
@@ -638,9 +603,7 @@ class TestNoEdgeCaseRequirementsProducesNoFindings:
 class TestNoEdgeCaseTestsSectionReportsAllUntraced:
     """AC-18: No Edge Case Tests section means all edge case reqs are untraced."""
 
-    def test_two_edge_cases_without_section_produces_two_findings(
-        self, tmp_path: Path
-    ) -> None:
+    def test_two_edge_cases_without_section_produces_two_findings(self, tmp_path: Path) -> None:
         spec_path = tmp_path / SPEC_NAME
         spec_path.mkdir()
         req_content = (
@@ -676,10 +639,7 @@ class TestNewValidatorsWiredIntoRunner:
         # requirements.md: 11 requirements, edge case req, no Introduction/Glossary
         req_lines = ["## Requirements\n"]
         for i in range(1, 12):
-            req_lines.append(
-                f"### Requirement {i}: Thing {i}\n\n"
-                f"[05-REQ-{i}.1] The system SHALL do thing {i}.\n"
-            )
+            req_lines.append(f"### Requirement {i}: Thing {i}\n\n[05-REQ-{i}.1] The system SHALL do thing {i}.\n")
         req_lines.append("[05-REQ-1.E1] The system SHALL handle edge 1.\n")
         _write_requirements(spec_path, "\n".join(req_lines))
 

@@ -74,11 +74,7 @@ class TestResolveModelTierModeFallback:
         from agent_fox.engine.sdk_params import resolve_model_tier
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={
-                    "reviewer": PerArchetypeConfig(model_tier="ADVANCED", modes={})
-                }
-            )
+            archetypes=ArchetypesConfig(overrides={"reviewer": PerArchetypeConfig(model_tier="ADVANCED", modes={})})
         )
         result = resolve_model_tier(config, "reviewer", mode="pre-review")
         assert result == "ADVANCED"
@@ -140,11 +136,7 @@ class TestResolveMaxTurnsWithMode:
         from agent_fox.engine.sdk_params import resolve_max_turns
 
         config = AgentFoxConfig(
-            archetypes=ArchetypesConfig(
-                overrides={
-                    "reviewer": PerArchetypeConfig(max_turns=100, modes={})
-                }
-            )
+            archetypes=ArchetypesConfig(overrides={"reviewer": PerArchetypeConfig(max_turns=100, modes={})})
         )
         result = resolve_max_turns(config, "reviewer", mode="pre-review")
         assert result == 100
@@ -212,11 +204,7 @@ class TestResolveSecurityConfigWithMode:
 
         config = AgentFoxConfig(
             archetypes=ArchetypesConfig(
-                overrides={
-                    "reviewer": PerArchetypeConfig(
-                        modes={"pre-review": PerArchetypeConfig(allowlist=[])}
-                    )
-                }
+                overrides={"reviewer": PerArchetypeConfig(modes={"pre-review": PerArchetypeConfig(allowlist=[])})}
             )
         )
         result = resolve_security_config(config, "reviewer", mode="pre-review")
@@ -447,14 +435,14 @@ class TestModeAllowlistNoneInheritsBase:
         from agent_fox.engine.sdk_params import resolve_security_config
 
         # Use a config with no overrides; the mode doesn't have allowlist set
-        # Registry entry for oracle has default_allowlist=["ls", "cat", "git", ...]
+        # Registry entry for triage has default_allowlist=["ls", "cat", "git", ...]
         config = AgentFoxConfig()
-        # oracle registry default_allowlist is not None
-        entry = ARCHETYPE_REGISTRY["oracle"]
+        # triage registry default_allowlist is not None
+        entry = ARCHETYPE_REGISTRY["triage"]
         assert entry.default_allowlist is not None
 
-        result = resolve_security_config(config, "oracle", mode="some-mode")
-        # Should inherit oracle's default allowlist (no mode override)
+        result = resolve_security_config(config, "triage", mode="some-mode")
+        # Should inherit triage's default allowlist (no mode override)
         assert result is not None
         assert result.bash_allowlist == entry.default_allowlist
 

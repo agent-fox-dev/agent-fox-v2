@@ -156,14 +156,15 @@ class TestRunnerUsesArchetype:
             runner = NodeSessionRunner(
                 "spec:3",
                 config,
-                archetype="auditor",
+                archetype="reviewer",
+                mode="audit-review",
                 knowledge_db=_MOCK_KB,
             )
         except TypeError:
             pytest.fail("NodeSessionRunner should accept archetype parameter")
 
         # Verify the archetype was stored
-        assert runner._archetype == "auditor"
+        assert runner._archetype == "reviewer"
 
     def test_runner_accepts_instances_param(self) -> None:
         from agent_fox.core.config import AgentFoxConfig
@@ -173,7 +174,8 @@ class TestRunnerUsesArchetype:
         runner = NodeSessionRunner(
             "spec:0",
             config,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="pre-review",
             instances=3,
             knowledge_db=_MOCK_KB,
         )
@@ -187,21 +189,23 @@ class TestRunnerUsesArchetype:
         runner = NodeSessionRunner(
             "spec:3",
             config,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="pre-review",
             knowledge_db=_MOCK_KB,
         )
-        # Skeptic default model tier is ADVANCED
-        assert runner._resolved_model_id == "claude-opus-4-6"
+        # Reviewer base default model tier is STANDARD
+        assert runner._resolved_model_id == "claude-sonnet-4-6"
 
     def test_runner_model_tier_config_override(self) -> None:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"skeptic": "SIMPLE"}))
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(models={"reviewer": "SIMPLE"}))
         runner = NodeSessionRunner(
             "spec:3",
             config,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="pre-review",
             knowledge_db=_MOCK_KB,
         )
         assert runner._resolved_model_id == "claude-haiku-4-5"
@@ -214,10 +218,11 @@ class TestRunnerUsesArchetype:
         runner = NodeSessionRunner(
             "spec:0",
             config,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="drift-review",
             knowledge_db=_MOCK_KB,
         )
-        # Skeptic has a default allowlist in the registry
+        # Reviewer drift-review mode has a default allowlist in the registry
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist is not None
         assert "ls" in runner._resolved_security.bash_allowlist
@@ -227,11 +232,12 @@ class TestRunnerUsesArchetype:
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
-        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"skeptic": ["ls", "cat"]}))
+        config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"reviewer": ["ls", "cat"]}))
         runner = NodeSessionRunner(
             "spec:0",
             config,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="drift-review",
             knowledge_db=_MOCK_KB,
         )
         assert runner._resolved_security is not None
@@ -308,8 +314,8 @@ class TestPropertyAssignmentPriority:
     def test_prop_priority_layers(self, has_tag: bool, has_coord: bool) -> None:
         # Test will be fully implemented when build_graph supports all layers
         # For now, validate the priority concept
-        tag = "auditor" if has_tag else None
-        coord = "oracle" if has_coord else None
+        tag = "reviewer" if has_tag else None
+        coord = "verifier" if has_coord else None
         default = "coder"
 
         expected = tag or coord or default

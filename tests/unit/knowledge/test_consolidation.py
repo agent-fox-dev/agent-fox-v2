@@ -179,9 +179,7 @@ class TestPipelineOrdering:
     """
 
     @pytest.mark.asyncio
-    async def test_pipeline_ordering(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_pipeline_ordering(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Pipeline executes all six steps and returns complete ConsolidationResult."""
         # Insert a few active facts so the pipeline has work to do
         _insert_fact(entity_conn, FACT_A, spec_name="spec_a")
@@ -255,9 +253,7 @@ class TestStepFailureIsolation:
     """
 
     @pytest.mark.asyncio
-    async def test_step_failure_isolation(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_step_failure_isolation(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Failing git_verification step does not block merge/promote/prune."""
         _insert_fact(entity_conn, FACT_A)
 
@@ -291,9 +287,7 @@ class TestAuditEvent:
     """
 
     @pytest.mark.asyncio
-    async def test_audit_event(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_audit_event(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """consolidation.complete audit event is dispatched after pipeline completes."""
         _insert_fact(entity_conn, FACT_A)
 
@@ -311,10 +305,7 @@ class TestAuditEvent:
         assert mock_sink.dispatch.called
         # Find the consolidation.complete event
         calls = mock_sink.dispatch.call_args_list
-        event_types = [
-            c.args[0] if c.args else c.kwargs.get("event_type", "")
-            for c in calls
-        ]
+        event_types = [c.args[0] if c.args else c.kwargs.get("event_type", "") for c in calls]
         assert any("consolidation.complete" in str(et) for et in event_types)
 
 
@@ -329,9 +320,7 @@ class TestEntityRefresh:
     Requirements: 96-REQ-2.1
     """
 
-    def test_entity_refresh(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_entity_refresh(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """_refresh_entity_graph delegates to analyze_codebase."""
         expected = AnalysisResult(entities_upserted=5, edges_upserted=3, entities_soft_deleted=0)
 
@@ -357,9 +346,7 @@ class TestUnlinkedFacts:
     Requirements: 96-REQ-2.2
     """
 
-    def test_unlinked_facts(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_unlinked_facts(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Only unlinked facts are passed to link_facts."""
         # Insert 3 facts: 2 with entity links, 1 without
         entity_id = str(uuid.uuid4())
@@ -401,9 +388,7 @@ class TestEntityCountsInResult:
     """
 
     @pytest.mark.asyncio
-    async def test_entity_counts_in_result(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_entity_counts_in_result(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """entity_refresh and facts_linked are populated in ConsolidationResult."""
         _insert_fact(entity_conn, FACT_A)
 
@@ -443,9 +428,7 @@ class TestGitVerifyQueriesLinks:
     Requirements: 96-REQ-3.1
     """
 
-    def test_git_verify_queries_links(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_git_verify_queries_links(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Only facts with file entity links are checked; unlinked facts skipped."""
         entity_id_1 = str(uuid.uuid4())
         entity_id_2 = str(uuid.uuid4())
@@ -482,9 +465,7 @@ class TestSupersedeFact:
     Requirements: 96-REQ-3.2
     """
 
-    def test_supersede_deleted_files(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_supersede_deleted_files(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Fact superseded_by set to CONSOLIDATION_STALE_SENTINEL when all files deleted."""
         entity_id = str(uuid.uuid4())
         _insert_fact(entity_conn, FACT_A, commit_sha=None)
@@ -510,9 +491,7 @@ class TestHalveConfidence:
     Requirements: 96-REQ-3.3
     """
 
-    def test_halve_confidence(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_halve_confidence(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Confidence halved when change ratio > threshold and file exists."""
         entity_id = str(uuid.uuid4())
         _insert_fact(entity_conn, FACT_A, commit_sha="abc123", confidence=0.8)
@@ -552,9 +531,7 @@ class TestVerificationCounts:
     Requirements: 96-REQ-3.4
     """
 
-    def test_verification_counts(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_verification_counts(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """VerificationResult(3, 1, 1, 1) for 3 facts: 1 deleted, 1 changed, 1 unchanged."""
         entity_a = str(uuid.uuid4())
         entity_b = str(uuid.uuid4())
@@ -605,9 +582,7 @@ class TestClusterDetection:
     """
 
     @pytest.mark.asyncio
-    async def test_cluster_detection(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_cluster_detection(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Facts from different specs with high similarity form a cluster."""
         import math
 
@@ -666,9 +641,7 @@ class TestLLMMergeClassification:
     """
 
     @pytest.mark.asyncio
-    async def test_llm_merge_classification(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_llm_merge_classification(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """LLM called with cluster facts to decide merge or link action."""
         import math
 
@@ -716,9 +689,7 @@ class TestMergeCreatesConsolidatedFact:
     """
 
     @pytest.mark.asyncio
-    async def test_merge_creates_fact(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_merge_creates_fact(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Merge creates consolidated fact and supersedes F1, F2."""
         import math
 
@@ -767,9 +738,7 @@ class TestLinkAddsEdges:
     """
 
     @pytest.mark.asyncio
-    async def test_link_adds_edges(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_link_adds_edges(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Link action adds causal edges between clustered facts; no supersession."""
         import math
 
@@ -816,9 +785,7 @@ class TestPatternCandidates:
     """
 
     @pytest.mark.asyncio
-    async def test_pattern_candidates(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_pattern_candidates(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Facts from 3 distinct specs with high similarity found as candidates."""
         import math
 
@@ -829,9 +796,7 @@ class TestPatternCandidates:
 
         emb_base = _make_unit_vec(1)
 
-        for i, (fact_id, spec) in enumerate(
-            [(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]
-        ):
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
             _insert_fact(entity_conn, fact_id, spec_name=spec)
             # All embeddings are nearly identical (very similar)
             emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
@@ -842,9 +807,7 @@ class TestPatternCandidates:
                 [fact_id, emb],
             )
 
-        llm_mock = AsyncMock(
-            return_value={"is_pattern": True, "description": "A recurring pattern across specs"}
-        )
+        llm_mock = AsyncMock(return_value={"is_pattern": True, "description": "A recurring pattern across specs"})
 
         with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
             result = await _promote_patterns(entity_conn, "claude-3-5-haiku-20241022")
@@ -864,9 +827,7 @@ class TestLLMPatternConfirm:
     """
 
     @pytest.mark.asyncio
-    async def test_llm_pattern_confirm(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_llm_pattern_confirm(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """LLM called with candidate facts to confirm pattern."""
         import math
 
@@ -876,9 +837,7 @@ class TestLLMPatternConfirm:
             return [x / norm for x in raw]
 
         emb_base = _make_unit_vec(1)
-        for i, (fact_id, spec) in enumerate(
-            [(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]
-        ):
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
             _insert_fact(entity_conn, fact_id, spec_name=spec)
             emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
             norm = math.sqrt(sum(x * x for x in emb_raw))
@@ -888,9 +847,7 @@ class TestLLMPatternConfirm:
                 [fact_id, emb],
             )
 
-        llm_mock = AsyncMock(
-            return_value={"is_pattern": True, "description": "Pattern confirmed"}
-        )
+        llm_mock = AsyncMock(return_value={"is_pattern": True, "description": "Pattern confirmed"})
 
         with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
             await _promote_patterns(entity_conn, "claude-3-5-haiku-20241022")
@@ -910,9 +867,7 @@ class TestPatternFactCreation:
     """
 
     @pytest.mark.asyncio
-    async def test_pattern_fact_creation(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_pattern_fact_creation(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Confirmed pattern creates fact with category=pattern, confidence=0.9."""
         import math
 
@@ -922,9 +877,7 @@ class TestPatternFactCreation:
             return [x / norm for x in raw]
 
         emb_base = _make_unit_vec(1)
-        for i, (fact_id, spec) in enumerate(
-            [(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]
-        ):
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
             _insert_fact(entity_conn, fact_id, spec_name=spec)
             emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
             norm = math.sqrt(sum(x * x for x in emb_raw))
@@ -934,9 +887,7 @@ class TestPatternFactCreation:
                 [fact_id, emb],
             )
 
-        llm_mock = AsyncMock(
-            return_value={"is_pattern": True, "description": "A recurring pattern"}
-        )
+        llm_mock = AsyncMock(return_value={"is_pattern": True, "description": "A recurring pattern"})
 
         with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
             result = await _promote_patterns(entity_conn, "claude-3-5-haiku-20241022")
@@ -969,9 +920,7 @@ class TestRedundantChainDetect:
     """
 
     @pytest.mark.asyncio
-    async def test_redundant_chain_detect(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_redundant_chain_detect(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Chain A->B->C with direct A->C is detected as redundant."""
         _insert_fact(entity_conn, FACT_A)
         _insert_fact(entity_conn, FACT_B)
@@ -1000,9 +949,7 @@ class TestLLMChainEval:
     """
 
     @pytest.mark.asyncio
-    async def test_llm_chain_eval(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_llm_chain_eval(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """LLM called with facts A, B, C to evaluate B as intermediate."""
         _insert_fact(entity_conn, FACT_A)
         _insert_fact(entity_conn, FACT_B)
@@ -1031,9 +978,7 @@ class TestEdgeRemoval:
     """
 
     @pytest.mark.asyncio
-    async def test_edge_removal(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_edge_removal(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """After pruning B: edges A->B and B->C gone, A->C preserved."""
         _insert_fact(entity_conn, FACT_A)
         _insert_fact(entity_conn, FACT_B)
@@ -1065,9 +1010,7 @@ class TestZeroFacts:
     """
 
     @pytest.mark.asyncio
-    async def test_zero_facts(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_zero_facts(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """No facts -> all counts zero, no LLM calls."""
         llm_mock = AsyncMock()
 
@@ -1095,9 +1038,7 @@ class TestMissingEntityTables:
     """
 
     @pytest.mark.asyncio
-    async def test_missing_entity_tables(
-        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    async def test_missing_entity_tables(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
         """Missing entity graph tables -> skip entity steps, log warning."""
         # Create connection with only base schema (no v8 migration)
         conn = duckdb.connect(":memory:")
@@ -1164,9 +1105,7 @@ class TestSkipNoEntityLinks:
     Requirements: 96-REQ-3.E1
     """
 
-    def test_skip_no_entity_links(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_skip_no_entity_links(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Fact with no fact_entities rows -> facts_checked == 0."""
         _insert_fact(entity_conn, FACT_A, commit_sha=None)
         # No entity links for FACT_A
@@ -1187,9 +1126,7 @@ class TestNoCommitSha:
     Requirements: 96-REQ-3.E2
     """
 
-    def test_no_commit_sha(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_no_commit_sha(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """No commit_sha -> file existence check only; no git diff subprocess."""
         entity_id = str(uuid.uuid4())
         _insert_fact(entity_conn, FACT_A, commit_sha=None)
@@ -1221,9 +1158,7 @@ class TestEmbeddingFailure:
     """
 
     @pytest.mark.asyncio
-    async def test_embedding_failure(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_embedding_failure(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """F3 without embedding excluded from clustering; F1, F2 processed."""
         import math
 
@@ -1324,9 +1259,7 @@ class TestDuplicatePatternSkip:
     """
 
     @pytest.mark.asyncio
-    async def test_duplicate_pattern_skip(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    async def test_duplicate_pattern_skip(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Already-linked pattern group -> no new pattern created."""
         import math
 
@@ -1336,9 +1269,7 @@ class TestDuplicatePatternSkip:
             return [x / norm for x in raw]
 
         emb_base = _make_unit_vec(1)
-        for i, (fact_id, spec) in enumerate(
-            [(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]
-        ):
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
             _insert_fact(entity_conn, fact_id, spec_name=spec)
             emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
             norm = math.sqrt(sum(x * x for x in emb_raw))

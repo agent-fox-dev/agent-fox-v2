@@ -1,8 +1,8 @@
 """Unit tests for review archetype prompt template format instructions.
 
-Tests that review archetype prompt templates (skeptic, verifier, auditor,
-oracle) contain strict format enforcement instructions, a CRITICAL REMINDERS
-section, and a negative example of incorrect formatting.
+Tests that review archetype prompt templates (reviewer, verifier) contain
+strict format enforcement instructions, a CRITICAL REMINDERS section, and
+a negative example of incorrect formatting.
 
 Test Spec: TS-74-1, TS-74-2, TS-74-3, TS-74-4, TS-74-5, TS-74-6
 Requirements: 74-REQ-1.1, 74-REQ-1.2, 74-REQ-1.3, 74-REQ-1.4,
@@ -19,28 +19,26 @@ import pytest
 _TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts"
 
 _REVIEW_TEMPLATES = [
-    ("skeptic", _TEMPLATE_DIR / "skeptic.md"),
+    ("reviewer", _TEMPLATE_DIR / "reviewer.md"),
     ("verifier", _TEMPLATE_DIR / "verifier.md"),
-    ("auditor", _TEMPLATE_DIR / "auditor.md"),
-    ("oracle", _TEMPLATE_DIR / "oracle.md"),
 ]
 
 
-class TestSkepticPromptFormatInstructions:
-    """TS-74-1: Skeptic prompt contains strict format instructions."""
+class TestReviewerPromptFormatInstructions:
+    """TS-74-1: Reviewer prompt contains strict format instructions."""
 
     def test_contains_no_markdown_fences_instruction(self) -> None:
-        """74-REQ-1.1: Skeptic template instructs output without markdown fences."""
-        content = (_TEMPLATE_DIR / "skeptic.md").read_text()
+        """74-REQ-1.1: Reviewer template instructs output without markdown fences."""
+        content = (_TEMPLATE_DIR / "reviewer.md").read_text()
         assert "no markdown fences" in content.lower(), (
-            "Skeptic template must instruct to output without markdown fences"
+            "Reviewer template must instruct to output without markdown fences"
         )
 
     def test_contains_exact_field_names_instruction(self) -> None:
-        """74-REQ-1.1: Skeptic template instructs use of exact field names."""
-        content = (_TEMPLATE_DIR / "skeptic.md").read_text()
+        """74-REQ-1.1: Reviewer template instructs use of exact field names."""
+        content = (_TEMPLATE_DIR / "reviewer.md").read_text()
         assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
-            "Skeptic template must instruct use of exact field names from the schema"
+            "Reviewer template must instruct use of exact field names from the schema"
         )
 
 
@@ -62,40 +60,9 @@ class TestVerifierPromptFormatInstructions:
         )
 
 
-class TestAuditorPromptFormatInstructions:
-    """TS-74-3: Auditor prompt contains strict format instructions."""
-
-    def test_contains_no_markdown_fences_instruction(self) -> None:
-        """74-REQ-1.3: Auditor template instructs output without markdown fences."""
-        content = (_TEMPLATE_DIR / "auditor.md").read_text()
-        assert "no markdown fences" in content.lower(), (
-            "Auditor template must instruct to output without markdown fences"
-        )
-
-    def test_contains_exact_field_names_instruction(self) -> None:
-        """74-REQ-1.3: Auditor template instructs use of exact field names."""
-        content = (_TEMPLATE_DIR / "auditor.md").read_text()
-        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
-            "Auditor template must instruct use of exact field names from the schema"
-        )
-
-
-class TestOraclePromptFormatInstructions:
-    """TS-74-4: Oracle prompt contains strict format instructions."""
-
-    def test_contains_no_markdown_fences_instruction(self) -> None:
-        """74-REQ-1.4: Oracle template instructs output without markdown fences."""
-        content = (_TEMPLATE_DIR / "oracle.md").read_text()
-        assert "no markdown fences" in content.lower(), (
-            "Oracle template must instruct to output without markdown fences"
-        )
-
-    def test_contains_exact_field_names_instruction(self) -> None:
-        """74-REQ-1.4: Oracle template instructs use of exact field names."""
-        content = (_TEMPLATE_DIR / "oracle.md").read_text()
-        assert "exact field names" in content.lower() or "exactly the field names" in content.lower(), (
-            "Oracle template must instruct use of exact field names from the schema"
-        )
+# TestAuditorPromptFormatInstructions and TestOraclePromptFormatInstructions
+# removed: auditor.md and oracle.md consolidated into reviewer.md.
+# Format instructions are covered by TestReviewerPromptFormatInstructions above.
 
 
 class TestCriticalRemindersSection:
