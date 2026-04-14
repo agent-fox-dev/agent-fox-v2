@@ -127,3 +127,6 @@ Include references to academic papers that are relevant to agent-fox or that age
 
 ### MAGMA: A Multi-Graph based Agentic Memory Architecture for AI Agents
 https://arxiv.org/abs/2601.03236
+
+### Sleep-time Compute: Beyond Inference Scaling at Test-time
+https://arxiv.org/html/2504.13171v1
