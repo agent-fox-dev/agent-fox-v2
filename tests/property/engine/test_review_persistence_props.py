@@ -80,7 +80,12 @@ def _make_finding(
 # ---------------------------------------------------------------------------
 
 VALID_SEVERITIES = ["critical", "major", "minor", "observation"]
-VALID_ARCHETYPES = ["skeptic", "verifier", "oracle"]
+# Reviewer needs mode to route correctly; use (archetype, mode) tuples
+VALID_ARCHETYPES = ["reviewer", "verifier"]
+_ARCHETYPE_MODES: dict[str, str | None] = {
+    "reviewer": "pre-review",
+    "verifier": None,
+}
 WRITE_COMMANDS = {"cp", "mv", "rm", "mkdir", "touch", "tee", "sed", "awk"}
 
 
@@ -186,6 +191,7 @@ class TestParseOrWarnInvariant:
                 "prop_spec:1",
                 AgentFoxConfig(),
                 archetype=archetype,
+                mode=_ARCHETYPE_MODES.get(archetype),
                 knowledge_db=db,
                 sink_dispatcher=mock_sink,
                 run_id="prop_run",
@@ -296,20 +302,18 @@ class TestArchetypeRoutingCorrectness:
         db = _make_knowledge_db()
         try:
             # Build valid JSON for each archetype type
-            if archetype == "skeptic":
+            if archetype == "reviewer":
                 output = json.dumps([{"severity": "major", "description": "finding"}])
                 table = "review_findings"
-            elif archetype == "verifier":
+            else:  # verifier
                 output = json.dumps([{"requirement_id": "REQ-1.1", "verdict": "PASS"}])
                 table = "verification_results"
-            else:  # oracle
-                output = json.dumps([{"severity": "major", "description": "drift"}])
-                table = "drift_findings"
 
             runner = NodeSessionRunner(
                 "prop_spec:1",
                 AgentFoxConfig(),
                 archetype=archetype,
+                mode=_ARCHETYPE_MODES.get(archetype),
                 knowledge_db=db,
             )
 
@@ -421,7 +425,7 @@ class TestReviewOnlyGraphCompleteness:
         deadline=None,
     )
     def test_correct_nodes_per_spec(self, tmp_path: Path, spec_configs: list[dict]) -> None:
-        """TS-53-P5: Each spec gets Skeptic+Oracle iff source, Verifier iff reqs."""
+        """TS-53-P5: Each spec gets Reviewer (pre-review + drift-review) iff source, Verifier iff reqs."""
         # Deduplicate spec names to avoid collisions in hypothesis
         seen: set[str] = set()
         unique_configs = []
@@ -455,10 +459,9 @@ class TestReviewOnlyGraphCompleteness:
             archetypes = {n.archetype for n in graph.nodes.values() if n.spec_name == cfg["name"]}
 
             if cfg["has_source"]:
-                assert "skeptic" in archetypes, f"Spec {cfg['name']} with source should have skeptic"
-                assert "oracle" in archetypes, f"Spec {cfg['name']} with source should have oracle"
+                assert "reviewer" in archetypes, f"Spec {cfg['name']} with source should have reviewer"
             else:
-                assert "skeptic" not in archetypes, f"Spec {cfg['name']} without source should not have skeptic"
+                assert "reviewer" not in archetypes, f"Spec {cfg['name']} without source should not have reviewer"
 
             if cfg["has_reqs"]:
                 assert "verifier" in archetypes, f"Spec {cfg['name']} with reqs should have verifier"

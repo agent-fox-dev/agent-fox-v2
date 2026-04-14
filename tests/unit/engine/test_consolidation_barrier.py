@@ -76,9 +76,7 @@ class TestBarrierTriggersConsolidation:
     """
 
     @pytest.mark.asyncio
-    async def test_barrier_triggers(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_barrier_triggers(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """run_consolidation called with completed_specs when barrier fires."""
         state = _make_minimal_barrier_state({"task_a": "completed"})
 
@@ -108,8 +106,7 @@ class TestBarrierTriggersConsolidation:
         assert mock_consolidation.called
         call_kwargs = mock_consolidation.call_args
         passed_specs = (
-            call_kwargs.kwargs.get("completed_specs")
-            or call_kwargs.args[2]
+            call_kwargs.kwargs.get("completed_specs") or call_kwargs.args[2]
             if call_kwargs.args and len(call_kwargs.args) > 2
             else None
         )
@@ -129,9 +126,7 @@ class TestEndOfRunConsolidation:
     """
 
     @pytest.mark.asyncio
-    async def test_end_of_run(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_end_of_run(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """run_consolidation called at end-of-run with unconsolidated specs."""
         completed_all = {"spec_a", "spec_b"}
         already_consolidated = {"spec_a"}
@@ -177,9 +172,7 @@ class TestExclusiveAccess:
     """
 
     @pytest.mark.asyncio
-    async def test_exclusive_access(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_exclusive_access(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Consolidation runs after lifecycle cleanup and before memory summary."""
         call_order: list[str] = []
 
@@ -193,19 +186,21 @@ class TestExclusiveAccess:
             return _side
 
         mock_consolidation = AsyncMock(
-            side_effect=lambda *a, **kw: call_order.append("consolidation")
-            or _make_zero_consolidation_result()
+            side_effect=lambda *a, **kw: call_order.append("consolidation") or _make_zero_consolidation_result()
         )
 
         with (
             patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation),
             patch(
                 "agent_fox.knowledge.lifecycle.run_cleanup",
-                side_effect=lambda *a, **kw: call_order.append("lifecycle_cleanup") or MagicMock(
-                    facts_expired=0,
-                    facts_deduped=0,
-                    facts_contradicted=0,
-                    active_facts_remaining=0,
+                side_effect=lambda *a, **kw: (
+                    call_order.append("lifecycle_cleanup")
+                    or MagicMock(
+                        facts_expired=0,
+                        facts_deduped=0,
+                        facts_contradicted=0,
+                        active_facts_remaining=0,
+                    )
                 ),
             ),
             patch(
@@ -251,9 +246,7 @@ class TestCostReporting:
     """
 
     @pytest.mark.asyncio
-    async def test_cost_reporting(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_cost_reporting(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """consolidation.cost audit event emitted with cost breakdown."""
         mock_sink = MagicMock()
         captured_events: list[dict] = []
@@ -298,9 +291,7 @@ class TestBudgetExceeded:
     """
 
     @pytest.mark.asyncio
-    async def test_budget_exceeded(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_budget_exceeded(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Very low budget causes partial result; total_llm_cost <= budget."""
         # Insert a few facts to trigger LLM calls
         for i in range(3):
@@ -340,9 +331,7 @@ class TestNoCompletedSpecs:
     """
 
     @pytest.mark.asyncio
-    async def test_no_completed_specs(
-        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    async def test_no_completed_specs(self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """When completed_spec_names() returns empty set, run_consolidation not called."""
         state = _make_minimal_barrier_state()
         mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())

@@ -133,9 +133,7 @@ class TestCustomArchetypeSession:
         entry = get_archetype("deployer", project_dir=tmp_path, config=cfg)
         coder = ARCHETYPE_REGISTRY["coder"]
 
-        assert entry.default_allowlist == coder.default_allowlist, (
-            "Custom archetype should inherit coder allowlist"
-        )
+        assert entry.default_allowlist == coder.default_allowlist, "Custom archetype should inherit coder allowlist"
 
     def test_custom_archetype_prompt_uses_custom_profile(self, tmp_path: Path) -> None:
         """TS-99-SMOKE-2: Prompt for custom archetype contains custom profile content.
@@ -205,9 +203,7 @@ class TestInitThenLoad:
         loaded = load_profile("coder", project_dir=tmp_path)
         default = load_profile("coder", project_dir=None)
 
-        assert loaded == default, (
-            "Profile loaded from project dir should match package default after init"
-        )
+        assert loaded == default, "Profile loaded from project dir should match package default after init"
 
     def test_init_profiles_idempotent(self, tmp_path: Path) -> None:
         """TS-99-SMOKE-3 + TS-99-P4: Second init call preserves existing files.

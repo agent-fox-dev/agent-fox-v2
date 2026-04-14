@@ -121,10 +121,10 @@ class TestDetectionSubstring:
 
 
 class TestAutoMidInjection:
-    """Verify auto_mid injection inserts auditor node with correct edges."""
+    """Verify auto_mid injection inserts reviewer:audit-review node with correct edges."""
 
     def test_auto_mid_injection(self, tmp_path: Path) -> None:
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         # Create a test_spec.md with enough TS entries
@@ -134,8 +134,8 @@ class TestAutoMidInjection:
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
-            auditor=True,
-            auditor_config=AuditorConfig(min_ts_entries=5),
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
         )
         specs = [_spec("spec", path=spec_dir)]
         task_groups = {
@@ -147,14 +147,14 @@ class TestAutoMidInjection:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 1
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 1
 
-        auditor_node = auditor_nodes[0]
-        # Verify edges: group 1 -> auditor -> group 2
-        assert any(e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges)
-        assert any(e.source == auditor_node.id and e.target == "spec:2" for e in graph.edges)
-        assert auditor_node.instances == config.instances.auditor
+        audit_node = audit_nodes[0]
+        # Verify edges: group 1 -> audit-review -> group 2
+        assert any(e.source == "spec:1" and e.target == audit_node.id for e in graph.edges)
+        assert any(e.source == audit_node.id and e.target == "spec:2" for e in graph.edges)
+        assert audit_node.instances == config.instances.reviewer
 
 
 # ---------------------------------------------------------------------------
@@ -164,13 +164,13 @@ class TestAutoMidInjection:
 
 
 class TestInjectionDisabled:
-    """Verify no auditor injection when auditor is disabled."""
+    """Verify no audit-review injection when reviewer is disabled."""
 
     def test_injection_disabled(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(auditor=False)
+        config = ArchetypesConfig(reviewer=False)
         specs = [_spec()]
         task_groups = {
             "spec": [
@@ -181,8 +181,8 @@ class TestInjectionDisabled:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 0
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ class TestInjectionSkippedBelowThreshold:
         tmp_path: Path,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         # Create test_spec.md with only 3 TS entries (below threshold of 5)
@@ -209,8 +209,8 @@ class TestInjectionSkippedBelowThreshold:
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
-            auditor=True,
-            auditor_config=AuditorConfig(min_ts_entries=5),
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
         )
         specs = [_spec("spec", path=spec_dir)]
         task_groups = {
@@ -223,8 +223,8 @@ class TestInjectionSkippedBelowThreshold:
         with caplog.at_level(logging.INFO, logger="agent_fox.graph.builder"):
             graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 0
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 0
         assert any("skip" in r.message.lower() for r in caplog.records)
 
 
@@ -235,10 +235,10 @@ class TestInjectionSkippedBelowThreshold:
 
 
 class TestInjectionLastGroup:
-    """Verify auditor node injected after last group with no successor."""
+    """Verify audit-review node injected after last group with no successor."""
 
     def test_injection_last_group(self, tmp_path: Path) -> None:
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         spec_dir = tmp_path / ".specs" / "spec"
@@ -247,8 +247,8 @@ class TestInjectionLastGroup:
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
-            auditor=True,
-            auditor_config=AuditorConfig(min_ts_entries=5),
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
         )
         specs = [_spec("spec", path=spec_dir)]
         # Only one group, and it's the test-writing group (last)
@@ -258,14 +258,14 @@ class TestInjectionLastGroup:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 1
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 1
 
-        auditor_node = auditor_nodes[0]
+        audit_node = audit_nodes[0]
         # Should have incoming edge from group 1
-        assert any(e.source == "spec:1" and e.target == auditor_node.id for e in graph.edges)
-        # No outgoing edge from auditor
-        outgoing = [e for e in graph.edges if e.source == auditor_node.id]
+        assert any(e.source == "spec:1" and e.target == audit_node.id for e in graph.edges)
+        # No outgoing edge from audit-review
+        outgoing = [e for e in graph.edges if e.source == audit_node.id]
         assert len(outgoing) == 0
 
 
@@ -275,11 +275,11 @@ class TestInjectionLastGroup:
 # ---------------------------------------------------------------------------
 
 
-class TestCoexistenceSkeptic:
-    """Verify both skeptic and auditor inject without conflict."""
+class TestCoexistencePreReviewAndAuditReview:
+    """Verify both pre-review and audit-review reviewer modes inject without conflict."""
 
-    def test_coexistence_skeptic(self, tmp_path: Path) -> None:
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+    def test_coexistence_pre_review_and_audit_review(self, tmp_path: Path) -> None:
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         spec_dir = tmp_path / ".specs" / "spec"
@@ -288,9 +288,8 @@ class TestCoexistenceSkeptic:
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
-            skeptic=True,
-            auditor=True,
-            auditor_config=AuditorConfig(min_ts_entries=5),
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
         )
         specs = [_spec("spec", path=spec_dir)]
         task_groups = {
@@ -302,10 +301,10 @@ class TestCoexistenceSkeptic:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        skeptic_nodes = [n for n in graph.nodes.values() if n.archetype == "skeptic"]
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(skeptic_nodes) >= 1
-        assert len(auditor_nodes) >= 1
+        pre_review_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "pre-review"]
+        audit_review_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(pre_review_nodes) >= 1
+        assert len(audit_review_nodes) >= 1
 
 
 # ---------------------------------------------------------------------------
@@ -315,10 +314,10 @@ class TestCoexistenceSkeptic:
 
 
 class TestMultipleTestGroups:
-    """Verify auditor node injected after each test-writing group."""
+    """Verify audit-review node injected after each test-writing group."""
 
     def test_multiple_test_groups(self, tmp_path: Path) -> None:
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         spec_dir = tmp_path / ".specs" / "spec"
@@ -327,8 +326,8 @@ class TestMultipleTestGroups:
         (spec_dir / "test_spec.md").write_text(ts_content)
 
         config = ArchetypesConfig(
-            auditor=True,
-            auditor_config=AuditorConfig(min_ts_entries=5),
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
         )
         specs = [_spec("spec", path=spec_dir)]
         task_groups = {
@@ -342,8 +341,8 @@ class TestMultipleTestGroups:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 2
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -353,13 +352,13 @@ class TestMultipleTestGroups:
 
 
 class TestNoTestGroupsDetected:
-    """Verify no auditor injection when no test-writing groups exist."""
+    """Verify no audit-review injection when no test-writing groups exist."""
 
     def test_no_test_groups(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(auditor=True)
+        config = ArchetypesConfig(reviewer=True)
         specs = [_spec()]
         task_groups = {
             "spec": [
@@ -370,8 +369,8 @@ class TestNoTestGroupsDetected:
 
         graph = build_graph(specs, task_groups, [], archetypes_config=config)
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 0
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +490,7 @@ class TestPropertyDetectionSpecificity:
 
 
 class TestPropertyInjectionIntegrity:
-    """Injected auditor nodes have correct edge structure."""
+    """Injected audit-review nodes have correct edge structure."""
 
     @pytest.mark.skipif(
         not HAS_HYPOTHESIS,
@@ -509,7 +508,7 @@ class TestPropertyInjectionIntegrity:
     ) -> None:
         import tempfile
 
-        from agent_fox.core.config import ArchetypesConfig, AuditorConfig
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
         from agent_fox.graph.builder import build_graph
 
         idx = test_group_idx.draw(st.integers(min_value=0, max_value=n_groups - 1))
@@ -522,8 +521,8 @@ class TestPropertyInjectionIntegrity:
             (spec_dir / "test_spec.md").write_text(ts_content)
 
             config = ArchetypesConfig(
-                auditor=True,
-                auditor_config=AuditorConfig(min_ts_entries=5),
+                reviewer=True,
+                reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
             )
 
             groups = []
@@ -542,12 +541,12 @@ class TestPropertyInjectionIntegrity:
                 archetypes_config=config,
             )
 
-        auditor_nodes = [n for n in graph.nodes.values() if n.archetype == "auditor"]
-        assert len(auditor_nodes) == 1
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 1
 
-        auditor_node = auditor_nodes[0]
-        incoming = [e for e in graph.edges if e.target == auditor_node.id]
-        outgoing = [e for e in graph.edges if e.source == auditor_node.id]
+        audit_node = audit_nodes[0]
+        incoming = [e for e in graph.edges if e.target == audit_node.id]
+        outgoing = [e for e in graph.edges if e.source == audit_node.id]
 
         assert len(incoming) == 1
         assert len(outgoing) <= 1

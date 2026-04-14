@@ -33,13 +33,9 @@ class TestRegistryCompleteness:
 
         expected = {
             "coder",
-            "skeptic",
+            "reviewer",
             "verifier",
-            "oracle",
-            "auditor",
             "triage",
-            "fix_reviewer",
-            "fix_coder",
         }
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
@@ -62,10 +58,10 @@ class TestRegistryCompleteness:
 class TestPerArchetypeAllowlist:
     """Verify archetype allowlist override is used instead of global."""
 
-    def test_skeptic_has_default_allowlist(self) -> None:
+    def test_triage_has_default_allowlist(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        entry = ARCHETYPE_REGISTRY["skeptic"]
+        entry = ARCHETYPE_REGISTRY["triage"]
         assert entry.default_allowlist is not None
         assert isinstance(entry.default_allowlist, list)
         assert len(entry.default_allowlist) > 0
@@ -98,8 +94,8 @@ class TestUnknownArchetypeFallback:
     def test_known_archetype_returns_self(self) -> None:
         from agent_fox.session.archetypes import get_archetype
 
-        entry = get_archetype("skeptic")
-        assert entry.name == "skeptic"
+        entry = get_archetype("reviewer")
+        assert entry.name == "reviewer"
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +113,7 @@ class TestPropertyRegistryCompleteness:
 
         roster = {
             "coder",
-            "skeptic",
+            "reviewer",
             "verifier",
         }
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
@@ -149,8 +145,9 @@ class TestPropertyArchetypeFallback:
                 s
                 not in {
                     "coder",
-                    "skeptic",
+                    "reviewer",
                     "verifier",
+                    "triage",
                 }
             )
         )

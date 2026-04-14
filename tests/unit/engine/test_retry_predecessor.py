@@ -44,6 +44,7 @@ def _make_orchestrator_with_graph(
             title=n.get("title", nid),
             optional=n.get("optional", False),
             archetype=n.get("archetype", "coder"),
+            mode=n.get("mode"),
             instances=n.get("instances", 1),
         )
         for nid, n in plan_nodes.items()
@@ -185,7 +186,7 @@ class TestRetryCycleLimit:
 
         assert ARCHETYPE_REGISTRY["verifier"].retry_predecessor is True
         assert ARCHETYPE_REGISTRY["coder"].retry_predecessor is False
-        assert ARCHETYPE_REGISTRY["skeptic"].retry_predecessor is False
+        assert ARCHETYPE_REGISTRY["reviewer"].retry_predecessor is False
 
     def test_verifier_blocked_after_max_retries(self) -> None:
         """After max_retries+1 failures, verifier is blocked."""
@@ -255,13 +256,14 @@ class TestNonCoderPredecessor:
         entry = get_archetype("verifier")
         assert entry.retry_predecessor is True
 
-    def test_auditor_predecessor_reset(self) -> None:
-        """Retry-predecessor works when predecessor is auditor, not coder."""
+    def test_reviewer_predecessor_reset(self) -> None:
+        """Retry-predecessor works when predecessor is reviewer:audit-review, not coder."""
         plan_nodes = {
             "spec:3": {
                 "spec_name": "spec",
                 "group_number": 3,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
             "spec:4": {
                 "spec_name": "spec",
@@ -299,7 +301,7 @@ class TestNonCoderPredecessor:
             error_tracker,
         )
 
-        # Auditor predecessor should be reset
+        # Reviewer:audit-review predecessor should be reset
         assert state.node_states["spec:3"] == "pending"
         assert state.node_states["spec:4"] == "pending"
 
@@ -317,9 +319,11 @@ class TestPropertyRetryPredecessor:
     def test_prop_retry_flag_only_on_retry_archetypes(self) -> None:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
-        retry_archetypes = {"verifier", "auditor"}
+        # Only verifier has retry_predecessor=True at the base archetype level.
+        # Reviewer has mode-specific retry_predecessor (audit-review mode),
+        # but the base entry does not have it.
         for name, entry in ARCHETYPE_REGISTRY.items():
-            if name in retry_archetypes:
+            if name == "verifier":
                 assert entry.retry_predecessor is True
             else:
                 assert entry.retry_predecessor is False, f"{name} should not have retry_predecessor"

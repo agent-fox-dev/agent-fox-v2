@@ -42,8 +42,8 @@ _fuzz_spec_name_strategy = st.text(
     max_size=50,
 )
 
-# Strategy for valid roles
-_role_strategy = st.sampled_from(["coding", "skeptic"])
+# Strategy for valid archetypes
+_archetype_strategy = st.sampled_from(["coder", "reviewer"])
 
 
 def _make_spec_dir(tmp: Path) -> Path:
@@ -103,22 +103,22 @@ class TestTemplateContentPresent:
     """
 
     @given(
-        role=_role_strategy,
+        archetype=_archetype_strategy,
         spec_name=_spec_name_strategy,
     )
     @settings(max_examples=50)
     def test_role_specific_content_present(
         self,
-        role: str,
+        archetype: str,
         spec_name: str,
     ) -> None:
-        """System prompt contains role-specific keywords."""
-        result = build_system_prompt("ctx", 1, spec_name, role=role)
+        """System prompt contains archetype-specific keywords."""
+        result = build_system_prompt("ctx", 1, spec_name, archetype=archetype)
         assert len(result) > 100
-        if role == "coding":
+        if archetype == "coder":
             assert "CODER ARCHETYPE" in result
         else:
-            assert "SKEPTIC ARCHETYPE" in result
+            assert "REVIEWER ARCHETYPE" in result
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +165,10 @@ class TestFrontmatterNeverLeaks:
         result = build_system_prompt("ctx", 1, spec_name, role="coding")
         assert not result.startswith("---")
 
-    def test_frontmatter_stripped_from_skeptic(self) -> None:
-        """Skeptic template has frontmatter; verify it's stripped."""
-        result = build_system_prompt("ctx", 1, "test_spec", archetype="skeptic")
-        assert "role: skeptic" not in result
+    def test_frontmatter_stripped_from_reviewer(self) -> None:
+        """Reviewer template has frontmatter; verify it's stripped."""
+        result = build_system_prompt("ctx", 1, "test_spec", archetype="reviewer")
+        assert "role: reviewer" not in result
         assert not result.startswith("---")
 
 

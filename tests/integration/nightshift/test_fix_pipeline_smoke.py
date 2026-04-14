@@ -116,7 +116,7 @@ class TestFullPipelineHappyPath:
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_outcome(_triage_json(2))
-            if archetype == "fix_reviewer":
+            if archetype == "reviewer":
                 return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
             return _make_outcome()  # coder
 
@@ -173,7 +173,7 @@ class TestRetryLoopWithEscalation:
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             if archetype == "triage":
                 return _make_outcome(_triage_json(2))
-            if archetype == "fix_reviewer":
+            if archetype == "reviewer":
                 reviewer_call_count["n"] += 1
                 if reviewer_call_count["n"] < 3:
                     return _make_outcome(_review_json("FAIL", ["AC-1", "AC-2"]))
@@ -241,7 +241,7 @@ class TestTriageFailureFallback:
             if archetype == "triage":
                 triage_attempted["value"] = True
                 raise Exception("backend error")
-            if archetype == "fix_reviewer":
+            if archetype == "reviewer":
                 # With no criteria, reviewer verifies from issue text
                 return _make_outcome(
                     json.dumps(

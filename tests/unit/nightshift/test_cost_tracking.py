@@ -317,7 +317,7 @@ class TestRunSessionPassesSinkAndRunId:
             new_callable=AsyncMock,
             return_value=mock_outcome,
         ) as mock_rs:
-            await pipeline._run_session("fix_coder", _mock_workspace(), spec=_mock_spec())
+            await pipeline._run_session("coder", _mock_workspace(), spec=_mock_spec())
 
         call_kwargs = mock_rs.call_args.kwargs
         # FAILS until _run_session passes sink_dispatcher=

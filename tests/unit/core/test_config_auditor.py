@@ -25,13 +25,13 @@ except ImportError:
 
 
 class TestAuditorDefaultTrue:
-    """Verify ArchetypesConfig defaults auditor to True."""
+    """Verify ArchetypesConfig defaults reviewer to True."""
 
     def test_auditor_default_true(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
 
         config = ArchetypesConfig()
-        assert config.auditor is True
+        assert config.reviewer is True
 
 
 # ---------------------------------------------------------------------------
@@ -41,14 +41,14 @@ class TestAuditorDefaultTrue:
 
 
 class TestInstanceClamping:
-    """Verify auditor instance count is clamped to [1, 5]."""
+    """Verify reviewer instance count is clamped to [1, 5]."""
 
     def test_instance_clamping(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        assert ArchetypeInstancesConfig(auditor=0).auditor == 1
-        assert ArchetypeInstancesConfig(auditor=6).auditor == 5
-        assert ArchetypeInstancesConfig(auditor=3).auditor == 3
+        assert ArchetypeInstancesConfig(reviewer=0).reviewer == 1
+        assert ArchetypeInstancesConfig(reviewer=6).reviewer == 5
+        assert ArchetypeInstancesConfig(reviewer=3).reviewer == 3
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +126,8 @@ class TestPropertyConfigClamping:
         )
 
         ac = AuditorConfig(min_ts_entries=min_ts, max_retries=max_r)
-        ic = ArchetypeInstancesConfig(auditor=inst)
+        ic = ArchetypeInstancesConfig(reviewer=inst)
 
         assert ac.min_ts_entries >= 1
         assert ac.max_retries >= 0
-        assert 1 <= ic.auditor <= 5
+        assert 1 <= ic.reviewer <= 5

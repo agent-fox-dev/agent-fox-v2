@@ -74,10 +74,6 @@ _VISIBLE_SECTIONS: set[str] = {
     "models",
     "archetypes",
     "archetypes.instances",
-    "archetypes.thinking",
-    "archetypes.thinking.coder",
-    "archetypes.thinking.skeptic",
-    "archetypes.thinking.verifier",
     "security",
 }
 
@@ -91,10 +87,8 @@ _PROMOTED_DEFAULTS: set[tuple[str, str]] = {
     ("orchestrator", "max_budget_usd"),
     ("models", "coding"),
     ("archetypes", "coder"),
-    ("archetypes", "skeptic"),
+    ("archetypes", "reviewer"),
     ("archetypes", "verifier"),
-    ("archetypes", "oracle"),
-    ("archetypes", "auditor"),
     ("archetypes.instances", "verifier"),
 }
 

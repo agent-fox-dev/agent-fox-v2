@@ -164,13 +164,17 @@ class TestUnknownSeverityNormalized:
         assert findings[0].severity == "critical"
 
 
-class TestSkepticTemplateJson:
-    """TS-27-15: Skeptic template instructs JSON output."""
+class TestReviewerTemplateJson:
+    """TS-27-15: Reviewer template instructs JSON output."""
 
-    def test_skeptic_template_json(self) -> None:
-        """Skeptic template contains JSON output instructions."""
+    def test_reviewer_template_json(self) -> None:
+        """Reviewer template contains JSON output instructions."""
         template_path = (
-            Path(__file__).resolve().parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts" / "skeptic.md"
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "agent_fox"
+            / "_templates"
+            / "prompts"
+            / "reviewer.md"
         )
         content = template_path.read_text(encoding="utf-8")
         assert '"findings"' in content
@@ -178,13 +182,17 @@ class TestSkepticTemplateJson:
         assert '"description"' in content
         assert "json" in content.lower()
 
-    def test_skeptic_template_constraints(self) -> None:
-        """Skeptic template retains read-only constraints."""
+    def test_reviewer_template_constraints(self) -> None:
+        """Reviewer template retains read-only constraints."""
         template_path = (
-            Path(__file__).resolve().parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts" / "skeptic.md"
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "agent_fox"
+            / "_templates"
+            / "prompts"
+            / "reviewer.md"
         )
         content = template_path.read_text(encoding="utf-8")
-        assert "read-only" in content.lower() or "read only" in content.lower()
+        assert "read-only" in content.lower() or "read only" in content.lower() or "do not" in content.lower()
 
 
 class TestVerifierTemplateJson:

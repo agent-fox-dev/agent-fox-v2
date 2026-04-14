@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Profile directory in the package (package-relative resolution, mirrors
 # the pattern used in session/prompt.py for _TEMPLATE_DIR).
-_DEFAULT_PROFILES_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "_templates" / "profiles"
-)
+_DEFAULT_PROFILES_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "profiles"
 
 # Regex to match YAML frontmatter at the very start of a file.
 # Replicates the pattern from session/prompt.py to avoid cross-module coupling.
@@ -66,9 +64,7 @@ def load_profile(
     """
     # --- Layer 1: project-level profile ---
     if project_dir is not None:
-        project_profile = (
-            project_dir / ".agent-fox" / "profiles" / f"{archetype}.md"
-        )
+        project_profile = project_dir / ".agent-fox" / "profiles" / f"{archetype}.md"
         if project_profile.exists():
             logger.debug(
                 "Loading profile for %r from project: %s",
@@ -91,9 +87,7 @@ def load_profile(
 
     # --- No profile found ---
     logger.warning(
-        "No profile found for archetype %r "
-        "(checked project dir and package defaults). "
-        "Using empty profile.",
+        "No profile found for archetype %r (checked project dir and package defaults). Using empty profile.",
         archetype,
     )
     return ""

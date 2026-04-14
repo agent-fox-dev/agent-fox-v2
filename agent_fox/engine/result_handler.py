@@ -95,22 +95,33 @@ def evaluate_review_blocking(
     archetypes_config: ArchetypesConfig | None,
     knowledge_db_conn: Any | None,
     *,
+    mode: str | None = None,
     sink: Any | None = None,
     run_id: str = "",
 ) -> BlockDecision:
-    """Evaluate whether a skeptic/oracle session should block its downstream task.
+    """Evaluate whether a reviewer session should block its downstream task.
+
+    Supports the consolidated reviewer archetype with modes (pre-review,
+    drift-review) as well as legacy archetype names for backward compat.
 
     Queries persisted review findings from DuckDB, counts critical findings,
     applies the configured (or learned) block threshold.
 
     Critical findings with category='security' always trigger blocking,
     regardless of the numeric threshold, because security vulnerabilities
-    must be remediated before downstream work can proceed.
+    must be remediated before downstream work can proceeded.
 
     Returns a BlockDecision indicating whether blocking should occur and why.
     """
     archetype = record.archetype
-    if archetype not in ("skeptic", "oracle"):
+
+    # Only reviewer pre-review and drift-review modes can block.
+    # Audit-review and fix-review do not participate in blocking.
+    if archetype == "reviewer":
+        if mode not in ("pre-review", "drift-review"):
+            return BlockDecision(should_block=False)
+    elif archetype not in ("skeptic", "oracle"):
+        # Legacy names kept for backward compat with old session records
         return BlockDecision(should_block=False)
 
     if knowledge_db_conn is None:
@@ -120,6 +131,9 @@ def evaluate_review_blocking(
     spec_name = parsed.spec_name
     task_group = str(parsed.group_number) if parsed.group_number else "1"
     coder_node_id = f"{spec_name}:{task_group}"
+
+    # Display label for log messages
+    display_name = f"reviewer:{mode}" if archetype == "reviewer" and mode else archetype
 
     try:
         from agent_fox.knowledge.review_store import query_findings_by_session
@@ -144,7 +158,7 @@ def evaluate_review_blocking(
                 for f in shown
             )
             reason = (
-                f"[SECURITY] {archetype.capitalize()} found {len(security_critical)} critical "
+                f"[SECURITY] {display_name.capitalize()} found {len(security_critical)} critical "
                 f"security finding(s) for {spec_name}:{task_group} — {detail}"
             )
             logger.warning("SECURITY blocking %s: %s", coder_node_id, reason)
@@ -168,18 +182,18 @@ def evaluate_review_blocking(
                 reason=reason,
             )
 
-        # Resolve threshold
-        if archetype == "skeptic" and archetypes_config is not None:
-            configured_threshold = archetypes_config.skeptic_config.block_threshold
-        elif archetype == "oracle" and archetypes_config is not None:
-            oracle_threshold = archetypes_config.oracle_settings.block_threshold
-            if oracle_threshold is None:
-                # Oracle is advisory-only when block_threshold is None
-                return BlockDecision(should_block=False)
-            configured_threshold = oracle_threshold
-        else:
-            # No config available, use conservative default
-            configured_threshold = 3
+        # Resolve threshold from ReviewerConfig by mode
+        configured_threshold = 3  # conservative default
+        if archetypes_config is not None:
+            if archetype == "reviewer":
+                rc = archetypes_config.reviewer_config
+                if mode == "pre-review":
+                    configured_threshold = rc.pre_review_block_threshold
+                elif mode == "drift-review":
+                    if rc.drift_review_block_threshold is None:
+                        # Drift-review is advisory-only when threshold is None
+                        return BlockDecision(should_block=False)
+                    configured_threshold = rc.drift_review_block_threshold
 
         from agent_fox.session.convergence import resolve_block_threshold
 
@@ -219,7 +233,7 @@ def evaluate_review_blocking(
 
         if blocked:
             reason = _format_block_reason(
-                archetype,
+                display_name,
                 findings,
                 effective_threshold,
                 spec_name,
@@ -227,7 +241,7 @@ def evaluate_review_blocking(
             )
             logger.warning(
                 "%s blocking %s: %s",
-                archetype.capitalize(),
+                display_name.capitalize(),
                 coder_node_id,
                 reason,
             )
@@ -240,7 +254,7 @@ def evaluate_review_blocking(
     except Exception:
         logger.warning(
             "Failed to evaluate %s blocking for %s",
-            archetype,
+            display_name,
             record.node_id,
             exc_info=True,
         )
@@ -310,6 +324,12 @@ class SessionResultHandler:
             return self._graph.nodes[node_id].archetype
         return "coder"
 
+    def _get_node_mode(self, node_id: str) -> str | None:
+        """Get the mode for a node from the task graph."""
+        if self._graph is not None and node_id in self._graph.nodes:
+            return self._graph.nodes[node_id].mode
+        return None
+
     def _get_predecessors(self, node_id: str) -> list[str]:
         """Get predecessor node IDs for a given node."""
         return self._graph_sync.predecessors(node_id)
@@ -324,6 +344,7 @@ class SessionResultHandler:
             record,
             self._archetypes_config,
             self._knowledge_db_conn,
+            mode=self._get_node_mode(record.node_id),
             sink=self._sink,
             run_id=self._run_id,
         )
@@ -399,7 +420,7 @@ class SessionResultHandler:
                 )
             )
 
-        # Skeptic/oracle blocking
+        # Reviewer blocking (pre-review / drift-review)
         if self.check_skeptic_blocking(record, state):
             self._check_block_budget(state)
 
@@ -537,7 +558,13 @@ class SessionResultHandler:
 
         # 26-REQ-9.3: Retry-predecessor for archetypes with the flag
         node_archetype = self._get_node_archetype(node_id)
+        node_mode = self._get_node_mode(node_id)
         archetype_entry = get_archetype(node_archetype)
+        # Resolve mode-specific overrides (e.g. audit-review retry_predecessor)
+        if node_mode is not None:
+            from agent_fox.archetypes import resolve_effective_config
+
+            archetype_entry = resolve_effective_config(archetype_entry, node_mode)
 
         # 30-REQ-7.3: Use escalation ladder for retry/escalation decisions
         ladder = self._routing_ladders.get(node_id)

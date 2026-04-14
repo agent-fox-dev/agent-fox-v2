@@ -227,9 +227,7 @@ class TestAnalysisResultCounts:
     Requirement: 95-REQ-4.4
     """
 
-    def test_analysis_returns_nonzero_counts(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_analysis_returns_nonzero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """AnalysisResult has entities_upserted > 0 on a non-empty repo."""
         pkg = tmp_path / "pkg"
         pkg.mkdir()
@@ -290,9 +288,7 @@ class TestSoftDeleteOnReanalysis:
         assert result.entities_soft_deleted >= 1
 
         # Check that the old.py file entity has deleted_at set
-        rows = entity_conn.execute(
-            "SELECT deleted_at FROM entity_graph WHERE entity_path LIKE '%old.py%'"
-        ).fetchall()
+        rows = entity_conn.execute("SELECT deleted_at FROM entity_graph WHERE entity_path LIKE '%old.py%'").fetchall()
         assert len(rows) > 0
         assert all(r[0] is not None for r in rows), "Old file entities should be soft-deleted"
 
@@ -385,9 +381,7 @@ class TestNonExistentRepoRoot:
     Requirement: 95-REQ-4.E2
     """
 
-    def test_nonexistent_path_raises_value_error(
-        self, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_nonexistent_path_raises_value_error(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """ValueError raised for a path that does not exist."""
         with pytest.raises(ValueError):
             analyze_codebase(Path("/nonexistent/path/does/not/exist"), entity_conn)
@@ -404,9 +398,7 @@ class TestEmptyRepository:
     Requirement: 95-REQ-4.E3
     """
 
-    def test_no_python_files_returns_zero_counts(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_python_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """AnalysisResult is all zeros when no .py files exist."""
         (tmp_path / "README.md").write_text("# Docs\n")
         (tmp_path / "data.json").write_text("{}")

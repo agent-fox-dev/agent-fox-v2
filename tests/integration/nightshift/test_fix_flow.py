@@ -51,7 +51,7 @@ class TestArchetypePipeline:
 
     @pytest.mark.asyncio
     async def test_triage_coder_reviewer_invoked(self) -> None:
-        """Session runner is invoked with triage, coder, and fix_reviewer."""
+        """Session runner is invoked with triage, coder, and reviewer."""
         import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -97,7 +97,7 @@ class TestArchetypePipeline:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""
@@ -108,8 +108,8 @@ class TestArchetypePipeline:
             await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")  # type: ignore[arg-type]
 
         assert "triage" in archetypes_used
-        assert "fix_coder" in archetypes_used
-        assert "fix_reviewer" in archetypes_used
+        assert "coder" in archetypes_used
+        assert "reviewer" in archetypes_used
 
 
 # ---------------------------------------------------------------------------

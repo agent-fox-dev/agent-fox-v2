@@ -24,10 +24,6 @@ _EXPECTED_VISIBLE_SECTIONS = frozenset(
         "models",
         "archetypes",
         "archetypes.instances",
-        "archetypes.thinking",
-        "archetypes.thinking.coder",
-        "archetypes.thinking.skeptic",
-        "archetypes.thinking.verifier",
         "security",
     }
 )
@@ -109,22 +105,22 @@ class TestPropMergePreservesValues:
     @given(
         parallel=st.integers(1, 8),
         max_budget=st.floats(0.1, 100.0, allow_nan=False, allow_infinity=False).map(lambda x: round(x, 2)),
-        skeptic=st.booleans(),
+        reviewer=st.booleans(),
     )
     @settings(max_examples=20)
-    def test_merge_preserves_active_values(self, parallel, max_budget, skeptic):
-        """User values for parallel, max_budget_usd, and skeptic survive merge."""
-        skeptic_str = "true" if skeptic else "false"
+    def test_merge_preserves_active_values(self, parallel, max_budget, reviewer):
+        """User values for parallel, max_budget_usd, and reviewer survive merge."""
+        reviewer_str = "true" if reviewer else "false"
         existing = (
             f"[orchestrator]\n"
             f"parallel = {parallel}\n"
             f"max_budget_usd = {max_budget}\n"
             f"\n[archetypes]\n"
-            f"skeptic = {skeptic_str}\n"
+            f"reviewer = {reviewer_str}\n"
         )
         result = merge_existing_config(existing)
         assert f"parallel = {parallel}" in result, f"parallel = {parallel} not preserved in merge result"
-        assert f"skeptic = {skeptic_str}" in result, f"skeptic = {skeptic_str} not preserved in merge result"
+        assert f"reviewer = {reviewer_str}" in result, f"reviewer = {reviewer_str} not preserved in merge result"
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +154,7 @@ class TestPropNoHiddenInjection:
             lines.append("[models]")
         if include_archetypes:
             lines.append("[archetypes]")
-            lines.append("skeptic = true")
+            lines.append("reviewer = true")
         if include_security:
             lines.append("[security]")
 
@@ -195,9 +191,9 @@ class TestPropFooterNonDuplication:
 
 
 class TestPropVerifierDefault:
-    """TS-68-P6: Property 10 — ArchetypeInstancesConfig().verifier == 2."""
+    """TS-68-P6: Property 10 — ArchetypeInstancesConfig().verifier == 1."""
 
-    def test_verifier_default_is_2(self):
-        """Default-constructed ArchetypeInstancesConfig always has verifier=2."""
+    def test_verifier_default_is_1(self):
+        """Default-constructed ArchetypeInstancesConfig always has verifier=1."""
         config = ArchetypeInstancesConfig()
-        assert config.verifier == 2, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"
+        assert config.verifier == 1, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 1"

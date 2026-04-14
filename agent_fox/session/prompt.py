@@ -44,7 +44,7 @@ _TEMPLATE_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "p
 # Legacy role-to-archetype mapping (backward compatibility)
 _ROLE_TO_ARCHETYPE: dict[str, str] = {
     "coding": "coder",
-    "skeptic": "skeptic",
+    "reviewer": "reviewer",
     "verifier": "verifier",
 }
 

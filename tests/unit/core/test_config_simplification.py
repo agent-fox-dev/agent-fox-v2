@@ -27,10 +27,6 @@ _EXPECTED_VISIBLE_SECTIONS = {
     "models",
     "archetypes",
     "archetypes.instances",
-    "archetypes.thinking",
-    "archetypes.thinking.coder",
-    "archetypes.thinking.skeptic",
-    "archetypes.thinking.verifier",
     "security",
 }
 
@@ -56,10 +52,8 @@ _EXPECTED_PROMOTED_FIELDS = [
     ("orchestrator", "quality_gate"),
     ("models", "coding"),
     ("archetypes", "coder"),
-    ("archetypes", "skeptic"),
+    ("archetypes", "reviewer"),
     ("archetypes", "verifier"),
-    ("archetypes", "oracle"),
-    ("archetypes", "auditor"),
     ("archetypes.instances", "verifier"),
 ]
 
@@ -189,17 +183,17 @@ class TestQualityGatePromoted:
 
 
 class TestVerifierInstancesPromoted:
-    """TS-68-6: archetypes.instances.verifier is promoted with value 2."""
+    """TS-68-6: archetypes.instances.verifier is promoted with value 1."""
 
     def test_verifier_instances_in_parsed_template(self):
-        """Parsed template has archetypes.instances.verifier == 2."""
+        """Parsed template has archetypes.instances.verifier == 1."""
         template = generate_default_config()
         parsed = tomllib.loads(template)
         actual = parsed["archetypes"]["instances"]["verifier"]
-        assert actual == 2, f"archetypes.instances.verifier is {actual}, expected 2"
+        assert actual == 1, f"archetypes.instances.verifier is {actual}, expected 1"
 
     def test_verifier_instances_line_not_commented(self):
-        """verifier = 2 under [archetypes.instances] is not commented out."""
+        """verifier = 1 under [archetypes.instances] is not commented out."""
         template = generate_default_config()
         in_instances = False
         for line in template.split("\n"):
@@ -209,11 +203,11 @@ class TestVerifierInstancesPromoted:
                 continue
             if in_instances and re.match(r"^\[", stripped):
                 in_instances = False
-            if in_instances and re.match(r"^verifier\s*=\s*2", stripped):
-                assert not line.strip().startswith("#"), f"verifier = 2 is commented: {line!r}"
+            if in_instances and re.match(r"^verifier\s*=\s*1", stripped):
+                assert not line.strip().startswith("#"), f"verifier = 1 is commented: {line!r}"
                 return
         # If we reach here, line was not found as uncommented
-        pytest.fail("Uncommented 'verifier = 2' not found under [archetypes.instances]")
+        pytest.fail("Uncommented 'verifier = 1' not found under [archetypes.instances]")
 
 
 # ---------------------------------------------------------------------------
@@ -225,10 +219,10 @@ class TestArchetypeTogglesPromoted:
     """TS-68-7: All quality archetype toggles are promoted and active."""
 
     def test_all_toggles_promoted(self):
-        """skeptic, verifier, oracle, auditor all equal true in parsed template."""
+        """coder, reviewer, verifier all equal true in parsed template."""
         template = generate_default_config()
         parsed = tomllib.loads(template)
-        for toggle in ["skeptic", "verifier", "oracle", "auditor"]:
+        for toggle in ["coder", "reviewer", "verifier"]:
             actual = parsed["archetypes"].get(toggle)
             assert actual is True, f"archetypes.{toggle} is {actual!r}, expected True"
 
@@ -271,12 +265,12 @@ class TestBudgetAndModelPromoted:
 
 
 class TestVerifierDefaultChanged:
-    """TS-68-9: ArchetypeInstancesConfig() default verifier is 2."""
+    """TS-68-9: ArchetypeInstancesConfig() default verifier is 1."""
 
-    def test_verifier_default_is_2(self):
-        """ArchetypeInstancesConfig() has verifier == 2."""
+    def test_verifier_default_is_1(self):
+        """ArchetypeInstancesConfig() has verifier == 1."""
         config = ArchetypeInstancesConfig()
-        assert config.verifier == 2, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 2"
+        assert config.verifier == 1, f"ArchetypeInstancesConfig().verifier is {config.verifier}, expected 1"
 
 
 # ---------------------------------------------------------------------------
@@ -338,7 +332,7 @@ class TestMergeNoHiddenInjection:
 
     def test_hidden_sections_not_added(self):
         """Merge on a visible-only config must not add hidden sections."""
-        existing = "[orchestrator]\nparallel = 4\n\n[archetypes]\nskeptic = true\n"
+        existing = "[orchestrator]\nparallel = 4\n\n[archetypes]\nreviewer = true\n"
         result = merge_existing_config(existing)
         for section in _EXPECTED_HIDDEN_SECTIONS:
             assert f"[{section}]" not in result, f"Hidden section [{section}] was added by merge"

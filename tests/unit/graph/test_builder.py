@@ -291,15 +291,15 @@ class TestCrossSpecEdgePropagationToReviewNodes:
     """Cross-spec edges propagate to auto_pre review predecessors of the target.
 
     When a cross-spec dependency targets coder group N, the auto_pre review
-    node (skeptic/oracle) that gates group N should also receive a cross-spec
-    edge from the same source. This prevents the review node from running
-    before the dependency is met.
+    node (reviewer:pre-review / reviewer:drift-review) that gates group N
+    should also receive a cross-spec edge from the same source. This prevents
+    the review node from running before the dependency is met.
 
     Fixes: https://github.com/agent-fox-dev/agent-fox/issues/337
     """
 
-    def test_skeptic_receives_cross_spec_edge(self) -> None:
-        """Skeptic (group 0) gets a cross-spec edge when group 1 has one."""
+    def test_pre_review_receives_cross_spec_edge(self) -> None:
+        """Reviewer:pre-review (group 0) gets a cross-spec edge when group 1 has one."""
         from agent_fox.core.config import ArchetypesConfig
 
         specs = [
@@ -318,12 +318,20 @@ class TestCrossSpecEdgePropagationToReviewNodes:
                 to_group=2,
             ),
         ]
-        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+        config = ArchetypesConfig(reviewer=True)
 
         graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
 
-        beta_skeptic_preds = graph.predecessors("02_beta:0")
-        assert "01_alpha:2" in beta_skeptic_preds
+        # Find the pre-review node for beta spec
+        pre_review_nodes = [
+            n
+            for n in graph.nodes.values()
+            if n.spec_name == "02_beta" and n.archetype == "reviewer" and n.mode == "pre-review"
+        ]
+        assert len(pre_review_nodes) >= 1
+        pre_node = pre_review_nodes[0]
+        pre_preds = graph.predecessors(pre_node.id)
+        assert "01_alpha:2" in pre_preds
 
     def test_original_cross_spec_edge_preserved(self) -> None:
         """The declared cross-spec edge to the coder group is still present."""
@@ -345,7 +353,7 @@ class TestCrossSpecEdgePropagationToReviewNodes:
                 to_group=2,
             ),
         ]
-        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+        config = ArchetypesConfig(reviewer=True)
 
         graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
 
@@ -373,10 +381,12 @@ class TestCrossSpecEdgePropagationToReviewNodes:
 
         graph = build_graph(specs, groups, cross_deps)
 
-        assert "02_beta:0" not in graph.nodes
+        # No reviewer nodes should be injected when no config is provided
+        reviewer_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer"]
+        assert len(reviewer_nodes) == 0
 
     def test_propagation_with_suffixed_auto_pre_ids(self) -> None:
-        """Propagation works with suffixed IDs (e.g. spec:0:skeptic, spec:0:oracle)."""
+        """Propagation works with suffixed IDs (e.g. spec:0:reviewer:pre-review)."""
         from agent_fox.core.config import ArchetypesConfig
 
         specs = [
@@ -395,14 +405,19 @@ class TestCrossSpecEdgePropagationToReviewNodes:
                 to_group=2,
             ),
         ]
-        config = ArchetypesConfig(skeptic=True, oracle=True, auditor=False)
+        config = ArchetypesConfig(reviewer=True)
 
         graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
 
-        skeptic_preds = graph.predecessors("02_beta:0:skeptic")
-        oracle_preds = graph.predecessors("02_beta:0:oracle")
-        assert "01_alpha:2" in skeptic_preds
-        assert "01_alpha:2" in oracle_preds
+        # Find all auto_pre reviewer nodes for beta
+        pre_nodes = [
+            n
+            for n in graph.nodes.values()
+            if n.spec_name == "02_beta" and n.archetype == "reviewer" and n.mode in ("pre-review", "drift-review")
+        ]
+        for pre_node in pre_nodes:
+            preds = graph.predecessors(pre_node.id)
+            assert "01_alpha:2" in preds
 
     def test_no_propagation_to_non_predecessor_groups(self) -> None:
         """Cross-spec edges don't propagate to groups that aren't predecessors."""
@@ -432,15 +447,22 @@ class TestCrossSpecEdgePropagationToReviewNodes:
                 to_group=3,
             ),
         ]
-        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+        config = ArchetypesConfig(reviewer=True)
 
         graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
 
-        beta_skeptic_preds = graph.predecessors("02_beta:0")
-        assert "01_alpha:3" not in beta_skeptic_preds
+        # Find pre-review node for beta
+        pre_review_nodes = [
+            n
+            for n in graph.nodes.values()
+            if n.spec_name == "02_beta" and n.archetype == "reviewer" and n.mode == "pre-review"
+        ]
+        for pre_node in pre_review_nodes:
+            preds = graph.predecessors(pre_node.id)
+            assert "01_alpha:3" not in preds
 
     def test_propagation_for_dep_on_first_group(self) -> None:
-        """Cross-spec dep on group 1 propagates to the skeptic at group 0."""
+        """Cross-spec dep on group 1 propagates to the reviewer:pre-review at group 0."""
         from agent_fox.core.config import ArchetypesConfig
 
         specs = [
@@ -459,13 +481,20 @@ class TestCrossSpecEdgePropagationToReviewNodes:
                 to_group=2,
             ),
         ]
-        config = ArchetypesConfig(skeptic=True, oracle=False, auditor=False)
+        config = ArchetypesConfig(reviewer=True)
 
         graph = build_graph(specs, groups, cross_deps, archetypes_config=config)
 
-        assert "02_beta:0" in graph.nodes
-        skeptic_preds = graph.predecessors("02_beta:0")
-        assert "01_alpha:2" in skeptic_preds
+        # Find pre-review node for beta
+        pre_review_nodes = [
+            n
+            for n in graph.nodes.values()
+            if n.spec_name == "02_beta" and n.archetype == "reviewer" and n.mode == "pre-review"
+        ]
+        assert len(pre_review_nodes) >= 1
+        pre_node = pre_review_nodes[0]
+        pre_preds = graph.predecessors(pre_node.id)
+        assert "01_alpha:2" in pre_preds
 
 
 class TestDanglingCrossSpecRef:

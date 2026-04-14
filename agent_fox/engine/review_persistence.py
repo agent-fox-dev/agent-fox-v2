@@ -2,10 +2,11 @@
 
 Extracted from session_lifecycle.py to reduce the NodeSessionRunner
 god class. Handles parsing and persisting structured findings from
-review archetypes (skeptic, verifier, oracle, auditor).
+review archetypes (reviewer with modes, verifier).
 
 Requirements: 53-REQ-1.1, 53-REQ-2.1, 53-REQ-3.1,
-              74-REQ-3.*, 74-REQ-4.*, 74-REQ-5.*
+              74-REQ-3.*, 74-REQ-4.*, 74-REQ-5.*,
+              98-REQ-5.1, 98-REQ-5.2
 """
 
 from __future__ import annotations
@@ -49,6 +50,8 @@ def _emit_persistence_event(
     task_group: str,
     records: list[Any],
     count: int,
+    *,
+    mode: str | None = None,
 ) -> None:
     """Emit the appropriate persistence audit event after successful insertion.
 
@@ -57,7 +60,12 @@ def _emit_persistence_event(
     Requirements: 84-REQ-2.1, 84-REQ-2.2, 84-REQ-2.3, 84-REQ-2.E1
     """
     try:
-        if archetype == "skeptic":
+        # Determine the effective dispatch key for reviewer modes
+        dispatch_key = archetype
+        if archetype == "reviewer" and mode:
+            dispatch_key = f"reviewer:{mode}"
+
+        if dispatch_key in ("skeptic", "reviewer:pre-review"):
             severity_summary: dict[str, int] = {}
             for r in records:
                 sev = r.severity
@@ -70,13 +78,14 @@ def _emit_persistence_event(
                 archetype=archetype,
                 payload={
                     "archetype": archetype,
+                    "mode": mode,
                     "count": count,
                     "severity_summary": severity_summary,
                     "spec_name": spec_name,
                     "task_group": task_group,
                 },
             )
-        elif archetype == "verifier":
+        elif dispatch_key == "verifier":
             pass_count = sum(1 for r in records if r.verdict == "PASS")
             fail_count = sum(1 for r in records if r.verdict == "FAIL")
             emit_audit_event(
@@ -94,7 +103,7 @@ def _emit_persistence_event(
                     "task_group": task_group,
                 },
             )
-        elif archetype == "oracle":
+        elif dispatch_key in ("oracle", "reviewer:drift-review"):
             severity_summary = {}
             for r in records:
                 sev = r.severity
@@ -107,6 +116,7 @@ def _emit_persistence_event(
                 archetype=archetype,
                 payload={
                     "archetype": archetype,
+                    "mode": mode,
                     "count": count,
                     "severity_summary": severity_summary,
                     "spec_name": spec_name,
@@ -152,15 +162,19 @@ def persist_review_findings(
     sink: SinkDispatcher | SessionSink | None,
     run_id: str,
     session_handle: Any = None,
+    mode: str | None = None,
 ) -> None:
     """Parse and persist structured findings from review archetypes.
 
     Uses extract_json_array to extract JSON from archetype output, then
     routes to the correct typed parser and insert function based on
-    archetype:
-    - skeptic  -> parse_review_findings   -> insert_findings
+    archetype and mode:
+    - reviewer (pre-review)   -> parse_review_findings   -> insert_findings
+    - reviewer (drift-review) -> parse_drift_findings    -> insert_drift_findings
+    - reviewer (audit-review) -> parse_auditor_output    -> persist_auditor_results
+    - skeptic  -> parse_review_findings   -> insert_findings (legacy)
     - verifier -> parse_verification_results -> insert_verdicts
-    - oracle   -> parse_drift_findings    -> insert_drift_findings
+    - oracle   -> parse_drift_findings    -> insert_drift_findings (legacy)
 
     Non-review archetypes (coder, etc.) are silently skipped.
 
@@ -172,16 +186,39 @@ def persist_review_findings(
                   53-REQ-1.E1, 53-REQ-2.E1, 53-REQ-3.E1,
                   74-REQ-3.1, 74-REQ-3.2, 74-REQ-3.3, 74-REQ-3.4,
                   74-REQ-3.5, 74-REQ-3.E1, 74-REQ-3.E2,
-                  74-REQ-5.1, 74-REQ-5.2, 74-REQ-5.3
+                  74-REQ-5.1, 74-REQ-5.2, 74-REQ-5.3,
+                  98-REQ-5.1, 98-REQ-5.2
     """
-    if archetype not in ("skeptic", "verifier", "oracle", "auditor"):
+    if archetype not in ("skeptic", "verifier", "oracle", "auditor", "reviewer"):
         return
+
+    # Route reviewer archetype by mode to the correct persistence path
+    if archetype == "reviewer":
+        if mode == "audit-review":
+            # Auditor convergence path — same as legacy "auditor"
+            archetype = "auditor"
+        elif mode in ("pre-review", "drift-review"):
+            pass  # handled below in the dispatch table
+        elif mode == "fix-review":
+            # fix-review produces verdicts handled by the fix pipeline, not here
+            return
+        else:
+            # Unknown reviewer mode — skip silently
+            return
 
     session_id = f"{node_id}:{attempt}"
     tg = str(task_group)
 
+    # Determine effective dispatch key for reviewer modes
+    dispatch_key = archetype
+    if archetype == "reviewer" and mode:
+        if mode == "pre-review":
+            dispatch_key = "skeptic"  # same parser/inserter as legacy skeptic
+        elif mode == "drift-review":
+            dispatch_key = "oracle"  # same parser/inserter as legacy oracle
+
     try:
-        if archetype in ("skeptic", "verifier", "oracle"):
+        if dispatch_key in ("skeptic", "verifier", "oracle"):
             json_objects = extract_json_array(transcript)
 
             retry_attempted = False
@@ -245,12 +282,12 @@ def persist_review_findings(
                 parse_verification_results,
             )
 
-            # Dispatch table: archetype -> (parser, inserter, label)
+            # Dispatch table: dispatch_key -> (parser, inserter, label)
             _review_dispatch: dict[str, tuple[Any, Any, str]] = {
                 "skeptic": (
                     parse_review_findings,
                     insert_findings,
-                    "skeptic findings",
+                    "review findings",
                 ),
                 "verifier": (
                     parse_verification_results,
@@ -260,15 +297,25 @@ def persist_review_findings(
                 "oracle": (
                     parse_drift_findings,
                     insert_drift_findings,
-                    "oracle drift findings",
+                    "drift findings",
                 ),
             }
-            parser, inserter, label = _review_dispatch[archetype]
+            parser, inserter, label = _review_dispatch[dispatch_key]
             records = parser(json_objects, spec_name, tg, session_id)
             if records:
                 count = inserter(knowledge_db_conn, records)
                 logger.info("Persisted %d %s for %s", count, label, node_id)
-                _emit_persistence_event(sink, run_id, archetype, node_id, spec_name, tg, records, count)
+                _emit_persistence_event(
+                    sink,
+                    run_id,
+                    archetype,
+                    node_id,
+                    spec_name,
+                    tg,
+                    records,
+                    count,
+                    mode=mode,
+                )
             else:
                 emit_audit_event(
                     sink,

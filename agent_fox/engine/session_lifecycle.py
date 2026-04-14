@@ -870,6 +870,7 @@ class NodeSessionRunner:
             knowledge_db_conn=conn,
             sink=self._sink,
             run_id=self._run_id,
+            mode=self._mode,
         )
 
     def _build_retry_context(self, spec_name: str) -> str:

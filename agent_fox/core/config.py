@@ -572,9 +572,7 @@ class ArchetypesConfig(BaseModel):
         }
         found = [k for k in old_keys if k in data]
         if found:
-            guidance = "; ".join(
-                f"'{k}' → use '{old_keys[k]}'" for k in found
-            )
+            guidance = "; ".join(f"'{k}' → use '{old_keys[k]}'" for k in found)
             raise ValueError(
                 f"Obsolete archetype config key(s) detected: {found!r}. "
                 f"Please migrate to the reviewer archetype with modes. "

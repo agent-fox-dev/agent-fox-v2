@@ -80,10 +80,12 @@ class TestNodeArchetypeDefaults:
             group_number=0,
             title="Review",
             optional=False,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="pre-review",
             instances=3,
         )
-        assert node.archetype == "skeptic"
+        assert node.archetype == "reviewer"
+        assert node.mode == "pre-review"
         assert node.instances == 3
 
 
@@ -107,9 +109,10 @@ class TestPlanSerializationArchetype:
             id="s:0",
             spec_name="s",
             group_number=0,
-            title="Skeptic Review",
+            title="Pre-Review",
             optional=False,
-            archetype="skeptic",
+            archetype="reviewer",
+            mode="pre-review",
             instances=3,
         )
         graph = TaskGraph(
@@ -121,7 +124,7 @@ class TestPlanSerializationArchetype:
         save_plan(graph, plan_path)
 
         data = json.loads(plan_path.read_text())
-        assert data["nodes"]["s:0"]["archetype"] == "skeptic"
+        assert data["nodes"]["s:0"]["archetype"] == "reviewer"
         assert data["nodes"]["s:0"]["instances"] == 3
 
 
@@ -216,29 +219,27 @@ class TestThreeLayerPriority:
         from agent_fox.graph.builder import build_graph
 
         specs = [_spec()]
-        task_groups = {"spec": [_tgd(3, "Task", archetype="oracle")]}
+        task_groups = {"spec": [_tgd(3, "Task", archetype="reviewer")]}
 
         graph = build_graph(specs, task_groups, [])
-        assert graph.nodes["spec:3"].archetype == "oracle"
+        assert graph.nodes["spec:3"].archetype == "reviewer"
 
 
 # -------------------------------------------------------------------
-# TS-26-19: Skeptic auto-injection at group 0
+# TS-26-19: Reviewer pre-review auto-injection at group 0
 # Requirement: 26-REQ-5.3
 # -------------------------------------------------------------------
 
 
-class TestSkepticAutoInjection:
-    """Verify group-0 Skeptic node injected when enabled."""
+class TestReviewerPreReviewAutoInjection:
+    """Verify group-0 reviewer:pre-review node injected when enabled."""
 
-    def test_skeptic_node_injected(self) -> None:
+    def test_reviewer_pre_review_node_injected(self) -> None:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
         config = ArchetypesConfig(
-            skeptic=True,
-            oracle=False,
-            auditor=False,
+            reviewer=True,
         )
         specs = [_spec()]
         task_groups = {"spec": [_tgd(1, "T1"), _tgd(2, "T2")]}
@@ -250,9 +251,11 @@ class TestSkepticAutoInjection:
             archetypes_config=config,
         )
 
-        assert "spec:0" in graph.nodes
-        assert graph.nodes["spec:0"].archetype == "skeptic"
-        assert any(e.source == "spec:0" and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
+        # Find the auto_pre reviewer node (may have suffixed ID)
+        pre_review_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "pre-review"]
+        assert len(pre_review_nodes) >= 1
+        pre_node = pre_review_nodes[0]
+        assert any(e.source == pre_node.id and e.target == "spec:1" and e.kind == "intra_spec" for e in graph.edges)
 
 
 # -------------------------------------------------------------------
@@ -302,7 +305,7 @@ class TestAssignmentLogged:
         from agent_fox.core.config import ArchetypesConfig
         from agent_fox.graph.builder import build_graph
 
-        config = ArchetypesConfig(skeptic=True)
+        config = ArchetypesConfig(reviewer=True)
         specs = [_spec()]
         task_groups = {"spec": [_tgd(1, "T1")]}
 
@@ -347,8 +350,8 @@ class TestInstancesOver5Clamped:
     def test_instances_clamped_in_config(self) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        cfg = ArchetypeInstancesConfig(skeptic=10)
-        assert cfg.skeptic == 5
+        cfg = ArchetypeInstancesConfig(reviewer=10)
+        assert cfg.reviewer == 5
 
     def test_instances_clamped_at_runner_level(
         self,
@@ -357,7 +360,7 @@ class TestInstancesOver5Clamped:
         from agent_fox.engine.sdk_params import clamp_instances
 
         with caplog.at_level(logging.WARNING):
-            result = clamp_instances("skeptic", 10)
+            result = clamp_instances("reviewer", 10)
         assert result == 5
 
 
@@ -413,10 +416,8 @@ class TestPropertyInjectionStructure:
         from agent_fox.graph.builder import build_graph
 
         config = ArchetypesConfig(
-            skeptic=True,
+            reviewer=True,
             verifier=True,
-            oracle=False,
-            auditor=False,
         )
         specs = [_spec()]
         task_groups = {"spec": [_tgd(i, f"T{i}") for i in range(1, n_groups + 1)]}
@@ -428,10 +429,11 @@ class TestPropertyInjectionStructure:
             archetypes_config=config,
         )
 
-        # Skeptic at group 0 precedes group 1
-        assert "spec:0" in graph.nodes
-        assert graph.nodes["spec:0"].archetype == "skeptic"
-        assert any(e.source == "spec:0" and e.target == "spec:1" for e in graph.edges)
+        # Reviewer pre-review node precedes group 1
+        pre_review_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "pre-review"]
+        assert len(pre_review_nodes) >= 1
+        pre_node = pre_review_nodes[0]
+        assert any(e.source == pre_node.id and e.target == "spec:1" for e in graph.edges)
 
         # No edges between sibling auto_post nodes
         post_nodes = [
@@ -466,15 +468,15 @@ class TestPropertyInstanceClamping:
     def test_prop_config_clamping(self, instances: int) -> None:
         from agent_fox.core.config import ArchetypeInstancesConfig
 
-        cfg = ArchetypeInstancesConfig(skeptic=instances)
-        assert 1 <= cfg.skeptic <= 5
+        cfg = ArchetypeInstancesConfig(reviewer=instances)
+        assert 1 <= cfg.reviewer <= 5
 
     @pytest.mark.skipif(
         not HAS_HYPOTHESIS,
         reason="hypothesis not installed",
     )
     @given(
-        archetype=st.sampled_from(["coder", "skeptic", "verifier"]),
+        archetype=st.sampled_from(["coder", "reviewer", "verifier"]),
         instances=st.integers(min_value=0, max_value=20),
     )
     @settings(max_examples=30)
@@ -482,7 +484,8 @@ class TestPropertyInstanceClamping:
         from agent_fox.engine.sdk_params import clamp_instances
 
         result = clamp_instances(archetype, instances)
-        if archetype == "coder":
+        if archetype in ("coder", "verifier"):
+            # Coder and verifier are always single-instance
             assert result == 1
         elif instances > 5:
             assert result == 5

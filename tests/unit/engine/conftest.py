@@ -104,7 +104,7 @@ def make_plan_json(
         parts = nid.split(":")
         spec_name = parts[0] if len(parts) > 1 else "test_spec"
         group_number = int(parts[-1]) if parts[-1].isdigit() else 1
-        full_nodes[nid] = {
+        node_data: dict[str, Any] = {
             "id": nid,
             "spec_name": props.get("spec_name", spec_name),
             "group_number": props.get("group_number", group_number),
@@ -115,6 +115,9 @@ def make_plan_json(
             "body": props.get("body", ""),
             "archetype": props.get("archetype", "coder"),
         }
+        if "mode" in props:
+            node_data["mode"] = props["mode"]
+        full_nodes[nid] = node_data
 
     plan = {
         "metadata": {

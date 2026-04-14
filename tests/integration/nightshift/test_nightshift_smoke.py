@@ -149,7 +149,7 @@ class TestFixSessionActivityDisplay:
             )
             if "triage" in str(node_id):
                 mock_outcome.response = triage_response
-            elif "fix_reviewer" in str(node_id):
+            elif "reviewer" in str(node_id):
                 mock_outcome.response = review_response
             else:
                 mock_outcome.response = ""
@@ -177,11 +177,11 @@ class TestFixSessionActivityDisplay:
         # Verify ActivityEvents were emitted (2 per archetype session = 6)
         assert len(activity_events) >= 6, f"Expected at least 6 activity events, got {len(activity_events)}"
 
-        # Verify TaskEvents: one per archetype (triage + coder + fix_reviewer)
+        # Verify TaskEvents: one per archetype (triage + coder + reviewer)
         archetype_names = [e.archetype for e in task_events]
         assert "triage" in archetype_names
-        assert "fix_coder" in archetype_names
-        assert "fix_reviewer" in archetype_names
+        assert "coder" in archetype_names
+        assert "reviewer" in archetype_names
         assert all(e.status == "completed" for e in task_events)
         assert all(e.duration_s >= 0 for e in task_events)
 

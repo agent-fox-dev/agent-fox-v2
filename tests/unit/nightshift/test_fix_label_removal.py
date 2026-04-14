@@ -79,7 +79,7 @@ class TestFixPipelineLabelRemoval:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""
@@ -140,7 +140,7 @@ class TestFixPipelineLabelRemoval:
             )
             if archetype == "triage":
                 outcome.response = triage_response
-            elif archetype == "fix_reviewer":
+            elif archetype == "reviewer":
                 outcome.response = review_response
             else:
                 outcome.response = ""

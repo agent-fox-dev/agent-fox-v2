@@ -358,7 +358,7 @@ class TestArchetypesConfigUpdated:
     def test_archetypes_config_updated(self, tmp_path: Path) -> None:
         """self._archetypes_config references the new ArchetypesConfig after reload."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text("[archetypes]\nskeptic = false\n")
+        config_file.write_text("[archetypes]\nreviewer = false\n")
 
         orch = _make_orch(tmp_path)
         orch._config_path = config_file  # type: ignore[attr-defined]
@@ -366,7 +366,7 @@ class TestArchetypesConfigUpdated:
         orch._full_config = AgentFoxConfig()  # type: ignore[attr-defined]
         orch._run_id = "test_run"
 
-        new_arch = ArchetypesConfig(skeptic=False)
+        new_arch = ArchetypesConfig(reviewer=False)
         new_agent_cfg = AgentFoxConfig(
             orchestrator=OrchestratorConfig(parallel=1),
             archetypes=new_arch,

@@ -28,10 +28,10 @@ class TestMaxTurnsParsing:
     def test_max_turns_parsed_from_toml(self, tmp_path: Path) -> None:
         """TS-56-1: max_turns per archetype is parsed from config TOML."""
         config_file = tmp_path / "config.toml"
-        config_file.write_text("[archetypes.max_turns]\ncoder = 150\noracle = 30\n")
+        config_file.write_text("[archetypes.max_turns]\ncoder = 150\nreviewer = 30\n")
         config = load_config(path=config_file)
         assert config.archetypes.max_turns["coder"] == 150
-        assert config.archetypes.max_turns["oracle"] == 30
+        assert config.archetypes.max_turns["reviewer"] == 30
 
     def test_max_turns_empty_when_not_configured(self) -> None:
         """Default config has empty max_turns dict."""
@@ -54,10 +54,8 @@ class TestMaxTurnsDefaults:
 
         expected = {
             "coder": 300,
-            "oracle": 80,
-            "skeptic": 80,
+            "reviewer": 80,
             "verifier": 120,
-            "auditor": 80,
         }
         for archetype, turns in expected.items():
             entry = ARCHETYPE_REGISTRY[archetype]
@@ -175,10 +173,8 @@ class TestThinkingDefaults:
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         for name in (
-            "oracle",
-            "skeptic",
+            "reviewer",
             "verifier",
-            "auditor",
         ):
             entry = ARCHETYPE_REGISTRY[name]
             assert entry.default_thinking_mode == "disabled", (

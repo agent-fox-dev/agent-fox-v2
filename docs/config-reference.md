@@ -17,10 +17,7 @@ the most commonly changed settings. Add any section below manually to
 - [knowledge](#knowledge)
 - [archetypes](#archetypes)
   - [archetypes.instances](#archetypesinstances)
-  - [archetypes.thinking.\<archetype\>](#archetypesthinkingarchetype)
-  - [archetypes.skeptic_settings](#archetypesskeptic_settings)
-  - [archetypes.oracle_settings](#archetypesoracle_settings)
-  - [archetypes.auditor_config](#archetypesauditor_config)
+  - [archetypes.reviewer_config](#archetypesreviewer_config)
 - [pricing](#pricing)
 - [planning](#planning)
 - [blocking](#blocking)
@@ -256,32 +253,32 @@ decay_half_life_days = 90
 
 Archetype enable/disable toggles and per-archetype advanced configuration.
 
+After the reviewer consolidation, the former `skeptic`, `oracle`, and `auditor`
+archetypes are unified into a single `reviewer` archetype with mode-based
+behaviour (`pre-review`, `drift-review`, `audit-review`, `fix-review`).
+
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `coder` | bool | `true` | — | Enable the Coder archetype (always enabled; cannot be disabled) |
-| `skeptic` | bool | `true` | — | Enable the Skeptic archetype (code review before merge) |
+| `coder` | bool | `true` | — | Enable the Coder archetype |
+| `reviewer` | bool | `true` | — | Enable the Reviewer archetype (replaces skeptic, oracle, auditor) |
 | `verifier` | bool | `true` | — | Enable the Verifier archetype (post-code correctness checks) |
-| `oracle` | bool | `true` | — | Enable the Oracle archetype (spec-drift detection) |
-| `auditor` | bool | `true` | — | Enable the Auditor archetype (test-quality gate) |
 | `instances` | table | see below | — | Per-archetype instance counts |
-| `skeptic_settings` | table | see below | — | Skeptic-specific configuration |
-| `oracle_settings` | table | see below | — | Oracle-specific configuration |
-| `auditor_config` | table | see below | — | Auditor-specific configuration |
+| `reviewer_config` | table | see below | — | Reviewer-specific configuration (replaces skeptic_config, oracle_settings, auditor_config) |
 | `models` | dict[str, str] | `{}` | — | Per-archetype model tier overrides (e.g. `{coder = "STANDARD"}`) |
 | `allowlists` | dict[str, list[str]] | `{}` | — | Per-archetype extra bash command allowlists |
 | `max_turns` | dict[str, int] | `{}` | — | Per-archetype maximum turn limits (≥ 0) |
 | `thinking` | dict[str, ThinkingConfig] | `{}` | — | Per-archetype extended thinking configuration |
+| `overrides` | dict[str, PerArchetypeConfig] | `{}` | — | Per-archetype config overrides (model_tier, max_turns, allowlist, modes) |
+| `custom` | list[CustomArchetypeConfig] | `[]` | — | Custom archetype definitions |
 
 **Example:**
 
 ```toml
 [archetypes]
-skeptic = true
+reviewer = true
 verifier = true
-oracle = true
-auditor = true
 # Override model tiers per archetype
-models = {coder = "STANDARD", skeptic = "ADVANCED"}
+models = {coder = "STANDARD", reviewer = "ADVANCED"}
 
 # Limit turns for specific archetypes
 max_turns = {coder = 100, verifier = 50}
@@ -289,89 +286,38 @@ max_turns = {coder = 100, verifier = 50}
 
 ### archetypes.instances
 
-Controls how many parallel instances of each reviewarchetype are spawned.
+Controls how many parallel instances of each archetype are spawned.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `skeptic` | int | `1` | 1–5 | Number of parallel Skeptic instances |
-| `verifier` | int | `2` | 1–5 | Number of parallel Verifier instances |
-| `auditor` | int | `1` | 1–5 | Number of parallel Auditor instances |
+| `reviewer` | int | `1` | 1–5 | Number of parallel Reviewer instances |
+| `verifier` | int | `1` | 1 | Number of Verifier instances (always clamped to 1) |
 
 **Example:**
 
 ```toml
 [archetypes.instances]
-verifier = 3
-skeptic = 2
+reviewer = 2
 ```
 
-### archetypes.thinking.\<archetype\>
+### archetypes.reviewer_config
 
-Extended thinking configuration for a specific archetype. Replace
-`<archetype>` with the archetype name (e.g. `coder`, `skeptic`).
+Reviewer-specific configuration, consolidating settings for all review modes.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `mode` | str | `"disabled"` | `"enabled"`, `"adaptive"`, `"disabled"` | Extended thinking mode |
-| `budget_tokens` | int | `10000` | ≥ 0 (> 0 when `mode = "enabled"`) | Token budget for extended thinking |
+| `pre_review_block_threshold` | int | `3` | ≥ 0 | Finding count to block merge for pre-review mode |
+| `drift_review_block_threshold` | int\|null | `null` | ≥ 1 | Drift count to block for drift-review mode; `null` = advisory only |
+| `audit_min_ts_entries` | int | `5` | ≥ 1 | Minimum test-spec entries to trigger audit-review injection |
+| `audit_max_retries` | int | `2` | ≥ 0 | Maximum audit-review retry iterations |
 
 **Example:**
 
 ```toml
-[archetypes.thinking.coder]
-mode = "adaptive"
-budget_tokens = 10000
-
-[archetypes.thinking.skeptic]
-mode = "enabled"
-budget_tokens = 5000
-```
-
-### archetypes.skeptic_settings
-
-Skeptic-specific thresholds.
-
-| Field | Type | Default | Bounds | Description |
-|-------|------|---------|--------|-------------|
-| `block_threshold` | int | `3` | ≥ 0 | Number of critical findings required to block a merge |
-
-**Example:**
-
-```toml
-[archetypes.skeptic_settings]
-block_threshold = 5
-```
-
-### archetypes.oracle_settings
-
-Oracle-specific thresholds.
-
-| Field | Type | Default | Bounds | Description |
-|-------|------|---------|--------|-------------|
-| `block_threshold` | int\|null | `null` | ≥ 1 | Drift count that blocks the session; `null` makes Oracle advisory only |
-
-**Example:**
-
-```toml
-[archetypes.oracle_settings]
-block_threshold = 3
-```
-
-### archetypes.auditor_config
-
-Auditor-specific configuration.
-
-| Field | Type | Default | Bounds | Description |
-|-------|------|---------|--------|-------------|
-| `min_ts_entries` | int | `5` | ≥ 1 | Minimum test-spec entries required before the Auditor is injected |
-| `max_retries` | int | `2` | ≥ 0 | Maximum Auditor → Coder retry iterations |
-
-**Example:**
-
-```toml
-[archetypes.auditor_config]
-min_ts_entries = 3
-max_retries = 1
+[archetypes.reviewer_config]
+pre_review_block_threshold = 5
+audit_min_ts_entries = 3
+audit_max_retries = 1
 ```
 
 ---

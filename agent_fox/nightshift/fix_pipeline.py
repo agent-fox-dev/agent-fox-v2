@@ -95,6 +95,7 @@ class FixPipeline:
         system_prompt: str | None = None,
         task_prompt: str | None = None,
         model_id: str | None = None,
+        mode: str | None = None,
     ) -> object:
         """Run a single archetype session for an issue fix.
 
@@ -126,6 +127,7 @@ class FixPipeline:
                 task_group=0,
                 spec_name=f"fix-issue-{spec.issue_number}",
                 archetype=archetype,
+                mode=mode,
             )
 
         effective_task = task_prompt if task_prompt else spec.task_prompt
@@ -133,10 +135,10 @@ class FixPipeline:
 
         # Resolve SDK params per archetype, matching NodeSessionRunner
         config = self._config
-        resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype)).model_id
-        resolved_security = resolve_security_config(config, archetype)
-        resolved_max_turns = resolve_max_turns(config, archetype)
-        resolved_thinking = resolve_thinking(config, archetype)
+        resolved_model_id = model_id or resolve_model(resolve_model_tier(config, archetype, mode=mode)).model_id
+        resolved_security = resolve_security_config(config, archetype, mode=mode)
+        resolved_max_turns = resolve_max_turns(config, archetype, mode=mode)
+        resolved_thinking = resolve_thinking(config, archetype, mode=mode)
         resolved_fallback = resolve_fallback_model(config)
         resolved_budget = resolve_max_budget(config)
 
@@ -406,7 +408,8 @@ class FixPipeline:
             context=context,
             task_group=0,
             spec_name=f"fix-issue-{spec.issue_number}",
-            archetype="fix_reviewer",
+            archetype="reviewer",
+            mode="fix-review",
         )
 
         task_prompt = (
@@ -466,15 +469,16 @@ class FixPipeline:
     ) -> object:
         """Run coder with optional model override for escalation.
 
-        Requirements: 82-REQ-8.3
+        Requirements: 82-REQ-8.3, 98-REQ-2.2
         """
         return await self._run_session(
-            "fix_coder",
+            "coder",
             workspace,
             spec=spec,
             system_prompt=system_prompt,
             task_prompt=task_prompt,
             model_id=model_id,
+            mode="fix",
         )
 
     async def _run_triage(
@@ -589,7 +593,7 @@ class FixPipeline:
             # Build and run coder session
             system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
 
-            node_id = f"fix-issue-{spec.issue_number}:0:fix_coder"
+            node_id = f"fix-issue-{spec.issue_number}:0:coder"
             t0 = time.monotonic()
             try:
                 coder_outcome = await self._run_coder_session(
@@ -602,7 +606,7 @@ class FixPipeline:
                 self._accumulate_metrics(metrics, coder_outcome)
                 self._emit_session_event(
                     coder_outcome,
-                    "fix_coder",
+                    "coder",
                     self._run_id,
                     node_id=node_id,
                     attempt=_attempt + 1,
@@ -614,7 +618,7 @@ class FixPipeline:
                             node_id=node_id,
                             status="completed",
                             duration_s=duration,
-                            archetype="fix_coder",
+                            archetype="coder",
                         )
                     )
             except Exception as _coder_exc:
@@ -624,10 +628,10 @@ class FixPipeline:
                     self._run_id,
                     AuditEventType.SESSION_FAIL,
                     node_id=node_id,
-                    archetype="fix_coder",
+                    archetype="coder",
                     payload={
-                        "archetype": "fix_coder",
-                        "model_id": model_id or self._get_model_id("fix_coder"),
+                        "archetype": "coder",
+                        "model_id": model_id or self._get_model_id("coder"),
                         "error_message": str(_coder_exc),
                         "attempt": _attempt + 1,
                     },
@@ -638,7 +642,7 @@ class FixPipeline:
                             node_id=node_id,
                             status="failed",
                             duration_s=duration,
-                            archetype="fix_coder",
+                            archetype="coder",
                         )
                     )
                 raise
@@ -646,20 +650,21 @@ class FixPipeline:
             # Build and run reviewer session
             reviewer_system, reviewer_task = self._build_reviewer_prompt(spec, triage)
 
-            reviewer_node_id = f"fix-issue-{spec.issue_number}:0:fix_reviewer"
+            reviewer_node_id = f"fix-issue-{spec.issue_number}:0:reviewer"
             t0 = time.monotonic()
             try:
                 reviewer_outcome = await self._run_session(
-                    "fix_reviewer",
+                    "reviewer",
                     workspace,
                     spec=spec,
                     system_prompt=reviewer_system,
                     task_prompt=reviewer_task,
+                    mode="fix-review",
                 )
                 self._accumulate_metrics(metrics, reviewer_outcome)
                 self._emit_session_event(
                     reviewer_outcome,
-                    "fix_reviewer",
+                    "reviewer",
                     self._run_id,
                     node_id=reviewer_node_id,
                     attempt=_attempt + 1,
@@ -671,7 +676,7 @@ class FixPipeline:
                             node_id=reviewer_node_id,
                             status="completed",
                             duration_s=duration,
-                            archetype="fix_reviewer",
+                            archetype="reviewer",
                         )
                     )
             except Exception as _reviewer_exc:
@@ -681,10 +686,10 @@ class FixPipeline:
                     self._run_id,
                     AuditEventType.SESSION_FAIL,
                     node_id=reviewer_node_id,
-                    archetype="fix_reviewer",
+                    archetype="reviewer",
                     payload={
-                        "archetype": "fix_reviewer",
-                        "model_id": self._get_model_id("fix_reviewer"),
+                        "archetype": "reviewer",
+                        "model_id": self._get_model_id("reviewer"),
                         "error_message": str(_reviewer_exc),
                         "attempt": _attempt + 1,
                     },
@@ -695,7 +700,7 @@ class FixPipeline:
                             node_id=reviewer_node_id,
                             status="failed",
                             duration_s=duration,
-                            archetype="fix_reviewer",
+                            archetype="reviewer",
                         )
                     )
                 raise
@@ -705,7 +710,7 @@ class FixPipeline:
             review_result = parse_fix_review_output(
                 reviewer_response,
                 f"fix-issue-{spec.issue_number}",
-                f"fix-issue-{spec.issue_number}:0:fix_reviewer",
+                f"fix-issue-{spec.issue_number}:0:reviewer",
             )
 
             if review_result.is_parse_failure:
@@ -713,20 +718,21 @@ class FixPipeline:
                     "Reviewer output unparseable for issue #%d, retrying reviewer",
                     spec.issue_number,
                 )
-                retry_node_id = f"fix-issue-{spec.issue_number}:0:fix_reviewer_retry"
+                retry_node_id = f"fix-issue-{spec.issue_number}:0:reviewer_retry"
                 t0 = time.monotonic()
                 try:
                     retry_outcome = await self._run_session(
-                        "fix_reviewer",
+                        "reviewer",
                         workspace,
                         spec=spec,
                         system_prompt=reviewer_system,
                         task_prompt=reviewer_task,
+                        mode="fix-review",
                     )
                     self._accumulate_metrics(metrics, retry_outcome)
                     self._emit_session_event(
                         retry_outcome,
-                        "fix_reviewer",
+                        "reviewer",
                         self._run_id,
                         node_id=retry_node_id,
                         attempt=_attempt + 1,
@@ -738,14 +744,14 @@ class FixPipeline:
                                 node_id=retry_node_id,
                                 status="completed",
                                 duration_s=duration,
-                                archetype="fix_reviewer",
+                                archetype="reviewer",
                             )
                         )
                     retry_response = getattr(retry_outcome, "response", "") or ""
                     retry_result = parse_fix_review_output(
                         retry_response,
                         f"fix-issue-{spec.issue_number}",
-                        f"fix-issue-{spec.issue_number}:0:fix_reviewer_retry",
+                        f"fix-issue-{spec.issue_number}:0:reviewer_retry",
                     )
                     if not retry_result.is_parse_failure:
                         review_result = retry_result
@@ -761,10 +767,10 @@ class FixPipeline:
                         self._run_id,
                         AuditEventType.SESSION_FAIL,
                         node_id=retry_node_id,
-                        archetype="fix_reviewer",
+                        archetype="reviewer",
                         payload={
-                            "archetype": "fix_reviewer",
-                            "model_id": self._get_model_id("fix_reviewer"),
+                            "archetype": "reviewer",
+                            "model_id": self._get_model_id("reviewer"),
                             "error_message": str(_retry_exc),
                             "attempt": _attempt + 1,
                         },
@@ -775,7 +781,7 @@ class FixPipeline:
                                 node_id=retry_node_id,
                                 status="failed",
                                 duration_s=duration,
-                                archetype="fix_reviewer",
+                                archetype="reviewer",
                             )
                         )
                     logger.warning(
@@ -838,7 +844,7 @@ class FixPipeline:
     ) -> FixMetrics:
         """Process an af:fix issue through the full pipeline.
 
-        Runs triage -> coder -> fix_reviewer with retry/escalation loop
+        Runs triage -> coder -> reviewer with retry/escalation loop
         inside an isolated git worktree.
 
         Returns FixMetrics with aggregated token counts from all sessions.

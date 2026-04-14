@@ -63,6 +63,7 @@ def _make_orchestrator(
             title=n.get("title", nid),
             optional=n.get("optional", False),
             archetype=n.get("archetype", "coder"),
+            mode=n.get("mode"),
             instances=n.get("instances", 1),
         )
         for nid, n in plan_nodes.items()
@@ -384,7 +385,7 @@ class TestMultipleReviewersShareLadder:
     """TS-58-7: Multiple reviewers share predecessor ladder."""
 
     def test_multiple_reviewers_share_ladder(self) -> None:
-        """Verify verifier and auditor failures accumulate on the same ladder.
+        """Verify verifier and reviewer:audit-review failures accumulate on the same ladder.
 
         Test Spec: TS-58-7
         Requirement: 58-REQ-3.1
@@ -392,20 +393,21 @@ class TestMultipleReviewersShareLadder:
         plan_nodes = {
             "spec:1": {"spec_name": "spec", "group_number": 1, "archetype": "coder"},
             "spec:2": {"spec_name": "spec", "group_number": 2, "archetype": "verifier"},
-            "spec:1:auditor": {
+            "spec:1:reviewer:audit-review": {
                 "spec_name": "spec",
                 "group_number": 1,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
             {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
-            {"source": "spec:1", "target": "spec:1:auditor", "kind": "intra_spec"},
+            {"source": "spec:1", "target": "spec:1:reviewer:audit-review", "kind": "intra_spec"},
         ]
         node_states = {
             "spec:1": "completed",
             "spec:2": "in_progress",
-            "spec:1:auditor": "pending",
+            "spec:1:reviewer:audit-review": "pending",
         }
 
         orch, state, attempt_tracker, error_tracker = _make_orchestrator(plan_nodes, edges_list, node_states)
@@ -428,13 +430,13 @@ class TestMultipleReviewersShareLadder:
         )
         assert pred_ladder.attempt_count == 2  # 1 initial + 1 failure
 
-        # Reset state for auditor
+        # Reset state for reviewer:audit-review
         state.node_states["spec:1"] = "completed"
-        state.node_states["spec:1:auditor"] = "in_progress"
+        state.node_states["spec:1:reviewer:audit-review"] = "in_progress"
 
-        # 2nd failure (auditor)
+        # 2nd failure (reviewer:audit-review)
         orch._result_handler.process(  # type: ignore[union-attr]
-            _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
+            _make_failed_reviewer_record("spec:1:reviewer:audit-review", 1, archetype="reviewer"),
             1,
             state,
             attempt_tracker,
@@ -479,20 +481,21 @@ class TestCumulativeEscalationDecision:
         plan_nodes = {
             "spec:1": {"spec_name": "spec", "group_number": 1, "archetype": "coder"},
             "spec:2": {"spec_name": "spec", "group_number": 2, "archetype": "verifier"},
-            "spec:1:auditor": {
+            "spec:1:reviewer:audit-review": {
                 "spec_name": "spec",
                 "group_number": 1,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
             {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
-            {"source": "spec:1", "target": "spec:1:auditor", "kind": "intra_spec"},
+            {"source": "spec:1", "target": "spec:1:reviewer:audit-review", "kind": "intra_spec"},
         ]
         node_states = {
             "spec:1": "completed",
             "spec:2": "in_progress",
-            "spec:1:auditor": "pending",
+            "spec:1:reviewer:audit-review": "pending",
         }
 
         orch, state, attempt_tracker, error_tracker = _make_orchestrator(plan_nodes, edges_list, node_states)
@@ -515,13 +518,13 @@ class TestCumulativeEscalationDecision:
         )
         assert pred_ladder.current_tier == ModelTier.STANDARD
 
-        # Reset state for auditor
+        # Reset state for reviewer:audit-review
         state.node_states["spec:1"] = "completed"
-        state.node_states["spec:1:auditor"] = "in_progress"
+        state.node_states["spec:1:reviewer:audit-review"] = "in_progress"
 
-        # 2nd failure (auditor): cumulative count triggers escalation to ADVANCED
+        # 2nd failure (reviewer:audit-review): cumulative count triggers escalation to ADVANCED
         orch._result_handler.process(  # type: ignore[union-attr]
-            _make_failed_reviewer_record("spec:1:auditor", 1, archetype="auditor"),
+            _make_failed_reviewer_record("spec:1:reviewer:audit-review", 1, archetype="reviewer"),
             1,
             state,
             attempt_tracker,

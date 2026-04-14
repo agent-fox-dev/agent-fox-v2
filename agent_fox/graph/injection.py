@@ -8,7 +8,7 @@ Also provides ``ensure_graph_archetypes()`` for runtime injection on a
 typed ``TaskGraph`` — used by the engine to patch stale cached plans.
 
 Also provides ``build_review_only_graph()`` for constructing a task graph
-containing only review archetype nodes (Skeptic, Oracle, Verifier) for use
+containing only review archetype nodes (reviewer modes, verifier) for use
 in review-only mode.
 
 Requirements: 26-REQ-5.3, 26-REQ-5.4, 32-REQ-3.1, 32-REQ-3.2,
@@ -227,10 +227,7 @@ def ensure_graph_archetypes(
             if n.spec_name == spec and n.group_number == 0:
                 existing_archetype_modes.add((n.archetype, n.mode))
 
-        needed_pre = [
-            a for a in enabled_auto_pre
-            if (a.name, a.mode) not in existing_archetype_modes
-        ]
+        needed_pre = [a for a in enabled_auto_pre if (a.name, a.mode) not in existing_archetype_modes]
 
         for arch in needed_pre:
             # Build a unique node_id incorporating mode when present
@@ -303,10 +300,7 @@ def ensure_graph_archetypes(
 
             # Dedup: skip if reviewer:audit-review nodes already exist for this spec
             if any(
-                n.spec_name == spec
-                and n.archetype == "reviewer"
-                and n.mode == "audit-review"
-                for n in nodes.values()
+                n.spec_name == spec and n.archetype == "reviewer" and n.mode == "audit-review" for n in nodes.values()
             ):
                 continue
 

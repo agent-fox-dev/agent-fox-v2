@@ -1,4 +1,4 @@
-"""Unit tests for fix pipeline archetype usage (fix_coder).
+"""Unit tests for fix pipeline archetype usage (coder with mode='fix').
 
 Test Spec: TS-88-10, TS-88-11, TS-88-12
 Requirements: 88-REQ-3.1, 88-REQ-3.2, 88-REQ-3.3
@@ -62,16 +62,16 @@ def _make_workspace() -> WorkspaceInfo:
 
 
 # ---------------------------------------------------------------------------
-# TS-88-10: _build_coder_prompt uses fix_coder archetype
+# TS-88-10: _build_coder_prompt uses coder archetype with mode='fix'
 # Requirement: 88-REQ-3.1
 # ---------------------------------------------------------------------------
 
 
 class TestBuildCoderPromptArchetype:
-    """Verify _build_coder_prompt passes archetype='fix_coder' to build_system_prompt."""
+    """Verify _build_coder_prompt passes archetype='coder', mode='fix' to build_system_prompt."""
 
-    def test_build_system_prompt_called_with_fix_coder(self) -> None:
-        """build_system_prompt receives archetype='fix_coder'."""
+    def test_build_system_prompt_called_with_coder_fix_mode(self) -> None:
+        """build_system_prompt receives archetype='coder' and mode='fix'."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
@@ -86,15 +86,16 @@ class TestBuildCoderPromptArchetype:
         ) as mock_bsp:
             pipeline._build_coder_prompt(spec, triage)
 
-        # Verify archetype keyword argument
+        # Verify archetype and mode keyword arguments
         assert mock_bsp.called, "build_system_prompt was not called"
         call_kwargs = mock_bsp.call_args.kwargs
-        assert call_kwargs.get("archetype") == "fix_coder", (
-            f"Expected archetype='fix_coder', got {call_kwargs.get('archetype')!r}"
+        assert call_kwargs.get("archetype") == "coder", (
+            f"Expected archetype='coder', got {call_kwargs.get('archetype')!r}"
         )
+        assert call_kwargs.get("mode") == "fix", f"Expected mode='fix', got {call_kwargs.get('mode')!r}"
 
-    def test_build_system_prompt_not_called_with_coder(self) -> None:
-        """build_system_prompt is NOT called with archetype='coder'."""
+    def test_build_system_prompt_not_called_with_fix_coder(self) -> None:
+        """build_system_prompt is NOT called with archetype='fix_coder'."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
@@ -110,8 +111,8 @@ class TestBuildCoderPromptArchetype:
             pipeline._build_coder_prompt(spec, triage)
 
         call_kwargs = mock_bsp.call_args.kwargs
-        assert call_kwargs.get("archetype") != "coder", (
-            "build_system_prompt was called with archetype='coder' (expected 'fix_coder')"
+        assert call_kwargs.get("archetype") != "fix_coder", (
+            "build_system_prompt was called with archetype='fix_coder' (expected 'coder' with mode='fix')"
         )
 
 
@@ -169,17 +170,17 @@ class TestBuildCoderPromptNoCommitFormat:
 
 
 # ---------------------------------------------------------------------------
-# TS-88-12: _run_coder_session passes fix_coder archetype
+# TS-88-12: _run_coder_session passes coder archetype with mode='fix'
 # Requirement: 88-REQ-3.2
 # ---------------------------------------------------------------------------
 
 
 class TestRunCoderSessionArchetype:
-    """Verify _run_coder_session calls _run_session with 'fix_coder'."""
+    """Verify _run_coder_session calls _run_session with 'coder'."""
 
     @pytest.mark.asyncio
-    async def test_run_session_called_with_fix_coder(self) -> None:
-        """_run_session is called with 'fix_coder' as the first argument."""
+    async def test_run_session_called_with_coder(self) -> None:
+        """_run_session is called with 'coder' as the first argument."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
@@ -210,11 +211,11 @@ class TestRunCoderSessionArchetype:
 
         assert mock_rs.called, "_run_session was not called"
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg == "fix_coder", f"Expected _run_session called with 'fix_coder', got {first_arg!r}"
+        assert first_arg == "coder", f"Expected _run_session called with 'coder', got {first_arg!r}"
 
     @pytest.mark.asyncio
-    async def test_run_session_not_called_with_coder(self) -> None:
-        """_run_session is NOT called with 'coder' as the archetype."""
+    async def test_run_session_not_called_with_fix_coder(self) -> None:
+        """_run_session is NOT called with 'fix_coder' as the archetype."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = _make_config()
@@ -244,4 +245,4 @@ class TestRunCoderSessionArchetype:
             )
 
         first_arg = mock_rs.call_args[0][0]
-        assert first_arg != "coder", "_run_session was called with 'coder' instead of 'fix_coder'"
+        assert first_arg != "fix_coder", "_run_session was called with 'fix_coder' instead of 'coder'"

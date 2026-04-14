@@ -79,9 +79,7 @@ def _insert_entity(
     )
 
 
-def _insert_causal_edge(
-    conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str
-) -> None:
+def _insert_causal_edge(conn: duckdb.DuckDBPyConnection, cause_id: str, effect_id: str) -> None:
     """Insert a causal edge into fact_causes."""
     conn.execute(
         "INSERT INTO fact_causes (cause_id, effect_id) VALUES (?, ?)",
@@ -89,9 +87,7 @@ def _insert_causal_edge(
     )
 
 
-def _link_fact_to_entity(
-    conn: duckdb.DuckDBPyConnection, fact_id: str, entity_id: str
-) -> None:
+def _link_fact_to_entity(conn: duckdb.DuckDBPyConnection, fact_id: str, entity_id: str) -> None:
     """Link fact to entity in fact_entities."""
     conn.execute(
         "INSERT INTO fact_entities (fact_id, entity_id) VALUES (?, ?)",
@@ -177,9 +173,7 @@ class TestBarrierPipeline:
         )
 
         # Mock link_facts (spec 95 entity_linker not yet implemented)
-        mock_link_facts = MagicMock(
-            return_value=LinkResult(facts_processed=3, links_created=2, facts_skipped=1)
-        )
+        mock_link_facts = MagicMock(return_value=LinkResult(facts_processed=3, links_created=2, facts_skipped=1))
 
         state = MagicMock()
         state.node_states = {"task_a": "completed"}
@@ -276,18 +270,14 @@ class TestEndOfRunPipeline:
                 entities_soft_deleted=0,
             )
         )
-        mock_link_facts = MagicMock(
-            return_value=LinkResult(facts_processed=0, links_created=0, facts_skipped=0)
-        )
+        mock_link_facts = MagicMock(return_value=LinkResult(facts_processed=0, links_created=0, facts_skipped=0))
 
         async def _mock_llm(*args: object, **kwargs: object) -> dict:
             return {"action": "link"}
 
         captured_completed_specs: set[str] | None = None
 
-        async def _capturing_run_consolidation(
-            *args: object, **kwargs: object
-        ) -> ConsolidationResult:
+        async def _capturing_run_consolidation(*args: object, **kwargs: object) -> ConsolidationResult:
             nonlocal captured_completed_specs
             # Extract completed_specs from args/kwargs
             if args and len(args) > 2:

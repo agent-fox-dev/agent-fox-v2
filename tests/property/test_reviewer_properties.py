@@ -53,9 +53,7 @@ class TestModeArchetypeMapping:
         """For each reviewer mode, resolved config has the expected injection/allowlist/tier."""
         from agent_fox.archetypes import ARCHETYPE_REGISTRY, resolve_effective_config
 
-        assert "reviewer" in ARCHETYPE_REGISTRY, (
-            "reviewer not in ARCHETYPE_REGISTRY — consolidation not implemented"
-        )
+        assert "reviewer" in ARCHETYPE_REGISTRY, "reviewer not in ARCHETYPE_REGISTRY — consolidation not implemented"
         entry = ARCHETYPE_REGISTRY["reviewer"]
         cfg = resolve_effective_config(entry, mode)
 
@@ -78,9 +76,7 @@ class TestModeArchetypeMapping:
                 f"mode=pre-review: allowlist should be empty, got {cfg.default_allowlist}"
             )
         else:
-            assert cfg.default_allowlist is not None, (
-                f"mode={mode!r}: allowlist should not be None"
-            )
+            assert cfg.default_allowlist is not None, f"mode={mode!r}: allowlist should not be None"
             for cmd in expected_cmds:
                 assert cmd in cfg.default_allowlist, (
                     f"mode={mode!r}: '{cmd}' missing from allowlist {cfg.default_allowlist}"
@@ -145,9 +141,7 @@ class TestConvergenceDispatchCorrectness:
         ]
         result = converge_reviewer(results, mode=mode, block_threshold=5)
         expected = converge_skeptic(results, block_threshold=5)
-        assert result == expected, (
-            f"mode={mode!r}: expected {expected}, got {result}"
-        )
+        assert result == expected, f"mode={mode!r}: expected {expected}, got {result}"
 
     def test_audit_dispatch_to_auditor(self) -> None:
         """audit-review routes to converge_auditor."""
@@ -254,8 +248,7 @@ class TestInjectionConsistency:
         old_names = {"skeptic", "oracle", "auditor"}
         for n in graph.nodes.values():
             assert n.archetype not in old_names, (
-                f"Node {n.id!r} has old archetype {n.archetype!r} "
-                f"(reviewer_enabled={enabled})"
+                f"Node {n.id!r} has old archetype {n.archetype!r} (reviewer_enabled={enabled})"
             )
 
 
@@ -274,9 +267,7 @@ class TestVerifierSingleInstanceInvariant:
         from agent_fox.engine.sdk_params import clamp_instances
 
         result = clamp_instances("verifier", n)
-        assert result == 1, (
-            f"clamp_instances('verifier', {n}) should return 1, got {result}"
-        )
+        assert result == 1, f"clamp_instances('verifier', {n}) should return 1, got {result}"
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
     @given(n=st.integers(min_value=1, max_value=100))
@@ -285,9 +276,7 @@ class TestVerifierSingleInstanceInvariant:
         """Property: for any n in 1..100, clamp_instances('verifier', n) == 1."""
         from agent_fox.engine.sdk_params import clamp_instances
 
-        assert clamp_instances("verifier", n) == 1, (
-            f"clamp_instances('verifier', {n}) should always return 1"
-        )
+        assert clamp_instances("verifier", n) == 1, f"clamp_instances('verifier', {n}) should always return 1"
 
 
 # ---------------------------------------------------------------------------
@@ -304,9 +293,7 @@ class TestCoderFixModeEquivalence:
         from agent_fox.archetypes import ARCHETYPE_REGISTRY, resolve_effective_config
 
         entry = ARCHETYPE_REGISTRY["coder"]
-        assert "fix" in entry.modes, (
-            f"coder must have 'fix' mode, got {set(entry.modes.keys())}"
-        )
+        assert "fix" in entry.modes, f"coder must have 'fix' mode, got {set(entry.modes.keys())}"
         cfg = resolve_effective_config(entry, "fix")
 
         # Matches former fix_coder archetype configuration
@@ -316,9 +303,7 @@ class TestCoderFixModeEquivalence:
         assert cfg.default_model_tier == "STANDARD", (
             f"coder:fix tier should be STANDARD, got {cfg.default_model_tier!r}"
         )
-        assert cfg.default_max_turns == 300, (
-            f"coder:fix max_turns should be 300, got {cfg.default_max_turns}"
-        )
+        assert cfg.default_max_turns == 300, f"coder:fix max_turns should be 300, got {cfg.default_max_turns}"
         assert cfg.default_thinking_mode == "adaptive", (
             f"coder:fix thinking_mode should be 'adaptive', got {cfg.default_thinking_mode!r}"
         )
@@ -345,8 +330,7 @@ class TestOldNamesRejected:
         from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         assert name not in ARCHETYPE_REGISTRY, (
-            f"'{name}' should have been removed from ARCHETYPE_REGISTRY "
-            "during reviewer consolidation (98-REQ-7.1)"
+            f"'{name}' should have been removed from ARCHETYPE_REGISTRY during reviewer consolidation (98-REQ-7.1)"
         )
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
@@ -356,6 +340,4 @@ class TestOldNamesRejected:
         """Property: any old archetype name is absent from registry."""
         from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
-        assert name not in ARCHETYPE_REGISTRY, (
-            f"'{name}' found in ARCHETYPE_REGISTRY — should be removed"
-        )
+        assert name not in ARCHETYPE_REGISTRY, f"'{name}' found in ARCHETYPE_REGISTRY — should be removed"

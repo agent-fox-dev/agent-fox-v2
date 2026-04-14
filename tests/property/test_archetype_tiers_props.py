@@ -25,8 +25,8 @@ _TIER_ORDER: dict[ModelTier, int] = {
     ModelTier.ADVANCED: 2,
 }
 
-_ADVANCED_ARCHETYPES = {"skeptic", "oracle", "verifier"}
-_STANDARD_ARCHETYPES = {"coder", "auditor"}
+_ADVANCED_ARCHETYPES = {"triage"}
+_STANDARD_ARCHETYPES = {"coder", "reviewer", "verifier"}
 
 
 # ---------------------------------------------------------------------------

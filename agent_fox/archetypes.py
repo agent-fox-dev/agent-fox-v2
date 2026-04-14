@@ -219,8 +219,7 @@ def _resolve_custom_preset(
             return custom_cfg.permissions
 
     logger.warning(
-        "Custom archetype '%s' has no permission preset in config; "
-        "defaulting to 'coder' permissions",
+        "Custom archetype '%s' has no permission preset in config; defaulting to 'coder' permissions",
         name,
     )
     return "coder"

@@ -371,19 +371,20 @@ class TestTemplateEdgeCases:
     def test_alias_used_in_template(self) -> None:
         """TS-33-E4: Fields with aliases use alias as TOML key.
 
-        The simplified template only renders promoted fields; skeptic_settings
-        is not promoted. Verify the schema correctly uses alias as TOML key.
+        After the reviewer consolidation, skeptic_config (alias skeptic_settings)
+        was replaced by reviewer_config (no alias). Verify the schema contains
+        the reviewer_config field under archetypes.
         Requirement: 33-REQ-3.E1
         """
         schema = extract_schema(AgentFoxConfig)
         archetypes_section = next(s for s in schema if s.path == "archetypes")
-        # Find the skeptic_config field (alias: skeptic_settings)
-        skeptic_field = next(
-            (f for f in archetypes_section.fields if f.name == "skeptic_settings"),
+        # Find the reviewer_config field (replaces skeptic_config/skeptic_settings)
+        reviewer_field = next(
+            (f for f in archetypes_section.fields if f.name == "reviewer_config"),
             None,
         )
-        assert skeptic_field is not None, "skeptic_settings alias not found in schema"
-        assert skeptic_field.name == "skeptic_settings"
+        assert reviewer_field is not None, "reviewer_config not found in schema"
+        assert reviewer_field.name == "reviewer_config"
 
 
 class TestMergeEdgeCases:

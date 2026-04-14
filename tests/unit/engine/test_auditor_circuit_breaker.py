@@ -56,6 +56,7 @@ def _make_auditor_orchestrator(
             title=n.get("title", nid),
             optional=n.get("optional", False),
             archetype=n.get("archetype", "coder"),
+            mode=n.get("mode"),
             instances=n.get("instances", 1),
         )
         for nid, n in plan_nodes.items()
@@ -127,7 +128,8 @@ class TestRetryOnFail:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
@@ -185,7 +187,8 @@ class TestAuditorReruns:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
@@ -244,7 +247,8 @@ class TestCircuitBreakerBlocks:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
@@ -328,7 +332,8 @@ class TestMaxRetriesZeroBlocks:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
@@ -390,7 +395,8 @@ class TestPassNoRetry:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
@@ -457,7 +463,8 @@ class TestPropertyCircuitBreakerBound:
             "spec:1.5": {
                 "spec_name": "spec",
                 "group_number": 1.5,
-                "archetype": "auditor",
+                "archetype": "reviewer",
+                "mode": "audit-review",
             },
         }
         edges_list = [
