@@ -110,7 +110,8 @@ class KnowledgeDB:
             commit_sha    TEXT,
             confidence    DOUBLE DEFAULT 0.6,
             created_at    TIMESTAMP,
-            superseded_by UUID
+            superseded_by UUID,
+            keywords      TEXT[] DEFAULT []
         );
 
         CREATE TABLE IF NOT EXISTS memory_embeddings (

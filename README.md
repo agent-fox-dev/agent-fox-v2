@@ -124,3 +124,6 @@ include a short paragraph about the architecture documents in `docs/architecture
 
 TBD
 Include references to academic papers that are relevant to agent-fox or that agent-fox is conceptually or architecturally grounded in.
+
+### MAGMA: A Multi-Graph based Agentic Memory Architecture for AI Agents
+https://arxiv.org/abs/2601.03236

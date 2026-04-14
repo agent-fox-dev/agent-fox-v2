@@ -104,7 +104,8 @@ def load_all_facts(conn: duckdb.DuckDBPyConnection) -> list[Fact]:
     rows = conn.execute(
         "SELECT CAST(id AS VARCHAR), content, category, spec_name, "
         "confidence, created_at, session_id, commit_sha, "
-        "CAST(superseded_by AS VARCHAR) "
+        "CAST(superseded_by AS VARCHAR), "
+        "keywords "
         "FROM memory_facts WHERE superseded_by IS NULL"
     ).fetchall()
 
@@ -131,7 +132,8 @@ def load_facts_by_spec(
     rows = conn.execute(
         "SELECT CAST(id AS VARCHAR), content, category, spec_name, "
         "confidence, created_at, session_id, commit_sha, "
-        "CAST(superseded_by AS VARCHAR) "
+        "CAST(superseded_by AS VARCHAR), "
+        "keywords "
         "FROM memory_facts WHERE superseded_by IS NULL AND spec_name = ?",
         [spec_name],
     ).fetchall()
@@ -259,6 +261,7 @@ def _row_to_fact(row: tuple) -> Fact:
         session_id,
         commit_sha,
         _superseded_by,
+        keywords,
     ) = row
 
     return Fact(
@@ -266,7 +269,7 @@ def _row_to_fact(row: tuple) -> Fact:
         content=content or "",
         category=category or "pattern",
         spec_name=spec_name or "",
-        keywords=[],
+        keywords=list(keywords) if keywords else [],
         confidence=parse_confidence(confidence),
         created_at=_ensure_iso(created_at),
         session_id=session_id,
@@ -376,8 +379,8 @@ class MemoryStore:
             """
             INSERT OR IGNORE INTO memory_facts
                 (id, content, category, spec_name, session_id,
-                 commit_sha, confidence, created_at)
-            VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 commit_sha, confidence, created_at, keywords)
+            VALUES (?::UUID, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
             """,
             [
                 fact.id,
@@ -387,6 +390,7 @@ class MemoryStore:
                 getattr(fact, "session_id", None),
                 getattr(fact, "commit_sha", None),
                 fact.confidence,
+                fact.keywords if fact.keywords else [],
             ],
         )
 

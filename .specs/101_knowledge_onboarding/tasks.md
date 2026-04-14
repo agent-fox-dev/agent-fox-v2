@@ -110,8 +110,8 @@ together. Group 6 verifies wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Git pattern mining module
-  - [ ] 2.1 Create `agent_fox/knowledge/git_mining.py`
+- [x] 2. Git pattern mining module
+  - [x] 2.1 Create `agent_fox/knowledge/git_mining.py`
     - MiningResult dataclass (frozen)
     - `_parse_git_numstat(project_root, days)` — subprocess + parse
     - `_compute_file_frequencies(commit_files)` — per-file counts
@@ -123,13 +123,15 @@ together. Group 6 verifies wiring.
       writes them via MemoryStore
     - _Requirements: 101-REQ-4.1, 101-REQ-4.2, 101-REQ-4.3, 101-REQ-4.4,
       101-REQ-4.5, 101-REQ-4.6, 101-REQ-4.E1, 101-REQ-4.E2, 101-REQ-4.E3_
+  - Also: migration v9 (keywords column), store.py keywords r/w,
+    knowledge_conn fixture, docs/errata/101_keywords_schema_migration.md
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Mining tests pass: `uv run pytest -q tests/unit/knowledge/test_git_mining.py`
-    - [ ] Mining property tests pass: `uv run pytest -q tests/property/knowledge/test_onboard_props.py -k "monotonicity or mining_fact_validity"`
-    - [ ] Mining smoke test passes: `uv run pytest -q tests/integration/knowledge/test_onboard_smoke.py -k "mining"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/git_mining.py`
+  - [-] 2.V Verify task group 2 (shell unavailable; code verified by review)
+    - [-] Mining tests pass: `uv run pytest -q tests/unit/knowledge/test_git_mining.py`
+    - [-] Mining property tests pass: `uv run pytest -q tests/property/knowledge/test_onboard_props.py -k "monotonicity or mining_fact_validity"`
+    - [-] Mining smoke test passes: `uv run pytest -q tests/integration/knowledge/test_onboard_smoke.py -k "mining"`
+    - [-] All existing tests still pass: `uv run pytest -q`
+    - [-] No linter warnings: `uv run ruff check agent_fox/knowledge/git_mining.py`
 
 - [ ] 3. LLM code analysis module
   - [ ] 3.1 Create `agent_fox/knowledge/code_analysis.py`
