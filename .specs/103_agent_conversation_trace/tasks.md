@@ -148,8 +148,8 @@ and group 4 verifies end-to-end wiring.
     - [x] `agent_fox/knowledge/jsonl_sink.py` does not exist
     - [x] `grep -r jsonl_sink agent_fox/` returns zero matches (only local var in engine.py)
 
-- [ ] 4. Wiring verification
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+- [x] 4. Wiring verification
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - Path 1: Verify `code_command` → `_setup_infrastructure` →
       `AgentTraceSink` creation → `_execute_query` → trace event emission →
       file write. Read the calling code at each step.
@@ -158,35 +158,35 @@ and group 4 verifies end-to-end wiring.
     - Confirm no function in the chain is a stub.
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - `truncate_tool_input` returns a dict consumed by `record_tool_use`
     - `AgentTraceSink` methods are called by `SinkDispatcher` delegation
     - Grep for callers; confirm none discards return values
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - All `TS-103-SMOKE-*` tests pass using real components
     - _Test Spec: TS-103-SMOKE-1, TS-103-SMOKE-2_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
     - _Requirements: all_
 
-  - [ ] 4.5 Cross-spec entry point verification
+  - [x] 4.5 Cross-spec entry point verification
     - `AgentTraceSink` is instantiated in `_setup_infrastructure` (this spec)
       and called from `_execute_query` (this spec modifies it)
     - Verify both callers exist in production code
     - _Requirements: all_
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
