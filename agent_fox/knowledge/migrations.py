@@ -295,6 +295,15 @@ def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
 
     Requirements: 101-REQ-4.E3, 101-REQ-5.6, 101-REQ-6.6, 101-REQ-8.2
     """
+    # Check if memory_facts table exists; skip if not
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
+    }
+    if "memory_facts" not in tables:
+        logger.info("memory_facts table not found, skipping v10 migration")
+        return
+
     # Idempotency check — skip if column already exists
     col_info = conn.execute(
         "SELECT column_name FROM information_schema.columns "

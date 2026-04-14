@@ -199,8 +199,6 @@ class TestBarrierPipeline:
                 sync_interval=1,
                 repo_root=tmp_path,
                 emit_audit=MagicMock(),
-                hook_config=None,
-                no_hooks=True,
                 specs_dir=None,
                 hot_load_enabled=False,
                 hot_load_fn=AsyncMock(),

@@ -112,10 +112,10 @@ class TestMigrationIdempotency:
         for _ in range(n_runs):
             apply_pending_migrations(conn)
 
-        # Version should be 9 (latest migration: v9 multi-language entity graph)
+        # Version should be 10 (latest migration: v10 keywords column)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 9
+        assert version[0] == 10
 
         # Tables should exist (v2 + v3 + v4 migrations)
         tables = conn.execute(

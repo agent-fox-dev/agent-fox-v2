@@ -101,7 +101,7 @@ class TestDeduplicationInvariant:
                 "INSERT INTO memory_facts (id, content, category, spec_name, "
                 "confidence, created_at) "
                 "VALUES (?::UUID, 'test content', 'pattern', 'test_spec', "
-                "'high', CURRENT_TIMESTAMP)",
+                "0.9, CURRENT_TIMESTAMP)",
                 [fid],
             )
 

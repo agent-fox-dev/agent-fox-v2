@@ -47,9 +47,10 @@ CREATE TABLE IF NOT EXISTS memory_facts (
     spec_name     TEXT,
     session_id    TEXT,
     commit_sha    TEXT,
-    confidence    TEXT DEFAULT 'high',
+    confidence    DOUBLE DEFAULT 0.6,
     created_at    TIMESTAMP,
-    superseded_by UUID
+    superseded_by UUID,
+    keywords      TEXT[] DEFAULT []
 );
 
 CREATE TABLE IF NOT EXISTS memory_embeddings (
@@ -147,17 +148,16 @@ def create_schema(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 # Production schema with DOUBLE confidence (matches KnowledgeDB._initialize_schema)
-SCHEMA_DDL_V2 = SCHEMA_DDL.replace(
-    "confidence    TEXT DEFAULT 'high'",
-    "confidence    DOUBLE DEFAULT 0.6",
-)
+# SCHEMA_DDL already uses DOUBLE confidence and includes keywords column,
+# so SCHEMA_DDL_V2 is now identical. Retained for backwards compatibility.
+SCHEMA_DDL_V2 = SCHEMA_DDL
 
 
 def create_schema_v2(conn: duckdb.DuckDBPyConnection) -> None:
     """Create schema with DOUBLE confidence column (matches production).
 
-    Use this for lifecycle tests that need numeric confidence comparisons.
-    The legacy ``create_schema`` retains TEXT confidence for migration tests.
+    Now identical to ``create_schema`` since SCHEMA_DDL was updated to
+    use DOUBLE confidence and include the keywords column.
     """
     conn.execute(SCHEMA_DDL_V2)
 
@@ -224,15 +224,15 @@ def seed_facts(conn: duckdb.DuckDBPyConnection) -> None:
                                   commit_sha, category, confidence, created_at)
         VALUES
             (?, 'User.email changed to nullable', '07_oauth', '07/3',
-             'a1b2c3d', 'decision', 'high', '2025-11-03 14:22:00'),
+             'a1b2c3d', 'decision', 0.9, '2025-11-03 14:22:00'),
             (?, 'test_user_model.py assertions failed', '09_user_tests', '09/1',
-             'e4f5g6h', 'gotcha', 'high', '2025-11-17 09:15:00'),
+             'e4f5g6h', 'gotcha', 0.9, '2025-11-17 09:15:00'),
             (?, 'Added migration for nullable email', '12_auth_fix', '12/2',
-             'i7j8k9l', 'pattern', 'high', '2025-11-18 11:30:00'),
+             'i7j8k9l', 'pattern', 0.9, '2025-11-18 11:30:00'),
             (?, 'Isolated root fact with no links', '05_setup', '05/1',
-             NULL, 'convention', 'medium', '2025-10-01 08:00:00'),
+             NULL, 'convention', 0.6, '2025-10-01 08:00:00'),
             (?, 'Auth module refactored', '17_auth_v2', '17/1',
-             'm0n1o2p', 'decision', 'high', '2025-12-01 10:00:00')
+             'm0n1o2p', 'decision', 0.9, '2025-12-01 10:00:00')
         """,
         [FACT_AAA, FACT_BBB, FACT_CCC, FACT_DDD, FACT_EEE],
     )
@@ -289,9 +289,9 @@ def seed_session_outcomes(conn: duckdb.DuckDBPyConnection) -> None:
                                   category, confidence, created_at)
         VALUES
             (?, 'Auth refactored again', '20_auth_v3', '20/1',
-             'decision', 'high', '2026-01-05 09:00:00'),
+             'decision', 0.9, '2026-01-05 09:00:00'),
             (?, 'User model tests broke again', '21_user_tests_v2', '21/1',
-             'gotcha', 'high', '2026-01-05 10:00:00')
+             'gotcha', 0.9, '2026-01-05 10:00:00')
         """,
         [FACT_S20, FACT_S21],
     )
@@ -398,7 +398,7 @@ def insert_fact_with_embedding(
         INSERT INTO memory_facts (id, content, category, spec_name,
                                   session_id, commit_sha, confidence,
                                   created_at, superseded_by)
-        VALUES (?, ?, ?, ?, ?, ?, 'high', CURRENT_TIMESTAMP, ?)
+        VALUES (?, ?, ?, ?, ?, ?, 0.9, CURRENT_TIMESTAMP, ?)
         """,
         [fact_id, content, category, spec_name, session_id, commit_sha, superseded_by],
     )
@@ -421,7 +421,7 @@ def insert_fact_without_embedding(
         """
         INSERT INTO memory_facts (id, content, category, spec_name,
                                   confidence, created_at)
-        VALUES (?, ?, ?, ?, 'high', CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, 0.9, CURRENT_TIMESTAMP)
         """,
         [fact_id, content, category, spec_name],
     )

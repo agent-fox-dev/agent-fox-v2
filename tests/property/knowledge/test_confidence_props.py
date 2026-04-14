@@ -111,10 +111,35 @@ class TestMigrationPreservesRowCount:
     def test_row_count_unchanged(self, confidences: list[str | None]) -> None:
         import uuid
 
-        from tests.unit.knowledge.conftest import create_schema
+        # Use pre-migration schema with TEXT confidence to test v5 migration
+        _PRE_MIGRATION_DDL = """
+        CREATE TABLE IF NOT EXISTS schema_version (
+            version     INTEGER PRIMARY KEY,
+            applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            description TEXT
+        );
+        CREATE TABLE IF NOT EXISTS memory_facts (
+            id            UUID PRIMARY KEY,
+            content       TEXT NOT NULL,
+            category      TEXT,
+            spec_name     TEXT,
+            session_id    TEXT,
+            commit_sha    TEXT,
+            confidence    TEXT DEFAULT 'high',
+            created_at    TIMESTAMP,
+            superseded_by UUID
+        );
+        CREATE TABLE IF NOT EXISTS memory_embeddings (
+            id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+            embedding FLOAT[384]
+        );
+        INSERT INTO schema_version (version, description)
+            SELECT 1, 'initial schema'
+            WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);
+        """
 
         conn = duckdb.connect(":memory:")
-        create_schema(conn)
+        conn.execute(_PRE_MIGRATION_DDL)
 
         for conf in confidences:
             fid = str(uuid.uuid4())

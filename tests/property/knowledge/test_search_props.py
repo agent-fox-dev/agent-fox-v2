@@ -47,7 +47,7 @@ def _insert_fact_with_embedding(
         """
         INSERT INTO memory_facts (id, content, category, spec_name,
                                   confidence, created_at)
-        VALUES (?, ?, 'decision', 'test', 'high', CURRENT_TIMESTAMP)
+        VALUES (?, ?, 'decision', 'test', 0.9, CURRENT_TIMESTAMP)
         """,
         [fact_id, content],
     )

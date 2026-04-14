@@ -44,7 +44,7 @@ def _insert_fact(
     conn.execute(
         "INSERT INTO memory_facts (id, content, category, spec_name, "
         "confidence, created_at) "
-        "VALUES (?::UUID, ?, 'pattern', ?, 'high', CURRENT_TIMESTAMP)",
+        "VALUES (?::UUID, ?, 'pattern', ?, 0.9, CURRENT_TIMESTAMP)",
         [fact_id, content, spec_name],
     )
 

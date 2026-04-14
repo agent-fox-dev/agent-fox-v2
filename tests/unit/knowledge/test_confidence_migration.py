@@ -10,7 +10,37 @@ import uuid
 
 import duckdb
 
-from tests.unit.knowledge.conftest import create_schema
+# Pre-migration schema with TEXT confidence for testing v5 migration.
+# This deliberately uses the OLD column type so that the migration
+# (TEXT → DOUBLE) can be exercised.
+_PRE_MIGRATION_DDL = """
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     INTEGER PRIMARY KEY,
+    applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS memory_facts (
+    id            UUID PRIMARY KEY,
+    content       TEXT NOT NULL,
+    category      TEXT,
+    spec_name     TEXT,
+    session_id    TEXT,
+    commit_sha    TEXT,
+    confidence    TEXT DEFAULT 'high',
+    created_at    TIMESTAMP,
+    superseded_by UUID
+);
+
+CREATE TABLE IF NOT EXISTS memory_embeddings (
+    id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+    embedding FLOAT[384]
+);
+
+INSERT INTO schema_version (version, description)
+    SELECT 1, 'initial schema'
+    WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);
+"""
 
 
 class TestConfidenceMigration:
@@ -20,9 +50,9 @@ class TestConfidenceMigration:
     """
 
     def _make_pre_migration_db(self) -> duckdb.DuckDBPyConnection:
-        """Create in-memory DuckDB with pre-migration schema."""
+        """Create in-memory DuckDB with pre-migration schema (TEXT confidence)."""
         conn = duckdb.connect(":memory:")
-        create_schema(conn)
+        conn.execute(_PRE_MIGRATION_DDL)
         return conn
 
     def _insert_fact(

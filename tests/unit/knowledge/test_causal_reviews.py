@@ -52,7 +52,7 @@ def _setup_causal_review_db(conn: duckdb.DuckDBPyConnection) -> dict[str, str]:
            (id, content, spec_name, session_id, category, confidence,
             created_at)
            VALUES (?::UUID, 'Duration ordering implemented', 'spec39',
-                   'sess1', 'decision', 'high', CURRENT_TIMESTAMP)""",
+                   'sess1', 'decision', 0.9, CURRENT_TIMESTAMP)""",
         [fact_id],
     )
 
