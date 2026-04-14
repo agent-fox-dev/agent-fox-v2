@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
 from agent_fox.knowledge.entity_query import find_related_facts, get_facts_for_entities, traverse_neighbors
 from agent_fox.knowledge.entity_store import create_fact_entity_links, upsert_edges, upsert_entities
-
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.entities import EdgeType, EntityType
 from agent_fox.knowledge.static_analysis import (
     _extract_edges,
@@ -19,7 +20,6 @@ from agent_fox.knowledge.static_analysis import (
     _scan_python_files,
     analyze_codebase,
 )
-
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------

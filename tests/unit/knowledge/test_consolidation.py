@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.consolidation import (
     CONSOLIDATION_STALE_SENTINEL,
     ConsolidationResult,
@@ -29,7 +30,6 @@ from agent_fox.knowledge.consolidation import (
     _verify_against_git,
     run_consolidation,
 )
-
 from agent_fox.knowledge.entities import AnalysisResult, LinkResult
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 

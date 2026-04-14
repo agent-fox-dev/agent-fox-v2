@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
-from agent_fox.knowledge.consolidation import ConsolidationResult, run_consolidation
 
 from agent_fox.engine.barrier import run_sync_barrier_sequence
+from agent_fox.knowledge.consolidation import ConsolidationResult, run_consolidation
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------

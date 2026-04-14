@@ -156,20 +156,20 @@ wiring.
     - [-] All existing tests still pass: consolidation-expected failures deferred to task group 6 (tests referencing deleted template files: test_review_parse_resilience.py, test_skeptic.py, test_auditor.py, test_oracle/test_registry.py; ~20 new failures, 2 fixed)
     - [x] No linter warnings: `uv run ruff check agent_fox/session/prompt.py`
 
-- [ ] 6. Checkpoint — Update existing tests
-  - [ ] 6.1 Update existing archetype tests
+- [x] 6. Checkpoint — Update existing tests
+  - [x] 6.1 Update existing archetype tests
     - Migrate tests referencing old archetype names to new reviewer/mode names
     - Update convergence tests to use converge_reviewer dispatch
     - Update injection tests to expect reviewer mode nodes
     - _Requirements: all_
 
-  - [ ] 6.2 Update existing config tests
+  - [x] 6.2 Update existing config tests
     - Migrate tests referencing old config keys to new schema
     - _Requirements: all_
 
-  - [ ] 6.V Verify checkpoint
-    - [ ] All tests pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 6.V Verify checkpoint
+    - [x] All tests pass: `uv run pytest -q` (4227 passed)
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/` (10 import-sort issues fixed)
 
 - [ ] 7. Wiring verification
 

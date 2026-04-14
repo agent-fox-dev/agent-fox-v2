@@ -13,10 +13,10 @@ from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.entities import EntityType
 from agent_fox.knowledge.entity_linker import link_facts
 from agent_fox.knowledge.entity_store import upsert_entities
-
 from agent_fox.knowledge.facts import Fact
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 

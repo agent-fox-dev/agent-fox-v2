@@ -18,6 +18,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
 from agent_fox.knowledge.consolidation import (
     CONSOLIDATION_STALE_SENTINEL,
     ConsolidationResult,
@@ -31,9 +34,6 @@ from agent_fox.knowledge.consolidation import (
     _verify_against_git,
     run_consolidation,
 )
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------

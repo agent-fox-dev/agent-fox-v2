@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
 from agent_fox.knowledge.entity_linker import link_facts
 from agent_fox.knowledge.entity_query import find_related_facts
@@ -23,9 +24,8 @@ from agent_fox.knowledge.entity_store import (
     upsert_edges,
     upsert_entities,
 )
-from agent_fox.knowledge.static_analysis import analyze_codebase
-
 from agent_fox.knowledge.facts import Fact
+from agent_fox.knowledge.static_analysis import analyze_codebase
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------

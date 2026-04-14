@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.entities import (
     EdgeType,
     Entity,
@@ -28,7 +29,6 @@ from agent_fox.knowledge.entity_store import (
     upsert_edges,
     upsert_entities,
 )
-
 from tests.unit.knowledge.conftest import SCHEMA_DDL_V2
 
 # ---------------------------------------------------------------------------
