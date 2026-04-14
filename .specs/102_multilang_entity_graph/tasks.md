@@ -29,8 +29,8 @@ verifies wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/knowledge/test_lang_framework.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/knowledge/test_lang_framework.py`
     - Protocol compliance (TS-102-1)
     - Registry extension mapping (TS-102-2)
     - Language detection (TS-102-3)
@@ -40,7 +40,7 @@ verifies wiring.
     - _Test Spec: TS-102-1, TS-102-2, TS-102-3, TS-102-4, TS-102-E3,
       TS-102-E4_
 
-  - [ ] 1.2 Create `tests/unit/knowledge/test_lang_analyzers.py`
+  - [x] 1.2 Create `tests/unit/knowledge/test_lang_analyzers.py`
     - Python entities and edges (TS-102-5)
     - Go entities and edges (TS-102-6)
     - Rust entities and edges (TS-102-7)
@@ -58,7 +58,7 @@ verifies wiring.
     - _Test Spec: TS-102-5 through TS-102-14, TS-102-22, TS-102-E1,
       TS-102-E2, TS-102-E7_
 
-  - [ ] 1.3 Create `tests/unit/knowledge/test_multilang_analysis.py`
+  - [x] 1.3 Create `tests/unit/knowledge/test_multilang_analysis.py`
     - Mixed-language analysis (TS-102-15)
     - Languages analyzed field (TS-102-16)
     - Soft-delete across languages (TS-102-17)
@@ -70,23 +70,23 @@ verifies wiring.
     - Analyzer crash isolation (TS-102-E6)
     - _Test Spec: TS-102-15 through TS-102-21, TS-102-E5, TS-102-E6_
 
-  - [ ] 1.4 Create `tests/property/knowledge/test_multilang_props.py`
+  - [x] 1.4 Create `tests/property/knowledge/test_multilang_props.py`
     - Entity validity (TS-102-P1)
     - Edge referential integrity (TS-102-P2)
     - Upsert idempotency (TS-102-P3)
     - Scan subset (TS-102-P4)
     - _Test Spec: TS-102-P1 through TS-102-P4_
 
-  - [ ] 1.5 Create `tests/integration/knowledge/test_multilang_smoke.py`
+  - [x] 1.5 Create `tests/integration/knowledge/test_multilang_smoke.py`
     - Full multi-language analysis (TS-102-SMOKE-1)
     - Python backward compatibility E2E (TS-102-SMOKE-2)
     - Incremental analysis with language changes (TS-102-SMOKE-3)
     - _Test Spec: TS-102-SMOKE-1 through TS-102-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Language analyzer framework and Python refactoring
   - [ ] 2.1 Create `agent_fox/knowledge/lang/__init__.py`
