@@ -643,6 +643,17 @@ class Orchestrator:
                 render_summary(conn=self._knowledge_db_conn)
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
+            # 105-REQ-4.4: Mark run as complete in DB with final status.
+            if self._knowledge_db_conn is not None:
+                try:
+                    from agent_fox.engine.state import complete_run as _complete_run
+
+                    run_status_val = (
+                        state.run_status.value if hasattr(state.run_status, "value") else str(state.run_status)
+                    )
+                    _complete_run(self._knowledge_db_conn, self._run_id, run_status_val)
+                except Exception:
+                    logger.debug("Failed to complete run in DB", exc_info=True)
             # 40-REQ-9.2: Emit run.complete at end of execute()
             run_duration_ms = int((datetime.now(UTC) - run_start_time).total_seconds() * 1000)
             emit_audit_event(

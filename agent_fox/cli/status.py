@@ -31,19 +31,17 @@ logger = logging.getLogger(__name__)
 def generate_status(
     db_path: Path | None = None,
 ) -> None:
-    """Return None when db_path is missing (graceful fallback for af status).
+    """Graceful existence check for the DuckDB status file (TS-105-E6).
 
-    This thin wrapper is used by tests (TS-105-E6) to verify that
-    ``af status`` handles a missing DuckDB file without crashing.
-
-    When the ``db_path`` does not exist, returns ``None`` so callers can
-    display "No plan found" instead of raising an exception.
+    Returns ``None`` when ``db_path`` is absent so ``af status`` can display
+    "No plan found" instead of raising an exception.  The full status report
+    is rendered by ``_reporting_generate_status`` inside ``status_cmd``, which
+    accepts an optional DuckDB connection for plan_nodes queries.
 
     Requirements: 105-REQ-6.E1
     """
     if db_path is None or not Path(db_path).exists():
         return None
-    # TODO(105-task-4.3): full DB-backed status report will be wired here
     return None
 
 

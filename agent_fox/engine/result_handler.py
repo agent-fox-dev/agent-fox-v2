@@ -364,6 +364,56 @@ class SessionResultHandler:
         """Process a completed session record and persist state."""
         self._state_manager.record_session(state, record)
 
+        # 105-REQ-3.2: Record session outcome to DB (unified single source of truth).
+        # 105-REQ-4.3: Accumulate run token/cost totals.
+        if self._knowledge_db_conn is not None:
+            try:
+                import uuid as _uuid  # stdlib first (ruff I001)
+
+                from agent_fox.engine.state import (
+                    SessionOutcomeRecord,
+                )
+                from agent_fox.engine.state import (
+                    record_session as _record_session_db,
+                )
+                from agent_fox.engine.state import (
+                    update_run_totals as _update_run_totals,
+                )
+
+                parts = record.node_id.split(":", 1)
+                spec_name = parts[0]
+                task_group = parts[1] if len(parts) > 1 else ""
+                outcome = SessionOutcomeRecord(
+                    id=str(_uuid.uuid4()),
+                    spec_name=spec_name,
+                    task_group=task_group,
+                    node_id=record.node_id,
+                    touched_path=",".join(record.files_touched) if record.files_touched else "",
+                    status=record.status,
+                    input_tokens=record.input_tokens,
+                    output_tokens=record.output_tokens,
+                    duration_ms=record.duration_ms,
+                    created_at=record.timestamp,
+                    run_id=self._run_id,
+                    attempt=record.attempt,
+                    cost=record.cost,
+                    model=record.model,
+                    archetype=record.archetype,
+                    commit_sha=record.commit_sha,
+                    error_message=record.error_message,
+                    is_transport_error=record.is_transport_error,
+                )
+                _record_session_db(self._knowledge_db_conn, outcome)
+                _update_run_totals(
+                    self._knowledge_db_conn,
+                    self._run_id,
+                    input_tokens=record.input_tokens,
+                    output_tokens=record.output_tokens,
+                    cost=record.cost,
+                )
+            except Exception:
+                logger.debug("Failed to record session to DB", exc_info=True)
+
         # Ensure timeout retry counter is initialised (even for non-timeout
         # events), so callers can use .get(node_id, -1) as a sentinel for
         # "never seen any event for this node" while still distinguishing
@@ -380,6 +430,21 @@ class SessionResultHandler:
         else:
             # 75-REQ-1.2: Non-timeout failures use the escalation ladder
             self._handle_failure(record, attempt, state, attempt_tracker, error_tracker)
+
+        # 105-REQ-2.1: Persist node status per-transition to DB (not batch at end-of-run).
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.engine.state import persist_node_status as _persist_status
+
+                current_status = self._graph_sync.node_states.get(node_id, record.status)
+                _persist_status(
+                    self._knowledge_db_conn,
+                    node_id,
+                    current_status,
+                    blocked_reason=state.blocked_reasons.get(node_id),
+                )
+            except Exception:
+                logger.debug("Failed to persist node status to DB", exc_info=True)
 
         self._state_manager.save(state)
 

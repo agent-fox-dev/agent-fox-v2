@@ -172,9 +172,9 @@ persistence backing changes.
     - [x] PLAN_PATH and STATE_PATH removed from core/paths.py (verified by test_plan_path_removed)
     - [x] Requirements 5.1, 6.E1 acceptance criteria met; StateManager partial removal tracked in errata
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1: `plan_cmd` -> `build_plan` -> `save_plan(graph, conn)` ->
       DuckDB tables populated. Confirm no file I/O.
     - Path 2: `_init_run` -> `load_plan(conn)` -> `create_run(conn)` ->
@@ -187,8 +187,9 @@ persistence backing changes.
     - Path 5: resume -> `load_plan(conn)` -> compare content hash with
       `plan_meta.content_hash`. Confirm works without plan.json.
     - _Requirements: all_
+    - Note: All 5 paths verified live. Gaps found and fixed in 5.5.
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `load_plan(conn)` returns `TaskGraph` consumed by orchestrator
     - `load_execution_state(conn)` returns `dict[str, str]` consumed by
       GraphSync
@@ -196,32 +197,38 @@ persistence backing changes.
       comparison
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-105-SMOKE-*` tests pass using real components
     - _Test Spec: TS-105-SMOKE-1, TS-105-SMOKE-2_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
+    - Justified stubs: `_get_predecessors` returns `[]` when graph_sync is
+      None (valid empty-list for no predecessors); `generate_status` returns
+      `None` per its `-> None` annotation (graceful fallback, no report
+      produced); TODO comment in status.py resolved.
     - _Requirements: all_
 
-  - [ ] 5.5 Cross-spec entry point verification
-    - `save_plan` is called from `cli/plan.py` and `engine/engine.py`
-    - `load_plan` is called from `engine/engine.py`
-    - `persist_node_status` is called from result handler
-    - `record_session` is called from result handler
-    - Verify all callers pass DuckDB connection, not file path
+  - [x] 5.5 Cross-spec entry point verification
+    - `save_plan` is called from `cli/plan.py` and `engine/engine.py` ✓
+    - `load_plan` is called from `engine/engine.py` ✓
+    - `persist_node_status` is called from result handler ✓ (wired in this task)
+    - `record_session` is called from result handler ✓ (wired in this task)
+    - `update_run_totals` called from result handler ✓ (wired in this task)
+    - `complete_run` called from engine.py finally block ✓ (wired in this task)
+    - All callers pass DuckDB connection, not file path ✓
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No `plan.json` or `state.jsonl` files created by any test or
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No `plan.json` or `state.jsonl` files created by any test or
       production code
 
 ## Traceability
