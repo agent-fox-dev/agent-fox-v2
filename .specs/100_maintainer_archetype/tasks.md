@@ -25,8 +25,8 @@ nightshift pipeline. Group 4 creates the template. Group 5 verifies wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/unit/core/test_maintainer_archetype.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/unit/core/test_maintainer_archetype.py`
     - Registry tests: maintainer entry, mode configs, not task assignable (TS-100-1 through TS-100-4)
     - Triage removed (TS-100-5)
     - Template existence (TS-100-7)
@@ -34,20 +34,20 @@ nightshift pipeline. Group 4 creates the template. Group 5 verifies wiring.
     - Edge cases: triage fallback, extraction no exception (TS-100-E1, TS-100-E3)
     - _Test Spec: TS-100-1 through TS-100-10, TS-100-E1, TS-100-E3_
 
-  - [ ] 1.2 Create `tests/unit/nightshift/test_triage_migration.py`
+  - [x] 1.2 Create `tests/unit/nightshift/test_triage_migration.py`
     - Triage uses maintainer:hunt (TS-100-6)
     - Nightshift model tier resolution (TS-100-11)
     - Old triage config key (TS-100-E2)
     - _Test Spec: TS-100-6, TS-100-11, TS-100-E2_
 
-  - [ ] 1.3 Create `tests/property/test_maintainer_properties.py`
+  - [x] 1.3 Create `tests/property/test_maintainer_properties.py`
     - Property tests: mode config, triage removed, extraction safety, nightshift resolution (TS-100-P1 through TS-100-P4)
     - _Test Spec: TS-100-P1 through TS-100-P4_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Define maintainer archetype and extraction types
   - [ ] 2.1 Add maintainer entry to ARCHETYPE_REGISTRY
