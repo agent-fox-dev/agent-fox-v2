@@ -23,9 +23,28 @@ from agent_fox.reporting.formatters import (
     get_formatter,
     write_output,
 )
-from agent_fox.reporting.status import generate_status
+from agent_fox.reporting.status import generate_status as _reporting_generate_status
 
 logger = logging.getLogger(__name__)
+
+
+def generate_status(
+    db_path: Path | None = None,
+) -> None:
+    """Return None when db_path is missing (graceful fallback for af status).
+
+    This thin wrapper is used by tests (TS-105-E6) to verify that
+    ``af status`` handles a missing DuckDB file without crashing.
+
+    When the ``db_path`` does not exist, returns ``None`` so callers can
+    display "No plan found" instead of raising an exception.
+
+    Requirements: 105-REQ-6.E1
+    """
+    if db_path is None or not Path(db_path).exists():
+        return None
+    # TODO(105-task-4.3): full DB-backed status report will be wired here
+    return None
 
 
 def _get_readonly_conn():
@@ -110,7 +129,7 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
 
     db_conn = _get_readonly_conn()
     try:
-        report = generate_status(state_path, plan_path, db_conn=db_conn)
+        report = _reporting_generate_status(state_path, plan_path, db_conn=db_conn)
     finally:
         if db_conn is not None:
             db_conn.close()

@@ -91,42 +91,42 @@ persistence backing changes.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 3. Plan and execution state persistence
-  - [ ] 3.1 Implement DB-based `save_plan(graph, conn)`
+- [x] 3. Plan and execution state persistence
+  - [x] 3.1 Implement DB-based `save_plan(graph, conn)`
     - DELETE existing plan data, INSERT nodes/edges/meta in one transaction
     - Compute and store content hash
     - Replaces file-based save_plan
     - _Requirements: 1.1, 1.4_
 
-  - [ ] 3.2 Implement DB-based `load_plan(conn)`
+  - [x] 3.2 Implement DB-based `load_plan(conn)`
     - SELECT from plan_nodes, plan_edges, plan_meta
     - Reconstruct TaskGraph with correct topological order
     - Return None if no plan exists
     - _Requirements: 1.2, 1.E1, 1.E2_
 
-  - [ ] 3.3 Implement `persist_node_status(conn, node_id, status, blocked_reason)`
+  - [x] 3.3 Implement `persist_node_status(conn, node_id, status, blocked_reason)`
     - UPDATE plan_nodes SET status, updated_at, blocked_reason
     - _Requirements: 2.1, 2.3_
 
-  - [ ] 3.4 Implement `record_session(conn, record)` and run functions
+  - [x] 3.4 Implement `record_session(conn, record)` and run functions
     - INSERT into session_outcomes with all extended fields
     - Implement `create_run`, `update_run_totals`, `complete_run`,
       `load_run`, `load_incomplete_run`
     - Implement `load_execution_state` (returns node_states dict)
     - _Requirements: 3.2, 4.2, 4.3, 4.4_
 
-  - [ ] 3.5 Implement `reset_in_progress_nodes(conn)`
+  - [x] 3.5 Implement `reset_in_progress_nodes(conn)`
     - UPDATE plan_nodes SET status='pending' WHERE status='in_progress'
     - Used on resume after crash
     - _Requirements: 2.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Plan round-trip tests pass: `uv run pytest -q tests/unit/graph/test_db_persistence.py`
-    - [ ] State management tests pass: `uv run pytest -q tests/unit/engine/test_db_plan_state.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/engine/test_plan_state_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 1.*, 2.*, 3.*, 4.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Plan round-trip tests pass: `uv run pytest -q tests/unit/graph/test_db_persistence.py`
+    - [x] State management tests pass: `uv run pytest -q tests/unit/engine/test_db_plan_state.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/engine/test_plan_state_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 1.*, 2.*, 3.*, 4.* acceptance criteria met
 
 - [ ] 4. CLI updates, orchestrator wiring, and file removal
   - [ ] 4.1 Update `engine/engine.py` orchestrator

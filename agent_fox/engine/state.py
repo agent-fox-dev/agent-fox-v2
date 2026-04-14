@@ -1,6 +1,9 @@
 """Execution state persistence: data models, save/load, plan hash, runner utils.
 
-Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3
+Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3,
+              105-REQ-2.1, 105-REQ-2.3, 105-REQ-2.E1,
+              105-REQ-3.2, 105-REQ-3.E1,
+              105-REQ-4.2, 105-REQ-4.3, 105-REQ-4.4, 105-REQ-4.E1
 """
 
 from __future__ import annotations
@@ -11,7 +14,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import duckdb
 
 logger = logging.getLogger(__name__)
 
@@ -309,4 +315,259 @@ async def invoke_runner(
         files_touched=getattr(result, "files_touched", []),
         archetype=getattr(result, "archetype", "coder"),
         is_transport_error=getattr(result, "is_transport_error", False),
+    )
+
+
+# ---------------------------------------------------------------------------
+# DB-based state management (new API — 105 spec)
+# ---------------------------------------------------------------------------
+
+
+def persist_node_status(
+    conn: duckdb.DuckDBPyConnection,
+    node_id: str,
+    status: str,
+    blocked_reason: str | None = None,
+) -> None:
+    """UPDATE plan_nodes SET status, updated_at (and optionally blocked_reason).
+
+    Requirements: 105-REQ-2.1, 105-REQ-2.3
+    """
+    conn.execute(
+        """
+        UPDATE plan_nodes
+        SET status = ?,
+            updated_at = CURRENT_TIMESTAMP,
+            blocked_reason = ?
+        WHERE id = ?
+        """,
+        [status, blocked_reason, node_id],
+    )
+
+
+def load_execution_state(conn: duckdb.DuckDBPyConnection) -> dict[str, str]:
+    """Load node_states dict from plan_nodes for GraphSync initialization.
+
+    Returns a mapping of node_id -> status string.  Returns an empty dict
+    if the plan_nodes table is empty or the table does not exist.
+
+    Requirements: 105-REQ-1.E1, 105-REQ-1.E2
+    """
+    try:
+        rows = conn.sql("SELECT id, status FROM plan_nodes").fetchall()
+    except Exception:
+        return {}
+    return {row[0]: row[1] for row in rows}
+
+
+def reset_in_progress_nodes(conn: duckdb.DuckDBPyConnection) -> None:
+    """Reset all in_progress nodes to pending (crash recovery on resume).
+
+    Requirements: 105-REQ-2.E1
+    """
+    conn.execute(
+        """
+        UPDATE plan_nodes
+        SET status = 'pending',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'in_progress'
+        """
+    )
+
+
+def record_session(
+    conn: duckdb.DuckDBPyConnection,
+    record: SessionOutcomeRecord,
+) -> None:
+    """INSERT a session outcome row into session_outcomes with all extended fields.
+
+    Stores NULL for error_message when the session succeeded (not empty string).
+
+    Requirements: 105-REQ-3.2, 105-REQ-3.E1
+    """
+    conn.execute(
+        """
+        INSERT INTO session_outcomes (
+            id, spec_name, task_group, node_id, touched_path,
+            status, input_tokens, output_tokens, duration_ms, created_at,
+            run_id, attempt, cost, model, archetype,
+            commit_sha, error_message, is_transport_error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            record.id,
+            record.spec_name,
+            record.task_group,
+            record.node_id,
+            record.touched_path,
+            record.status,
+            record.input_tokens,
+            record.output_tokens,
+            record.duration_ms,
+            record.created_at,
+            record.run_id,
+            record.attempt,
+            record.cost,
+            record.model,
+            record.archetype,
+            record.commit_sha,
+            record.error_message,  # None -> SQL NULL (REQ-3.E1)
+            record.is_transport_error,
+        ],
+    )
+
+
+def create_run(
+    conn: duckdb.DuckDBPyConnection,
+    run_id: str,
+    plan_hash: str,
+) -> None:
+    """INSERT a new run row with status='running'.
+
+    Requirements: 105-REQ-4.2
+    """
+    conn.execute(
+        """
+        INSERT INTO runs (id, plan_content_hash, status)
+        VALUES (?, ?, 'running')
+        """,
+        [run_id, plan_hash],
+    )
+
+
+def update_run_totals(
+    conn: duckdb.DuckDBPyConnection,
+    run_id: str,
+    input_tokens: int,
+    output_tokens: int,
+    cost: float,
+) -> None:
+    """UPDATE runs to accumulate token and cost counters.
+
+    Requirements: 105-REQ-4.3
+    """
+    conn.execute(
+        """
+        UPDATE runs
+        SET total_input_tokens  = total_input_tokens  + ?,
+            total_output_tokens = total_output_tokens + ?,
+            total_cost          = total_cost          + ?,
+            total_sessions      = total_sessions      + 1
+        WHERE id = ?
+        """,
+        [input_tokens, output_tokens, cost, run_id],
+    )
+
+
+def complete_run(
+    conn: duckdb.DuckDBPyConnection,
+    run_id: str,
+    status: str,
+) -> None:
+    """UPDATE runs SET completed_at, status to mark a run as finished.
+
+    Requirements: 105-REQ-4.4
+    """
+    conn.execute(
+        """
+        UPDATE runs
+        SET completed_at = CURRENT_TIMESTAMP,
+            status = ?
+        WHERE id = ?
+        """,
+        [status, run_id],
+    )
+
+
+def load_run(
+    conn: duckdb.DuckDBPyConnection,
+    run_id: str | None = None,
+) -> RunRecord | None:
+    """Load the most recent run, or a specific run by ID.
+
+    Requirements: 105-REQ-4.1
+    """
+    if run_id is not None:
+        row = conn.execute(
+            """
+            SELECT id, plan_content_hash, started_at, completed_at, status,
+                   total_input_tokens, total_output_tokens, total_cost, total_sessions
+            FROM runs WHERE id = ?
+            """,
+            [run_id],
+        ).fetchone()
+    else:
+        row = conn.sql(
+            """
+            SELECT id, plan_content_hash, started_at, completed_at, status,
+                   total_input_tokens, total_output_tokens, total_cost, total_sessions
+            FROM runs
+            ORDER BY started_at DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    def _ts(v: Any) -> str | None:
+        if v is None:
+            return None
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return str(v)
+
+    return RunRecord(
+        id=row[0],
+        plan_content_hash=row[1],
+        started_at=_ts(row[2]) or "",
+        completed_at=_ts(row[3]),
+        status=row[4],
+        total_input_tokens=row[5],
+        total_output_tokens=row[6],
+        total_cost=row[7],
+        total_sessions=row[8],
+    )
+
+
+def load_incomplete_run(
+    conn: duckdb.DuckDBPyConnection,
+) -> RunRecord | None:
+    """Load the most recent run that has status='running' and no completed_at.
+
+    Used on orchestrator resume to detect a crashed run.
+
+    Requirements: 105-REQ-4.E1
+    """
+    row = conn.sql(
+        """
+        SELECT id, plan_content_hash, started_at, completed_at, status,
+               total_input_tokens, total_output_tokens, total_cost, total_sessions
+        FROM runs
+        WHERE status = 'running' AND completed_at IS NULL
+        ORDER BY started_at DESC
+        LIMIT 1
+        """
+    ).fetchone()
+
+    if row is None:
+        return None
+
+    def _ts(v: Any) -> str | None:
+        if v is None:
+            return None
+        if hasattr(v, "isoformat"):
+            return v.isoformat()
+        return str(v)
+
+    return RunRecord(
+        id=row[0],
+        plan_content_hash=row[1],
+        started_at=_ts(row[2]) or "",
+        completed_at=_ts(row[3]),
+        status=row[4],
+        total_input_tokens=row[5],
+        total_output_tokens=row[6],
+        total_cost=row[7],
+        total_sessions=row[8],
     )
