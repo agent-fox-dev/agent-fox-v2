@@ -27,8 +27,8 @@ persistence backing changes.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for DB persistence
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for DB persistence
     - Create `tests/unit/graph/test_db_persistence.py`
     - Translate TS-105-1, TS-105-2, TS-105-3 into pytest tests
     - Tests import from `agent_fox.graph.persistence` (save_plan, load_plan
@@ -36,31 +36,31 @@ persistence backing changes.
     - Use in-memory DuckDB fixtures with v9 schema
     - _Test Spec: TS-105-1, TS-105-2, TS-105-3_
 
-  - [ ] 1.2 Create unit test file for DB state management
+  - [x] 1.2 Create unit test file for DB state management
     - Create `tests/unit/engine/test_db_plan_state.py`
     - Translate TS-105-4 through TS-105-12 into pytest tests
     - Tests import from `agent_fox.engine.state` (new function signatures)
     - Include edge case tests TS-105-E1 through TS-105-E6
     - _Test Spec: TS-105-4 through TS-105-12, TS-105-E1 through TS-105-E6_
 
-  - [ ] 1.3 Create property tests
+  - [x] 1.3 Create property tests
     - Create `tests/property/engine/test_plan_state_props.py`
     - Translate TS-105-P1 through TS-105-P5
     - Use Hypothesis strategies for TaskGraph generation, status sequences,
       session records, token/cost delta sequences
     - _Test Spec: TS-105-P1 through TS-105-P5_
 
-  - [ ] 1.4 Create integration smoke tests
+  - [x] 1.4 Create integration smoke tests
     - Create `tests/integration/test_db_plan_state_smoke.py`
     - Translate TS-105-SMOKE-1 and TS-105-SMOKE-2
     - SMOKE-1 uses mock session runner with real DB persistence
     - SMOKE-2 uses file-based DuckDB for concurrent access testing
     - _Test Spec: TS-105-SMOKE-1, TS-105-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 2. Schema migration and data types
   - [ ] 2.1 Add v9 migration to `agent_fox/knowledge/migrations.py`
