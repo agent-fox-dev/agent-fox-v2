@@ -14,7 +14,7 @@ import logging
 import tomllib
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -53,25 +53,41 @@ def _clamp(
     return value
 
 
-def _clamped_validator(
-    *fields: str,
-    ge: int | float | None = None,
-    le: int | float | None = None,
-    cast: type | None = None,
-) -> Any:
-    """Factory for field_validator methods that clamp numeric values.
+class Clamped:
+    """Annotation marking a numeric field for automatic clamping."""
 
-    Returns a pydantic field_validator classmethod. If *cast* is given the
-    result is cast (e.g. ``int``).
-    """
+    __slots__ = ("ge", "le", "cast")
 
-    @field_validator(*fields)  # type: ignore[misc]
-    @classmethod
-    def _validate(cls: Any, v: Any, info: Any) -> Any:
-        result = _clamp(v, ge=ge, le=le, field_name=info.field_name)
-        return cast(result) if cast else result
+    def __init__(
+        self,
+        ge: int | float | None = None,
+        le: int | float | None = None,
+        cast: type | None = None,
+    ) -> None:
+        self.ge = ge
+        self.le = le
+        self.cast = cast
 
-    return _validate  # type: ignore[return-value]
+
+def _auto_clamp_validator() -> Any:
+    """Return a model_validator that clamps all fields annotated with Clamped."""
+
+    @model_validator(mode="after")
+    def _validate(self: Any) -> Any:
+        for name, field_info in type(self).model_fields.items():
+            for meta in field_info.metadata:
+                if isinstance(meta, Clamped):
+                    value = getattr(self, name)
+                    if value is None:
+                        continue
+                    clamped = _clamp(value, ge=meta.ge, le=meta.le, field_name=name)
+                    if meta.cast is not None:
+                        clamped = meta.cast(clamped)
+                    if clamped != value:
+                        object.__setattr__(self, name, clamped)
+        return self
+
+    return _validate
 
 
 class RoutingConfig(BaseModel):
@@ -82,38 +98,39 @@ class RoutingConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    retries_before_escalation: int = Field(default=1, description="Retries before model escalation")
-    max_timeout_retries: int = Field(
+    retries_before_escalation: Annotated[int, Clamped(ge=0, le=3, cast=int)] = Field(
+        default=1, description="Retries before model escalation"
+    )
+    max_timeout_retries: Annotated[int, Clamped(ge=0, cast=int)] = Field(
         default=2,
         description="Maximum timeout retries before falling through to escalation",
     )
-    timeout_multiplier: float = Field(
+    timeout_multiplier: Annotated[float, Clamped(ge=1.0)] = Field(
         default=1.5,
         description=("Factor by which max_turns and session_timeout are extended on timeout retry"),
     )
-    timeout_ceiling_factor: float = Field(
+    timeout_ceiling_factor: Annotated[float, Clamped(ge=1.0)] = Field(
         default=2.0,
         description=("Maximum session_timeout as a factor of the original configured value"),
     )
 
-    clamp_retries = _clamped_validator("retries_before_escalation", ge=0, le=3, cast=int)
-    clamp_max_timeout_retries = _clamped_validator("max_timeout_retries", ge=0, cast=int)
-    clamp_timeout_multiplier = _clamped_validator("timeout_multiplier", ge=1.0)
-    clamp_timeout_ceiling_factor = _clamped_validator("timeout_ceiling_factor", ge=1.0)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class OrchestratorConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    parallel: int = Field(default=2, description="Maximum parallel sessions")
-    sync_interval: int = Field(default=5, description="Sync interval in task groups")
+    parallel: Annotated[int, Clamped(ge=1, le=8)] = Field(default=2, description="Maximum parallel sessions")
+    sync_interval: Annotated[int, Clamped(ge=0)] = Field(default=5, description="Sync interval in task groups")
     hot_load: bool = Field(default=True, description="Hot-load specs between sessions")
-    max_retries: int = Field(default=2, description="Maximum retries per task group")
-    session_timeout: int = Field(default=30, description="Session timeout in minutes")
-    inter_session_delay: int = Field(default=3, description="Delay between sessions in seconds")
+    max_retries: Annotated[int, Clamped(ge=0)] = Field(default=2, description="Maximum retries per task group")
+    session_timeout: Annotated[int, Clamped(ge=1)] = Field(default=30, description="Session timeout in minutes")
+    inter_session_delay: Annotated[int, Clamped(ge=0)] = Field(
+        default=3, description="Delay between sessions in seconds"
+    )
     max_cost: float | None = Field(default=None, description="Maximum cost limit")
     max_sessions: int | None = Field(default=None, description="Maximum number of sessions")
-    audit_retention_runs: int = Field(
+    audit_retention_runs: Annotated[int, Clamped(ge=1, cast=int)] = Field(
         default=20,
         description="Maximum number of runs to retain in the audit log",
     )
@@ -136,7 +153,7 @@ class OrchestratorConfig(BaseModel):
         description="Maximum USD spend per session, 0 = unlimited",
     )
 
-    causal_context_limit: int = Field(
+    causal_context_limit: Annotated[int, Clamped(ge=10, le=10000, cast=int)] = Field(
         default=200,
         description=(
             "Maximum number of prior facts included in the causal extraction "
@@ -146,19 +163,12 @@ class OrchestratorConfig(BaseModel):
         ),
     )
 
-    watch_interval: int = Field(
+    watch_interval: Annotated[int, Clamped(ge=10, cast=int)] = Field(
         default=60,
         description=("Seconds between watch polls when --watch is active. Values below 10 are clamped to 10."),
     )
 
-    clamp_parallel = _clamped_validator("parallel", ge=1, le=8)
-    clamp_sync_interval = _clamped_validator("sync_interval", ge=0)
-    clamp_max_retries = _clamped_validator("max_retries", ge=0)
-    clamp_session_timeout = _clamped_validator("session_timeout", ge=1)
-    clamp_inter_session_delay = _clamped_validator("inter_session_delay", ge=0)
-    clamp_audit_retention = _clamped_validator("audit_retention_runs", ge=1, cast=int)
-    clamp_causal_context_limit = _clamped_validator("causal_context_limit", ge=10, le=10000, cast=int)
-    clamp_watch_interval = _clamped_validator("watch_interval", ge=10, cast=int)
+    _auto_clamp = _auto_clamp_validator()
 
     @field_validator("max_blocked_fraction")
     @classmethod
@@ -228,9 +238,9 @@ class KnowledgeConfig(BaseModel):
     store_path: str = Field(default=".agent-fox/knowledge.duckdb", description="Path to knowledge store")
     embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Embedding model for knowledge")
     embedding_dimensions: int = Field(default=384, description="Embedding vector dimensions")
-    ask_top_k: int = Field(default=20, description="Number of results for knowledge queries")
+    ask_top_k: Annotated[int, Clamped(ge=1)] = Field(default=20, description="Number of results for knowledge queries")
     ask_synthesis_model: str = Field(default="STANDARD", description="Model tier for answer synthesis")
-    confidence_threshold: float = Field(
+    confidence_threshold: Annotated[float, Clamped(ge=0.0, le=1.0)] = Field(
         default=0.5,
         description="Minimum confidence for fact inclusion in session context",
     )
@@ -266,14 +276,12 @@ class KnowledgeConfig(BaseModel):
         default=True,
         description="Enable/disable end-of-run fact lifecycle cleanup",
     )
-    cross_spec_top_k: int = Field(
+    cross_spec_top_k: Annotated[int, Clamped(ge=0, cast=int)] = Field(
         default=15,
         description="Number of cross-spec facts to retrieve via vector search (0 to disable)",
     )
 
-    clamp_ask_top_k = _clamped_validator("ask_top_k", ge=1)
-    clamp_confidence = _clamped_validator("confidence_threshold", ge=0.0, le=1.0)
-    clamp_cross_spec_top_k = _clamped_validator("cross_spec_top_k", ge=0, cast=int)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class ThinkingConfig(BaseModel):
@@ -357,10 +365,12 @@ class ArchetypeInstancesConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    reviewer: int = Field(default=1, description="Number of reviewer instances (replaces skeptic+auditor)")
+    reviewer: Annotated[int, Clamped(ge=1, le=5)] = Field(
+        default=1, description="Number of reviewer instances (replaces skeptic+auditor)"
+    )
     verifier: int = Field(default=1, description="Number of verifier instances (max clamped to 1)")
 
-    clamp_reviewer = _clamped_validator("reviewer", ge=1, le=5)
+    _auto_clamp = _auto_clamp_validator()
 
     @field_validator("verifier")
     @classmethod
@@ -382,9 +392,9 @@ class SkepticConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    block_threshold: int = Field(default=3, description="Finding count to block merge")
+    block_threshold: Annotated[int, Clamped(ge=0)] = Field(default=3, description="Finding count to block merge")
 
-    clamp_threshold = _clamped_validator("block_threshold", ge=0)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class OracleSettings(BaseModel):
@@ -414,11 +424,14 @@ class AuditorConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    min_ts_entries: int = Field(default=5, description="Minimum TS entries to trigger auditor injection")
-    max_retries: int = Field(default=2, description="Maximum auditor-coder retry iterations")
+    min_ts_entries: Annotated[int, Clamped(ge=1, cast=int)] = Field(
+        default=5, description="Minimum TS entries to trigger auditor injection"
+    )
+    max_retries: Annotated[int, Clamped(ge=0, cast=int)] = Field(
+        default=2, description="Maximum auditor-coder retry iterations"
+    )
 
-    clamp_min_ts = _clamped_validator("min_ts_entries", ge=1, cast=int)
-    clamp_max_retries = _clamped_validator("max_retries", ge=0, cast=int)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class ReviewerConfig(BaseModel):
@@ -431,7 +444,7 @@ class ReviewerConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pre_review_block_threshold: int = Field(
+    pre_review_block_threshold: Annotated[int, Clamped(ge=0)] = Field(
         default=3,
         description="Finding count to block merge for pre-review mode",
     )
@@ -439,18 +452,16 @@ class ReviewerConfig(BaseModel):
         default=None,
         description="Drift count to block for drift-review mode (None = advisory only)",
     )
-    audit_min_ts_entries: int = Field(
+    audit_min_ts_entries: Annotated[int, Clamped(ge=1, cast=int)] = Field(
         default=5,
         description="Minimum TS entries to trigger audit-review injection",
     )
-    audit_max_retries: int = Field(
+    audit_max_retries: Annotated[int, Clamped(ge=0, cast=int)] = Field(
         default=2,
         description="Maximum audit-review/coder retry iterations",
     )
 
-    clamp_pre_review = _clamped_validator("pre_review_block_threshold", ge=0)
-    clamp_audit_min_ts = _clamped_validator("audit_min_ts_entries", ge=1, cast=int)
-    clamp_audit_retries = _clamped_validator("audit_max_retries", ge=0, cast=int)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class CustomArchetypeConfig(BaseModel):
@@ -596,19 +607,21 @@ class ModelPricing(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    input_price_per_m: float = Field(default=0.0, description="USD per million input tokens")
-    output_price_per_m: float = Field(default=0.0, description="USD per million output tokens")
-    cache_read_price_per_m: float = Field(default=0.0, description="USD per million cache-read input tokens")
-    cache_creation_price_per_m: float = Field(default=0.0, description="USD per million cache-creation input tokens")
-
     # Requirements: 34-REQ-2.E2
-    clamp_negative_price = _clamped_validator(
-        "input_price_per_m",
-        "output_price_per_m",
-        "cache_read_price_per_m",
-        "cache_creation_price_per_m",
-        ge=0.0,
+    input_price_per_m: Annotated[float, Clamped(ge=0.0)] = Field(
+        default=0.0, description="USD per million input tokens"
     )
+    output_price_per_m: Annotated[float, Clamped(ge=0.0)] = Field(
+        default=0.0, description="USD per million output tokens"
+    )
+    cache_read_price_per_m: Annotated[float, Clamped(ge=0.0)] = Field(
+        default=0.0, description="USD per million cache-read input tokens"
+    )
+    cache_creation_price_per_m: Annotated[float, Clamped(ge=0.0)] = Field(
+        default=0.0, description="USD per million cache-creation input tokens"
+    )
+
+    _auto_clamp = _auto_clamp_validator()
 
 
 def _default_pricing_models() -> dict[str, ModelPricing]:
@@ -667,11 +680,11 @@ class PlanningConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     duration_ordering: bool = Field(default=True, description="Sort ready tasks by predicted duration")
-    min_outcomes_for_historical: int = Field(
+    min_outcomes_for_historical: Annotated[int, Clamped(ge=1, le=1000, cast=int)] = Field(
         default=10,
         description="Minimum outcomes before using historical duration data",
     )
-    min_outcomes_for_regression: int = Field(
+    min_outcomes_for_regression: Annotated[int, Clamped(ge=5, le=10000, cast=int)] = Field(
         default=30,
         description="Minimum outcomes before training duration regression model",
     )
@@ -680,8 +693,7 @@ class PlanningConfig(BaseModel):
         description="Detect file conflicts between parallel tasks",
     )
 
-    clamp_min_historical = _clamped_validator("min_outcomes_for_historical", ge=1, le=1000, cast=int)
-    clamp_min_regression = _clamped_validator("min_outcomes_for_regression", ge=5, le=10000, cast=int)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class BlockingConfig(BaseModel):
@@ -696,17 +708,16 @@ class BlockingConfig(BaseModel):
         default=False,
         description="Learn blocking thresholds from history",
     )
-    min_decisions_for_learning: int = Field(
+    min_decisions_for_learning: Annotated[int, Clamped(ge=1, le=1000, cast=int)] = Field(
         default=20,
         description="Minimum blocking decisions before learning thresholds",
     )
-    max_false_negative_rate: float = Field(
+    max_false_negative_rate: Annotated[float, Clamped(ge=0.0, le=1.0)] = Field(
         default=0.1,
         description="Maximum acceptable false negative rate",
     )
 
-    clamp_min_decisions = _clamped_validator("min_decisions_for_learning", ge=1, le=1000, cast=int)
-    clamp_fnr = _clamped_validator("max_false_negative_rate", ge=0.0, le=1.0)
+    _auto_clamp = _auto_clamp_validator()
 
 
 class CachePolicy(StrEnum):
