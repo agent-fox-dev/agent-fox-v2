@@ -11,14 +11,14 @@ import pytest
 
 pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
 
-import json
-from pathlib import Path
+import json  # noqa: E402
+from pathlib import Path  # noqa: E402
 
-from agent_fox.knowledge.store import (
+from agent_fox.knowledge.store import (  # noqa: E402
     append_facts,
     write_facts,
 )
-from tests.unit.knowledge.conftest import make_fact
+from tests.unit.knowledge.conftest import make_fact  # noqa: E402
 
 
 class TestStoreAppendAndLoadRoundTrip:

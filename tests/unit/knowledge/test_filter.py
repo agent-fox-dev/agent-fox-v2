@@ -11,8 +11,8 @@ import pytest
 
 pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
 
-from agent_fox.knowledge.filtering import select_relevant_facts
-from tests.unit.knowledge.conftest import make_fact
+from agent_fox.knowledge.filtering import select_relevant_facts  # noqa: E402
+from tests.unit.knowledge.conftest import make_fact  # noqa: E402
 
 
 class TestFilterSelectsBySpecName:

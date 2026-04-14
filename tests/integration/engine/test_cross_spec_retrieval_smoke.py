@@ -21,11 +21,11 @@ from unittest.mock import MagicMock  # noqa: E402
 
 import duckdb  # noqa: E402
 
-from agent_fox.core.config import AgentFoxConfig
-from agent_fox.engine.session_lifecycle import NodeSessionRunner
-from agent_fox.knowledge.db import KnowledgeDB
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
+from agent_fox.core.config import AgentFoxConfig  # noqa: E402
+from agent_fox.engine.session_lifecycle import NodeSessionRunner  # noqa: E402
+from agent_fox.knowledge.db import KnowledgeDB  # noqa: E402
+from agent_fox.knowledge.embeddings import EmbeddingGenerator  # noqa: E402
+from agent_fox.knowledge.facts import Fact  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Schema DDL (mirrors KnowledgeDB._initialize_schema)

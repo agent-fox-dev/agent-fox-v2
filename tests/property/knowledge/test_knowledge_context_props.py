@@ -10,20 +10,20 @@ import pytest
 
 pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
 
-import uuid
+import uuid  # noqa: E402
 
-import duckdb
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
+import duckdb  # noqa: E402
+from hypothesis import assume, given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
 
-from agent_fox.engine.fact_cache import (
+from agent_fox.engine.fact_cache import (  # noqa: E402
     RankedFactCache,
     get_cached_facts,
 )
-from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.filtering import select_relevant_facts
-from tests.unit.knowledge.conftest import create_schema
+from agent_fox.knowledge.causal import CausalFact, traverse_with_reviews  # noqa: E402
+from agent_fox.knowledge.facts import Fact  # noqa: E402
+from agent_fox.knowledge.filtering import select_relevant_facts  # noqa: E402
+from tests.unit.knowledge.conftest import create_schema  # noqa: E402
 
 
 def _new_id() -> str:

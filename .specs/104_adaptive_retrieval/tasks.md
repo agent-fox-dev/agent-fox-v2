@@ -114,13 +114,13 @@ plan has 5 task groups sized for single coding sessions.
 
   - [x] 3.V Verify task group 3
     - [x] Context assembly tests pass: `uv run pytest -q tests/unit/knowledge/test_adaptive_retrieval.py -k "context or provenance or budget or causal_order"`
-    - [ ] Integration smoke test 1 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_full_retrieval_pipeline`
+    - [x] Integration smoke test 1 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_full_retrieval_pipeline`
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [x] Requirements 4.* acceptance criteria met
 
-- [ ] 4. Wire into session lifecycle, remove legacy retrieval
-  - [ ] 4.1 Modify `NodeSessionRunner._build_prompts`
+- [x] 4. Wire into session lifecycle, remove legacy retrieval
+  - [x] 4.1 Modify `NodeSessionRunner._build_prompts`
     - Replace `_load_relevant_facts` / `enhance_with_causal` /
       `_retrieve_cross_spec_facts` calls with single
       `AdaptiveRetriever.retrieve()` call
@@ -130,7 +130,7 @@ plan has 5 task groups sized for single coding sessions.
     - Extract touched files from task metadata
     - _Requirements: 5.1, 5.2_
 
-  - [ ] 4.2 Remove legacy functions
+  - [x] 4.2 Remove legacy functions
     - Delete `select_relevant_facts` and `_compute_relevance_score` from
       `agent_fox/knowledge/filtering.py`
     - Delete `enhance_with_causal` and `load_relevant_facts` from
@@ -140,25 +140,25 @@ plan has 5 task groups sized for single coding sessions.
       from `agent_fox/engine/fact_cache.py`
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
 
-  - [ ] 4.3 Remove fact cache precomputation from infrastructure
+  - [x] 4.3 Remove fact cache precomputation from infrastructure
     - In `engine/run.py: _setup_infrastructure`, remove the
       `precompute_fact_rankings` call and `fact_cache` variable
     - Remove `fact_cache` parameter from `Orchestrator.__init__` and
       `NodeSessionRunner.__init__` if no longer needed
     - _Requirements: 6.4_
 
-  - [ ] 4.4 Update all remaining imports
+  - [x] 4.4 Update all remaining imports
     - Search for imports of removed functions across the codebase
     - Update or remove imports in test files and production code
     - Remove old test files that tested removed functions exclusively
     - _Requirements: 6.E1_
 
-  - [ ] 4.5 Flip legacy removal tests
+  - [x] 4.5 Flip legacy removal tests
     - In `tests/unit/knowledge/test_legacy_removal.py`, update assertions
       to verify functions are NOT importable
     - _Test Spec: TS-104-17, TS-104-18, TS-104-E8_
 
-  - [ ] 4.6 Remove memory.jsonl infrastructure
+  - [x] 4.6 Remove memory.jsonl infrastructure
     - Delete `export_facts_to_jsonl`, `load_facts_from_jsonl`,
       `append_facts`, `_write_jsonl` from `agent_fox/knowledge/store.py`
     - Remove JSONL fallback from `read_all_facts` in `store.py` — DuckDB
@@ -178,7 +178,7 @@ plan has 5 task groups sized for single coding sessions.
     - See `docs/errata/104_memory_jsonl_removal.md` for full module list
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-  - [ ] 4.7 Update memory.jsonl tests
+  - [x] 4.7 Update memory.jsonl tests
     - Update `tests/unit/knowledge/test_store.py` — remove JSONL
       round-trip tests for deleted functions
     - Update `tests/unit/knowledge/test_read_all_facts.py` — remove JSONL
@@ -196,19 +196,19 @@ plan has 5 task groups sized for single coding sessions.
     - Add removal-verification tests to `test_legacy_removal.py`
     - _Test Spec: TS-104-19, TS-104-20, TS-104-21_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Legacy removal tests pass: `uv run pytest -q tests/unit/knowledge/test_legacy_removal.py`
-    - [ ] Integration smoke test 2 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_legacy_chain_removed`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] `grep -r "select_relevant_facts\|RankedFactCache\|precompute_fact_rankings" agent_fox/` returns zero matches
-    - [ ] `grep -r "export_facts_to_jsonl\|load_facts_from_jsonl\|MEMORY_PATH" agent_fox/` returns zero matches
-    - [ ] `memory.jsonl` is not referenced in `.gitignore`
-    - [ ] Requirements 5.*, 6.*, 7.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Legacy removal tests pass: `uv run pytest -q tests/unit/knowledge/test_legacy_removal.py`
+    - [x] Integration smoke test 2 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_legacy_chain_removed`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] `grep -r "select_relevant_facts\|RankedFactCache\|precompute_fact_rankings" agent_fox/` returns zero matches
+    - [x] `grep -r "export_facts_to_jsonl\|load_facts_from_jsonl\|MEMORY_PATH" agent_fox/` returns zero matches
+    - [x] `memory.jsonl` is not referenced in `.gitignore`
+    - [x] Requirements 5.*, 6.*, 7.* acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1: `_build_prompts` → `AdaptiveRetriever.retrieve` → 4 signals →
       `weighted_rrf_fusion` → `assemble_ranked_context` → `assemble_context`.
       Read calling code at each step, confirm no function is a stub.
@@ -217,37 +217,37 @@ plan has 5 task groups sized for single coding sessions.
       `precompute_fact_rankings` are all deleted.
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - `AdaptiveRetriever.retrieve()` returns `RetrievalResult`
     - `RetrievalResult.context` is passed to `assemble_context`
     - `weighted_rrf_fusion` returns scored facts consumed by
       `assemble_ranked_context`
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-104-SMOKE-*` tests pass using real components
     - _Test Spec: TS-104-SMOKE-1, TS-104-SMOKE-2_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
     - _Requirements: all_
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - `AdaptiveRetriever` is instantiated in `_build_prompts` (this spec) and
       calls `find_related_facts` from spec 95, `VectorSearch.search` from
       spec 94, and `traverse_causal_chain` from existing causal module
     - Verify all upstream functions exist in production code
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

@@ -248,10 +248,12 @@ class TestCostReporting:
         captured_events: list[dict] = []
 
         def _capture_emit(event: object) -> None:
-            captured_events.append({
-                "type": str(getattr(event, "event_type", "")),
-                "payload": getattr(event, "payload", {}),
-            })
+            captured_events.append(
+                {
+                    "type": str(getattr(event, "event_type", "")),
+                    "payload": getattr(event, "payload", {}),
+                }
+            )
 
         mock_sink.emit_audit_event = MagicMock(side_effect=_capture_emit)
 

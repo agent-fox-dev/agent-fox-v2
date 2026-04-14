@@ -11,13 +11,13 @@ import pytest
 
 pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
 
-import uuid
+import uuid  # noqa: E402
 
-from hypothesis import given, settings
-from hypothesis import strategies as st
+from hypothesis import given, settings  # noqa: E402
+from hypothesis import strategies as st  # noqa: E402
 
-from agent_fox.knowledge.facts import Category, Fact
-from agent_fox.knowledge.filtering import select_relevant_facts
+from agent_fox.knowledge.facts import Category, Fact  # noqa: E402
+from agent_fox.knowledge.filtering import select_relevant_facts  # noqa: E402
 
 # -- Hypothesis strategies ---------------------------------------------------
 

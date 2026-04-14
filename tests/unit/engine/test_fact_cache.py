@@ -17,16 +17,15 @@ import pytest
 
 pytest.skip("Legacy function removed per spec 104-REQ-6", allow_module_level=True)
 
-import uuid
-from pathlib import Path
-from typing import Any, cast
-from unittest.mock import patch
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any, cast  # noqa: E402
+from unittest.mock import patch  # noqa: E402
 
-import duckdb
-import pytest
+import duckdb  # noqa: E402
 
-from agent_fox.engine.fact_cache import RankedFactCache
-from tests.unit.knowledge.conftest import make_fact
+from agent_fox.engine.fact_cache import RankedFactCache  # noqa: E402
+from tests.unit.knowledge.conftest import make_fact  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
