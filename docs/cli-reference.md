@@ -199,7 +199,6 @@ agent-fox code [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--parallel N` | int | from config | Override parallelism (1-8) |
-| `--no-hooks` | flag | off | Skip all hook scripts |
 | `--max-cost USD` | float | from config | Cost ceiling in USD |
 | `--max-sessions N` | int | from config | Session count limit |
 | `--debug` | flag | off | Enable debug audit trail (JSONL + DuckDB tool signals) |

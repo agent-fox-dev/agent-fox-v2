@@ -16,6 +16,7 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import signal
 from collections.abc import Callable
@@ -1424,20 +1425,13 @@ class Orchestrator:
         if result is None:
             return
 
-        (
-            new_config,
-            new_circuit,
-            new_archetypes_config,
-            new_planning_config,
-        ) = result
-
         # 66-REQ-2.1: Update OrchestratorConfig
-        self._config = new_config
+        self._config = result.config
         # 66-REQ-2.2: Rebuild CircuitBreaker with new config
-        self._circuit = new_circuit
+        self._circuit = result.circuit
         # 66-REQ-4.1, 66-REQ-4.2, 66-REQ-4.3: Update auxiliary configs
-        self._archetypes_config = new_archetypes_config
-        self._planning_config = new_planning_config
+        self._archetypes_config = result.archetypes
+        self._planning_config = result.planning
 
     async def _shutdown(self, state: ExecutionState) -> None:
         """Save state, cancel in-flight tasks, log resume instructions."""
@@ -1667,6 +1661,19 @@ def diff_configs(old: AgentFoxConfig, new: AgentFoxConfig) -> dict[str, dict[str
     return changed
 
 
+@dataclasses.dataclass(frozen=True)
+class ReloadResult:
+    """Result of a successful config hot-reload.
+
+    Requirements: 103-REQ-3.1
+    """
+
+    config: OrchestratorConfig
+    circuit: CircuitBreaker
+    archetypes: ArchetypesConfig | None
+    planning: PlanningConfig
+
+
 class ConfigReloader:
     """Manages configuration hot-reload from disk.
 
@@ -1707,21 +1714,13 @@ class ConfigReloader:
         circuit: CircuitBreaker,
         sink: Any | None,
         run_id: str,
-    ) -> (
-        tuple[
-            OrchestratorConfig,
-            CircuitBreaker,
-            ArchetypesConfig | None,
-            PlanningConfig,
-        ]
-        | None
-    ):
+    ) -> ReloadResult | None:
         """Reload configuration from disk if the file has changed.
 
-        Returns a tuple of updated objects if the config changed,
+        Returns a ReloadResult if the config changed,
         or None if no reload was needed or an error occurred.
 
-        Requirements: 66-REQ-1.1 through 66-REQ-7.2
+        Requirements: 66-REQ-1.1 through 66-REQ-7.2, 103-REQ-3.1
         """
         if self._config_path is None:
             return None
@@ -1790,9 +1789,9 @@ class ConfigReloader:
             self._config_path,
         )
 
-        return (
-            new_orch_cfg,
-            new_circuit,
-            new_full_config.archetypes,
-            new_full_config.planning,
+        return ReloadResult(
+            config=new_orch_cfg,
+            circuit=new_circuit,
+            archetypes=new_full_config.archetypes,
+            planning=new_full_config.planning,
         )

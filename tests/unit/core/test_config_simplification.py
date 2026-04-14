@@ -39,7 +39,6 @@ _EXPECTED_HIDDEN_SECTIONS = {
     "pricing",
     "planning",
     "blocking",
-    "hooks",
     "night_shift",
 }
 
@@ -496,7 +495,6 @@ _ALL_CONFIG_SECTIONS = [
     "orchestrator",
     "routing",
     "models",
-    "hooks",
     "security",
     "theme",
     "platform",

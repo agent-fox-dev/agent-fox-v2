@@ -116,32 +116,6 @@ fallback_model = "claude-sonnet-4-6"
 
 ---
 
-## hooks
-
-Shell commands executed at key points in the session lifecycle. Useful for
-notifications, logging, or custom pre/post processing.
-
-> **Note:** This is a hidden section — add it manually to your `config.toml`.
-
-| Field | Type | Default | Bounds | Description |
-|-------|------|---------|--------|-------------|
-| `pre_code` | list[str] | `[]` | — | Commands run before each coding session starts |
-| `post_code` | list[str] | `[]` | — | Commands run after each coding session completes |
-| `sync_barrier` | list[str] | `[]` | — | Commands run at synchronisation barriers between task groups |
-| `timeout` | int | `300` | ≥ 1 | Timeout in seconds for each hook command |
-| `modes` | dict[str, str] | `{}` | — | Named hook modes mapping (mode name → command) |
-
-**Example:**
-
-```toml
-[hooks]
-pre_code = ["echo 'session starting'"]
-post_code = ["slack-notify 'session done'"]
-timeout = 120
-```
-
----
-
 ## security
 
 Controls the bash command allowlist that agent sessions may execute.

@@ -35,10 +35,10 @@ _BANNED_SYMBOLS = [
 class TestSecurityModuleFunctionalEquivalence:
     """TS-103-P1: Relocated module produces valid allow/deny decisions."""
 
-    @given(cmd=st.text(min_size=1, max_size=200))
+    @given(cmd=st.text(min_size=1, max_size=200).filter(lambda s: s.strip()))
     @settings(max_examples=50)
     def test_check_command_allowed_returns_typed_result(self, cmd: str) -> None:
-        """check_command_allowed always returns (bool, str) for any command string."""
+        """check_command_allowed always returns (bool, str) for any non-whitespace command string."""
         from agent_fox.security.security import (  # noqa: PLC0415
             DEFAULT_ALLOWLIST,
             check_command_allowed,

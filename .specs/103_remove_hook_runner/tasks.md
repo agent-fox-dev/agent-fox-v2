@@ -149,8 +149,8 @@ then delete hooks/, then clean up the engine.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 103-REQ-1.* met
 
-- [ ] 4. ConfigReloader modernization and test/doc cleanup
-  - [ ] 4.1 Add ReloadResult dataclass to engine.py
+- [x] 4. ConfigReloader modernization and test/doc cleanup
+  - [x] 4.1 Add ReloadResult dataclass to engine.py
     - Define `ReloadResult` as a frozen dataclass with fields: `config`,
       `circuit`, `archetypes`, `planning`
     - Update `ConfigReloader.reload()` return type to `ReloadResult | None`
@@ -159,12 +159,12 @@ then delete hooks/, then clean up the engine.
     - Update `_apply_reloaded_config` to unpack by field name
     - _Requirements: 103-REQ-3.1, 103-REQ-3.2, 103-REQ-3.3_
 
-  - [ ] 4.2 Delete hook runner test files
+  - [x] 4.2 Delete hook runner test files
     - Delete `tests/unit/hooks/test_runner.py`
     - Delete `tests/property/hooks/test_runner_props.py`
     - _Requirements: 103-REQ-4.1_
 
-  - [ ] 4.3 Clean up conftest and update engine tests
+  - [x] 4.3 Clean up conftest and update engine tests
     - Remove `hook_context`, `hook_config`, `tmp_hook_script`, `marker_file`
       fixtures from `tests/unit/hooks/conftest.py`
     - Remove `HookConfig`/`HookContext` imports from conftest
@@ -179,17 +179,17 @@ then delete hooks/, then clean up the engine.
       `test_prompt_injection_sanitization.py`
     - _Requirements: 103-REQ-4.2, 103-REQ-4.E1_
 
-  - [ ] 4.4 Update documentation
+  - [x] 4.4 Update documentation
     - Remove `[hooks]` section from `docs/config-reference.md`
     - Remove `--no-hooks` from `docs/cli-reference.md` (if mentioned)
     - _Requirements: 103-REQ-4.4_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests TS-103-5, TS-103-6, TS-103-P3, TS-103-E2 pass
-    - [ ] All spec tests pass: `uv run pytest -q tests/unit/security/ tests/property/security/ -x`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 103-REQ-3.*, 103-REQ-4.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests TS-103-5, TS-103-6, TS-103-P3, TS-103-E2 pass
+    - [x] All spec tests pass: `uv run pytest -q tests/unit/security/ tests/property/security/ -x`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 103-REQ-3.*, 103-REQ-4.* met
 
 - [ ] 5. Wiring verification
   - [ ] 5.1 Trace every execution path from design.md end-to-end
