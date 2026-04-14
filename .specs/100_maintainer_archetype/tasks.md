@@ -89,22 +89,22 @@ nightshift pipeline. Group 4 creates the template. Group 5 verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/nightshift/`
 
-- [ ] 4. Create maintainer template
-  - [ ] 4.1 Create `agent_fox/_templates/prompts/maintainer.md`
+- [x] 4. Create maintainer template
+  - [x] 4.1 Create `agent_fox/_templates/prompts/maintainer.md`
     - Shared maintainer identity section
     - Hunt mode section: scanning, triage, dependency detection, consolidation
     - Extraction mode section: transcript reading, fact identification, knowledge writing
     - Incorporate relevant content from triage.md
     - _Requirements: 100-REQ-3.1, 100-REQ-3.2, 100-REQ-3.3, 100-REQ-2.3_
 
-  - [ ] 4.2 Remove old triage.md template
+  - [x] 4.2 Remove old triage.md template
     - Verify no other code references triage.md
     - _Requirements: 100-REQ-2.1_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/core/test_maintainer_archetype.py -k "template"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/`
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/core/test_maintainer_archetype.py -k "template"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/`
 
 - [ ] 5. Wiring verification
 
