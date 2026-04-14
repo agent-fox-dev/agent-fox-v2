@@ -20,7 +20,7 @@ executable task graphs, see [Part 2: Planning](02-planning.md).
 
 A specification maps to a single coherent feature, capability, or change. It
 lives in a numbered directory under `.specs/` — for example,
-`.specs/03_session_and_workspace/`. The two-digit prefix establishes creation
+`.specs/03_session_and_workspace/`. The numeric prefix establishes creation
 order and provides a stable namespace for cross-spec references. The name after
 the prefix is a snake_case descriptor chosen by the author.
 
@@ -159,7 +159,7 @@ correct identifier.
 ## Spec Discovery
 
 Discovery is the entry point for both planning and linting. The system scans
-`.specs/` for subdirectories matching the `NN_name` pattern (two-digit prefix,
+`.specs/` for subdirectories matching the `NN_name` pattern (numeric prefix,
 underscore, descriptive name). Each matching directory becomes a `SpecInfo`
 record carrying the spec's name, numeric prefix, path, and which of the five
 core artifacts are present.

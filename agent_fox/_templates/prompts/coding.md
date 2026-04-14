@@ -92,7 +92,7 @@ You are running inside a git worktree already on the correct feature branch.
 4. Update documentation if the task changes user-facing behavior, public APIs,
    configuration, or architecture:
    - ADRs in `docs/adr/NN-imperative-verb-phrase.md` (list existing files,
-     find the max numeric prefix, use the next number zero-padded to two digits)
+     find the max numeric prefix, use the next number)
    - Other docs in `docs/{topic}.md`
    - Update README when features or usage change
 5. If implementation diverges from `design.md` or `requirements.md`, create a

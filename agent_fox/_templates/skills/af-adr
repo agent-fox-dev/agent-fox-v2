@@ -73,7 +73,7 @@ If none exists, create `docs/adr/` and note this in your response.
 - **To choose the next number when creating a new ADR:**
   1. List the contents of the ADR directory.
   2. Find existing files whose names start with digits and a hyphen (e.g. `01-*`, `02-*`). If none exist, use `01`.
-  3. Take the maximum numeric prefix and use the next number, zero-padded to two digits (e.g. after `03-foo` use `04-new-decision`).
+  3. Take the maximum numeric prefix and use the next number, zero-padded to two digits for consistency (e.g. after `03-foo` use `04-new-decision`).
 - Use a specific, imperative verb phrase in lowercase-with-hyphens (e.g. `use-redis-for-session-cache`, `adopt-hexagonal-architecture`).
 - Present-tense imperative verb (use, adopt, replace, migrate, define, choose).
 

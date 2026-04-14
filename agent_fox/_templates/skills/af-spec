@@ -138,12 +138,12 @@ generated tasks fit the required execution workflow.
 
 ### Specification folder naming
 
-- **Format:** `NN_snake_case_name` (e.g. `01_base_app`, `02_feature_update`).
-- **NN** is a zero-padded running number (01, 02, 03, …) indicating the order the spec was created.
+- **Format:** `NN_snake_case_name` (e.g. `01_base_app`, `102_feature_update`).
+- **NN** is a running number indicating the order the spec was created.
 - **To choose the next number when creating a new spec:**
   1. List the contents of `.specs/`.
-  2. Find existing folders whose names start with digits and an underscore (e.g. `01_*`, `02_*`). If none exist, use `01`.
-  3. Take the maximum numeric prefix and use the next number, zero-padded to two digits (e.g. after `03_foo` use `04_new_spec`).
+  2. Find existing folders whose names start with digits and an underscore (e.g. `01_*`, `102_*`). If none exist, use `01`.
+  3. Take the maximum numeric prefix and use the next number (e.g. after `99_foo` use `100_new_spec`).
 - Use a short, descriptive `snake_case_name` for the specification (e.g. `stream_rendering`, `color_coding`).
 
 **Uniqueness check:** After choosing the next number, verify that no existing folder in `.specs/` already uses that prefix. If a collision is found (e.g., a folder was manually created with the same number), increment

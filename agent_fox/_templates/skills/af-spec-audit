@@ -35,7 +35,7 @@ Scan the `.specs/` directory for specification folders.
 ### Discovery Rules
 
 1. List all directories in `.specs/` whose names match the pattern
-   `NN_snake_case_name` (where NN is a two-digit number, e.g. `01_fast_planning`).
+   `NN_snake_case_name` (where NN is a numeric prefix, e.g. `01_fast_planning`, `100_maintainer_archetype`).
 2. Process specs in **ascending numeric order** (01 before 02 before 03, etc.).
 3. For each valid spec folder, read these files:
    - `requirements.md` — EARS-patterned acceptance criteria and edge cases.
