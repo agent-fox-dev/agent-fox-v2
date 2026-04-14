@@ -17,7 +17,6 @@ import pytest
 from agent_fox.core.config import (
     AgentFoxConfig,
     ArchetypesConfig,
-    HookConfig,
     OrchestratorConfig,
     PlanningConfig,
 )
@@ -92,7 +91,6 @@ class TestReloadTriggeredAtBarrier:
                 "agent_fox.engine.barrier.sync_develop_bidirectional",
                 new_callable=AsyncMock,
             ),
-            patch("agent_fox.hooks.hooks.run_sync_barrier_hooks"),
             patch("agent_fox.knowledge.rendering.render_summary"),
         ):
             await run_sync_barrier_sequence(
@@ -100,15 +98,12 @@ class TestReloadTriggeredAtBarrier:
                 sync_interval=5,
                 repo_root=tmp_path,
                 emit_audit=MagicMock(),
-                hook_config=None,
-                no_hooks=True,
                 specs_dir=None,
                 hot_load_enabled=False,
                 hot_load_fn=AsyncMock(),
                 sync_plan_fn=MagicMock(),
                 barrier_callback=None,
                 knowledge_db_conn=None,
-                # NEW parameter — will fail until implemented:
                 reload_config_fn=reload_fn,
             )
 
@@ -306,42 +301,6 @@ class TestParallelChangeNotApplied:
         assert orch._config.parallel == 2
         assert orch._is_parallel is True
         assert "parallel" in caplog.text.lower()
-
-
-# ---------------------------------------------------------------------------
-# TS-66-7: HookConfig updated
-# ---------------------------------------------------------------------------
-
-
-class TestHookConfigUpdated:
-    """TS-66-7: Stored HookConfig is replaced on reload.
-
-    Requirement: 66-REQ-4.1
-    """
-
-    def test_hook_config_updated(self, tmp_path: Path) -> None:
-        """self._hook_config references the new HookConfig after reload."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("[hooks]\npost_code = ['make lint']\n")
-
-        orch = _make_orch(tmp_path)
-        orch._config_path = config_file  # type: ignore[attr-defined]
-        orch._config_hash = "stale"  # type: ignore[attr-defined]
-        orch._full_config = AgentFoxConfig()  # type: ignore[attr-defined]
-        orch._run_id = "test_run"
-
-        new_hooks = HookConfig(post_code=["make lint"])
-        new_agent_cfg = AgentFoxConfig(
-            orchestrator=OrchestratorConfig(parallel=1),
-            hooks=new_hooks,
-        )
-        with patch(
-            "agent_fox.engine.engine.load_config",
-            return_value=new_agent_cfg,
-        ):
-            orch._reload_config()  # type: ignore[attr-defined]  # AttributeError — will fail
-
-        assert orch._hook_config == new_hooks
 
 
 # ---------------------------------------------------------------------------

@@ -80,7 +80,6 @@ def _setup_infrastructure(
     debug: bool = False,
     plan_path: Path | None = None,
     activity_callback: ActivityCallback | None = None,
-    no_hooks: bool = False,
 ) -> dict[str, Any]:
     """Set up knowledge DB, sinks, fact cache, and other infrastructure.
 
@@ -139,8 +138,6 @@ def _setup_infrastructure(
             exc_info=True,
         )
 
-    hook_cfg = config.hooks
-
     # 94-REQ-6.1: Create a shared EmbeddingGenerator for cross-spec retrieval.
     # A single model instance is shared across all sessions in the run to avoid
     # repeated model loading (~1-2s per load on Apple Silicon).
@@ -171,8 +168,6 @@ def _setup_infrastructure(
             archetype=archetype,
             mode=mode,
             instances=instances,
-            hook_config=hook_cfg,
-            no_hooks=no_hooks,
             sink_dispatcher=sink_dispatcher,
             knowledge_db=knowledge_db,
             activity_callback=activity_callback,
@@ -197,7 +192,6 @@ async def run_code(
     config: AgentFoxConfig,
     *,
     parallel: int | None = None,
-    no_hooks: bool = False,
     max_cost: float | None = None,
     max_sessions: int | None = None,
     debug: bool = False,
@@ -217,7 +211,6 @@ async def run_code(
     Args:
         config: Loaded AgentFoxConfig.
         parallel: Override parallelism (1-8).
-        no_hooks: Skip all hook scripts.
         debug: Enable debug audit trail.
         watch: Keep running and poll for new specs.
         watch_interval: Seconds between watch polls.
@@ -256,7 +249,6 @@ async def run_code(
             debug=debug,
             plan_path=plan_path,
             activity_callback=activity_callback,
-            no_hooks=no_hooks,
         )
     except Exception:
         logger.warning("Infrastructure setup failed", exc_info=True)
@@ -270,9 +262,7 @@ async def run_code(
         orch_kwargs: dict[str, Any] = {
             "plan_path": plan_path,
             "state_path": state_path,
-            "hook_config": config.hooks,
             "specs_dir": specs_path,
-            "no_hooks": no_hooks,
             "watch": watch,
             "task_callback": task_callback,
             "routing_config": config.routing,

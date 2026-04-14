@@ -130,7 +130,7 @@ class TestTemplateGeneration:
         assert "# [security]" in template
 
         # Hidden sections must not appear (even commented)
-        for section in ["routing", "hooks", "theme", "platform", "knowledge"]:
+        for section in ["routing", "theme", "platform", "knowledge"]:
             assert f"[{section}]" not in template, (
                 f"Hidden section [{section}] should not appear in simplified template"
             )
@@ -266,7 +266,6 @@ class TestSchemaExtraction:
             "orchestrator",
             "routing",
             "models",
-            "hooks",
             "security",
             "theme",
             "platform",
@@ -422,17 +421,19 @@ class TestMergeEdgeCases:
         Requirement: 33-REQ-4.E1
         """
         schema = extract_schema(AgentFoxConfig)
-        hooks_section = None
+        security_section = None
         for s in schema:
-            if s.path == "hooks":
-                hooks_section = s
+            if s.path == "security":
+                security_section = s
                 break
-        assert hooks_section is not None, "hooks section not found"
+        assert security_section is not None, "security section not found"
 
-        pre_code = None
-        for f in hooks_section.fields:
-            if f.name == "pre_code":
-                pre_code = f
+        bash_allowlist_extend = None
+        for f in security_section.fields:
+            if f.name == "bash_allowlist_extend":
+                bash_allowlist_extend = f
                 break
-        assert pre_code is not None, "pre_code field not found"
-        assert pre_code.default == [], f"Expected [] for pre_code default, got {pre_code.default!r}"
+        assert bash_allowlist_extend is not None, "bash_allowlist_extend field not found"
+        assert bash_allowlist_extend.default == [], (
+            f"Expected [] for bash_allowlist_extend default, got {bash_allowlist_extend.default!r}"
+        )

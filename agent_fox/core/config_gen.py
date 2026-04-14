@@ -48,8 +48,6 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("RoutingConfig", "max_timeout_retries"): ">=0",
     ("RoutingConfig", "timeout_multiplier"): ">=1.0",
     ("RoutingConfig", "timeout_ceiling_factor"): ">=1.0",
-    # HookConfig
-    ("HookConfig", "timeout"): ">=1",
     # KnowledgeConfig
     ("KnowledgeConfig", "ask_top_k"): ">=1",
     # ArchetypeInstancesConfig
@@ -129,12 +127,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     # ModelConfig
     ("ModelConfig", "coding"): ("Model tier for coding tasks: SIMPLE, STANDARD, or ADVANCED"),
     ("ModelConfig", "memory_extraction"): "Model tier for memory extraction",
-    # HookConfig
-    ("HookConfig", "pre_code"): "Commands to run before coding",
-    ("HookConfig", "post_code"): "Commands to run after coding",
-    ("HookConfig", "sync_barrier"): "Commands to run at sync barriers",
-    ("HookConfig", "timeout"): "Hook command timeout in seconds",
-    ("HookConfig", "modes"): "Hook modes configuration",
     # SecurityConfig
     ("SecurityConfig", "bash_allowlist"): "Allowed bash commands",
     ("SecurityConfig", "bash_allowlist_extend"): "Additional allowed bash commands",

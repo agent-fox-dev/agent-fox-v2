@@ -17,7 +17,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from agent_fox.core.config import AgentFoxConfig, HookConfig
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.errors import IntegrationError
 from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
@@ -39,11 +39,6 @@ from agent_fox.engine.sdk_params import (
     resolve_thinking,
 )
 from agent_fox.engine.state import SessionRecord
-from agent_fox.hooks.hooks import (
-    HookContext,
-    run_post_session_hooks,
-    run_pre_session_hooks,
-)
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
@@ -204,8 +199,6 @@ class NodeSessionRunner:
         archetype: str = "coder",
         mode: str | None = None,
         instances: int = 1,
-        hook_config: HookConfig | None = None,
-        no_hooks: bool = False,
         sink_dispatcher: SinkDispatcher | None = None,
         knowledge_db: KnowledgeDB,
         activity_callback: ActivityCallback | None = None,
@@ -221,8 +214,6 @@ class NodeSessionRunner:
         self._archetype = archetype
         self._mode = mode  # 97-REQ-5.3: mode for per-mode configuration resolution
         self._instances = clamp_instances(archetype, instances, mode=mode)
-        self._hook_config = hook_config
-        self._no_hooks = no_hooks
         self._sink = sink_dispatcher
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
@@ -437,15 +428,6 @@ class NodeSessionRunner:
                 exc_info=True,
             )
             return relevant_facts
-
-    def _build_hook_context(self, workspace: WorkspaceInfo) -> HookContext:
-        """Build a HookContext for pre/post-session hooks."""
-        return HookContext(
-            spec_name=self._spec_name,
-            task_group=str(self._task_group),
-            workspace=str(workspace.path),
-            branch=workspace.branch,
-        )
 
     @staticmethod
     def _read_session_artifacts(workspace: WorkspaceInfo) -> dict | None:
@@ -913,19 +895,7 @@ class NodeSessionRunner:
         repo_root: Path,
         workspace: WorkspaceInfo,
     ) -> SessionRecord:
-        """Run hooks, build prompts, execute session, and read artifacts.
-
-        06-REQ-1.1: pre-session hooks
-        06-REQ-2.1: post-session hooks
-        """
-        if self._hook_config is not None:
-            hook_ctx = self._build_hook_context(workspace)
-            run_pre_session_hooks(
-                hook_ctx,
-                self._hook_config,
-                no_hooks=self._no_hooks,
-            )
-
+        """Build prompts, execute session, and read artifacts."""
         system_prompt, task_prompt = self._build_prompts(
             repo_root,
             attempt,
@@ -955,21 +925,6 @@ class NodeSessionRunner:
             task_prompt,
             repo_root,
         )
-
-        if self._hook_config is not None:
-            hook_ctx = self._build_hook_context(workspace)
-            try:
-                run_post_session_hooks(
-                    hook_ctx,
-                    self._hook_config,
-                    no_hooks=self._no_hooks,
-                )
-            except Exception:
-                logger.warning(
-                    "Post-session hooks failed for %s",
-                    node_id,
-                    exc_info=True,
-                )
 
         summary = self._read_session_artifacts(workspace)
         if summary:

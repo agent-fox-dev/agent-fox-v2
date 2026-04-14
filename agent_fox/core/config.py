@@ -179,18 +179,6 @@ class ModelConfig(BaseModel):
     )
 
 
-class HookConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    pre_code: list[str] = Field(default_factory=list, description="Commands to run before coding")
-    post_code: list[str] = Field(default_factory=list, description="Commands to run after coding")
-    sync_barrier: list[str] = Field(default_factory=list, description="Commands to run at sync barriers")
-    timeout: int = Field(default=300, description="Hook command timeout in seconds")
-    modes: dict[str, str] = Field(default_factory=dict, description="Hook modes configuration")
-
-    clamp_timeout = _clamped_validator("timeout", ge=1)
-
-
 class SecurityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -760,7 +748,6 @@ class AgentFoxConfig(BaseModel):
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
-    hooks: HookConfig = Field(default_factory=HookConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
     theme: ThemeConfig = Field(default_factory=ThemeConfig)
     platform: PlatformConfig = Field(default_factory=PlatformConfig)

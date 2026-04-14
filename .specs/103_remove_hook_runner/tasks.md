@@ -109,26 +109,26 @@ then delete hooks/, then clean up the engine.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 103-REQ-2.1, 103-REQ-2.2, 103-REQ-2.3 met
 
-- [ ] 3. Remove hook runner and config types
-  - [ ] 3.1 Delete hook runner module and old hooks package
+- [x] 3. Remove hook runner and config types
+  - [x] 3.1 Delete hook runner module and old hooks package
     - Delete `agent_fox/hooks/hooks.py`
     - Delete `agent_fox/hooks/__init__.py`
     - Remove `agent_fox/hooks/` directory
     - _Requirements: 103-REQ-1.1_
 
-  - [ ] 3.2 Remove HookConfig and HookError
+  - [x] 3.2 Remove HookConfig and HookError
     - Remove `HookConfig` class from `agent_fox/core/config.py`
     - Remove `hooks` field from `AgentFoxConfig`
     - Remove `HookError` class from `agent_fox/core/errors.py`
     - Remove HookConfig entries from `agent_fox/core/config_gen.py`
     - _Requirements: 103-REQ-1.2, 103-REQ-1.3, 103-REQ-4.3_
 
-  - [ ] 3.3 Remove `--no-hooks` CLI flag
+  - [x] 3.3 Remove `--no-hooks` CLI flag
     - Remove `--no-hooks` option from `agent_fox/cli/code.py`
     - Remove `no_hooks` parameter from `code_cmd` function signature
     - _Requirements: 103-REQ-1.5_
 
-  - [ ] 3.4 Remove hook_config/no_hooks from engine modules
+  - [x] 3.4 Remove hook_config/no_hooks from engine modules
     - `agent_fox/engine/session_lifecycle.py`: remove `hook_config`,
       `no_hooks`, `_build_hook_context`, pre/post hook calls, HookConfig
       and HookContext imports
@@ -142,12 +142,12 @@ then delete hooks/, then clean up the engine.
       `orch_kwargs`, `session_runner_factory`, and `_setup_infrastructure`
     - _Requirements: 103-REQ-1.6_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests TS-103-1, TS-103-2, TS-103-3, TS-103-7, TS-103-E1 pass
-    - [ ] Spec tests TS-103-P2, TS-103-P4 pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 103-REQ-1.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests TS-103-1, TS-103-2, TS-103-3, TS-103-7, TS-103-E1 pass
+    - [x] Spec tests TS-103-P2, TS-103-P4 pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 103-REQ-1.* met
 
 - [ ] 4. ConfigReloader modernization and test/doc cleanup
   - [ ] 4.1 Add ReloadResult dataclass to engine.py

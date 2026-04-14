@@ -26,7 +26,6 @@ from typing import Any
 from agent_fox.core.config import (
     AgentFoxConfig,
     ArchetypesConfig,
-    HookConfig,
     OrchestratorConfig,
     PlanningConfig,
     RoutingConfig,
@@ -182,9 +181,7 @@ class Orchestrator:
         session_runner_factory: Callable[..., Any],
         *,
         watch: bool = False,
-        hook_config: HookConfig | None = None,
         specs_dir: Path | None = None,
-        no_hooks: bool = False,
         task_callback: TaskCallback | None = None,
         barrier_callback: Callable[[], None] | None = None,
         routing_config: RoutingConfig | None = None,
@@ -206,9 +203,7 @@ class Orchestrator:
         self._graph_sync: GraphSync | None = None
         self._signal = _SignalHandler()
         self._is_parallel = config.parallel > 1
-        self._hook_config = hook_config
         self._specs_dir = specs_dir
-        self._no_hooks = no_hooks
         self._task_callback = task_callback
         self._barrier_callback = barrier_callback
         self._graph: TaskGraph | None = None
@@ -1178,8 +1173,6 @@ class Orchestrator:
             sync_interval=self._config.sync_interval,
             repo_root=self._plan_path.parent,
             emit_audit=self._emit_audit,
-            hook_config=self._hook_config,
-            no_hooks=self._no_hooks,
             specs_dir=self._specs_dir,
             hot_load_enabled=self._config.hot_load,
             hot_load_fn=self._hot_load_new_specs,
@@ -1220,8 +1213,6 @@ class Orchestrator:
                 sync_interval=self._config.sync_interval,
                 repo_root=self._plan_path.parent,
                 emit_audit=self._emit_audit,
-                hook_config=self._hook_config,
-                no_hooks=self._no_hooks,
                 specs_dir=self._specs_dir,
                 hot_load_enabled=self._config.hot_load,
                 hot_load_fn=self._hot_load_new_specs,
@@ -1436,7 +1427,6 @@ class Orchestrator:
         (
             new_config,
             new_circuit,
-            new_hook_config,
             new_archetypes_config,
             new_planning_config,
         ) = result
@@ -1446,7 +1436,6 @@ class Orchestrator:
         # 66-REQ-2.2: Rebuild CircuitBreaker with new config
         self._circuit = new_circuit
         # 66-REQ-4.1, 66-REQ-4.2, 66-REQ-4.3: Update auxiliary configs
-        self._hook_config = new_hook_config
         self._archetypes_config = new_archetypes_config
         self._planning_config = new_planning_config
 
@@ -1722,7 +1711,6 @@ class ConfigReloader:
         tuple[
             OrchestratorConfig,
             CircuitBreaker,
-            HookConfig | None,
             ArchetypesConfig | None,
             PlanningConfig,
         ]
@@ -1805,7 +1793,6 @@ class ConfigReloader:
         return (
             new_orch_cfg,
             new_circuit,
-            new_full_config.hooks,
             new_full_config.archetypes,
             new_full_config.planning,
         )

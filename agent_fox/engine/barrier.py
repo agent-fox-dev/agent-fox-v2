@@ -114,8 +114,6 @@ async def run_sync_barrier_sequence(
     sync_interval: int,
     repo_root: Path,
     emit_audit: Callable[..., None],
-    hook_config: Any | None,
-    no_hooks: bool,
     specs_dir: Path | None,
     hot_load_enabled: bool,
     hot_load_fn: Callable[..., Any],
@@ -135,15 +133,13 @@ async def run_sync_barrier_sequence(
     Steps:
     1. Verify worktrees (51-REQ-2.*)
     2. Bidirectional develop sync (51-REQ-3.*)
-    3. Run sync barrier hooks
-    4. Hot-load new specs (with gated discovery)
-    5. Barrier callback (knowledge ingestion)
-    6. Regenerate memory summary
+    3. Hot-load new specs (with gated discovery)
+    4. Barrier callback (knowledge ingestion)
+    5. Regenerate memory summary
 
     Requirements: 06-REQ-6.1, 06-REQ-6.2, 06-REQ-6.3, 05-REQ-6.3,
                   51-REQ-2.*, 51-REQ-3.*
     """
-    from agent_fox.hooks.hooks import run_sync_barrier_hooks
     from agent_fox.knowledge.audit import AuditEventType
     from agent_fox.knowledge.rendering import render_summary
 
@@ -184,14 +180,6 @@ async def run_sync_barrier_sequence(
             "specs_skipped": {},
         },
     )
-
-    # 06-REQ-6.1: Run sync barrier hooks
-    if hook_config is not None:
-        run_sync_barrier_hooks(
-            barrier_number=barrier_number,
-            config=hook_config,
-            no_hooks=no_hooks,
-        )
 
     # 06-REQ-6.3: Hot-load new specs (with gated discovery)
     if specs_dir is not None and hot_load_enabled:

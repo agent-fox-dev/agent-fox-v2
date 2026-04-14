@@ -97,12 +97,6 @@ def _print_summary(state: ExecutionState) -> None:
     help="Override parallelism (1-8)",
 )
 @click.option(
-    "--no-hooks",
-    is_flag=True,
-    default=False,
-    help="Skip all hook scripts",
-)
-@click.option(
     "--debug",
     is_flag=True,
     default=False,
@@ -130,7 +124,6 @@ def _print_summary(state: ExecutionState) -> None:
 def code_cmd(
     ctx: click.Context,
     parallel: int | None,
-    no_hooks: bool,
     debug: bool,
     specs_dir: str | None,
     watch: bool,
@@ -186,7 +179,6 @@ def code_cmd(
             run_code(
                 config,
                 parallel=parallel,
-                no_hooks=no_hooks,
                 debug=debug,
                 watch=watch,
                 watch_interval=watch_interval,

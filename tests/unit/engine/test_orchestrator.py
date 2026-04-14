@@ -18,7 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
-from agent_fox.core.config import HookConfig, OrchestratorConfig
+from agent_fox.core.config import OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import StateManager
@@ -932,12 +932,8 @@ class TestSyncBarrierTriggering:
             inter_session_delay=0,
             hot_load=False,
         )
-        hook_config = HookConfig()
 
         with (
-            patch(
-                "agent_fox.hooks.hooks.run_sync_barrier_hooks",
-            ) as mock_hooks,
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
@@ -947,21 +943,14 @@ class TestSyncBarrierTriggering:
                 plan_path=plan_path,
                 state_path=tmp_state_path,
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                hook_config=hook_config,
                 specs_dir=tmp_plan_dir.parent / ".specs",
-                no_hooks=False,
             )
 
             state = await orchestrator.run()
 
         assert state.total_sessions == 5
-        # Barrier fires once at completion 5
-        assert mock_hooks.call_count == 1
         # 1 sync-barrier render + 1 final render
         assert mock_render.call_count == 2
-        # Barrier number should be 1 (5 // 5)
-        call_kwargs = mock_hooks.call_args
-        assert call_kwargs[1]["barrier_number"] == 1
 
     @pytest.mark.asyncio
     async def test_sync_barrier_fires_multiple_times(
@@ -990,9 +979,6 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.hooks.hooks.run_sync_barrier_hooks",
-            ) as mock_hooks,
-            patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
         ):
@@ -1001,14 +987,12 @@ class TestSyncBarrierTriggering:
                 plan_path=plan_path,
                 state_path=tmp_state_path,
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                hook_config=HookConfig(),
                 specs_dir=tmp_plan_dir.parent / ".specs",
             )
 
             state = await orchestrator.run()
 
         assert state.total_sessions == 6
-        assert mock_hooks.call_count == 2
         # 2 sync-barrier renders + 1 final render
         assert mock_render.call_count == 3
 
@@ -1042,9 +1026,6 @@ class TestSyncBarrierTriggering:
 
         with (
             patch(
-                "agent_fox.hooks.hooks.run_sync_barrier_hooks",
-            ) as mock_hooks,
-            patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
         ):
@@ -1053,24 +1034,22 @@ class TestSyncBarrierTriggering:
                 plan_path=plan_path,
                 state_path=tmp_state_path,
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                hook_config=HookConfig(),
             )
 
             state = await orchestrator.run()
 
         assert state.total_sessions == 3
-        assert mock_hooks.call_count == 0
         # No sync-barrier renders, but one final render in the finally block.
         assert mock_render.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_sync_barrier_skips_hooks_when_no_hooks(
+    async def test_sync_barrier_without_specs_dir(
         self,
         tmp_plan_dir: Path,
         tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
-        """Sync barrier passes no_hooks=True to hook runner."""
+        """Barrier still renders summary when no specs_dir provided."""
         plan_path = write_plan_file(
             tmp_plan_dir,
             nodes={
@@ -1093,60 +1072,6 @@ class TestSyncBarrierTriggering:
         )
 
         with (
-            patch(
-                "agent_fox.hooks.hooks.run_sync_barrier_hooks",
-            ) as mock_hooks,
-            patch(
-                "agent_fox.knowledge.rendering.render_summary",
-            ),
-        ):
-            orchestrator = Orchestrator(
-                config=config,
-                plan_path=plan_path,
-                state_path=tmp_state_path,
-                session_runner_factory=lambda nid, **kw: mock_runner,
-                hook_config=HookConfig(),
-                no_hooks=True,
-            )
-
-            await orchestrator.run()
-
-        assert mock_hooks.call_count == 1
-        assert mock_hooks.call_args[1]["no_hooks"] is True
-
-    @pytest.mark.asyncio
-    async def test_sync_barrier_without_hook_config(
-        self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
-        mock_runner: MockSessionRunner,
-    ) -> None:
-        """Barrier still renders summary when no hook_config provided."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
-            nodes={
-                "spec:1": {"title": "Task 1"},
-                "spec:2": {"title": "Task 2"},
-                "spec:3": {"title": "Task 3"},
-            },
-            edges=[
-                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
-                {"source": "spec:2", "target": "spec:3", "kind": "intra_spec"},
-            ],
-            order=["spec:1", "spec:2", "spec:3"],
-        )
-
-        config = OrchestratorConfig(
-            parallel=1,
-            sync_interval=3,
-            inter_session_delay=0,
-            hot_load=False,
-        )
-
-        with (
-            patch(
-                "agent_fox.hooks.hooks.run_sync_barrier_hooks",
-            ) as mock_hooks,
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
@@ -1156,13 +1081,10 @@ class TestSyncBarrierTriggering:
                 plan_path=plan_path,
                 state_path=tmp_state_path,
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                # No hook_config or specs_dir
             )
 
             await orchestrator.run()
 
-        # Hooks NOT called (no hook_config)
-        assert mock_hooks.call_count == 0
         # 1 sync-barrier render + 1 final render
         assert mock_render.call_count == 2
 

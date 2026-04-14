@@ -177,8 +177,6 @@ class TestFullBarrierEquivalence:
             "sync_interval",
             "repo_root",
             "emit_audit",
-            "hook_config",
-            "no_hooks",
             "specs_dir",
             "hot_load_enabled",
             "hot_load_fn",
