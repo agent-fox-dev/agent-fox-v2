@@ -75,6 +75,12 @@ sequenceDiagram
    `select_relevant_facts` and `_compute_relevance_score`.
 5. **`agent_fox/engine/fact_cache.py`** (modified) — Remove
    `precompute_fact_rankings`, `RankedFactCache`, `get_cached_facts`.
+6. **`agent_fox/knowledge/store.py`** (modified) — Remove JSONL
+   export/import functions (`export_facts_to_jsonl`, `load_facts_from_jsonl`,
+   `append_facts`, `_write_jsonl`); simplify `read_all_facts` to DuckDB-only.
+7. **`agent_fox/core/paths.py`** (modified) — Remove `MEMORY_PATH` constant.
+8. **`agent_fox/workspace/init_project.py`** (modified) — Remove
+   `memory.jsonl` seed file creation.
 
 ## Execution Paths
 
@@ -97,6 +103,13 @@ sequenceDiagram
 2. `engine/session_lifecycle.py` — `enhance_with_causal`, `_retrieve_cross_spec_facts`, `load_relevant_facts` deleted
 3. `engine/fact_cache.py` — `precompute_fact_rankings`, `RankedFactCache`, `get_cached_facts` deleted
 4. `engine/run.py` — fact cache precomputation removed from `_setup_infrastructure`
+5. `knowledge/store.py` — `export_facts_to_jsonl`, `load_facts_from_jsonl`,
+   `append_facts`, `_write_jsonl` deleted; `read_all_facts` JSONL fallback removed
+6. `core/paths.py` — `MEMORY_PATH` constant deleted
+7. `workspace/init_project.py` — `memory.jsonl` seed file creation removed
+8. `engine/barrier.py` — JSONL export removed from barrier sync
+9. `engine/reset.py`, `cli/reset.py` — `memory_path` parameter threading removed
+10. `.gitignore` — `!.agent-fox/memory.jsonl` exception removed
 
 ## Components and Interfaces
 

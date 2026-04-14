@@ -660,6 +660,82 @@ matches = grep("select_relevant_facts|enhance_with_causal|RankedFactCache|precom
 ASSERT len(matches) == 0
 ```
 
+### TS-104-19: memory.jsonl export/import functions removed
+
+**Requirement:** 104-REQ-7.1
+**Type:** unit
+**Description:** Verify JSONL export/import functions no longer exist.
+
+**Preconditions:**
+- Codebase at HEAD after implementation.
+
+**Input:**
+- Attempt to import `export_facts_to_jsonl` and `load_facts_from_jsonl`
+  from `agent_fox.knowledge.store`.
+
+**Expected:**
+- ImportError or AttributeError raised for both.
+
+**Assertion pseudocode:**
+```
+FOR name IN ["export_facts_to_jsonl", "load_facts_from_jsonl"]:
+    TRY:
+        getattr(importlib.import_module("agent_fox.knowledge.store"), name)
+        FAIL("should not be importable")
+    EXCEPT AttributeError:
+        PASS
+```
+
+### TS-104-20: read_all_facts DuckDB-only (no JSONL fallback)
+
+**Requirement:** 104-REQ-7.2, 104-REQ-7.E1
+**Type:** unit
+**Description:** Verify read_all_facts returns empty list when DuckDB is
+unavailable, with no JSONL fallback.
+
+**Preconditions:**
+- No DuckDB connection available.
+- A `memory.jsonl` file exists on disk with facts (to prove it is NOT read).
+
+**Input:**
+- Call `read_all_facts(conn=None)`.
+
+**Expected:**
+- Returns empty list.
+- The JSONL file is NOT read.
+
+**Assertion pseudocode:**
+```
+# Create a JSONL file with facts to prove it's ignored
+write_jsonl(path, [some_fact])
+result = read_all_facts(conn=None)
+ASSERT result == []
+```
+
+### TS-104-21: MEMORY_PATH constant removed
+
+**Requirement:** 104-REQ-7.1
+**Type:** unit
+**Description:** Verify MEMORY_PATH is no longer defined in paths module.
+
+**Preconditions:**
+- Codebase at HEAD after implementation.
+
+**Input:**
+- Attempt to import `MEMORY_PATH` from `agent_fox.core.paths`.
+
+**Expected:**
+- ImportError or AttributeError raised.
+
+**Assertion pseudocode:**
+```
+TRY:
+    from agent_fox.core.paths import MEMORY_PATH
+    FAIL("should not be importable")
+EXCEPT (ImportError, AttributeError):
+    PASS
+```
+
 ## Integration Smoke Tests
 
 ### TS-104-SMOKE-1: Full retrieval pipeline end-to-end
@@ -769,4 +845,9 @@ FOR name IN ["select_relevant_facts", "RankedFactCache",
 | Property 4 | TS-104-P4 | property |
 | Property 5 | TS-104-P5 | property |
 | Property 6 | TS-104-P6 | property |
+| 104-REQ-7.1 | TS-104-19, TS-104-21 | unit |
+| 104-REQ-7.2 | TS-104-20 | unit |
+| 104-REQ-7.3 | TS-104-E8 | unit |
+| 104-REQ-7.4 | TS-104-21 | unit |
+| 104-REQ-7.E1 | TS-104-20 | unit |
 | Property 7 | TS-104-P7 | property |

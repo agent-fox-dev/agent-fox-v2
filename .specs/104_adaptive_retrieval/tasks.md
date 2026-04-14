@@ -158,13 +158,53 @@ plan has 5 task groups sized for single coding sessions.
       to verify functions are NOT importable
     - _Test Spec: TS-104-17, TS-104-18, TS-104-E8_
 
+  - [ ] 4.6 Remove memory.jsonl infrastructure
+    - Delete `export_facts_to_jsonl`, `load_facts_from_jsonl`,
+      `append_facts`, `_write_jsonl` from `agent_fox/knowledge/store.py`
+    - Remove JSONL fallback from `read_all_facts` in `store.py` — DuckDB
+      is the only source; return empty list if unavailable
+    - Remove `MEMORY_PATH` from `agent_fox/core/paths.py` and
+      `DEFAULT_MEMORY_PATH` from `store.py`
+    - Remove JSONL export calls from `knowledge/compaction.py` (line 85),
+      `engine/run.py` (`_barrier_sync`, `_cleanup_infrastructure`),
+      `engine/barrier.py` (line 277)
+    - Remove `memory_path` parameter threading from `engine/reset.py`
+      and `cli/reset.py`
+    - Remove `memory.jsonl` seed file creation from
+      `workspace/init_project.py` (line 292)
+    - Remove `!.agent-fox/memory.jsonl` exception from `.gitignore`
+    - Update `AGENTS.md` and `_templates/agents_md.md` to remove
+      `memory.jsonl` from git-tracked state files list
+    - See `docs/errata/104_memory_jsonl_removal.md` for full module list
+    - _Requirements: 7.1, 7.2, 7.3, 7.4_
+
+  - [ ] 4.7 Update memory.jsonl tests
+    - Update `tests/unit/knowledge/test_store.py` — remove JSONL
+      round-trip tests for deleted functions
+    - Update `tests/unit/knowledge/test_read_all_facts.py` — remove JSONL
+      fallback tests, add test for empty return when DuckDB unavailable
+    - Update `tests/unit/knowledge/test_compaction.py` — remove JSONL
+      export assertions
+    - Update `tests/integration/test_init.py` — remove `memory.jsonl`
+      seed file checks and `.gitignore` exception checks
+    - Update `tests/unit/engine/test_hard_reset.py` — remove
+      `memory_path` parameter from test calls
+    - Update `tests/unit/knowledge/test_consolidation_store.py` — remove
+      `export_facts_to_jsonl` tests
+    - Update `tests/property/knowledge/test_consolidation_props.py` and
+      `test_dual_write_props.py` — remove JSONL roundtrip properties
+    - Add removal-verification tests to `test_legacy_removal.py`
+    - _Test Spec: TS-104-19, TS-104-20, TS-104-21_
+
   - [ ] 4.V Verify task group 4
     - [ ] Legacy removal tests pass: `uv run pytest -q tests/unit/knowledge/test_legacy_removal.py`
     - [ ] Integration smoke test 2 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_legacy_chain_removed`
     - [ ] All existing tests still pass: `uv run pytest -q`
     - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
     - [ ] `grep -r "select_relevant_facts\|RankedFactCache\|precompute_fact_rankings" agent_fox/` returns zero matches
-    - [ ] Requirements 5.*, 6.* acceptance criteria met
+    - [ ] `grep -r "export_facts_to_jsonl\|load_facts_from_jsonl\|MEMORY_PATH" agent_fox/` returns zero matches
+    - [ ] `memory.jsonl` is not referenced in `.gitignore`
+    - [ ] Requirements 5.*, 6.*, 7.* acceptance criteria met
 
 - [ ] 5. Wiring verification
 
@@ -242,6 +282,11 @@ plan has 5 task groups sized for single coding sessions.
 | 104-REQ-6.3 | TS-104-SMOKE-2 | 4.2 | `tests/integration/test_adaptive_retrieval_smoke.py::test_legacy_chain_removed` |
 | 104-REQ-6.4 | TS-104-18 | 4.2, 4.3 | `tests/unit/knowledge/test_legacy_removal.py::test_ranked_fact_cache_removed` |
 | 104-REQ-6.E1 | TS-104-E8 | 4.4 | `tests/unit/knowledge/test_legacy_removal.py::test_no_legacy_imports` |
+| 104-REQ-7.1 | TS-104-19, TS-104-21 | 4.6 | `tests/unit/knowledge/test_legacy_removal.py::test_jsonl_functions_removed` |
+| 104-REQ-7.2 | TS-104-20 | 4.6 | `tests/unit/knowledge/test_legacy_removal.py::test_read_all_facts_no_jsonl_fallback` |
+| 104-REQ-7.3 | TS-104-E8 | 4.6 | `tests/unit/knowledge/test_legacy_removal.py::test_no_legacy_imports` |
+| 104-REQ-7.4 | TS-104-21 | 4.6 | `tests/unit/knowledge/test_legacy_removal.py::test_memory_path_removed` |
+| 104-REQ-7.E1 | TS-104-20 | 4.6 | `tests/unit/knowledge/test_legacy_removal.py::test_read_all_facts_no_jsonl_fallback` |
 | Property 1 | TS-104-P1 | 2.3 | `tests/property/knowledge/test_retrieval_props.py::test_rrf_monotonicity` |
 | Property 2 | TS-104-P2 | 2.3 | `tests/property/knowledge/test_retrieval_props.py::test_rrf_dedup_invariant` |
 | Property 3 | TS-104-P3 | 2.3 | `tests/property/knowledge/test_retrieval_props.py::test_weight_application` |
@@ -270,3 +315,9 @@ plan has 5 task groups sized for single coding sessions.
   files: `tests/unit/knowledge/test_filtering.py`,
   `tests/unit/engine/test_fact_cache.py`. These should be audited and either
   adapted to test the new retriever or removed if they only test deleted code.
+- **Memory JSONL removal** (added post-spec): Task group 4 also removes
+  `.agent-fox/memory.jsonl` entirely. DuckDB is the sole fact store. The
+  JSONL file was a pre-DuckDB artifact used as a backup/fallback. With the
+  adaptive retriever querying DuckDB directly, the JSONL layer is redundant.
+  `docs/memory.md` continues to be generated for external tool consumption.
+  See `docs/errata/104_memory_jsonl_removal.md` for full impact analysis.

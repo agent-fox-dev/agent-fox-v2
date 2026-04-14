@@ -202,3 +202,29 @@ precomputed caching is replaced by live retrieval.
 [104-REQ-6.E1] IF any module imports the removed functions, THEN THE system
 SHALL update or remove those imports so that the codebase compiles without
 errors.
+
+### Requirement 7: Memory JSONL Removal
+
+**User Story:** As a maintainer, I want the JSONL fact backup removed so that
+DuckDB is the sole authoritative fact store with no stale fallback paths.
+
+#### Acceptance Criteria
+
+[104-REQ-7.1] THE system SHALL remove the `export_facts_to_jsonl` and
+`load_facts_from_jsonl` functions from `agent_fox/knowledge/store.py`.
+
+[104-REQ-7.2] THE system SHALL remove the JSONL fallback path from
+`read_all_facts`, so that DuckDB is the only fact source.
+
+[104-REQ-7.3] THE system SHALL remove all JSONL export calls from the
+engine lifecycle (`_barrier_sync`, `_cleanup_infrastructure`, compaction,
+barrier sync).
+
+[104-REQ-7.4] THE system SHALL remove the `memory.jsonl` seed file creation
+from `workspace/init_project.py` AND the `!.agent-fox/memory.jsonl`
+exception from `.gitignore`.
+
+#### Edge Cases
+
+[104-REQ-7.E1] IF DuckDB is unavailable during `read_all_facts`, THEN THE
+system SHALL return an empty fact list rather than falling back to JSONL.
