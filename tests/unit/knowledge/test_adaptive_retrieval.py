@@ -11,6 +11,8 @@ from unittest.mock import MagicMock
 
 import duckdb
 
+from agent_fox.core.config import KnowledgeConfig
+
 # These imports will fail with ModuleNotFoundError until group 2 creates the module.
 from agent_fox.knowledge.retrieval import (
     AdaptiveRetriever,
@@ -22,8 +24,6 @@ from agent_fox.knowledge.retrieval import (
     derive_intent_profile,
     weighted_rrf_fusion,
 )
-
-from agent_fox.core.config import KnowledgeConfig
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,
@@ -39,9 +39,9 @@ from tests.unit.knowledge.conftest import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-FACT_X = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-FACT_Y = "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"
-FACT_Z = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
+FACT_X = "10101010-1010-1010-1010-101010101010"
+FACT_Y = "20202020-3030-3030-3030-303030303030"
+FACT_Z = "40404040-4040-4040-4040-404040404040"
 
 
 def _make_scored_fact(

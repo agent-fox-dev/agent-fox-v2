@@ -227,6 +227,27 @@ class PlatformConfig(BaseModel):
     url: str = Field(default="", description="Issue tracker URL (defaults from type)")
 
 
+class RetrievalConfig(BaseModel):
+    """Retrieval tuning parameters. Lives under [knowledge.retrieval].
+
+    Requirements: 104-REQ-5.3, 104-REQ-5.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    rrf_k: int = Field(default=60, description="RRF smoothing constant")
+    max_facts: int = Field(default=50, description="Maximum facts in anchor set")
+    token_budget: int = Field(
+        default=30_000,
+        description="Maximum characters for formatted context block",
+    )
+    keyword_top_k: int = Field(default=100, description="Candidate cap for keyword signal")
+    vector_top_k: int = Field(default=50, description="Candidate cap for vector signal")
+    entity_max_depth: int = Field(default=2, description="Max traversal depth for entity signal")
+    entity_max_entities: int = Field(default=50, description="Max entities traversed in entity signal")
+    causal_max_depth: int = Field(default=3, description="Max traversal depth for causal signal")
+
+
 class KnowledgeConfig(BaseModel):
     """Knowledge store and fact selection configuration.
 
@@ -279,6 +300,10 @@ class KnowledgeConfig(BaseModel):
     cross_spec_top_k: Annotated[int, Clamped(ge=0, cast=int)] = Field(
         default=15,
         description="Number of cross-spec facts to retrieve via vector search (0 to disable)",
+    )
+    retrieval: RetrievalConfig = Field(
+        default_factory=RetrievalConfig,
+        description="Adaptive retrieval configuration (rrf_k, max_facts, token_budget, etc.)",
     )
 
     _auto_clamp = _auto_clamp_validator()

@@ -59,27 +59,27 @@ plan has 5 task groups sized for single coding sessions.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Implement core retriever: signals, RRF fusion, intent profiles
-  - [ ] 2.1 Create `agent_fox/knowledge/retrieval.py` — data types
+- [x] 2. Implement core retriever: signals, RRF fusion, intent profiles
+  - [x] 2.1 Create `agent_fox/knowledge/retrieval.py` — data types
     - Define `ScoredFact`, `IntentProfile`, `RetrievalResult`,
       `RetrievalConfig` dataclasses
     - Add `RetrievalConfig` as a nested field on `KnowledgeConfig` in
       `agent_fox/core/config.py` with defaults
     - _Requirements: 5.3, 5.E1_
 
-  - [ ] 2.2 Implement `derive_intent_profile`
+  - [x] 2.2 Implement `derive_intent_profile`
     - Map (archetype, node_status) → IntentProfile using the weight table
       from design.md
     - Default balanced profile for unknown archetypes
     - _Requirements: 3.1, 3.2, 3.3, 3.E1_
 
-  - [ ] 2.3 Implement `weighted_rrf_fusion`
+  - [x] 2.3 Implement `weighted_rrf_fusion`
     - Accept dict of signal name → list[ScoredFact], IntentProfile, k
     - Deduplicate by fact_id, aggregate scores using weighted RRF formula
     - Return sorted by descending score
     - _Requirements: 2.1, 2.2, 2.3, 2.E1_
 
-  - [ ] 2.4 Implement four signal functions
+  - [x] 2.4 Implement four signal functions
     - `_keyword_signal`: reuse keyword matching logic from `filtering.py`
       (confidence filter + keyword overlap + recency), return ScoredFact list
     - `_vector_signal`: call `VectorSearch.search`, convert SearchResult →
@@ -90,34 +90,34 @@ plan has 5 task groups sized for single coding sessions.
       `traverse_causal_chain`, convert to ScoredFact ordered by depth
     - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.E1, 1.E3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Signal function tests pass: `uv run pytest -q tests/unit/knowledge/test_adaptive_retrieval.py -k "keyword or vector or entity or causal or rrf or intent"`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_retrieval_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 1.*, 2.*, 3.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Signal function tests pass: `uv run pytest -q tests/unit/knowledge/test_adaptive_retrieval.py -k "keyword or vector or entity or causal or rrf or intent"`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_retrieval_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 1.*, 2.*, 3.* acceptance criteria met
 
-- [ ] 3. Implement context assembly and AdaptiveRetriever
-  - [ ] 3.1 Implement `assemble_ranked_context`
+- [x] 3. Implement context assembly and AdaptiveRetriever
+  - [x] 3.1 Implement `assemble_ranked_context`
     - Query causal edges between anchor facts from `fact_causes`
     - Topological sort (causes before effects, ties broken by score)
     - Assign salience tiers (high 20% / medium 40% / low 40%)
     - Render with provenance headers and apply token budget
     - _Requirements: 4.1, 4.2, 4.3, 4.E1_
 
-  - [ ] 3.2 Implement `AdaptiveRetriever` class
+  - [x] 3.2 Implement `AdaptiveRetriever` class
     - Constructor takes DuckDB connection, RetrievalConfig, optional embedder
     - `retrieve()` method: derive intent → run 4 signals → fuse via RRF →
       assemble context → return RetrievalResult
     - Wrap each signal in try/except for graceful degradation
     - _Requirements: 1.1, 1.E1, 1.E2, 1.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Context assembly tests pass: `uv run pytest -q tests/unit/knowledge/test_adaptive_retrieval.py -k "context or provenance or budget or causal_order"`
+  - [x] 3.V Verify task group 3
+    - [x] Context assembly tests pass: `uv run pytest -q tests/unit/knowledge/test_adaptive_retrieval.py -k "context or provenance or budget or causal_order"`
     - [ ] Integration smoke test 1 passes: `uv run pytest -q tests/integration/test_adaptive_retrieval_smoke.py::test_full_retrieval_pipeline`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 4.* acceptance criteria met
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 4.* acceptance criteria met
 
 - [ ] 4. Wire into session lifecycle, remove legacy retrieval
   - [ ] 4.1 Modify `NodeSessionRunner._build_prompts`
