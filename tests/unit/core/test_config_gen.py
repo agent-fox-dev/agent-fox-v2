@@ -112,8 +112,8 @@ class TestTemplateGeneration:
         assert "1-8" in template, "Missing bounds for parallel field"
         # parallel default is 2
         assert "default: 2" in template, "Missing default for parallel"
-        # verifier instances has bounds 1-5 and is promoted
-        assert "1-5" in template, "Missing bounds for verifier instances"
+        # verifier instances is clamped to 1 (98-REQ-6.2) and is promoted
+        assert "verifier = 1" in template, "Missing verifier instances field in template"
 
     def test_template_has_section_headers(self) -> None:
         """TS-33-3: Template emits proper TOML section headers for visible sections.

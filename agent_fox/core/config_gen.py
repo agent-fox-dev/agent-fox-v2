@@ -53,17 +53,13 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     # KnowledgeConfig
     ("KnowledgeConfig", "ask_top_k"): ">=1",
     # ArchetypeInstancesConfig
-    ("ArchetypeInstancesConfig", "skeptic"): "1-5",
-    ("ArchetypeInstancesConfig", "verifier"): "1-5",
-    # SkepticConfig
-    ("SkepticConfig", "block_threshold"): ">=0",
-    # OracleSettings
-    ("OracleSettings", "block_threshold"): ">=1",
-    # AuditorConfig
-    ("AuditorConfig", "min_ts_entries"): ">=1",
-    ("AuditorConfig", "max_retries"): ">=0",
-    # ArchetypeInstancesConfig (auditor)
-    ("ArchetypeInstancesConfig", "auditor"): "1-5",
+    ("ArchetypeInstancesConfig", "reviewer"): "1-5",
+    ("ArchetypeInstancesConfig", "verifier"): "1",
+    # ReviewerConfig
+    ("ReviewerConfig", "pre_review_block_threshold"): ">=0",
+    ("ReviewerConfig", "drift_review_block_threshold"): ">=1",
+    ("ReviewerConfig", "audit_min_ts_entries"): ">=1",
+    ("ReviewerConfig", "audit_max_retries"): ">=0",
 }
 
 # Sections that appear in the simplified config template (active or commented).
@@ -162,23 +158,20 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("KnowledgeConfig", "ask_synthesis_model"): "Model tier for answer synthesis",
     # ArchetypesConfig
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
-    ("ArchetypesConfig", "skeptic"): "Code review — flags issues before merge",
+    ("ArchetypesConfig", "reviewer"): (
+        "Enable reviewer archetype (pre-review, drift-review, audit-review, fix-review modes)"
+    ),
     ("ArchetypesConfig", "verifier"): ("Post-code verification — runs tests, checks correctness"),
-    ("ArchetypesConfig", "oracle"): ("Spec-drift detection — compares code against specs"),
-    ("ArchetypesConfig", "auditor"): ("Test-quality gate — ensures test coverage meets standards"),
     ("ArchetypesConfig", "models"): "Per-archetype model overrides",
     ("ArchetypesConfig", "allowlists"): "Per-archetype command allowlists",
     # ArchetypeInstancesConfig
-    ("ArchetypeInstancesConfig", "skeptic"): "Number of skeptic instances",
-    ("ArchetypeInstancesConfig", "verifier"): ("Run multiple verifier instances for deeper coverage"),
-    ("ArchetypeInstancesConfig", "auditor"): "Number of auditor instances",
-    # AuditorConfig
-    ("AuditorConfig", "min_ts_entries"): ("Minimum TS entries to trigger auditor injection"),
-    ("AuditorConfig", "max_retries"): "Maximum auditor-coder retry iterations",
-    # SkepticConfig
-    ("SkepticConfig", "block_threshold"): "Finding count to block merge",
-    # OracleSettings
-    ("OracleSettings", "block_threshold"): "Drift count to block (None = advisory)",
+    ("ArchetypeInstancesConfig", "reviewer"): "Number of reviewer instances",
+    ("ArchetypeInstancesConfig", "verifier"): "Verifier instances (clamped to 1)",
+    # ReviewerConfig
+    ("ReviewerConfig", "pre_review_block_threshold"): "Finding count to block merge for pre-review",
+    ("ReviewerConfig", "drift_review_block_threshold"): "Drift count to block (None = advisory)",
+    ("ReviewerConfig", "audit_min_ts_entries"): ("Minimum TS entries to trigger audit-review injection"),
+    ("ReviewerConfig", "audit_max_retries"): "Maximum audit-review/coder retry iterations",
 }
 
 

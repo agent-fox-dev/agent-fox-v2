@@ -171,9 +171,9 @@ wiring.
     - [x] All tests pass: `uv run pytest -q` (4227 passed)
     - [x] No linter warnings: `uv run ruff check agent_fox/ tests/` (10 import-sort issues fixed)
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
 
-  - [ ] 7.1 Trace every execution path from design.md end-to-end
+  - [x] 7.1 Trace every execution path from design.md end-to-end
     - Path 1: Pre-review injection → session setup → convergence
     - Path 2: Drift-review with oracle gating
     - Path 3: Audit-review injection and convergence
@@ -181,35 +181,40 @@ wiring.
     - Confirm no function in the chain is a stub
     - _Requirements: all_
 
-  - [ ] 7.2 Verify return values propagate correctly
+  - [x] 7.2 Verify return values propagate correctly
     - collect_enabled_auto_pre returns ArchetypeEntry with mode
     - converge_reviewer returns result to caller
     - Grep for callers; confirm none discards the return value
     - _Requirements: all_
 
-  - [ ] 7.3 Run the integration smoke tests
+  - [x] 7.3 Run the integration smoke tests
     - TS-98-SMOKE-1: Pre-review end-to-end
     - TS-98-SMOKE-2: Drift-review with gating
     - TS-98-SMOKE-3: Coder fix mode session setup
     - _Test Spec: TS-98-SMOKE-1 through TS-98-SMOKE-3_
 
-  - [ ] 7.4 Stub / dead-code audit
+  - [x] 7.4 Stub / dead-code audit
     - Search touched files for old archetype references ("skeptic", "oracle", "auditor", "fix_reviewer", "fix_coder")
     - Verify no production code references old names except in migration error messages
+    - config_gen.py stale entries updated to reviewer/ReviewerConfig nomenclature
+    - Remaining old-name references are intentional backward-compat bridges in review_persistence.py
     - _Requirements: all_
 
-  - [ ] 7.5 Cross-spec entry point verification
+  - [x] 7.5 Cross-spec entry point verification
     - Verify Spec 97 mode infrastructure is actually used by this spec
     - Confirm resolve_effective_config, ModeConfig, Node.mode are called from live code paths
+    - resolve_effective_config: called in sdk_params.py (4×), result_handler.py, session/prompt.py
+    - ModeConfig: defined in archetypes.py and used for all 5 reviewer/coder modes
+    - Node.mode: set in injection.py and builder.py, read in result_handler.py and injection.py
     - _Requirements: all_
 
-  - [ ] 7.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] No old archetype names in production code (except error messages)
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ tests/`
+  - [x] 7.V Verify wiring group
+    - [x] All smoke tests pass (9 tests in tests/integration/test_reviewer_smoke.py)
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] No old archetype names in production code (except intentional compat bridges and error messages)
+    - [x] All existing tests still pass: `uv run pytest -q` (4236 passed)
+    - [x] No linter warnings: `uv run ruff check agent_fox/ tests/`
 
 ## Traceability
 
