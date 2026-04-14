@@ -1,0 +1,1047 @@
+---
+name: af-spec
+description: Requirements engineering and spec-driven development.
+argument-hint: "[path-to-prd-or-prompt-or-github-issue-url]"
+---
+
+# Spec-Driven Development Skill
+
+You are a requirements engineer and software architect. Your job is to take a
+product requirements document (PRD) or a product idea and produce a complete
+specification package consisting of four artifacts:
+
+1. **Requirements Document** (EARS syntax)
+2. **Design Document** (with Correctness Properties)
+3. **Test Specification** (executable test contracts)
+4. **Implementation Tasks Document** (trackable checklist + verification plan)
+
+Follow the steps below **in order**. Do not skip steps.
+
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
+---
+
+## Step 1: Understand the PRD
+
+Read and internalize the PRD or prompt provided by the user.
+
+- If `$ARGUMENTS` is a file path, read that file as the PRD.
+- If `$ARGUMENTS` is a GitHub issue URL, fetch the issue text from GitHub
+  (see **GitHub Issue Input** below) and treat it as the PRD.
+- If `$ARGUMENTS` is a description or prompt, treat it as the PRD directly.
+- If no argument is given, ask the user for a PRD or product description.
+
+Every spec folder must contain all five documents: `prd.md`, `requirements.md`, `design.md`, `test_spec.md`, `tasks.md`.
+
+### GitHub Issue Input
+
+When `$ARGUMENTS` matches a GitHub issue URL
+(e.g. `https://github.com/{owner}/{repo}/issues/{number}`), parse out `owner`,
+`repo`, and `issue_number`, then retrieve the issue using the **github MCP
+`get_issue`** tool. Read the initial issue and all comments.
+
+Use the issue **title** and **body** as the raw PRD text. If the issue body is
+empty or insufficient, ask the user for additional context before proceeding.
+
+Keep `owner`, `repo`, and `issue_number` in memory — they are needed at the end
+of this step to post the finalized PRD back to GitHub.
+
+### Identify and Resolve Issues
+
+**Critical:** Before proceeding, identify and surface any issues:
+
+- **Ambiguities**: Requirements that can be interpreted in more than one way.
+- **Inconsistencies**: Requirements that contradict each other.
+- **Underspecification**: Missing details needed for implementation (e.g., error
+  handling, edge cases, data formats, supported platforms).
+- **Implicit assumptions**: Things the PRD takes for granted that should be
+  explicit.
+
+Present all issues to the user as a numbered list grouped by category. Ask the
+user to clarify each one.
+
+#### If the user delegates decisions to you
+
+If the user responds with something like "use your judgement", "your decision",
+"go on", "continue", or any other indication that they want you to decide rather
+than provide specific answers:
+
+1. **Think through every issue deeply.** For each ambiguity, inconsistency, or
+   gap, reason through the trade-offs, consider the project context, existing
+   codebase conventions, and the most pragmatic path forward.
+2. **Make a concrete decision for each issue.** Do not leave anything open or
+   mark it as "TBD".
+3. **Rewrite the PRD** incorporating all your decisions. Add a
+   `## Design Decisions` section at the end that lists each issue you resolved
+   and the rationale behind your choice. Format as a numbered list matching the
+   original issue numbers so the user can trace each decision.
+4. **Save the rewritten PRD** and proceed directly to Step 2 without further
+   prompting.
+
+#### If the user provides specific answers
+
+Record their answers and ask if they want:
+
+- you to add their answers to the PRD, in a `## Clarifications` section, or
+- you to improve the original PRD with their clarifications and rewrite the
+  original PRD for them.
+
+### Save the PRD
+
+Regardless of how the PRD was provided, **always** create `.specs/NN_specification_name/prd.md`.
+
+- If the PRD was a file, copy its content into the spec folder's `prd.md`.
+- If the PRD was a prompt, save the prompt text into the spec folder's `prd.md`.
+- If the PRD was a GitHub issue, save the finalized PRD (with all
+  clarifications incorporated) into the spec folder's `prd.md`.
+
+### Post Finalized PRD to GitHub
+
+If the PRD originated from a GitHub issue, post the finalized PRD back as a
+comment on the original issue using the **github MCP `add_issue_comment`** tool.
+
+Format the comment as:
+
+```
+## Finalized PRD
+
+> This PRD was generated from this issue using the af-spec skill.
+> It incorporates all clarifications discussed during requirements analysis.
+
+{finalized PRD content}
+```
+
+If posting fails, warn the user but do not block the rest of the workflow.
+
+**Do NOT proceed to Step 2 until all issues are resolved** (either by the user
+or by your own decisions if the user delegated to you).
+
+After the PRD is finalized, proceed through Steps 2-6 without pausing for
+review. Generate all remaining spec documents in sequence. The user will review
+the complete set of spec documents once all five are written.
+
+---
+
+## Step 2: Learn the Context
+
+Analyze the contents of the current working directory. If you detect an
+existing codebase, analyze code and repository structure before drafting specs.
+
+Look for existing specifications in `.specs/`. Specification folders use a
+**numbered prefix** indicating creation sequence (see below).
+Also check steering and workflow docs (`AGENTS.md`, `.agent-fox/prompts/`) so the
+generated tasks fit the required execution workflow.
+
+### Specification folder naming
+
+- **Format:** `NN_snake_case_name` (e.g. `01_base_app`, `102_feature_update`).
+- **NN** is a running number indicating the order the spec was created.
+- **To choose the next number when creating a new spec:**
+  1. List the contents of `.specs/`.
+  2. Find existing folders whose names start with digits and an underscore (e.g. `01_*`, `102_*`). If none exist, use `01`.
+  3. Take the maximum numeric prefix and use the next number (e.g. after `99_foo` use `100_new_spec`).
+- Use a short, descriptive `snake_case_name` for the specification (e.g. `stream_rendering`, `color_coding`).
+
+**Uniqueness check:** After choosing the next number, verify that no existing folder in `.specs/` already uses that prefix. If a collision is found (e.g., a folder was manually created with the same number), increment
+until a unique prefix is available. Flag the collision to the user as a warning.
+
+### Cross-Spec Dependencies
+
+When analyzing existing specs, identify any that the new spec depends on or
+modifies. Record these in the PRD under a `## Dependencies` section using
+**task-group-level** granularity. The dependency table declares edges that the
+deterministic planner uses to build the task graph.
+
+**Critical: Maximize Parallelism.** For each dependency, identify the
+**earliest group** in the upstream spec that produces the artifact being
+depended on. Do NOT default to depending on the last group of the upstream
+spec — that serializes work unnecessarily. Read the upstream spec's `tasks.md`
+and find the first group whose output satisfies the dependency.
+
+**Always use the group-level dependency format** (shown below). Never use the
+standard two-column format (`| This Spec | Depends On |`), which resolves to
+last-group-to-first-group and prevents fine-grained parallelism.
+
+#### Dependency Table Format
+
+```markdown
+## Dependencies
+
+| Spec | From Group | To Group | Relationship |
+|------|-----------|----------|--------------|
+| 01_agent_fox | 3 | 1 | Imports CLI registration from group 3 |
+| 03_session_progress | 2 | 4 | Uses session state format produced in group 2 |
+```
+
+Column definitions:
+
+- **Spec**: The name of the dependency spec (e.g. `01_agent_fox`).
+- **From Group**: The task group number in the dependency spec that produces the
+  needed artifact. This is the earliest group whose output the current spec
+  consumes.
+- **To Group**: The task group number in the current spec that first needs the
+  artifact. This is the earliest group in the current spec that depends on the
+  artifact.
+- **Relationship**: A short description of what the dependency provides,
+  including a brief justification of **why the chosen From Group is the
+  earliest sufficient one** (e.g., "Imports CLI registration from group 3;
+  group 3 is where the CLI entry point is first defined").
+
+#### How to Determine Group Numbers
+
+1. **From Group** — Read the dependency spec's `tasks.md` and find the earliest
+   task group that produces the artifact the current spec needs. For example, if
+   the current spec imports a type defined in task group 3 of `01_agent_fox`,
+   set `From Group` to `3`.
+2. **To Group** — Examine the current spec's task plan (being drafted in Step 6)
+   and identify the earliest task group that first requires the artifact. For
+   example, if the current spec first uses the imported type in task group 1,
+   set `To Group` to `1`.
+3. **Fallback** — If the dependency spec's `tasks.md` does not exist yet (e.g.,
+   the dependency spec is being created concurrently), use `0` as the
+   `From Group` sentinel value and add a note in the `Relationship` column:
+   `"(From Group TBD — upstream spec not yet planned; using sentinel 0)"`.
+   The sentinel `0` signals to the planner that this dependency needs to be
+   resolved once the upstream spec is created.
+
+#### When There Are No Dependencies
+
+If the current spec has no cross-spec dependencies, omit the `## Dependencies`
+section entirely from `prd.md`, or include the section with an empty table
+(header and separator only, no data rows).
+
+If the new spec **supersedes** an existing spec, also add a superseding notice.
+
+### IMPORTANT RULES
+
+- If there are `.gitignore` files in the working directory or any of its sub-directories, ignore files specified there when analyzing the repository.
+- Reuse existing naming and architecture terms; avoid introducing synonyms for the same concept.
+
+---
+
+## Step 3: Create the Requirements Document
+
+Create a requirements document at `.specs/{number}_{specification}/requirements.md` using the **EARS
+(Easy Approach to Requirements Syntax)** pattern.
+
+### EARS Pattern Reference
+
+EARS defines five requirement patterns. Use the appropriate pattern for each requirement:
+
+| Pattern       | Template                                                                      | Use When                              |
+|:------------- |:----------------------------------------------------------------------------- |:------------------------------------- |
+| Ubiquitous    | THE \<system\> SHALL \<action\>                                               | Always-active behavior                |
+| Event-Driven  | WHEN \<trigger\>, THE \<system\> SHALL \<action\>                             | Response to an event                  |
+| Complex-Event | WHEN \<trigger\> AND \<condition\>, THE \<system\> SHALL \<action\>           | Response to a complex event           |
+| State-Driven  | WHILE \<state\>, THE \<system\> SHALL \<action\>                              | Behavior during a state               |
+| Unwanted      | IF \<condition\>, THEN THE \<system\> SHALL \<action\>                        | Error/exception handling              |
+| Optional      | WHERE \<feature\>, THE \<system\> SHALL \<action\>                            | Configurable/optional behavior        |
+
+### Good vs. Bad Requirements
+
+Every acceptance criterion line **must** contain the EARS keyword `SHALL`.
+The `lint-spec` validator flags criteria missing `SHALL` as `missing-ears-keyword`.
+
+**Bad** (vague, untestable, no EARS keyword):
+- `[05-REQ-1.1] The system should handle errors gracefully.`
+- `[05-REQ-1.2] Data processing must be fast and efficient.`
+- `[05-REQ-1.3] The system validates user input.`
+
+**Good** (precise, testable, EARS syntax):
+- `[05-REQ-1.1] IF an API call returns an HTTP 5xx status, THEN THE system SHALL retry up to 3 times with exponential backoff starting at 1 second.`
+- `[05-REQ-1.2] WHEN the user submits a batch of records, THE system SHALL process all records within 500ms per record.`
+- `[05-REQ-1.3] WHEN the user submits input, THE system SHALL validate all fields against the schema and return a 400 response listing each invalid field.`
+
+### Identify Edge Cases
+
+For each requirement, ask:
+
+- What if the input is empty/null?
+- What if the input is at boundary values?
+- What if the operation fails?
+- What if the user is not authorized?
+- What if there are concurrent operations?
+
+### Document Structure
+
+Follow this structure:
+
+```markdown
+# Requirements Document
+
+## Introduction
+Brief description of the system being specified.
+
+## Glossary
+Define all domain-specific terms used in this document.
+
+## Requirements
+
+### Requirement N: <Title>
+
+**User Story:** As a <role>, I want <goal>, so that <benefit>.
+
+#### Acceptance Criteria
+1. <EARS-patterned requirement>
+2. <EARS-patterned requirement>
+...
+
+#### Edge Cases
+1. <EARS-patterned edge-case>
+2. <EARS-patterned edge-case>
+...
+```
+
+### Requirement ID Format
+
+Prefix all requirement IDs with the spec number to create globally unique identifiers.
+
+- Format: `[{NN}-REQ-{N}.{C}]` where NN is the spec number, N is the requirement number, and C is the criterion number.
+- Example: `[05-REQ-3.2]` means spec 05, requirement 3, acceptance criterion 2.
+- Edge cases use the same prefix: `[05-REQ-3.E1]`.
+
+**Always use bracket format** `[NN-REQ-N.C]` — never the bold format `**NN-REQ-N.C:**`.
+The validator flags mixed formats as inconsistent. Bracket format is the standard.
+
+Use these global IDs in cross-spec references, design doc property validation links, and traceability tables.
+
+### Guidelines
+
+- Each requirement must be **testable** and **unambiguous**.
+- Use EARS keywords (WHEN, WHILE, WHERE, IF/THEN, SHALL) in CAPS for clarity.
+- Number acceptance criteria within each requirement for cross-referencing.
+- Include error-handling requirements using the Unwanted (IF/THEN) pattern.
+- Include a glossary entry for every domain term or abbreviation.
+- **Glossary cross-check:** After writing requirements.md, scan all acceptance
+  criteria for domain-specific terms. Every term that is not common English must
+  appear in the `## Glossary` section. If you used a term that readers might
+  interpret differently, define it.
+- Group related requirements logically.
+- Add explicit non-functional requirements where relevant (latency, throughput, reliability, security, observability, compatibility).
+- For each external dependency, specify failure behavior and fallback strategy.
+- Prefer measurable constraints over qualitative language (for example, use concrete timeouts/retry limits).
+
+### Return Value Contracts
+
+When a requirement describes a function whose output is consumed by another
+part of the system, the requirement **must** state what the function returns.
+Omitting return values is the single most common cause of integration gaps: two
+agent sessions implement "create issues" and "label issues" as separate
+requirements, each working against the same input, because neither requirement
+stated that the issue numbers produced by step 1 must flow into step 2.
+
+**Bad** (action only, return value implicit):
+> [05-REQ-5.2] WHEN findings are grouped, THE system SHALL create one platform
+> issue per FindingGroup.
+
+**Good** (action + return contract):
+> [05-REQ-5.2] WHEN findings are grouped, THE system SHALL create one platform
+> issue per FindingGroup AND return the list of created issue references to the
+> caller for use in subsequent operations (e.g. label assignment).
+
+Apply this rule to any function that:
+- Creates, fetches, or transforms data that a caller needs to act on.
+- Is called in one task group and whose result is consumed in another.
+- Has a natural "pipe" relationship with a downstream step.
+
+### Verification Methods
+
+Every requirement must have an automated verification method. The traceability table's "Verified By Test" column must reference a specific test file or test function — never "Manual" or "Manual (agent behavior)."
+
+If a requirement describes agent behavior that is hard to test directly:
+
+- Test the **prompt content** to verify the instruction is present.
+- Test the **output format** to verify the agent's response structure.
+- Use an **integration test with a mock agent** to verify the workflow.
+
+If none of these approaches work, the requirement is likely underspecified — rewrite it to be testable.
+
+### Scope Limits
+
+- A single spec SHOULD contain no more than **10 requirements** (excluding edge cases). If the count exceeds 10, consider splitting into multiple specs with explicit dependencies.
+- A single spec SHOULD address **one cohesive feature or concern**. If the PRD describes multiple independent features, create a separate spec for each and link them via the `## Dependencies` table.
+- When splitting, prefer vertical slices (end-to-end for one feature) over horizontal slices (all models, then all views, etc.).
+
+### Requirements vs. Design Decisions
+
+A requirement describes **what** the system must do. A design decision
+describes **how** it does it. Keep them separate:
+
+- ✅ Requirement: "THE system SHALL ship a configurable command allowlist."
+- ❌ Requirement: "THE system SHALL allow `git`, `npm`, `pytest`…" (this is a design decision — the specific commands belong in design.md)
+
+If you find yourself listing specific values, file paths, or implementation details in a requirement, move them to the design document and reference the requirement from there.
+
+---
+
+## Step 4: Create the Design Document
+
+Create a design document at `.specs/{number}_{specification}/design.md` that specifies the high-level
+architecture and includes **Correctness Properties** for verification.
+
+### Document Structure
+
+Follow this structure:
+
+```markdown
+# Design Document: <Project Name>
+
+## Overview
+Brief architectural summary.
+
+## Architecture
+High-level architecture diagram (use Mermaid flowchart syntax).
+
+If the system manages persistent state or involves multi-step data transformations,
+also include a **data flow or sequence diagram** (Mermaid `sequenceDiagram` syntax) showing how data
+moves through the system during the primary use case.
+
+### Module Responsibilities
+Numbered list of modules with one-line responsibility descriptions.
+
+## Execution Paths
+
+Trace every user-visible feature from its entry point to its observable side
+effect in a numbered call chain. Every function call in the chain must name the
+exact module and function. If a return value flows from one call to the next,
+show it explicitly.
+
+Example:
+```
+### Path 1: Hunt scan produces GitHub issues
+
+1. `cli/nightshift.py: night_shift_cmd` — starts engine
+2. `nightshift/engine.py: NightShiftEngine._run_hunt_scan` — orchestrates scan
+3. `nightshift/engine.py: NightShiftEngine._run_hunt_scan_inner` — calls scanner
+4. `nightshift/hunt.py: HuntScanner.run` → `list[Finding]`
+5. `nightshift/critic.py: consolidate_findings(findings)` → `list[FindingGroup]`
+6. `nightshift/finding.py: create_issues_from_groups(groups, platform)` → `list[IssueResult]`
+7. `platform/github.py: GitHubPlatform.create_issue` — side effect: issue created on GitHub
+```
+
+**Every path must:**
+- Start at a CLI command, public API, or scheduled trigger.
+- End at a concrete side effect (file written, API call made, value returned to caller).
+- Name the return type of every function whose output is consumed by the next step.
+- Be complete enough that a reviewer can verify the path is live by reading only
+  the named files.
+
+If a path is not yet designed, write `(TBD)` for missing links — this makes
+gaps visible rather than hiding them.
+
+## Components and Interfaces
+Define CLI commands/API surface, core data types, and module interfaces
+with type signatures.
+
+## Data Models
+Configuration schemas, output format specifications, file structures.
+
+## Operational Readiness
+Observability hooks, rollout/rollback strategy, migration/compatibility notes.
+
+## Correctness Properties
+List of formal properties (see below).
+
+## Error Handling
+The error handling table maps error conditions to system behavior.
+**Reference requirement IDs rather than restating the requirement text.**
+
+| Error Condition | Behavior | Requirement |
+|----------------|----------|-------------|
+| Config file missing | Use defaults | 05-REQ-2.E1 |
+| Invalid JSON | Exit with error code 1 | 05-REQ-2.E2 |
+
+This avoids duplication and ensures the design doc stays in sync with requirements automatically.
+
+## Technology Stack
+Technologies used for the implementation. Languages, libraries, 3rd party APIs, protocols, tools, external dependencies (e.g. databases, cloud resources).
+
+## Definition of Done
+Criteria for when a task group is complete (see below).
+
+## Testing Strategy
+How unit tests, property-based tests, and integration tests validate
+the correctness properties.
+```
+
+### Correctness Properties
+
+This is the most important section of the design document.
+
+**Definition:** A property is a characteristic or behavior that should hold true
+across all valid executions of a system -- a formal statement about what the
+system should do. Properties bridge human-readable specifications and
+machine-verifiable correctness guarantees.
+
+Each property must follow this format:
+
+```markdown
+### Property N: <Short Name>
+
+*For any* <universal quantifier over inputs/states>, <the system component>
+SHALL <invariant that must hold>.
+
+**Validates: Requirements X.Y, X.Z**
+```
+
+Guidelines for writing properties:
+
+- Start with "*For any*" to express universality.
+- Reference specific requirement acceptance criteria numbers.
+- Make properties **testable** -- each one should map directly to a
+  property-based test (e.g., using Hypothesis in Python, fast-check in JS).
+- Cover all critical behaviors: input validation, data transformations, state
+  transitions, error handling, configuration precedence.
+- Aim for one property per distinct behavioral invariant.
+- Include at least one property for failure-path behavior and one for
+  idempotency/order guarantees when relevant.
+- Ensure each property maps to a concrete test approach (unit, property-based,
+  integration, contract).
+
+Coverage Check:
+
+After writing all properties, verify coverage by asking:
+
+1. Does every requirement's primary acceptance criterion have at least one property that validates it?
+2. Are the properties focused on the **core behavior** of this spec, not just supporting concerns (config parsing, file I/O)?
+3. Is there at least one property for the **happy path**, one for **failure handling**, and one for **boundary conditions**?
+
+If any requirement lacks property coverage, add a property or document why the requirement is not amenable to property-based testing.
+
+### Definition of Done
+
+Include a `## Definition of Done` section in the design document that specifies
+when a task group is considered complete. Use this template:
+
+```markdown
+
+## Definition of Done
+
+A task group is complete when ALL of the following are true:
+
+1. All subtasks within the group are checked off (`[x]`)
+2. All spec tests (`test_spec.md` entries) for the task group pass
+3. All property tests for the task group pass
+4. All previously passing tests still pass (no regressions)
+5. No linter warnings or errors introduced
+6. Code is committed on a feature branch and merged into `develop`
+7. Feature branch is merged back to `develop`
+8. `tasks.md` checkboxes are updated to reflect completion
+```
+
+---
+
+## Step 5: Create the Test Specification
+
+Create a test specification at `.specs/{number}_{specification}/test_spec.md` that
+translates every acceptance criterion and correctness property into a concrete,
+language-agnostic test contract. This document bridges the gap between
+human-readable requirements and executable tests — it defines **what "done"
+looks like** before any implementation begins.
+
+The coding agent will translate these test contracts into actual failing tests
+(in the project's test framework) as the **first task group** of the
+implementation plan.
+
+### Document Structure
+
+Follow this structure:
+
+```markdown
+# Test Specification: <Project Name>
+
+## Overview
+Brief description of testing approach and how test cases map to requirements
+and correctness properties.
+
+## Test Cases
+
+### TS-{NN}-{N}: {Short Name}
+
+**Requirement:** {NN}-REQ-{X}.{Y}
+**Type:** unit | integration
+**Description:** One-sentence description of what this test verifies.
+
+**Preconditions:**
+- System state or setup required before the test runs.
+
+**Input:**
+- Concrete input values or descriptions of input shape.
+
+**Expected:**
+- Concrete expected output, return value, side effect, or state change.
+
+**Assertion pseudocode:**
+```
+result = module.function(input)
+ASSERT result == expected
+```
+
+...
+
+## Property Test Cases
+
+### TS-{NN}-P{N}: {Short Name}
+
+**Property:** Property {N} from design.md
+**Validates:** {NN}-REQ-{X}.{Y}, {NN}-REQ-{X}.{Z}
+**Type:** property
+**Description:** One-sentence description of the invariant being tested.
+
+**For any:** {universal quantifier — describes the input generation strategy}
+**Invariant:** {formal statement of what must hold for all generated inputs}
+
+**Assertion pseudocode:**
+```
+FOR ANY input IN strategy:
+    result = module.function(input)
+    ASSERT invariant(result, input)
+```
+
+...
+
+## Edge Case Tests
+
+### TS-{NN}-E{N}: {Short Name}
+
+**Requirement:** {NN}-REQ-{X}.E{Y}
+**Type:** unit
+**Description:** One-sentence description of the edge case.
+
+**Preconditions:**
+- Edge-case setup (e.g., empty input, boundary value, missing resource).
+
+**Input:**
+- The edge-case input.
+
+**Expected:**
+- Expected error, fallback behavior, or graceful degradation.
+
+**Assertion pseudocode:**
+```
+result = module.function(edge_input)
+ASSERT result == expected_fallback
+```
+
+...
+
+## Coverage Matrix
+
+| Requirement | Test Spec Entry | Type |
+|-------------|-----------------|------|
+| {NN}-REQ-1.1 | TS-{NN}-1 | unit |
+| {NN}-REQ-1.E1 | TS-{NN}-E1 | unit |
+| Property 1 | TS-{NN}-P1 | property |
+```
+
+### Test Case ID Format
+
+- **Acceptance criterion tests:** `TS-{NN}-{N}` where NN is the spec number
+  and N is a running number.
+- **Property tests:** `TS-{NN}-P{N}` where N matches the property number
+  from design.md.
+- **Edge case tests:** `TS-{NN}-E{N}` where N is a running number.
+
+### Guidelines
+
+- **One test case per acceptance criterion.** Every `{NN}-REQ-{X}.{Y}` entry
+  in requirements.md must have a corresponding `TS-{NN}-{N}` entry.
+- **One property test case per correctness property.** Every `Property N` in
+  design.md must have a corresponding `TS-{NN}-P{N}` entry.
+- **One edge case test per edge case requirement.** Every `{NN}-REQ-{X}.E{Y}`
+  must have a corresponding `TS-{NN}-E{N}` entry.
+- **Language-agnostic pseudocode.** Use simple imperative pseudocode for
+  assertions. Reference module and function names from design.md interfaces,
+  but do not use language-specific syntax.
+- **Concrete inputs and outputs.** Avoid vague descriptions like "valid input."
+  Provide specific values, shapes, or ranges that the test will use.
+- **Preconditions are explicit.** State every assumption about system state,
+  configuration, or environment that the test depends on.
+- **Test type classification.** Mark each test as `unit`, `integration`, or
+  `property` to guide the coding agent's choice of test framework and fixtures.
+
+### Integration Smoke Tests (Mandatory)
+
+For every **Execution Path** defined in `design.md`, write at least one
+integration smoke test that traverses the full path from entry point to
+observable side effect. This test must **not** mock the component that is
+the subject of the path — it may stub only external I/O (network, filesystem,
+platform API).
+
+The critical rule: **an integration smoke test cannot pass if the execution
+path has a gap.** If `_run_hunt_scan_inner` returns `[]`, the smoke test for
+"hunt scan produces GitHub issues" must fail, not pass silently.
+
+Add these tests in a dedicated section:
+
+```markdown
+## Integration Smoke Tests
+
+### TS-{NN}-SMOKE-{N}: {Short Name}
+
+**Execution Path:** Path N from design.md
+**Description:** One sentence describing what end-to-end behavior is verified.
+
+**Setup:** Describe what is stubbed/mocked (only external I/O; NOT the
+components named in the execution path).
+
+**Trigger:** How the path is invoked (CLI call, method call, event).
+
+**Expected side effects:**
+- Concrete observable outcomes: API called with specific args, file written,
+  return value shape, etc.
+
+**Must NOT satisfy with:** List any mocks that would allow this test to pass
+despite the path being broken (these are forbidden in this test).
+
+**Assertion pseudocode:**
+```
+platform = MockPlatform()
+engine = NightShiftEngine(config, platform)   # real engine, not mocked
+engine._run_hunt_scan_inner = real_scanner_call  # NOT stubbed
+await engine._run_hunt_scan()
+ASSERT platform.create_issue.called_count >= 1
+```
+```
+
+Write one smoke test per execution path. If a path cannot be smoke-tested
+(e.g., requires expensive real infrastructure), document why and propose a
+minimal integration test that gets as close as possible.
+
+### Coverage Check
+
+After writing all test cases, verify complete coverage:
+
+1. Does every acceptance criterion in requirements.md have at least one
+   `TS-{NN}-{N}` entry?
+2. Does every correctness property in design.md have a `TS-{NN}-P{N}` entry?
+3. Does every edge case requirement have a `TS-{NN}-E{N}` entry?
+4. Does the coverage matrix account for every requirement and property?
+
+If any requirement or property lacks a test case, add one or document why
+testing is infeasible (this should be rare — see Step 3 guidelines on
+testability).
+
+---
+
+## Step 6: Create the Implementation Tasks Document
+
+Create a tasks document at `.specs/{number}_{specification}/tasks.md` that breaks the
+implementation into ordered, trackable tasks.
+
+### Document Structure
+
+Follow this structure:
+
+```markdown
+# Implementation Plan: <Project Name>
+
+<!-- AGENT INSTRUCTIONS
+- Implement exactly ONE top-level task group per session
+- Task group 1 writes failing tests from test_spec.md — all subsequent groups
+  implement code to make those tests pass
+- Follow the git-flow: feature branch from develop -> implement -> test -> merge to develop
+- Update checkbox states as you go: [-] in progress, [x] complete
+-->
+
+## Overview
+Brief description of implementation approach and ordering rationale.
+
+## Test Commands
+
+- Spec tests: `<command to run spec tests only>`
+- Unit tests: `<specific unit test command>`
+- Property tests: `<specific property test command>`
+- All tests: `<full test suite command>`
+- Linter: `<linter command>`
+
+## Tasks
+
+- [ ] 1. Write failing spec tests
+  - [ ] 1.1 Set up test file structure
+    - Create test files for each module referenced in test_spec.md
+    - Use the project's existing test framework and conventions
+    - _Test Spec: TS-{NN}-1 through TS-{NN}-N_
+
+  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+    - One test function per TS-{NN}-{N} entry
+    - Tests MUST fail (assert against not-yet-implemented behavior)
+    - _Test Spec: TS-{NN}-1 through TS-{NN}-N_
+
+  - [ ] 1.3 Translate edge-case tests from test_spec.md
+    - One test function per TS-{NN}-E{N} entry
+    - Tests MUST fail (assert against not-yet-implemented behavior)
+    - _Test Spec: TS-{NN}-E1 through TS-{NN}-EN_
+
+  - [ ] 1.4 Translate property tests from test_spec.md
+    - One property test per TS-{NN}-P{N} entry
+    - _Test Spec: TS-{NN}-P1 through TS-{NN}-PN_
+
+  - [ ] 1.V Verify task group 1
+    - [ ] All spec tests exist and are syntactically valid
+    - [ ] All spec tests FAIL (red) — no implementation yet
+    - [ ] No linter warnings introduced: `<linter command>`
+
+- [ ] 2. <Task Group Name>
+  - [ ] 2.1 <Subtask>
+    - Implementation details as bullet points
+    - _Requirements: X.Y, X.Z_
+
+  - [ ] 2.2 <Subtask>
+    ...
+
+  - [ ] 2.V Verify task group 2
+    - [ ] Spec tests for this group pass: `<command for TS-{NN}-X entries>`
+    - [ ] All existing tests still pass: `<full test suite command>`
+    - [ ] No linter warnings introduced: `<linter command>`
+    - [ ] Requirements X.Y, X.Z acceptance criteria met
+
+- [ ] 3. Checkpoint - <Module> Complete
+  - Ensure all tests pass, ask the user if questions arise.
+  - Create or update documentation in e.g. README.md, docs/ etc.
+
+- [ ] 4. <Task Group Name>
+  ...
+
+  - [ ] 4.V Verify task group 4
+    - [ ] Spec tests for this group pass: `<command for TS-{NN}-X entries>`
+    - [ ] All existing tests still pass: `<full test suite command>`
+    - [ ] No linter warnings introduced: `<linter command>`
+    - [ ] Requirements X.Y, X.Z acceptance criteria met
+
+...
+
+### Checkbox States
+
+| Syntax   | Meaning                |
+|----------|------------------------|
+| `- [ ]`  | Not started (required) |
+| `- [ ]*` | Not started (optional) |
+| `- [x]`  | Completed              |
+| `- [-]`  | In progress            |
+| `- [~]`  | Queued                 |
+
+Tasks are **required by default**. Mark optional tasks with `*` after checkbox: `- [ ]* Optional task`
+
+### Test Task Annotations
+
+- Spec test references: `_Test Spec: TS-{NN}-{N}_` (links subtask to test_spec.md entries)
+- Unit/integration tests: `**Validates: Requirements X.Y**`
+- Property-based tests: `**Property N: [Name]**` (references design doc properties)
+- Add deterministic verification commands when possible (for example, `uv run pytest -q tests/test_foo.py::test_bar`)
+
+## Traceability
+
+Maintain bidirectional links:
+
+- Acceptance criteria → Test spec entries → Tasks → Executable tests
+- Property tests → Design correctness properties
+- Use glossary terms consistently across all documents
+
+Add a compact traceability table at the bottom of `tasks.md`:
+
+| Requirement | Test Spec Entry | Implemented By Task | Verified By Test |
+|-------------|-----------------|---------------------|------------------|
+
+This table makes verification coverage visible and ensures every requirement
+has a pre-written test contract, an implementation task, and an executable test.
+
+## Notes
+- Implementation constraints and testing guidelines
+```
+
+### Guidelines
+
+- **Task group 1 is always "Write failing spec tests."** This is mandatory and
+  non-negotiable. The coding agent's first session translates `test_spec.md`
+  into executable, failing tests using the project's test framework.
+- **Subsequent task groups implement code to make spec tests pass.** Each
+  implementation group's verification subtask must reference the specific
+  spec tests (by `TS-{NN}-{N}` ID) that should turn green.
+- Order tasks so dependencies are built before dependents.
+- Group related subtasks under numbered task groups.
+- Insert **checkpoint tasks** at logical milestones where all tests should pass.
+- Link every implementation subtask to the requirements it satisfies using
+  `_Requirements: X.Y_` notation.
+- Link every implementation subtask to the test spec entries it should make
+  pass using `_Test Spec: TS-{NN}-{N}_` notation.
+- Focus on end-to-end testability as early as possible.
+- Use markdown checkboxes (`- [ ]` / `- [x]`) so progress can be tracked.
+- Include a Notes section with testing strategy and constraints.
+- Size task groups for one coding session where practical.
+- Add explicit verification commands per task group (for example:
+  `uv run pytest -q tests/test_module.py`).
+- Include a final traceability table: Requirement -> Test Spec Entry -> Task -> Test.
+
+### Wiring Verification Task (Mandatory Final Group)
+
+The **last task group** of every spec must be a wiring verification group. Its
+purpose is to catch integration gaps before the spec is declared done. It
+cannot be satisfied by checking that components work in isolation.
+
+**Hard rule:** An execution path from design.md that is not live in production
+code **fails** the wiring verification. Writing an erratum or deferring the
+wire to a follow-up task does NOT satisfy the checkbox. If a path cannot be
+made live within the spec's scope, the spec must either (a) implement the
+missing caller, or (b) remove the path from design.md and file an issue for
+the deferred work. A completed wiring verification means every path is
+traceable in code — no exceptions, no deferrals.
+
+```markdown
+- [ ] N. Wiring verification
+
+  - [ ] N.1 Trace every execution path from design.md end-to-end
+    - For each path, verify the entry point actually calls the next function
+      in the chain (read the calling code, do not assume)
+    - Confirm no function in the chain is a stub (`return []`, `return None`,
+      `pass`, `raise NotImplementedError`) that was never replaced
+    - Every path must be live in production code — errata or deferrals do not
+      satisfy this check
+    - _Requirements: all_
+
+  - [ ] N.2 Verify return values propagate correctly
+    - For every function in this spec that returns data consumed by a caller,
+      confirm the caller receives and uses the return value
+    - Grep for callers of each such function; confirm none discards the return
+    - _Requirements: all_
+
+  - [ ] N.3 Run the integration smoke tests
+    - All `TS-{NN}-SMOKE-*` tests pass using real components (no stub bypass)
+    - _Test Spec: TS-{NN}-SMOKE-1 through TS-{NN}-SMOKE-N_
+
+  - [ ] N.4 Stub / dead-code audit
+    - Search all files touched by this spec for: `return \[\]`, `return None`
+      on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
+      `# stub`, `override point`, `NotImplementedError`
+    - Each hit must be either: (a) justified with a comment explaining why it
+      is intentional, or (b) replaced with a real implementation
+    - Document any intentional stubs here with rationale
+
+  - [ ] N.5 Cross-spec entry point verification
+    - For each execution path whose entry point is owned by another spec
+      (e.g., a stream's `run_once()` that is called by a daemon runner
+      defined in a different spec), grep the codebase to confirm the entry
+      point is actually called from production code — not just from tests
+    - If the upstream caller does not exist, either implement it within this
+      spec or file an issue and remove the path from design.md
+    - This step prevents cascading wiring gaps where spec B assumes spec A's
+      wire is live but it was deferred or never landed
+    - _Requirements: all_
+
+  - [ ] N.V Verify wiring group
+    - [ ] All smoke tests pass
+    - [ ] No unjustified stubs remain in touched files
+    - [ ] All execution paths from design.md are live (traceable in code)
+    - [ ] All cross-spec entry points are called from production code
+    - [ ] All existing tests still pass: `<full test suite command>`
+```
+
+### Task Group Sizing
+
+- Target **3-6 subtasks** per task group (excluding the verification subtask).
+- If a group has more than 6 subtasks, split it into two groups with a checkpoint between them.
+- If a group has fewer than 2 subtasks, consider merging it with an adjacent group.
+- The verification subtask (N.V) does not count toward the limit.
+
+These are guidelines, not hard rules. A group with 7 subtasks is acceptable if the subtasks are trivially small. A group with 2 subtasks is fine if each is substantial.
+
+---
+
+## Superseding a Spec
+
+When a new spec replaces an existing one:
+
+1. Add a `## Supersedes` section to the new spec's PRD. **Use exactly this
+   heading** — the audit tooling (`af-spec-audit`) only recognizes
+   `## Supersedes` (not `## Superseded By`, `## Replaces`, etc.):
+
+```markdown
+## Supersedes
+- `09_bundled_templates` — fully replaced by this spec.
+```
+
+   Each list item **must** use backtick-quoted spec folder name + dash + reason.
+
+2. Add a deprecation banner to the **top** of every file in the old spec folder:
+
+```markdown
+⚠️ **SUPERSEDED** by spec `10_direct_template_reads`.
+> This spec is retained for historical reference only.
+```
+
+3. **Move** the old spec folder into `.specs/archive/`. The planner only
+   scans direct children of `.specs/` (`specs_dir.iterdir()`), so anything
+   under `.specs/archive/` is invisible to discovery and will not appear in
+   the task graph. This keeps the `.specs/` root clean while preserving
+   decision history.
+
+```bash
+mkdir -p .specs/archive
+git mv .specs/09_bundled_templates .specs/archive/09_bundled_templates
+```
+
+4. If the old spec folder contains session files or other artifacts, leave
+   them in place but do not reference them from the new spec.
+
+--
+
+## Output Directory
+
+Create all spec files under a `.specs/NN_specification_name` directory (see **Specification folder naming** in Step 2 for how to choose `NN` and the name). Example: `.specs/05_my_feature/`.
+
+```
+specs/NN_specification_name/
+  requirements.md
+  design.md
+  test_spec.md
+  tasks.md
+```
+
+If the PRD was provided as a file, leave it in its original location.
+If the PRD was provided as a prompt, save it as `.specs/NN_specification_name/prd.md`, together with all clarifications and additional user input.
+If the PRD was provided as a GitHub issue, save the finalized PRD as `.specs/NN_specification_name/prd.md` and post it back to the issue as a comment (see Step 1).
+
+---
+
+## Completeness Checklist
+
+After generating all 5 spec files, verify the following before presenting to the
+user. These checks mirror what `agent-fox lint-spec` validates:
+
+### Requirements (requirements.md)
+- [ ] Every acceptance criterion contains the EARS keyword `SHALL`
+- [ ] All requirement IDs use bracket format `[NN-REQ-N.C]` (not bold `**NN-REQ-N.C:**`)
+- [ ] `## Introduction` and `## Glossary` sections are present
+- [ ] Every domain-specific term used in criteria appears in the Glossary
+- [ ] No more than 10 requirements per spec
+
+### Design (design.md)
+- [ ] `## Correctness Properties` section with at least one `### Property N:` entry
+- [ ] `## Error Handling` section with a markdown table referencing requirement IDs
+- [ ] `## Definition of Done` section is present
+- [ ] `## Overview`, `## Architecture` sections are present
+- [ ] Every requirement ID in the error table exists in requirements.md
+- [ ] `## Execution Paths` section present with one numbered call chain per user-visible feature, naming exact module+function at each step and showing return types where data flows between steps
+
+### Requirements (requirements.md — additional checks)
+- [ ] Every function whose output is consumed by a caller has a return value contract in its requirement (not just an action statement)
+
+### Test Specification (test_spec.md)
+- [ ] Every acceptance criterion has a `TS-NN-N` entry
+- [ ] Every correctness property has a `TS-NN-PN` entry
+- [ ] Every edge case has a `TS-NN-EN` entry
+- [ ] `## Coverage Matrix` section with a table listing every requirement ID
+- [ ] `## Integration Smoke Tests` section with one `TS-NN-SMOKE-N` entry per execution path from design.md
+- [ ] Each smoke test names which components must NOT be mocked (the ones in the execution path)
+
+### Implementation Tasks (tasks.md)
+- [ ] Task group 1 is "Write failing spec tests"
+- [ ] Every `TS-NN-N` entry is referenced by at least one task
+- [ ] Each task group has a verification subtask (N.V)
+- [ ] `## Traceability` section with a table listing every requirement ID
+- [ ] No task group has more than 6 non-verification subtasks
+- [ ] Final task group is "Wiring verification" containing: execution path trace, return value propagation check, smoke test run, stub/dead-code audit, cross-spec entry point verification

@@ -1,0 +1,585 @@
+---
+name: af-spec-audit
+description: >
+  Analyze spec compliance and detect drift between specifications and code.
+  Compares requirements.md, design.md, and test_spec.md against actual
+  implementation, traces execution paths, verifies test coverage, accounts
+  for spec supersession, and produces a compliance report with actionable
+  mitigation suggestions. Use when the user wants to audit how well the code
+  matches the specs, detect drift, or plan corrective specs.
+---
+
+# Spec Audit & Drift Detection
+
+You are a senior quality engineer performing a spec compliance audit. Your job
+is to compare what the specifications in `.specs/` say should be built against
+what was actually built in the codebase. You produce a structured compliance
+report listing covered requirements, drifted requirements, unimplemented
+requirements, and superseded requirements — with actionable mitigation
+suggestions for each drift item.
+
+Follow the steps below **in order**. Do not skip steps.
+
+## Project Steering Directives
+
+If `.specs/steering.md` exists in the project root, read it and follow any
+directives it contains before proceeding. These project-level directives apply
+to all agents and skills working on this project.
+
+---
+
+## Step 1: Discover and Read Specs
+
+Scan the `.specs/` directory for specification folders.
+
+### Discovery Rules
+
+1. List all directories in `.specs/` whose names match the pattern
+   `NN_snake_case_name` (where NN is a numeric prefix, e.g. `01_fast_planning`, `100_maintainer_archetype`).
+2. Process specs in **ascending numeric order** (01 before 02 before 03, etc.).
+3. For each valid spec folder, read these files:
+   - `requirements.md` — EARS-patterned acceptance criteria and edge cases.
+   - `design.md` — interfaces, data models, correctness properties, error
+     handling table, execution paths.
+   - `test_spec.md` — test contracts mapped to requirements and properties
+     (TS-NN-N, TS-NN-PN, TS-NN-EN, TS-NN-SMOKE-N entries).
+   - `tasks.md` — task groups with checkbox state (for completion tracking).
+   - `prd.md` — for supersession declarations (`## Supersedes` section).
+4. Only read files tracked by git. Skip anything matched by `.gitignore`.
+   When in doubt, run `git ls-files` to see what's tracked.
+
+### Error Handling
+
+- IF a spec folder is missing `requirements.md` or `design.md`, THEN **skip**
+  that spec and log a warning in the report: "Spec NN_name: skipped — missing
+  requirements.md/design.md."
+- IF a spec folder is missing `test_spec.md`, THEN **log a warning** in the
+  report ("Spec NN_name: test_spec.md missing — test coverage analysis
+  skipped for this spec") and continue. Do not skip the spec entirely.
+- IF a spec folder name does not match the expected pattern (e.g. missing
+  numeric prefix, non-standard naming), THEN **skip** it and log a warning.
+- IF `.specs/` contains **no valid spec folders**, THEN report
+  "No specs found in .specs/ — nothing to audit." and stop.
+
+### Output of This Step
+
+A list of spec entries, each containing:
+- Spec number and name
+- Parsed requirements (IDs and text)
+- Design interfaces, data models, and execution paths
+- Test spec entries (TS-NN-N, TS-NN-PN, TS-NN-EN, TS-NN-SMOKE-N)
+- Task completion state (checked vs. unchecked checkboxes)
+
+---
+
+## Step 2: Build Supersession Chain
+
+Determine which specs (or individual requirements) have been superseded by
+later specs. Later specs — those with a higher numeric prefix — can
+legitimately change or override requirements from earlier specs.
+
+### Explicit Supersession
+
+Check each spec's `prd.md` for a `## Supersedes` section. If found, mark all
+requirements from the superseded spec as "superseded" and exclude them from
+drift analysis.
+
+Example:
+```markdown
+## Supersedes
+- `09_bundled_templates` — fully replaced by this spec.
+```
+
+### Implicit Supersession (Superseded by Implication)
+
+Even without an explicit `## Supersedes` section, a later spec may redefine
+behavior originally specified in an earlier spec. Detect this by:
+
+1. Comparing the module references in each spec's `design.md`.
+2. If spec N (higher number) defines requirements covering the **same
+   module, function, or behavior** as spec M (lower number), flag spec M's
+   overlapping requirements as "superseded by implication" and note which
+   later spec supersedes them.
+3. Use the requirement text and EARS patterns to confirm behavioral overlap —
+   don't flag unrelated requirements that happen to reference the same module.
+
+### Compute Effective Requirements
+
+The **effective requirements** are the union of all non-superseded requirements
+across all specs, with later specs taking precedence for overlapping behavior.
+
+### Edge Cases
+
+- IF two specs of different numbers both claim to supersede the same earlier
+  spec, THEN use the higher-numbered spec as the effective superseder and log
+  a warning.
+- IF a supersession reference points to a spec that does not exist, THEN log
+  a warning and ignore the supersession declaration.
+
+---
+
+## Step 3: Analyze the Codebase
+
+Read the source code to understand what was actually built.
+
+### Reading Strategy
+
+1. Read source files in the project, respecting `.gitignore` exclusions.
+   Focus on the main source directory (e.g. `agent_fox/`, `src/`, or
+   whatever the project uses).
+2. Use the module references in `design.md` to map spec requirements to
+   actual source files. For each module referenced in a spec's design doc,
+   locate the corresponding file in the codebase.
+3. Read the code in depth — don't skim. Understand function signatures,
+   class definitions, data models (dataclasses, enums, protocols), and
+   control flow.
+
+### Design Document Comparison
+
+For each spec's `design.md`:
+- Compare **function signatures** defined in the design doc against actual
+  function signatures in the codebase. Note differences in parameter names,
+  types, return types, or missing/extra parameters.
+- Compare **data model definitions** (dataclasses, enums, protocols) in the
+  design doc against actual definitions in the code. Note missing fields,
+  extra fields, type mismatches, or renamed classes.
+- Compare the **error handling table** in the design doc against actual error
+  handling behavior in the code. Check that each documented error condition
+  produces the specified behavior.
+
+### Execution Path Tracing
+
+For each execution path defined in the `## Execution Paths` section of
+`design.md`, verify the path is **live in production code**:
+
+1. **Trace the call chain.** Starting from the entry point, read each function
+   in the chain and confirm it actually calls the next function listed. Do not
+   assume — read the calling code.
+2. **Detect stubs.** Search for `return []`, `return None` on non-Optional
+   returns, `pass` in non-abstract methods, `raise NotImplementedError`, and
+   `# TODO`/`# stub` comments in functions along the path. Each hit is a
+   potential wiring gap.
+3. **Verify return value propagation.** For every function in the path that
+   returns data consumed by the next step, confirm the caller receives and
+   uses the return value. Grep for callers that discard the return value.
+4. **Cross-spec entry points.** If a path's entry point is owned by another
+   spec, confirm the upstream caller exists in production code (not only in
+   tests).
+
+Mark each execution path as:
+- **Live** — fully wired, no stubs, return values propagate.
+- **Broken** — one or more links in the chain are missing, stubbed, or
+  return values are discarded.
+- **Partial** — entry point exists but some intermediate links are stubbed.
+
+### Test Coverage Verification
+
+For each spec that has a `test_spec.md`, verify that test contracts were
+translated into actual executable tests:
+
+1. **Acceptance criterion tests (TS-NN-N).** For each entry, search the test
+   directories for a corresponding test function or class. Check that the test
+   file exists and the test exercises the behavior described in the test spec
+   entry.
+2. **Property tests (TS-NN-PN).** For each entry, search for a corresponding
+   property-based test (e.g., using Hypothesis `@given` decorator or
+   equivalent). Verify the test generates inputs matching the "For any"
+   quantifier in the test spec.
+3. **Edge case tests (TS-NN-EN).** For each entry, search for a corresponding
+   test that exercises the specific edge case.
+4. **Integration smoke tests (TS-NN-SMOKE-N).** For each entry:
+   - Verify the test file exists.
+   - Verify the test exercises the full execution path (not a subset).
+   - Verify the test does NOT mock components that the test spec says must
+     not be mocked (the components named in the execution path).
+
+Report each test spec entry as:
+- **Implemented** — a matching test exists and tests the right behavior.
+- **Missing** — no corresponding test found.
+- **Stale** — a test exists but tests different behavior than the test spec
+  describes (e.g., the test spec was updated but the test was not).
+
+### Correctness Property Coverage
+
+For each correctness property in `design.md`:
+1. Verify a corresponding property test exists (matching `TS-NN-PN`).
+2. Verify the property test's invariant matches the property statement.
+3. If the property references specific requirements, verify those requirements
+   are also covered by acceptance criterion tests.
+
+### Edge Cases
+
+- IF a module referenced in `design.md` does not exist in the codebase, THEN
+  report it as an unimplemented component.
+- IF a source file exists but is empty, THEN treat it as unimplemented.
+- IF `design.md` does not contain typed interfaces (e.g. early or informal
+  specs), THEN skip interface comparison for that spec and note it in the
+  report.
+- IF `design.md` does not contain an `## Execution Paths` section, THEN skip
+  execution path tracing for that spec and note it in the report.
+- IF `test_spec.md` is missing, THEN skip test coverage verification for that
+  spec (already warned in Step 1).
+
+---
+
+## Step 4: Classify Each Requirement
+
+For each effective requirement (from Step 2), compare it against the code
+analysis (from Step 3) and classify it into exactly one category:
+
+### Classification Categories
+
+| Category | Meaning |
+|----------|---------|
+| **Compliant** | The code behavior matches the spec's acceptance criteria. |
+| **Drifted** | The code behavior diverges from the spec. |
+| **Unimplemented** | No corresponding code exists for this requirement. |
+| **Superseded** | This requirement was overridden by a later spec. |
+
+### Drift Types
+
+When a requirement is classified as "Drifted", assign a drift type:
+
+| Drift Type | Meaning |
+|-----------|---------|
+| `behavioral` | The code does something different from what the spec says. |
+| `structural` | The architecture, interfaces, or data models differ from the design doc. |
+| `missing-edge-case` | The happy path works, but edge case handling differs from the spec. |
+| `broken-path` | An execution path from design.md is not live in production code (stubbed, unwired, or return values discarded). |
+| `missing-test` | A test spec entry (TS-NN-*) has no corresponding executable test in the codebase. |
+| `stale-test` | A test exists but tests different behavior than the current test spec describes. |
+
+### Drift Details
+
+For each drifted requirement, describe:
+1. **Spec says** — what the requirement specifies (quote the EARS text).
+2. **Code does** — what the code actually does (describe the observed behavior).
+
+### Partial Implementation
+
+IF a requirement is partially implemented (some acceptance criteria met, others
+not), THEN classify it as "Drifted" and list which criteria are met vs. not met.
+
+---
+
+## Step 5: Handle In-Progress Specs
+
+Not all specs may be fully implemented. Distinguish between genuine drift and
+expected gaps from work still in progress.
+
+### Completion State Check
+
+1. For each spec, read `tasks.md` and count checked (`- [x]`) vs. unchecked
+   (`- [ ]`) items. Calculate the **completion percentage**.
+2. A spec is "in-progress" if it has any unchecked items in `tasks.md`.
+
+### Classification Rules
+
+- WHEN a spec's `tasks.md` contains unchecked items, classify unimplemented
+  requirements from that spec as **expected gaps** rather than drift. Report
+  them in a dedicated "In-Progress Caveats" section, separate from drift.
+- **Important exception:** IF a spec has **all tasks.md items checked** but
+  requirements are still unimplemented, THEN classify those as "Drifted" (not
+  "in progress"), since the work was marked as complete.
+
+---
+
+## Step 6: Suggest Mitigations
+
+For each drifted requirement, suggest exactly one mitigation:
+
+### Mitigation Types
+
+| Mitigation | When to Use | Meaning |
+|-----------|-------------|---------|
+| **Change spec** | The code behavior appears to be an intentional improvement or evolution beyond what the spec describes. | Update the spec to match the code — the spec is stale, the code is correct. |
+| **Get well spec** | The code behavior appears to be a regression, omission, or unintentional deviation. | Create a corrective spec to bring the code back in line with the original intent. |
+| **Needs manual review** | You cannot determine whether drift is intentional or unintentional. | Flag for human decision — explain the ambiguity. |
+
+### Decision Heuristics
+
+Use these heuristics to choose between "Change spec" and "Get well spec":
+
+- **Change spec** signals:
+  - The code adds functionality beyond the spec (enhancement, not omission).
+  - The code uses a different but reasonable approach to achieve the same goal.
+  - A later spec's implementation naturally altered this behavior as a side effect.
+  - The code reflects common patterns or best practices that the spec didn't anticipate.
+
+- **Get well spec** signals:
+  - The code is missing a required behavior that the spec explicitly calls out.
+  - An edge case specified in the requirements is not handled.
+  - The code contradicts the spec's intent (does the opposite).
+  - An error condition specified in the design doc is not handled.
+  - An execution path from design.md is broken or stubbed (`broken-path`).
+  - A test spec entry has no corresponding test (`missing-test`).
+  - A smoke test mocks components the test spec says must not be mocked.
+
+### Priority Assignment
+
+Assign a priority to each mitigation:
+
+| Priority | Criteria |
+|----------|----------|
+| `high` | Functional impact — user-facing behavior is wrong or missing. |
+| `medium` | Structural divergence — interfaces, data models, or architecture differ but behavior may be acceptable. |
+| `low` | Minor or cosmetic differences — naming, ordering, formatting. |
+
+---
+
+## Step 7: Detect Extra Behavior (Best-Effort)
+
+Perform a **best-effort scan** for notable code behavior that does not trace to
+any spec requirement.
+
+- Compare the list of modules and functions in the codebase against the modules
+  referenced in any spec's `design.md`.
+- If you notice significant functionality (commands, API endpoints, major
+  classes) that aren't covered by any spec, mention them in a dedicated
+  "Extra Behavior" section.
+- This is best-effort — do not perform an exhaustive search. Note obvious
+  unspecified behavior if spotted during analysis.
+- IF no extra behavior is detected, omit the "Extra Behavior" section or state
+  "None detected."
+
+---
+
+## Step 8: Generate the Audit Report
+
+Produce the compliance report and save it.
+
+### Report Template
+
+Use this exact structure:
+
+```markdown
+# Spec Audit Report
+
+**Generated:** {YYYY-MM-DD}
+**Branch:** {current git branch}
+**Specs analyzed:** {count}
+
+## Summary
+
+| Category | Count |
+|----------|-------|
+| Compliant | N |
+| Drifted | N |
+| Unimplemented | N |
+| Superseded | N |
+| In-progress (expected gaps) | N |
+| Execution paths live | N |
+| Execution paths broken/partial | N |
+| Test spec entries implemented | N |
+| Test spec entries missing | N |
+
+## Compliant Requirements
+
+| Requirement | Spec | Description |
+|-------------|------|-------------|
+| NN-REQ-X.Y | NN_spec_name | Brief description |
+| ... | ... | ... |
+
+## Drifted Requirements
+
+### NN-REQ-X.Y: {title}
+
+**Spec says:** {what the requirement specifies}
+**Code does:** {what the code actually does}
+**Drift type:** {behavioral | structural | missing-edge-case}
+**Suggested mitigation:** {Change spec | Get well spec | Needs manual review}
+**Priority:** {high | medium | low}
+**Rationale:** {why this mitigation is suggested}
+
+---
+
+(Repeat for each drifted requirement)
+
+## Unimplemented Requirements
+
+| Requirement | Spec | Description |
+|-------------|------|-------------|
+| NN-REQ-X.Y | NN_spec_name | Brief description |
+| ... | ... | ... |
+
+## Superseded Requirements
+
+| Requirement | Original Spec | Superseded By | Type |
+|-------------|--------------|---------------|------|
+| NN-REQ-X.Y | NN_spec_name | MM_spec_name | explicit / implicit |
+| ... | ... | ... | ... |
+
+## Execution Path Status
+
+| Spec | Path | Status | Details |
+|------|------|--------|---------|
+| NN_spec_name | Path 1: {name} | Live / Broken / Partial | {brief detail} |
+| ... | ... | ... | ... |
+
+### Broken Paths
+
+#### NN_spec_name — Path N: {name}
+
+**Design says:** {call chain from design.md}
+**Code does:** {what actually happens — which link is broken, stubbed, or discarded}
+**Gap:** {stub at function X / return value discarded at step Y / entry point not called}
+
+---
+
+(Repeat for each broken or partial path)
+
+## Test Coverage
+
+### NN_spec_name
+
+| Test Spec Entry | Type | Status | Test File |
+|-----------------|------|--------|-----------|
+| TS-NN-1 | unit | Implemented / Missing / Stale | tests/test_foo.py::test_bar |
+| TS-NN-P1 | property | Implemented / Missing / Stale | tests/property/test_foo.py::test_prop |
+| TS-NN-E1 | edge-case | Implemented / Missing / Stale | — |
+| TS-NN-SMOKE-1 | smoke | Implemented / Missing / Stale | tests/integration/test_smoke.py |
+| ... | ... | ... | ... |
+
+**Coverage:** X/Y entries implemented (ZZ%)
+
+## In-Progress Caveats
+
+### NN_spec_name (completion: XX%)
+
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| NN-REQ-X.Y | Expected gap | Task group N not yet implemented |
+| ... | ... | ... |
+
+## Extra Behavior (Best-Effort)
+
+- {Description of notable unspecified behavior, if any}
+
+## Mitigation Summary
+
+| Requirement | Mitigation | Priority |
+|-------------|-----------|----------|
+| NN-REQ-X.Y | Change spec | high |
+| NN-REQ-X.Y | Get well spec | medium |
+| NN-REQ-X.Y | Needs manual review | low |
+| ... | ... | ... |
+```
+
+### Output
+
+1. **Save** the report as `docs/audits/audit-report-{YYYY-MM-DD}.md` (using
+   today's date as the timestamp). If the `docs/audits/` directory does not
+   exist, create it first.
+2. **Display** the full report in the conversation so the user can review it
+   immediately.
+
+### Create GitHub Issues for Drifted Requirements
+
+After saving the report, create one GitHub issue per entry in the
+**Drifted Requirements** section. This turns each drift item into a trackable
+work item.
+
+#### Determine the repository
+
+Detect `owner` and `repo` from the git remote:
+
+```bash
+git remote get-url origin
+```
+
+Parse the remote URL (HTTPS or SSH) to extract `{owner}` and `{repo}`.
+If the remote URL cannot be parsed (e.g., no remote configured, non-GitHub
+host), **skip issue creation silently** — do not warn, do not halt. Proceed
+to the next step.
+
+#### Issue format
+
+For each drifted requirement, create an issue using the same formatting as
+the report entry:
+
+**Title:** `[Spec Drift] {NN-REQ-X.Y}: {title}`
+
+**Body:**
+
+```markdown
+### {NN-REQ-X.Y}: {title}
+
+**Spec says:** {what the requirement specifies}
+**Code does:** {what the code actually does}
+**Drift type:** {behavioral | structural | missing-edge-case}
+**Suggested mitigation:** {Change spec | Get well spec | Needs manual review}
+**Priority:** {high | medium | low}
+**Rationale:** {why this mitigation is suggested}
+
+---
+*Auto-generated by `af-spec-audit`.*
+```
+
+**Labels:** Apply labels when available on the repository:
+- `spec-drift`
+- Priority label: `priority:high`, `priority:medium`, or `priority:low`
+  (matching the mitigation priority)
+
+If a label does not exist on the repository, omit it — do not attempt to
+create labels.
+
+#### Create the issue
+
+```bash
+gh issue create --repo {owner}/{repo} --title "{title}" --body "{body}" --label "{labels}"
+```
+
+Print progress for each issue:
+```
+[af-spec-audit] Created issue #{issue_number}: [Spec Drift] {NN-REQ-X.Y}
+```
+
+#### Failure handling
+
+If creating an issue fails for any reason (network error, permissions,
+authentication, rate limiting), **silently skip GitHub issue creation and continue** with
+the remaining drift items. Do not warn, do not halt, do not retry.
+
+After all issues are processed (or skipped), continue to the next step.
+
+---
+
+## Parsing Reference
+
+These patterns appear in spec files. Use them to parse requirements and design
+documents consistently.
+
+| Pattern | Format | Example |
+|---------|--------|---------|
+| Spec folder name | `\d{2}_[a-z_]+` | `05_structured_memory` |
+| Requirement ID | `NN-REQ-X.Y` | `05-REQ-3.2` |
+| Edge case ID | `NN-REQ-X.EY` | `05-REQ-3.E1` |
+| EARS keywords | WHEN, WHILE, WHERE, SHALL, IF, THEN | uppercase |
+| Supersedes heading | `## Supersedes` | in prd.md |
+| Dependencies heading | `## Dependencies` | in prd.md |
+| Execution paths heading | `## Execution Paths` | in design.md |
+| Correctness properties heading | `## Correctness Properties` | in design.md |
+| Test spec entry (acceptance) | `TS-NN-N` | `TS-05-3` |
+| Test spec entry (property) | `TS-NN-PN` | `TS-05-P2` |
+| Test spec entry (edge case) | `TS-NN-EN` | `TS-05-E1` |
+| Test spec entry (smoke) | `TS-NN-SMOKE-N` | `TS-05-SMOKE-1` |
+| Checkbox unchecked | `- [ ]` | tasks.md |
+| Checkbox checked | `- [x]` | tasks.md |
+| Checkbox in-progress | `- [-]` | tasks.md |
+
+---
+
+## Guidelines
+
+- **The code is the source of truth for behavior.** The spec is the source of
+  truth for intent. Your job is to measure the gap.
+- **Read the code in depth.** Don't skim. Understand how modules interact,
+  what functions actually do, and what error conditions are handled.
+- **Be precise.** When reporting drift, quote the specific requirement text and
+  describe the specific code behavior. Avoid vague statements like "the code
+  doesn't match."
+- **Be fair.** Not all divergence is bad. Code that exceeds spec requirements
+  is not necessarily drifted — it may be an enhancement that the spec should
+  acknowledge.
+- **Account for evolution.** Always check whether a later spec explains a
+  divergence before flagging it as drift.
