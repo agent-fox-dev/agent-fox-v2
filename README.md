@@ -130,3 +130,7 @@ https://arxiv.org/abs/2601.03236
 
 ### Sleep-time Compute: Beyond Inference Scaling at Test-time
 https://arxiv.org/html/2504.13171v1
+
+### Memory in the Age of AI Agents: A Survey
+https://github.com/Shichun-Liu/Agent-Memory-Paper-List
+
