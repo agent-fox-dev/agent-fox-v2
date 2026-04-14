@@ -161,8 +161,8 @@ verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
 
-- [ ] 4. TypeScript/JavaScript, C/C++, and Ruby analyzers
-  - [ ] 4.1 Create `agent_fox/knowledge/lang/typescript_lang.py`
+- [x] 4. TypeScript/JavaScript, C/C++, and Ruby analyzers
+  - [x] 4.1 Create `agent_fox/knowledge/lang/typescript_lang.py`
     - `TypeScriptAnalyzer` class (`.ts`, `.tsx`)
     - `JavaScriptAnalyzer` class (`.js`, `.jsx`)
     - Shared extraction logic for ES module patterns
@@ -170,7 +170,7 @@ verifies wiring.
     - Edge extraction: contains, imports, extends
     - Module map: relative path resolution with extension guessing
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3_
-  - [ ] 4.2 Create `agent_fox/knowledge/lang/c_lang.py`
+  - [x] 4.2 Create `agent_fox/knowledge/lang/c_lang.py`
     - `CAnalyzer` class (`.c`, `.h`)
     - `CppAnalyzer` class (`.cpp`, `.hpp`, `.cc`, `.cxx`, `.hh`)
     - Entity extraction: struct (C), class/struct/namespace (C++), function
@@ -178,25 +178,28 @@ verifies wiring.
     - Module map: header path resolution
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3,
       102-REQ-3.E1_
-  - [ ] 4.3 Create `agent_fox/knowledge/lang/ruby_lang.py`
+  - [x] 4.3 Create `agent_fox/knowledge/lang/ruby_lang.py`
     - `RubyAnalyzer` class (`.rb`)
     - Entity extraction: module, class, method
     - Edge extraction: contains, require/require_relative, extends
     - Module map: require path resolution
     - _Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3_
-  - [ ] 4.4 Register TS, JS, C, C++, Ruby analyzers in default registry
-  - [ ] 4.5 Add `tree-sitter-javascript`, `tree-sitter-typescript`,
+  - [x] 4.4 Register TS, JS, C, C++, Ruby analyzers in default registry
+    - Already registered in task group 2 via `_build_default_registry()` in
+      registry.py; no changes needed
+  - [x] 4.5 Add `tree-sitter-javascript`, `tree-sitter-typescript`,
     `tree-sitter-c`, `tree-sitter-cpp`, `tree-sitter-ruby`
     to `pyproject.toml`
+    - Already added in task group 2
 
-  - [ ] 4.V Verify task group 4
-    - [ ] TypeScript analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k typescript`
-    - [ ] JavaScript analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k javascript`
-    - [ ] C analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "c_entities"`
-    - [ ] C++ analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k cpp`
-    - [ ] Ruby analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k ruby`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
+  - [x] 4.V Verify task group 4
+    - [x] TypeScript analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k typescript`
+    - [x] JavaScript analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k javascript`
+    - [x] C analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "c_entities"`
+    - [x] C++ analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k cpp`
+    - [x] Ruby analyzer tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k ruby`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/lang/`
 
 - [ ] 5. Schema migration and orchestrator integration
   - [ ] 5.1 Add migration v9 to `agent_fox/knowledge/migrations.py`
