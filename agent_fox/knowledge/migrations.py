@@ -277,6 +277,79 @@ def _migrate_v7(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE review_findings ADD COLUMN IF NOT EXISTS category TEXT")
 
 
+def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add keywords column to memory_facts table.
+
+    Enables fingerprint-based deduplication for git pattern mining,
+    LLM code analysis, and documentation mining in the onboarding
+    pipeline. Existing rows receive an empty array (the column default).
+
+    DuckDB 1.5.x blocks ALTER TABLE on memory_facts because memory_embeddings
+    holds a FK reference to it (same bug as v5 migration). The workaround is:
+    1. Back up embeddings if any exist.
+    2. Drop memory_embeddings (removes the FK dependency).
+    3. Add the keywords column to memory_facts.
+    4. Recreate memory_embeddings and restore data.
+
+    See docs/errata/101_keywords_schema_migration.md for context.
+
+    Requirements: 101-REQ-4.E3, 101-REQ-5.6, 101-REQ-6.6, 101-REQ-8.2
+    """
+    # Idempotency check — skip if column already exists
+    col_info = conn.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name = 'memory_facts' AND column_name = 'keywords'"
+    ).fetchone()
+    if col_info is not None:
+        logger.info("memory_facts.keywords already exists, skipping v10 migration")
+        return
+
+    # Detect current embedding dimension from memory_embeddings
+    dim = _DEFAULT_EMBEDDING_DIM
+    try:
+        col_type_info = conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'memory_embeddings' AND column_name = 'embedding'"
+        ).fetchone()
+        if col_type_info:
+            import re
+
+            m = re.search(r"\[(\d+)\]", col_type_info[0])
+            if m:
+                dim = _sanitize_embedding_dim(int(m.group(1)))
+    except Exception:
+        pass
+
+    # Back up existing embeddings (DuckDB won't let us ALTER while FK exists)
+    has_embeddings = False
+    try:
+        row = conn.execute("SELECT COUNT(*) FROM memory_embeddings").fetchone()
+        has_embeddings = row is not None and row[0] > 0
+    except Exception:
+        pass
+
+    if has_embeddings:
+        conn.execute("CREATE TEMP TABLE embeddings_backup AS SELECT * FROM memory_embeddings")
+
+    # Drop the FK-dependent table so ALTER TABLE can proceed
+    conn.execute("DROP TABLE IF EXISTS memory_embeddings")
+
+    # Add the keywords column
+    conn.execute("ALTER TABLE memory_facts ADD COLUMN keywords TEXT[] DEFAULT []")
+
+    # Recreate memory_embeddings with FK restored
+    conn.execute(f"""
+        CREATE TABLE memory_embeddings (
+            id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+            embedding FLOAT[{dim}]
+        )
+    """)
+
+    if has_embeddings:
+        conn.execute("INSERT INTO memory_embeddings SELECT * FROM embeddings_backup")
+        conn.execute("DROP TABLE embeddings_backup")
+
+
 def _migrate_v8(conn: duckdb.DuckDBPyConnection) -> None:
     """Add entity_graph, entity_edges, and fact_entities tables.
 
@@ -381,7 +454,100 @@ MIGRATIONS: list[Migration] = [
         description="add language column to entity_graph for multi-language support",
         apply=_migrate_v9,
     ),
+    Migration(
+        version=10,
+        description="add keywords column to memory_facts for fingerprint-based deduplication",
+        apply=_migrate_v10,
+    ),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Base schema DDL for fresh databases (used by run_migrations)
+# ---------------------------------------------------------------------------
+
+_BASE_SCHEMA_DDL = """
+CREATE TABLE IF NOT EXISTS schema_version (
+    version     INTEGER PRIMARY KEY,
+    applied_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS memory_facts (
+    id            UUID PRIMARY KEY,
+    content       TEXT NOT NULL,
+    category      TEXT,
+    spec_name     TEXT,
+    session_id    TEXT,
+    commit_sha    TEXT,
+    confidence    DOUBLE DEFAULT 0.6,
+    created_at    TIMESTAMP,
+    superseded_by UUID,
+    keywords      TEXT[] DEFAULT []
+);
+
+CREATE TABLE IF NOT EXISTS memory_embeddings (
+    id        UUID PRIMARY KEY REFERENCES memory_facts(id),
+    embedding FLOAT[384]
+);
+
+CREATE TABLE IF NOT EXISTS session_outcomes (
+    id            UUID PRIMARY KEY,
+    spec_name     TEXT,
+    task_group    TEXT,
+    node_id       TEXT,
+    touched_path  TEXT,
+    status        TEXT,
+    input_tokens  INTEGER,
+    output_tokens INTEGER,
+    duration_ms   INTEGER,
+    created_at    TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS fact_causes (
+    cause_id  UUID,
+    effect_id UUID,
+    PRIMARY KEY (cause_id, effect_id)
+);
+
+CREATE TABLE IF NOT EXISTS tool_calls (
+    id         UUID PRIMARY KEY,
+    session_id TEXT,
+    node_id    TEXT,
+    tool_name  TEXT,
+    called_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tool_errors (
+    id         UUID PRIMARY KEY,
+    session_id TEXT,
+    node_id    TEXT,
+    tool_name  TEXT,
+    failed_at  TIMESTAMP
+);
+
+INSERT INTO schema_version (version, description)
+    SELECT 1, 'initial schema'
+    WHERE NOT EXISTS (SELECT 1 FROM schema_version WHERE version = 1);
+"""
+
+
+def run_migrations(conn: duckdb.DuckDBPyConnection) -> None:
+    """Initialize base schema and apply all pending migrations.
+
+    Convenience function for tests and the onboarding pipeline that need a
+    fully initialized database without going through the full
+    ``KnowledgeDB.open()`` path (which loads VSS and creates the embedding
+    table with a configurable dimension).
+
+    Creates all base tables (including ``memory_facts`` with the
+    ``keywords`` column) and runs every registered migration.
+
+    Args:
+        conn: An open DuckDB connection (in-memory or file-backed).
+    """
+    conn.execute(_BASE_SCHEMA_DDL)
+    apply_pending_migrations(conn)
 
 
 def get_current_version(conn: duckdb.DuckDBPyConnection) -> int:

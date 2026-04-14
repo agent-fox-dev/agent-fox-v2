@@ -20,11 +20,16 @@ column in the existing schema.
 
 ## Resolution
 
-A migration (v9) was added to `agent_fox/knowledge/migrations.py` that adds:
+A migration (v10) was added to `agent_fox/knowledge/migrations.py` that adds:
 
 ```sql
 ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS keywords TEXT[] DEFAULT []
 ```
+
+> **Version note:** This was originally documented as v9, but Spec 102
+> (multilang entity graph) reserved v9 for adding a `language` column to
+> `entity_graph`. The keywords migration was therefore assigned v10 to avoid
+> conflicting with Spec 102's migration plan.
 
 The `KnowledgeDB._initialize_schema()` in `db.py` was also updated to
 include `keywords TEXT[] DEFAULT []` in the CREATE TABLE DDL so new
