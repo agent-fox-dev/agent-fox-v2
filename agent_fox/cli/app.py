@@ -122,6 +122,7 @@ from agent_fox.cli.fix import fix_cmd  # noqa: E402
 from agent_fox.cli.init import init_cmd  # noqa: E402
 from agent_fox.cli.lint_specs import lint_specs_cmd  # noqa: E402
 from agent_fox.cli.nightshift import night_shift_cmd  # noqa: E402
+from agent_fox.cli.onboard import onboard_cmd  # noqa: E402
 from agent_fox.cli.plan import plan_cmd  # noqa: E402
 from agent_fox.cli.reset import reset_cmd  # noqa: E402
 from agent_fox.cli.standup import standup_cmd  # noqa: E402
@@ -134,6 +135,7 @@ main.add_command(fix_cmd, name="fix")
 main.add_command(init_cmd, name="init")
 main.add_command(lint_specs_cmd, name="lint-specs")
 main.add_command(night_shift_cmd, name="night-shift")
+main.add_command(onboard_cmd, name="onboard")
 main.add_command(plan_cmd, name="plan")
 main.add_command(reset_cmd, name="reset")
 main.add_command(standup_cmd, name="standup")

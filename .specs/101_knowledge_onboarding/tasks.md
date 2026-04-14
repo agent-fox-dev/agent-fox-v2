@@ -181,8 +181,8 @@ together. Group 6 verifies wiring.
     - [x] All existing tests still pass: `uv run pytest -q` (41 pre-existing failures, same set as before; 4 errors from task 5 modules not yet implemented)
     - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/doc_mining.py`
 
-- [ ] 5. Onboard orchestrator and CLI command
-  - [ ] 5.1 Create `agent_fox/knowledge/onboard.py`
+- [x] 5. Onboard orchestrator and CLI command
+  - [x] 5.1 Create `agent_fox/knowledge/onboard.py`
     - OnboardResult dataclass
     - `_is_git_repo(path)` helper
     - `_generate_missing_embeddings(conn, embedder)` helper
@@ -194,7 +194,7 @@ together. Group 6 verifies wiring.
       101-REQ-5.4, 101-REQ-6.3, 101-REQ-7.1, 101-REQ-7.2, 101-REQ-7.E1,
       101-REQ-8.1, 101-REQ-8.2, 101-REQ-8.3, 101-REQ-1.E2_
 
-  - [ ] 5.2 Create `agent_fox/cli/onboard.py`
+  - [x] 5.2 Create `agent_fox/cli/onboard.py`
     - `onboard_cmd` click command with options: --path, --skip-entities,
       --skip-ingestion, --skip-mining, --skip-code-analysis,
       --skip-doc-mining, --skip-embeddings, --model, --mining-days,
@@ -204,17 +204,17 @@ together. Group 6 verifies wiring.
     - _Requirements: 101-REQ-1.1, 101-REQ-1.2, 101-REQ-1.3, 101-REQ-1.4,
       101-REQ-1.5, 101-REQ-1.6, 101-REQ-1.E1_
 
-  - [ ] 5.3 Register `onboard_cmd` in `agent_fox/cli/app.py`
+  - [x] 5.3 Register `onboard_cmd` in `agent_fox/cli/app.py`
     - Import and add_command
     - _Requirements: 101-REQ-1.1_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Orchestrator tests pass: `uv run pytest -q tests/unit/knowledge/test_onboard.py`
-    - [ ] CLI tests pass: `uv run pytest -q tests/unit/cli/test_onboard_cmd.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_onboard_props.py`
-    - [ ] Full smoke test passes: `uv run pytest -q tests/integration/knowledge/test_onboard_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/knowledge/onboard.py agent_fox/cli/onboard.py agent_fox/cli/app.py`
+  - [x] 5.V Verify task group 5
+    - [x] Orchestrator tests pass: `uv run pytest -q tests/unit/knowledge/test_onboard.py` (25 passed)
+    - [x] CLI tests pass: `uv run pytest -q tests/unit/cli/test_onboard_cmd.py` (included in 25 above)
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_onboard_props.py` (5 passed)
+    - [x] Full smoke test passes: `uv run pytest -q tests/integration/knowledge/test_onboard_smoke.py` (4 passed)
+    - [x] All existing tests still pass: `uv run pytest -q` (40 pre-existing failures, same set; 0 new failures)
+    - [x] No linter warnings: `uv run ruff check agent_fox/knowledge/onboard.py agent_fox/cli/onboard.py agent_fox/cli/app.py`
 
 - [ ] 6. Wiring verification
 
