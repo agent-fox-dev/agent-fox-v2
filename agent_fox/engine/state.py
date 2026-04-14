@@ -49,6 +49,55 @@ class SessionRecord:
 
 
 @dataclass
+class SessionOutcomeRecord:
+    """Unified session record written directly to the session_outcomes DB table.
+
+    Replaces the legacy SessionRecord + ExecutionState.session_history pattern.
+    All fields map 1:1 to session_outcomes columns (including the extended
+    columns added by the v11 migration).
+
+    Requirements: 105-REQ-3.1, 105-REQ-3.2
+    """
+
+    id: str
+    spec_name: str
+    task_group: str
+    node_id: str
+    touched_path: str  # comma-separated or first file
+    status: str
+    input_tokens: int
+    output_tokens: int
+    duration_ms: int
+    created_at: str  # ISO 8601
+    run_id: str
+    attempt: int
+    cost: float
+    model: str
+    archetype: str
+    commit_sha: str
+    error_message: str | None  # SQL NULL for successful sessions (REQ-3.E1)
+    is_transport_error: bool
+
+
+@dataclass
+class RunRecord:
+    """Record of a single orchestrator run, persisted to the runs DB table.
+
+    Requirements: 105-REQ-4.1
+    """
+
+    id: str
+    plan_content_hash: str
+    started_at: str  # ISO 8601
+    completed_at: str | None  # None until run finishes
+    status: str  # RunStatus value
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cost: float
+    total_sessions: int
+
+
+@dataclass
 class ExecutionState:
     """Full execution state, persisted after every session."""
 

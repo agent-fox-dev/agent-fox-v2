@@ -62,33 +62,34 @@ persistence backing changes.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Schema migration and data types
-  - [ ] 2.1 Add v9 migration to `agent_fox/knowledge/migrations.py`
+- [x] 2. Schema migration and data types
+  - [x] 2.1 Add v9 migration to `agent_fox/knowledge/migrations.py`
     - Create `plan_nodes`, `plan_edges`, `plan_meta`, `runs` tables
     - ALTER `session_outcomes` to add extended columns
     - Migration runs within a transaction
     - _Requirements: 1.3, 3.1, 4.1_
+    - Note: Implemented as v11 (latest was v10); tasks.md label "v9" was written before v10 landed.
 
-  - [ ] 2.2 Add v3 status values to `NodeStatus` enum
+  - [x] 2.2 Add v3 status values to `NodeStatus` enum
     - Add `COST_BLOCKED = "cost_blocked"` and
       `MERGE_BLOCKED = "merge_blocked"` to `agent_fox/graph/types.py`
     - _Requirements: 2.2_
 
-  - [ ] 2.3 Create `SessionOutcomeRecord` dataclass
+  - [x] 2.3 Create `SessionOutcomeRecord` dataclass
     - Define in `agent_fox/engine/state.py` (or a shared types module)
     - Unified record with all session_outcomes columns
     - _Requirements: 3.1, 3.2_
 
-  - [ ] 2.4 Create `RunRecord` dataclass
+  - [x] 2.4 Create `RunRecord` dataclass
     - Define alongside `SessionOutcomeRecord`
     - Matches `runs` table columns
     - _Requirements: 4.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Migration applies cleanly: `uv run pytest -q tests/unit/knowledge/ -k migration`
-    - [ ] NodeStatus enum has all 8 values
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 2.V Verify task group 2
+    - [x] Migration applies cleanly: `uv run pytest -q tests/unit/knowledge/ -k migration`
+    - [x] NodeStatus enum has all 8 values
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check . && uv run ruff format --check .`
 
 - [ ] 3. Plan and execution state persistence
   - [ ] 3.1 Implement DB-based `save_plan(graph, conn)`

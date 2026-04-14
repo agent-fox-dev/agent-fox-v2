@@ -421,6 +421,96 @@ def _migrate_v9(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("UPDATE entity_graph SET language = 'python' WHERE language IS NULL")
 
 
+def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add plan state tables and extend session_outcomes for DB-based plan tracking.
+
+    Creates four new tables (plan_nodes, plan_edges, plan_meta, runs) that
+    replace the file-based plan.json and state.jsonl stores. Extends
+    session_outcomes with columns that were previously held in the legacy
+    SessionRecord dataclass.
+
+    All CREATE TABLE statements use IF NOT EXISTS for idempotency. All
+    ALTER TABLE ADD COLUMN statements use IF NOT EXISTS for idempotency.
+
+    Requirements: 105-REQ-1.3, 105-REQ-3.1, 105-REQ-4.1
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS plan_nodes (
+            id              VARCHAR PRIMARY KEY,
+            spec_name       VARCHAR NOT NULL,
+            group_number    INTEGER NOT NULL,
+            title           VARCHAR NOT NULL,
+            body            TEXT NOT NULL DEFAULT '',
+            archetype       VARCHAR NOT NULL DEFAULT 'coder',
+            mode            VARCHAR,
+            model_tier      VARCHAR,
+            status          VARCHAR NOT NULL DEFAULT 'pending',
+            subtask_count   INTEGER NOT NULL DEFAULT 0,
+            optional        BOOLEAN NOT NULL DEFAULT FALSE,
+            instances       INTEGER NOT NULL DEFAULT 1,
+            sort_position   INTEGER NOT NULL DEFAULT 0,
+            blocked_reason  VARCHAR,
+            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (spec_name, group_number)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS plan_edges (
+            from_node   VARCHAR NOT NULL,
+            to_node     VARCHAR NOT NULL,
+            edge_type   VARCHAR NOT NULL DEFAULT 'intra_spec',
+            PRIMARY KEY (from_node, to_node)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS plan_meta (
+            id              INTEGER PRIMARY KEY,
+            content_hash    VARCHAR NOT NULL,
+            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            fast_mode       BOOLEAN NOT NULL DEFAULT FALSE,
+            filtered_spec   VARCHAR,
+            version         VARCHAR NOT NULL DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS runs (
+            id                  VARCHAR PRIMARY KEY,
+            plan_content_hash   VARCHAR NOT NULL,
+            started_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            completed_at        TIMESTAMP,
+            status              VARCHAR NOT NULL DEFAULT 'running',
+            total_input_tokens  BIGINT NOT NULL DEFAULT 0,
+            total_output_tokens BIGINT NOT NULL DEFAULT 0,
+            total_cost          DOUBLE NOT NULL DEFAULT 0.0,
+            total_sessions      INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    # Extend session_outcomes with columns from the legacy SessionRecord.
+    # Uses ADD COLUMN IF NOT EXISTS for idempotency on fresh databases that
+    # already have the updated _BASE_SCHEMA_DDL. Skips if the table does not
+    # exist (e.g., during testing with minimal schema fixtures).
+    tables = {
+        r[0]
+        for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+        ).fetchall()
+    }
+    if "session_outcomes" in tables:
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS run_id VARCHAR")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS attempt INTEGER DEFAULT 1")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS cost DOUBLE DEFAULT 0.0")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS model VARCHAR")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS archetype VARCHAR")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS commit_sha VARCHAR")
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS error_message TEXT")
+        conn.execute(
+            "ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS is_transport_error BOOLEAN DEFAULT FALSE"
+        )
+    else:
+        logger.info("session_outcomes table not found, skipping session_outcomes extension in v11 migration")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -468,6 +558,11 @@ MIGRATIONS: list[Migration] = [
         description="add keywords column to memory_facts for fingerprint-based deduplication",
         apply=_migrate_v10,
     ),
+    Migration(
+        version=11,
+        description="add plan_nodes, plan_edges, plan_meta, runs tables and extend session_outcomes",
+        apply=_migrate_v11,
+    ),
 ]
 
 
@@ -501,16 +596,72 @@ CREATE TABLE IF NOT EXISTS memory_embeddings (
 );
 
 CREATE TABLE IF NOT EXISTS session_outcomes (
-    id            UUID PRIMARY KEY,
-    spec_name     TEXT,
-    task_group    TEXT,
-    node_id       TEXT,
-    touched_path  TEXT,
-    status        TEXT,
-    input_tokens  INTEGER,
-    output_tokens INTEGER,
-    duration_ms   INTEGER,
-    created_at    TIMESTAMP
+    id                  UUID PRIMARY KEY,
+    spec_name           TEXT,
+    task_group          TEXT,
+    node_id             TEXT,
+    touched_path        TEXT,
+    status              TEXT,
+    input_tokens        INTEGER,
+    output_tokens       INTEGER,
+    duration_ms         INTEGER,
+    created_at          TIMESTAMP,
+    run_id              VARCHAR,
+    attempt             INTEGER DEFAULT 1,
+    cost                DOUBLE DEFAULT 0.0,
+    model               VARCHAR,
+    archetype           VARCHAR,
+    commit_sha          VARCHAR,
+    error_message       TEXT,
+    is_transport_error  BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS plan_nodes (
+    id              VARCHAR PRIMARY KEY,
+    spec_name       VARCHAR NOT NULL,
+    group_number    INTEGER NOT NULL,
+    title           VARCHAR NOT NULL,
+    body            TEXT NOT NULL DEFAULT '',
+    archetype       VARCHAR NOT NULL DEFAULT 'coder',
+    mode            VARCHAR,
+    model_tier      VARCHAR,
+    status          VARCHAR NOT NULL DEFAULT 'pending',
+    subtask_count   INTEGER NOT NULL DEFAULT 0,
+    optional        BOOLEAN NOT NULL DEFAULT FALSE,
+    instances       INTEGER NOT NULL DEFAULT 1,
+    sort_position   INTEGER NOT NULL DEFAULT 0,
+    blocked_reason  VARCHAR,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (spec_name, group_number)
+);
+
+CREATE TABLE IF NOT EXISTS plan_edges (
+    from_node   VARCHAR NOT NULL,
+    to_node     VARCHAR NOT NULL,
+    edge_type   VARCHAR NOT NULL DEFAULT 'intra_spec',
+    PRIMARY KEY (from_node, to_node)
+);
+
+CREATE TABLE IF NOT EXISTS plan_meta (
+    id              INTEGER PRIMARY KEY,
+    content_hash    VARCHAR NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fast_mode       BOOLEAN NOT NULL DEFAULT FALSE,
+    filtered_spec   VARCHAR,
+    version         VARCHAR NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+    id                  VARCHAR PRIMARY KEY,
+    plan_content_hash   VARCHAR NOT NULL,
+    started_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    completed_at        TIMESTAMP,
+    status              VARCHAR NOT NULL DEFAULT 'running',
+    total_input_tokens  BIGINT NOT NULL DEFAULT 0,
+    total_output_tokens BIGINT NOT NULL DEFAULT 0,
+    total_cost          DOUBLE NOT NULL DEFAULT 0.0,
+    total_sessions      INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS fact_causes (
