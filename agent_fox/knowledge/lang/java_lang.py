@@ -173,10 +173,7 @@ def _collect_java_class_entities(
     parent_class: str | None,
 ) -> None:
     """Collect CLASS and FUNCTION entities from a Java class/interface/enum node."""
-    class_name = (
-        _field_text(node, "name")
-        or _child_text_by_type(node, "identifier")
-    )
+    class_name = _field_text(node, "name") or _child_text_by_type(node, "identifier")
     if class_name is None:
         return
 
@@ -205,10 +202,7 @@ def _collect_java_class_entities(
     # Extract methods from the body
     for child in body.children:
         if child.type == "method_declaration":
-            method_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "identifier")
-            )
+            method_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
             if method_name:
                 qualified = f"{class_name}.{method_name}"
                 entities.append(
@@ -269,9 +263,7 @@ def _extract_java_edges(
 
         # Class-level edges
         elif child.type in ("class_declaration", "interface_declaration", "enum_declaration"):
-            class_edges = _extract_java_class_edges(
-                child, rel_path, entities, module_map, file_entity
-            )
+            class_edges = _extract_java_class_edges(child, rel_path, entities, module_map, file_entity)
             edges.extend(class_edges)
 
     return edges
@@ -288,10 +280,7 @@ def _extract_java_class_edges(
     edges: list[EntityEdge] = []
     entity_by_name: dict[str, Entity] = {e.entity_name: e for e in entities}
 
-    class_name = (
-        _field_text(node, "name")
-        or _child_text_by_type(node, "identifier")
-    )
+    class_name = _field_text(node, "name") or _child_text_by_type(node, "identifier")
     if class_name is None:
         return edges
 
@@ -346,10 +335,7 @@ def _extract_java_class_edges(
     if body and class_entity:
         for child in body.children:
             if child.type == "method_declaration":
-                method_name = (
-                    _field_text(child, "name")
-                    or _child_text_by_type(child, "identifier")
-                )
+                method_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
                 if method_name:
                     qualified = f"{class_name}.{method_name}"
                     method_entity = entity_by_name.get(qualified)

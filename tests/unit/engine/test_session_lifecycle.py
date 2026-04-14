@@ -97,9 +97,7 @@ class TestResolveSecurityConfig:
     def test_config_allowlist_overrides_registry(self) -> None:
         """Config allowlist override takes priority over registry default."""
         config = AgentFoxConfig(archetypes=ArchetypesConfig(allowlists={"maintainer": ["echo", "pwd"]}))
-        runner = NodeSessionRunner(
-            "spec:1", config, archetype="maintainer", mode="hunt", knowledge_db=_MOCK_KB
-        )
+        runner = NodeSessionRunner("spec:1", config, archetype="maintainer", mode="hunt", knowledge_db=_MOCK_KB)
         assert runner._resolved_security is not None
         assert runner._resolved_security.bash_allowlist == ["echo", "pwd"]
 

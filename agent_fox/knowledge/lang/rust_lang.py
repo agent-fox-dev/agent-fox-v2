@@ -162,10 +162,7 @@ def _collect_rust_entities(
 
         elif child.type in ("struct_item", "enum_item", "trait_item"):
             # CLASS entity
-            type_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "type_identifier")
-            )
+            type_name = _field_text(child, "name") or _child_text_by_type(child, "type_identifier")
             if type_name:
                 entities.append(
                     Entity(
@@ -272,15 +269,10 @@ def _collect_rust_edges(
             # Recurse into inline mod body
             body = child.child_by_field_name("body")
             if body:
-                _collect_rust_edges(
-                    body, rel_path, entities, module_map, edges, file_entity, impl_type=None
-                )
+                _collect_rust_edges(body, rel_path, entities, module_map, edges, file_entity, impl_type=None)
 
         elif child.type in ("struct_item", "enum_item", "trait_item"):
-            type_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "type_identifier")
-            )
+            type_name = _field_text(child, "name") or _child_text_by_type(child, "type_identifier")
             if type_name:
                 class_entity = entity_by_name.get(type_name)
                 if class_entity:

@@ -3,6 +3,7 @@
 Tests: TS-101-1, TS-101-2, TS-101-14, TS-101-E1
 Requirements: 101-REQ-1.1, 101-REQ-1.2, 101-REQ-1.5, 101-REQ-1.E1
 """
+
 from __future__ import annotations
 
 import json
@@ -10,11 +11,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from agent_fox.knowledge.onboard import OnboardResult
 from click.testing import CliRunner
 
 from agent_fox.cli.app import main
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.knowledge.onboard import OnboardResult
 
 
 @pytest.fixture()
@@ -43,16 +44,20 @@ class TestDefaultPath:
 
     def test_uses_cwd_when_no_path_given(self, runner: CliRunner) -> None:
         """Verify run_onboard is called with Path.cwd() when --path omitted."""
-        with patch(
-            "agent_fox.cli.onboard.load_config",
-            return_value=AgentFoxConfig(),
-        ), patch(
-            "agent_fox.cli.onboard.open_knowledge_store",
-        ) as mock_open_store, patch(
-            "agent_fox.cli.onboard.run_onboard",
-            new_callable=AsyncMock,
-            return_value=OnboardResult(),
-        ) as mock_run:
+        with (
+            patch(
+                "agent_fox.cli.onboard.load_config",
+                return_value=AgentFoxConfig(),
+            ),
+            patch(
+                "agent_fox.cli.onboard.open_knowledge_store",
+            ) as mock_open_store,
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                return_value=OnboardResult(),
+            ) as mock_run,
+        ):
             mock_store = MagicMock()
             mock_open_store.return_value.__enter__ = MagicMock(return_value=mock_store)
             mock_open_store.return_value.__exit__ = MagicMock(return_value=None)
@@ -68,16 +73,20 @@ class TestDefaultPath:
 
     def test_uses_specified_path_when_given(self, runner: CliRunner, tmp_path: Path) -> None:
         """Verify run_onboard is called with the --path argument when provided."""
-        with patch(
-            "agent_fox.cli.onboard.load_config",
-            return_value=AgentFoxConfig(),
-        ), patch(
-            "agent_fox.cli.onboard.open_knowledge_store",
-        ) as mock_open_store, patch(
-            "agent_fox.cli.onboard.run_onboard",
-            new_callable=AsyncMock,
-            return_value=OnboardResult(),
-        ) as mock_run:
+        with (
+            patch(
+                "agent_fox.cli.onboard.load_config",
+                return_value=AgentFoxConfig(),
+            ),
+            patch(
+                "agent_fox.cli.onboard.open_knowledge_store",
+            ) as mock_open_store,
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                return_value=OnboardResult(),
+            ) as mock_run,
+        ):
             mock_store = MagicMock()
             mock_open_store.return_value.__enter__ = MagicMock(return_value=mock_store)
             mock_open_store.return_value.__exit__ = MagicMock(return_value=None)
@@ -101,15 +110,19 @@ class TestJSONOutput:
         """Verify --json produces valid JSON with OnboardResult fields."""
         known_result = OnboardResult(entities_upserted=5, code_facts_created=3)
 
-        with patch(
-            "agent_fox.cli.onboard.load_config",
-            return_value=AgentFoxConfig(),
-        ), patch(
-            "agent_fox.cli.onboard.open_knowledge_store",
-        ) as mock_open_store, patch(
-            "agent_fox.cli.onboard.run_onboard",
-            new_callable=AsyncMock,
-            return_value=known_result,
+        with (
+            patch(
+                "agent_fox.cli.onboard.load_config",
+                return_value=AgentFoxConfig(),
+            ),
+            patch(
+                "agent_fox.cli.onboard.open_knowledge_store",
+            ) as mock_open_store,
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                return_value=known_result,
+            ),
         ):
             mock_store = MagicMock()
             mock_open_store.return_value.__enter__ = MagicMock(return_value=mock_store)

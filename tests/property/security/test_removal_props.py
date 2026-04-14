@@ -75,24 +75,17 @@ class TestHookRunnerAbsentInProductionCode:
         """Every .py file in agent_fox/ is free of hook runner symbols."""
         repo_root = Path(__file__).parent.parent.parent.parent
         agent_fox_dir = repo_root / "agent_fox"
-        py_files = [
-            f
-            for f in agent_fox_dir.rglob("*.py")
-            if "__pycache__" not in str(f)
-        ]
+        py_files = [f for f in agent_fox_dir.rglob("*.py") if "__pycache__" not in str(f)]
 
         violations: list[tuple[str, str]] = []
         for py_file in py_files:
             content = py_file.read_text(encoding="utf-8")
             for symbol in _BANNED_SYMBOLS:
                 if symbol in content:
-                    violations.append(
-                        (str(py_file.relative_to(repo_root)), symbol)
-                    )
+                    violations.append((str(py_file.relative_to(repo_root)), symbol))
 
-        assert not violations, (
-            "Hook runner symbols found in production code:\n"
-            + "\n".join(f"  {path}: {sym}" for path, sym in violations)
+        assert not violations, "Hook runner symbols found in production code:\n" + "\n".join(
+            f"  {path}: {sym}" for path, sym in violations
         )
 
 
@@ -153,9 +146,7 @@ class TestTomlBackwardCompatibility:
     """TS-103-P4: Any TOML with [hooks] section parses without error."""
 
     @pytest.mark.parametrize("hooks_content", _HOOKS_TOML_VARIANTS)
-    def test_toml_with_hooks_parses_successfully(
-        self, hooks_content: str, tmp_path: Path
-    ) -> None:
+    def test_toml_with_hooks_parses_successfully(self, hooks_content: str, tmp_path: Path) -> None:
         """load_config() returns AgentFoxConfig for any [hooks] TOML variant."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(hooks_content, encoding="utf-8")

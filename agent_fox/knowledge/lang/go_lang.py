@@ -138,10 +138,7 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
     for child in root.children:
         # MODULE entity from package_clause
         if child.type == "package_clause":
-            pkg_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "package_identifier")
-            )
+            pkg_name = _field_text(child, "name") or _child_text_by_type(child, "package_identifier")
             if pkg_name:
                 dir_path = normalize_path(str(Path(rel_path).parent))
                 # For root-level files dir_path is "" (empty); fall back to
@@ -163,15 +160,9 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
             for type_spec in child.children:
                 if type_spec.type != "type_spec":
                     continue
-                type_name = (
-                    _field_text(type_spec, "name")
-                    or _child_text_by_type(type_spec, "type_identifier")
-                )
+                type_name = _field_text(type_spec, "name") or _child_text_by_type(type_spec, "type_identifier")
                 # Only extract struct and interface types as CLASS entities
-                has_struct_or_iface = any(
-                    c.type in ("struct_type", "interface_type")
-                    for c in type_spec.children
-                )
+                has_struct_or_iface = any(c.type in ("struct_type", "interface_type") for c in type_spec.children)
                 if type_name and has_struct_or_iface:
                     entities.append(
                         Entity(
@@ -202,10 +193,7 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
         # FUNCTION entity from method_declaration (qualified as Type.Method)
         elif child.type == "method_declaration":
             receiver_type = _get_go_receiver_type(child)
-            method_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "field_identifier")
-            )
+            method_name = _field_text(child, "name") or _child_text_by_type(child, "field_identifier")
             if receiver_type and method_name:
                 qualified = f"{receiver_type}.{method_name}"
                 entities.append(
@@ -293,14 +281,8 @@ def _extract_go_edges(
             for type_spec in child.children:
                 if type_spec.type != "type_spec":
                     continue
-                type_name = (
-                    _field_text(type_spec, "name")
-                    or _child_text_by_type(type_spec, "type_identifier")
-                )
-                has_struct_or_iface = any(
-                    c.type in ("struct_type", "interface_type")
-                    for c in type_spec.children
-                )
+                type_name = _field_text(type_spec, "name") or _child_text_by_type(type_spec, "type_identifier")
+                has_struct_or_iface = any(c.type in ("struct_type", "interface_type") for c in type_spec.children)
                 if type_name and has_struct_or_iface:
                     class_entity = entity_by_name.get(type_name)
                     if class_entity:
@@ -329,10 +311,7 @@ def _extract_go_edges(
         # CONTAINS: file → method (FUNCTION, qualified)
         elif child.type == "method_declaration":
             receiver_type = _get_go_receiver_type(child)
-            method_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "field_identifier")
-            )
+            method_name = _field_text(child, "name") or _child_text_by_type(child, "field_identifier")
             if receiver_type and method_name:
                 qualified = f"{receiver_type}.{method_name}"
                 method_entity = entity_by_name.get(qualified)

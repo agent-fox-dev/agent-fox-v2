@@ -237,9 +237,7 @@ def analyze_codebase(repo_root: Path, conn: duckdb.DuckDBPyConnection) -> Analys
         edges_upserted = upsert_edges(conn, list(deduped_edges.values()))
 
     # --- Soft-delete missing entities ---
-    found_keys: set[tuple[str, str, str]] = {
-        (str(e.entity_type), e.entity_path, e.entity_name) for e in all_entities
-    }
+    found_keys: set[tuple[str, str, str]] = {(str(e.entity_type), e.entity_path, e.entity_name) for e in all_entities}
     entities_soft_deleted = soft_delete_missing(conn, found_keys)
 
     logger.info(

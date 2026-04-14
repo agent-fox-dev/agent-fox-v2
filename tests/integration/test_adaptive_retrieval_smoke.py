@@ -22,7 +22,6 @@ from agent_fox.knowledge.retrieval import (
     RetrievalConfig,
     RetrievalResult,
 )
-
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,

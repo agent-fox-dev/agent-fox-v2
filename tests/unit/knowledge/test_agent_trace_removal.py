@@ -57,9 +57,7 @@ class TestJsonlSinkImports:
             "import agent_fox.knowledge.jsonl_sink",
         )
         import_matches = [
-            f
-            for f in py_files
-            if any(line.strip().startswith(_IMPORT_PREFIXES) for line in f.read_text().splitlines())
+            f for f in py_files if any(line.strip().startswith(_IMPORT_PREFIXES) for line in f.read_text().splitlines())
         ]
 
         assert len(import_matches) == 0, (

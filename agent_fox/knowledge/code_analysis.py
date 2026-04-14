@@ -61,19 +61,63 @@ many shallow observations."""
 #: Recognized source file extensions for all supported languages.
 #: Requirements: 101-REQ-5.1
 SOURCE_EXTENSIONS: set[str] = {
-    ".py", ".go", ".rs", ".ts", ".tsx", ".js", ".jsx",
-    ".java", ".kt", ".kts", ".swift", ".c", ".cpp", ".cc",
-    ".cxx", ".h", ".hpp", ".cs", ".rb", ".ex", ".exs",
-    ".erl", ".hs", ".ml", ".mli", ".scala", ".clj",
-    ".lua", ".php", ".r", ".jl", ".dart", ".zig",
-    ".nim", ".v", ".cr", ".sh", ".bash", ".zsh",
+    ".py",
+    ".go",
+    ".rs",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".java",
+    ".kt",
+    ".kts",
+    ".swift",
+    ".c",
+    ".cpp",
+    ".cc",
+    ".cxx",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".ex",
+    ".exs",
+    ".erl",
+    ".hs",
+    ".ml",
+    ".mli",
+    ".scala",
+    ".clj",
+    ".lua",
+    ".php",
+    ".r",
+    ".jl",
+    ".dart",
+    ".zig",
+    ".nim",
+    ".v",
+    ".cr",
+    ".sh",
+    ".bash",
+    ".zsh",
 }
 
 #: Directories excluded from source file scanning.
 _EXCLUDED_DIRS: set[str] = {
-    ".git", ".hg", ".svn",
-    "node_modules", "vendor", ".venv", "venv", "__pycache__",
-    "build", "dist", "target", ".tox", "env", ".env",
+    ".git",
+    ".hg",
+    ".svn",
+    "node_modules",
+    "vendor",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "target",
+    ".tox",
+    "env",
+    ".env",
 }
 
 # ---------------------------------------------------------------------------
@@ -176,10 +220,7 @@ def _get_files_by_priority(
     if not rows:
         # No file entities in entity graph — fall back to disk scan.
         # Requirements: 101-REQ-5.E2
-        logger.info(
-            "Entity graph has no file entities; "
-            "falling back to disk scan for file prioritization"
-        )
+        logger.info("Entity graph has no file entities; falling back to disk scan for file prioritization")
         return _scan_source_files(project_root)
 
     # Resolve entity paths to absolute paths under project_root.
@@ -191,9 +232,7 @@ def _get_files_by_priority(
 
     if not files:
         # Entity graph had entries but none matched files on disk — fall back.
-        logger.info(
-            "Entity graph files not found on disk; falling back to disk scan"
-        )
+        logger.info("Entity graph files not found on disk; falling back to disk scan")
         return _scan_source_files(project_root)
 
     return files

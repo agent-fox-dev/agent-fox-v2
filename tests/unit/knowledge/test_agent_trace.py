@@ -17,8 +17,8 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from agent_fox.knowledge.agent_trace import AgentTraceSink
 
+from agent_fox.knowledge.agent_trace import AgentTraceSink
 from agent_fox.knowledge.audit import enforce_audit_retention
 
 # ---------------------------------------------------------------------------

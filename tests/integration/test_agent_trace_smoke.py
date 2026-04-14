@@ -16,9 +16,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-from agent_fox.knowledge.agent_trace import AgentTraceSink
-
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.knowledge.agent_trace import AgentTraceSink
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.session.backends.protocol import (
     AgentMessage,

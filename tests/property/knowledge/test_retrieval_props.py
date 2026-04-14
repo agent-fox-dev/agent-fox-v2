@@ -12,6 +12,8 @@ from __future__ import annotations
 import uuid
 
 import duckdb
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 # These imports will fail with ModuleNotFoundError until group 2 creates the module.
 from agent_fox.knowledge.retrieval import (
@@ -22,9 +24,6 @@ from agent_fox.knowledge.retrieval import (
     derive_intent_profile,
     weighted_rrf_fusion,
 )
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
-
 from tests.unit.knowledge.conftest import create_schema
 
 # ---------------------------------------------------------------------------

@@ -492,9 +492,7 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
     # exist (e.g., during testing with minimal schema fixtures).
     tables = {
         r[0]
-        for r in conn.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-        ).fetchall()
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
     }
     if "session_outcomes" in tables:
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS run_id VARCHAR")
@@ -504,9 +502,7 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS archetype VARCHAR")
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS commit_sha VARCHAR")
         conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS error_message TEXT")
-        conn.execute(
-            "ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS is_transport_error BOOLEAN DEFAULT FALSE"
-        )
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS is_transport_error BOOLEAN DEFAULT FALSE")
     else:
         logger.info("session_outcomes table not found, skipping session_outcomes extension in v11 migration")
 

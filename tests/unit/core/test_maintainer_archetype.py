@@ -52,8 +52,7 @@ class TestMaintainerModes:
 
         entry = ARCHETYPE_REGISTRY["maintainer"]
         assert set(entry.modes.keys()) == {"hunt", "extraction"}, (
-            f"Expected modes {{'hunt', 'extraction'}}, got {set(entry.modes.keys())} "
-            "(100-REQ-1.1)"
+            f"Expected modes {{'hunt', 'extraction'}}, got {set(entry.modes.keys())} (100-REQ-1.1)"
         )
 
 
@@ -74,10 +73,7 @@ class TestHuntModeConfig:
         cfg = resolve_effective_config(entry, "hunt")
         expected = {"ls", "cat", "git", "wc", "head", "tail"}
         actual = set(cfg.default_allowlist or [])
-        assert actual == expected, (
-            f"Hunt mode allowlist mismatch: expected {expected}, got {actual} "
-            "(100-REQ-1.2)"
-        )
+        assert actual == expected, f"Hunt mode allowlist mismatch: expected {expected}, got {actual} (100-REQ-1.2)"
 
     def test_hunt_model_tier(self) -> None:
         """TS-100-2: Hunt mode model tier is STANDARD."""
@@ -95,9 +91,7 @@ class TestHuntModeConfig:
 
         entry = ARCHETYPE_REGISTRY["maintainer"]
         cfg = resolve_effective_config(entry, "hunt")
-        assert cfg.task_assignable is False, (
-            "Maintainer:hunt should not be task assignable (100-REQ-1.2)"
-        )
+        assert cfg.task_assignable is False, "Maintainer:hunt should not be task assignable (100-REQ-1.2)"
 
 
 # ===========================================================================
@@ -116,8 +110,7 @@ class TestExtractionModeConfig:
         entry = ARCHETYPE_REGISTRY["maintainer"]
         cfg = resolve_effective_config(entry, "extraction")
         assert cfg.default_allowlist == [], (
-            f"Extraction mode must have empty allowlist, got {cfg.default_allowlist!r} "
-            "(100-REQ-1.3)"
+            f"Extraction mode must have empty allowlist, got {cfg.default_allowlist!r} (100-REQ-1.3)"
         )
 
     def test_extraction_model_tier(self) -> None:
@@ -145,9 +138,7 @@ class TestMaintainerNotAssignable:
         from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["maintainer"]
-        assert entry.task_assignable is False, (
-            "Maintainer base entry must have task_assignable=False (100-REQ-1.4)"
-        )
+        assert entry.task_assignable is False, "Maintainer base entry must have task_assignable=False (100-REQ-1.4)"
 
 
 # ===========================================================================
@@ -164,8 +155,7 @@ class TestTriageRemovedFromRegistry:
         from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         assert "triage" not in ARCHETYPE_REGISTRY, (
-            "'triage' should not be in ARCHETYPE_REGISTRY after migration to "
-            "maintainer:hunt (100-REQ-2.1)"
+            "'triage' should not be in ARCHETYPE_REGISTRY after migration to maintainer:hunt (100-REQ-2.1)"
         )
 
 
@@ -221,8 +211,7 @@ class TestMaintainerTemplate:
         content = template.read_text(encoding="utf-8").lower()
         # Must have content about ordering/dependencies (triage absorption per 100-REQ-2.3)
         has_triage_content = any(
-            keyword in content
-            for keyword in ("ordering", "dependency", "dependencies", "supersession", "priorit")
+            keyword in content for keyword in ("ordering", "dependency", "dependencies", "supersession", "priorit")
         )
         assert has_triage_content, (
             "maintainer.md hunt section should include triage guidance "
@@ -241,8 +230,7 @@ class TestMaintainerTemplate:
             pytest.skip("maintainer.md not yet created")
         content = template.read_text(encoding="utf-8").lower()
         has_extraction_content = any(
-            keyword in content
-            for keyword in ("transcript", "fact", "facts", "causal", "knowledge")
+            keyword in content for keyword in ("transcript", "fact", "facts", "causal", "knowledge")
         )
         assert has_extraction_content, (
             "maintainer.md extraction section should include guidance on "
@@ -394,9 +382,7 @@ class TestExtractKnowledgeStub:
             archetype="coder",
         )
         result = extract_knowledge(inp)
-        assert result.status == "not_implemented", (
-            f"Expected status='not_implemented', got {result.status!r}"
-        )
+        assert result.status == "not_implemented", f"Expected status='not_implemented', got {result.status!r}"
 
     def test_facts_empty(self) -> None:
         """TS-100-10: extract_knowledge must return empty facts list."""
@@ -422,9 +408,7 @@ class TestExtractKnowledgeStub:
             archetype="coder",
         )
         result = extract_knowledge(inp)
-        assert result.session_id == "my-session-42", (
-            f"Expected session_id='my-session-42', got {result.session_id!r}"
-        )
+        assert result.session_id == "my-session-42", f"Expected session_id='my-session-42', got {result.session_id!r}"
 
     def test_logs_info_message(self, caplog: object) -> None:
         """TS-100-10: extract_knowledge must log an info message when called."""
@@ -459,8 +443,7 @@ class TestTriageFallback:
 
         entry = get_archetype("triage")
         assert entry.name == "coder", (
-            f"get_archetype('triage') should fall back to 'coder', got {entry.name!r} "
-            "(100-REQ-1.E1)"
+            f"get_archetype('triage') should fall back to 'coder', got {entry.name!r} (100-REQ-1.E1)"
         )
 
     def test_triage_logs_warning(self, caplog: object) -> None:

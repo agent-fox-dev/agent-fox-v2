@@ -235,9 +235,7 @@ def _extract_edges(
 
     Requirements: 95-REQ-4.3, 95-REQ-4.6, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3
     """
-    entity_by_type_name: dict[tuple[str, str], Entity] = {
-        (str(e.entity_type), e.entity_name): e for e in entities
-    }
+    entity_by_type_name: dict[tuple[str, str], Entity] = {(str(e.entity_type), e.entity_name): e for e in entities}
     file_name = Path(rel_path).name
     edges: list[EntityEdge] = []
 
@@ -291,9 +289,7 @@ def _extract_edges(
                                 method_name = _get_identifier(method_node)
                                 if method_name and class_entity:
                                     qualified = f"{class_name}.{method_name}"
-                                    method_entity = entity_by_type_name.get(
-                                        (EntityType.FUNCTION, qualified)
-                                    )
+                                    method_entity = entity_by_type_name.get((EntityType.FUNCTION, qualified))
                                     if method_entity:
                                         edges.append(
                                             EntityEdge(

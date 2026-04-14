@@ -5,6 +5,7 @@ Tests: TS-101-25, TS-101-26, TS-101-28, TS-101-29,
 Requirements: 101-REQ-6.1, 101-REQ-6.2, 101-REQ-6.4, 101-REQ-6.6,
               101-REQ-6.E1, 101-REQ-6.E2, 101-REQ-6.E3
 """
+
 from __future__ import annotations
 
 import json
@@ -13,12 +14,12 @@ from unittest.mock import AsyncMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.doc_mining import (
     DocMiningResult,
     _collect_doc_files,
     mine_docs_with_llm,
 )
-
 from agent_fox.knowledge.store import load_facts_by_spec
 
 _SAMPLE_LLM_RESPONSE = json.dumps(
@@ -134,13 +135,16 @@ class TestMineDocsWithLLM:
         """TS-101-25: Verify facts created and stored with fingerprint keywords."""
         (tmp_path / "README.md").write_text("# Project\n\nAll PRs need two reviews.")
 
-        with patch(
-            "agent_fox.knowledge.doc_mining.ai_call",
-            new_callable=AsyncMock,
-            return_value=(_SAMPLE_LLM_RESPONSE, None),
-        ), patch(
-            "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.doc_mining.ai_call",
+                new_callable=AsyncMock,
+                return_value=(_SAMPLE_LLM_RESPONSE, None),
+            ),
+            patch(
+                "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await mine_docs_with_llm(tmp_path, knowledge_conn, model="STANDARD")
 
@@ -195,12 +199,15 @@ class TestDocMiningEdgeCases:
                 raise RuntimeError("LLM error")
             return (valid_response, None)
 
-        with patch(
-            "agent_fox.knowledge.doc_mining.ai_call",
-            side_effect=_side_effect,
-        ), patch(
-            "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.doc_mining.ai_call",
+                side_effect=_side_effect,
+            ),
+            patch(
+                "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await mine_docs_with_llm(tmp_path, knowledge_conn)
 
@@ -226,13 +233,16 @@ class TestDocMiningEdgeCases:
         """TS-101-E12: Unparseable LLM response increments docs_skipped."""
         (tmp_path / "README.md").write_text("# Project")
 
-        with patch(
-            "agent_fox.knowledge.doc_mining.ai_call",
-            new_callable=AsyncMock,
-            return_value=("not valid json {{{", None),
-        ), patch(
-            "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.doc_mining.ai_call",
+                new_callable=AsyncMock,
+                return_value=("not valid json {{{", None),
+            ),
+            patch(
+                "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await mine_docs_with_llm(tmp_path, knowledge_conn)
 

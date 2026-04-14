@@ -172,9 +172,7 @@ class TestEdgeReferentialIntegrity:
             target_id = edge.target_id
 
             # source_id must be in entity_ids (placeholder IDs are UUIDs)
-            assert source_id in entity_ids, (
-                f"edge source_id {source_id!r} not in entity_ids"
-            )
+            assert source_id in entity_ids, f"edge source_id {source_id!r} not in entity_ids"
             # target_id must be in entity_ids or a known sentinel pattern
             is_entity = target_id in entity_ids
             is_path_sentinel = target_id.startswith("path:")
@@ -212,9 +210,7 @@ class TestEdgeReferentialIntegrity:
             source_id = edge.source_id
             target_id = edge.target_id
 
-            assert source_id in entity_ids, (
-                f"edge source_id {source_id!r} not in entity_ids"
-            )
+            assert source_id in entity_ids, f"edge source_id {source_id!r} not in entity_ids"
             is_entity = target_id in entity_ids
             is_path_sentinel = target_id.startswith("path:")
             is_class_sentinel = target_id.startswith("class:")
@@ -342,15 +338,11 @@ class TestScanSubset:
 
         # Every returned file must have an extension in the requested set
         for path in result:
-            assert path.suffix in extensions, (
-                f"Returned path {path} has extension {path.suffix!r} not in {extensions}"
-            )
+            assert path.suffix in extensions, f"Returned path {path} has extension {path.suffix!r} not in {extensions}"
 
         # Count must match total files with matching extensions
         expected_count = py_count + go_count
-        assert len(result) == expected_count, (
-            f"Expected {expected_count} files, got {len(result)}"
-        )
+        assert len(result) == expected_count, f"Expected {expected_count} files, got {len(result)}"
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(
