@@ -191,8 +191,8 @@ then delete hooks/, then clean up the engine.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 103-REQ-3.*, 103-REQ-4.* met
 
-- [ ] 5. Wiring verification
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+- [x] 5. Wiring verification
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - Path 1 (security allowlist enforcement): verify
       `session/session.py` imports from `agent_fox.security.security` and
       the import resolves at runtime
@@ -202,37 +202,37 @@ then delete hooks/, then clean up the engine.
       references hook_config or run_sync_barrier_hooks
     - _Requirements: all_
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - Confirm `make_pre_tool_use_hook` return value is used by
       `_permission_callback` in `session.py`
     - Confirm `ReloadResult` fields are applied to orchestrator attributes
     - _Requirements: all_
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-103-SMOKE-*` tests pass using real components
     - _Test Spec: TS-103-SMOKE-1_
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Verify no orphaned imports or unused variables from the removal
     - _Requirements: all_
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - Verify `make_pre_tool_use_hook` is called from production code
       (`session/session.py`), not just tests
     - Verify `ReloadResult` is constructed in production code
       (`ConfigReloader.reload`), not just tests
     - _Requirements: all_
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] `make check` passes
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] `make check` passes
 
 ## Traceability
 
