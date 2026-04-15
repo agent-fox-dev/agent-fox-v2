@@ -255,4 +255,12 @@ def _build_default_registry() -> LanguageRegistry:
     except ImportError:
         logger.info("Skipping kotlin analyzer: kotlin_lang module not available")
 
+    # Dart
+    try:
+        from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
+
+        _try_register(registry, DartAnalyzer, "dart")
+    except ImportError:
+        logger.info("Skipping dart analyzer: dart_lang module not available")
+
     return registry

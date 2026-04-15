@@ -22,6 +22,7 @@ dependencies = [
     { name = "tree-sitter-c" },
     { name = "tree-sitter-c-sharp" },
     { name = "tree-sitter-cpp" },
+    { name = "tree-sitter-dart-orchard" },
     { name = "tree-sitter-elixir" },
     { name = "tree-sitter-go" },
     { name = "tree-sitter-java" },
@@ -61,6 +62,7 @@ requires-dist = [
     { name = "tree-sitter-c", specifier = ">=0.23" },
     { name = "tree-sitter-c-sharp", specifier = ">=0.23" },
     { name = "tree-sitter-cpp", specifier = ">=0.23" },
+    { name = "tree-sitter-dart-orchard", specifier = ">=0.3.1" },
     { name = "tree-sitter-elixir", specifier = ">=0.3.4" },
     { name = "tree-sitter-go", specifier = ">=0.23" },
     { name = "tree-sitter-java", specifier = ">=0.23" },
@@ -2256,6 +2258,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/37/7e/909e52b3dec09c475140b0e175511e275d0d00ba2dbd7c68102d377ae0f6/tree_sitter_cpp-0.23.4-cp39-abi3-win_amd64.whl", hash = "sha256:68606a45bea92669d155399e1239f771a7767d8683cd8f8e30e7d813107030ca", size = 290997, upload-time = "2024-11-11T06:59:22.432Z" },
     { url = "https://files.pythonhosted.org/packages/d4/6a/65435d4d1f4c735be7ffe52d7c2e7b8a7f7c2790343a2719c60c548611c8/tree_sitter_cpp-0.23.4-cp39-abi3-win_arm64.whl", hash = "sha256:712f84f18be94cbe2a148fa4fdf40fcf4a8c25a8f7670efb9f8a47ddec2fc281", size = 288203, upload-time = "2024-11-11T06:59:23.404Z" },
 ]
+
+[[package]]
+name = "tree-sitter-dart-orchard"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/43/cc963608a3a62d4cbc99647f6cec4e49944612b6673ef208d8a1e252cf51/tree_sitter_dart_orchard-0.3.2.tar.gz", hash = "sha256:99b6e7ce0e41b3dec95c6985dded2a967e2c9ccd7085cff4d4b743c75b50db40", size = 253313, upload-time = "2025-11-17T15:53:26.69Z" }
 
 [[package]]
 name = "tree-sitter-elixir"

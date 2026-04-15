@@ -194,24 +194,24 @@ precedes the final wiring verification.
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
     - [x] Requirements 107-REQ-3.* acceptance criteria met
 
-- [ ] 5. Implement Dart analyzer
-  - [ ] 5.1 Add `tree-sitter-dart-orchard>=0.3.1` to pyproject.toml dependencies
+- [x] 5. Implement Dart analyzer
+  - [x] 5.1 Add `tree-sitter-dart-orchard>=0.3.1` to pyproject.toml dependencies
     - Run `uv sync` to install
     - Note: package name differs from grammar module name; verify import path
     - _Requirements: 107-REQ-6.1_
 
-  - [ ] 5.2 Create `agent_fox/knowledge/lang/dart_lang.py`
+  - [x] 5.2 Create `agent_fox/knowledge/lang/dart_lang.py`
     - Implement `DartAnalyzer` class with protocol properties
-    - Implement `make_parser()` using `tree_sitter_dart` from `tree-sitter-dart-orchard`
+    - Implement `make_parser()` using `tree_sitter_dart_orchard` from `tree-sitter-dart-orchard`
     - _Requirements: 107-REQ-4.1, 107-REQ-4.2_
 
-  - [ ] 5.3 Implement Dart entity extraction
+  - [x] 5.3 Implement Dart entity extraction
     - Extract FILE, MODULE (library directive only), CLASS (class/mixin/enum/extension),
       FUNCTION (top-level + methods with qualified names)
     - No MODULE entity when library directive absent
     - _Requirements: 107-REQ-4.3, 107-REQ-4.E2_
 
-  - [ ] 5.4 Implement Dart edge extraction and module map
+  - [x] 5.4 Implement Dart edge extraction and module map
     - CONTAINS edges (file->class, class->method, file->function)
     - IMPORTS edges from `import` statements
     - EXTENDS edges from `extends`, `implements`, `with` clauses
@@ -219,16 +219,16 @@ precedes the final wiring verification.
     - Skip `dart:` and external `package:` imports
     - _Requirements: 107-REQ-4.4, 107-REQ-4.5, 107-REQ-4.E1_
 
-  - [ ] 5.5 Register DartAnalyzer in registry.py
+  - [x] 5.5 Register DartAnalyzer in registry.py
     - Add `_try_register(registry, DartAnalyzer, "dart")`
     - _Requirements: 107-REQ-5.1, 107-REQ-5.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Dart spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Dart"`
-    - [ ] Dart property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "dart"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
-    - [ ] Requirements 107-REQ-4.* acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Dart spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Dart"`
+    - [x] Dart property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "dart"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+    - [x] Requirements 107-REQ-4.* acceptance criteria met
 
 - [ ] 6. Checkpoint — All Languages Complete
   - [ ] 6.1 Run full test suite including all new and existing tests
