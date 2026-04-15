@@ -90,9 +90,7 @@ class BannerGroup(click.Group):
     help="Switch to structured JSON I/O mode",
 )
 @click.pass_context
-def main(
-    ctx: click.Context, verbose: bool, quiet: bool, trace: bool, json_mode: bool
-) -> None:
+def main(ctx: click.Context, verbose: bool, quiet: bool, trace: bool, json_mode: bool) -> None:
     """agent-fox: autonomous coding-agent orchestrator."""
     ctx.ensure_object(dict)
 

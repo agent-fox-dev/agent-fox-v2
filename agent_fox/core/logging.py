@@ -89,9 +89,7 @@ def get_live_handler() -> LiveAwareHandler | None:
     return _live_handler
 
 
-def setup_logging(
-    *, verbose: bool = False, quiet: bool = False, trace: bool = False
-) -> None:
+def setup_logging(*, verbose: bool = False, quiet: bool = False, trace: bool = False) -> None:
     """Configure Python logging for agent-fox.
 
     Sets the root ``agent_fox`` logger level and format.
