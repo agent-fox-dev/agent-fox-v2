@@ -589,7 +589,8 @@ class TestNodeSessionRunnerHarvestError:
             "tests_added_or_modified": [],
         }
 
-        summary_path = tmp_path / ".session-summary.json"
+        (tmp_path / ".agent-fox").mkdir(exist_ok=True)
+        summary_path = tmp_path / ".agent-fox" / "session-summary.json"
         summary_path.write_text(json.dumps(summary_data))
 
         workspace = WorkspaceInfo(

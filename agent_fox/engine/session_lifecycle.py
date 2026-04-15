@@ -325,12 +325,15 @@ class NodeSessionRunner:
 
     @staticmethod
     def _read_session_artifacts(workspace: WorkspaceInfo) -> dict | None:
-        """Read .session-summary.json from the worktree if it exists.
+        """Read session-summary.json from the worktree if it exists.
 
+        Looks in ``.agent-fox/session-summary.json`` inside the worktree.
         Returns the parsed JSON dict or None if the file is absent or
         cannot be parsed.
         """
-        summary_path = workspace.path / ".session-summary.json"
+        from agent_fox.core.paths import AGENT_FOX_DIR, SESSION_SUMMARY_FILENAME
+
+        summary_path = workspace.path / AGENT_FOX_DIR / SESSION_SUMMARY_FILENAME
         if not summary_path.exists():
             return None
         try:
@@ -342,6 +345,22 @@ class NodeSessionRunner:
                 exc,
             )
             return None
+
+    @staticmethod
+    def _cleanup_session_artifacts(workspace: WorkspaceInfo) -> None:
+        """Delete transient session artifacts from the worktree.
+
+        Called after all consumers have read the artifacts.  Prevents
+        stale files from leaking into the working directory when worktree
+        cleanup is skipped or fails.
+        """
+        from agent_fox.core.paths import AGENT_FOX_DIR, SESSION_SUMMARY_FILENAME
+
+        summary_path = workspace.path / AGENT_FOX_DIR / SESSION_SUMMARY_FILENAME
+        try:
+            summary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     def _build_fallback_input(
         self,
@@ -827,6 +846,8 @@ class NodeSessionRunner:
                 node_id,
                 summary.get("summary", ""),
             )
+
+        self._cleanup_session_artifacts(workspace)
 
         return record
 

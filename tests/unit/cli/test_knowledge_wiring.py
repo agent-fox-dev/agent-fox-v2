@@ -55,7 +55,8 @@ class TestFactExtractionAfterSession:
 
         # Write a session summary artifact
         summary = {"summary": "Implemented feature X.", "tests_added_or_modified": []}
-        (tmp_path / ".session-summary.json").write_text(json.dumps(summary))
+        (tmp_path / ".agent-fox").mkdir(exist_ok=True)
+        (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
 
         # Create spec dir so assemble_context doesn't fail
         spec_dir = Path.cwd() / ".specs" / "test_spec"
@@ -140,7 +141,8 @@ class TestFactExtractionAfterSession:
         outcome = _make_outcome(status="completed")
 
         summary = {"summary": "Implemented feature X."}
-        (tmp_path / ".session-summary.json").write_text(json.dumps(summary))
+        (tmp_path / ".agent-fox").mkdir(exist_ok=True)
+        (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
 
         spec_dir = Path.cwd() / ".specs" / "test_spec"
         spec_dir.mkdir(parents=True, exist_ok=True)
