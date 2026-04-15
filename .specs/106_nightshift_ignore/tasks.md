@@ -26,8 +26,8 @@ end-to-end wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file `tests/unit/test_nightshift_ignore.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file `tests/unit/test_nightshift_ignore.py`
     - Test `load_ignore_spec` with valid file (TS-106-1)
     - Test comments and blank lines (TS-106-2)
     - Test missing file returns defaults-only (TS-106-3)
@@ -41,20 +41,20 @@ end-to-end wiring.
     - Test pathspec in pyproject.toml dependencies (TS-106-12)
     - _Test Spec: TS-106-1 through TS-106-8, TS-106-12, TS-106-13, TS-106-14_
 
-  - [ ] 1.2 Create unit tests for init integration
+  - [x] 1.2 Create unit tests for init integration
     - Test `_ensure_nightshift_ignore` creates file (TS-106-9)
     - Test init skips existing file (TS-106-10)
     - Test `InitResult` has nightshift_ignore field (TS-106-11)
     - _Test Spec: TS-106-9, TS-106-10, TS-106-11_
 
-  - [ ] 1.3 Create edge case tests
+  - [x] 1.3 Create edge case tests
     - Test unreadable `.night-shift` file (TS-106-E1)
     - Test empty `.night-shift` file (TS-106-E2)
     - Test init permission error (TS-106-E3)
     - Test HuntScanner works when ignore loading fails (TS-106-E4)
     - _Test Spec: TS-106-E1, TS-106-E2, TS-106-E3, TS-106-E4_
 
-  - [ ] 1.4 Create property tests `tests/property/test_nightshift_ignore_props.py`
+  - [x] 1.4 Create property tests `tests/property/test_nightshift_ignore_props.py`
     - Default exclusions always hold (TS-106-P1)
     - filter_findings never adds findings (TS-106-P2)
     - load_ignore_spec never raises (TS-106-P3)
@@ -62,15 +62,15 @@ end-to-end wiring.
     - Init idempotency (TS-106-P5)
     - _Test Spec: TS-106-P1 through TS-106-P5_
 
-  - [ ] 1.5 Create integration smoke tests `tests/integration/test_nightshift_ignore_smoke.py`
+  - [x] 1.5 Create integration smoke tests `tests/integration/test_nightshift_ignore_smoke.py`
     - Hunt scan respects `.night-shift` file (TS-106-SMOKE-1)
     - Init creates loadable `.night-shift` (TS-106-SMOKE-2)
     - _Test Spec: TS-106-SMOKE-1, TS-106-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Implement `nightshift.ignore` module and add `pathspec` dependency
   - [ ] 2.1 Add `pathspec>=0.12` to `pyproject.toml` dependencies
