@@ -265,7 +265,9 @@ class TestEdgeRelationshipTypes:
                 [EntityEdge(source_id=src_id, target_id=tgt_id, relationship=rel)],
             )
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 3
 
 
@@ -327,10 +329,12 @@ class TestEdgeDeduplication:
         upsert_edges(entity_conn, [edge])
         upsert_edges(entity_conn, [edge])  # duplicate
 
-        count = entity_conn.execute(
+        _row = entity_conn.execute(
             "SELECT COUNT(*) FROM entity_edges WHERE source_id = ? AND target_id = ?",
             [src_id, tgt_id],
-        ).fetchone()[0]
+        ).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 1
 
 
@@ -414,7 +418,9 @@ class TestFactEntityDeduplication:
         create_fact_entity_links(entity_conn, fact_id, [entity_id])
         create_fact_entity_links(entity_conn, fact_id, [entity_id])  # duplicate
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 1
 
 
@@ -453,7 +459,9 @@ class TestSoftDeletePreserves:
         # Soft-delete src
         soft_delete_missing(entity_conn, set())
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM entity_edges WHERE source_id = ?", [src_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count > 0, "Edges should still exist after soft delete"
 
     def test_soft_delete_preserves_fact_links(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
@@ -467,7 +475,9 @@ class TestSoftDeletePreserves:
         # Soft-delete by passing empty found set
         soft_delete_missing(entity_conn, set())
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [entity_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [entity_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count > 0, "Fact-entity links should still exist after soft delete"
 
 
@@ -514,10 +524,12 @@ class TestGCCascade:
 
         gc_stale_entities(entity_conn, retention_days=7)
 
-        edge_count = entity_conn.execute(
+        _row = entity_conn.execute(
             "SELECT COUNT(*) FROM entity_edges WHERE source_id = ? OR target_id = ?",
             [src_id, src_id],
-        ).fetchone()[0]
+        ).fetchone()
+        assert _row is not None
+        edge_count = _row[0]
         assert edge_count == 0, "Edges referencing removed entity should be cascade-deleted"
 
     def test_gc_cascades_fact_links(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
@@ -533,9 +545,11 @@ class TestGCCascade:
 
         gc_stale_entities(entity_conn, retention_days=7)
 
-        link_count = entity_conn.execute(
+        _row = entity_conn.execute(
             "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [entity_id]
-        ).fetchone()[0]
+        ).fetchone()
+        assert _row is not None
+        link_count = _row[0]
         assert link_count == 0, "Fact links referencing removed entity should be cascade-deleted"
 
     def test_gc_does_not_touch_active_entities(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
@@ -583,7 +597,9 @@ class TestUpsertExistingActive:
 
         assert id1 == id2, "Same natural key should return the original entity ID"
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM entity_graph WHERE entity_path = 'src/foo.py'").fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM entity_graph WHERE entity_path = 'src/foo.py'").fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 1
 
 
@@ -623,6 +639,7 @@ class TestUpsertRestoresSoftDeleted:
         assert restored_id == entity_id, "Restored entity should keep original ID"
 
         row = entity_conn.execute("SELECT deleted_at FROM entity_graph WHERE id = ?", [entity_id]).fetchone()
+        assert row is not None, "Entity row should exist after restore"
         assert row[0] is None, "deleted_at should be NULL after restore"
 
 
@@ -676,7 +693,9 @@ class TestLinkToSoftDeletedEntity:
         # Creating link to soft-deleted entity should succeed
         create_fact_entity_links(entity_conn, fact_id, [entity_id])
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 1
 
 

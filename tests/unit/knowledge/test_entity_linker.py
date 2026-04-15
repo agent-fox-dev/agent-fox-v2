@@ -172,7 +172,9 @@ class TestFactEntityLinkCreationFromDiff:
         with patch("subprocess.run", return_value=mock_result):
             link_facts(entity_conn, [fact], tmp_path)
 
-        count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
+        _row = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()
+        assert _row is not None
+        count = _row[0]
         assert count == 2
 
 
