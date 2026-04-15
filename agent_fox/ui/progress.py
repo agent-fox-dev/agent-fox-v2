@@ -61,6 +61,7 @@ class TaskEvent:
 
 ActivityCallback = Callable[[ActivityEvent], None]
 TaskCallback = Callable[[TaskEvent], None]
+SpinnerCallback = Callable[[str], None]
 
 # Verb forms for tool names displayed in the spinner summary line.
 _TOOL_VERBS: dict[str, str] = {

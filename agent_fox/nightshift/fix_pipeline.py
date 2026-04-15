@@ -30,7 +30,7 @@ from agent_fox.nightshift.fix_types import (
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
 from agent_fox.platform.labels import LABEL_FIX
 from agent_fox.platform.protocol import IssueResult
-from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
+from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
 
 if TYPE_CHECKING:
@@ -79,13 +79,26 @@ class FixPipeline:
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
+        spinner_callback: SpinnerCallback | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._activity_callback = activity_callback
         self._task_callback = task_callback
         self._sink = sink_dispatcher
+        self._spinner_callback = spinner_callback
         self._run_id: str = ""
+
+    def _update_spinner(self, text: str) -> None:
+        """Update the spinner text with a phase hint.
+
+        No-op when spinner_callback is not set.
+        """
+        if self._spinner_callback is not None:
+            try:
+                self._spinner_callback(text)
+            except Exception:
+                logger.debug("Spinner callback failed", exc_info=True)
 
     async def _run_session(
         self,
@@ -592,6 +605,8 @@ class FixPipeline:
             system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
 
             node_id = f"fix-issue-{spec.issue_number}:0:coder"
+            attempt_suffix = f" (attempt {_attempt + 1})" if _attempt > 0 else ""
+            self._update_spinner(f"Running coder for issue #{spec.issue_number}{attempt_suffix}\u2026")
             t0 = time.monotonic()
             try:
                 coder_outcome = await self._run_coder_session(
@@ -649,6 +664,7 @@ class FixPipeline:
             reviewer_system, reviewer_task = self._build_reviewer_prompt(spec, triage)
 
             reviewer_node_id = f"fix-issue-{spec.issue_number}:0:reviewer"
+            self._update_spinner(f"Reviewing fix for issue #{spec.issue_number}\u2026")
             t0 = time.monotonic()
             try:
                 reviewer_outcome = await self._run_session(
@@ -867,6 +883,7 @@ class FixPipeline:
         spec = build_in_memory_spec(issue, issue_body)
 
         # 61-REQ-6.2: create an isolated worktree for the fix branch
+        self._update_spinner(f"Setting up workspace for issue #{issue.number}\u2026")
         workspace = await self._setup_workspace(spec)
 
         # Post progress comment
@@ -885,6 +902,7 @@ class FixPipeline:
         try:
             # 82-REQ-7.1: run triage first
             triage_node_id = f"fix-issue-{spec.issue_number}:0:triage"
+            self._update_spinner(f"Analyzing issue #{issue.number} (triage)\u2026")
             t0 = time.monotonic()
             triage = await self._run_triage(spec, workspace)
             duration = time.monotonic() - t0
@@ -913,10 +931,12 @@ class FixPipeline:
             # Optionally push fix branch to upstream remote (93-REQ-3.1).
             # Must run BEFORE harvest, which changes the working tree.
             if self._config.night_shift.push_fix_branch:
+                self._update_spinner(f"Pushing fix branch for issue #{issue.number}\u2026")
                 await self._push_fix_branch_upstream(spec, workspace)
 
             # Harvest fix branch into develop and push to origin (65-REQ-3.2).
             # Must run BEFORE cleanup destroys the feature branch.
+            self._update_spinner(f"Merging fix for issue #{issue.number} into develop\u2026")
             harvest_result = await self._harvest_and_push(spec, workspace)
 
         except Exception as exc:
