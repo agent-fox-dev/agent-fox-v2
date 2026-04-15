@@ -12,9 +12,7 @@ __pycache__/
 dist/
 build/
 
-# Session artifacts
-.session-summary.json
-.session-learnings.md
+# Test artifacts
 .hypothesis/
 
 # hacking

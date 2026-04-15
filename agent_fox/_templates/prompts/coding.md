@@ -114,9 +114,9 @@ Fix failures before proceeding. No regressions allowed.
 After quality gates pass (or if the session is ending due to failure), write a
 structured session summary file before committing.
 
-1. **File path:** `.session-summary.json` in the worktree root.
+1. **File path:** `.agent-fox/session-summary.json` in the worktree.
 2. **Do NOT commit this file.** It is a transient artifact read by the
-   orchestrator and discarded with the worktree.
+   orchestrator and deleted after processing.
 3. **Write the file** containing a JSON object with the following schema:
 
 ```json
@@ -138,51 +138,9 @@ structured session summary file before committing.
      modified. Each entry has a `path` (string) and `description` (string).
      Use an empty array `[]` when no tests were added or modified.
 5. **Failure entry:** If the session did not complete successfully or ended due
-   to failure, still write `.session-summary.json` with a summary describing
-   what was attempted and why it failed. Always include the
+   to failure, still write `.agent-fox/session-summary.json` with a summary
+   describing what was attempted and why it failed. Always include the
    `tests_added_or_modified` field (use `[]` if none).
-
-## SESSION LEARNINGS
-
-After the session summary (and before committing), write a learnings file so
-that future sessions can benefit from your discoveries. This step captures
-project-wide patterns — not task-specific implementation details.
-Only add new entries for genuinely new information.
-
-**Skip this step** if:
-- The session failed (quality gates did not pass).
-- This is a checkpoint/verification session.
-
-1. **File path:** `.session-learnings.md` in the worktree root.
-2. **Do NOT commit this file.** It is a transient artifact read by the
-   orchestrator and discarded with the worktree.
-3. **What belongs in this file:**
-
-   - Architecture: Major components, their responsibilities, and how they interact. Key dependencies.
-   - Conventions: Coding patterns, naming rules, structural idioms this project uses consistently.
-   - Decisions: Non-obvious choices that were made deliberately. Format as: "We use X (not Y) because Z."
-   - Fragile areas: Modules or subsystems that are sensitive to change, have known issues, or require extra care.
-   - Failed approaches: Things that were tried and didn't work, and why. Prevents re-exploring dead ends.
-   - Open questions: Areas of uncertainty or intentional deferral. Mark these clearly.
-
-   **What does not belong:**
-   - Information that's obvious from reading the code directly
-   - Fine-grained details that go stale quickly (specific function signatures, line numbers)
-   - Session logs or task summaries
-
-   **Examples:**
-
-   Good: "Hypothesis property tests fail when generated strings contain
-   brace characters that conflict with template syntax — use
-   `st.text(alphabet=...)` to restrict generators."
-
-   Bad: "Implemented the `render_drift_context` function in prompt.py
-   and updated 3 test files."
-
-4. **Content guardrails:**
-   - Only record **project-wide patterns and conventions**. Do not include
-     task-specific implementation details, session identifiers, or timestamps.
-   - Each bullet point: **1-2 sentences maximum**.
 
 ## LAND THE SESSION
 
