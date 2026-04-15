@@ -32,7 +32,7 @@ from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
 from agent_fox.platform.labels import LABEL_FIX
-from agent_fox.ui.progress import ActivityCallback, TaskCallback
+from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
@@ -75,6 +75,7 @@ class NightShiftEngine:
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
         status_callback: Callable[[str, str], None] | None = None,
+        spinner_callback: SpinnerCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
     ) -> None:
         self._config = config
@@ -83,6 +84,7 @@ class NightShiftEngine:
         self._activity_callback = activity_callback
         self._task_callback = task_callback
         self._status_callback = status_callback
+        self._spinner_callback = spinner_callback
         self._sink = sink_dispatcher
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
@@ -443,6 +445,7 @@ class NightShiftEngine:
             activity_callback=self._activity_callback,
             task_callback=self._task_callback,
             sink_dispatcher=self._sink,
+            spinner_callback=self._spinner_callback,
         )
 
         effective_body = issue_body if issue_body else getattr(issue, "body", "")

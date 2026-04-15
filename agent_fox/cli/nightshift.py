@@ -192,6 +192,7 @@ def night_shift_cmd(
         activity_callback=progress.activity_callback,
         task_callback=progress.task_callback,
         status_callback=progress.print_status,
+        spinner_callback=progress.update_spinner_text,
         sink_dispatcher=_sink_dispatcher,
     )
 
