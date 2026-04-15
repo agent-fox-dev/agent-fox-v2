@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
-from agent_fox.core.paths import AGENT_FOX_DIR
+from agent_fox.core.paths import AGENT_FOX_DIR, DEFAULT_DB_PATH
 from agent_fox.engine.reset import (
     HardResetResult,
     ResetResult,
@@ -26,7 +27,28 @@ from agent_fox.engine.reset import (
     reset_task,
 )
 
+if TYPE_CHECKING:
+    import duckdb
+
 logger = logging.getLogger(__name__)
+
+
+def _get_db_conn() -> duckdb.DuckDBPyConnection | None:
+    """Open a read-write DuckDB connection for reset operations.
+
+    Returns None if the database does not exist or cannot be opened.
+
+    Requirements: 105-REQ-5.3 (DB-only state persistence)
+    """
+    try:
+        import duckdb
+
+        if not DEFAULT_DB_PATH.exists():
+            return None
+        return duckdb.connect(str(DEFAULT_DB_PATH))
+    except Exception:
+        logger.debug("DuckDB unavailable for reset", exc_info=True)
+        return None
 
 
 def _result_to_dict(result: ResetResult) -> dict:
@@ -190,7 +212,6 @@ def reset_cmd(
     json_mode = (ctx.obj or {}).get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
     worktrees_dir = agent_dir / "worktrees"
     memory_path = agent_dir / "memory.jsonl"
@@ -212,49 +233,54 @@ def reset_cmd(
             ctx.exit(1)
             return
 
-    if filter_spec is not None:
-        _handle_spec_reset(
-            ctx,
-            filter_spec,
-            yes,
-            json_mode,
-            state_path,
-            plan_path,
-            worktrees_dir,
-            project_root,
-        )
-    elif hard:
-        _handle_hard_reset(
-            ctx,
-            task_id,
-            yes,
-            json_mode,
-            state_path,
-            plan_path,
-            worktrees_dir,
-            project_root,
-            memory_path,
-        )
-    elif task_id is not None:
-        _handle_soft_task_reset(
-            ctx,
-            task_id,
-            json_mode,
-            state_path,
-            plan_path,
-            worktrees_dir,
-            project_root,
-        )
-    else:
-        _handle_soft_reset_all(
-            ctx,
-            yes,
-            json_mode,
-            state_path,
-            plan_path,
-            worktrees_dir,
-            project_root,
-        )
+    db_conn = _get_db_conn()
+    try:
+        if filter_spec is not None:
+            _handle_spec_reset(
+                ctx,
+                filter_spec,
+                yes,
+                json_mode,
+                db_conn,
+                plan_path,
+                worktrees_dir,
+                project_root,
+            )
+        elif hard:
+            _handle_hard_reset(
+                ctx,
+                task_id,
+                yes,
+                json_mode,
+                db_conn,
+                plan_path,
+                worktrees_dir,
+                project_root,
+                memory_path,
+            )
+        elif task_id is not None:
+            _handle_soft_task_reset(
+                ctx,
+                task_id,
+                json_mode,
+                db_conn,
+                plan_path,
+                worktrees_dir,
+                project_root,
+            )
+        else:
+            _handle_soft_reset_all(
+                ctx,
+                yes,
+                json_mode,
+                db_conn,
+                plan_path,
+                worktrees_dir,
+                project_root,
+            )
+    finally:
+        if db_conn is not None:
+            db_conn.close()
 
 
 def _handle_spec_reset(
@@ -262,7 +288,7 @@ def _handle_spec_reset(
     spec_name: str,
     yes: bool,
     json_mode: bool,
-    state_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None,
     plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
@@ -281,10 +307,10 @@ def _handle_spec_reset(
 
     result = reset_spec(
         spec_name=spec_name,
-        state_path=state_path,
         plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
+        db_conn=db_conn,
     )
 
     if json_mode:
@@ -300,7 +326,7 @@ def _handle_hard_reset(
     task_id: str | None,
     yes: bool,
     json_mode: bool,
-    state_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None,
     plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
@@ -320,19 +346,19 @@ def _handle_hard_reset(
     if task_id is not None:
         result = hard_reset_task(
             task_id=task_id,
-            state_path=state_path,
             plan_path=plan_path,
             worktrees_dir=worktrees_dir,
             repo_path=project_root,
             memory_path=memory_path,
+            db_conn=db_conn,
         )
     else:
         result = hard_reset_all(
-            state_path=state_path,
             plan_path=plan_path,
             worktrees_dir=worktrees_dir,
             repo_path=project_root,
             memory_path=memory_path,
+            db_conn=db_conn,
         )
 
     if json_mode:
@@ -347,7 +373,7 @@ def _handle_soft_task_reset(
     ctx: click.Context,
     task_id: str,
     json_mode: bool,
-    state_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None,
     plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
@@ -355,10 +381,10 @@ def _handle_soft_task_reset(
     """Handle single-task soft reset."""
     result = reset_task(
         task_id=task_id,
-        state_path=state_path,
         plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
+        db_conn=db_conn,
     )
 
     if json_mode:
@@ -373,7 +399,7 @@ def _handle_soft_reset_all(
     ctx: click.Context,
     yes: bool,
     json_mode: bool,
-    state_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None,
     plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
@@ -384,7 +410,7 @@ def _handle_soft_reset_all(
         _load_state_or_raise,
     )
 
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
 
     # Find tasks that would be reset
     resettable = [(tid, status) for tid, status in state.node_states.items() if status in _RESETTABLE_STATUSES]
@@ -422,10 +448,10 @@ def _handle_soft_reset_all(
             return
 
     result = reset_all(
-        state_path=state_path,
         plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
+        db_conn=db_conn,
     )
 
     if json_mode:

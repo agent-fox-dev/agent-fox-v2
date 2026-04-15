@@ -14,7 +14,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState
 from agent_fox.reporting.formatters import TableFormatter
 from agent_fox.reporting.standup import TaskActivity
 from agent_fox.reporting.status import StatusReport, generate_status
@@ -81,8 +81,8 @@ def in_progress_tasks_strategy(draw: st.DrawFn) -> list[TaskActivity]:
 def _write_plan_and_state(
     tmp_path: Path,
     node_states: dict[str, str],
-) -> tuple[Path, Path]:
-    """Write plan.json and state.jsonl; return (state_path, plan_path)."""
+) -> tuple[ExecutionState, Path]:
+    """Write plan.json and create state; return (state, plan_path)."""
     agent_dir = tmp_path / ".agent-fox"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
@@ -112,16 +112,14 @@ def _write_plan_and_state(
     plan_path = agent_dir / "plan.json"
     plan_path.write_text(json.dumps(plan_data, indent=2))
 
-    state_path = agent_dir / "state.jsonl"
     state = ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(state_path).save(state)
 
-    return state_path, plan_path
+    return state, plan_path
 
 
 def _make_report_with_tasks(tasks: list[TaskActivity]) -> StatusReport:
@@ -160,10 +158,26 @@ class TestInProgressFilterInvariant:
 
         Requirements: 72-REQ-1.1, 72-REQ-1.2
         """
-        tmp_path = tmp_path_factory.mktemp("active_tasks")
-        state_path, plan_path = _write_plan_and_state(tmp_path, node_states)
+        from unittest.mock import MagicMock, patch
 
-        report = generate_status(state_path, plan_path)
+        tmp_path = tmp_path_factory.mktemp("active_tasks")
+        state, plan_path = _write_plan_and_state(tmp_path, node_states)
+        mock_conn = MagicMock()
+
+        # Make DB plan loading fail so it falls back to file
+        original_load_plan = __import__("agent_fox.graph.persistence", fromlist=["load_plan"]).load_plan
+
+        def _file_only_load_plan(src):
+            if isinstance(src, Path):
+                return original_load_plan(src)
+            return None
+
+        with (
+            patch("agent_fox.reporting.status.load_state_from_db", return_value=state),
+            patch("agent_fox.reporting.status.build_status_report_from_audit", return_value=None),
+            patch("agent_fox.graph.persistence.load_plan", side_effect=_file_only_load_plan),
+        ):
+            report = generate_status(plan_path=plan_path, db_conn=mock_conn)
 
         expected_count = sum(1 for s in node_states.values() if s == "in_progress")
         assert len(report.in_progress_tasks) == expected_count

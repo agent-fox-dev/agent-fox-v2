@@ -23,7 +23,7 @@ from agent_fox.core.models import ModelTier
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.graph_sync import GraphSync
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
 from agent_fox.knowledge.audit import AuditEventType
 from agent_fox.knowledge.sink import SinkDispatcher
 from agent_fox.session.archetypes import get_archetype
@@ -273,7 +273,6 @@ class SessionResultHandler:
         self,
         *,
         graph_sync: GraphSync,
-        state_manager: StateManager,
         routing_ladders: dict[str, Any],
         routing_assessments: dict[str, Any] | None = None,
         routing_pipeline: Any | None = None,
@@ -293,7 +292,6 @@ class SessionResultHandler:
         original_session_timeout: int = 30,
     ) -> None:
         self._graph_sync = graph_sync
-        self._state_manager = state_manager
         self._routing_ladders = routing_ladders
         self._routing_assessments: dict[str, Any] = routing_assessments or {}
         self._routing_pipeline = routing_pipeline
@@ -362,7 +360,7 @@ class SessionResultHandler:
         error_tracker: dict[str, str | None],
     ) -> None:
         """Process a completed session record and persist state."""
-        self._state_manager.record_session(state, record)
+        update_state_with_session(state, record)
 
         # 105-REQ-3.2: Record session outcome to DB (unified single source of truth).
         # 105-REQ-4.3: Accumulate run token/cost totals.
@@ -445,8 +443,6 @@ class SessionResultHandler:
                 )
             except Exception:
                 logger.debug("Failed to persist node status to DB", exc_info=True)
-
-        self._state_manager.save(state)
 
     def _handle_success(
         self,
@@ -695,7 +691,6 @@ class SessionResultHandler:
                 f"Predecessor {pred_id} exhausted all tiers after reviewer {node_id} failures",
             )
             self._check_block_budget(state)
-            self._state_manager.save(state)
             return True
 
         logger.info(
@@ -719,7 +714,6 @@ class SessionResultHandler:
         self._graph_sync.node_states[pred_id] = "pending"
         error_tracker[pred_id] = record.error_message
         self._graph_sync.node_states[node_id] = "pending"
-        self._state_manager.save(state)
         return True
 
     def _handle_exhausted(

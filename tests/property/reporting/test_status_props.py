@@ -14,7 +14,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState
 from agent_fox.reporting.formatters import JsonFormatter
 from agent_fox.reporting.status import StatusReport, TaskSummary, generate_status
 
@@ -82,7 +82,7 @@ def _write_plan_and_state(
     tmp_path: str,
     node_states: dict[str, str],
 ) -> tuple:
-    """Write plan.json and state.jsonl, return (state_path, plan_path)."""
+    """Write plan.json and create state; return (state, plan_path)."""
     from pathlib import Path
 
     base = Path(tmp_path)
@@ -116,17 +116,15 @@ def _write_plan_and_state(
     plan_path = agent_dir / "plan.json"
     plan_path.write_text(json.dumps(plan_data, indent=2))
 
-    # Write state.jsonl
-    state_path = agent_dir / "state.jsonl"
+    # Create in-memory state (loaded via mock)
     state = ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(state_path).save(state)
 
-    return state_path, plan_path
+    return state, plan_path
 
 
 # ---------------------------------------------------------------------------
@@ -151,13 +149,30 @@ class TestStatusCountConsistency:
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """For any execution state, count sum == total_tasks."""
+        from unittest.mock import MagicMock, patch
+
         tmp_path = tmp_path_factory.mktemp("status")
-        state_path, plan_path = _write_plan_and_state(
+        state, plan_path = _write_plan_and_state(
             str(tmp_path),
             node_states,
         )
+        mock_conn = MagicMock()
 
-        report = generate_status(state_path, plan_path)
+        # Make DB plan loading fail so it falls back to file
+        original_load_plan = __import__("agent_fox.graph.persistence", fromlist=["load_plan"]).load_plan
+
+        def _file_only_load_plan(src):
+            from pathlib import Path as _Path
+            if isinstance(src, _Path):
+                return original_load_plan(src)
+            return None
+
+        with (
+            patch("agent_fox.reporting.status.load_state_from_db", return_value=state),
+            patch("agent_fox.reporting.status.build_status_report_from_audit", return_value=None),
+            patch("agent_fox.graph.persistence.load_plan", side_effect=_file_only_load_plan),
+        ):
+            report = generate_status(plan_path=plan_path, db_conn=mock_conn)
 
         assert sum(report.counts.values()) == report.total_tasks
 

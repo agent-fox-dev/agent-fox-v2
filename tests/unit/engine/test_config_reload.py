@@ -45,12 +45,10 @@ def _make_orch(
     """Create a minimal Orchestrator for testing (no new params yet)."""
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
-    state_path = tmp_path / "state.jsonl"
     runner = MockSessionRunner()
     return Orchestrator(
         config=config or OrchestratorConfig(parallel=1, inter_session_delay=0),
         plan_path=plan_path,
-        state_path=state_path,
         session_runner_factory=lambda *a, **kw: runner,
     )
 
@@ -440,7 +438,6 @@ class TestConfigPathStored:
         """Orchestrator stores config_path from constructor parameter."""
         plan_path = tmp_path / "plan.json"
         plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
-        state_path = tmp_path / "state.jsonl"
         runner = MockSessionRunner()
         config_path = Path(".agent-fox/config.toml")
 
@@ -448,7 +445,6 @@ class TestConfigPathStored:
         orch = Orchestrator(
             config=OrchestratorConfig(parallel=1, inter_session_delay=0),
             plan_path=plan_path,
-            state_path=state_path,
             session_runner_factory=lambda *a, **kw: runner,
             config_path=config_path,  # NEW param — will fail until implemented
             full_config=AgentFoxConfig(),  # NEW param — will fail until implemented

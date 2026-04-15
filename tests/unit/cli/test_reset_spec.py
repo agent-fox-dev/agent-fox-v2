@@ -8,12 +8,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
 from agent_fox.cli.reset import reset_cmd
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState
 
 
 def _make_plan_json(nodes: dict[str, dict[str, str]]) -> str:
@@ -52,7 +52,7 @@ def _setup_project(
     node_states: dict[str, str],
     nodes: dict[str, dict[str, str]] | None = None,
 ) -> None:
-    """Create .agent-fox directory with plan and state files."""
+    """Create .agent-fox directory with plan file (state loaded from DB mock)."""
     agent_dir = tmp_path / ".agent-fox"
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "worktrees").mkdir()
@@ -61,13 +61,15 @@ def _setup_project(
         nodes = {tid: {"title": f"Task {tid}"} for tid in node_states}
     (agent_dir / "plan.json").write_text(_make_plan_json(nodes))
 
-    state = ExecutionState(
+
+def _make_state(node_states: dict[str, str]) -> ExecutionState:
+    """Create an ExecutionState for test mocking."""
+    return ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(agent_dir / "state.jsonl").save(state)
 
 
 # ---------------------------------------------------------------------------
@@ -81,10 +83,15 @@ class TestMutualExclusivityHard:
 
     def test_spec_and_hard_error(self, tmp_path: Path) -> None:
         """Non-zero exit and mutually exclusive error message."""
-        _setup_project(tmp_path, {"alpha:1": "completed"})
+        node_states = {"alpha:1": "completed"}
+        _setup_project(tmp_path, node_states)
 
         runner = CliRunner()
-        with patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path):
+        with (
+            patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
+            patch("agent_fox.cli.reset._get_db_conn", return_value=MagicMock()),
+            patch("agent_fox.engine.reset.load_state_from_db", return_value=_make_state(node_states)),
+        ):
             result = runner.invoke(reset_cmd, ["--spec", "alpha", "--hard"], catch_exceptions=False)
 
         assert result.exit_code != 0
@@ -102,10 +109,15 @@ class TestMutualExclusivityTaskId:
 
     def test_spec_and_task_id_error(self, tmp_path: Path) -> None:
         """Non-zero exit and mutually exclusive error message."""
-        _setup_project(tmp_path, {"alpha:1": "completed"})
+        node_states = {"alpha:1": "completed"}
+        _setup_project(tmp_path, node_states)
 
         runner = CliRunner()
-        with patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path):
+        with (
+            patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
+            patch("agent_fox.cli.reset._get_db_conn", return_value=MagicMock()),
+            patch("agent_fox.engine.reset.load_state_from_db", return_value=_make_state(node_states)),
+        ):
             result = runner.invoke(
                 reset_cmd,
                 ["--spec", "alpha", "alpha:1"],
@@ -127,15 +139,19 @@ class TestConfirmationRequired:
 
     def test_decline_aborts(self, tmp_path: Path) -> None:
         """Declining confirmation leaves state unchanged."""
-        _setup_project(tmp_path, {"alpha:1": "completed"})
+        node_states = {"alpha:1": "completed"}
+        _setup_project(tmp_path, node_states)
+        state = _make_state(node_states)
 
         runner = CliRunner()
-        with patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path):
+        with (
+            patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
+            patch("agent_fox.cli.reset._get_db_conn", return_value=MagicMock()),
+            patch("agent_fox.engine.reset.load_state_from_db", return_value=state),
+        ):
             runner.invoke(reset_cmd, ["--spec", "alpha"], input="n\n", catch_exceptions=False)
 
-        # State should be unchanged
-        state = StateManager(tmp_path / ".agent-fox" / "state.jsonl").load()
-        assert state is not None
+        # State should be unchanged (decline aborts before modifying)
         assert state.node_states["alpha:1"] == "completed"
 
 
@@ -150,7 +166,8 @@ class TestJsonOutput:
 
     def test_json_output_keys(self, tmp_path: Path) -> None:
         """Valid JSON with required keys."""
-        _setup_project(tmp_path, {"alpha:1": "completed"})
+        node_states = {"alpha:1": "completed"}
+        _setup_project(tmp_path, node_states)
 
         # Create specs dir for tasks.md checkbox reset
         specs_dir = tmp_path / ".specs" / "alpha"
@@ -160,6 +177,8 @@ class TestJsonOutput:
         runner = CliRunner()
         with (
             patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
+            patch("agent_fox.cli.reset._get_db_conn", return_value=MagicMock()),
+            patch("agent_fox.engine.reset.load_state_from_db", return_value=_make_state(node_states)),
             patch(
                 "agent_fox.engine.reset._cleanup_task",
                 return_value=(None, None),

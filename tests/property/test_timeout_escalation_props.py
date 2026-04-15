@@ -24,7 +24,7 @@ except ImportError:
 
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -79,13 +79,11 @@ def _make_handler(
 ]:
     """Create a minimal SessionResultHandler for property tests."""
     graph_sync = GraphSync({node_id: "in_progress"}, {node_id: []})
-    mock_state_manager = MagicMock(spec=StateManager)
     mock_ladder = _make_mock_ladder()
     routing_ladders: dict[str, Any] = {node_id: mock_ladder}
 
     handler = SessionResultHandler(
         graph_sync=graph_sync,
-        state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
         routing_assessments={},
         routing_pipeline=None,

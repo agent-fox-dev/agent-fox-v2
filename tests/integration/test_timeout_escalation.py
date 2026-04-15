@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Shared helpers
@@ -85,9 +85,6 @@ def _make_handler_with_sink(
     from agent_fox.knowledge.sink import SinkDispatcher
 
     graph_sync = GraphSync({node_id: "in_progress"}, {node_id: []})
-    mock_state_manager = MagicMock(spec=StateManager)
-    mock_state_manager.record_session = MagicMock()
-    mock_state_manager.save = MagicMock()
 
     mock_ladder = MagicMock()
     mock_ladder.is_exhausted = False
@@ -102,7 +99,6 @@ def _make_handler_with_sink(
 
     handler = SessionResultHandler(
         graph_sync=graph_sync,
-        state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
         routing_assessments={},
         routing_pipeline=None,

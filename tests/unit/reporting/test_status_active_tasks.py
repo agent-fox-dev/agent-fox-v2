@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from agent_fox.reporting.formatters import JsonFormatter, TableFormatter
 from agent_fox.reporting.standup import TaskActivity
@@ -19,8 +20,8 @@ from agent_fox.reporting.status import StatusReport, generate_status
 from .conftest import (
     make_execution_state,
     make_session_record,
+    mock_state,
     write_plan_file,
-    write_state_file,
 )
 
 # ---------------------------------------------------------------------------
@@ -77,7 +78,6 @@ class TestReportGeneration:
 
     def test_single_inprogress_task_included(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """TS-72-1: generate_status populates in_progress_tasks for in-progress nodes.
@@ -102,16 +102,15 @@ class TestReportGeneration:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert len(report.in_progress_tasks) == 1
         assert report.in_progress_tasks[0].task_id == "spec/0:coder"
 
     def test_coder_and_verifier_inprogress_included(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """TS-72-2: Both coder and non-coder in-progress nodes are included.
@@ -130,9 +129,9 @@ class TestReportGeneration:
                 "spec/0:verifier": "in_progress",
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert len(report.in_progress_tasks) == 2
         task_ids = {ta.task_id for ta in report.in_progress_tasks}
@@ -141,7 +140,6 @@ class TestReportGeneration:
 
     def test_session_metrics_computed_correctly(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """TS-72-3: Session counts and token totals match session history.
@@ -180,9 +178,9 @@ class TestReportGeneration:
             node_states={"spec/0:coder": "in_progress"},
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert len(report.in_progress_tasks) == 1
         ta = report.in_progress_tasks[0]
@@ -344,21 +342,19 @@ class TestEdgeCases:
         self,
         tmp_plan_dir: Path,
     ) -> None:
-        """TS-72-E1: When no state.jsonl exists, in_progress_tasks is empty.
+        """TS-72-E1: When no state exists, in_progress_tasks is empty.
 
         Requirements: 72-REQ-1.E2
         """
         nodes = {"spec/0:coder": {"title": "Coder"}}
         plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
-        nonexistent_state = Path("/nonexistent/state.jsonl")
 
-        report = generate_status(nonexistent_state, plan_path)
+        report = generate_status(plan_path=plan_path)
 
         assert report.in_progress_tasks == []
 
     def test_no_inprogress_nodes_gives_empty_list(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """TS-72-E2: When no nodes have in_progress status, list is empty.
@@ -379,9 +375,9 @@ class TestEdgeCases:
                 "spec/0:skeptic": "pending",
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert report.in_progress_tasks == []
 

@@ -208,7 +208,6 @@ async def run_code(
         orch_config = config.orchestrator
 
     plan_path = Path(".agent-fox/plan.json")
-    state_path = Path(".agent-fox/state.jsonl")
     specs_path = Path(specs_dir) if specs_dir else Path(".specs")
 
     # Set up infrastructure (knowledge DB, sinks, fact cache, etc.)
@@ -231,7 +230,6 @@ async def run_code(
         # Build orchestrator kwargs — use infra if available
         orch_kwargs: dict[str, Any] = {
             "plan_path": plan_path,
-            "state_path": state_path,
             "specs_dir": specs_path,
             "watch": watch,
             "task_callback": task_callback,

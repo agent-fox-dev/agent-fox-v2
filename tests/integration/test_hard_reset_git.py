@@ -13,7 +13,9 @@ import json
 import subprocess
 from pathlib import Path
 
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from unittest.mock import MagicMock, patch
+
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Git repo helpers
@@ -92,20 +94,18 @@ def _make_plan_json(nodes: dict, order: list[str] | None = None) -> str:
     )
 
 
-def _write_state(
-    state_path: Path,
+def _make_state(
     node_states: dict[str, str],
     session_history: list[SessionRecord] | None = None,
-) -> None:
-    """Write an ExecutionState to state.jsonl."""
-    state = ExecutionState(
+) -> ExecutionState:
+    """Create an ExecutionState for test mocking."""
+    return ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         session_history=session_history or [],
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(state_path).save(state)
 
 
 def _make_session_record(
@@ -202,7 +202,6 @@ class TestFullHardResetRollback:
         # Set up .agent-fox structure
         agent_dir = repo / ".agent-fox"
         agent_dir.mkdir(exist_ok=True)
-        state_path = agent_dir / "state.jsonl"
         plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
@@ -217,13 +216,14 @@ class TestFullHardResetRollback:
             _make_session_record("s:2", commit_sha=sha2),
             _make_session_record("s:3", commit_sha=sha3),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed", "s:3": "completed"},
             session_history=history,
         )
+        mock_conn = MagicMock()
 
-        result = hard_reset_all(state_path, plan_path, worktrees_dir, repo, memory_path)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            result = hard_reset_all(plan_path, worktrees_dir, repo, memory_path, db_conn=mock_conn)
 
         # Develop should be at pre_task_sha (predecessor of earliest commit)
         new_head = _get_head(repo, "develop")
@@ -262,7 +262,6 @@ class TestPartialHardResetRollback:
         # Set up .agent-fox structure
         agent_dir = repo / ".agent-fox"
         agent_dir.mkdir(exist_ok=True)
-        state_path = agent_dir / "state.jsonl"
         plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
@@ -277,13 +276,14 @@ class TestPartialHardResetRollback:
             _make_session_record("s:2", commit_sha=sha2),
             _make_session_record("s:3", commit_sha=sha3),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed", "s:3": "completed"},
             session_history=history,
         )
+        mock_conn = MagicMock()
 
-        result = hard_reset_task("s:2", state_path, plan_path, worktrees_dir, repo, memory_path)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            result = hard_reset_task("s:2", plan_path, worktrees_dir, repo, memory_path, db_conn=mock_conn)
 
         # Develop should be at sha1 (predecessor of task 2's commit)
         new_head = _get_head(repo, "develop")
@@ -297,9 +297,7 @@ class TestPartialHardResetRollback:
         # Task 1 should NOT be reset (its commit is ancestor of new HEAD)
         assert "s:1" not in result.reset_tasks
 
-        # Verify state file
-        state = StateManager(state_path).load()
-        assert state is not None
+        # Verify state was updated in-memory
         assert state.node_states["s:1"] == "completed"
         assert state.node_states["s:2"] == "pending"
         assert state.node_states["s:3"] == "pending"
