@@ -7,6 +7,7 @@ Requirements: 15-REQ-1.* through 15-REQ-8.*
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -30,8 +31,8 @@ from .conftest import (
     hours_ago,
     make_execution_state,
     make_session_record,
+    mock_state,
     write_plan_file,
-    write_state_file,
 )
 
 # -- Helpers ------------------------------------------------------------------
@@ -397,7 +398,6 @@ class TestPerTaskActivityGeneration:
 
     def test_per_task_breakdown_from_sessions(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -441,14 +441,14 @@ class TestPerTaskActivityGeneration:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=24,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=24,
+                db_conn=MagicMock(),
+            )
 
         assert len(report.task_activities) == 2
 
@@ -478,7 +478,6 @@ class TestEnrichedQueueSummary:
 
     def test_queue_enriched_fields(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -501,14 +500,14 @@ class TestEnrichedQueueSummary:
                 "s:5": "pending",  # ready (no deps)
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=24,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=24,
+                db_conn=MagicMock(),
+            )
 
         assert report.queue.total == 5
         assert report.queue.in_progress == 1

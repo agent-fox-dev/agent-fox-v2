@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
 from agent_fox.graph.persistence import load_plan
 from agent_fox.graph.types import TaskGraph
 from agent_fox.reporting import parse_audit_payload
@@ -367,7 +367,6 @@ class StandupReport:
 
 
 def generate_standup(
-    state_path: Path,
     plan_path: Path | None = None,
     repo_path: Path | None = None,
     hours: int = 24,
@@ -376,23 +375,19 @@ def generate_standup(
 ) -> StandupReport:
     """Generate a standup report for the given time window.
 
-    Prefers DuckDB audit_events for session activity when a DuckDB
-    connection is available, falling back to state.jsonl when it is not.
+    Uses DuckDB for execution state and audit events.
 
     Args:
-        state_path: Path to .agent-fox/state.jsonl.
         plan_path: Path to .agent-fox/plan.json.
         repo_path: Path to the git repository root.
         hours: Reporting window in hours (default 24).
         agent_author: Git author name used by agent-fox for filtering.
-        db_conn: Optional DuckDB connection for reading audit events.
-            When provided, session metrics are sourced from audit_events.
-            Falls back to state.jsonl when None or on query failure.
+        db_conn: DuckDB connection for state and audit event loading.
 
     Returns:
         StandupReport covering the specified time window.
 
-    Requirements: 40-REQ-14.2, 40-REQ-14.3
+    Requirements: 40-REQ-14.2, 40-REQ-14.3, 105-REQ-5.3
     """
     # Compute time window
     now = datetime.now(UTC)
@@ -408,8 +403,8 @@ def generate_standup(
     # Load plan (needed for queue summary)
     graph = load_plan(plan_path)
 
-    # Load execution state
-    state = StateManager(state_path).load()
+    # Load execution state from DB
+    state = load_state_from_db(db_conn) if db_conn is not None else None
 
     # Filter sessions within the time window
     windowed_sessions = _filter_sessions_by_window(
@@ -425,7 +420,7 @@ def generate_standup(
             audit_standup.total_sessions,
         )
 
-    # Compute agent activity from windowed sessions (state.jsonl fallback)
+    # Compute agent activity from windowed sessions
     agent = _compute_agent_activity(windowed_sessions)
 
     # Compute per-task activity breakdowns (all sessions, not just windowed)

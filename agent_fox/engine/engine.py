@@ -51,8 +51,9 @@ from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
-    StateManager,
+    compute_plan_hash_from_file,
     invoke_runner,
+    load_state_from_db,
 )
 from agent_fox.graph.injection import ensure_graph_archetypes
 from agent_fox.graph.persistence import load_plan, save_plan
@@ -178,7 +179,6 @@ class Orchestrator:
         self,
         config: OrchestratorConfig,
         plan_path: Path,
-        state_path: Path,
         session_runner_factory: Callable[..., Any],
         *,
         watch: bool = False,
@@ -199,7 +199,6 @@ class Orchestrator:
         # 70-REQ-1.1: Watch mode flag — keep running after all tasks complete
         self._watch = watch
         self._plan_path = plan_path
-        self._state_manager = StateManager(state_path)
         self._circuit = CircuitBreaker(config)
         self._graph_sync: GraphSync | None = None
         self._signal = _SignalHandler()
@@ -412,14 +411,13 @@ class Orchestrator:
 
         edges_dict = _build_edges_dict_from_graph(graph)
         plan_hash = self._compute_plan_hash()
-        # Detect fresh start before any saves modify the state file.
         # 70-REQ-4.1: On fresh start, respect explicit 'blocked' status from
         # the plan; on resume, reset blocked tasks so they get fresh retries.
-        is_fresh_start = not self._state_manager._state_path.exists()
-        state = _load_or_init_state(self._state_manager, plan_hash, graph)
-        _reset_in_progress_tasks(state, self._state_manager)
+        state = _load_or_init_state(self._knowledge_db_conn, plan_hash, graph)
+        is_fresh_start = state.total_sessions == 0 and not state.session_history
+        _reset_in_progress_tasks(state, self._knowledge_db_conn)
         if not is_fresh_start:
-            _reset_blocked_tasks(state, self._state_manager)
+            _reset_blocked_tasks(state, self._knowledge_db_conn)
         else:
             # On fresh start, restore explicit 'blocked' status from the plan
             # so that plans with pre-blocked nodes produce a stall condition
@@ -440,7 +438,6 @@ class Orchestrator:
         self._graph_sync = GraphSync(state.node_states, edges_dict)
         self._result_handler = SessionResultHandler(
             graph_sync=self._graph_sync,
-            state_manager=self._state_manager,
             routing_ladders=self._routing.ladders,
             retries_before_escalation=self._routing.retries_before_escalation,
             max_retries=self._config.max_retries,
@@ -536,7 +533,6 @@ class Orchestrator:
                             "limit_value": limit_value,
                         },
                     )
-                    self._state_manager.save(state)
                     return state
 
                 assert self._graph_sync is not None  # noqa: S101
@@ -553,7 +549,6 @@ class Orchestrator:
                             "Execution stalled. Summary: %s",
                             self._graph_sync.summary(),
                         )
-                        self._state_manager.save(state)
                         return state
 
                     if await self._try_end_of_run_discovery(state):
@@ -575,7 +570,6 @@ class Orchestrator:
                             return watch_result  # Terminal state (interrupted, etc.)
 
                     state.run_status = RunStatus.COMPLETED
-                    self._state_manager.save(state)
                     return state
 
                 if self._is_parallel and self._parallel_runner is not None:
@@ -695,7 +689,6 @@ class Orchestrator:
                     payload={"poll_number": poll, "new_tasks_found": False},
                 )
                 state.run_status = RunStatus.INTERRUPTED
-                self._state_manager.save(state)
                 return state
 
             # ── Step 2: Sleep for watch_interval (70-REQ-2.1) ──
@@ -712,7 +705,6 @@ class Orchestrator:
                     payload={"poll_number": poll, "new_tasks_found": False},
                 )
                 state.run_status = RunStatus.INTERRUPTED
-                self._state_manager.save(state)
                 return state
 
             # ── Step 4: Check circuit breaker (70-REQ-4.2) ──
@@ -722,7 +714,6 @@ class Orchestrator:
                     state.run_status = RunStatus.COST_LIMIT
                 else:
                     state.run_status = RunStatus.SESSION_LIMIT
-                self._state_manager.save(state)
                 return state
 
             # ── Step 5: Run sync barrier (70-REQ-2.2, 70-REQ-2.E1) ──
@@ -849,7 +840,7 @@ class Orchestrator:
             except Exception:
                 pass
         if self._plan_path.exists():
-            return StateManager.compute_plan_hash(self._plan_path)
+            return compute_plan_hash_from_file(self._plan_path)
         return ""
 
     def _check_launch(
@@ -880,7 +871,6 @@ class Orchestrator:
                 reason,
             )
             self._check_block_budget(state)
-            self._state_manager.save(state)
             return "blocked"
         return "limited"
 
@@ -925,8 +915,6 @@ class Orchestrator:
             first_dispatch = False
 
             self._graph_sync.mark_in_progress(node_id)
-            # Persist in_progress state so agent-fox status can show it
-            self._state_manager.save(state)
 
             # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
             timeout_override: int | None = None
@@ -1006,9 +994,7 @@ class Orchestrator:
         if not pool:
             return
 
-        # Persist in_progress state so agent-fox status can show it
         parallel_runner.track_tasks(list(pool))
-        self._state_manager.save(state)
 
         while pool:
             if self._signal.interrupted:
@@ -1064,7 +1050,6 @@ class Orchestrator:
                 )
 
             parallel_runner.track_tasks(list(pool))
-            self._state_manager.save(state)
 
     async def _fill_parallel_pool(
         self,
@@ -1417,20 +1402,17 @@ class Orchestrator:
                     "max_blocked_fraction": max_fraction,
                 },
             )
-            self._state_manager.save(state)
             return True
 
         return False
 
     def _sync_plan_statuses(self, state: ExecutionState) -> None:
-        """Write current node statuses back to DB and optionally to plan.json.
+        """Write current node statuses back to DB.
 
         Updates each node's ``status`` field in the graph to match the
-        execution state, then persists via DB (primary, 105-REQ-2.1) and
-        file-based save_plan (fallback for backward compat).
+        execution state, then persists to DB.
 
-        Requirements: 105-REQ-2.4 (status persisted per transition, not batch),
-                      but this method is retained for end-of-run sync barrier use.
+        Requirements: 105-REQ-2.1, 105-REQ-2.4 (DB-only, no plan.json)
         """
         if self._graph is None or not state.node_states:
             return
@@ -1459,12 +1441,6 @@ class Orchestrator:
                     )
             except Exception:
                 logger.debug("Failed to persist node statuses to DB", exc_info=True)
-
-        try:
-            save_plan(self._graph, self._plan_path)
-            logger.info("Updated plan.json with current node statuses")
-        except OSError:
-            logger.warning("Failed to update plan.json", exc_info=True)
 
     def _reload_config(self) -> None:
         """Reload configuration from disk if the file has changed.
@@ -1497,7 +1473,6 @@ class Orchestrator:
             await self._parallel_runner.cancel_all()
 
         state.run_status = RunStatus.INTERRUPTED
-        self._state_manager.save(state)
 
         summary = self._graph_sync.summary() if self._graph_sync else {}
         completed = summary.get("completed", 0)
@@ -1548,11 +1523,11 @@ def _seed_node_states_from_graph(graph: TaskGraph) -> dict[str, str]:
 
 
 def _load_or_init_state(
-    state_manager: StateManager,
+    conn: Any,
     plan_hash: str,
     graph: TaskGraph,
 ) -> ExecutionState:
-    """Load existing state or initialize fresh state.
+    """Load existing state from DB or initialize fresh state.
 
     If state exists and plan hash matches, reuse it (adding any new nodes).
     If state exists but plan hash differs, merge: carry forward
@@ -1560,8 +1535,10 @@ def _load_or_init_state(
     still exist in the new plan, so that already-finished work is not
     re-executed. New nodes and previously failed/blocked nodes start fresh.
     If no prior state exists, seed entirely from the TaskGraph.
+
+    Requirements: 105-REQ-5.3 (DB-only state loading, no JSONL)
     """
-    existing = state_manager.load()
+    existing = load_state_from_db(conn) if conn is not None else None
 
     if existing is not None:
         if existing.plan_hash != plan_hash:
@@ -1612,9 +1589,12 @@ def _load_or_init_state(
 
 def _reset_in_progress_tasks(
     state: ExecutionState,
-    state_manager: StateManager,
+    conn: Any,
 ) -> None:
-    """Reset in_progress tasks to pending on resume (04-REQ-7.E1)."""
+    """Reset in_progress tasks to pending on resume (04-REQ-7.E1).
+
+    Requirements: 105-REQ-2.E1 (DB-based reset)
+    """
     any_reset = False
     for node_id, status in state.node_states.items():
         if status == "in_progress":
@@ -1624,15 +1604,20 @@ def _reset_in_progress_tasks(
                 "Task %s was in_progress from prior run; resetting to pending.",
                 node_id,
             )
-    if any_reset:
-        state_manager.save(state)
+    if any_reset and conn is not None:
+        from agent_fox.engine.state import reset_in_progress_nodes
+
+        reset_in_progress_nodes(conn)
 
 
 def _reset_blocked_tasks(
     state: ExecutionState,
-    state_manager: StateManager,
+    conn: Any,
 ) -> None:
-    """Reset blocked tasks to pending on resume so they get fresh retries."""
+    """Reset blocked tasks to pending on resume so they get fresh retries.
+
+    Requirements: 105-REQ-5.3 (DB-only persistence)
+    """
     any_reset = False
     for node_id, status in state.node_states.items():
         if status == "blocked":
@@ -1643,8 +1628,12 @@ def _reset_blocked_tasks(
                 "Task %s was blocked from prior run; resetting to pending.",
                 node_id,
             )
-    if any_reset:
-        state_manager.save(state)
+    if any_reset and conn is not None:
+        from agent_fox.engine.state import persist_node_status
+
+        for node_id, status in state.node_states.items():
+            if status == "pending":
+                persist_node_status(conn, node_id, "pending")
 
 
 def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:

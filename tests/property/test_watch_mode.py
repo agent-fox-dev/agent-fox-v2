@@ -157,7 +157,6 @@ class TestPollNumberMonotonicity:
 
         plan_dir = tmp_path / f"run_{n}" / ".agent-fox"
         plan_path = _write_empty_plan(plan_dir)
-        state_path = plan_dir / "state.jsonl"
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -173,7 +172,6 @@ class TestPollNumberMonotonicity:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=state_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
         )
@@ -227,7 +225,6 @@ class TestHotLoadGate:
 
         plan_dir = tmp_path / f"hl_{watch_interval}" / ".agent-fox"
         plan_path = _write_empty_plan(plan_dir)
-        state_path = plan_dir / "state.jsonl"
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -243,7 +240,6 @@ class TestHotLoadGate:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=state_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
         )
@@ -284,7 +280,6 @@ class TestStallOverridesWatch:
 
         plan_dir = tmp_path / f"stall_{watch}" / ".agent-fox"
         plan_path = _write_stalled_plan(plan_dir)
-        state_path = plan_dir / "state.jsonl"
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -299,7 +294,6 @@ class TestStallOverridesWatch:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=state_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
         )

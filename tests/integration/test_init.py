@@ -116,12 +116,12 @@ class TestInitGitignore:
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/config.toml" in gitignore
 
-    def test_gitignore_excludes_state(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init adds !.agent-fox/state.jsonl exception to .gitignore."""
+    def test_gitignore_does_not_include_state(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init does not add !.agent-fox/state.jsonl exception to .gitignore."""
         cli_runner.invoke(main, ["init"])
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
-        assert "!.agent-fox/state.jsonl" in gitignore
+        assert "!.agent-fox/state.jsonl" not in gitignore
 
     def test_gitignore_excludes_memory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds !.agent-fox/memory.jsonl exception to .gitignore."""
@@ -146,14 +146,6 @@ class TestInitSeedFiles:
         cli_runner.invoke(main, ["init"])
 
         path = tmp_git_repo / ".agent-fox" / "memory.jsonl"
-        assert path.exists()
-        assert path.read_text() == ""
-
-    def test_init_creates_state_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init creates an empty .agent-fox/state.jsonl."""
-        cli_runner.invoke(main, ["init"])
-
-        path = tmp_git_repo / ".agent-fox" / "state.jsonl"
         assert path.exists()
         assert path.read_text() == ""
 

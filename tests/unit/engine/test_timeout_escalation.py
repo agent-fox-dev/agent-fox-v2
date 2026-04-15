@@ -19,7 +19,7 @@ import pytest
 
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Test helpers
@@ -107,7 +107,6 @@ def _make_handler(
     The mock_ladder is the escalation ladder for node_id.
     """
     graph_sync = GraphSync({node_id: "in_progress"}, {node_id: []})
-    mock_state_manager = MagicMock(spec=StateManager)
 
     mock_ladder = _make_mock_ladder(is_exhausted=is_exhausted)
     routing_ladders: dict[str, Any] = {node_id: mock_ladder}
@@ -121,7 +120,6 @@ def _make_handler(
 
     handler = SessionResultHandler(
         graph_sync=graph_sync,
-        state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
         retries_before_escalation=1,
         max_retries=2,

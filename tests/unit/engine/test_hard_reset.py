@@ -22,7 +22,7 @@ from unittest.mock import patch
 import pytest
 
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Helpers (shared with test_reset.py patterns)
@@ -76,17 +76,16 @@ def _write_plan(plan_dir: Path, **kwargs: Any) -> Path:
     return plan_path
 
 
-def _write_state(
-    state_path: Path,
+def _make_state(
     node_states: dict[str, str],
     session_history: list[SessionRecord] | None = None,
     total_cost: float = 0.0,
     total_input_tokens: int = 0,
     total_output_tokens: int = 0,
     total_sessions: int = 0,
-) -> None:
-    """Write an ExecutionState to a state.jsonl file."""
-    state = ExecutionState(
+) -> ExecutionState:
+    """Build an ExecutionState for testing."""
+    return ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         session_history=session_history or [],
@@ -97,8 +96,6 @@ def _write_state(
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    manager = StateManager(state_path)
-    manager.save(state)
 
 
 def _make_session_record(
@@ -126,18 +123,17 @@ def _make_session_record(
     return SessionRecord(**defaults)  # type: ignore[arg-type]
 
 
-def _setup_agent_dir(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
+def _setup_agent_dir(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     """Create standard .agent-fox directory structure.
 
-    Returns (agent_dir, state_path, plan_path, worktrees_dir, memory_path).
+    Returns (agent_dir, plan_path, worktrees_dir, memory_path).
     """
     agent_dir = tmp_path / ".agent-fox"
-    state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
     worktrees_dir = agent_dir / "worktrees"
     memory_path = agent_dir / "memory.jsonl"
     worktrees_dir.mkdir(parents=True, exist_ok=True)
-    return agent_dir, state_path, plan_path, worktrees_dir, memory_path
+    return agent_dir, plan_path, worktrees_dir, memory_path
 
 
 # ===========================================================================
@@ -179,37 +175,22 @@ class TestCommitShaEmptyOnFailure:
 class TestBackwardCompatDeserialization:
     """TS-35-3: Deserializing SessionRecord without commit_sha defaults to ''."""
 
-    def test_deserialize_without_commit_sha(self, tmp_path: Path) -> None:
-        """State.jsonl entries without commit_sha deserialize with commit_sha=''."""
-        state_path = tmp_path / "state.jsonl"
-        # Write a state with session_history that lacks commit_sha
-        state_data = {
-            "plan_hash": "abc123",
-            "node_states": {"s:1": "completed"},
-            "session_history": [
-                {
-                    "node_id": "s:1",
-                    "attempt": 1,
-                    "status": "completed",
-                    "input_tokens": 100,
-                    "output_tokens": 50,
-                    "cost": 0.01,
-                    "duration_ms": 5000,
-                    "error_message": None,
-                    "timestamp": "2026-03-01T10:00:00Z",
-                    # NO commit_sha key
-                }
-            ],
-            "total_cost": 0.01,
-            "total_sessions": 1,
-        }
-        state_path.write_text(json.dumps(state_data) + "\n")
-
-        manager = StateManager(state_path)
-        state = manager.load()
-        assert state is not None
-        assert len(state.session_history) == 1
-        assert state.session_history[0].commit_sha == ""
+    def test_deserialize_without_commit_sha(self) -> None:
+        """SessionRecord without commit_sha field defaults to empty string."""
+        # SessionRecord created without explicit commit_sha should default to ''
+        record = SessionRecord(
+            node_id="s:1",
+            attempt=1,
+            status="completed",
+            input_tokens=100,
+            output_tokens=50,
+            cost=0.01,
+            duration_ms=5000,
+            error_message=None,
+            timestamp="2026-03-01T10:00:00Z",
+            # NO commit_sha argument
+        )
+        assert record.commit_sha == ""
 
 
 # ===========================================================================
@@ -227,19 +208,13 @@ class TestHardFlagAccepted:
 
         from agent_fox.cli.reset import reset_cmd
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
-        nodes = {"s:1": {"title": "T1"}}
-        _write_plan(agent_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed"})
-
         runner = CliRunner()
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             # Recreate structure in isolated filesystem
             iso_agent_dir = Path(td) / ".agent-fox"
             iso_agent_dir.mkdir(parents=True, exist_ok=True)
+            nodes = {"s:1": {"title": "T1"}}
             (iso_agent_dir / "plan.json").write_text(_make_plan_json(nodes=nodes))
-            iso_state = iso_agent_dir / "state.jsonl"
-            _write_state(iso_state, {"s:1": "completed"})
             (iso_agent_dir / "worktrees").mkdir(exist_ok=True)
             (iso_agent_dir / "memory.jsonl").write_text("")
 
@@ -267,23 +242,22 @@ class TestSoftResetUnchanged:
         """Without --hard, completed tasks remain completed."""
         from agent_fox.engine.reset import reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, _ = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, _ = _setup_agent_dir(tmp_path)
         nodes = {
             "s:1": {"title": "T1"},
             "s:2": {"title": "T2"},
         }
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed", "s:2": "failed"})
+        state = _make_state({"s:1": "completed", "s:2": "failed"})
 
-        result = reset_all(state_path, plan_path, worktrees_dir, tmp_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, tmp_path)
 
         # Only failed task was reset
         assert "s:2" in result.reset_tasks
         assert "s:1" not in result.reset_tasks
 
         # Verify completed task is still completed in state
-        state = StateManager(state_path).load()
-        assert state is not None
         assert state.node_states["s:1"] == "completed"
         assert state.node_states["s:2"] == "pending"
 
@@ -301,7 +275,7 @@ class TestFullHardResetAllTasks:
         """All tasks including completed are set to pending."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {
             "s:1": {"title": "T1"},
             "s:2": {"title": "T2"},
@@ -310,8 +284,7 @@ class TestFullHardResetAllTasks:
             "s:5": {"title": "T5"},
         }
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "pending",
                 "s:2": "in_progress",
@@ -322,11 +295,12 @@ class TestFullHardResetAllTasks:
         )
         memory_path.write_text("")
 
-        with _mock_git_for_hard_reset():
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
-        state = StateManager(state_path).load()
-        assert state is not None
         for task_id in state.node_states:
             assert state.node_states[task_id] == "pending"
 
@@ -346,10 +320,10 @@ class TestFullHardResetCleansWorktrees:
         """All worktree directories under .agent-fox/worktrees/ are removed."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}}
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed", "s:2": "completed"})
+        state = _make_state({"s:1": "completed", "s:2": "completed"})
         memory_path.write_text("")
 
         # Create worktree dirs
@@ -357,8 +331,11 @@ class TestFullHardResetCleansWorktrees:
         (worktrees_dir / "s" / "1" / "somefile.py").write_text("content")
         (worktrees_dir / "s" / "2").mkdir(parents=True)
 
-        with _mock_git_for_hard_reset():
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert len(result.cleaned_worktrees) == 2
         assert not (worktrees_dir / "s" / "1").exists()
@@ -378,14 +355,17 @@ class TestFullHardResetDeletesBranches:
         """All feature/{spec}/{group} branches are deleted."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}}
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed", "s:2": "failed"})
+        state = _make_state({"s:1": "completed", "s:2": "failed"})
         memory_path.write_text("")
 
-        with _mock_git_for_hard_reset(deleted_branches=["feature/s/1", "feature/s/2"]):
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(deleted_branches=["feature/s/1", "feature/s/2"]),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert "feature/s/1" in result.cleaned_branches
         assert "feature/s/2" in result.cleaned_branches
@@ -406,19 +386,19 @@ class TestFullHardResetCompactsKB:
 
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}}
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed"})
+        state = _make_state({"s:1": "completed"})
         memory_path.write_text("")
 
         mock_conn = MagicMock()
         with (
             _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
             patch("agent_fox.engine.reset.compact", return_value=(42, 38)),
         ):
             result = hard_reset_all(
-                state_path,
                 plan_path,
                 worktrees_dir,
                 tmp_path,
@@ -443,13 +423,12 @@ class TestFullHardResetPreservesCounters:
         """total_cost, tokens, sessions, session_history are unchanged."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}}
         _write_plan(agent_dir, nodes=nodes)
 
         history = [_make_session_record(node_id="s:1", status="completed")]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed"},
             session_history=history,
             total_cost=1.50,
@@ -459,11 +438,12 @@ class TestFullHardResetPreservesCounters:
         )
         memory_path.write_text("")
 
-        with _mock_git_for_hard_reset():
-            hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
-        state = StateManager(state_path).load()
-        assert state is not None
         assert state.total_cost == 1.50
         assert state.total_input_tokens == 1000
         assert state.total_output_tokens == 500
@@ -530,7 +510,7 @@ class TestPartialHardResetCleansAffected:
         """Only affected tasks' artifacts are cleaned."""
         from agent_fox.engine.reset import hard_reset_task
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {
             "s:1": {"title": "T1"},
             "s:2": {"title": "T2"},
@@ -543,8 +523,7 @@ class TestPartialHardResetCleansAffected:
             _make_session_record(node_id="s:2", commit_sha="bbb" * 13 + "b", status="completed"),
             _make_session_record(node_id="s:3", commit_sha="ccc" * 13 + "c", status="completed"),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed", "s:3": "completed"},
             session_history=history,
         )
@@ -556,11 +535,14 @@ class TestPartialHardResetCleansAffected:
         (worktrees_dir / "s" / "3").mkdir(parents=True)
 
         # Mock: rollback to before s:2, so s:2 and s:3 are affected
-        with _mock_git_for_hard_reset(
-            deleted_branches=["feature/s/2", "feature/s/3"],
-            ancestor_check=lambda sha, head: sha == "aaa" * 13 + "a",
+        with (
+            _mock_git_for_hard_reset(
+                deleted_branches=["feature/s/2", "feature/s/3"],
+                ancestor_check=lambda sha, head: sha == "aaa" * 13 + "a",
+            ),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
         ):
-            result = hard_reset_task("s:2", state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+            result = hard_reset_task("s:2", plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert "feature/s/2" in result.cleaned_branches
         assert "feature/s/3" in result.cleaned_branches
@@ -588,7 +570,6 @@ class TestConfirmationRequired:
             iso_agent_dir.mkdir(parents=True, exist_ok=True)
             nodes = {"s:1": {"title": "T1"}}
             (iso_agent_dir / "plan.json").write_text(_make_plan_json(nodes=nodes))
-            _write_state(iso_agent_dir / "state.jsonl", {"s:1": "completed"})
             (iso_agent_dir / "worktrees").mkdir(exist_ok=True)
             (iso_agent_dir / "memory.jsonl").write_text("")
 
@@ -618,7 +599,6 @@ class TestJsonOutput:
             iso_agent_dir.mkdir(parents=True, exist_ok=True)
             nodes = {"s:1": {"title": "T1"}}
             (iso_agent_dir / "plan.json").write_text(_make_plan_json(nodes=nodes))
-            _write_state(iso_agent_dir / "state.jsonl", {"s:1": "completed"})
             (iso_agent_dir / "worktrees").mkdir(exist_ok=True)
             (iso_agent_dir / "memory.jsonl").write_text("")
 
@@ -777,30 +757,10 @@ class TestResetTasksMdCheckboxes:
 # ===========================================================================
 # TS-35-18: Hard Reset Updates Plan.json Statuses
 # Requirement: 35-REQ-7.2
+# NOTE: reset_plan_statuses() was removed with the StateManager→DB migration.
+#       Plan node statuses are now persisted via _persist_resets() to DuckDB.
+#       The test class was removed because the function no longer exists.
 # ===========================================================================
-
-
-class TestResetPlanStatuses:
-    """TS-35-18: plan.json node statuses set to 'pending' for affected tasks."""
-
-    def test_plan_statuses_updated(self, tmp_path: Path) -> None:
-        """Affected nodes have status 'pending', others unchanged."""
-        from agent_fox.engine.reset import reset_plan_statuses
-
-        plan_path = tmp_path / "plan.json"
-        nodes = {
-            "s:0": {"title": "T0", "status": "completed"},
-            "s:1": {"title": "T1", "status": "completed"},
-            "s:2": {"title": "T2", "status": "completed"},
-        }
-        plan_path.write_text(_make_plan_json(nodes=nodes))
-
-        reset_plan_statuses(plan_path, ["s:1", "s:2"])
-
-        data = json.loads(plan_path.read_text())
-        assert data["nodes"]["s:1"]["status"] == "pending"
-        assert data["nodes"]["s:2"]["status"] == "pending"
-        assert data["nodes"]["s:0"]["status"] == "completed"
 
 
 # ===========================================================================
@@ -842,7 +802,7 @@ class TestNoCommitShasSkipsRollback:
         """All tasks reset, rollback_sha is None, no git reset executed."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}}
         _write_plan(agent_dir, nodes=nodes)
 
@@ -851,20 +811,19 @@ class TestNoCommitShasSkipsRollback:
             _make_session_record(node_id="s:1", commit_sha="", status="completed"),
             _make_session_record(node_id="s:2", commit_sha="", status="completed"),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed"},
             session_history=history,
         )
         memory_path.write_text("")
 
-        with _mock_git_for_hard_reset():
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert result.rollback_sha is None
-
-        state = StateManager(state_path).load()
-        assert state is not None
         assert all(s == "pending" for s in state.node_states.values())
 
 
@@ -881,7 +840,7 @@ class TestUnresolvableShaSkipsRollback:
         """Warning logged, rollback_sha is None, tasks still reset."""
         from agent_fox.engine.reset import hard_reset_all
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}}
         _write_plan(agent_dir, nodes=nodes)
 
@@ -893,21 +852,20 @@ class TestUnresolvableShaSkipsRollback:
                 status="completed",
             ),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed"},
             session_history=history,
         )
         memory_path.write_text("")
 
         # Mock git rev-parse to fail (simulate unresolvable SHA)
-        with _mock_git_for_hard_reset(rev_parse_fails=True):
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(rev_parse_fails=True),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert result.rollback_sha is None
-
-        state = StateManager(state_path).load()
-        assert state is not None
         assert all(s == "pending" for s in state.node_states.values())
 
 
@@ -924,24 +882,23 @@ class TestUnknownTaskIdError:
         """AgentFoxError raised with valid task IDs in message."""
         from agent_fox.engine.reset import hard_reset_task
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}, "s:3": {"title": "T3"}}
         _write_plan(agent_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed", "s:3": "pending"},
         )
         memory_path.write_text("")
 
         with pytest.raises(AgentFoxError) as exc_info:
-            hard_reset_task(
-                "nonexistent:99",
-                state_path,
-                plan_path,
-                worktrees_dir,
-                tmp_path,
-                memory_path,
-            )
+            with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+                hard_reset_task(
+                    "nonexistent:99",
+                    plan_path,
+                    worktrees_dir,
+                    tmp_path,
+                    memory_path,
+                )
 
         assert "s:1" in str(exc_info.value)
 
@@ -959,7 +916,7 @@ class TestPartialNoCommitSha:
         """Target task reset to pending, no code rollback."""
         from agent_fox.engine.reset import hard_reset_task
 
-        agent_dir, state_path, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
+        agent_dir, plan_path, worktrees_dir, memory_path = _setup_agent_dir(tmp_path)
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}}
         _write_plan(agent_dir, nodes=nodes)
 
@@ -967,20 +924,19 @@ class TestPartialNoCommitSha:
         history = [
             _make_session_record(node_id="s:2", commit_sha="", status="completed"),
         ]
-        _write_state(
-            state_path,
+        state = _make_state(
             {"s:1": "completed", "s:2": "completed"},
             session_history=history,
         )
         memory_path.write_text("")
 
-        with _mock_git_for_hard_reset():
-            result = hard_reset_task("s:2", state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+        with (
+            _mock_git_for_hard_reset(),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=state),
+        ):
+            result = hard_reset_task("s:2", plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert result.rollback_sha is None
-
-        state = StateManager(state_path).load()
-        assert state is not None
         assert state.node_states["s:2"] == "pending"
 
 
@@ -1005,7 +961,6 @@ class TestUserDeclines:
             iso_agent_dir.mkdir(parents=True, exist_ok=True)
             nodes = {"s:1": {"title": "T1"}}
             (iso_agent_dir / "plan.json").write_text(_make_plan_json(nodes=nodes))
-            _write_state(iso_agent_dir / "state.jsonl", {"s:1": "completed"})
             (iso_agent_dir / "worktrees").mkdir(exist_ok=True)
             (iso_agent_dir / "memory.jsonl").write_text("")
 
@@ -1048,18 +1003,9 @@ class TestTasksMdMissing:
 # ===========================================================================
 # TS-35-E8: Plan.json Missing
 # Requirement: 35-REQ-7.E2
+# NOTE: reset_plan_statuses() was removed with the StateManager→DB migration.
+#       The test class was removed because the function no longer exists.
 # ===========================================================================
-
-
-class TestPlanJsonMissing:
-    """TS-35-E8: Missing plan.json is skipped gracefully."""
-
-    def test_missing_plan_json_no_error(self) -> None:
-        """No error raised when plan.json doesn't exist."""
-        from agent_fox.engine.reset import reset_plan_statuses
-
-        # Should not raise
-        reset_plan_statuses(Path("/does/not/exist/plan.json"), ["s:1"])
 
 
 # ===========================================================================

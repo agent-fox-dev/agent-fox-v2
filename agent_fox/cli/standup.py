@@ -17,7 +17,7 @@ import click
 from rich.console import Console
 
 from agent_fox.cli import handle_agent_fox_errors
-from agent_fox.core.paths import AGENT_FOX_DIR
+from agent_fox.core.paths import AGENT_FOX_DIR, DEFAULT_DB_PATH
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
@@ -48,15 +48,27 @@ def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
     json_mode = ctx.obj.get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
 
-    report = generate_standup(
-        state_path=state_path,
-        plan_path=plan_path,
-        repo_path=project_root,
-        hours=hours,
-    )
+    db_conn = None
+    try:
+        import duckdb
+
+        if DEFAULT_DB_PATH.exists():
+            db_conn = duckdb.connect(str(DEFAULT_DB_PATH), read_only=True)
+    except Exception:
+        logger.debug("DuckDB unavailable for standup", exc_info=True)
+
+    try:
+        report = generate_standup(
+            plan_path=plan_path,
+            repo_path=project_root,
+            hours=hours,
+            db_conn=db_conn,
+        )
+    finally:
+        if db_conn is not None:
+            db_conn.close()
 
     if json_mode:
         from agent_fox.cli.json_io import emit

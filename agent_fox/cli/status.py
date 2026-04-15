@@ -122,12 +122,11 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
     json_mode = ctx.obj.get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    state_path = agent_dir / "state.jsonl"
     plan_path = agent_dir / "plan.json"
 
     db_conn = _get_readonly_conn()
     try:
-        report = _reporting_generate_status(state_path, plan_path, db_conn=db_conn)
+        report = _reporting_generate_status(plan_path=plan_path, db_conn=db_conn)
     finally:
         if db_conn is not None:
             db_conn.close()

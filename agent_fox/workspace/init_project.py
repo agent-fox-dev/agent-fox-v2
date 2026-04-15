@@ -30,7 +30,6 @@ _GITIGNORE_ENTRIES = [
     ".agent-fox/*",
     "!.agent-fox/config.toml",
     "!.agent-fox/memory.jsonl",
-    "!.agent-fox/state.jsonl",
     ".claude/worktrees/",
 ]
 
@@ -283,13 +282,12 @@ def _ensure_claude_settings(project_root: Path) -> None:
 def _ensure_seed_files(project_root: Path) -> None:
     """Create empty seed files so they are tracked in git from the start.
 
-    Creates .agent-fox/memory.jsonl, .agent-fox/state.jsonl, and
-    docs/memory.md if they do not already exist. Idempotent — existing
-    files are never overwritten.
+    Creates .agent-fox/memory.jsonl and docs/memory.md if they do not
+    already exist. Idempotent — existing files are never overwritten.
     """
     agent_fox_dir = project_root / ".agent-fox"
 
-    for name in ("memory.jsonl", "state.jsonl"):
+    for name in ("memory.jsonl",):
         path = agent_fox_dir / name
         if not path.exists():
             path.touch()

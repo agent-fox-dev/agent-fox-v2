@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -20,7 +21,7 @@ from agent_fox.engine.reset import (
     reset_all,
     reset_task,
 )
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState
 
 # -- Helpers ---------------------------------------------------------------
 
@@ -72,19 +73,16 @@ def _write_plan(plan_dir: Path, **kwargs: Any) -> Path:
     return plan_path
 
 
-def _write_state(
-    state_path: Path,
+def _make_state(
     node_states: dict[str, str],
-) -> None:
-    """Write an ExecutionState to a state.jsonl file."""
-    state = ExecutionState(
+) -> ExecutionState:
+    """Build an ExecutionState for testing."""
+    return ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    manager = StateManager(state_path)
-    manager.save(state)
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +123,6 @@ class TestFullReset:
     ) -> None:
         """Failed, blocked, and in_progress tasks are reset to pending."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -138,8 +135,7 @@ class TestFullReset:
             "s:5": {"title": "T5"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "completed",
                 "s:2": "completed",
@@ -153,7 +149,8 @@ class TestFullReset:
         (worktrees_dir / "s" / "3").mkdir(parents=True)
         (worktrees_dir / "s" / "5").mkdir(parents=True)
 
-        result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, repo_path)
 
         assert len(result.reset_tasks) == 3
         assert "s:1" not in result.reset_tasks
@@ -169,7 +166,6 @@ class TestFullReset:
     ) -> None:
         """Completed tasks are never included in reset_tasks."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -180,8 +176,7 @@ class TestFullReset:
             "s:3": {"title": "T3"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "completed",
                 "s:2": "completed",
@@ -189,7 +184,8 @@ class TestFullReset:
             },
         )
 
-        result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, repo_path)
 
         assert "s:1" not in result.reset_tasks
         assert "s:2" not in result.reset_tasks
@@ -200,21 +196,21 @@ class TestFullReset:
     ) -> None:
         """Worktree directories for reset tasks are removed."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
 
         nodes = {"s:1": {"title": "T1"}}
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "failed"})
+        state = _make_state({"s:1": "failed"})
 
         # Create worktree directory
         wt_dir = worktrees_dir / "s" / "1"
         wt_dir.mkdir(parents=True)
         (wt_dir / "somefile.py").write_text("content")
 
-        result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, repo_path)
 
         assert len(result.reset_tasks) == 1
         assert not wt_dir.exists()
@@ -235,7 +231,6 @@ class TestSingleTaskReset:
     ) -> None:
         """Single task is reset to pending."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -245,15 +240,15 @@ class TestSingleTaskReset:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "failed",
                 "s:2": "pending",
             },
         )
 
-        result = reset_task("s:1", state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_task("s:1", plan_path, worktrees_dir, repo_path)
 
         assert "s:1" in result.reset_tasks
 
@@ -272,7 +267,6 @@ class TestSingleTaskReset:
         - C should be unblocked (A was only non-completed dependency; D done).
         """
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -294,8 +288,7 @@ class TestSingleTaskReset:
             edges=edges,
             order=["s:4", "s:1", "s:2", "s:3"],
         )
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "failed",
                 "s:2": "blocked",
@@ -304,13 +297,13 @@ class TestSingleTaskReset:
             },
         )
 
-        result = reset_task(
-            "s:1",
-            state_path,
-            plan_path,
-            worktrees_dir,
-            repo_path,
-        )
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_task(
+                "s:1",
+                plan_path,
+                worktrees_dir,
+                repo_path,
+            )
 
         assert "s:1" in result.reset_tasks
         assert "s:2" in result.unblocked_tasks
@@ -329,7 +322,6 @@ class TestSingleTaskReset:
         - E should NOT be unblocked (B is still failed).
         """
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -349,8 +341,7 @@ class TestSingleTaskReset:
             edges=edges,
             order=["s:1", "s:2", "s:3"],
         )
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "failed",
                 "s:2": "failed",
@@ -358,13 +349,13 @@ class TestSingleTaskReset:
             },
         )
 
-        result = reset_task(
-            "s:1",
-            state_path,
-            plan_path,
-            worktrees_dir,
-            repo_path,
-        )
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_task(
+                "s:1",
+                plan_path,
+                worktrees_dir,
+                repo_path,
+            )
 
         assert "s:1" in result.reset_tasks
         assert "s:3" not in result.unblocked_tasks
@@ -385,7 +376,6 @@ class TestResetNothingToReset:
     ) -> None:
         """Reset returns empty result when no incomplete tasks exist."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -395,15 +385,15 @@ class TestResetNothingToReset:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "completed",
                 "s:2": "pending",
             },
         )
 
-        result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, repo_path)
 
         assert len(result.reset_tasks) == 0
 
@@ -421,10 +411,9 @@ class TestResetNoStateFile:
         self,
         tmp_path: Path,
     ) -> None:
-        """AgentFoxError raised when no state file exists."""
+        """AgentFoxError raised when no state exists."""
         plan_dir = tmp_path / ".agent-fox"
         plan_dir.mkdir(parents=True, exist_ok=True)
-        bad_state = Path("/nonexistent/state.jsonl")
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -433,7 +422,7 @@ class TestResetNoStateFile:
         plan_path = _write_plan(plan_dir, nodes=nodes)
 
         with pytest.raises(AgentFoxError) as exc_info:
-            reset_all(bad_state, plan_path, worktrees_dir, repo_path)
+            reset_all(plan_path, worktrees_dir, repo_path, db_conn=None)
 
         assert "code" in str(exc_info.value).lower()
 
@@ -453,7 +442,6 @@ class TestResetUnknownTask:
     ) -> None:
         """AgentFoxError raised with valid task IDs in message."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -463,8 +451,7 @@ class TestResetUnknownTask:
             "s:2": {"title": "T2"},
         }
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(
-            state_path,
+        state = _make_state(
             {
                 "s:1": "completed",
                 "s:2": "pending",
@@ -472,13 +459,13 @@ class TestResetUnknownTask:
         )
 
         with pytest.raises(AgentFoxError) as exc_info:
-            reset_task(
-                "nonexistent:99",
-                state_path,
-                plan_path,
-                worktrees_dir,
-                repo_path,
-            )
+            with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+                reset_task(
+                    "nonexistent:99",
+                    plan_path,
+                    worktrees_dir,
+                    repo_path,
+                )
 
         # Error message should list valid task IDs
         error_msg = str(exc_info.value)
@@ -500,22 +487,21 @@ class TestResetCompletedTask:
     ) -> None:
         """Resetting a completed task makes no changes."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
 
         nodes = {"s:1": {"title": "T1"}}
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed"})
+        state = _make_state({"s:1": "completed"})
 
-        result = reset_task(
-            "s:1",
-            state_path,
-            plan_path,
-            worktrees_dir,
-            repo_path,
-        )
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_task(
+                "s:1",
+                plan_path,
+                worktrees_dir,
+                repo_path,
+            )
 
         assert len(result.reset_tasks) == 0
 
@@ -525,21 +511,20 @@ class TestResetCompletedTask:
     ) -> None:
         """Completed task ID is returned in skipped_completed (07-REQ-5.E2)."""
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
 
         nodes = {"s:1": {"title": "T1"}}
         plan_path = _write_plan(plan_dir, nodes=nodes)
-        _write_state(state_path, {"s:1": "completed"})
+        state = _make_state({"s:1": "completed"})
 
-        result = reset_task(
-            "s:1",
-            state_path,
-            plan_path,
-            worktrees_dir,
-            repo_path,
-        )
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_task(
+                "s:1",
+                plan_path,
+                worktrees_dir,
+                repo_path,
+            )
 
         assert result.skipped_completed == ["s:1"]

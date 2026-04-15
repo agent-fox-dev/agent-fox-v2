@@ -6,7 +6,6 @@ Requirements: 07-REQ-4.1, 07-REQ-4.2, 07-REQ-5.1, 07-REQ-5.2,
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import shutil
@@ -14,12 +13,19 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import duckdb
+if TYPE_CHECKING:
+    import duckdb
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.core.node_id import parse_node_id
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import (
+    ExecutionState,
+    SessionRecord,
+    load_state_from_db,
+    persist_node_status,
+)
 from agent_fox.graph.persistence import load_plan_or_raise
 from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.compaction import compact
@@ -28,6 +34,20 @@ logger = logging.getLogger(__name__)
 
 # Statuses that qualify for reset (not completed, pending, or skipped)
 _RESETTABLE_STATUSES = frozenset({"failed", "blocked", "in_progress"})
+
+
+def _persist_resets(
+    db_conn: duckdb.DuckDBPyConnection | None,
+    task_ids: list[str],
+) -> None:
+    """Persist reset node statuses to DB."""
+    if db_conn is None:
+        return
+    try:
+        for task_id in task_ids:
+            persist_node_status(db_conn, task_id, "pending", blocked_reason=None)
+    except Exception:
+        logger.debug("Failed to persist resets to DB", exc_info=True)
 
 
 @dataclass(frozen=True)
@@ -75,13 +95,23 @@ def _load_or_raise[T](
     return result
 
 
-def _load_state_or_raise(state_path: Path) -> ExecutionState:
-    """Load execution state from state.jsonl, raising if missing."""
-    return _load_or_raise(
-        state_path,
-        lambda p: StateManager(p).load(),
-        "No execution state found. Run `agent-fox code` first.",
-    )
+def _load_state_or_raise(
+    db_conn: duckdb.DuckDBPyConnection | None,
+) -> ExecutionState:
+    """Load execution state from DB, raising if missing.
+
+    Requirements: 105-REQ-5.3 (no StateManager/JSONL)
+    """
+    if db_conn is None:
+        raise AgentFoxError(
+            "No database connection available. Run `agent-fox code` first.",
+        )
+    state = load_state_from_db(db_conn)
+    if state is None:
+        raise AgentFoxError(
+            "No execution state found. Run `agent-fox code` first.",
+        )
+    return state
 
 
 def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
@@ -136,10 +166,10 @@ def _find_sole_blocker_dependents(
 
 
 def reset_all(
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> ResetResult:
     """Reset all incomplete tasks to pending.
 
@@ -147,10 +177,10 @@ def reset_all(
     Cleans up worktree directories and feature branches.
 
     Args:
-        state_path: Path to .agent-fox/state.jsonl.
         plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to .agent-fox/worktrees/.
         repo_path: Path to the git repository root.
+        db_conn: DuckDB connection for state persistence.
 
     Returns:
         ResetResult summarizing what was reset.
@@ -158,7 +188,7 @@ def reset_all(
     Raises:
         AgentFoxError: If state or plan files are missing.
     """
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
     _load_plan_or_raise(plan_path)
 
     # Find all resettable tasks
@@ -183,7 +213,7 @@ def reset_all(
         for task_id in reset_tasks:
             state.node_states[task_id] = "pending"
             state.blocked_reasons.pop(task_id, None)
-        StateManager(state_path).save(state)
+        _persist_resets(db_conn, reset_tasks)
 
     return ResetResult(
         reset_tasks=reset_tasks,
@@ -195,10 +225,10 @@ def reset_all(
 
 def reset_task(
     task_id: str,
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> ResetResult:
     """Reset a single task and re-evaluate downstream blockers.
 
@@ -207,10 +237,10 @@ def reset_task(
 
     Args:
         task_id: The task identifier to reset.
-        state_path: Path to .agent-fox/state.jsonl.
         plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to .agent-fox/worktrees/.
         repo_path: Path to the git repository root.
+        db_conn: DuckDB connection for state persistence.
 
     Returns:
         ResetResult summarizing what was reset and unblocked.
@@ -219,7 +249,7 @@ def reset_task(
         AgentFoxError: If the task ID is not found in the plan.
         AgentFoxError: If the task is already completed.
     """
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
     plan = _load_plan_or_raise(plan_path)
 
     # Validate task ID exists in the plan
@@ -277,8 +307,8 @@ def reset_task(
             cleaned_branches,
         )
 
-    # Persist updated state
-    StateManager(state_path).save(state)
+    # Persist updated state to DB
+    _persist_resets(db_conn, reset_tasks + unblocked_tasks)
 
     return ResetResult(
         reset_tasks=reset_tasks,
@@ -290,25 +320,25 @@ def reset_task(
 
 def reset_spec(
     spec_name: str,
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> ResetResult:
     """Reset all tasks belonging to a single spec to pending.
 
     Identifies all nodes (coder + archetype) whose spec_name matches,
     resets their state to pending, cleans worktrees/branches, and
-    synchronizes tasks.md and plan.json.
+    synchronizes tasks.md and DB statuses.
 
     Does NOT perform git rollback or knowledge compaction.
 
     Args:
         spec_name: The spec folder name to reset.
-        state_path: Path to .agent-fox/state.jsonl.
         plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to worktrees directory.
         repo_path: Path to the git repository root.
+        db_conn: DuckDB connection for state persistence.
 
     Returns:
         ResetResult with reset_tasks, cleaned_worktrees, cleaned_branches.
@@ -318,7 +348,7 @@ def reset_spec(
 
     Requirements: 50-REQ-1.1 .. 50-REQ-1.8, 50-REQ-4.1, 50-REQ-4.2
     """
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
     plan = _load_plan_or_raise(plan_path)
 
     # Collect all node IDs belonging to the target spec
@@ -350,12 +380,9 @@ def reset_spec(
     specs_dir = repo_path / ".specs"
     reset_tasks_md_checkboxes(spec_node_ids, specs_dir)
 
-    # Synchronize plan.json statuses (50-REQ-1.6)
-    reset_plan_statuses(plan_path, spec_node_ids)
-
-    # Save state — preserves session_history and counters (50-REQ-4.1, 50-REQ-4.2)
+    # Persist to DB (50-REQ-4.1, 50-REQ-4.2)
     if non_pending:
-        StateManager(state_path).save(state)
+        _persist_resets(db_conn, spec_node_ids)
 
     return ResetResult(
         reset_tasks=non_pending,
@@ -369,14 +396,13 @@ def _perform_hard_reset(
     state: ExecutionState,
     affected_ids: list[str],
     rollback_sha: str | None,
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     memory_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> HardResetResult:
-    """Shared hard-reset logic: reset states, clean artifacts, compact, save.
+    """Shared hard-reset logic: reset states, clean artifacts, compact, persist.
 
     Used by both hard_reset_all and hard_reset_task.
     """
@@ -397,10 +423,9 @@ def _perform_hard_reset(
     # Reset artifact synchronization
     specs_dir = repo_path / ".specs"
     reset_tasks_md_checkboxes(affected_ids, specs_dir)
-    reset_plan_statuses(plan_path, affected_ids)
 
-    # Save state (preserving counters and session history)
-    StateManager(state_path).save(state)
+    # Persist resets to DB
+    _persist_resets(db_conn, affected_ids)
 
     return HardResetResult(
         reset_tasks=affected_ids,
@@ -412,7 +437,6 @@ def _perform_hard_reset(
 
 
 def hard_reset_all(
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
@@ -423,7 +447,7 @@ def hard_reset_all(
 
     Requirements: 35-REQ-3.1 .. 35-REQ-3.7, 35-REQ-3.E1, 35-REQ-3.E2
     """
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
     _load_plan_or_raise(plan_path)
 
     # Determine rollback target
@@ -440,7 +464,6 @@ def hard_reset_all(
         state,
         list(state.node_states.keys()),
         rollback_sha,
-        state_path,
         plan_path,
         worktrees_dir,
         repo_path,
@@ -451,7 +474,6 @@ def hard_reset_all(
 
 def hard_reset_task(
     task_id: str,
-    state_path: Path,
     plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
@@ -462,7 +484,7 @@ def hard_reset_task(
 
     Requirements: 35-REQ-4.1 .. 35-REQ-4.5, 35-REQ-4.E1, 35-REQ-4.E2
     """
-    state = _load_state_or_raise(state_path)
+    state = _load_state_or_raise(db_conn)
     plan = _load_plan_or_raise(plan_path)
 
     # Validate task_id
@@ -500,7 +522,6 @@ def hard_reset_task(
         state,
         affected_ids,
         rollback_sha,
-        state_path,
         plan_path,
         worktrees_dir,
         repo_path,
@@ -516,12 +537,12 @@ def run_reset(
     soft: bool = True,
     hard: bool = False,
     spec: str | None = None,
-    state_path: Path | None = None,
     plan_path: Path | None = None,
     worktrees_dir: Path | None = None,
     repo_path: Path | None = None,
     memory_path: Path | None = None,
     specs_dir: Path | None = None,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> ResetResult | HardResetResult:
     """Reset task state.
 
@@ -534,12 +555,12 @@ def run_reset(
         soft: Perform a soft reset (default).
         hard: Perform a hard reset (overrides soft).
         spec: Reset all tasks for a single spec.
-        state_path: Path to state.jsonl.
         plan_path: Path to plan.json.
         worktrees_dir: Path to worktrees directory.
         repo_path: Project root directory.
         memory_path: Path to memory.jsonl (needed for hard reset).
         specs_dir: Not used directly, reserved for future use.
+        db_conn: DuckDB connection for state persistence.
 
     Returns:
         ResetResult or HardResetResult.
@@ -550,7 +571,6 @@ def run_reset(
 
     project_root = repo_path or Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    resolved_state = state_path or agent_dir / "state.jsonl"
     resolved_plan = plan_path or agent_dir / "plan.json"
     resolved_worktrees = worktrees_dir or agent_dir / "worktrees"
     resolved_memory = memory_path or agent_dir / "memory.jsonl"
@@ -558,44 +578,44 @@ def run_reset(
     if spec is not None:
         return reset_spec(
             spec_name=spec,
-            state_path=resolved_state,
             plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
+            db_conn=db_conn,
         )
 
     if hard:
         if target is not None:
             return hard_reset_task(
                 task_id=target,
-                state_path=resolved_state,
                 plan_path=resolved_plan,
                 worktrees_dir=resolved_worktrees,
                 repo_path=project_root,
                 memory_path=resolved_memory,
+                db_conn=db_conn,
             )
         return hard_reset_all(
-            state_path=resolved_state,
             plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
             memory_path=resolved_memory,
+            db_conn=db_conn,
         )
 
     if target is not None:
         return reset_task(
             task_id=target,
-            state_path=resolved_state,
             plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
+            db_conn=db_conn,
         )
 
     return reset_all(
-        state_path=resolved_state,
         plan_path=resolved_plan,
         worktrees_dir=resolved_worktrees,
         repo_path=project_root,
+        db_conn=db_conn,
     )
 
 
@@ -879,7 +899,7 @@ def find_affected_tasks(
 
 
 # ---------------------------------------------------------------------------
-# Spec file synchronization (tasks.md checkboxes, plan.json statuses)
+# Spec file synchronization (tasks.md checkboxes)
 # ---------------------------------------------------------------------------
 
 # Pattern matching a top-level task group line: "- [...] N."
@@ -948,33 +968,3 @@ def _reset_group_checkboxes(text: str, group_num: int) -> str:
     section = _CHECKBOX_RE.sub(r"\1 \2", section)
 
     return before + section + after
-
-
-def reset_plan_statuses(
-    plan_path: Path,
-    affected_task_ids: list[str],
-) -> None:
-    """Set node statuses in plan.json to ``pending`` for affected tasks.
-
-    Reads plan.json, updates each affected node's status field,
-    and writes it back. Skips if plan.json does not exist.
-    """
-    if not plan_path.exists():
-        logger.info("Skipping plan status update: %s not found", plan_path)
-        return
-
-    try:
-        data = json.loads(plan_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to read plan.json: %s", exc)
-        return
-
-    nodes = data.get("nodes", {})
-    for task_id in affected_task_ids:
-        if task_id in nodes:
-            nodes[task_id]["status"] = "pending"
-
-    plan_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )

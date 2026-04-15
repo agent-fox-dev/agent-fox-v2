@@ -7,13 +7,15 @@ with various task states, session records, and dependency structures.
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # -- State file helpers -------------------------------------------------------
 
@@ -84,9 +86,40 @@ def make_execution_state(
 
 
 def write_state_file(state_path: Path, state: ExecutionState) -> None:
-    """Write an ExecutionState to a state.jsonl file."""
-    manager = StateManager(state_path)
-    manager.save(state)
+    """Write an ExecutionState to a state.jsonl file (legacy, kept for compat).
+
+    Note: StateManager has been removed. This writes a minimal JSON
+    representation for tests that still reference state files.
+    """
+    import json
+
+    data = {
+        "plan_hash": state.plan_hash,
+        "node_states": state.node_states,
+        "session_history": [],
+        "total_input_tokens": state.total_input_tokens,
+        "total_output_tokens": state.total_output_tokens,
+        "total_cost": state.total_cost,
+        "total_sessions": state.total_sessions,
+        "started_at": state.started_at,
+        "updated_at": state.updated_at,
+        "run_status": state.run_status,
+        "blocked_reasons": state.blocked_reasons,
+    }
+    state_path.write_text(json.dumps(data) + "\n")
+
+
+@contextmanager
+def mock_state(state: ExecutionState):
+    """Context manager to mock load_state_from_db to return the given state.
+
+    Also patches DB-based plan loading to return None so that
+    generate_status falls through to file-based plan loading.
+    """
+    with patch("agent_fox.reporting.status.load_state_from_db", return_value=state), \
+         patch("agent_fox.reporting.standup.load_state_from_db", return_value=state), \
+         patch("agent_fox.graph.persistence._load_plan_from_db", return_value=None):
+        yield
 
 
 # -- Plan file helpers --------------------------------------------------------

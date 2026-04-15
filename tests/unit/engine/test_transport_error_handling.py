@@ -9,12 +9,12 @@ Requirements: 26-REQ-9.3 (transport-transparent retry path)
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 from unittest.mock import MagicMock
 
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Helpers (mirrors test_timeout_escalation.py pattern)
@@ -91,14 +91,12 @@ def _make_handler(
 ]:
     """Create a minimal SessionResultHandler with a mock escalation ladder."""
     graph_sync = GraphSync({node_id: "in_progress"}, {node_id: []})
-    mock_state_manager = MagicMock(spec=StateManager)
 
     mock_ladder = _make_mock_ladder(is_exhausted=is_exhausted)
     routing_ladders: dict[str, Any] = {node_id: mock_ladder}
 
     handler = SessionResultHandler(
         graph_sync=graph_sync,
-        state_manager=mock_state_manager,
         routing_ladders=routing_ladders,
         retries_before_escalation=1,
         max_retries=2,
@@ -259,9 +257,9 @@ class TestTransportInternalRetryNoFailedRecord:
 
     def test_transport_error_record_not_added_to_history_when_retried(self) -> None:
         """AC-7 (process path): When process() handles a transport-error record,
-        the state manager's record_session() is still called (the record is
-        stored), but the node is reset to pending — the orchestrator can
-        re-dispatch without treating this as a 'real' failure.
+        update_state_with_session() is still called (the record is stored),
+        but the node is reset to pending — the orchestrator can re-dispatch
+        without treating this as a 'real' failure.
 
         Note: The spec says transport errors that INTERNALLY succeed produce no
         failed record.  When transport retries are exhausted (transport failure
@@ -269,13 +267,13 @@ class TestTransportInternalRetryNoFailedRecord:
         the escalation ladder.
         """
         handler, mock_ladder, state, attempt_tracker, error_tracker = _make_handler()
-        mock_state_manager = cast(MagicMock, handler._state_manager)
 
         record = _make_transport_record()
         handler.process(record, 1, state, attempt_tracker, error_tracker)
 
-        # record_session IS called (we keep the record for auditing)
-        mock_state_manager.record_session.assert_called_once()
+        # State is updated (record kept for auditing via update_state_with_session)
+        assert state.total_sessions == 1
+        assert len(state.session_history) == 1
         # But the ladder was never penalised
         assert mock_ladder.record_failure.call_count == 0
         # And the node is pending (not blocked)

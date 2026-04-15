@@ -58,7 +58,6 @@ class _SpecBatchRunner:
 
         # Local path constants (no longer imported from core.paths — 105-REQ-5.1)
         _plan_path = Path(".agent-fox/plan.json")
-        _state_path = Path(".agent-fox/state.jsonl")
 
         # Build plan from the discovered specs
         task_groups: dict[str, list] = {}
@@ -84,10 +83,6 @@ class _SpecBatchRunner:
         )
         graph.order = resolve_order(graph)
         save_plan(graph, _plan_path)
-
-        # Clear stale state so the orchestrator starts fresh for this batch
-        if _state_path.exists():
-            _state_path.unlink()
 
         return await run_code(
             self._config,

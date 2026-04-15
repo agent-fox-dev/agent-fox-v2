@@ -16,8 +16,10 @@ from typing import Any
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from unittest.mock import MagicMock, patch
+
 from agent_fox.engine.reset import reset_spec
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # -- Strategies ------------------------------------------------------------
 
@@ -104,10 +106,9 @@ def _setup_for_property(
     session_history: list[SessionRecord] | None = None,
     total_cost: float = 0.0,
     total_sessions: int = 0,
-) -> tuple[Path, Path, Path, Path]:
-    """Set up plan, state, worktrees dir and return paths."""
+) -> tuple[ExecutionState, Path, Path, Path]:
+    """Set up plan, state, worktrees dir and return (state, plan_path, wt_dir, repo)."""
     agent_dir = tmp_path / ".agent-fox"
-    state_path = agent_dir / "state.jsonl"
     wt_dir = agent_dir / "worktrees"
     wt_dir.mkdir(parents=True, exist_ok=True)
 
@@ -123,7 +124,6 @@ def _setup_for_property(
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(state_path).save(state)
 
     # Create specs dirs with tasks.md for each spec
     specs_dir = tmp_path / ".specs"
@@ -147,7 +147,7 @@ def _setup_for_property(
                 lines.append(f"- {status} {g}. Task group {g}")
             (spec_dir / "tasks.md").write_text("\n".join(lines) + "\n")
 
-    return state_path, plan_path, wt_dir, tmp_path
+    return state, plan_path, wt_dir, tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -172,12 +172,12 @@ class TestSpecIsolation:
         tmp_path = tmp_path_factory.mktemp("iso")
 
         original_states = dict(node_states)
-        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        mock_conn = MagicMock()
 
-        reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
 
-        state = StateManager(state_path).load()
-        assert state is not None
         for nid, orig_status in original_states.items():
             spec = nodes[nid].get("spec_name", nid.split(":")[0])
             if spec != target_spec:
@@ -207,12 +207,12 @@ class TestCompleteSpecCoverage:
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("cov")
 
-        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        mock_conn = MagicMock()
 
-        reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
 
-        state = StateManager(state_path).load()
-        assert state is not None
         for nid, props in nodes.items():
             spec = props.get("spec_name", nid.split(":")[0])
             if spec == target_spec:
@@ -263,7 +263,7 @@ class TestPreservation:
             for i in range(num_sessions)
         ]
 
-        state_path, plan_path, wt_dir, repo = _setup_for_property(
+        state, plan_path, wt_dir, repo = _setup_for_property(
             tmp_path,
             nodes,
             node_states,
@@ -271,11 +271,11 @@ class TestPreservation:
             total_cost=cost,
             total_sessions=num_sessions,
         )
+        mock_conn = MagicMock()
 
-        reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
 
-        state = StateManager(state_path).load()
-        assert state is not None
         assert len(state.session_history) == num_sessions
         assert state.total_cost == cost
         assert state.total_sessions == num_sessions
@@ -302,9 +302,11 @@ class TestArtifactSynchronization:
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("sync")
 
-        state_path, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
+        mock_conn = MagicMock()
 
-        reset_spec(target_spec, state_path, plan_path, wt_dir, repo)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
 
         # Check plan.json
         plan_data = json.loads(plan_path.read_text())
