@@ -3,14 +3,12 @@
 Reads facts from DuckDB instead of JSONL.
 
 Requirements: 05-REQ-6.1, 05-REQ-6.2, 05-REQ-6.3, 05-REQ-6.E1,
-              05-REQ-6.E2, 39-REQ-2.1, 49-REQ-2.2
+              05-REQ-6.E2, 39-REQ-2.1
 """
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -92,48 +90,6 @@ def _render_fact(fact: Fact) -> str:
     """
     conf = f"{fact.confidence:.2f}"
     return f"- {fact.content} _(spec: {fact.spec_name}, confidence: {conf})_"
-
-
-def render_summary_json(
-    conn: duckdb.DuckDBPyConnection | None = None,
-    output_path: Path = Path("docs/memory.json"),
-) -> int:
-    """Export all active facts to a JSON file.
-
-    Produces a JSON object with a ``facts`` array and a ``generated``
-    ISO-8601 timestamp.  Each fact object contains ``id``, ``content``,
-    ``category``, ``spec_name``, and ``confidence``.
-
-    Args:
-        conn: DuckDB connection. Falls back automatically when ``None``.
-        output_path: Path to the output JSON file.
-
-    Returns:
-        The number of facts written.
-
-    Requirements: 49-REQ-2.2, 49-REQ-2.E1
-    """
-    facts: list[Fact] = read_all_facts(conn)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    fact_dicts = [
-        {
-            "id": fact.id,
-            "content": fact.content,
-            "category": fact.category,
-            "spec_name": fact.spec_name,
-            "confidence": fact.confidence,
-        }
-        for fact in facts
-    ]
-
-    data = {
-        "facts": fact_dicts,
-        "generated": datetime.now(UTC).isoformat(),
-    }
-    output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    logger.info("Rendered memory JSON to %s (%d facts)", output_path, len(facts))
-    return len(facts)
 
 
 def _render_empty_summary() -> str:

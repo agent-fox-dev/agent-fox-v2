@@ -1,7 +1,7 @@
-"""Tests for backing module separation: export, lint-specs, code, and remaining.
+"""Tests for backing module separation: lint-specs, code, and remaining.
 
-Test Spec: TS-59-7 through TS-59-19, TS-59-29, TS-59-30
-Requirements: 59-REQ-2.1 through 59-REQ-2.3, 59-REQ-3.1 through 59-REQ-3.E1,
+Test Spec: TS-59-10 through TS-59-19, TS-59-29, TS-59-30
+Requirements: 59-REQ-3.1 through 59-REQ-3.E1,
               59-REQ-4.1 through 59-REQ-4.E1, 59-REQ-5.1 through 59-REQ-5.3,
               59-REQ-9.1, 59-REQ-9.2
 """
@@ -9,79 +9,10 @@ Requirements: 59-REQ-2.1 through 59-REQ-2.3, 59-REQ-3.1 through 59-REQ-3.E1,
 from __future__ import annotations
 
 import inspect
-from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-# ---------------------------------------------------------------------------
-# TS-59-7 through TS-59-9: Export backing module
-# ---------------------------------------------------------------------------
-
-
-class TestExportMemoryCallable:
-    """TS-59-7: export_memory() can be imported and called directly.
-
-    Requirement: 59-REQ-2.1
-    """
-
-    def test_export_memory_returns_export_result(self, tmp_path: Path) -> None:
-        """export_memory returns ExportResult with count and output_path."""
-        from agent_fox.knowledge.export import ExportResult, export_memory
-
-        conn = MagicMock()
-        # Mock the DuckDB query for memory facts
-        conn.execute.return_value.fetchall.return_value = []
-
-        output_path = tmp_path / "memory.md"
-        result = export_memory(conn, output_path)
-
-        assert isinstance(result, ExportResult)
-        assert result.count >= 0
-        assert result.output_path == output_path
-
-
-class TestExportDbCallable:
-    """TS-59-8: export_db() can be imported and called directly.
-
-    Requirement: 59-REQ-2.2
-    """
-
-    def test_export_db_returns_export_result(self, tmp_path: Path) -> None:
-        """export_db returns ExportResult with table count."""
-        from agent_fox.knowledge.export import ExportResult, export_db
-
-        conn = MagicMock()
-        conn.execute.return_value.fetchall.return_value = []
-
-        output_path = tmp_path / "dump.md"
-        result = export_db(conn, output_path)
-
-        assert isinstance(result, ExportResult)
-        assert result.count >= 0
-
-
-class TestExportReturnsNotPrints:
-    """TS-59-9: Export functions return data instead of printing.
-
-    Requirement: 59-REQ-2.3
-    """
-
-    def test_export_memory_no_stdout(self, tmp_path: Path) -> None:
-        """export_memory produces no stdout/stderr output."""
-        from agent_fox.knowledge.export import export_memory
-
-        conn = MagicMock()
-        conn.execute.return_value.fetchall.return_value = []
-
-        captured = StringIO()
-        with patch("sys.stdout", captured), patch("sys.stderr", StringIO()):
-            result = export_memory(conn, tmp_path / "memory.md")
-
-        assert captured.getvalue() == ""
-        assert result.count >= 0
-
 
 # ---------------------------------------------------------------------------
 # TS-59-10 through TS-59-13: Lint-specs backing module
@@ -406,15 +337,6 @@ class TestCliHandlersDelegateToBacking:
     Requirement: 59-REQ-9.1
     """
 
-    def test_export_handler_delegates(self) -> None:
-        """export CLI handler calls export_memory or export_db."""
-        from agent_fox.cli import export as export_mod
-
-        source = inspect.getsource(export_mod)
-        assert "export_memory(" in source or "export_db(" in source, "export handler must delegate to backing functions"
-        # Should not contain direct DB queries
-        assert "conn.execute" not in source, "export handler must not contain direct DB queries"
-
     def test_lint_specs_handler_delegates(self) -> None:
         """lint-specs CLI handler calls run_lint_specs."""
         from agent_fox.cli import lint_specs as lint_mod
@@ -438,13 +360,4 @@ class TestCliHandlersPassOptions:
         # Check that at least some keyword args are passed
         assert "ai=" in source or "fix=" in source or "lint_all=" in source, (
             "lint-specs handler must pass options as keyword arguments"
-        )
-
-    def test_export_passes_named_args(self) -> None:
-        """export handler passes options as named params."""
-        from agent_fox.cli import export as export_mod
-
-        source = inspect.getsource(export_mod)
-        assert "json_mode=" in source or "output_path=" in source, (
-            "export handler must pass options as keyword arguments"
         )
