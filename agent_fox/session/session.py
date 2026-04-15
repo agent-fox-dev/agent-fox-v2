@@ -222,6 +222,17 @@ async def _execute_query(
 
     last_tool_name: str | None = None  # track most-recent tool for error attribution
 
+    # 103-REQ-2.1: Emit session.init trace event before backend execution
+    if sink_dispatcher is not None:
+        sink_dispatcher.record_session_init(
+            run_id=run_id,
+            node_id=node_id,
+            model_id=model_id,
+            archetype=archetype or "",
+            system_prompt=system_prompt,
+            task_prompt=task_prompt,
+        )
+
     async for message in backend.execute(  # type: ignore[attr-defined]
         task_prompt,
         system_prompt=system_prompt,
@@ -274,10 +285,24 @@ async def _execute_query(
                     tool_name=message.tool_name,
                 )
             )
+            # 103-REQ-4.1: Emit tool.use trace event
+            sink_dispatcher.record_tool_use(
+                run_id=run_id,
+                node_id=node_id,
+                tool_name=message.tool_name,
+                tool_input=message.tool_input,
+            )
 
         # Capture assistant text for review archetype parsing.
         if isinstance(message, AssistantMessage) and message.content:
             query_state.last_response = message.content
+            # 103-REQ-3.1: Emit assistant.message trace event
+            if sink_dispatcher is not None:
+                sink_dispatcher.record_assistant_message(
+                    run_id=run_id,
+                    node_id=node_id,
+                    content=message.content,
+                )
 
         # 03-REQ-3.2: Collect the ResultMessage.
         if not is_result:
@@ -304,10 +329,32 @@ async def _execute_query(
                         tool_name=last_tool_name,
                     )
                 )
+                # 103-REQ-5.1: Emit tool.error trace event
+                sink_dispatcher.record_tool_error_trace(
+                    run_id=run_id,
+                    node_id=node_id,
+                    tool_name=last_tool_name,
+                    error_message=query_state.error_message,
+                )
         else:
             query_state.status = "completed"
             query_state.error_message = None
             query_state.is_transport_error = False
+
+        # 103-REQ-6.1: Emit session.result trace event
+        if sink_dispatcher is not None:
+            sink_dispatcher.record_session_result(
+                run_id=run_id,
+                node_id=node_id,
+                status=query_state.status,
+                input_tokens=message.input_tokens,
+                output_tokens=message.output_tokens,
+                cache_read_input_tokens=message.cache_read_input_tokens,
+                cache_creation_input_tokens=message.cache_creation_input_tokens,
+                duration_ms=message.duration_ms,
+                is_error=message.is_error,
+                error_message=query_state.error_message,
+            )
 
     if not query_state.saw_result:
         query_state.status = "failed"

@@ -121,8 +121,7 @@ def _generate_missing_embeddings(
             embedding = embedder.embed_text(content)
             if embedding is not None:
                 conn.execute(
-                    f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) "
-                    f"VALUES (?::UUID, ?::FLOAT[{dim}])",
+                    f"INSERT OR IGNORE INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
                     [fact_id, embedding],
                 )
                 generated += 1
@@ -130,9 +129,7 @@ def _generate_missing_embeddings(
                 logger.warning("Embedding returned None for fact %s", fact_id)
                 failed += 1
         except Exception:
-            logger.warning(
-                "Embedding failed for fact %s", fact_id, exc_info=True
-            )
+            logger.warning("Embedding failed for fact %s", fact_id, exc_info=True)
             failed += 1
 
     return generated, failed
@@ -202,8 +199,7 @@ async def run_onboard(
 
     if not is_git:
         logger.warning(
-            "Project root %s is not a git repository; "
-            "git-dependent phases will be skipped",
+            "Project root %s is not a git repository; git-dependent phases will be skipped",
             project_root,
         )
 
@@ -254,9 +250,7 @@ async def run_onboard(
         try:
             errata_result = ingestor.ingest_errata()
             result.errata_ingested = errata_result.facts_added
-            logger.info(
-                "Errata ingestion: %d facts added", result.errata_ingested
-            )
+            logger.info("Errata ingestion: %d facts added", result.errata_ingested)
         except Exception:
             logger.warning("Errata ingestion failed", exc_info=True)
 
@@ -272,9 +266,7 @@ async def run_onboard(
             except Exception:
                 logger.warning("Git commit ingestion failed", exc_info=True)
         else:
-            logger.info(
-                "Skipping git commit ingestion (not a git repository)"
-            )
+            logger.info("Skipping git commit ingestion (not a git repository)")
 
     # -------------------------------------------------------------------------
     # Phase 3: Git Pattern Mining
@@ -285,9 +277,7 @@ async def run_onboard(
         logger.info("Skipping git pattern mining phase (--skip-mining)")
     elif not is_git:
         # 101-REQ-4.E1: skip mining for non-git repositories
-        logger.warning(
-            "Skipping git pattern mining: not a git repository"
-        )
+        logger.warning("Skipping git pattern mining: not a git repository")
     else:
         logger.info("Phase 3: git pattern mining")
         try:

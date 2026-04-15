@@ -85,6 +85,8 @@ class AuditEventType(StrEnum):
     WATCH_POLL = "watch.poll"
     SECURITY_FINDING_BLOCKED = "review.security_finding_blocked"
     FACT_CLEANUP = "fact.cleanup"
+    CONSOLIDATION_COMPLETE = "consolidation.complete"
+    CONSOLIDATION_COST = "consolidation.cost"
 
 
 # ---------------------------------------------------------------------------

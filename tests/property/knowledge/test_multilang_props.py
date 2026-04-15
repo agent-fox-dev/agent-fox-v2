@@ -53,9 +53,24 @@ def _make_go_source(struct_name: str, func_name: str) -> str:
     return f"package main\n\ntype {struct_name} struct {{}}\n\nfunc {func_name}() {{}}\n"
 
 
-# Valid Python identifier strategy (uppercase first char for class, lowercase for func)
+# Valid identifier strategies (uppercase first char for class, lowercase for func)
 _class_name_strategy = st.from_regex(r"[A-Z][a-zA-Z0-9]{1,10}", fullmatch=True)
-_func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=True)
+_base_func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=True)
+
+# Filter out language keywords — using them as identifiers produces unparseable source.
+import keyword as _keyword  # noqa: E402
+
+_py_func_name_strategy = _base_func_name_strategy.filter(
+    lambda n: not _keyword.iskeyword(n)
+)
+
+_GO_KEYWORDS = frozenset({
+    "break", "case", "chan", "const", "continue", "default", "defer", "else",
+    "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
+    "map", "package", "range", "return", "select", "struct", "switch", "type",
+    "var",
+})
+_go_func_name_strategy = _base_func_name_strategy.filter(lambda n: n not in _GO_KEYWORDS)
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +85,7 @@ class TestEntityValidity:
     """
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_entities_always_valid(
         self,
         tmp_path: Path,
@@ -101,7 +116,7 @@ class TestEntityValidity:
             assert entity.entity_type in valid_types, f"entity_type {entity.entity_type!r} is invalid"
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_go_entities_always_valid(
         self,
         tmp_path: Path,
@@ -143,7 +158,7 @@ class TestEdgeReferentialIntegrity:
     """
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_edge_ids_in_entity_set_or_sentinel(
         self,
         tmp_path: Path,
@@ -172,9 +187,7 @@ class TestEdgeReferentialIntegrity:
             target_id = edge.target_id
 
             # source_id must be in entity_ids (placeholder IDs are UUIDs)
-            assert source_id in entity_ids, (
-                f"edge source_id {source_id!r} not in entity_ids"
-            )
+            assert source_id in entity_ids, f"edge source_id {source_id!r} not in entity_ids"
             # target_id must be in entity_ids or a known sentinel pattern
             is_entity = target_id in entity_ids
             is_path_sentinel = target_id.startswith("path:")
@@ -184,7 +197,7 @@ class TestEdgeReferentialIntegrity:
             )
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_go_edge_ids_in_entity_set_or_sentinel(
         self,
         tmp_path: Path,
@@ -212,9 +225,7 @@ class TestEdgeReferentialIntegrity:
             source_id = edge.source_id
             target_id = edge.target_id
 
-            assert source_id in entity_ids, (
-                f"edge source_id {source_id!r} not in entity_ids"
-            )
+            assert source_id in entity_ids, f"edge source_id {source_id!r} not in entity_ids"
             is_entity = target_id in entity_ids
             is_path_sentinel = target_id.startswith("path:")
             is_class_sentinel = target_id.startswith("class:")
@@ -235,7 +246,7 @@ class TestUpsertIdempotency:
     """
 
     @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_analysis_idempotent(
         self,
         tmp_path: Path,
@@ -269,7 +280,7 @@ class TestUpsertIdempotency:
         )
 
     @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_multilang_analysis_idempotent(
         self,
         tmp_path: Path,
@@ -342,15 +353,11 @@ class TestScanSubset:
 
         # Every returned file must have an extension in the requested set
         for path in result:
-            assert path.suffix in extensions, (
-                f"Returned path {path} has extension {path.suffix!r} not in {extensions}"
-            )
+            assert path.suffix in extensions, f"Returned path {path} has extension {path.suffix!r} not in {extensions}"
 
         # Count must match total files with matching extensions
         expected_count = py_count + go_count
-        assert len(result) == expected_count, (
-            f"Expected {expected_count} files, got {len(result)}"
-        )
+        assert len(result) == expected_count, f"Expected {expected_count} files, got {len(result)}"
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @given(

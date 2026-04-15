@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent_fox.nightshift.dep_graph import DependencyEdge
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -61,9 +61,7 @@ class TestTriageUsesMaintainerHunt:
             await run_batch_triage(issues, edges, config)
 
         # Verify resolve_model_tier was called with maintainer:hunt
-        assert mock_tier.called, (
-            "run_batch_triage must call resolve_model_tier (100-REQ-5.1)"
-        )
+        assert mock_tier.called, "run_batch_triage must call resolve_model_tier (100-REQ-5.1)"
         call_args = mock_tier.call_args
         assert call_args is not None
         # First positional arg after config should be "maintainer"
@@ -72,12 +70,10 @@ class TestTriageUsesMaintainerHunt:
         archetype_arg = pos_args[1] if len(pos_args) > 1 else kwargs.get("archetype")
         mode_kwarg = kwargs.get("mode")
         assert archetype_arg == "maintainer", (
-            f"resolve_model_tier should be called with archetype='maintainer', "
-            f"got {archetype_arg!r} (100-REQ-2.2)"
+            f"resolve_model_tier should be called with archetype='maintainer', got {archetype_arg!r} (100-REQ-2.2)"
         )
         assert mode_kwarg == "hunt", (
-            f"resolve_model_tier should be called with mode='hunt', "
-            f"got {mode_kwarg!r} (100-REQ-2.2)"
+            f"resolve_model_tier should be called with mode='hunt', got {mode_kwarg!r} (100-REQ-2.2)"
         )
 
     @pytest.mark.asyncio
@@ -105,9 +101,7 @@ class TestTriageUsesMaintainerHunt:
 
             await run_batch_triage(issues, edges, config)
 
-        assert mock_sec.called, (
-            "run_batch_triage must call resolve_security_config (100-REQ-5.2)"
-        )
+        assert mock_sec.called, "run_batch_triage must call resolve_security_config (100-REQ-5.2)"
         call_args = mock_sec.call_args
         assert call_args is not None
         pos_args = call_args.args
@@ -115,12 +109,10 @@ class TestTriageUsesMaintainerHunt:
         archetype_arg = pos_args[1] if len(pos_args) > 1 else kwargs.get("archetype")
         mode_kwarg = kwargs.get("mode")
         assert archetype_arg == "maintainer", (
-            f"resolve_security_config should be called with archetype='maintainer', "
-            f"got {archetype_arg!r} (100-REQ-5.2)"
+            f"resolve_security_config should be called with archetype='maintainer', got {archetype_arg!r} (100-REQ-5.2)"
         )
         assert mode_kwarg == "hunt", (
-            f"resolve_security_config should be called with mode='hunt', "
-            f"got {mode_kwarg!r} (100-REQ-5.2)"
+            f"resolve_security_config should be called with mode='hunt', got {mode_kwarg!r} (100-REQ-5.2)"
         )
 
 
@@ -140,9 +132,7 @@ class TestNightshiftModelTierResolution:
 
         config = AgentFoxConfig()
         tier = resolve_model_tier(config, "maintainer", mode="hunt")
-        assert tier == "STANDARD", (
-            f"Expected STANDARD tier for maintainer:hunt, got {tier!r} (100-REQ-5.1)"
-        )
+        assert tier == "STANDARD", f"Expected STANDARD tier for maintainer:hunt, got {tier!r} (100-REQ-5.1)"
 
     def test_resolve_security_config_returns_hunt_allowlist(self) -> None:
         """TS-100-11: resolve_security_config for maintainer:hunt returns hunt allowlist."""
@@ -151,14 +141,11 @@ class TestNightshiftModelTierResolution:
 
         config = AgentFoxConfig()
         sec = resolve_security_config(config, "maintainer", mode="hunt")
-        assert sec is not None, (
-            "resolve_security_config should return SecurityConfig for maintainer:hunt (100-REQ-5.2)"
-        )
+        assert sec is not None, "resolve_security_config should return SecurityConfig for maintainer:hunt (100-REQ-5.2)"
         expected_allowlist = {"ls", "cat", "git", "wc", "head", "tail"}
         actual_allowlist = set(sec.bash_allowlist)
         assert actual_allowlist == expected_allowlist, (
-            f"Hunt mode allowlist mismatch: expected {expected_allowlist}, "
-            f"got {actual_allowlist} (100-REQ-5.2)"
+            f"Hunt mode allowlist mismatch: expected {expected_allowlist}, got {actual_allowlist} (100-REQ-5.2)"
         )
 
     def test_resolve_model_tier_extraction_returns_standard(self) -> None:
@@ -168,9 +155,7 @@ class TestNightshiftModelTierResolution:
 
         config = AgentFoxConfig()
         tier = resolve_model_tier(config, "maintainer", mode="extraction")
-        assert tier == "STANDARD", (
-            f"Expected STANDARD tier for maintainer:extraction, got {tier!r}"
-        )
+        assert tier == "STANDARD", f"Expected STANDARD tier for maintainer:extraction, got {tier!r}"
 
 
 # ===========================================================================
@@ -201,6 +186,5 @@ triage = true
         # Config parsing must not raise
         config = AgentFoxConfig.model_validate(raw)
         assert config is not None, (
-            "AgentFoxConfig.model_validate should succeed when archetypes.triage is present "
-            "(100-REQ-2.E1)"
+            "AgentFoxConfig.model_validate should succeed when archetypes.triage is present (100-REQ-2.E1)"
         )

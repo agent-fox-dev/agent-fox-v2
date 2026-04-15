@@ -25,5 +25,9 @@ verifier = true
 ## Number of verifier instances (max clamped to 1) (1, default: 1)
 verifier = 1
 
+# [security]
+
 [platform]
 type = "github"
+
+## For all configuration options, see docs/config-reference.md

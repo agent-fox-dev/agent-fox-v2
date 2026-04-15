@@ -256,9 +256,9 @@ async def _call_llm_json(model: str, prompt: str, context: dict) -> dict:
     Sends a single-turn message with the prompt and JSON-serialized context.
     Raises on API error or JSON parse failure.
     """
-    from anthropic import AsyncAnthropic
+    from agent_fox.core.client import create_async_anthropic_client
 
-    client = AsyncAnthropic()
+    client = create_async_anthropic_client()
     full_prompt = f"{prompt}\n\nContext:\n{json.dumps(context, indent=2, default=str)}"
 
     response = await client.messages.create(
@@ -1067,15 +1067,26 @@ def _emit_events(
         "total_llm_cost": result.total_llm_cost,
     }
 
+    from agent_fox.knowledge.audit import AuditEvent, AuditEventType
+
     try:
-        sink_dispatcher.dispatch("consolidation.complete", payload=payload)
+        sink_dispatcher.emit_audit_event(
+            AuditEvent(
+                run_id=run_id or "",
+                event_type=AuditEventType.CONSOLIDATION_COMPLETE,
+                payload=payload,
+            )
+        )
     except Exception:
         logger.warning("Failed to dispatch consolidation.complete event", exc_info=True)
 
     try:
-        sink_dispatcher.dispatch(
-            "consolidation.cost",
-            payload={"total_cost": result.total_llm_cost, "run_id": run_id},
+        sink_dispatcher.emit_audit_event(
+            AuditEvent(
+                run_id=run_id or "",
+                event_type=AuditEventType.CONSOLIDATION_COST,
+                payload={"total_cost": result.total_llm_cost},
+            )
         )
     except Exception:
         logger.warning("Failed to dispatch consolidation.cost event", exc_info=True)

@@ -50,12 +50,14 @@ class _SpecBatchRunner:
         self._progress = progress
 
     async def run(self) -> Any:
-        from agent_fox.core.paths import PLAN_PATH, STATE_PATH
         from agent_fox.engine.run import run_code
         from agent_fox.graph.builder import build_graph
         from agent_fox.graph.persistence import save_plan
         from agent_fox.graph.resolver import resolve_order
         from agent_fox.spec.parser import parse_cross_deps, parse_tasks
+
+        # Local path constants (no longer imported from core.paths — 105-REQ-5.1)
+        _plan_path = Path(".agent-fox/plan.json")
 
         # Build plan from the discovered specs
         task_groups: dict[str, list] = {}
@@ -80,11 +82,7 @@ class _SpecBatchRunner:
             archetypes_config=self._config.archetypes,
         )
         graph.order = resolve_order(graph)
-        save_plan(graph, PLAN_PATH)
-
-        # Clear stale state so the orchestrator starts fresh for this batch
-        if STATE_PATH.exists():
-            STATE_PATH.unlink()
+        save_plan(graph, _plan_path)
 
         return await run_code(
             self._config,

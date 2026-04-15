@@ -11,7 +11,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 # ---------------------------------------------------------------------------
 # Strategies

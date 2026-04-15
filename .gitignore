@@ -1,7 +1,6 @@
 # agent-fox
 .agent-fox/*
 !.agent-fox/config.toml
-!.agent-fox/memory.jsonl
 !.agent-fox/state.jsonl
 .claude/worktrees/
 
@@ -13,9 +12,7 @@ __pycache__/
 dist/
 build/
 
-# Session artifacts
-.session-summary.json
-.session-learnings.md
+# Test artifacts
 .hypothesis/
 
 # hacking
@@ -28,3 +25,4 @@ hack/**
 # other
 **/.env
 MagicMock/**
+!.agent-fox/memory.jsonl

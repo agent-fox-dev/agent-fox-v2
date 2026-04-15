@@ -5,11 +5,11 @@ Verifies the 3-tier fallback: provided conn → read-only DuckDB → JSONL.
 
 from __future__ import annotations
 
-import json
 import uuid
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from agent_fox.knowledge.store import read_all_facts
 from tests.unit.knowledge.conftest import create_schema
@@ -25,25 +25,6 @@ def _insert_fact(conn: duckdb.DuckDBPyConnection, content: str = "test") -> str:
         [fact_id, content],
     )
     return fact_id
-
-
-def _write_jsonl(path: Path, facts: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
-        for fact in facts:
-            f.write(json.dumps(fact) + "\n")
-
-
-def _make_jsonl_fact(content: str = "jsonl fact") -> dict:
-    return {
-        "id": str(uuid.uuid4()),
-        "content": content,
-        "category": "pattern",
-        "spec_name": "test",
-        "keywords": [],
-        "confidence": 0.9,
-        "created_at": "2025-01-01T00:00:00Z",
-    }
 
 
 class TestReadAllFactsFromConnection:
@@ -84,33 +65,8 @@ class TestReadAllFactsFallbackToReadOnlyDB:
 
     def test_falls_through_when_db_missing(self, tmp_path: Path) -> None:
         db_path = tmp_path / "nonexistent.duckdb"
-        jsonl_path = tmp_path / "memory.jsonl"
 
-        facts = read_all_facts(None, db_path=db_path, jsonl_path=jsonl_path)
-        assert facts == []
-
-
-class TestReadAllFactsFallbackToJSONL:
-    """Tier 3: fall back to JSONL when DuckDB is unavailable."""
-
-    def test_reads_from_jsonl_when_no_db(self, tmp_path: Path) -> None:
-        jsonl_path = tmp_path / "memory.jsonl"
-        _write_jsonl(jsonl_path, [_make_jsonl_fact("from jsonl")])
-
-        facts = read_all_facts(
-            None,
-            db_path=tmp_path / "nonexistent.duckdb",
-            jsonl_path=jsonl_path,
-        )
-        assert len(facts) == 1
-        assert facts[0].content == "from jsonl"
-
-    def test_returns_empty_when_jsonl_missing(self, tmp_path: Path) -> None:
-        facts = read_all_facts(
-            None,
-            db_path=tmp_path / "nonexistent.duckdb",
-            jsonl_path=tmp_path / "nonexistent.jsonl",
-        )
+        facts = read_all_facts(None, db_path=db_path)
         assert facts == []
 
 
@@ -133,17 +89,3 @@ class TestReadAllFactsFallbackOnConnFailure:
         assert len(facts) == 1
         assert facts[0].content == "from file fallback"
 
-    def test_falls_back_to_jsonl_on_all_db_failure(self, tmp_path: Path) -> None:
-        jsonl_path = tmp_path / "memory.jsonl"
-        _write_jsonl(jsonl_path, [_make_jsonl_fact("last resort")])
-
-        broken_conn = duckdb.connect(":memory:")
-        broken_conn.close()
-
-        facts = read_all_facts(
-            broken_conn,
-            db_path=tmp_path / "nonexistent.duckdb",
-            jsonl_path=jsonl_path,
-        )
-        assert len(facts) == 1
-        assert facts[0].content == "last resort"

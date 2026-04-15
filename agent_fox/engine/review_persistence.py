@@ -383,7 +383,7 @@ def persist_review_findings(
                     )
 
             spec_dir = Path.cwd() / ".specs" / spec_name
-            persist_auditor_results(spec_dir, audit_result, attempt=attempt)
+            persist_auditor_results(spec_dir, audit_result, attempt=attempt, project_root=Path.cwd())
 
     except Exception:
         logger.warning(

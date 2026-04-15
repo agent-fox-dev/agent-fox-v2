@@ -6,7 +6,6 @@ Requirements: 70-REQ-1.1 through 70-REQ-5.3
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ import pytest
 
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
+from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.audit import AuditEvent, AuditEventType
 from agent_fox.knowledge.sink import SinkDispatcher
 
@@ -129,24 +129,6 @@ def _write_stalled_plan(plan_dir: Path) -> Path:
     return plan_path
 
 
-def _write_state_with_cost(state_path: Path, plan_data: dict[str, Any], total_cost: float) -> None:
-    """Pre-write a state.jsonl file with a given total_cost."""
-    plan_hash = hashlib.sha256(json.dumps(plan_data, sort_keys=True).encode()).hexdigest()[:16]
-    state = {
-        "plan_hash": plan_hash,
-        "node_states": {},
-        "session_history": [],
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "total_cost": total_cost,
-        "total_sessions": 0,
-        "started_at": "2026-01-01T00:00:00Z",
-        "updated_at": "2026-01-01T00:00:00Z",
-        "run_status": "running",
-    }
-    state_path.write_text(json.dumps(state) + "\n")
-
-
 def _make_orchestrator(
     tmp_path: Path,
     *,
@@ -158,7 +140,6 @@ def _make_orchestrator(
     plan_dir = tmp_path / ".agent-fox"
     if plan_path is None:
         plan_path = _write_empty_plan(plan_dir)
-    state_path = plan_dir / "state.jsonl"
 
     sink = capturing_sink or _CapturingSink()
     sink_dispatcher = SinkDispatcher()
@@ -182,7 +163,6 @@ def _make_orchestrator(
     orch = Orchestrator(
         config=config,
         plan_path=plan_path,
-        state_path=state_path,
         session_runner_factory=lambda nid, **kw: MagicMock(execute=AsyncMock(return_value=mock_outcome)),
         sink_dispatcher=sink_dispatcher,
     )
@@ -552,13 +532,19 @@ class TestTermination:
         orch, sink = _make_orchestrator(tmp_path, config=config)
         orch._watch = True  # type: ignore[attr-defined]
 
-        plan_path = tmp_path / ".agent-fox" / "plan.json"
-        state_path = tmp_path / ".agent-fox" / "state.jsonl"
-        plan_data = json.loads(plan_path.read_text())
-        _write_state_with_cost(state_path, plan_data, total_cost=0.01)
+        # Mock _load_or_init_state to return state with cost at the limit
+        def _fake_load(conn: Any, plan_hash: str, graph: Any) -> ExecutionState:
+            return ExecutionState(
+                plan_hash=plan_hash,
+                node_states={},
+                total_cost=0.01,
+                started_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            final_state = await orch.run()
+        with patch("agent_fox.engine.engine._load_or_init_state", side_effect=_fake_load):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                final_state = await orch.run()
 
         assert final_state.run_status == "cost_limit"
         events = _watch_poll_events(sink)
@@ -677,12 +663,10 @@ class TestEdgeCases:
         plan_dir = tmp_path / ".agent-fox"
         plan_dir.mkdir(parents=True, exist_ok=True)
         nonexistent_plan = plan_dir / "plan.json"  # Does not exist
-        state_path = plan_dir / "state.jsonl"
 
         orch = Orchestrator(
             config=OrchestratorConfig(parallel=1, inter_session_delay=0),
             plan_path=nonexistent_plan,
-            state_path=state_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
         )
         orch._watch = True  # type: ignore[attr-defined]
@@ -801,12 +785,20 @@ class TestEdgeCases:
         orch, sink = _make_orchestrator(tmp_path, config=config, plan_path=plan_path)
         orch._watch = True  # type: ignore[attr-defined]
 
-        state_path = plan_dir / "state.jsonl"
-        plan_data = json.loads(plan_path.read_text())
-        _write_state_with_cost(state_path, plan_data, total_cost=0.01)
+        # Mock _load_or_init_state to return state with cost at the limit
+        def _fake_load(conn: Any, plan_hash: str, graph: Any) -> ExecutionState:
+            node_states = {nid: "pending" for nid in graph.nodes}
+            return ExecutionState(
+                plan_hash=plan_hash,
+                node_states=node_states,
+                total_cost=0.01,
+                started_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            )
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            final_state = await orch.run()
+        with patch("agent_fox.engine.engine._load_or_init_state", side_effect=_fake_load):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                final_state = await orch.run()
 
         assert final_state.run_status == "cost_limit"
         events = _watch_poll_events(sink)

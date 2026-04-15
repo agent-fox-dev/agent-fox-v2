@@ -7,10 +7,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.E1
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 # Module-level import so the name can be patched in tests (TS-102-E2).
 try:
@@ -77,31 +84,11 @@ class RustAnalyzer:
 # Tree-sitter helpers
 # ---------------------------------------------------------------------------
 
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -111,21 +98,12 @@ def _child_text_by_type(node, *types: str) -> str | None:
 
 def _extract_rust_entities(tree, rel_path: str) -> list[Entity]:
     """Extract all entities from a parsed Rust source tree."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
     # FILE entity
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
     _collect_rust_entities(root, rel_path, entities, now, impl_type=None)
@@ -145,16 +123,7 @@ def _collect_rust_entities(
             # MODULE entity: mod utils; or mod utils { ... }
             mod_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
             if mod_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.MODULE,
-                        entity_name=mod_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.MODULE, mod_name, rel_path, now=now))
             # Recurse into inline mod bodies
             body = child.child_by_field_name("body")
             if body:
@@ -162,37 +131,16 @@ def _collect_rust_entities(
 
         elif child.type in ("struct_item", "enum_item", "trait_item"):
             # CLASS entity
-            type_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "type_identifier")
-            )
+            type_name = _field_text(child, "name") or _child_text_by_type(child, "type_identifier")
             if type_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.CLASS,
-                        entity_name=type_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.CLASS, type_name, rel_path, now=now))
 
         elif child.type == "function_item":
             # FUNCTION entity (possibly qualified if inside an impl block)
             func_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
             if func_name:
                 qualified = f"{impl_type}.{func_name}" if impl_type else func_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif child.type == "impl_item":
             # impl Type { ... } or impl Trait for Type { ... }
@@ -272,15 +220,10 @@ def _collect_rust_edges(
             # Recurse into inline mod body
             body = child.child_by_field_name("body")
             if body:
-                _collect_rust_edges(
-                    body, rel_path, entities, module_map, edges, file_entity, impl_type=None
-                )
+                _collect_rust_edges(body, rel_path, entities, module_map, edges, file_entity, impl_type=None)
 
         elif child.type in ("struct_item", "enum_item", "trait_item"):
-            type_name = (
-                _field_text(child, "name")
-                or _child_text_by_type(child, "type_identifier")
-            )
+            type_name = _field_text(child, "name") or _child_text_by_type(child, "type_identifier")
             if type_name:
                 class_entity = entity_by_name.get(type_name)
                 if class_entity:

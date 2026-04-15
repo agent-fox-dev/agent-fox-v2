@@ -18,7 +18,7 @@ from agent_fox.engine.reset import (
     _find_sole_blocker_dependents,
     reset_all,
 )
-from agent_fox.engine.state import ExecutionState, StateManager
+from agent_fox.engine.state import ExecutionState
 from agent_fox.graph.types import (
     Edge,
     Node,
@@ -147,18 +147,14 @@ def _write_plan_from_graph(plan_dir: Path, graph: TaskGraph) -> Path:
     return plan_path
 
 
-def _write_state(
-    state_path: Path,
-    node_states: dict[str, str],
-) -> None:
-    """Write a minimal ExecutionState to state.jsonl."""
-    state = ExecutionState(
+def _make_state(node_states: dict[str, str]) -> ExecutionState:
+    """Create a minimal ExecutionState for test mocking."""
+    return ExecutionState(
         plan_hash="abc123",
         node_states=node_states,
         started_at="2026-03-01T09:00:00Z",
         updated_at="2026-03-01T10:00:00Z",
     )
-    StateManager(state_path).save(state)
 
 
 # ---------------------------------------------------------------------------
@@ -179,9 +175,10 @@ class TestResetPreservesCompleted:
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """For any state, completed tasks are absent from reset_tasks."""
+        from unittest.mock import MagicMock, patch
+
         tmp_path = tmp_path_factory.mktemp("reset")
         plan_dir = tmp_path / ".agent-fox"
-        state_path = plan_dir / "state.jsonl"
         worktrees_dir = plan_dir / "worktrees"
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
@@ -213,11 +210,12 @@ class TestResetPreservesCompleted:
         }
         plan_path.write_text(json.dumps(plan_data, indent=2))
 
-        _write_state(state_path, node_states)
-
+        state = _make_state(node_states)
+        mock_conn = MagicMock()
         completed_ids = {nid for nid, s in node_states.items() if s == "completed"}
 
-        result = reset_all(state_path, plan_path, worktrees_dir, repo_path)
+        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
+            result = reset_all(plan_path, worktrees_dir, repo_path, db_conn=mock_conn)
 
         assert completed_ids.isdisjoint(set(result.reset_tasks))
 

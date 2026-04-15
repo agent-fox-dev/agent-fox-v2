@@ -7,6 +7,7 @@ Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-1.E1, 07-REQ-1.E2
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -16,8 +17,8 @@ from agent_fox.reporting.status import generate_status
 from .conftest import (
     make_execution_state,
     make_session_record,
+    mock_state,
     write_plan_file,
-    write_state_file,
 )
 
 # ---------------------------------------------------------------------------
@@ -31,7 +32,6 @@ class TestStatusTaskCounts:
 
     def test_counts_match_task_states(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """Task counts grouped by status match the execution state."""
@@ -58,9 +58,9 @@ class TestStatusTaskCounts:
                 "spec_b:4": "pending",
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert report.counts["completed"] == 3
         assert report.counts["failed"] == 1
@@ -70,7 +70,6 @@ class TestStatusTaskCounts:
 
     def test_total_tasks_equals_node_count(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """total_tasks equals the number of nodes in the plan."""
@@ -88,9 +87,9 @@ class TestStatusTaskCounts:
                 "spec_a:3": "pending",
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert report.total_tasks == 3
 
@@ -106,7 +105,6 @@ class TestStatusTokensAndCost:
 
     def test_cumulative_tokens_and_cost(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """Status report includes cumulative token and cost data."""
@@ -146,9 +144,9 @@ class TestStatusTokensAndCost:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert report.input_tokens == 100_000
         assert report.output_tokens == 50_000
@@ -166,7 +164,6 @@ class TestStatusProblemTasks:
 
     def test_problem_tasks_includes_failed_and_blocked(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
     ) -> None:
         """Problem tasks list contains failed and blocked tasks with reasons."""
@@ -196,9 +193,9 @@ class TestStatusProblemTasks:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_status(tmp_state_path, plan_path)
+        with mock_state(state):
+            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
 
         assert len(report.problem_tasks) == 2
 
@@ -223,7 +220,7 @@ class TestStatusNoStateFile:
         self,
         tmp_plan_dir: Path,
     ) -> None:
-        """All-pending plan tasks show as pending with zero cost when no state file."""
+        """All-pending plan tasks show as pending with zero cost when no state."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
@@ -232,9 +229,8 @@ class TestStatusNoStateFile:
             "spec_a:5": {"title": "Task 5"},
         }
         plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
-        nonexistent_state = Path("/nonexistent/state.jsonl")
 
-        report = generate_status(nonexistent_state, plan_path)
+        report = generate_status(plan_path=plan_path)
 
         assert report.counts["pending"] == 5
         assert report.input_tokens == 0
@@ -246,16 +242,15 @@ class TestStatusNoStateFile:
         self,
         tmp_plan_dir: Path,
     ) -> None:
-        """Completed nodes in plan.json are reflected when no state file exists."""
+        """Completed nodes in plan.json are reflected when no state exists."""
         nodes = {
             "spec_a:1": {"title": "Task 1", "status": "completed"},
             "spec_a:2": {"title": "Task 2", "status": "completed"},
             "spec_a:3": {"title": "Task 3"},
         }
         plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
-        nonexistent_state = Path("/nonexistent/state.jsonl")
 
-        report = generate_status(nonexistent_state, plan_path)
+        report = generate_status(plan_path=plan_path)
 
         assert report.counts.get("completed", 0) == 2
         assert report.counts.get("pending", 0) == 1
@@ -272,11 +267,10 @@ class TestStatusNoPlanFile:
     """TS-07-E2: Status fails gracefully when no plan exists."""
 
     def test_no_plan_file_raises_error(self) -> None:
-        """AgentFoxError raised when neither state nor plan file exists."""
-        bad_state = Path("/nonexistent/state.jsonl")
+        """AgentFoxError raised when plan file does not exist."""
         bad_plan = Path("/nonexistent/plan.json")
 
         with pytest.raises(AgentFoxError) as exc_info:
-            generate_status(bad_state, bad_plan)
+            generate_status(plan_path=bad_plan)
 
         assert "plan" in str(exc_info.value).lower()

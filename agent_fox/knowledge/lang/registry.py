@@ -13,9 +13,7 @@ from agent_fox.knowledge.lang.base import LanguageAnalyzer
 logger = logging.getLogger(__name__)
 
 # Directories excluded during non-gitignore fallback scan.
-_EXCLUDED_DIRS: frozenset[str] = frozenset(
-    {"node_modules", ".git", "__pycache__", "vendor", "target", "build", "dist"}
-)
+_EXCLUDED_DIRS: frozenset[str] = frozenset({"node_modules", ".git", "__pycache__", "vendor", "target", "build", "dist"})
 
 
 # ---------------------------------------------------------------------------
@@ -42,10 +40,7 @@ class LanguageRegistry:
         for ext in analyzer.file_extensions:
             existing = self._ext_map.get(ext)
             if existing is not None:
-                raise ValueError(
-                    f"Extension {ext!r} is already registered by the "
-                    f"{existing.language_name!r} analyzer"
-                )
+                raise ValueError(f"Extension {ext!r} is already registered by the {existing.language_name!r} analyzer")
         # All extensions are free — commit the registration.
         for ext in analyzer.file_extensions:
             self._ext_map[ext] = analyzer

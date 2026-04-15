@@ -16,12 +16,12 @@ import ipaddress
 import logging
 import re
 import socket
-from dataclasses import dataclass
 from urllib.parse import quote
 
 import httpx
 
 from agent_fox.core.errors import ConfigError, IntegrationError
+from agent_fox.platform.protocol import IssueComment, IssueResult, PullRequestResult
 
 logger = logging.getLogger(__name__)
 
@@ -99,44 +99,6 @@ def _check_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address, url: str
         raise ConfigError(
             f"GitHub URL {url!r} resolves to a restricted IP address: {addr}",
         )
-
-
-@dataclass(frozen=True)
-class IssueResult:
-    """Structured result for GitHub issue operations.
-
-    Requirements: 28-REQ-2.2
-    """
-
-    number: int
-    title: str
-    html_url: str
-    body: str = ""
-
-
-@dataclass(frozen=True)
-class PullRequestResult:
-    """Structured result for pull request creation.
-
-    Requirements: 85-REQ-8.3
-    """
-
-    number: int
-    url: str
-    html_url: str
-
-
-@dataclass(frozen=True)
-class IssueComment:
-    """Structured result for GitHub issue comments.
-
-    Requirements: 86-REQ-1.3
-    """
-
-    id: int
-    body: str
-    user: str  # GitHub login
-    created_at: str  # ISO 8601
 
 
 class GitHubPlatform:

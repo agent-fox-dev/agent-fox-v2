@@ -17,7 +17,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.nightshift.fix_pipeline import FixPipeline
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 from agent_fox.workspace import WorkspaceInfo
 
 # ---------------------------------------------------------------------------

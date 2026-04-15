@@ -13,14 +13,14 @@ Requirements: 05-REQ-3.1, 05-REQ-3.2, 05-REQ-3.3, 05-REQ-3.E1,
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 
-from agent_fox.core.paths import DEFAULT_DB_PATH, MEMORY_PATH
+from agent_fox.core.models import ensure_iso
+from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.knowledge.facts import Fact, parse_confidence
 
 if TYPE_CHECKING:
@@ -28,23 +28,22 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("agent_fox.knowledge.store")
 
-DEFAULT_MEMORY_PATH = MEMORY_PATH
+# Internal default for JSONL helpers that still exist (append_facts, write_facts).
+_JSONL_PATH = Path(".agent-fox/memory.jsonl")
 
 
 def read_all_facts(
     conn: duckdb.DuckDBPyConnection | None = None,
     *,
     db_path: Path = DEFAULT_DB_PATH,
-    jsonl_path: Path = DEFAULT_MEMORY_PATH,
 ) -> list[Fact]:
-    """Read all active facts with automatic fallback.
+    """Read all active facts from DuckDB.
 
-    Tries three sources in order:
+    Tries two sources in order:
     1. The provided DuckDB connection (if any).
     2. A read-only DuckDB connection opened from *db_path*.
-    3. The JSONL file at *jsonl_path*.
 
-    Returns an empty list only when all sources are exhausted.
+    Returns an empty list when all sources are exhausted.
     """
     # 1. Provided connection
     if conn is not None:
@@ -66,25 +65,11 @@ def read_all_facts(
                 ro_conn.close()
         except Exception:
             logger.debug(
-                "Read-only DuckDB open failed; falling back to JSONL",
+                "Read-only DuckDB open failed",
                 exc_info=True,
             )
 
-    # 3. JSONL fallback
-    return load_facts_from_jsonl(jsonl_path)
-
-
-def append_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
-    """Append facts to the JSONL file.
-
-    Retained as an internal helper for JSONL export. Not called during
-    normal fact ingestion (39-REQ-3.4).
-
-    Args:
-        facts: List of Fact objects to append.
-        path: Path to the JSONL file.
-    """
-    _write_jsonl(facts, path, mode="a")
+    return []
 
 
 def load_all_facts(conn: duckdb.DuckDBPyConnection) -> list[Fact]:
@@ -139,79 +124,6 @@ def load_facts_by_spec(
     ).fetchall()
 
     return [_row_to_fact(row) for row in rows]
-
-
-def write_facts(facts: list[Fact], path: Path = DEFAULT_MEMORY_PATH) -> None:
-    """Overwrite the JSONL file with the given facts.
-
-    Used by compaction and session-end export.
-
-    Args:
-        facts: The complete list of facts to write.
-        path: Path to the JSONL file.
-    """
-    _write_jsonl(facts, path, mode="w")
-
-
-def export_facts_to_jsonl(
-    conn: duckdb.DuckDBPyConnection,
-    path: Path = DEFAULT_MEMORY_PATH,
-) -> int:
-    """Export all non-superseded facts from DuckDB to JSONL.
-
-    Full overwrite of the JSONL file. Logs a warning on write failure
-    but does not roll back DuckDB state.
-
-    Args:
-        conn: DuckDB connection.
-        path: Path to the JSONL file.
-
-    Returns:
-        Count of exported facts.
-
-    Requirements: 39-REQ-3.2, 39-REQ-3.E1
-    """
-    facts = load_all_facts(conn)
-    try:
-        write_facts(facts, path)
-    except OSError:
-        logger.warning(
-            "JSONL export failed for %s; DuckDB state preserved",
-            path,
-            exc_info=True,
-        )
-    return len(facts)
-
-
-def load_facts_from_jsonl(path: Path = DEFAULT_MEMORY_PATH) -> list[Fact]:
-    """Load facts from a JSONL file.
-
-    Used as a fallback when DuckDB is unavailable (e.g. locked by
-    another process). Returns an empty list if the file does not
-    exist or is empty.
-    """
-    if not path.exists():
-        return []
-    facts: list[Fact] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                facts.append(_dict_to_fact(json.loads(line)))
-            except (json.JSONDecodeError, KeyError):
-                logger.warning("Skipping malformed JSONL line")
-    return facts
-
-
-def _write_jsonl(facts: list[Fact], path: Path, *, mode: str) -> None:
-    """Write facts to a JSONL file using the given open mode ('a' or 'w')."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open(mode, encoding="utf-8") as f:
-        for fact in facts:
-            line = json.dumps(_fact_to_dict(fact), ensure_ascii=False)
-            f.write(line + "\n")
 
 
 def _fact_to_dict(fact: Fact) -> dict:
@@ -271,17 +183,10 @@ def _row_to_fact(row: tuple) -> Fact:
         spec_name=spec_name or "",
         keywords=list(keywords) if keywords else [],
         confidence=parse_confidence(confidence),
-        created_at=_ensure_iso(created_at),
+        created_at=ensure_iso(created_at),
         session_id=session_id,
         commit_sha=commit_sha,
     )
-
-
-def _ensure_iso(ts: object) -> str:
-    """Convert a timestamp to ISO 8601 string."""
-    from agent_fox.core.models import ensure_iso
-
-    return ensure_iso(ts)
 
 
 class MemoryStore:

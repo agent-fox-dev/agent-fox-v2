@@ -56,8 +56,7 @@ if HAS_HYPOTHESIS:
         expected_allowlist, expected_tier = _MAINTAINER_MODE_EXPECTED[mode]
 
         assert sorted(cfg.default_allowlist or []) == sorted(expected_allowlist), (
-            f"Mode '{mode}': allowlist {sorted(cfg.default_allowlist or [])} != "
-            f"{sorted(expected_allowlist)}"
+            f"Mode '{mode}': allowlist {sorted(cfg.default_allowlist or [])} != {sorted(expected_allowlist)}"
         )
         assert cfg.default_model_tier == expected_tier, (
             f"Mode '{mode}': tier {cfg.default_model_tier!r} != {expected_tier!r}"
@@ -75,9 +74,7 @@ else:
             assert sorted(cfg.default_allowlist or []) == sorted(expected_allowlist), (
                 f"Mode '{mode}': allowlist mismatch"
             )
-            assert cfg.default_model_tier == expected_tier, (
-                f"Mode '{mode}': tier mismatch"
-            )
+            assert cfg.default_model_tier == expected_tier, f"Mode '{mode}': tier mismatch"
 
 
 # ===========================================================================
@@ -140,9 +137,7 @@ if HAS_HYPOTHESIS:
         assert isinstance(result, ExtractionResult), (
             f"extract_knowledge should return ExtractionResult, got {type(result)}"
         )
-        assert result.status == "not_implemented", (
-            f"Expected status='not_implemented', got {result.status!r}"
-        )
+        assert result.status == "not_implemented", f"Expected status='not_implemented', got {result.status!r}"
         assert isinstance(result.facts, list), "facts must be a list"
 
 else:
@@ -189,10 +184,7 @@ def test_nightshift_resolution_returns_valid_tier() -> None:
 
     config = AgentFoxConfig()
     tier = resolve_model_tier(config, "maintainer", mode="hunt")
-    assert tier in _VALID_TIERS, (
-        f"resolve_model_tier returned invalid tier {tier!r}, "
-        f"expected one of {_VALID_TIERS}"
-    )
+    assert tier in _VALID_TIERS, f"resolve_model_tier returned invalid tier {tier!r}, expected one of {_VALID_TIERS}"
 
 
 def test_nightshift_resolution_security_config_not_none() -> None:
@@ -231,11 +223,7 @@ if HAS_HYPOTHESIS:
         if model_override is not None:
             # Set per-archetype model override
             config = config.model_copy(
-                update={"archetypes": config.archetypes.model_copy(
-                    update={"models": {"maintainer": model_override}}
-                )}
+                update={"archetypes": config.archetypes.model_copy(update={"models": {"maintainer": model_override}})}
             )
         tier = resolve_model_tier(config, "maintainer", mode="hunt")
-        assert tier in _VALID_TIERS, (
-            f"resolve_model_tier returned invalid tier {tier!r}"
-        )
+        assert tier in _VALID_TIERS, f"resolve_model_tier returned invalid tier {tier!r}"

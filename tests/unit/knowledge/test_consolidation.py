@@ -292,7 +292,7 @@ class TestAuditEvent:
         _insert_fact(entity_conn, FACT_A)
 
         mock_sink = MagicMock()
-        mock_sink.dispatch = MagicMock()
+        mock_sink.emit_audit_event = MagicMock()
 
         await run_consolidation(
             entity_conn,
@@ -302,11 +302,11 @@ class TestAuditEvent:
             sink_dispatcher=mock_sink,
         )
 
-        assert mock_sink.dispatch.called
+        assert mock_sink.emit_audit_event.called
         # Find the consolidation.complete event
-        calls = mock_sink.dispatch.call_args_list
-        event_types = [c.args[0] if c.args else c.kwargs.get("event_type", "") for c in calls]
-        assert any("consolidation.complete" in str(et) for et in event_types)
+        calls = mock_sink.emit_audit_event.call_args_list
+        event_types = [str(c.args[0].event_type) for c in calls if c.args]
+        assert any("consolidation.complete" in et for et in event_types)
 
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ from __future__ import annotations
 import uuid
 
 import duckdb
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -99,12 +98,8 @@ class TestCompactionIdempotency:
     def test_double_compact_same_as_single(
         self,
         facts: list[Fact],
-        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """compact() is idempotent: second run changes nothing."""
-        tmp_dir = tmp_path_factory.mktemp("compact")
-        jsonl_path = tmp_dir / "memory.jsonl"
-
         # Create a fresh DuckDB with the facts inserted
         conn = duckdb.connect(":memory:")
         create_schema(conn)
@@ -118,14 +113,11 @@ class TestCompactionIdempotency:
                 [fact.id, fact.content, fact.category, fact.spec_name, fact.confidence],
             )
 
-        _orig1, surviving1 = compact(conn, jsonl_path)
-        content_after_first = jsonl_path.read_text()
+        _orig1, surviving1 = compact(conn)
 
-        _orig2, surviving2 = compact(conn, jsonl_path)
-        content_after_second = jsonl_path.read_text()
+        _orig2, surviving2 = compact(conn)
 
         assert surviving1 == surviving2
-        assert content_after_first == content_after_second
 
         conn.close()
 

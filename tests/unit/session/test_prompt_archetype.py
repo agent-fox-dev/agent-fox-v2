@@ -2,6 +2,8 @@
 
 Test Spec: TS-26-12, TS-26-16, TS-26-42, TS-26-P5, TS-26-P6
 Requirements: 26-REQ-3.5, 26-REQ-4.4
+
+Updated after legacy template path removal (issue #342).
 """
 
 from __future__ import annotations
@@ -30,110 +32,37 @@ except ImportError:
 
 
 class TestRegistryBasedResolution:
-    """Verify build_system_prompt() resolves templates from the registry."""
+    """Verify build_system_prompt() resolves profiles from the registry."""
 
     def test_coder_archetype_produces_output(self) -> None:
         from agent_fox.session.prompt import build_system_prompt
 
         result = build_system_prompt(
             context="test context",
-            task_group=1,
-            spec_name="03_session",
             archetype="coder",
         )
         assert "test context" in result
-        assert len(result) > 100  # should have template content
-
-    def test_no_role_templates_in_source(self) -> None:
-        import os
-
-        prompt_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "..",
-            "..",
-            "agent_fox",
-            "session",
-            "prompt.py",
-        )
-        prompt_path = os.path.normpath(prompt_path)
-        with open(prompt_path, encoding="utf-8") as f:
-            content = f.read()
-
-        # After refactor, _ROLE_TEMPLATES should not exist
-        assert "_ROLE_TEMPLATES" not in content, "prompt.py should not contain _ROLE_TEMPLATES after refactor"
+        assert len(result) > 100  # should have profile content
 
 
 # ---------------------------------------------------------------------------
-# TS-26-E4: Missing template file
-# Requirement: 26-REQ-3.E2
-# ---------------------------------------------------------------------------
-
-
-class TestMissingTemplateRaises:
-    """Verify missing template file raises ConfigError."""
-
-    def test_missing_template_raises_config_error(self) -> None:
-        import tempfile
-        from pathlib import Path
-        from unittest.mock import patch
-
-        from agent_fox.core.errors import ConfigError
-        from agent_fox.session import prompt as prompt_mod
-        from agent_fox.session.prompt import build_system_prompt
-
-        # Point _TEMPLATE_DIR to an empty temp directory so templates
-        # are not found on disk (26-REQ-3.E2).
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(prompt_mod, "_TEMPLATE_DIR", Path(tmp)):
-                with pytest.raises(ConfigError):
-                    build_system_prompt(
-                        context="ctx",
-                        task_group=1,
-                        spec_name="test_spec",
-                        archetype="coder",
-                    )
-
-
-# ---------------------------------------------------------------------------
-# TS-26-42: build_system_prompt archetype="coder" matches old role="coding"
-# Requirement: 26-REQ-3.5 (via Property 5)
+# TS-26-42: build_system_prompt archetype="coder" produces coder profile
+# Requirement: 26-REQ-3.5
 # ---------------------------------------------------------------------------
 
 
 class TestCoderArchetypeResolution:
-    """Verify coder archetype resolves correctly via both paths."""
+    """Verify coder archetype resolves correctly."""
 
     def test_coder_archetype_produces_output(self) -> None:
         from agent_fox.session.prompt import build_system_prompt
 
         result = build_system_prompt(
             context="ctx",
-            task_group=1,
-            spec_name="03_session",
             archetype="coder",
         )
-        assert "CODER ARCHETYPE" in result
+        assert "Identity" in result
         assert "ctx" in result
-
-    def test_role_coding_maps_to_coder(self) -> None:
-        """Legacy role='coding' maps to the coder archetype."""
-        from agent_fox.session.prompt import build_system_prompt
-
-        new_output = build_system_prompt(
-            context="ctx",
-            task_group=1,
-            spec_name="03_session",
-            archetype="coder",
-        )
-        old_output = build_system_prompt(
-            context="ctx",
-            task_group=1,
-            spec_name="03_session",
-            role="coding",
-        )
-        # Both paths resolve to the same archetype and produce identical output
-        assert new_output == old_output
 
 
 # ---------------------------------------------------------------------------
@@ -259,37 +188,27 @@ class TestRunnerUsesArchetype:
 
 
 # ---------------------------------------------------------------------------
-# TS-26-P5: Template Resolution Equivalence (Property)
-# Property 5: Coder archetype produces identical prompts to old role="coding"
+# TS-26-P5: Profile Resolution (Property)
+# Property 5: Coder archetype produces profile-based output
 # Validates: 26-REQ-3.5
 # ---------------------------------------------------------------------------
 
 
-class TestPropertyTemplateEquivalence:
-    """Coder archetype and role='coding' resolve to the same templates."""
+class TestPropertyProfileResolution:
+    """Coder archetype produces consistent profile-based output."""
 
-    def test_prop_equivalence_sample(self) -> None:
+    def test_prop_coder_profile_sample(self) -> None:
         from agent_fox.session.prompt import build_system_prompt
 
         contexts = ["ctx1", "longer context with details", ""]
-        spec_names = ["03_session", "01_config", "26_agent_archetypes"]
 
         for ctx in contexts:
-            for spec in spec_names:
-                new = build_system_prompt(
-                    context=ctx,
-                    task_group=1,
-                    spec_name=spec,
-                    archetype="coder",
-                )
-                old = build_system_prompt(
-                    context=ctx,
-                    task_group=1,
-                    spec_name=spec,
-                    role="coding",
-                )
-                # Both paths resolve to the same archetype entry
-                assert new == old, f"Mismatch for ctx={ctx!r}, spec={spec}"
+            result = build_system_prompt(
+                context=ctx,
+                archetype="coder",
+            )
+            assert "Identity" in result, f"Coder profile missing for ctx={ctx!r}"
+            assert ctx in result, f"Context missing for ctx={ctx!r}"
 
 
 # ---------------------------------------------------------------------------

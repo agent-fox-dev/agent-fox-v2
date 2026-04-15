@@ -12,7 +12,7 @@ from agent_fox.core.config import OrchestratorConfig
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.result_handler import SessionResultHandler
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 from agent_fox.graph.types import Edge, Node, TaskGraph
 
 
@@ -31,7 +31,6 @@ def _make_orchestrator_with_graph(
     orch = Orchestrator(
         config=config,
         plan_path=MagicMock(),
-        state_path=MagicMock(),
         session_runner_factory=MagicMock(),
     )
 
@@ -66,13 +65,9 @@ def _make_orchestrator_with_graph(
 
     orch._graph_sync = GraphSync(node_states, edges_dict)
 
-    # Mock state manager
-    orch._state_manager = MagicMock(spec=StateManager)
-
     # Initialize result handler (normally done in run())
     orch._result_handler = SessionResultHandler(
         graph_sync=orch._graph_sync,
-        state_manager=orch._state_manager,
         routing_ladders=orch._routing.ladders,
         retries_before_escalation=orch._routing.retries_before_escalation,
         max_retries=config.max_retries,

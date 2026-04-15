@@ -33,8 +33,7 @@ def _print_summary(result: OnboardResult) -> None:
     click.echo("Onboarding complete.", err=True)
     click.echo(f"  Elapsed: {result.elapsed_seconds:.1f}s", err=True)
     click.echo(
-        f"  Entity graph: {result.entities_upserted} entities, "
-        f"{result.edges_upserted} edges",
+        f"  Entity graph: {result.entities_upserted} entities, {result.edges_upserted} edges",
         err=True,
     )
     click.echo(
@@ -49,28 +48,21 @@ def _print_summary(result: OnboardResult) -> None:
         err=True,
     )
     click.echo(
-        f"  Code analysis: {result.code_facts_created} facts from "
-        f"{result.code_files_analyzed} files",
+        f"  Code analysis: {result.code_facts_created} facts from {result.code_files_analyzed} files",
         err=True,
     )
     click.echo(
-        f"  Doc mining: {result.doc_facts_created} facts from "
-        f"{result.docs_analyzed} docs",
+        f"  Doc mining: {result.doc_facts_created} facts from {result.docs_analyzed} docs",
         err=True,
     )
     click.echo(
-        f"  Embeddings: {result.embeddings_generated} generated, "
-        f"{result.embeddings_failed} failed",
+        f"  Embeddings: {result.embeddings_generated} generated, {result.embeddings_failed} failed",
         err=True,
     )
     if result.phases_skipped:
-        click.echo(
-            f"  Skipped phases: {', '.join(result.phases_skipped)}", err=True
-        )
+        click.echo(f"  Skipped phases: {', '.join(result.phases_skipped)}", err=True)
     if result.phases_errored:
-        click.echo(
-            f"  Errored phases: {', '.join(result.phases_errored)}", err=True
-        )
+        click.echo(f"  Errored phases: {', '.join(result.phases_errored)}", err=True)
 
 
 @click.command("onboard")

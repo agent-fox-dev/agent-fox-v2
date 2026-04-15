@@ -3,6 +3,7 @@
 Tests: TS-101-SMOKE-1, TS-101-SMOKE-2, TS-101-SMOKE-3, TS-101-SMOKE-4
 Execution paths: Path 1, Path 3, Path 4, Path 5 from design.md
 """
+
 from __future__ import annotations
 
 import json
@@ -11,12 +12,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
+
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.knowledge.code_analysis import analyze_code_with_llm
 from agent_fox.knowledge.doc_mining import mine_docs_with_llm
 from agent_fox.knowledge.git_mining import mine_git_patterns
 from agent_fox.knowledge.onboard import run_onboard
-
-from agent_fox.core.config import AgentFoxConfig
 from agent_fox.knowledge.store import load_facts_by_spec
 
 # ---------------------------------------------------------------------------
@@ -33,12 +34,8 @@ def project_root(tmp_path: Path) -> Path:
     (tmp_path / "server.go").write_text("package main\n\nfunc main() {}\n")
 
     # Documentation
-    (tmp_path / "README.md").write_text(
-        "# Project\n\nThis project does cool things.\n"
-    )
-    (tmp_path / "CONTRIBUTING.md").write_text(
-        "# Contributing\n\nAll PRs require two reviews.\n"
-    )
+    (tmp_path / "README.md").write_text("# Project\n\nThis project does cool things.\n")
+    (tmp_path / "CONTRIBUTING.md").write_text("# Contributing\n\nAll PRs require two reviews.\n")
 
     # ADR directory
     adr_dir = tmp_path / "docs" / "adr"
@@ -148,9 +145,9 @@ class TestFullOnboardPipeline:
         with (
             patch(
                 "agent_fox.knowledge.onboard.analyze_codebase",
-                return_value=__import__(
-                    "agent_fox.knowledge.entities", fromlist=["AnalysisResult"]
-                ).AnalysisResult(5, 3, 0),
+                return_value=__import__("agent_fox.knowledge.entities", fromlist=["AnalysisResult"]).AnalysisResult(
+                    5, 3, 0
+                ),
             ),
             patch(
                 "agent_fox.knowledge.onboard.KnowledgeIngestor",
@@ -271,17 +268,18 @@ class TestCodeAnalysisEndToEnd:
         knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Verify facts created for each source file via real LLM mock."""
-        with patch(
-            "agent_fox.knowledge.code_analysis.ai_call",
-            new_callable=AsyncMock,
-            return_value=(_CODE_FACT_RESPONSE, None),
-        ), patch(
-            "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.code_analysis.ai_call",
+                new_callable=AsyncMock,
+                return_value=(_CODE_FACT_RESPONSE, None),
+            ),
+            patch(
+                "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
-            result = await analyze_code_with_llm(
-                project_root, knowledge_conn, model="STANDARD"
-            )
+            result = await analyze_code_with_llm(project_root, knowledge_conn, model="STANDARD")
 
         assert result.facts_created > 0
         assert result.files_analyzed > 0
@@ -309,17 +307,18 @@ class TestDocMiningEndToEnd:
         knowledge_conn: duckdb.DuckDBPyConnection,
     ) -> None:
         """Verify facts created for each doc file: README and CONTRIBUTING."""
-        with patch(
-            "agent_fox.knowledge.doc_mining.ai_call",
-            new_callable=AsyncMock,
-            return_value=(_DOC_FACT_RESPONSE, None),
-        ), patch(
-            "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.doc_mining.ai_call",
+                new_callable=AsyncMock,
+                return_value=(_DOC_FACT_RESPONSE, None),
+            ),
+            patch(
+                "agent_fox.knowledge.doc_mining._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
-            result = await mine_docs_with_llm(
-                project_root, knowledge_conn, model="STANDARD"
-            )
+            result = await mine_docs_with_llm(project_root, knowledge_conn, model="STANDARD")
 
         # README.md + CONTRIBUTING.md = 2 docs (docs/architecture.md excluded
         # because it's under docs/ but not adr/errata — actually it IS included)

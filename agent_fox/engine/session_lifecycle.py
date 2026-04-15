@@ -23,7 +23,6 @@ from agent_fox.core.models import ModelTier, calculate_cost, resolve_model
 from agent_fox.core.node_id import parse_node_id
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.audit_helpers import emit_audit_event
-from agent_fox.engine.fact_cache import RankedFactCache, get_cached_facts
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
 from agent_fox.engine.review_persistence import (
     persist_review_findings,
@@ -42,12 +41,8 @@ from agent_fox.engine.state import SessionRecord
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.filtering import select_relevant_facts
-from agent_fox.knowledge.search import SearchResult, VectorSearch
+from agent_fox.knowledge.retrieval import AdaptiveRetriever, RetrievalConfig
 from agent_fox.knowledge.sink import SessionOutcome, SinkDispatcher
-from agent_fox.knowledge.store import load_all_facts
-from agent_fox.session.context import select_context_with_causal
 from agent_fox.session.prompt import (
     assemble_context,
     build_system_prompt,
@@ -204,7 +199,6 @@ class NodeSessionRunner:
         activity_callback: ActivityCallback | None = None,
         assessed_tier: ModelTier | None = None,
         run_id: str = "",
-        fact_cache: dict[str, RankedFactCache] | None = None,
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
         embedder: EmbeddingGenerator | None = None,
@@ -218,7 +212,6 @@ class NodeSessionRunner:
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
-        self._fact_cache = fact_cache
         # 75-REQ-3.5: Per-node timeout/turns overrides from timeout-aware escalation
         self._timeout_override = timeout_override
         self._max_turns_override = max_turns_override
@@ -246,31 +239,47 @@ class NodeSessionRunner:
     ) -> tuple[str, str]:
         """Assemble context and build system/task prompts.
 
-        Loads relevant memory facts from the JSONL store and passes
-        them to assemble_context for inclusion in session context.
-        When the DuckDB knowledge store is available, enhances context
-        with causally-linked facts.
+        Uses AdaptiveRetriever (spec 104) to produce knowledge context via
+        multi-signal RRF fusion, then passes it to assemble_context.
 
-        Requirements: 05-REQ-4.1, 05-REQ-4.2, 13-REQ-7.1
+        Requirements: 05-REQ-4.1, 05-REQ-4.2, 104-REQ-5.1
         """
         spec_dir = repo_root / ".specs" / self._spec_name
 
-        # 05-REQ-4.1: Load and select relevant facts for context injection
-        memory_facts: list[str] | None = None
+        # 104-REQ-5.1: Use AdaptiveRetriever for knowledge context
+        knowledge_context: str = ""
         try:
-            relevant = self._load_relevant_facts()
-            # 94-REQ-3.2: Merge with cross-spec facts before causal enhancement
-            # (also runs when relevant is empty, so cross-spec can provide facts)
-            merged = self._retrieve_cross_spec_facts(spec_dir, relevant)
-            if merged:
-                # 13-REQ-7.1: Enhance with causal context if DB available
-                memory_facts = self._enhance_with_causal(merged)
+            retrieval_config = getattr(self._config.knowledge, "retrieval", RetrievalConfig())
+            retriever = AdaptiveRetriever(
+                self._knowledge_db.connection,
+                retrieval_config,
+                embedder=self._embedder,
+            )
+            # Build task description from subtask descriptions
+            descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
+            task_description = "\n".join(descriptions) if descriptions else self._spec_name
+
+            node_status = "retry" if attempt > 1 else "fresh"
+            result = retriever.retrieve(
+                spec_name=self._spec_name,
+                archetype=self._archetype,
+                node_status=node_status,
+                touched_files=[],
+                task_description=task_description,
+                confidence_threshold=self._config.knowledge.confidence_threshold,
+            )
+            knowledge_context = result.context
         except Exception:
             logger.warning(
-                "Failed to load memory facts for %s, continuing without",
+                "AdaptiveRetriever failed for %s, continuing without knowledge context",
                 self._spec_name,
                 exc_info=True,
             )
+
+        # Convert knowledge context to memory_facts format for assemble_context
+        memory_facts: list[str] | None = None
+        if knowledge_context:
+            memory_facts = [knowledge_context]
 
         context = assemble_context(
             spec_dir,
@@ -314,129 +323,17 @@ class NodeSessionRunner:
 
         return system_prompt, task_prompt
 
-    def _load_relevant_facts(self) -> list:
-        """Load relevant facts, using the pre-computed cache when available.
-
-        Requirements: 42-REQ-3.2, 42-REQ-3.3, 42-REQ-3.4
-        """
-        return load_relevant_facts(
-            self._knowledge_db,
-            self._spec_name,
-            self._config.knowledge.confidence_threshold,
-            fact_cache=self._fact_cache,
-        )
-
-    def _enhance_with_causal(
-        self,
-        relevant_facts: list,
-    ) -> list[str]:
-        """Enhance keyword-selected facts with causal context.
-
-        Requirements: 13-REQ-7.1, 13-REQ-7.2, 38-REQ-2.1, 38-REQ-2.3
-        """
-        return enhance_with_causal(
-            self._knowledge_db,
-            self._spec_name,
-            relevant_facts,
-        )
-
-    def _retrieve_cross_spec_facts(
-        self,
-        spec_dir: Path,
-        relevant_facts: list[Fact],
-    ) -> list[Fact]:
-        """Retrieve and merge cross-spec facts via vector similarity search.
-
-        Extracts subtask descriptions from the current task group, embeds them,
-        searches across all facts, and merges with the spec-specific facts
-        (deduplicating by fact ID). Returns the merged list. If any step fails
-        or cross-spec retrieval is disabled, returns relevant_facts unchanged.
-
-        Args:
-            spec_dir: Path to the current spec folder.
-            relevant_facts: Spec-specific facts from _load_relevant_facts().
-
-        Returns:
-            Merged fact list (spec-specific + cross-spec, deduplicated by ID).
-
-        Requirements: 94-REQ-2.1, 94-REQ-2.2, 94-REQ-3.1, 94-REQ-3.2,
-                      94-REQ-4.2, 94-REQ-5.1, 94-REQ-6.2
-        """
-        # 94-REQ-6.2: Skip if no embedder provided
-        if self._embedder is None:
-            logger.debug(
-                "Cross-spec retrieval skipped for %s: no embedder",
-                self._spec_name,
-            )
-            return relevant_facts
-
-        # 94-REQ-4.2: Skip if cross_spec_top_k is 0 (disabled)
-        top_k = self._config.knowledge.cross_spec_top_k
-        if top_k == 0:
-            logger.debug(
-                "Cross-spec retrieval skipped for %s: cross_spec_top_k=0",
-                self._spec_name,
-            )
-            return relevant_facts
-
-        try:
-            # 94-REQ-1.1: Extract subtask descriptions
-            descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
-            if not descriptions:
-                logger.debug(
-                    "Cross-spec retrieval skipped for %s: no subtask descriptions",
-                    self._spec_name,
-                )
-                return relevant_facts
-
-            # 94-REQ-2.1: Concatenate and embed
-            query = "\n".join(descriptions)
-            embedding = self._embedder.embed_text(query)
-
-            # 94-REQ-2.E1: Skip if embedding failed
-            if embedding is None:
-                logger.debug(
-                    "Cross-spec retrieval skipped for %s: embed_text returned None",
-                    self._spec_name,
-                )
-                return relevant_facts
-
-            # 94-REQ-2.2: Vector search across all facts
-            vs = VectorSearch(self._knowledge_db.connection, self._config.knowledge)
-            results = vs.search(embedding, top_k=top_k, exclude_superseded=True)
-
-            # 94-REQ-2.E2: Skip merge if no results
-            if not results:
-                return relevant_facts
-
-            # 94-REQ-3.1: Merge and deduplicate by ID
-            merged = merge_cross_spec_facts(relevant_facts, results)
-            added = len(merged) - len(relevant_facts)
-            logger.debug(
-                "Cross-spec retrieval added %d facts for %s group %d",
-                added,
-                self._spec_name,
-                self._task_group,
-            )
-            return merged
-
-        except Exception:
-            # 94-REQ-5.1: Graceful degradation — never break session startup
-            logger.debug(
-                "Cross-spec retrieval skipped for %s: exception in pipeline",
-                self._spec_name,
-                exc_info=True,
-            )
-            return relevant_facts
-
     @staticmethod
     def _read_session_artifacts(workspace: WorkspaceInfo) -> dict | None:
-        """Read .session-summary.json from the worktree if it exists.
+        """Read session-summary.json from the worktree if it exists.
 
+        Looks in ``.agent-fox/session-summary.json`` inside the worktree.
         Returns the parsed JSON dict or None if the file is absent or
         cannot be parsed.
         """
-        summary_path = workspace.path / ".session-summary.json"
+        from agent_fox.core.paths import AGENT_FOX_DIR, SESSION_SUMMARY_FILENAME
+
+        summary_path = workspace.path / AGENT_FOX_DIR / SESSION_SUMMARY_FILENAME
         if not summary_path.exists():
             return None
         try:
@@ -448,6 +345,22 @@ class NodeSessionRunner:
                 exc,
             )
             return None
+
+    @staticmethod
+    def _cleanup_session_artifacts(workspace: WorkspaceInfo) -> None:
+        """Delete transient session artifacts from the worktree.
+
+        Called after all consumers have read the artifacts.  Prevents
+        stale files from leaking into the working directory when worktree
+        cleanup is skipped or fails.
+        """
+        from agent_fox.core.paths import AGENT_FOX_DIR, SESSION_SUMMARY_FILENAME
+
+        summary_path = workspace.path / AGENT_FOX_DIR / SESSION_SUMMARY_FILENAME
+        try:
+            summary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
     def _build_fallback_input(
         self,
@@ -934,6 +847,8 @@ class NodeSessionRunner:
                 summary.get("summary", ""),
             )
 
+        self._cleanup_session_artifacts(workspace)
+
         return record
 
     async def execute(
@@ -995,135 +910,6 @@ class NodeSessionRunner:
                         node_id,
                         exc_info=True,
                     )
-
-
-# ---------------------------------------------------------------------------
-# Context assembly helpers (inlined from context_assembly.py)
-# ---------------------------------------------------------------------------
-
-
-def load_relevant_facts(
-    knowledge_db: KnowledgeDB,
-    spec_name: str,
-    confidence_threshold: float,
-    fact_cache: dict[str, RankedFactCache] | None = None,
-) -> list:
-    """Load relevant facts, using the pre-computed cache when available.
-
-    When a valid cache entry exists for the current spec and the fact
-    count has not changed since the cache was built, return cached facts
-    directly. Otherwise fall back to live computation via
-    select_relevant_facts().
-
-    Requirements: 42-REQ-3.2, 42-REQ-3.3, 42-REQ-3.4
-    """
-    # 42-REQ-3.2: Try cache first when cache is available
-    if fact_cache is not None:
-        try:
-            _row = knowledge_db.connection.execute(
-                "SELECT COUNT(*) FROM memory_facts WHERE superseded_by IS NULL"
-            ).fetchone()
-            current_count: int = _row[0] if _row else 0
-            cached = get_cached_facts(fact_cache, spec_name, current_count)
-            if cached is not None:
-                logger.debug(
-                    "Using cached fact rankings for %s (%d facts)",
-                    spec_name,
-                    len(cached),
-                )
-                return cached
-            # 42-REQ-3.3: Cache is stale or missing — fall through to live
-            logger.debug(
-                "Cache miss for %s (count mismatch or absent); falling back to live computation",
-                spec_name,
-            )
-        except Exception:
-            logger.debug(
-                "Cache lookup failed for %s; falling back to live computation",
-                spec_name,
-                exc_info=True,
-            )
-
-    # Live computation (no cache, stale cache, or cache lookup failure)
-    all_facts = load_all_facts(knowledge_db.connection)
-    if not all_facts:
-        return []
-    return select_relevant_facts(
-        all_facts,
-        spec_name,
-        task_keywords=[spec_name],
-        confidence_threshold=confidence_threshold,
-    )
-
-
-def enhance_with_causal(
-    knowledge_db: KnowledgeDB,
-    spec_name: str,
-    relevant_facts: list,
-) -> list[str]:
-    """Enhance keyword-selected facts with causal context.
-
-    Uses select_context_with_causal() to augment the keyword-matched
-    facts with causally-linked facts from the DuckDB knowledge store.
-
-    Requirements: 13-REQ-7.1, 13-REQ-7.2, 38-REQ-2.1, 38-REQ-2.3
-    """
-    keyword_dicts = [
-        {
-            "id": f.id,
-            "content": f.content,
-            "spec_name": f.spec_name,
-        }
-        for f in relevant_facts
-    ]
-
-    enhanced = select_context_with_causal(
-        knowledge_db.connection,
-        spec_name,
-        touched_files=[],
-        keyword_facts=keyword_dicts,
-    )
-    return [f["content"] for f in enhanced]
-
-
-def merge_cross_spec_facts(
-    spec_facts: list[Fact],
-    cross_results: list[SearchResult],
-) -> list[Fact]:
-    """Merge cross-spec search results with spec-specific facts, deduplicating by ID.
-
-    Spec-specific facts take precedence: if a cross-spec result has the same
-    ID as a spec-specific fact, the spec-specific version is kept.
-
-    Args:
-        spec_facts: Spec-specific facts (output of _load_relevant_facts).
-        cross_results: SearchResults from VectorSearch.
-
-    Returns:
-        Merged list: all spec_facts followed by any cross-spec facts whose
-        IDs are not already in spec_facts. Order is preserved.
-
-    Requirements: 94-REQ-3.1, 94-REQ-3.E1
-    """
-    existing_ids = {f.id for f in spec_facts}
-    merged: list[Fact] = list(spec_facts)
-    for result in cross_results:
-        if result.fact_id not in existing_ids:
-            merged.append(
-                Fact(
-                    id=result.fact_id,
-                    content=result.content,
-                    category=result.category,
-                    spec_name=result.spec_name,
-                    keywords=[],
-                    confidence=1.0,
-                    created_at="",
-                    session_id=result.session_id,
-                    commit_sha=result.commit_sha,
-                )
-            )
-            existing_ids.add(result.fact_id)
-    return merged
 
 
 def build_retry_context(

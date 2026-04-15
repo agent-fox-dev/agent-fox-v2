@@ -13,7 +13,7 @@ from unittest.mock import patch
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord
 
 # ---------------------------------------------------------------------------
 # Hypothesis strategies
@@ -138,14 +138,12 @@ class TestTotalTaskResetProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        state_path = agent_dir / "state.jsonl"
         plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        StateManager(state_path).save(state)
         plan_path.write_text(_make_plan_json_from_state(state))
 
         with (
@@ -157,13 +155,15 @@ class TestTotalTaskResetProperty:
                 "agent_fox.engine.reset.compact",
                 return_value=(0, 0),
             ),
+            patch(
+                "agent_fox.engine.reset._load_state_or_raise",
+                return_value=state,
+            ),
         ):
-            hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+            hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
-        new_state = StateManager(state_path).load()
-        assert new_state is not None
-        for task_id in new_state.node_states:
-            assert new_state.node_states[task_id] == "pending"
+        for task_id in state.node_states:
+            assert state.node_states[task_id] == "pending"
 
 
 # ===========================================================================
@@ -199,14 +199,12 @@ class TestCounterPreservationProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        state_path = agent_dir / "state.jsonl"
         plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        StateManager(state_path).save(state)
         plan_path.write_text(_make_plan_json_from_state(state))
 
         with (
@@ -218,16 +216,18 @@ class TestCounterPreservationProperty:
                 "agent_fox.engine.reset.compact",
                 return_value=(0, 0),
             ),
+            patch(
+                "agent_fox.engine.reset._load_state_or_raise",
+                return_value=state,
+            ),
         ):
-            hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+            hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
-        new_state = StateManager(state_path).load()
-        assert new_state is not None
-        assert new_state.total_cost == original_cost
-        assert new_state.total_input_tokens == original_input
-        assert new_state.total_output_tokens == original_output
-        assert new_state.total_sessions == original_sessions
-        assert len(new_state.session_history) == original_history_len
+        assert state.total_cost == original_cost
+        assert state.total_input_tokens == original_input
+        assert state.total_output_tokens == original_output
+        assert state.total_sessions == original_sessions
+        assert len(state.session_history) == original_history_len
 
 
 # ===========================================================================
@@ -262,14 +262,12 @@ class TestGracefulDegradationProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        state_path = agent_dir / "state.jsonl"
         plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        StateManager(state_path).save(state)
         plan_path.write_text(_make_plan_json_from_state(state))
 
         with (
@@ -281,15 +279,17 @@ class TestGracefulDegradationProperty:
                 "agent_fox.engine.reset.compact",
                 return_value=(0, 0),
             ),
+            patch(
+                "agent_fox.engine.reset._load_state_or_raise",
+                return_value=state,
+            ),
         ):
-            result = hard_reset_all(state_path, plan_path, worktrees_dir, tmp_path, memory_path)
+            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
 
         assert result.rollback_sha is None
 
-        new_state = StateManager(state_path).load()
-        assert new_state is not None
-        for task_id in new_state.node_states:
-            assert new_state.node_states[task_id] == "pending"
+        for task_id in state.node_states:
+            assert state.node_states[task_id] == "pending"
 
 
 # ===========================================================================
@@ -344,11 +344,14 @@ class TestBackwardCompatDeserProperty:
 # TS-35-P5: Artifact Synchronization Consistency
 # Property 8: After reset, tasks.md and plan.json are consistent.
 # Validates: 35-REQ-7.1, 35-REQ-7.2
+# NOTE: reset_plan_statuses() was removed with the StateManager→DB migration.
+#       Plan node statuses are now persisted via _persist_resets() to DuckDB.
+#       This property test was simplified to only test tasks.md checkboxes.
 # ===========================================================================
 
 
 class TestArtifactSyncProperty:
-    """TS-35-P5: tasks.md checkboxes and plan.json statuses are consistent."""
+    """TS-35-P5: tasks.md checkboxes are consistent after reset."""
 
     @given(
         n_tasks=st.integers(min_value=1, max_value=10),
@@ -362,17 +365,14 @@ class TestArtifactSyncProperty:
         max_examples=50,
         suppress_health_check=[HealthCheck.too_slow],
     )
-    def test_checkboxes_and_plan_consistent(
+    def test_checkboxes_consistent(
         self,
         n_tasks: int,
         statuses: list[str],
         tmp_path_factory,
     ) -> None:
-        """All affected task checkboxes are [ ] and plan statuses are 'pending'."""
-        from agent_fox.engine.reset import (
-            reset_plan_statuses,
-            reset_tasks_md_checkboxes,
-        )
+        """All affected task checkboxes are [ ] after reset."""
+        from agent_fox.engine.reset import reset_tasks_md_checkboxes
 
         # Use min of n_tasks and len(statuses) for consistency
         actual_n = min(n_tasks, len(statuses))
@@ -395,47 +395,10 @@ class TestArtifactSyncProperty:
         tasks_md = spec_dir / "tasks.md"
         tasks_md.write_text("".join(lines))
 
-        # Build plan.json
-        plan_path = tmp_path / "plan.json"
-        plan_nodes = {}
-        for i in range(actual_n):
-            tid = task_ids[i]
-            plan_nodes[tid] = {
-                "id": tid,
-                "spec_name": "propspec",
-                "group_number": i + 1,
-                "title": f"Task {i + 1}",
-                "optional": False,
-                "status": statuses[i],
-                "subtask_count": 1,
-                "body": "",
-            }
-        plan_path.write_text(
-            json.dumps(
-                {
-                    "metadata": {
-                        "created_at": "2026-01-01T00:00:00",
-                        "fast_mode": False,
-                        "filtered_spec": None,
-                        "version": "0.1.0",
-                    },
-                    "nodes": plan_nodes,
-                    "edges": [],
-                    "order": task_ids,
-                }
-            )
-        )
-
-        # Run resets
+        # Run reset
         reset_tasks_md_checkboxes(task_ids, specs_dir)
-        reset_plan_statuses(plan_path, task_ids)
 
         # Verify tasks.md checkboxes
         text = tasks_md.read_text()
         for i in range(actual_n):
             assert f"- [ ] {i + 1}." in text
-
-        # Verify plan.json statuses
-        plan_data = json.loads(plan_path.read_text())
-        for tid in task_ids:
-            assert plan_data["nodes"][tid]["status"] == "pending"

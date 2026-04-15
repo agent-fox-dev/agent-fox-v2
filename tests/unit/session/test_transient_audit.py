@@ -371,3 +371,37 @@ class TestCleanupPartialFailure:
             "warning" in r.levelname.lower() or "error" in r.message.lower() or "failed" in r.message.lower()
             for r in caplog.records
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression: persist_auditor_results uses explicit project_root (#355)
+# ---------------------------------------------------------------------------
+
+
+class TestProjectRootParameter:
+    """Verify persist_auditor_results uses project_root instead of parent.parent."""
+
+    def test_explicit_project_root(self, tmp_path: Path) -> None:
+        """Regression for #355: project_root overrides spec_dir.parent.parent."""
+        from agent_fox.session.auditor_output import persist_auditor_results
+
+        # spec_dir is deeply nested — parent.parent would be wrong
+        spec_dir = tmp_path / "some" / "deep" / "path" / "myspec"
+        spec_dir.mkdir(parents=True)
+
+        persist_auditor_results(spec_dir, _make_fail_result(), project_root=tmp_path)
+
+        audit_path = tmp_path / ".agent-fox" / "audit" / "audit_myspec.md"
+        assert audit_path.exists(), "audit report should be at project_root/.agent-fox/audit/"
+
+    def test_fallback_to_parent_parent(self, tmp_path: Path) -> None:
+        """Without project_root, falls back to spec_dir.parent.parent."""
+        from agent_fox.session.auditor_output import persist_auditor_results
+
+        spec_dir = tmp_path / ".specs" / "05_foo"
+        spec_dir.mkdir(parents=True)
+
+        persist_auditor_results(spec_dir, _make_fail_result())
+
+        audit_path = tmp_path / ".agent-fox" / "audit" / "audit_05_foo.md"
+        assert audit_path.exists(), "fallback should still work for standard .specs/ layout"

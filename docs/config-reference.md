@@ -208,7 +208,23 @@ persists facts learned across sessions for use as context in future sessions.
 | `decay_floor` | float | `0.1` | — | Effective confidence below which facts are auto-superseded |
 | `cleanup_fact_threshold` | int | `500` | — | Active fact count above which decay cleanup runs |
 | `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
-| `cross_spec_top_k` | int | `15` | ≥ 0 | Number of cross-spec facts retrieved via vector search during context assembly (0 to disable) |
+| `retrieval` | table | — | — | Adaptive retrieval tuning parameters (see `[knowledge.retrieval]`) |
+
+### knowledge.retrieval
+
+Tuning parameters for the unified adaptive retriever (spec 104). Controls
+multi-signal RRF fusion, token budgeting, and per-signal candidate caps.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `rrf_k` | int | `60` | RRF smoothing constant (denominator offset) |
+| `max_facts` | int | `50` | Maximum facts in the fused anchor set |
+| `token_budget` | int | `30000` | Maximum characters for the formatted context block |
+| `keyword_top_k` | int | `100` | Candidate cap for the keyword signal |
+| `vector_top_k` | int | `50` | Candidate cap for the vector signal |
+| `entity_max_depth` | int | `2` | Max BFS traversal depth for entity signal |
+| `entity_max_entities` | int | `50` | Max entities traversed in entity signal |
+| `causal_max_depth` | int | `3` | Max traversal depth for causal signal |
 
 **Example:**
 
@@ -219,6 +235,11 @@ confidence_threshold = 0.6
 fact_cache_enabled = true
 cleanup_enabled = true
 decay_half_life_days = 90
+
+[knowledge.retrieval]
+rrf_k = 60
+max_facts = 50
+token_budget = 30000
 ```
 
 ---
@@ -399,6 +420,10 @@ stale dependencies, TODO debt, and linter violations.
 | `hunt_scan_interval` | int | `14400` | ≥ 60 | Seconds between full hunt scans |
 | `quality_gate_timeout` | int | `600` | ≥ 60 | Per-check timeout in seconds |
 | `categories` | table | (all enabled) | — | Per-category enable/disable toggles |
+| `spec_interval` | int | `60` | ≥ 10 | Seconds between spec executor cycles |
+| `enabled_streams` | list | `["specs","fixes","hunts"]` | — | List of enabled work stream names |
+| `merge_strategy` | string | `"direct"` | — | Merge strategy: `direct` or `pr` |
+| `push_fix_branch` | bool | `false` | — | Push fix branches to origin before harvest |
 
 ### night_shift.categories
 

@@ -94,7 +94,7 @@ class TestInMemorySpec:
     def test_build_spec_from_issue(self) -> None:
         """InMemorySpec has populated fields from issue."""
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         issue = IssueResult(
             number=42,
@@ -110,7 +110,7 @@ class TestInMemorySpec:
     def test_spec_has_system_context(self) -> None:
         """InMemorySpec contains the issue body as system context."""
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         issue = IssueResult(
             number=10,
@@ -283,7 +283,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1
@@ -349,7 +349,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1
@@ -419,7 +419,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1
@@ -489,7 +489,7 @@ class TestSuccessfulFixHarvestsAndCloses:
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         mock_platform = AsyncMock()
@@ -527,7 +527,7 @@ class TestEmptyIssueBody:
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         mock_platform = AsyncMock()
@@ -638,7 +638,7 @@ class TestSupersessionPairsActedOn:
 
         from agent_fox.nightshift.engine import NightShiftEngine
         from agent_fox.nightshift.triage import TriageResult
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.max_cost = None
@@ -689,7 +689,7 @@ class TestSupersessionPairsActedOn:
 
         from agent_fox.nightshift.engine import NightShiftEngine
         from agent_fox.nightshift.triage import TriageResult
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.max_cost = None
@@ -751,7 +751,7 @@ class TestReviewerRetryOnParseFailure:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1
@@ -826,7 +826,7 @@ class TestReviewerRetryOnParseFailure:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1

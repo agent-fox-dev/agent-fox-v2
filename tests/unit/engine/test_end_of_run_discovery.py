@@ -30,7 +30,6 @@ from tests.unit.engine.conftest import (
 
 def _make_orchestrator(
     plan_dir: Path,
-    state_path: Path,
     runner: MockSessionRunner,
     *,
     hot_load: bool = True,
@@ -64,7 +63,6 @@ def _make_orchestrator(
     return Orchestrator(
         config=config,
         plan_path=plan_path,
-        state_path=state_path,
         session_runner_factory=lambda nid, **kw: runner,
     )
 
@@ -82,7 +80,6 @@ class TestEndOfRunDiscoveryTrigger:
     async def test_barrier_called_on_completed_state(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When all tasks complete and hot_load is enabled, the sync barrier
@@ -91,7 +88,7 @@ class TestEndOfRunDiscoveryTrigger:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch.object(
             orch,
@@ -118,7 +115,6 @@ class TestNewSpecsDiscovered:
     async def test_returns_true_when_new_tasks_found(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """_try_end_of_run_discovery returns True when barrier adds tasks."""
@@ -126,7 +122,7 @@ class TestNewSpecsDiscovered:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         # Run the orchestrator so internal state is set up
         # Then test _try_end_of_run_discovery directly
@@ -164,7 +160,6 @@ class TestNoNewSpecsCompleted:
     async def test_completes_when_no_new_specs(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Run terminates with COMPLETED when end-of-run discovery finds nothing."""
@@ -172,7 +167,7 @@ class TestNoNewSpecsCompleted:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -198,7 +193,6 @@ class TestRepeatedDiscoveryCycles:
     async def test_multiple_discovery_cycles(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """End-of-run discovery runs multiple times as new specs are found."""
@@ -206,7 +200,7 @@ class TestRepeatedDiscoveryCycles:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         discovery_call_count = 0
 
@@ -245,7 +239,6 @@ class TestHotLoadDisabledSkipsDiscovery:
     async def test_no_barrier_when_hot_load_disabled(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """With hot_load=False, _try_end_of_run_discovery returns False
@@ -254,7 +247,7 @@ class TestHotLoadDisabledSkipsDiscovery:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner, hot_load=False)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner, hot_load=False)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -287,7 +280,6 @@ class TestBarrierFailureGraceful:
     async def test_barrier_error_returns_false(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
@@ -297,7 +289,7 @@ class TestBarrierFailureGraceful:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -323,7 +315,6 @@ class TestStalledNoDiscovery:
     async def test_stalled_skips_discovery(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When execution is stalled, _try_end_of_run_discovery is not called."""
@@ -339,7 +330,6 @@ class TestStalledNoDiscovery:
         )
         orch = _make_orchestrator(
             tmp_plan_dir,
-            tmp_state_path,
             mock_runner,
             nodes=nodes,
             edges=edges,
@@ -370,7 +360,6 @@ class TestCostLimitNoDiscovery:
     async def test_cost_limit_skips_discovery(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When cost limit is hit, _try_end_of_run_discovery is not called."""
@@ -382,7 +371,6 @@ class TestCostLimitNoDiscovery:
         nodes: dict[str, dict[str, object]] = {"spec:1": {}, "spec:2": {}}
         orch = _make_orchestrator(
             tmp_plan_dir,
-            tmp_state_path,
             mock_runner,
             nodes=nodes,
             max_cost=0.01,
@@ -413,7 +401,6 @@ class TestSessionLimitNoDiscovery:
     async def test_session_limit_skips_discovery(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When session limit is hit, _try_end_of_run_discovery is not called."""
@@ -424,7 +411,6 @@ class TestSessionLimitNoDiscovery:
         nodes: dict[str, dict[str, object]] = {"spec:1": {}, "spec:2": {}}
         orch = _make_orchestrator(
             tmp_plan_dir,
-            tmp_state_path,
             mock_runner,
             nodes=nodes,
             max_sessions=1,
@@ -455,7 +441,6 @@ class TestBlockLimitNoDiscovery:
     async def test_block_limit_skips_discovery(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When block limit is hit, _try_end_of_run_discovery is not called."""
@@ -477,7 +462,6 @@ class TestBlockLimitNoDiscovery:
         )
         orch = _make_orchestrator(
             tmp_plan_dir,
-            tmp_state_path,
             mock_runner,
             nodes=nodes,
             edges=edges,
@@ -509,7 +493,6 @@ class TestInterruptedNoDiscovery:
     async def test_interrupted_skips_discovery(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """When SIGINT is received, _try_end_of_run_discovery is not called."""
@@ -517,7 +500,7 @@ class TestInterruptedNoDiscovery:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         # Simulate interrupt by setting the signal flag
         orch._signal.interrupted = True
@@ -547,7 +530,6 @@ class TestFullBarrierSequenceExecuted:
     async def test_barrier_called_with_all_kwargs(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """run_sync_barrier_sequence receives all required keyword arguments."""
@@ -555,7 +537,7 @@ class TestFullBarrierSequenceExecuted:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -597,7 +579,6 @@ class TestSameHotLoadFunction:
     async def test_hot_load_fn_is_same(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """The hot_load_fn passed to barrier is self._hot_load_new_specs."""
@@ -605,7 +586,7 @@ class TestSameHotLoadFunction:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",
@@ -632,7 +613,6 @@ class TestAuditEventEmitted:
     async def test_emit_audit_is_same(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """The emit_audit callable passed is self._emit_audit."""
@@ -640,7 +620,7 @@ class TestAuditEventEmitted:
             "spec:1",
             [MockSessionOutcome(node_id="spec:1", status="completed")],
         )
-        orch = _make_orchestrator(tmp_plan_dir, tmp_state_path, mock_runner)
+        orch = _make_orchestrator(tmp_plan_dir, mock_runner)
 
         with patch(
             "agent_fox.engine.engine.run_sync_barrier_sequence",

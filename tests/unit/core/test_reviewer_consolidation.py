@@ -147,15 +147,12 @@ class TestCoderFixMode:
     """Verify coder fix mode matches former fix_coder configuration."""
 
     def test_coder_fix_mode(self) -> None:
-        """TS-98-6: coder fix mode has fix_coding.md, STANDARD, 300 turns, adaptive 64k."""
+        """TS-98-6: coder fix mode has STANDARD tier, 300 turns, adaptive 64k."""
         from agent_fox.archetypes import ARCHETYPE_REGISTRY, resolve_effective_config
 
         entry = ARCHETYPE_REGISTRY["coder"]
         assert "fix" in entry.modes, f"coder should have 'fix' mode, got modes: {set(entry.modes.keys())}"
         cfg = resolve_effective_config(entry, "fix")
-        assert cfg.templates == ["fix_coding.md"], (
-            f"coder:fix templates should be ['fix_coding.md'], got {cfg.templates}"
-        )
         assert cfg.default_model_tier == "STANDARD", (
             f"coder:fix tier should be STANDARD, got {cfg.default_model_tier!r}"
         )
@@ -376,7 +373,6 @@ class TestCoderWithoutMode:
 
         entry = ARCHETYPE_REGISTRY["coder"]
         cfg = resolve_effective_config(entry, None)
-        assert cfg.templates == ["coding.md"], f"coder default templates should be ['coding.md'], got {cfg.templates}"
         assert cfg.default_max_turns == 300, f"coder default max_turns should be 300, got {cfg.default_max_turns}"
 
 

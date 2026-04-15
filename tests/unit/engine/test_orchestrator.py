@@ -21,7 +21,7 @@ import pytest
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.engine import Orchestrator
-from agent_fox.engine.state import StateManager
+from agent_fox.engine.state import ExecutionState, compute_plan_hash_from_file
 
 from .conftest import (
     MockSessionOutcome,
@@ -32,30 +32,6 @@ from .conftest import (
 # -- Helpers ------------------------------------------------------------------
 
 
-def _write_state(
-    state_path: Path,
-    plan_hash: str,
-    node_states: dict[str, str],
-    session_history: list[dict] | None = None,
-    total_sessions: int = 0,
-    total_cost: float = 0.0,
-) -> None:
-    """Write a state.jsonl line for resume tests."""
-    state = {
-        "plan_hash": plan_hash,
-        "node_states": node_states,
-        "session_history": session_history or [],
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "total_cost": total_cost,
-        "total_sessions": total_sessions,
-        "started_at": "2026-03-01T09:55:00Z",
-        "updated_at": "2026-03-01T10:00:00Z",
-        "run_status": "running",
-    }
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(state_path, "a") as f:
-        f.write(json.dumps(state) + "\n")
 
 
 def _linear_chain_plan(plan_dir: Path) -> Path:
@@ -99,7 +75,7 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -123,7 +99,7 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -147,7 +123,7 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -201,7 +177,7 @@ class TestRetryWithError:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -263,7 +239,7 @@ class TestBlockedAfterRetries:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -332,7 +308,7 @@ class TestGracefulShutdown:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -342,11 +318,9 @@ class TestGracefulShutdown:
         # For now, we verify the basic mechanism exists
         state = await orchestrator.run()
 
-        # The orchestrator should save state; at minimum all 5 should complete
-        # if no actual interrupt occurs. The interrupt test verifies the
-        # mechanism, which will be properly tested when the orchestrator
-        # checks _interrupted between dispatches.
-        assert tmp_state_path.exists() or state.total_sessions > 0
+        # The orchestrator should complete; at minimum all 5 should run
+        # if no actual interrupt occurs.
+        assert state.total_sessions > 0
 
 
 class TestStalledExecution:
@@ -395,7 +369,7 @@ class TestStalledExecution:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -417,7 +391,6 @@ class TestResumeWithInProgressTask:
     async def test_in_progress_treated_as_failed(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """In-progress task from prior run is reset and re-dispatched."""
         plan_path = write_plan_file(
@@ -432,13 +405,19 @@ class TestResumeWithInProgressTask:
             order=["spec:1", "spec:2"],
         )
 
-        # Pre-populate state: A completed, B in_progress (interrupted)
-        plan_hash = StateManager.compute_plan_hash(plan_path)
-        _write_state(
-            tmp_state_path,
+        # Pre-populate state via mock: A completed, B in_progress (interrupted)
+        plan_hash = compute_plan_hash_from_file(plan_path)
+        prior_state = ExecutionState(
             plan_hash=plan_hash,
             node_states={"spec:1": "completed", "spec:2": "in_progress"},
+            session_history=[],
+            total_input_tokens=0,
+            total_output_tokens=0,
+            total_cost=0.0,
             total_sessions=1,
+            started_at="2026-03-01T09:55:00Z",
+            updated_at="2026-03-01T10:00:00Z",
+            run_status="running",
         )
 
         mock = MockSessionRunner()
@@ -447,14 +426,18 @@ class TestResumeWithInProgressTask:
             max_retries=2,
             inter_session_delay=0,
         )
-        orchestrator = Orchestrator(
-            config=config,
-            plan_path=plan_path,
-            state_path=tmp_state_path,
-            session_runner_factory=lambda nid, **kw: mock,
-        )
 
-        state = await orchestrator.run()
+        with patch(
+            "agent_fox.engine.engine._load_or_init_state",
+            return_value=prior_state,
+        ):
+            orchestrator = Orchestrator(
+                config=config,
+                plan_path=plan_path,
+                session_runner_factory=lambda nid, **kw: mock,
+            )
+
+            state = await orchestrator.run()
 
         # B should have been re-dispatched and completed
         assert state.node_states["spec:2"] == "completed"
@@ -477,7 +460,6 @@ class TestResumeAfterStatusSync:
     async def test_resume_after_status_sync_skips_completed(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """After plan.json status sync, resume skips completed tasks."""
         plan_path = write_plan_file(
@@ -493,28 +475,19 @@ class TestResumeAfterStatusSync:
         )
 
         # Compute hash, then mutate plan.json status (simulates shutdown sync)
-        plan_hash = StateManager.compute_plan_hash(plan_path)
+        plan_hash = compute_plan_hash_from_file(plan_path)
         plan_data = json.loads(plan_path.read_text())
         plan_data["nodes"]["spec:1"]["status"] = "completed"
         plan_path.write_text(json.dumps(plan_data, indent=2))
 
         # Hash should still match despite status change
-        assert StateManager.compute_plan_hash(plan_path) == plan_hash
-
-        # Pre-populate state with spec:1 completed
-        _write_state(
-            tmp_state_path,
-            plan_hash=plan_hash,
-            node_states={"spec:1": "completed", "spec:2": "pending"},
-            total_sessions=1,
-        )
+        assert compute_plan_hash_from_file(plan_path) == plan_hash
 
         mock = MockSessionRunner()
         config = OrchestratorConfig(parallel=1, inter_session_delay=0)
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -561,7 +534,7 @@ class TestFreshStartWithCompletedNodes:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -639,7 +612,7 @@ class TestCostLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -683,7 +656,7 @@ class TestCostLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -729,7 +702,7 @@ class TestSessionLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -768,7 +741,7 @@ class TestSessionLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -798,7 +771,7 @@ class TestMissingPlanFile:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -821,7 +794,7 @@ class TestMissingPlanFile:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -855,7 +828,7 @@ class TestEmptyPlan:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -882,7 +855,7 @@ class TestEmptyPlan:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -941,7 +914,7 @@ class TestSyncBarrierTriggering:
             orchestrator = Orchestrator(
                 config=config,
                 plan_path=plan_path,
-                state_path=tmp_state_path,
+    
                 session_runner_factory=lambda nid, **kw: mock_runner,
                 specs_dir=tmp_plan_dir.parent / ".specs",
             )
@@ -985,7 +958,7 @@ class TestSyncBarrierTriggering:
             orchestrator = Orchestrator(
                 config=config,
                 plan_path=plan_path,
-                state_path=tmp_state_path,
+    
                 session_runner_factory=lambda nid, **kw: mock_runner,
                 specs_dir=tmp_plan_dir.parent / ".specs",
             )
@@ -1032,7 +1005,7 @@ class TestSyncBarrierTriggering:
             orchestrator = Orchestrator(
                 config=config,
                 plan_path=plan_path,
-                state_path=tmp_state_path,
+    
                 session_runner_factory=lambda nid, **kw: mock_runner,
             )
 
@@ -1079,7 +1052,7 @@ class TestSyncBarrierTriggering:
             orchestrator = Orchestrator(
                 config=config,
                 plan_path=plan_path,
-                state_path=tmp_state_path,
+    
                 session_runner_factory=lambda nid, **kw: mock_runner,
             )
 
@@ -1087,140 +1060,6 @@ class TestSyncBarrierTriggering:
 
         # 1 sync-barrier render + 1 final render
         assert mock_render.call_count == 2
-
-
-class TestInProgressStatePersistence:
-    """Verify that in_progress state is persisted before session dispatch.
-
-    When a task is dispatched, its status should be saved to state.jsonl
-    as in_progress so that agent-fox status can show running tasks.
-    """
-
-    @pytest.mark.asyncio
-    async def test_in_progress_state_saved_before_session(
-        self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
-        mock_runner: MockSessionRunner,
-    ) -> None:
-        """state.jsonl includes an in_progress snapshot before completion."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
-            nodes={"spec:1": {"title": "Task A"}},
-            edges=[],
-        )
-
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
-        orchestrator = Orchestrator(
-            config=config,
-            plan_path=plan_path,
-            state_path=tmp_state_path,
-            session_runner_factory=lambda nid, **kw: mock_runner,
-        )
-
-        await orchestrator.run()
-
-        # state.jsonl should have at least 2 lines:
-        # 1. in_progress snapshot (before session)
-        # 2. completed snapshot (after session)
-        lines = [line.strip() for line in tmp_state_path.read_text().strip().split("\n") if line.strip()]
-        assert len(lines) >= 2, f"Expected at least 2 state snapshots, got {len(lines)}"
-
-        # First line should show in_progress for spec:1
-        first_state = json.loads(lines[0])
-        assert first_state["node_states"]["spec:1"] == "in_progress"
-
-
-class TestPlanJsonStatusSync:
-    """Verify that plan.json is updated with current node statuses.
-
-    After execution completes, plan.json node statuses should reflect
-    the actual execution outcome, not remain as pending.
-    """
-
-    @pytest.mark.asyncio
-    async def test_plan_json_updated_after_completion(
-        self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
-        mock_runner: MockSessionRunner,
-    ) -> None:
-        """plan.json nodes have completed status after successful run."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
-            nodes={
-                "spec:1": {"title": "Task A"},
-                "spec:2": {"title": "Task B"},
-            },
-            edges=[
-                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
-            ],
-            order=["spec:1", "spec:2"],
-        )
-
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
-        orchestrator = Orchestrator(
-            config=config,
-            plan_path=plan_path,
-            state_path=tmp_state_path,
-            session_runner_factory=lambda nid, **kw: mock_runner,
-        )
-
-        await orchestrator.run()
-
-        # Re-read plan.json
-        updated_plan = json.loads(plan_path.read_text())
-        assert updated_plan["nodes"]["spec:1"]["status"] == "completed"
-        assert updated_plan["nodes"]["spec:2"]["status"] == "completed"
-
-    @pytest.mark.asyncio
-    async def test_plan_json_shows_blocked_status(
-        self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
-    ) -> None:
-        """plan.json nodes show blocked status when retries exhausted."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
-            nodes={
-                "spec:1": {"title": "Task A"},
-                "spec:2": {"title": "Task B"},
-            },
-            edges=[
-                {"source": "spec:1", "target": "spec:2", "kind": "intra_spec"},
-            ],
-            order=["spec:1", "spec:2"],
-        )
-
-        mock = MockSessionRunner()
-        mock.configure(
-            "spec:1",
-            [
-                MockSessionOutcome(
-                    node_id="spec:1",
-                    status="failed",
-                    error_message="fail",
-                ),
-            ],
-        )
-
-        config = OrchestratorConfig(
-            parallel=1,
-            max_retries=0,
-            inter_session_delay=0,
-        )
-        orchestrator = Orchestrator(
-            config=config,
-            plan_path=plan_path,
-            state_path=tmp_state_path,
-            session_runner_factory=lambda nid, **kw: mock,
-        )
-
-        await orchestrator.run()
-
-        updated_plan = json.loads(plan_path.read_text())
-        assert updated_plan["nodes"]["spec:1"]["status"] == "blocked"
-        assert updated_plan["nodes"]["spec:2"]["status"] == "blocked"
 
 
 class TestParallelDispatchWithDependencies:
@@ -1259,7 +1098,7 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1296,7 +1135,7 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1347,7 +1186,7 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -1389,7 +1228,7 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1437,7 +1276,7 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
+
             session_runner_factory=lambda nid, **kw: mock,
         )
 

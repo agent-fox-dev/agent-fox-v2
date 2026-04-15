@@ -9,6 +9,7 @@ Requirements: 101-REQ-1.6, 101-REQ-2.1, 101-REQ-2.2, 101-REQ-2.E1,
               101-REQ-7.2, 101-REQ-7.E1, 101-REQ-8.1, 101-REQ-8.2,
               101-REQ-8.3, 101-REQ-1.E2
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -17,14 +18,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
-from agent_fox.knowledge.code_analysis import CodeAnalysisResult
-from agent_fox.knowledge.doc_mining import DocMiningResult
-from agent_fox.knowledge.git_mining import MiningResult
-from agent_fox.knowledge.onboard import OnboardResult, run_onboard
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.knowledge.code_analysis import CodeAnalysisResult
+from agent_fox.knowledge.doc_mining import DocMiningResult
 from agent_fox.knowledge.entities import AnalysisResult
+from agent_fox.knowledge.git_mining import MiningResult
 from agent_fox.knowledge.ingest import IngestResult
+from agent_fox.knowledge.onboard import OnboardResult, run_onboard
 
 
 @pytest.fixture()
@@ -207,9 +208,7 @@ class TestEntityGraphPhase:
                 return_value=(0, 0),
             ),
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_entities=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_entities=True)
 
         assert not mock_analyze.called
         assert "entities" in result.phases_skipped
@@ -299,9 +298,7 @@ class TestIngestionPhase:
                 return_value=(0, 0),
             ),
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_ingestion=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_ingestion=True)
 
         assert not mock_ingestor.ingest_adrs.called
         assert "ingestion" in result.phases_skipped
@@ -346,9 +343,7 @@ class TestMiningPhase:
                 return_value=(0, 0),
             ),
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_mining=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_mining=True)
 
         assert not mock_mining.called
         assert "mining" in result.phases_skipped
@@ -393,9 +388,7 @@ class TestCodeAnalysisPhase:
                 return_value=(0, 0),
             ),
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_code_analysis=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_code_analysis=True)
 
         assert not mock_code.called
         assert "code_analysis" in result.phases_skipped
@@ -440,9 +433,7 @@ class TestDocMiningPhase:
                 return_value=(0, 0),
             ),
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_doc_mining=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_doc_mining=True)
 
         assert not mock_docs.called
         assert "doc_mining" in result.phases_skipped
@@ -525,9 +516,7 @@ class TestEmbeddingPhase:
                 "agent_fox.knowledge.onboard._generate_missing_embeddings",
             ) as mock_embed,
         ):
-            result = await run_onboard(
-                tmp_path, agent_config, mock_db, skip_embeddings=True
-            )
+            result = await run_onboard(tmp_path, agent_config, mock_db, skip_embeddings=True)
 
         assert not mock_embed.called
         assert "embeddings" in result.phases_skipped

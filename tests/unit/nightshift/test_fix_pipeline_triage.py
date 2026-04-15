@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 from agent_fox.workspace import WorkspaceInfo
 
 

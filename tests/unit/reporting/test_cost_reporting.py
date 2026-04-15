@@ -15,7 +15,7 @@ from agent_fox.core.token_tracker import (
     flush_auxiliary_usage,
     record_auxiliary_usage,
 )
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
 from agent_fox.reporting.status import StatusReport, extract_spec_name
 
 
@@ -48,8 +48,7 @@ class TestAuxiliaryIntegration:
             node_states={},
         )
 
-        manager = StateManager(Path("/dev/null"))
-        manager.record_session(state, record)
+        update_state_with_session(state, record)
 
         assert state.total_input_tokens == 1100  # 1000 session + 100 aux
         assert state.total_output_tokens == 550  # 500 session + 50 aux
@@ -86,8 +85,7 @@ class TestAuxiliaryIntegration:
             node_states={},
         )
 
-        manager = StateManager(Path("/dev/null"))
-        manager.record_session(state, record)
+        update_state_with_session(state, record)
 
         # Total cost should include session cost + auxiliary cost
         assert state.total_cost > 0.05  # More than just session cost

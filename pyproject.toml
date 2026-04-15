@@ -1,6 +1,6 @@
 [project]
 name = "agent-fox"
-version = "3.0.0rc5"
+version = "3.0.0rc6"
 description = "Autonomous coding-agent orchestrator"
 requires-python = ">=3.12"
 dependencies = [
@@ -50,6 +50,9 @@ exclude = [".claude/worktrees"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-n auto"
+markers = [
+    "property: Hypothesis property-based test",
+]
 
 [dependency-groups]
 dev = [

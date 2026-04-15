@@ -97,9 +97,7 @@ def helper():
         assert "helper" in names
         assert types.get("helper") == EntityType.FUNCTION
 
-    def test_python_entities_via_analyze_codebase(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_python_entities_via_analyze_codebase(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """analyze_codebase produces correct Python entities across multiple files."""
         from agent_fox.knowledge.static_analysis import analyze_codebase
 
@@ -783,7 +781,7 @@ void initialize(struct Config *cfg) {}
         from agent_fox.knowledge.lang.c_lang import CAnalyzer
 
         c_file = tmp_path / "main.c"
-        c_file.write_text('#include <stdio.h>\n\nvoid main() {}\n')
+        c_file.write_text("#include <stdio.h>\n\nvoid main() {}\n")
         analyzer = CAnalyzer()
         parser = analyzer.make_parser()
         tree = _parse_file(c_file, parser)
@@ -1144,9 +1142,7 @@ class TestQualifiedNameConstruction:
         from agent_fox.knowledge.lang.java_lang import JavaAnalyzer
 
         java_file = tmp_path / "UserService.java"
-        java_file.write_text(
-            "package com.example;\npublic class UserService {\n    public void createUser() {}\n}\n"
-        )
+        java_file.write_text("package com.example;\npublic class UserService {\n    public void createUser() {}\n}\n")
         analyzer = JavaAnalyzer()
         tree = _parse_file(java_file, analyzer.make_parser())
         assert tree is not None

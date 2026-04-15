@@ -28,8 +28,8 @@ and group 4 verifies end-to-end wiring.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for AgentTraceSink
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for AgentTraceSink
     - Create `tests/unit/knowledge/test_agent_trace.py`
     - Translate TS-103-1 through TS-103-11 into pytest test functions
     - Tests import `AgentTraceSink` and `truncate_tool_input` from
@@ -38,7 +38,7 @@ and group 4 verifies end-to-end wiring.
     - _Test Spec: TS-103-1, TS-103-2, TS-103-3, TS-103-4, TS-103-5,
       TS-103-6, TS-103-7, TS-103-8, TS-103-9, TS-103-10, TS-103-11_
 
-  - [ ] 1.2 Create unit test file for JsonlSink removal verification
+  - [x] 1.2 Create unit test file for JsonlSink removal verification
     - Create `tests/unit/knowledge/test_agent_trace_removal.py`
     - Translate TS-103-12 and TS-103-13 into pytest tests
     - TS-103-12: assert `agent_fox/knowledge/jsonl_sink.py` does not exist
@@ -48,7 +48,7 @@ and group 4 verifies end-to-end wiring.
       in group 3
     - _Test Spec: TS-103-12, TS-103-13_
 
-  - [ ] 1.3 Create unit test for audit retention preservation
+  - [x] 1.3 Create unit test for audit retention preservation
     - Add test to `tests/unit/knowledge/test_agent_trace.py` (or a separate
       file if preferred)
     - Translate TS-103-14: set up DuckDB with two runs, create both
@@ -56,14 +56,14 @@ and group 4 verifies end-to-end wiring.
       `max_runs=1`, assert agent files survive
     - _Test Spec: TS-103-14_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/knowledge/test_agent_trace_props.py`
     - Translate TS-103-P1 (event completeness), TS-103-P2 (truncation
       invariants), TS-103-P3 (file location)
     - Use Hypothesis strategies for dict generation and sequence generation
     - _Test Spec: TS-103-P1, TS-103-P2, TS-103-P3_
 
-  - [ ] 1.5 Create integration smoke tests
+  - [x] 1.5 Create integration smoke tests
     - Create `tests/integration/test_agent_trace_smoke.py`
     - Translate TS-103-SMOKE-1: mock backend yielding a sequence of canonical
       messages, real `AgentTraceSink`, real `_execute_query`, verify trace
@@ -72,13 +72,13 @@ and group 4 verifies end-to-end wiring.
       are created
     - _Test Spec: TS-103-SMOKE-1, TS-103-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
 
-- [ ] 2. Implement AgentTraceSink and truncate_tool_input
-  - [ ] 2.1 Create `agent_fox/knowledge/agent_trace.py`
+- [x] 2. Implement AgentTraceSink and truncate_tool_input
+  - [x] 2.1 Create `agent_fox/knowledge/agent_trace.py`
     - Implement `truncate_tool_input(tool_input, max_len=10_000)` helper
     - Implement `AgentTraceSink` class satisfying the `SessionSink` protocol
     - Methods: `record_session_init`, `record_assistant_message`,
@@ -91,15 +91,15 @@ and group 4 verifies end-to-end wiring.
     - _Requirements: 1.1, 1.2, 1.3, 1.E1, 1.E2, 2.1, 2.2, 3.1, 3.2,
       4.1, 4.2, 4.3, 4.E1, 5.1, 6.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py`
-    - [ ] Property tests pass: `uv run pytest -q tests/property/knowledge/test_agent_trace_props.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 1.*, 2.*, 3.*, 4.*, 5.*, 6.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py`
+    - [x] Property tests pass: `uv run pytest -q tests/property/knowledge/test_agent_trace_props.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 1.*, 2.*, 3.*, 4.*, 5.*, 6.* acceptance criteria met
 
-- [ ] 3. Wire sink into session runner, remove old JsonlSink
-  - [ ] 3.1 Modify `agent_fox/session/session.py` — emit trace events
+- [x] 3. Wire sink into session runner, remove old JsonlSink
+  - [x] 3.1 Modify `agent_fox/session/session.py` — emit trace events
     - In `_execute_query`: emit `session.init` event before the backend
       message stream loop (requires passing `AgentTraceSink` or using
       the `SinkDispatcher` with a new method)
@@ -111,7 +111,7 @@ and group 4 verifies end-to-end wiring.
       method existence with `hasattr`)
     - _Requirements: 2.1, 3.1, 4.1, 5.1, 6.1_
 
-  - [ ] 3.2 Modify `agent_fox/engine/run.py` — replace JsonlSink with AgentTraceSink
+  - [x] 3.2 Modify `agent_fox/engine/run.py` — replace JsonlSink with AgentTraceSink
     - In `_setup_infrastructure`: when `debug=True`, create
       `AgentTraceSink(AUDIT_DIR, "")` instead of `JsonlSink`
     - The `run_id` is not yet known at setup time — the sink will receive
@@ -119,34 +119,37 @@ and group 4 verifies end-to-end wiring.
     - Remove the `JsonlSink` import
     - _Requirements: 1.1, 7.2_
 
-  - [ ] 3.3 Delete `agent_fox/knowledge/jsonl_sink.py`
+  - [x] 3.3 Delete `agent_fox/knowledge/jsonl_sink.py`
     - Remove the module entirely
     - _Requirements: 7.1_
 
-  - [ ] 3.4 Update all remaining imports of `JsonlSink`
+  - [x] 3.4 Update all remaining imports of `JsonlSink`
     - Search for `jsonl_sink` across the codebase
     - Update or remove any imports in test files that reference the old module
     - Remove old test files that tested `JsonlSink` exclusively
       (`tests/unit/knowledge/test_jsonl_sink.py`,
       `tests/unit/knowledge/test_jsonl_response.py`)
+    - Also fixed: `tests/unit/knowledge/test_sink.py`,
+      `tests/integration/test_review_visibility_smoke.py`,
+      `tests/property/knowledge/test_sink_props.py`
     - _Requirements: 7.E1_
 
-  - [ ] 3.5 Update removal verification tests
+  - [x] 3.5 Update removal verification tests
     - In `tests/unit/knowledge/test_agent_trace_removal.py`, flip assertions
       so they now assert the file does NOT exist and imports are gone
     - _Test Spec: TS-103-12, TS-103-13_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py tests/unit/knowledge/test_agent_trace_removal.py`
-    - [ ] Integration smoke tests pass: `uv run pytest -q tests/integration/test_agent_trace_smoke.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
-    - [ ] Requirements 7.* acceptance criteria met
-    - [ ] `agent_fox/knowledge/jsonl_sink.py` does not exist
-    - [ ] `grep -r jsonl_sink agent_fox/` returns zero matches
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_agent_trace.py tests/unit/knowledge/test_agent_trace_removal.py`
+    - [x] Integration smoke tests pass: `uv run pytest -q tests/integration/test_agent_trace_smoke.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check . && uv run ruff format --check .`
+    - [x] Requirements 7.* acceptance criteria met
+    - [x] `agent_fox/knowledge/jsonl_sink.py` does not exist
+    - [x] `grep -r jsonl_sink agent_fox/` returns zero matches (only local var in engine.py)
 
-- [ ] 4. Wiring verification
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+- [x] 4. Wiring verification
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - Path 1: Verify `code_command` → `_setup_infrastructure` →
       `AgentTraceSink` creation → `_execute_query` → trace event emission →
       file write. Read the calling code at each step.
@@ -155,35 +158,35 @@ and group 4 verifies end-to-end wiring.
     - Confirm no function in the chain is a stub.
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - `truncate_tool_input` returns a dict consumed by `record_tool_use`
     - `AgentTraceSink` methods are called by `SinkDispatcher` delegation
     - Grep for callers; confirm none discards return values
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke tests
+  - [x] 4.3 Run the integration smoke tests
     - All `TS-103-SMOKE-*` tests pass using real components
     - _Test Spec: TS-103-SMOKE-1, TS-103-SMOKE-2_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
     - _Requirements: all_
 
-  - [ ] 4.5 Cross-spec entry point verification
+  - [x] 4.5 Cross-spec entry point verification
     - `AgentTraceSink` is instantiated in `_setup_infrastructure` (this spec)
       and called from `_execute_query` (this spec modifies it)
     - Verify both callers exist in production code
     - _Requirements: all_
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

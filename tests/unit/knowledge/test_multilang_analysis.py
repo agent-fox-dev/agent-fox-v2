@@ -73,9 +73,7 @@ class TestMixedLanguageAnalysis:
     Requirements: 102-REQ-4.1, 102-REQ-4.2
     """
 
-    def test_mixed_language_entities_aggregated(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_mixed_language_entities_aggregated(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Entities from Python and Go files are both included in the result."""
         (tmp_path / "main.py").write_text(
             """\
@@ -141,9 +139,7 @@ class TestLanguagesAnalyzedField:
 
         assert result.languages_analyzed == ("python",)
 
-    def test_mixed_repo_returns_sorted_tuple(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_mixed_repo_returns_sorted_tuple(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Mixed Python+Go repo: languages_analyzed is a sorted tuple."""
         (tmp_path / "app.py").write_text("def hello(): pass\n")
         (tmp_path / "main.go").write_text("package main\nfunc main() {}\n")
@@ -156,9 +152,7 @@ class TestLanguagesAnalyzedField:
         assert "go" in result.languages_analyzed
         assert "python" in result.languages_analyzed
 
-    def test_no_files_returns_empty_tuple(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_files_returns_empty_tuple(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """No source files: languages_analyzed == ()."""
         (tmp_path / "README.md").write_text("# Docs\n")
 
@@ -206,9 +200,7 @@ class TestSoftDeleteAcrossLanguages:
         assert result2.entities_soft_deleted >= 1, "Go entities must be soft-deleted after file removal"
 
         # Verify Go entities have deleted_at set
-        rows = entity_conn.execute(
-            "SELECT entity_name, deleted_at FROM entity_graph WHERE language = 'go'"
-        ).fetchall()
+        rows = entity_conn.execute("SELECT entity_name, deleted_at FROM entity_graph WHERE language = 'go'").fetchall()
         if rows:  # Only check if Go entities were created in the first run
             assert all(r[1] is not None for r in rows), "All Go entities must be soft-deleted"
 
@@ -314,9 +306,7 @@ class TestLanguageColumnBackfill:
         record_version(v8_conn, 9, "test: add language column")
 
         # All 3 entities should now have language = 'python'
-        rows = v8_conn.execute(
-            "SELECT language FROM entity_graph WHERE language IS NOT NULL"
-        ).fetchall()
+        rows = v8_conn.execute("SELECT language FROM entity_graph WHERE language IS NOT NULL").fetchall()
         assert len(rows) == 3, "All pre-existing entities must be backfilled"
         assert all(r[0] == "python" for r in rows), "All backfilled entities must have language = 'python'"
 
@@ -345,9 +335,7 @@ class TestNewEntityLanguageTag:
     Requirements: 102-REQ-5.3, 102-REQ-2.4
     """
 
-    def test_go_entities_tagged_with_go_language(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_go_entities_tagged_with_go_language(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Go file entities have language = 'go' in entity_graph."""
         (tmp_path / "main.go").write_text("package main\nfunc main() {}\n")
 
@@ -417,9 +405,7 @@ class User:
         result = analyze_codebase(tmp_path, entity_conn)
         assert result.languages_analyzed == ("python",)
 
-    def test_python_entities_unchanged(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_python_entities_unchanged(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Python entities have the same natural keys as the pre-Spec-102 output."""
         pkg = tmp_path / "pkg"
         pkg.mkdir()
@@ -478,14 +464,10 @@ class UserView(User):
         assert "conn" in params, "analyze_codebase must have conn parameter"
 
         anno = sig.return_annotation
-        assert anno is AnalysisResult or anno == "AnalysisResult", (
-            "analyze_codebase must return AnalysisResult"
-        )
+        assert anno is AnalysisResult or anno == "AnalysisResult", "analyze_codebase must return AnalysisResult"
         # AnalysisResult must have languages_analyzed field (new in Spec-102)
         default_result = AnalysisResult(entities_upserted=0, edges_upserted=0, entities_soft_deleted=0)
-        assert hasattr(default_result, "languages_analyzed"), (
-            "AnalysisResult must have languages_analyzed field"
-        )
+        assert hasattr(default_result, "languages_analyzed"), "AnalysisResult must have languages_analyzed field"
 
 
 # ---------------------------------------------------------------------------
@@ -499,9 +481,7 @@ class TestNoSourceFilesFound:
     Requirement: 102-REQ-4.E1
     """
 
-    def test_no_source_files_returns_zero_counts(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_no_source_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Only .txt and .md files: AnalysisResult is all zeros."""
         (tmp_path / "README.md").write_text("# Docs\n")
         (tmp_path / "notes.txt").write_text("notes")

@@ -6,12 +6,12 @@ Requirements: 39-REQ-2.1, 39-REQ-3.2, 39-REQ-3.3
 
 from __future__ import annotations
 
-import json
 import tempfile
 import uuid
 from pathlib import Path
 
 import duckdb
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -93,56 +93,6 @@ class TestDuckDBRoundTrip:
         assert loaded[0].content == content
         assert loaded[0].category == category
         assert loaded[0].spec_name == spec_name_val
-
-        conn.close()
-
-
-class TestExportImportRoundTrip:
-    """TS-39-P3: Exported JSONL matches DuckDB contents."""
-
-    @given(n=st.integers(min_value=1, max_value=20))
-    @settings(max_examples=15, deadline=None)
-    def test_export_matches_duckdb(self, n: int) -> None:
-        from agent_fox.knowledge.facts import Fact
-        from agent_fox.knowledge.store import (
-            MemoryStore,
-            export_facts_to_jsonl,
-            load_all_facts,
-        )
-
-        conn = duckdb.connect(":memory:")
-        create_schema(conn)
-
-        tmp = Path(tempfile.mkdtemp()) / "memory.jsonl"
-        store = MemoryStore(jsonl_path=tmp, db_conn=conn)
-
-        fact_ids = []
-        for i in range(n):
-            fid = str(uuid.uuid4())
-            fact_ids.append(fid)
-            fact = Fact(
-                id=fid,
-                content=f"Property fact {i}",
-                category="decision",
-                spec_name="prop_spec",
-                keywords=["test"],
-                confidence=0.9,
-                created_at="2026-01-01T00:00:00Z",
-            )
-            store.write_fact(fact)
-
-        count = export_facts_to_jsonl(conn, tmp)
-        assert count == n
-
-        # Parse JSONL and verify IDs match
-        lines = tmp.read_text().strip().split("\n")
-        assert len(lines) == n
-
-        exported_ids = {json.loads(line)["id"] for line in lines}
-        db_facts = load_all_facts(conn)
-        db_ids = {f.id for f in db_facts}
-
-        assert exported_ids == db_ids
 
         conn.close()
 

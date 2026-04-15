@@ -5,6 +5,7 @@ Tests: TS-101-20, TS-101-21, TS-101-23, TS-101-24, TS-101-31,
 Requirements: 101-REQ-5.1, 101-REQ-5.2, 101-REQ-5.5, 101-REQ-5.6,
               101-REQ-5.E1, 101-REQ-5.E2, 101-REQ-5.E3
 """
+
 from __future__ import annotations
 
 import json
@@ -14,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.code_analysis import (
     SOURCE_EXTENSIONS,
     CodeAnalysisResult,
@@ -22,7 +24,6 @@ from agent_fox.knowledge.code_analysis import (
     _scan_source_files,
     analyze_code_with_llm,
 )
-
 from agent_fox.knowledge.store import load_facts_by_spec
 
 _SAMPLE_LLM_RESPONSE = json.dumps(
@@ -37,9 +38,7 @@ _SAMPLE_LLM_RESPONSE = json.dumps(
 )
 
 
-def _insert_file_entity(
-    conn: duckdb.DuckDBPyConnection, path: str, entity_id: str
-) -> None:
+def _insert_file_entity(conn: duckdb.DuckDBPyConnection, path: str, entity_id: str) -> None:
     """Insert a file entity into the entity_graph table."""
     conn.execute(
         """
@@ -222,9 +221,7 @@ class TestFilePrioritization:
     Requirement: 101-REQ-5.2
     """
 
-    def test_most_imported_file_first(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_most_imported_file_first(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify file with most incoming imports is first in priority list."""
         id_a = str(uuid.uuid4())
         id_b = str(uuid.uuid4())
@@ -307,13 +304,16 @@ class TestAnalyzeCodeWithLLM:
         """TS-101-20: Verify facts created from LLM response and stored."""
         (tmp_path / "app.py").write_text("def main(): pass")
 
-        with patch(
-            "agent_fox.knowledge.code_analysis.ai_call",
-            new_callable=AsyncMock,
-            return_value=(_SAMPLE_LLM_RESPONSE, None),
-        ), patch(
-            "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.code_analysis.ai_call",
+                new_callable=AsyncMock,
+                return_value=(_SAMPLE_LLM_RESPONSE, None),
+            ),
+            patch(
+                "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await analyze_code_with_llm(tmp_path, knowledge_conn, model="STANDARD")
 
@@ -370,12 +370,15 @@ class TestCodeAnalysisEdgeCases:
                 raise RuntimeError("LLM error")
             return (valid_response, None)
 
-        with patch(
-            "agent_fox.knowledge.code_analysis.ai_call",
-            side_effect=_side_effect,
-        ), patch(
-            "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.code_analysis.ai_call",
+                side_effect=_side_effect,
+            ),
+            patch(
+                "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await analyze_code_with_llm(tmp_path, knowledge_conn)
 
@@ -389,13 +392,16 @@ class TestCodeAnalysisEdgeCases:
         """TS-101-E8: Falls back to disk scan when entity graph has no files."""
         (tmp_path / "module.py").write_text("# python module")
 
-        with patch(
-            "agent_fox.knowledge.code_analysis.ai_call",
-            new_callable=AsyncMock,
-            return_value=(_SAMPLE_LLM_RESPONSE, None),
-        ), patch(
-            "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.code_analysis.ai_call",
+                new_callable=AsyncMock,
+                return_value=(_SAMPLE_LLM_RESPONSE, None),
+            ),
+            patch(
+                "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await analyze_code_with_llm(tmp_path, knowledge_conn)
 
@@ -409,13 +415,16 @@ class TestCodeAnalysisEdgeCases:
         """TS-101-E9: Unparseable LLM response increments files_skipped."""
         (tmp_path / "broken.py").write_text("# code")
 
-        with patch(
-            "agent_fox.knowledge.code_analysis.ai_call",
-            new_callable=AsyncMock,
-            return_value=("not valid json [[[", None),
-        ), patch(
-            "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
-            return_value=False,
+        with (
+            patch(
+                "agent_fox.knowledge.code_analysis.ai_call",
+                new_callable=AsyncMock,
+                return_value=("not valid json [[[", None),
+            ),
+            patch(
+                "agent_fox.knowledge.code_analysis._is_mining_fact_exists",
+                return_value=False,
+            ),
         ):
             result = await analyze_code_with_llm(tmp_path, knowledge_conn)
 

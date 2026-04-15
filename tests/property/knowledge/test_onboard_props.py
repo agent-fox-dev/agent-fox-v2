@@ -4,6 +4,7 @@ Tests: TS-101-P1, TS-101-P2, TS-101-P3, TS-101-P4, TS-101-P5
 Properties: Threshold monotonicity, idempotency, mining fact validity,
             phase independence, LLM fact validity.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -13,17 +14,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 import pytest
-from agent_fox.knowledge.code_analysis import CodeAnalysisResult, _parse_llm_facts
-from agent_fox.knowledge.doc_mining import DocMiningResult
-from agent_fox.knowledge.git_mining import MiningResult, mine_git_patterns
-from agent_fox.knowledge.onboard import OnboardResult, run_onboard
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.core.config import AgentFoxConfig
+from agent_fox.knowledge.code_analysis import CodeAnalysisResult, _parse_llm_facts
+from agent_fox.knowledge.doc_mining import DocMiningResult
 from agent_fox.knowledge.entities import AnalysisResult
 from agent_fox.knowledge.facts import Category
+from agent_fox.knowledge.git_mining import MiningResult, mine_git_patterns
 from agent_fox.knowledge.ingest import IngestResult
+from agent_fox.knowledge.onboard import OnboardResult, run_onboard
 from agent_fox.knowledge.store import load_facts_by_spec
 
 # ---------------------------------------------------------------------------
@@ -101,12 +102,8 @@ class TestThresholdMonotonicity:
             "agent_fox.knowledge.git_mining._parse_git_numstat",
             return_value=mock_data,
         ):
-            result_low = mine_git_patterns(
-                tmp_path, conn_low, fragile_threshold=threshold_low
-            )
-            result_high = mine_git_patterns(
-                tmp_path, conn_high, fragile_threshold=threshold_high
-            )
+            result_low = mine_git_patterns(tmp_path, conn_low, fragile_threshold=threshold_low)
+            result_high = mine_git_patterns(tmp_path, conn_high, fragile_threshold=threshold_high)
 
         assert result_high.fragile_areas_created <= result_low.fragile_areas_created
 
@@ -294,9 +291,7 @@ class TestPhaseIndependence:
         mock_ingestor = _make_mock_ingestor()
         config = AgentFoxConfig()
 
-        async def _run_with_skips(
-            skip_ent: bool, skip_ing: bool
-        ) -> OnboardResult:
+        async def _run_with_skips(skip_ent: bool, skip_ing: bool) -> OnboardResult:
             conn = _fresh_conn()
             db = _make_mock_db(conn)
             with (
@@ -397,9 +392,7 @@ class TestLLMFactValidity:
                 }
             ]
         )
-        facts = _parse_llm_facts(
-            raw, spec_name="onboard", file_path="file.py", source_type="code"
-        )
+        facts = _parse_llm_facts(raw, spec_name="onboard", file_path="file.py", source_type="code")
 
         valid_categories = {c.value for c in Category}
         for fact in facts:
@@ -407,7 +400,5 @@ class TestLLMFactValidity:
             assert fact.category in valid_categories, f"Invalid category: {fact.category}"
             assert fact.spec_name == "onboard", "Wrong spec_name"
             assert len(fact.keywords) >= 1, "Empty keywords list"
-            assert any(
-                "onboard:code:file.py" in kw for kw in fact.keywords
-            ), "Fingerprint keyword missing"
+            assert any("onboard:code:file.py" in kw for kw in fact.keywords), "Fingerprint keyword missing"
             assert 0.0 <= fact.confidence <= 1.0, f"Confidence out of range: {fact.confidence}"

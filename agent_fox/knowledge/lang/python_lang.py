@@ -10,7 +10,6 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3,
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import (
@@ -20,6 +19,7 @@ from agent_fox.knowledge.entities import (
     EntityType,
     normalize_path,
 )
+from agent_fox.knowledge.lang._ts_helpers import ENTITY_EPOCH, make_entity
 
 # ---------------------------------------------------------------------------
 # PythonAnalyzer
@@ -137,20 +137,11 @@ def _extract_entities(tree, rel_path: str) -> list[Entity]:
     Requirements: 95-REQ-4.2, 102-REQ-2.1
     """
     entities: list[Entity] = []
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
 
     # File entity
     file_name = Path(rel_path).name
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     _extract_recursive(tree.root_node, rel_path, entities, parent_class=None, now=now)
     return entities
@@ -168,32 +159,14 @@ def _extract_recursive(
         if child.type == "class_definition":
             class_name = _get_identifier(child)
             if class_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.CLASS,
-                        entity_name=class_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.CLASS, class_name, rel_path, now=now))
                 _extract_recursive(child, rel_path, entities, parent_class=class_name, now=now)
 
         elif child.type == "function_definition":
             func_name = _get_identifier(child)
             if func_name:
                 qualified_name = f"{parent_class}.{func_name}" if parent_class else func_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified_name, rel_path, now=now))
                 _extract_recursive(child, rel_path, entities, parent_class=parent_class, now=now)
 
         elif child.type == "decorated_definition":
@@ -235,9 +208,7 @@ def _extract_edges(
 
     Requirements: 95-REQ-4.3, 95-REQ-4.6, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3
     """
-    entity_by_type_name: dict[tuple[str, str], Entity] = {
-        (str(e.entity_type), e.entity_name): e for e in entities
-    }
+    entity_by_type_name: dict[tuple[str, str], Entity] = {(str(e.entity_type), e.entity_name): e for e in entities}
     file_name = Path(rel_path).name
     edges: list[EntityEdge] = []
 
@@ -291,9 +262,7 @@ def _extract_edges(
                                 method_name = _get_identifier(method_node)
                                 if method_name and class_entity:
                                     qualified = f"{class_name}.{method_name}"
-                                    method_entity = entity_by_type_name.get(
-                                        (EntityType.FUNCTION, qualified)
-                                    )
+                                    method_entity = entity_by_type_name.get((EntityType.FUNCTION, qualified))
                                     if method_entity:
                                         edges.append(
                                             EntityEdge(
@@ -420,7 +389,7 @@ def extract_module_entities(repo_root: Path, py_files: list[Path]) -> list[Entit
     Called by the orchestrator (static_analysis.py) to create module entities
     before per-file extraction begins.
     """
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     entities: list[Entity] = []
     for py_file in py_files:
         rel = py_file.relative_to(repo_root)
@@ -428,14 +397,5 @@ def extract_module_entities(repo_root: Path, py_files: list[Path]) -> list[Entit
             pkg_dir_parts = rel.parts[:-1]
             pkg_name = pkg_dir_parts[-1]
             pkg_path = normalize_path("/".join(pkg_dir_parts))
-            entities.append(
-                Entity(
-                    id=str(uuid.uuid4()),
-                    entity_type=EntityType.MODULE,
-                    entity_name=pkg_name,
-                    entity_path=pkg_path,
-                    created_at=now,
-                    deleted_at=None,
-                )
-            )
+            entities.append(make_entity(EntityType.MODULE, pkg_name, pkg_path, now=now))
     return entities

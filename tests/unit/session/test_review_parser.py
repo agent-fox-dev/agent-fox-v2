@@ -173,7 +173,7 @@ class TestReviewerTemplateJson:
             Path(__file__).resolve().parent.parent.parent.parent
             / "agent_fox"
             / "_templates"
-            / "prompts"
+            / "profiles"
             / "reviewer.md"
         )
         content = template_path.read_text(encoding="utf-8")
@@ -188,7 +188,7 @@ class TestReviewerTemplateJson:
             Path(__file__).resolve().parent.parent.parent.parent
             / "agent_fox"
             / "_templates"
-            / "prompts"
+            / "profiles"
             / "reviewer.md"
         )
         content = template_path.read_text(encoding="utf-8")
@@ -204,7 +204,7 @@ class TestVerifierTemplateJson:
             Path(__file__).resolve().parent.parent.parent.parent
             / "agent_fox"
             / "_templates"
-            / "prompts"
+            / "profiles"
             / "verifier.md"
         )
         content = template_path.read_text(encoding="utf-8")
@@ -219,7 +219,7 @@ class TestVerifierTemplateJson:
             Path(__file__).resolve().parent.parent.parent.parent
             / "agent_fox"
             / "_templates"
-            / "prompts"
+            / "profiles"
             / "verifier.md"
         )
         content = template_path.read_text(encoding="utf-8")

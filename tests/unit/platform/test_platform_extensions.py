@@ -14,7 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from agent_fox.core.errors import IntegrationError
-from agent_fox.platform.github import GitHubPlatform, IssueComment, IssueResult
+from agent_fox.platform.github import GitHubPlatform
+from agent_fox.platform.protocol import IssueComment, IssueResult
 
 # Helper to build a mock httpx.AsyncClient context manager
 _TARGET = "agent_fox.platform.github.httpx.AsyncClient"

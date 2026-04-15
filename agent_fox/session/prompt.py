@@ -1,18 +1,15 @@
-"""Prompt building: template loading, interpolation, system/task prompts.
+"""Prompt building: system prompt assembly and task prompt construction.
 
-Loads rich templates from agent_fox/_templates/prompts/ with placeholder
-interpolation and frontmatter stripping.
+Assembles a 3-layer system prompt from project context (CLAUDE.md),
+archetype profile, and task context.
 
-Requirements: 15-REQ-1.1, 15-REQ-1.2, 15-REQ-1.E1, 15-REQ-2.1 through
-              15-REQ-5.E1, 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
+Requirements: 15-REQ-2.2, 15-REQ-5.1 through 15-REQ-5.E1,
+              99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-
-from agent_fox.core.errors import ConfigError
 
 # Re-export symbols that external code imports from this module.
 # These were extracted to session/steering.py and session/context.py
@@ -34,87 +31,8 @@ from agent_fox.session.steering import (  # noqa: F401
 )
 
 # ---------------------------------------------------------------------------
-# Template loading and frontmatter stripping
-# Requirements: 15-REQ-2.1, 15-REQ-4.1, 15-REQ-4.2, 15-REQ-2.E1
-# ---------------------------------------------------------------------------
-
-# Template directory relative to this file (package-relative resolution)
-_TEMPLATE_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "prompts"
-
-# Legacy role-to-archetype mapping (backward compatibility)
-_ROLE_TO_ARCHETYPE: dict[str, str] = {
-    "coding": "coder",
-    "reviewer": "reviewer",
-    "verifier": "verifier",
-}
-
-# Regex to match YAML frontmatter at the very start of a file
-_FRONTMATTER_RE = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
-
-
-def _strip_frontmatter(content: str) -> str:
-    """Strip YAML frontmatter from template content.
-
-    Removes content between leading ``---`` delimiters.
-    Returns content unchanged if no frontmatter is present.
-
-    Requirement: 15-REQ-4.1, 15-REQ-4.2
-    """
-    return _FRONTMATTER_RE.sub("", content, count=1)
-
-
-def _load_template(name: str) -> str:
-    """Load a template file from the templates directory.
-
-    Strips frontmatter and returns the template content.
-
-    Raises:
-        ConfigError: If the template file does not exist.
-
-    Requirement: 15-REQ-2.1, 15-REQ-2.E1
-    """
-    path = _TEMPLATE_DIR / name
-    if not path.exists():
-        raise ConfigError(
-            f"Template file not found: {path}",
-            template_name=name,
-            template_dir=str(_TEMPLATE_DIR),
-        )
-    content = path.read_text(encoding="utf-8")
-    return _strip_frontmatter(content)
-
-
-# ---------------------------------------------------------------------------
-# Placeholder interpolation
-# Requirements: 15-REQ-3.1, 15-REQ-3.2, 15-REQ-3.E1
-# ---------------------------------------------------------------------------
-
-# Only replace these known placeholders — leave everything else untouched.
-_KNOWN_KEYS = ("spec_name", "task_group", "number", "specification")
-
-# Pattern: match {key} for each known key only
-_INTERPOLATION_RE = re.compile(r"\{(" + "|".join(re.escape(k) for k in _KNOWN_KEYS) + r")\}")
-
-
-def _interpolate(template: str, variables: dict[str, str]) -> str:
-    """Interpolate known placeholders in template content.
-
-    Uses regex replacement targeting only known keys so that literal
-    braces (e.g. in JSON examples) are preserved without error.
-
-    Requirement: 15-REQ-3.1, 15-REQ-3.2, 15-REQ-3.E1
-    """
-
-    def _replace(match: re.Match[str]) -> str:
-        key = match.group(1)
-        return variables.get(key, match.group(0))
-
-    return _INTERPOLATION_RE.sub(_replace, template)
-
-
-# ---------------------------------------------------------------------------
 # build_system_prompt
-# Requirements: 15-REQ-2.2 through 15-REQ-2.E2
+# Requirements: 15-REQ-2.2 through 15-REQ-2.E2, 99-REQ-1.1
 # ---------------------------------------------------------------------------
 
 
@@ -122,113 +40,54 @@ def build_system_prompt(
     context: str,
     task_group: int = 0,
     spec_name: str = "",
-    role: str | None = None,
     archetype: str | None = None,
     mode: str | None = None,
     project_dir: Path | None = None,
 ) -> str:
-    """Build the system prompt from templates and context.
+    """Build the system prompt using 3-layer assembly.
 
-    When *project_dir* is provided, assembles a 3-layer prompt:
-      - Layer 1: Project context from ``CLAUDE.md`` (omitted if missing).
-      - Layer 2: Archetype profile loaded via :func:`load_profile`.
+    Assembles a prompt from:
+      - Layer 1: Project context from ``CLAUDE.md`` (omitted if missing or
+        *project_dir* is ``None``).
+      - Layer 2: Archetype profile loaded via :func:`load_profile`, with
+        mode-aware resolution.
       - Layer 3: Task context (the *context* argument).
-
-    When *project_dir* is ``None``, falls back to the legacy template-based
-    approach for backward compatibility.
 
     Args:
         context: Assembled spec documents and memory facts (task context).
-        task_group: The target task group number.
-        spec_name: The specification name (e.g. ``03_session_and_workspace``).
-        role: **Deprecated.** Legacy prompt role (e.g. ``"coding"``).
-            Mapped to archetype internally.
-        archetype: Archetype name for template resolution via registry.
-            Takes precedence over *role* when both are provided.
-        mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
-            future per-mode template resolution (spec 98).
+        task_group: The target task group number (retained for API compat).
+        spec_name: The specification name (retained for API compat).
+        archetype: Archetype name for profile resolution.  Defaults to
+            ``"coder"`` when ``None``.
+        mode: Optional archetype mode variant for mode-specific profile
+            resolution (e.g. ``"fix"`` loads ``coder_fix.md``).
         project_dir: Root of the project directory.  When provided, enables
-            3-layer prompt assembly (99-REQ-1.1).  Pass ``None`` to use the
-            legacy template-based assembly.
+            Layer 1 (CLAUDE.md) and project-level profile overrides.
 
     Returns:
         Complete system prompt string.
 
-    Raises:
-        ValueError: If neither *role* nor *archetype* resolves to a valid
-            archetype entry.
-        ConfigError: If a template file is missing (legacy path only).
-
-    Requirement: 15-REQ-2.2, 15-REQ-2.3, 15-REQ-2.4, 15-REQ-2.5, 15-REQ-2.E2,
-                 26-REQ-3.5, 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
+    Requirement: 15-REQ-2.2, 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
     """
-    from agent_fox.session.archetypes import get_archetype
+    resolved = archetype if archetype is not None else "coder"
 
-    # Resolve archetype name: archetype param > role param > default "coder"
-    resolved: str
-    if archetype is not None:
-        resolved = archetype
-    elif role is not None:
-        mapped = _ROLE_TO_ARCHETYPE.get(role)
-        if mapped is None:
-            valid = ", ".join(sorted(_ROLE_TO_ARCHETYPE))
-            raise ValueError(f"Unknown prompt role {role!r}. Valid roles: {valid}")
-        resolved = mapped
-    else:
-        resolved = "coder"
+    layers: list[str] = []
 
-    # --- 3-layer assembly when project_dir is provided ---
-    # Requirements: 99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
+    # Layer 1: project context (CLAUDE.md) — omit if missing (99-REQ-1.E1)
     if project_dir is not None:
-        layers: list[str] = []
-
-        # Layer 1: project context (CLAUDE.md) — omit if missing (99-REQ-1.E1)
         claude_md = project_dir / "CLAUDE.md"
         if claude_md.exists():
             layers.append(claude_md.read_text(encoding="utf-8"))
 
-        # Layer 2: archetype profile — empty string if not found (99-REQ-1.E2)
-        profile = load_profile(resolved, project_dir=project_dir)
-        if profile:
-            layers.append(profile)
+    # Layer 2: archetype profile — empty string if not found (99-REQ-1.E2)
+    profile = load_profile(resolved, project_dir=project_dir, mode=mode)
+    if profile:
+        layers.append(profile)
 
-        # Layer 3: task context
-        layers.append(f"## Context\n\n{context}\n")
+    # Layer 3: task context
+    layers.append(f"## Context\n\n{context}\n")
 
-        return "\n\n".join(layers)
-
-    # --- Legacy template-based assembly (no project_dir) ---
-    entry = get_archetype(resolved)
-
-    # Apply mode-specific overrides (98-REQ-3.2, 98-REQ-2.2)
-    from agent_fox.archetypes import resolve_effective_config
-
-    effective_entry = resolve_effective_config(entry, mode)
-
-    # Derive number and specification from spec_name (e.g. "03_session")
-    parts = spec_name.split("_", 1)
-    number = parts[0] if len(parts) > 1 else spec_name
-    specification = parts[1] if len(parts) > 1 else spec_name
-
-    variables: dict[str, str] = {
-        "spec_name": spec_name,
-        "task_group": str(task_group),
-        "number": number,
-        "specification": specification,
-    }
-
-    # Load and compose templates from the effective (mode-resolved) archetype config
-    template_names = effective_entry.templates
-    sections: list[str] = []
-    for name in template_names:
-        raw = _load_template(name)
-        interpolated = _interpolate(raw, variables)
-        sections.append(interpolated)
-
-    # Join template sections, then append context
-    composed = "\n\n".join(sections)
-
-    return f"{composed}\n\n## Context\n\n{context}\n"
+    return "\n\n".join(layers)
 
 
 # ---------------------------------------------------------------------------
@@ -250,15 +109,15 @@ def build_task_prompt(
     gates.
 
     For non-coder archetypes (skeptic, verifier, etc.): returns a concise
-    prompt that defers to the system prompt template for detailed
+    prompt that defers to the system prompt profile for detailed
     instructions.
 
     Args:
         task_group: The target task group number.
         spec_name: The specification name.
         archetype: Archetype name (defaults to ``"coder"``).
-        mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
-            future per-mode prompt customisation (spec 98).
+        mode: Optional archetype mode variant (97-REQ-5.3). Used for
+            mode-specific profile resolution.
 
     Raises:
         ValueError: If *task_group* < 1 for coder archetype.

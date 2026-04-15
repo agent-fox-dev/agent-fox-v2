@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import MagicMock
 
 from agent_fox.reporting.standup import (
     HumanCommit,
@@ -22,8 +23,8 @@ from .conftest import (
     hours_ago,
     make_execution_state,
     make_session_record,
+    mock_state,
     write_plan_file,
-    write_state_file,
 )
 
 # ---------------------------------------------------------------------------
@@ -37,7 +38,6 @@ class TestStandupAgentActivity:
 
     def test_sessions_filtered_by_window(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -86,14 +86,14 @@ class TestStandupAgentActivity:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=24,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=24,
+                db_conn=MagicMock(),
+            )
 
         assert report.agent.sessions_run == 2
         assert report.window_hours == 24
@@ -410,7 +410,6 @@ class TestStandupQueueSummary:
 
     def test_queue_counts_match_task_states(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -445,14 +444,14 @@ class TestStandupQueueSummary:
                 "s:10": "failed",
             },
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=24,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=24,
+                db_conn=MagicMock(),
+            )
 
         assert report.queue.completed == 3
         assert report.queue.blocked == 1
@@ -470,7 +469,6 @@ class TestStandupCostBreakdown:
 
     def test_cost_grouped_by_model(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -511,14 +509,14 @@ class TestStandupCostBreakdown:
             },
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=24,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=24,
+                db_conn=MagicMock(),
+            )
 
         # The report must have a cost breakdown with at least one entry
         assert len(report.cost_breakdown) >= 1
@@ -540,7 +538,6 @@ class TestStandupNoAgentActivity:
 
     def test_zero_activity_when_outside_window(
         self,
-        tmp_state_path: Path,
         tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
@@ -560,14 +557,14 @@ class TestStandupNoAgentActivity:
             node_states={"s:1": "completed", "s:2": "pending"},
             session_history=sessions,
         )
-        write_state_file(tmp_state_path, state)
 
-        report = generate_standup(
-            tmp_state_path,
-            plan_path,
-            tmp_path,
-            hours=1,
-        )
+        with mock_state(state):
+            report = generate_standup(
+                plan_path=plan_path,
+                repo_path=tmp_path,
+                hours=1,
+                db_conn=MagicMock(),
+            )
 
         assert report.agent.sessions_run == 0
         assert report.agent.cost == 0.0

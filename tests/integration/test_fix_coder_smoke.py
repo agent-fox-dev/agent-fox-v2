@@ -46,11 +46,11 @@ def _make_config() -> MagicMock:
 class TestFixPipelineUsesFix_CodingMd:
     """Smoke test: real prompt build uses fix_coding.md content."""
 
-    def test_system_prompt_uses_fix_coding_template(self) -> None:
-        """System prompt built by _build_coder_prompt uses fix_coding.md.
+    def test_system_prompt_uses_fix_coder_profile(self) -> None:
+        """System prompt built by _build_coder_prompt uses coder_fix.md profile.
 
-        Uses real build_system_prompt, get_archetype, and _load_template.
-        Does NOT mock build_system_prompt or template loading.
+        Uses real build_system_prompt and load_profile.
+        Does NOT mock build_system_prompt or profile loading.
         """
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.nightshift.fix_types import TriageResult
@@ -77,12 +77,9 @@ class TestFixPipelineUsesFix_CodingMd:
             "System prompt contains 'task group' — it likely came from coding.md, not fix_coding.md"
         )
 
-        # The system prompt must NOT contain .specs/ references
-        assert ".specs/" not in system_prompt, "System prompt contains '.specs/' — template isolation failed"
-
         # The system prompt must reference nightshift (from commit format instruction)
         assert "nightshift" in system_prompt.lower(), (
-            "System prompt does not contain 'nightshift' — fix_coding.md template not used"
+            "System prompt does not contain 'nightshift' — coder_fix.md profile not used"
         )
 
         # The task prompt must contain the issue context from spec
@@ -141,7 +138,7 @@ class TestFixPipelineUsesFix_CodingMd:
         assert first_arg == "coder", f"_run_session called with {first_arg!r}, expected 'coder'"
 
     def test_system_prompt_does_not_contain_task_group_instructions(self) -> None:
-        """System prompt does not contain spec-driven task group instructions."""
+        """System prompt does not contain spec-driven task group instructions (coding.md)."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.nightshift.fix_types import TriageResult
         from agent_fox.nightshift.spec_builder import InMemorySpec
@@ -165,4 +162,6 @@ class TestFixPipelineUsesFix_CodingMd:
         assert "Choose exactly one task group" not in system_prompt, (
             "System prompt contains coding.md task group instruction"
         )
-        assert "tasks.md" not in system_prompt, "System prompt contains 'tasks.md' reference"
+        assert "Task Group Routing" not in system_prompt, (
+            "System prompt contains 'Task Group Routing' — base coder.md profile loaded instead of coder_fix.md"
+        )

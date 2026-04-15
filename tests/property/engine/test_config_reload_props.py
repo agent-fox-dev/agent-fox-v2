@@ -42,12 +42,10 @@ def _make_orch(
     """Create a minimal Orchestrator for property testing."""
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
-    state_path = tmp_path / "state.jsonl"
     runner = MockSessionRunner()
     return Orchestrator(
         config=config or OrchestratorConfig(parallel=1, inter_session_delay=0),
         plan_path=plan_path,
-        state_path=state_path,
         session_runner_factory=lambda *a, **kw: runner,
     )
 

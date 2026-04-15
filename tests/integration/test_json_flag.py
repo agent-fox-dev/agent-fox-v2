@@ -13,6 +13,7 @@ import os
 import subprocess
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +26,22 @@ from agent_fox.reporting.standup import (
     StandupReport,
 )
 from agent_fox.reporting.status import StatusReport
+
+
+def _fake_asyncio_run(
+    *,
+    return_value: Any = None,
+    side_effect: BaseException | None = None,
+):
+    """Build a side_effect for mocking ``asyncio.run`` that closes the coroutine."""
+
+    def _run(coro, **_kwargs: Any):
+        coro.close()
+        if side_effect is not None:
+            raise side_effect
+        return return_value
+
+    return _run
 
 
 def _make_status_report(**overrides):
@@ -385,11 +402,13 @@ class TestFixJsonl:
         )
         with (
             patch("agent_fox.cli.fix.detect_checks") as mock_checks,
-            patch("agent_fox.cli.fix.asyncio.run") as mock_run,
+            patch(
+                "agent_fox.cli.fix.asyncio.run",
+                side_effect=_fake_asyncio_run(return_value=mock_result),
+            ),
             patch("agent_fox.cli.fix.render_fix_report"),
         ):
             mock_checks.return_value = [MagicMock()]
-            mock_run.return_value = mock_result
 
             result = cli_runner.invoke(main, ["--json", "fix"])
             lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
@@ -490,9 +509,16 @@ class TestJsonWithVerbose:
 
     def test_json_with_verbose(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """--json --verbose still produces valid JSON on stdout."""
+        import logging
+
         with patch("agent_fox.cli.status.generate_status") as mock_gen:
             mock_gen.return_value = _make_status_report()
-            result = cli_runner.invoke(main, ["--json", "--verbose", "status"])
+            # Suppress logging output that leaks into CliRunner's captured stdout
+            logging.disable(logging.CRITICAL)
+            try:
+                result = cli_runner.invoke(main, ["--json", "--verbose", "status"])
+            finally:
+                logging.disable(logging.NOTSET)
             data = json.loads(result.output)
             assert isinstance(data, dict)
 
@@ -543,9 +569,11 @@ class TestStreamingInterrupted:
         """code --json interrupted by KeyboardInterrupt emits status."""
         with (
             patch("agent_fox.ui.progress.ProgressDisplay"),
-            patch("agent_fox.cli.code.asyncio.run") as mock_run,
+            patch(
+                "agent_fox.cli.code.asyncio.run",
+                side_effect=_fake_asyncio_run(side_effect=KeyboardInterrupt()),
+            ),
         ):
-            mock_run.side_effect = KeyboardInterrupt()
 
             plan_path = tmp_project / ".agent-fox" / "plan.json"
             plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')

@@ -7,10 +7,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 
 class RubyAnalyzer:
@@ -66,35 +73,11 @@ class RubyAnalyzer:
         return _build_ruby_module_map(repo_root, files)
 
 
-# ---------------------------------------------------------------------------
-# Tree-sitter helpers
-# ---------------------------------------------------------------------------
-
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -104,20 +87,11 @@ def _child_text_by_type(node, *types: str) -> str | None:
 
 def _extract_ruby_entities(tree, rel_path: str) -> list[Entity]:
     """Extract all entities from a parsed Ruby source tree."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
     _walk_ruby_entities(root.children, rel_path, entities, now, current_class=None)
@@ -140,16 +114,7 @@ def _walk_ruby_entities(
             # MODULE entity
             mod_name = _get_ruby_name(node)
             if mod_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.MODULE,
-                        entity_name=mod_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.MODULE, mod_name, rel_path, now=now))
             # Walk module body
             body = node.child_by_field_name("body") or _child_by_type(node, "body_statement")
             if body:
@@ -159,16 +124,7 @@ def _walk_ruby_entities(
             # CLASS entity
             cls_name = _get_ruby_name(node)
             if cls_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.CLASS,
-                        entity_name=cls_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.CLASS, cls_name, rel_path, now=now))
             # Walk class body
             body = node.child_by_field_name("body") or _child_by_type(node, "body_statement")
             if body:
@@ -179,32 +135,14 @@ def _walk_ruby_entities(
             method_name = _get_ruby_method_name(node)
             if method_name:
                 qualified = f"{current_class}.{method_name}" if current_class else method_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif node_type == "singleton_method":
             # def self.method → FUNCTION
             method_name = _get_ruby_method_name(node)
             if method_name:
                 qualified = f"{current_class}.{method_name}" if current_class else method_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif node_type == "body_statement":
             # body_statement wraps the contents of a module/class

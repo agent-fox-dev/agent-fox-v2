@@ -79,11 +79,7 @@ class TestPreReviewEndToEnd:
         # Run real ensure_graph_archetypes (no mocking)
         ensure_graph_archetypes(graph, config)
 
-        pre_nodes = [
-            n
-            for n in graph.nodes.values()
-            if n.archetype == "reviewer" and n.mode == "pre-review"
-        ]
+        pre_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "pre-review"]
         assert len(pre_nodes) >= 1, (
             f"Expected at least one reviewer:pre-review node after injection, "
             f"got nodes: {[(n.archetype, n.mode) for n in graph.nodes.values()]}"
@@ -104,21 +100,17 @@ class TestPreReviewEndToEnd:
         results = [findings_instance_1, findings_instance_2]
 
         # Run converge_reviewer with mode="pre-review" (uses real convergence logic)
-        reviewer_merged, reviewer_blocked = converge_reviewer(
-            results, mode="pre-review", block_threshold=3
-        )
+        reviewer_merged, reviewer_blocked = converge_reviewer(results, mode="pre-review", block_threshold=3)
         # Run converge_skeptic directly for comparison
         skeptic_merged, skeptic_blocked = converge_skeptic(results, block_threshold=3)
 
         # Results must be identical — same algorithm
         assert reviewer_blocked == skeptic_blocked, (
-            f"converge_reviewer('pre-review') blocked={reviewer_blocked} "
-            f"but converge_skeptic blocked={skeptic_blocked}"
+            f"converge_reviewer('pre-review') blocked={reviewer_blocked} but converge_skeptic blocked={skeptic_blocked}"
         )
         # Merged finding counts should be equal
         assert len(reviewer_merged) == len(skeptic_merged), (
-            f"Merged finding count mismatch: reviewer={len(reviewer_merged)}, "
-            f"skeptic={len(skeptic_merged)}"
+            f"Merged finding count mismatch: reviewer={len(reviewer_merged)}, skeptic={len(skeptic_merged)}"
         )
 
     def test_no_old_archetype_nodes_after_injection(self) -> None:
@@ -130,15 +122,9 @@ class TestPreReviewEndToEnd:
         ensure_graph_archetypes(graph, config)
 
         all_archetypes = {n.archetype for n in graph.nodes.values()}
-        assert "skeptic" not in all_archetypes, (
-            f"'skeptic' node found after consolidation: {all_archetypes}"
-        )
-        assert "oracle" not in all_archetypes, (
-            f"'oracle' node found after consolidation: {all_archetypes}"
-        )
-        assert "auditor" not in all_archetypes, (
-            f"'auditor' node found after consolidation: {all_archetypes}"
-        )
+        assert "skeptic" not in all_archetypes, f"'skeptic' node found after consolidation: {all_archetypes}"
+        assert "oracle" not in all_archetypes, f"'oracle' node found after consolidation: {all_archetypes}"
+        assert "auditor" not in all_archetypes, f"'auditor' node found after consolidation: {all_archetypes}"
 
 
 # ---------------------------------------------------------------------------
@@ -163,8 +149,7 @@ class TestDriftReviewGatingEndToEnd:
         spec_dir = tmp_path / "00_nocode_spec"
         spec_dir.mkdir()
         (spec_dir / "design.md").write_text(
-            "# Design\n\nThis spec introduces a brand new concept.\n"
-            "No existing files will be modified.\n",
+            "# Design\n\nThis spec introduces a brand new concept.\nNo existing files will be modified.\n",
             encoding="utf-8",
         )
 
@@ -174,12 +159,9 @@ class TestDriftReviewGatingEndToEnd:
         entries = collect_enabled_auto_pre(config, spec_path=spec_dir)
         reviewer_modes = [e.mode for e in entries if e.name == "reviewer"]
 
-        assert "pre-review" in reviewer_modes, (
-            f"pre-review should always be included, got modes: {reviewer_modes}"
-        )
+        assert "pre-review" in reviewer_modes, f"pre-review should always be included, got modes: {reviewer_modes}"
         assert "drift-review" not in reviewer_modes, (
-            f"drift-review should be excluded when spec has no existing code, "
-            f"got modes: {reviewer_modes}"
+            f"drift-review should be excluded when spec has no existing code, got modes: {reviewer_modes}"
         )
 
     def test_drift_review_included_for_code_spec(self, tmp_path: Path) -> None:
@@ -202,8 +184,7 @@ class TestDriftReviewGatingEndToEnd:
         reviewer_modes = [e.mode for e in entries if e.name == "reviewer"]
 
         assert "drift-review" in reviewer_modes, (
-            f"drift-review should be included when spec references existing code, "
-            f"got modes: {reviewer_modes}"
+            f"drift-review should be included when spec references existing code, got modes: {reviewer_modes}"
         )
 
     def test_drift_review_convergence_uses_skeptic_algorithm(self) -> None:
@@ -215,9 +196,7 @@ class TestDriftReviewGatingEndToEnd:
             [_make_finding("major", "Drift: module X interface changed")],
         ]
 
-        reviewer_merged, reviewer_blocked = converge_reviewer(
-            findings, mode="drift-review", block_threshold=3
-        )
+        reviewer_merged, reviewer_blocked = converge_reviewer(findings, mode="drift-review", block_threshold=3)
         skeptic_merged, skeptic_blocked = converge_skeptic(findings, block_threshold=3)
 
         assert reviewer_blocked == skeptic_blocked
@@ -261,40 +240,29 @@ class TestCoderFixModeSessionSetup:
 
         # STANDARD tier resolves to claude-sonnet-4-6
         assert runner._resolved_model_id == "claude-sonnet-4-6", (
-            f"coder:fix mode should resolve to STANDARD (Sonnet), "
-            f"got {runner._resolved_model_id!r}"
+            f"coder:fix mode should resolve to STANDARD (Sonnet), got {runner._resolved_model_id!r}"
         )
 
-    def test_coder_fix_mode_uses_fix_coding_template(self) -> None:
-        """TS-98-SMOKE-3: coder:fix build_system_prompt uses fix_coding.md content."""
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+    def test_coder_fix_mode_uses_fix_profile(self) -> None:
+        """TS-98-SMOKE-3: coder:fix build_system_prompt uses coder_fix.md profile."""
         from agent_fox.session.prompt import build_system_prompt
 
-        entry = ARCHETYPE_REGISTRY["coder"]
+        # Real build_system_prompt with mode="fix" — no mocking of profile loading
+        system_prompt = build_system_prompt("test context", mode="fix")
 
-        # Real build_system_prompt with mode="fix" — no mocking of template loading
-        system_prompt = build_system_prompt(entry, mode="fix")
-
-        # fix_coding.md should NOT contain spec-driven workflow text from coding.md
+        # coder_fix.md should NOT contain spec-driven workflow text from coder.md
         assert "task group" not in system_prompt.lower() or "fix" in system_prompt.lower(), (
-            "System prompt for coder:fix should use fix_coding.md, not standard coding.md"
+            "System prompt for coder:fix should use coder_fix.md, not coder.md"
         )
 
-        # fix_coding.md content should be present — check for distinctive fix mode text
-        assert len(system_prompt) > 100, (
-            "System prompt for coder:fix should have meaningful content"
-        )
+        # coder_fix.md content should be present — check for distinctive fix mode text
+        assert len(system_prompt) > 100, "System prompt for coder:fix should have meaningful content"
 
-    def test_coder_no_mode_uses_default_template(self) -> None:
-        """TS-98-SMOKE-3 (regression): coder with no mode still uses coding.md."""
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+    def test_coder_no_mode_uses_default_profile(self) -> None:
+        """TS-98-SMOKE-3 (regression): coder with no mode still uses coder.md."""
         from agent_fox.session.prompt import build_system_prompt
-
-        entry = ARCHETYPE_REGISTRY["coder"]
 
         # Real build_system_prompt with mode=None — no mocking
-        system_prompt = build_system_prompt(entry, mode=None)
+        system_prompt = build_system_prompt("test context", mode=None)
 
-        assert len(system_prompt) > 100, (
-            "System prompt for coder (no mode) should have meaningful content"
-        )
+        assert len(system_prompt) > 100, "System prompt for coder (no mode) should have meaningful content"

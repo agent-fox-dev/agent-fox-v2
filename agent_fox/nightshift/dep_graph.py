@@ -11,7 +11,7 @@ from bisect import insort
 from collections import defaultdict
 from dataclasses import dataclass
 
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 logger = logging.getLogger(__name__)
 

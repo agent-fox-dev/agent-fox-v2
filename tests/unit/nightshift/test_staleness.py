@@ -22,7 +22,7 @@ class TestParseStatenessResponse:
     def test_parses_valid_json(self) -> None:
         """Parses a clean JSON response."""
         from agent_fox.nightshift.staleness import _parse_staleness_response
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         remaining = [
             IssueResult(number=10, title="A", html_url="", body=""),
@@ -36,7 +36,7 @@ class TestParseStatenessResponse:
     def test_ignores_unknown_issue_numbers(self) -> None:
         """Issue numbers not in remaining list are silently dropped."""
         from agent_fox.nightshift.staleness import _parse_staleness_response
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         remaining = [IssueResult(number=10, title="A", html_url="", body="")]
         response = '{"obsolete": [{"issue_number": 99, "rationale": "?"}]}'
@@ -58,7 +58,7 @@ class TestCheckStalenessGateLogic:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.staleness import StalenessResult, check_staleness
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         fixed = IssueResult(number=1, title="Fixed", html_url="", body="")
         remaining = [IssueResult(number=2, title="Remaining", html_url="", body="")]
@@ -92,7 +92,7 @@ class TestCheckStalenessGateLogic:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.staleness import StalenessResult, check_staleness
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         fixed = IssueResult(number=1, title="Fixed", html_url="", body="")
         remaining = [IssueResult(number=2, title="Remaining", html_url="", body="")]
@@ -119,7 +119,7 @@ class TestCheckStalenessGateLogic:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.staleness import check_staleness
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         fixed = IssueResult(number=1, title="Fixed", html_url="", body="")
         remaining = [IssueResult(number=2, title="Remaining", html_url="", body="")]
@@ -147,7 +147,7 @@ class TestCheckStalenessGateLogic:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.staleness import StalenessResult, check_staleness
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         fixed = IssueResult(number=1, title="Fixed", html_url="", body="")
         remaining = [IssueResult(number=2, title="Remaining", html_url="", body="")]

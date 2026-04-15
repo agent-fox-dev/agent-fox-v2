@@ -1,7 +1,7 @@
 """Archetype registry: named configurations for agent session execution.
 
-Maps archetype names to their configuration (template files, model tier,
-allowlist overrides, injection mode, flags).
+Maps archetype names to their configuration (model tier, allowlist
+overrides, injection mode, flags).
 
 Moved to top-level package so both ``graph`` and ``session`` can import
 without cross-module coupling.
@@ -37,7 +37,6 @@ class ModeConfig:
     Requirements: 97-REQ-1.1
     """
 
-    templates: list[str] | None = None
     injection: str | None = None
     allowlist: list[str] | None = None
     model_tier: str | None = None
@@ -52,7 +51,6 @@ class ArchetypeEntry:
     """Configuration bundle for a single archetype."""
 
     name: str
-    templates: list[str] = field(default_factory=list)
     default_model_tier: str = "STANDARD"
     injection: str | None = None  # "auto_pre" | "auto_post" | "manual" | None
     task_assignable: bool = True
@@ -67,7 +65,6 @@ class ArchetypeEntry:
 ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     "coder": ArchetypeEntry(
         name="coder",
-        templates=["coding.md"],
         default_model_tier="STANDARD",
         injection=None,
         task_assignable=True,
@@ -76,7 +73,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
         default_thinking_budget=64000,
         modes={
             "fix": ModeConfig(
-                templates=["fix_coding.md"],
                 max_turns=300,
                 thinking_mode="adaptive",
                 thinking_budget=64000,
@@ -85,7 +81,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     ),
     "reviewer": ArchetypeEntry(
         name="reviewer",
-        templates=["reviewer.md"],
         default_model_tier="STANDARD",
         injection=None,  # mode-specific injection
         task_assignable=True,
@@ -113,7 +108,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     ),
     "verifier": ArchetypeEntry(
         name="verifier",
-        templates=["verifier.md"],
         default_model_tier="STANDARD",  # Changed from ADVANCED (98-REQ-6.1)
         injection="auto_post",
         task_assignable=True,
@@ -124,7 +118,6 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
     # get_archetype("triage") falls back to "coder" with a warning (100-REQ-1.E1).
     "maintainer": ArchetypeEntry(
         name="maintainer",
-        templates=["maintainer.md"],
         default_model_tier="STANDARD",
         injection=None,
         task_assignable=False,
@@ -184,12 +177,9 @@ def resolve_effective_config(
     #   thinking_mode   -> default_thinking_mode
     #   thinking_budget -> default_thinking_budget
     #   allowlist       -> default_allowlist
-    #   templates       -> templates
     #   injection       -> injection
     #   retry_predecessor -> retry_predecessor
     overrides: dict[str, object] = {}
-    if mode_cfg.templates is not None:
-        overrides["templates"] = mode_cfg.templates
     if mode_cfg.injection is not None:
         overrides["injection"] = mode_cfg.injection
     if mode_cfg.allowlist is not None:

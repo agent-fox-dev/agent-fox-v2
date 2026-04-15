@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 if TYPE_CHECKING:
@@ -102,45 +102,190 @@ class SinkDispatcher:
         """Add a sink to the dispatch list."""
         self._sinks.append(sink)
 
-    def record_session_outcome(self, outcome: SessionOutcome) -> None:
-        """Dispatch to all sinks. Logs and swallows individual failures."""
+    def _dispatch(self, method: str, *args: object) -> None:
+        """Forward a call to all sinks, logging and swallowing individual failures."""
         for sink in self._sinks:
             try:
-                sink.record_session_outcome(outcome)
+                getattr(sink, method)(*args)
             except Exception:
-                logger.warning("Sink %s failed on record_session_outcome", type(sink).__name__, exc_info=True)
+                logger.warning("Sink %s failed on %s", type(sink).__name__, method, exc_info=True)
+
+    def record_session_outcome(self, outcome: SessionOutcome) -> None:
+        """Dispatch to all sinks. Logs and swallows individual failures."""
+        self._dispatch("record_session_outcome", outcome)
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_call(call)
-            except Exception:
-                logger.warning("Sink %s failed on record_tool_call", type(sink).__name__, exc_info=True)
+        self._dispatch("record_tool_call", call)
 
     def record_tool_error(self, error: ToolError) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures."""
-        for sink in self._sinks:
-            try:
-                sink.record_tool_error(error)
-            except Exception:
-                logger.warning("Sink %s failed on record_tool_error", type(sink).__name__, exc_info=True)
+        self._dispatch("record_tool_error", error)
 
     def emit_audit_event(self, event: AuditEvent) -> None:
         """Dispatch to all sinks. Logs and swallows individual failures.
 
         Requirement: 40-REQ-4.2, 40-REQ-4.E1
         """
-        for sink in self._sinks:
-            try:
-                sink.emit_audit_event(event)
-            except Exception:
-                logger.warning("Sink %s failed on emit_audit_event", type(sink).__name__, exc_info=True)
+        self._dispatch("emit_audit_event", event)
 
     def close(self) -> None:
         """Close all sinks."""
+        self._dispatch("close")
+
+    # -- Trace-specific dispatch methods (duck-typed via hasattr) ---------------
+
+    def record_session_init(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        model_id: str,
+        archetype: str,
+        system_prompt: str,
+        task_prompt: str,
+    ) -> None:
+        """Dispatch session.init trace event to sinks that support it.
+
+        Uses hasattr duck-typing so that sinks without this method are skipped.
+        Requirements: 103-REQ-2.1
+        """
         for sink in self._sinks:
-            try:
-                sink.close()
-            except Exception:
-                logger.warning("Sink %s failed on close", type(sink).__name__, exc_info=True)
+            if hasattr(sink, "record_session_init"):
+                try:
+                    sink.record_session_init(  # type: ignore[union-attr]
+                        run_id=run_id,
+                        node_id=node_id,
+                        model_id=model_id,
+                        archetype=archetype,
+                        system_prompt=system_prompt,
+                        task_prompt=task_prompt,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Sink %s failed on record_session_init",
+                        type(sink).__name__,
+                        exc_info=True,
+                    )
+
+    def record_assistant_message(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        content: str,
+    ) -> None:
+        """Dispatch assistant.message trace event to sinks that support it.
+
+        Requirements: 103-REQ-3.1
+        """
+        for sink in self._sinks:
+            if hasattr(sink, "record_assistant_message"):
+                try:
+                    sink.record_assistant_message(  # type: ignore[union-attr]
+                        run_id=run_id,
+                        node_id=node_id,
+                        content=content,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Sink %s failed on record_assistant_message",
+                        type(sink).__name__,
+                        exc_info=True,
+                    )
+
+    def record_tool_use(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        tool_name: str,
+        tool_input: dict[str, Any],
+    ) -> None:
+        """Dispatch tool.use trace event to sinks that support it.
+
+        Requirements: 103-REQ-4.1
+        """
+        for sink in self._sinks:
+            if hasattr(sink, "record_tool_use"):
+                try:
+                    sink.record_tool_use(  # type: ignore[union-attr]
+                        run_id=run_id,
+                        node_id=node_id,
+                        tool_name=tool_name,
+                        tool_input=tool_input,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Sink %s failed on record_tool_use",
+                        type(sink).__name__,
+                        exc_info=True,
+                    )
+
+    def record_tool_error_trace(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        tool_name: str,
+        error_message: str,
+    ) -> None:
+        """Dispatch tool.error trace event to sinks that support it.
+
+        Requirements: 103-REQ-5.1
+        """
+        for sink in self._sinks:
+            if hasattr(sink, "record_tool_error_trace"):
+                try:
+                    sink.record_tool_error_trace(  # type: ignore[union-attr]
+                        run_id=run_id,
+                        node_id=node_id,
+                        tool_name=tool_name,
+                        error_message=error_message,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Sink %s failed on record_tool_error_trace",
+                        type(sink).__name__,
+                        exc_info=True,
+                    )
+
+    def record_session_result(
+        self,
+        *,
+        run_id: str,
+        node_id: str,
+        status: str,
+        input_tokens: int,
+        output_tokens: int,
+        cache_read_input_tokens: int,
+        cache_creation_input_tokens: int,
+        duration_ms: int,
+        is_error: bool,
+        error_message: str | None,
+    ) -> None:
+        """Dispatch session.result trace event to sinks that support it.
+
+        Requirements: 103-REQ-6.1
+        """
+        for sink in self._sinks:
+            if hasattr(sink, "record_session_result"):
+                try:
+                    sink.record_session_result(  # type: ignore[union-attr]
+                        run_id=run_id,
+                        node_id=node_id,
+                        status=status,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        cache_read_input_tokens=cache_read_input_tokens,
+                        cache_creation_input_tokens=cache_creation_input_tokens,
+                        duration_ms=duration_ms,
+                        is_error=is_error,
+                        error_message=error_message,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Sink %s failed on record_session_result",
+                        type(sink).__name__,
+                        exc_info=True,
+                    )

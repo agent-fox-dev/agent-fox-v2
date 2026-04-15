@@ -35,9 +35,7 @@ class TestTomlHooksIgnored:
         """load_config() with a [hooks] section returns AgentFoxConfig without error."""
         config_file = tmp_path / "config.toml"
         config_file.write_text(
-            "[hooks]\n"
-            'pre_code = ["echo hello"]\n'
-            "timeout = 60\n",
+            '[hooks]\npre_code = ["echo hello"]\ntimeout = 60\n',
             encoding="utf-8",
         )
         config = load_config(config_file)
@@ -49,11 +47,6 @@ class TestConfigGenNoHookConfig:
 
     def test_config_gen_has_no_hookconfig_references(self) -> None:
         """config_gen.py must not contain the string 'HookConfig'."""
-        config_gen_path = (
-            Path(__file__).parent.parent.parent.parent
-            / "agent_fox"
-            / "core"
-            / "config_gen.py"
-        )
+        config_gen_path = Path(__file__).parent.parent.parent.parent / "agent_fox" / "core" / "config_gen.py"
         content = config_gen_path.read_text(encoding="utf-8")
         assert "HookConfig" not in content

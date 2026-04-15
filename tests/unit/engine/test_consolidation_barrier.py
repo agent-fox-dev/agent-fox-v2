@@ -247,12 +247,15 @@ class TestCostReporting:
         mock_sink = MagicMock()
         captured_events: list[dict] = []
 
-        def _capture_dispatch(*args: object, **kwargs: object) -> None:
-            event_type = args[0] if args else kwargs.get("event_type", "")
-            payload = kwargs.get("payload", {})
-            captured_events.append({"type": str(event_type), "payload": payload})
+        def _capture_emit(event: object) -> None:
+            captured_events.append(
+                {
+                    "type": str(getattr(event, "event_type", "")),
+                    "payload": getattr(event, "payload", {}),
+                }
+            )
 
-        mock_sink.dispatch = MagicMock(side_effect=_capture_dispatch)
+        mock_sink.emit_audit_event = MagicMock(side_effect=_capture_emit)
 
         # Insert a fact so the pipeline has something to process
         entity_conn.execute(

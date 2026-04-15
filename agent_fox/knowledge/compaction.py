@@ -17,11 +17,7 @@ import duckdb
 
 from agent_fox.core.models import content_hash
 from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.store import (
-    DEFAULT_MEMORY_PATH,
-    export_facts_to_jsonl,
-    load_all_facts,
-)
+from agent_fox.knowledge.store import load_all_facts
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
@@ -31,7 +27,7 @@ logger = logging.getLogger("agent_fox.knowledge.compaction")
 
 def compact(
     conn: duckdb.DuckDBPyConnection,
-    path: Path = DEFAULT_MEMORY_PATH,
+    path: Path | None = None,
     *,
     sink_dispatcher: SinkDispatcher | None = None,
     run_id: str = "",
@@ -80,9 +76,6 @@ def compact(
     if removed_ids:
         placeholders = ", ".join(f"'{rid}'::UUID" for rid in removed_ids)
         conn.execute(f"UPDATE memory_facts SET superseded_by = id WHERE id IN ({placeholders})")
-
-    # Step 5: Export surviving facts to JSONL
-    export_facts_to_jsonl(conn, path)
 
     logger.info(
         "Compacted knowledge base: %d -> %d facts.",

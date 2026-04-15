@@ -5,6 +5,7 @@ Tests: TS-101-7, TS-101-8, TS-101-10, TS-101-15, TS-101-16,
 Requirements: 101-REQ-4.1, 101-REQ-4.2, 101-REQ-4.3, 101-REQ-4.4,
               101-REQ-4.5, 101-REQ-4.6, 101-REQ-4.E2, 101-REQ-4.E3
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,6 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.git_mining import (
     MiningResult,
     _compute_cochange_counts,
@@ -20,7 +22,6 @@ from agent_fox.knowledge.git_mining import (
     _parse_git_numstat,
     mine_git_patterns,
 )
-
 from agent_fox.knowledge.store import load_facts_by_spec
 
 
@@ -61,15 +62,7 @@ class TestParseGitNumstat:
 
     def test_parses_two_commits_correctly(self, tmp_path: Path) -> None:
         """Verify correct mapping of commit SHA to file paths."""
-        git_output = (
-            "sha1\n"
-            "10\t5\tsrc/a.py\n"
-            "3\t1\tsrc/b.py\n"
-            "\n"
-            "sha2\n"
-            "1\t1\tsrc/a.py\n"
-            "\n"
-        )
+        git_output = "sha1\n10\t5\tsrc/a.py\n3\t1\tsrc/b.py\n\nsha2\n1\t1\tsrc/a.py\n\n"
         with patch(
             "agent_fox.knowledge.git_mining.subprocess.run",
             return_value=_make_subprocess_result(git_output),
@@ -198,9 +191,7 @@ class TestFragileAreaDetection:
     Requirement: 101-REQ-4.1, 101-REQ-4.4
     """
 
-    def test_creates_one_fragile_area_fact(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_creates_one_fragile_area_fact(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify one fragile_area fact created when file meets threshold."""
         mock_data = {f"sha{i}": ["src/hot_file.py"] for i in range(25)}
         with patch(
@@ -215,9 +206,7 @@ class TestFragileAreaDetection:
         assert len(fragile) == 1
         assert "src/hot_file.py" in fragile[0].content
 
-    def test_file_below_threshold_not_flagged(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_file_below_threshold_not_flagged(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify files modified fewer than threshold times are not flagged."""
         mock_data = {f"sha{i}": ["src/stable.py"] for i in range(15)}
         with patch(
@@ -268,9 +257,7 @@ class TestCochangePatternDetection:
     Requirement: 101-REQ-4.2, 101-REQ-4.5
     """
 
-    def test_creates_one_cochange_pattern_fact(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_creates_one_cochange_pattern_fact(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify one pattern fact created for file pair meeting co-change threshold."""
         mock_data = {f"sha{i}": ["a.py", "b.py"] for i in range(6)}
         with patch(
@@ -286,9 +273,7 @@ class TestCochangePatternDetection:
         assert "a.py" in patterns[0].content
         assert "b.py" in patterns[0].content
 
-    def test_pair_below_threshold_not_flagged(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_pair_below_threshold_not_flagged(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify pairs co-changed fewer than threshold times are not flagged."""
         mock_data = {f"sha{i}": ["a.py", "b.py"] for i in range(3)}
         with patch(
@@ -299,9 +284,7 @@ class TestCochangePatternDetection:
 
         assert result.cochange_patterns_created == 0
 
-    def test_cochange_fact_mentions_both_files(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_cochange_fact_mentions_both_files(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify co-change pattern fact content names both files."""
         mock_data = {f"sha{i}": ["x.py", "y.py"] for i in range(8)}
         with patch(
@@ -337,9 +320,7 @@ class TestMinimumCommitThreshold:
         assert result.fragile_areas_created == 0
         assert result.cochange_patterns_created == 0
 
-    def test_nine_commits_still_skips(
-        self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path
-    ) -> None:
+    def test_nine_commits_still_skips(self, knowledge_conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:
         """Verify 9 commits (< 10) still triggers the skip."""
         mock_data = {f"sha{i}": ["file.py"] for i in range(9)}
         with patch(
@@ -380,9 +361,7 @@ class TestDuplicateMiningFactPrevention:
 
         assert result2.fragile_areas_created == 0
 
-    def test_is_mining_fact_exists_returns_false_for_unknown(
-        self, knowledge_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_is_mining_fact_exists_returns_false_for_unknown(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
         """Verify _is_mining_fact_exists returns False when fingerprint absent."""
         assert not _is_mining_fact_exists(knowledge_conn, "onboard:fragile:nonexistent.py")
 

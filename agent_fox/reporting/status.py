@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from agent_fox.core.node_id import spec_name_of
-from agent_fox.engine.state import ExecutionState, SessionRecord, StateManager
+from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
 from agent_fox.graph.persistence import load_plan_or_raise
 from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.store import read_all_facts
@@ -140,19 +140,6 @@ def extract_spec_name(node_id: str) -> str:
     return spec_name_of(node_id)
 
 
-def _load_state(state_path: Path) -> ExecutionState | None:
-    """Load execution state from state.jsonl.
-
-    Args:
-        state_path: Path to .agent-fox/state.jsonl.
-
-    Returns:
-        The loaded ExecutionState, or None if the file does not exist.
-    """
-    manager = StateManager(state_path)
-    return manager.load()
-
-
 def _get_failure_reasons(
     session_history: list[SessionRecord],
 ) -> dict[str, str]:
@@ -262,25 +249,19 @@ def _compute_per_spec(
 
 
 def generate_status(
-    state_path: Path,
     plan_path: Path | None = None,
     db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> StatusReport:
     """Generate a status report from execution state and plan.
 
-    Prefers DuckDB audit_events for session metrics (tokens, cost) when
-    a DuckDB connection is available, falling back to state.jsonl when it
-    is not.
+    Loads execution state from DuckDB. Uses DuckDB audit_events for
+    session metrics (tokens, cost) when available.
 
     Args:
-        state_path: Path to .agent-fox/state.jsonl (or AgentFoxConfig for
-            programmatic use — paths will be derived from defaults).
         plan_path: Path to .agent-fox/plan.json. If None, defaults to the
             standard location. When the plan file does not exist, returns
             an empty report.
-        db_conn: Optional DuckDB connection for audit events and fact loading.
-            If None, session metrics come from state.jsonl and facts section
-            will be empty.
+        db_conn: DuckDB connection for state, audit events, and fact loading.
 
     Returns:
         StatusReport with task counts, token usage, cost, and problem tasks.
@@ -288,38 +269,52 @@ def generate_status(
     Raises:
         AgentFoxError: If neither state nor plan file can be read.
 
-    Requirements: 40-REQ-14.1, 40-REQ-14.3, 59-REQ-5.1
+    Requirements: 40-REQ-14.1, 40-REQ-14.3, 59-REQ-5.1, 105-REQ-5.3
     """
     # Resolve plan_path if not provided
     _plan_path_was_none = plan_path is None
     if plan_path is None:
-        from agent_fox.core.paths import PLAN_PATH
+        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
 
-        plan_path = PLAN_PATH
+    # Try loading plan from DB when connection is available (105-REQ-6.1)
+    graph = None
+    if db_conn is not None:
+        try:
+            from agent_fox.graph.persistence import load_plan as _load_plan_db
 
-    # Load the plan (required when explicitly provided)
-    try:
-        graph = load_plan_or_raise(plan_path)
-    except Exception:
-        if not _plan_path_was_none:
-            raise
-        # Return empty report when plan_path was not explicitly given
-        return StatusReport(
-            counts={},
-            total_tasks=0,
-            input_tokens=0,
-            output_tokens=0,
-            estimated_cost=0.0,
-            problem_tasks=[],
-            per_spec={},
-        )
+            graph = _load_plan_db(db_conn)
+        except Exception:
+            logger.debug("Failed to load plan from DB, falling back to file", exc_info=True)
 
-    # Load execution state (optional - may not exist yet)
-    state = _load_state(state_path)
+    # Fall back to file-based plan loading
+    if graph is None:
+        try:
+            graph = load_plan_or_raise(plan_path)
+        except Exception:
+            if not _plan_path_was_none:
+                raise
+            # Return empty report when plan_path was not explicitly given
+            return StatusReport(
+                counts={},
+                total_tasks=0,
+                input_tokens=0,
+                output_tokens=0,
+                estimated_cost=0.0,
+                problem_tasks=[],
+                per_spec={},
+            )
+
+    # Load execution state from DB (optional - may not exist yet)
+    state: ExecutionState | None = None
+    if db_conn is not None:
+        try:
+            state = load_state_from_db(db_conn)
+        except Exception:
+            logger.debug("Failed to load state from DB", exc_info=True)
 
     # Determine node statuses: seed from graph (honours tasks.md [x]
-    # checkboxes), then overlay any state.jsonl overrides for nodes the
-    # orchestrator has actually touched.
+    # checkboxes), then overlay DB state for nodes the orchestrator has
+    # actually touched.
     node_states = {nid: node.status.value for nid, node in graph.nodes.items()}
     if state is not None:
         for nid, status in state.node_states.items():
@@ -359,7 +354,7 @@ def generate_status(
             audit_report.total_sessions,
         )
     elif state is not None:
-        # Fall back to state.jsonl (40-REQ-14.3)
+        # Fall back to DB-loaded state totals
         input_tokens = state.total_input_tokens
         output_tokens = state.total_output_tokens
         estimated_cost = state.total_cost
@@ -367,14 +362,14 @@ def generate_status(
         for record in state.session_history:
             cost_by_archetype_agg[record.archetype] += record.cost
         cost_by_archetype = dict(cost_by_archetype_agg)
-        logger.debug("Status report: falling back to state.jsonl")
+        logger.debug("Status report: using DB-loaded state totals")
     else:
         input_tokens = 0
         output_tokens = 0
         estimated_cost = 0.0
         cost_by_archetype = {}
 
-    # Failure reasons always come from state.jsonl (audit doesn't replace this)
+    # Failure reasons from session history
     if state is not None:
         failure_reasons = _get_failure_reasons(state.session_history)
     else:
@@ -398,7 +393,7 @@ def generate_status(
     memory_total = len(facts)
     memory_by_category = dict(Counter(f.category for f in facts))
 
-    # Per-spec cost breakdown (still from state.jsonl as audit doesn't track per-spec)
+    # Per-spec cost breakdown from session history
     cost_by_spec_agg: dict[str, float] = defaultdict(float)
     if state is not None:
         for record in state.session_history:

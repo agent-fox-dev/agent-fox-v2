@@ -297,9 +297,6 @@ class TestCoderFixModeEquivalence:
         cfg = resolve_effective_config(entry, "fix")
 
         # Matches former fix_coder archetype configuration
-        assert cfg.templates == ["fix_coding.md"], (
-            f"coder:fix templates should be ['fix_coding.md'], got {cfg.templates}"
-        )
         assert cfg.default_model_tier == "STANDARD", (
             f"coder:fix tier should be STANDARD, got {cfg.default_model_tier!r}"
         )

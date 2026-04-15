@@ -31,7 +31,7 @@ def _mock_workspace() -> WorkspaceInfo:
 
 def _make_issue(number: int = 42, title: str = "Fix unused imports") -> object:
     """Create an IssueResult for testing."""
-    from agent_fox.platform.github import IssueResult
+    from agent_fox.platform.protocol import IssueResult
 
     return IssueResult(
         number=number,

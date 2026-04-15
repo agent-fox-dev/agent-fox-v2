@@ -37,8 +37,7 @@ class TestNightshiftTriageViaMaintainer:
         tier = resolve_model_tier(config, "maintainer", mode="hunt")
 
         assert tier == "STANDARD", (
-            f"Nightshift triage must resolve STANDARD tier via maintainer:hunt, "
-            f"got {tier!r} (100-REQ-5.1)"
+            f"Nightshift triage must resolve STANDARD tier via maintainer:hunt, got {tier!r} (100-REQ-5.1)"
         )
 
     def test_resolve_security_config_maintainer_hunt_returns_hunt_allowlist(self) -> None:
@@ -54,8 +53,7 @@ class TestNightshiftTriageViaMaintainer:
         sec = resolve_security_config(config, "maintainer", mode="hunt")
 
         assert sec is not None, (
-            "resolve_security_config must return a SecurityConfig for maintainer:hunt, "
-            "not None (100-REQ-5.2)"
+            "resolve_security_config must return a SecurityConfig for maintainer:hunt, not None (100-REQ-5.2)"
         )
         expected_allowlist = {"ls", "cat", "git", "wc", "head", "tail"}
         actual_allowlist = set(sec.bash_allowlist)
@@ -81,7 +79,7 @@ class TestNightshiftTriageViaMaintainer:
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.nightshift.dep_graph import DependencyEdge
         from agent_fox.nightshift.triage import run_batch_triage
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = AgentFoxConfig()
         issues = [
@@ -151,12 +149,9 @@ class TestExtractionStubEndToEnd:
         assert result.status == "not_implemented", (
             f"Stub must return status='not_implemented', got {result.status!r} (100-REQ-4.3)"
         )
-        assert result.facts == [], (
-            f"Stub must return empty facts list, got {result.facts!r} (100-REQ-4.3)"
-        )
+        assert result.facts == [], f"Stub must return empty facts list, got {result.facts!r} (100-REQ-4.3)"
         assert result.session_id == "test-session-001", (
-            f"ExtractionResult must propagate session_id from input, "
-            f"got {result.session_id!r}"
+            f"ExtractionResult must propagate session_id from input, got {result.session_id!r}"
         )
 
     def test_extract_knowledge_never_raises(self) -> None:
@@ -214,6 +209,5 @@ class TestExtractionStubEndToEnd:
             )
             result = extract_knowledge(extraction_input)
             assert result.session_id == session_id, (
-                f"session_id not propagated correctly: "
-                f"expected {session_id!r}, got {result.session_id!r}"
+                f"session_id not propagated correctly: expected {session_id!r}, got {result.session_id!r}"
             )

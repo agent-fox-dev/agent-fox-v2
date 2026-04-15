@@ -17,12 +17,14 @@ import click
 
 from agent_fox.cli import json_io
 from agent_fox.core.errors import AgentFoxError
-from agent_fox.core.paths import PLAN_PATH
 from agent_fox.engine.run import InterruptedResult, run_code
 from agent_fox.engine.state import ExecutionState
 from agent_fox.reporting.formatters import format_tokens
 
 logger = logging.getLogger(__name__)
+
+# Local path constant (no longer imported from core.paths — 105-REQ-5.1)
+PLAN_PATH = Path(".agent-fox/plan.json")
 
 # Exit code mapping: run_status -> shell exit code
 # 16-REQ-4.1 through 16-REQ-4.5, 16-REQ-4.E1

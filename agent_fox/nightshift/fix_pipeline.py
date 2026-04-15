@@ -28,7 +28,7 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
 
@@ -124,10 +124,9 @@ class FixPipeline:
         else:
             effective_system = build_system_prompt(
                 context=spec.system_context,
-                task_group=0,
-                spec_name=f"fix-issue-{spec.issue_number}",
                 archetype=archetype,
                 mode=mode,
+                project_dir=Path.cwd(),
             )
 
         effective_task = task_prompt if task_prompt else spec.task_prompt
@@ -367,10 +366,9 @@ class FixPipeline:
 
         system_prompt = build_system_prompt(
             context=context,
-            task_group=0,
-            spec_name=f"fix-issue-{spec.issue_number}",
             archetype="coder",
             mode="fix",
+            project_dir=Path.cwd(),
         )
 
         # Build task prompt, injecting reviewer feedback on retry
@@ -406,10 +404,9 @@ class FixPipeline:
 
         system_prompt = build_system_prompt(
             context=context,
-            task_group=0,
-            spec_name=f"fix-issue-{spec.issue_number}",
             archetype="reviewer",
             mode="fix-review",
+            project_dir=Path.cwd(),
         )
 
         task_prompt = (

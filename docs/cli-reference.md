@@ -208,7 +208,7 @@ agent-fox code [OPTIONS]
 Runs the orchestrator, which dispatches coding sessions to a Claude agent for
 each ready task in the plan. Sessions execute in isolated git worktrees with
 feature branches. After each session, results are harvested (merged) and state
-is persisted to `.agent-fox/state.jsonl`.
+is persisted to the DuckDB knowledge store.
 
 Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
 

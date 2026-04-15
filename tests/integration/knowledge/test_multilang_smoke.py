@@ -46,9 +46,7 @@ class TestFullMultiLanguageAnalysis:
     Requirements: All
     """
 
-    def test_full_mixed_language_analysis(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_full_mixed_language_analysis(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Analyze a repo with Python, Go, and TypeScript files; verify entities and edges."""
         # app.py: class, function, import
         (tmp_path / "app.py").write_text(
@@ -89,14 +87,10 @@ export function createClient(): Client { return new Client(); }
         result = analyze_codebase(tmp_path, entity_conn)
 
         # Entity count: at minimum 3 FILE + 3 classes/structs + 4+ functions
-        assert result.entities_upserted >= 7, (
-            f"Expected at least 7 entities, got {result.entities_upserted}"
-        )
+        assert result.entities_upserted >= 7, f"Expected at least 7 entities, got {result.entities_upserted}"
 
         # Edge count: at minimum the CONTAINS edges
-        assert result.edges_upserted >= 3, (
-            f"Expected at least 3 edges (CONTAINS), got {result.edges_upserted}"
-        )
+        assert result.edges_upserted >= 3, f"Expected at least 3 edges (CONTAINS), got {result.edges_upserted}"
 
         # languages_analyzed must include all three
         assert "python" in result.languages_analyzed
@@ -200,9 +194,7 @@ def index():
         assert result.edges_upserted >= 0
         assert result.languages_analyzed == ("python",)
 
-    def test_python_analysis_edges_present(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_python_analysis_edges_present(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Python analysis produces CONTAINS, IMPORTS, and EXTENDS edges in the DB."""
         pkg = tmp_path / "pkg"
         pkg.mkdir()
@@ -215,10 +207,7 @@ def index():
         analyze_codebase(tmp_path, entity_conn)
 
         edge_types = {
-            row[0]
-            for row in entity_conn.execute(
-                "SELECT DISTINCT relationship FROM entity_edges"
-            ).fetchall()
+            row[0] for row in entity_conn.execute("SELECT DISTINCT relationship FROM entity_edges").fetchall()
         }
 
         assert "contains" in edge_types, "CONTAINS edges must be present"
@@ -244,9 +233,7 @@ class TestIncrementalAnalysisWithLanguageChanges:
     Requirement: 102-REQ-4.4
     """
 
-    def test_adding_go_file_adds_entities(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_adding_go_file_adds_entities(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Adding a Go file in run 2 adds Go entities without disrupting Python entities."""
         py_file = tmp_path / "app.py"
         py_file.write_text("class App:\n    def run(self):\n        pass\n")
@@ -293,9 +280,7 @@ class TestIncrementalAnalysisWithLanguageChanges:
         py_file = tmp_path / "app.py"
         go_file = tmp_path / "server.go"
         py_file.write_text("class App:\n    def run(self):\n        pass\n")
-        go_file.write_text(
-            "package main\n\ntype Server struct{}\n\nfunc NewServer() *Server { return nil }\n"
-        )
+        go_file.write_text("package main\n\ntype Server struct{}\n\nfunc NewServer() *Server { return nil }\n")
 
         # Run 1: both files
         analyze_codebase(tmp_path, entity_conn)
@@ -325,9 +310,7 @@ class TestIncrementalAnalysisWithLanguageChanges:
         assert "go" not in result3.languages_analyzed
         assert "python" in result3.languages_analyzed
 
-    def test_full_incremental_cycle(
-        self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection
-    ) -> None:
+    def test_full_incremental_cycle(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """Full incremental cycle: add Python, add Go, remove Go — correct state at each step."""
         py_file = tmp_path / "app.py"
         go_file = tmp_path / "main.go"

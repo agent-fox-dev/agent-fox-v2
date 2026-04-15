@@ -29,6 +29,13 @@ from .conftest import (
     write_plan_file,
 )
 
+# Patch target: prevents MagicMock knowledge_db_conn from being treated as a
+# real DuckDB connection during plan loading (105-REQ-5.2 DB-first path).
+_PATCH_DB_PLAN = patch(
+    "agent_fox.graph.persistence._load_plan_from_db",
+    return_value=None,
+)
+
 
 def _wide_plan(plan_dir: Path, n: int = 5) -> Path:
     """Create a plan with n independent tasks (no dependencies)."""
@@ -92,7 +99,6 @@ class TestBlockBudget:
     async def test_block_budget_disabled_by_default(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """With default config (None), blocking never triggers budget."""
         plan_path = _wide_plan(tmp_plan_dir, n=5)
@@ -113,7 +119,6 @@ class TestBlockBudget:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
         )
 
@@ -126,7 +131,6 @@ class TestBlockBudget:
     async def test_block_budget_triggers_early_stop(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run stops with BLOCK_LIMIT when blocked fraction exceeds budget."""
         plan_path = _wide_plan(tmp_plan_dir, n=4)
@@ -152,7 +156,6 @@ class TestBlockBudget:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
         )
 
@@ -167,7 +170,6 @@ class TestBlockBudget:
     async def test_block_budget_not_triggered_below_threshold(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run continues when blocked fraction is below budget."""
         plan_path = _wide_plan(tmp_plan_dir, n=5)
@@ -188,7 +190,6 @@ class TestBlockBudget:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
         )
 
@@ -208,7 +209,6 @@ class TestSkepticBlocking:
     async def test_reviewer_blocks_coder_on_critical_findings(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """When reviewer:pre-review finds criticals above threshold, coder is blocked."""
         plan_path = _chain_with_reviewer(tmp_plan_dir)
@@ -246,15 +246,17 @@ class TestSkepticBlocking:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 
@@ -269,7 +271,6 @@ class TestSkepticBlocking:
     async def test_reviewer_does_not_block_below_threshold(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """When critical count <= threshold, coder proceeds normally."""
         plan_path = _chain_with_reviewer(tmp_plan_dir)
@@ -314,15 +315,17 @@ class TestSkepticBlocking:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 
@@ -333,7 +336,6 @@ class TestSkepticBlocking:
     async def test_drift_review_advisory_mode_does_not_block(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Drift-review with block_threshold=None is advisory-only."""
         plan_path = write_plan_file(
@@ -393,15 +395,17 @@ class TestSkepticBlocking:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
             knowledge_db_conn=mock_conn,
         )
 
-        with patch(
-            "agent_fox.knowledge.review_store.query_findings_by_session",
-            return_value=mock_findings,
+        with (
+            _PATCH_DB_PLAN,
+            patch(
+                "agent_fox.knowledge.review_store.query_findings_by_session",
+                return_value=mock_findings,
+            ),
         ):
             state = await orch.run()
 
@@ -412,7 +416,6 @@ class TestSkepticBlocking:
     async def test_no_blocking_without_knowledge_db(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Without a knowledge DB connection, reviewer blocking is skipped."""
         plan_path = _chain_with_reviewer(tmp_plan_dir)
@@ -444,7 +447,6 @@ class TestSkepticBlocking:
         orch = Orchestrator(
             config=config,
             plan_path=plan_path,
-            state_path=tmp_state_path,
             session_runner_factory=lambda nid, **kw: runner,
             # No knowledge_db_conn
         )
