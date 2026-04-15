@@ -15,11 +15,13 @@ Requirements: 27-REQ-3.1, 27-REQ-3.2, 27-REQ-3.3, 27-REQ-3.E1, 27-REQ-3.E2
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import re
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -720,6 +722,28 @@ def parse_legacy_verification_md(
 _TRIAGE_REQUIRED_KEYS = ("id", "description", "preconditions", "expected", "assertion")
 
 
+def _dump_parse_failure(response: str, session_id: str, parser_type: str) -> None:
+    """Write raw agent response to .agent-fox/ for debugging.
+
+    Only call this when verbose mode is active (DEBUG logging enabled).
+    Best-effort: I/O errors are logged at DEBUG level and swallowed so the
+    caller is never interrupted by file-system issues.
+
+    The file is named ``parse_failure_{parser_type}_{safe_session_id}_{ts}.txt``
+    and written into the ``.agent-fox/`` directory in the current working tree.
+    """
+    safe_id = re.sub(r"[:/\\]", "_", session_id)
+    ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S")
+    filename = f"parse_failure_{parser_type}_{safe_id}_{ts}.txt"
+    path = Path(".agent-fox") / filename
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(response, encoding="utf-8")
+        logger.debug("Raw agent response written to %s", path)
+    except OSError:
+        logger.debug("Failed to write parse failure dump to %s", path, exc_info=True)
+
+
 def parse_triage_output(
     response: str,
     spec_name: str,
@@ -761,6 +785,8 @@ def parse_triage_output(
             spec_name,
             session_id,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            _dump_parse_failure(response, session_id, "triage")
         return TriageResult()
 
     summary = data.get("summary", "")
@@ -844,6 +870,8 @@ def parse_fix_review_output(
             spec_name,
             session_id,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            _dump_parse_failure(response, session_id, "fix_review")
         return FixReviewResult(is_parse_failure=True)
 
     # Extract verdicts using fuzzy wrapper key
