@@ -74,8 +74,11 @@ def compact(
     surviving_ids = {f.id for f in surviving}
     removed_ids = [f.id for f in facts if f.id not in surviving_ids]
     if removed_ids:
-        placeholders = ", ".join(f"'{rid}'::UUID" for rid in removed_ids)
-        conn.execute(f"UPDATE memory_facts SET superseded_by = id WHERE id IN ({placeholders})")
+        placeholders = ", ".join("?::UUID" for _ in removed_ids)
+        conn.execute(
+            f"UPDATE memory_facts SET superseded_by = id WHERE id IN ({placeholders})",
+            removed_ids,
+        )
 
     logger.info(
         "Compacted knowledge base: %d -> %d facts.",
