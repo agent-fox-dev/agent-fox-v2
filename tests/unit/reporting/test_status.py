@@ -220,7 +220,7 @@ class TestStatusNoStateFile:
         self,
         tmp_plan_dir: Path,
     ) -> None:
-        """All-pending plan tasks show as pending with zero cost when no state."""
+        """All-pending plan tasks show as pending with no session data when no state."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
@@ -233,9 +233,9 @@ class TestStatusNoStateFile:
         report = generate_status(plan_path=plan_path)
 
         assert report.counts["pending"] == 5
-        assert report.input_tokens == 0
-        assert report.output_tokens == 0
-        assert report.estimated_cost == 0.0
+        assert report.input_tokens is None
+        assert report.output_tokens is None
+        assert report.estimated_cost is None
         assert len(report.problem_tasks) == 0
 
     def test_no_state_file_reads_completed_from_plan(
@@ -290,8 +290,9 @@ class TestStatusEmptyPlanNodes:
         tmp_plan_dir: Path,
     ) -> None:
         """generate_status shows real tokens/cost from DB when plan_nodes has no rows."""
-        import duckdb
         from unittest.mock import patch
+
+        import duckdb
 
         # Build a simple plan file (no DB plan, so plan_nodes stays empty)
         nodes = {"spec_a:1": {"title": "Task 1"}}
