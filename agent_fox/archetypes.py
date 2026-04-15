@@ -174,7 +174,7 @@ def resolve_effective_config(
         )
         return entry
 
-    # Apply non-None ModeConfig fields as explicit named overrides.
+    # Apply non-None ModeConfig fields onto the base entry.
     # ModeConfig field names map to ArchetypeEntry field names as follows:
     #   model_tier      -> default_model_tier
     #   max_turns       -> default_max_turns
@@ -185,10 +185,10 @@ def resolve_effective_config(
     #   retry_predecessor -> retry_predecessor
     return dataclasses.replace(
         entry,
-        injection=mode_cfg.injection if mode_cfg.injection is not None else entry.injection,
-        default_allowlist=mode_cfg.allowlist if mode_cfg.allowlist is not None else entry.default_allowlist,
-        default_model_tier=mode_cfg.model_tier if mode_cfg.model_tier is not None else entry.default_model_tier,
-        default_max_turns=mode_cfg.max_turns if mode_cfg.max_turns is not None else entry.default_max_turns,
+        injection=(mode_cfg.injection if mode_cfg.injection is not None else entry.injection),
+        default_allowlist=(mode_cfg.allowlist if mode_cfg.allowlist is not None else entry.default_allowlist),
+        default_model_tier=(mode_cfg.model_tier if mode_cfg.model_tier is not None else entry.default_model_tier),
+        default_max_turns=(mode_cfg.max_turns if mode_cfg.max_turns is not None else entry.default_max_turns),
         default_thinking_mode=(
             mode_cfg.thinking_mode if mode_cfg.thinking_mode is not None else entry.default_thinking_mode
         ),
