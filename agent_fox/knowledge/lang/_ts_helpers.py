@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import uuid
 
-from agent_fox.knowledge.entities import Entity, EntityEdge, EntityType
+from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
 
 # Epoch timestamp used for entity created_at when no real timestamp is available.
 ENTITY_EPOCH = "1970-01-01T00:00:00"
@@ -73,7 +73,7 @@ def make_entity(
 def make_edge(
     source_id: str,
     target_id: str,
-    relationship: str,
+    relationship: EdgeType,
 ) -> EntityEdge:
     """Create an EntityEdge."""
     return EntityEdge(
