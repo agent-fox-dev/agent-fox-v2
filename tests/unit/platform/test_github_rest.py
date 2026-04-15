@@ -135,3 +135,27 @@ class TestGitHubPlatformRepr:
         token = "ghp_unique_token_for_222"
         platform = GitHubPlatform(owner="org", repo="project", token=token)
         assert token not in str(platform)
+
+
+class TestGitHubPlatformForgeType:
+    """GitHubPlatform must expose a forge_type class attribute.
+
+    issue_summary.post_issue_summaries() guards against forge mismatches
+    via ``getattr(platform, "forge_type", None)``.  Without this attribute
+    the guard always evaluates ``None != "github"`` and silently skips every
+    issue summary, even when the platform is fully configured (108-REQ-4.E2).
+    """
+
+    def test_forge_type_is_github(self) -> None:
+        """Class attribute forge_type equals 'github'."""
+        assert GitHubPlatform.forge_type == "github"
+
+    def test_forge_type_accessible_on_instance(self) -> None:
+        """Instance attribute lookup returns 'github'."""
+        platform = GitHubPlatform(owner="org", repo="repo", token="tok")
+        assert platform.forge_type == "github"
+
+    def test_forge_type_via_getattr(self) -> None:
+        """getattr fallback pattern used by issue_summary resolves correctly."""
+        platform = GitHubPlatform(owner="org", repo="repo", token="tok")
+        assert getattr(platform, "forge_type", None) == "github"

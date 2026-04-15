@@ -110,8 +110,13 @@ class GitHubPlatform:
 
     Requirements: 65-REQ-4.2, 65-REQ-4.3, 65-REQ-5.1, 65-REQ-5.2,
                   65-REQ-5.3, 65-REQ-5.E1, 28-REQ-1.*, 28-REQ-2.*,
-                  28-REQ-3.*, 28-REQ-4.*
+                  28-REQ-3.*, 28-REQ-4.*, 108-REQ-4.E2
     """
+
+    # Forge identifier used by issue_summary.post_issue_summaries() to match
+    # the source forge in a spec's prd.md against the configured platform.
+    # 108-REQ-4.E2: skip posting when forge type doesn't match source URL.
+    forge_type: str = "github"
 
     def __init__(self, owner: str, repo: str, token: str, url: str = "github.com") -> None:
         self._owner = owner
