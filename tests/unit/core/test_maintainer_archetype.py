@@ -51,8 +51,8 @@ class TestMaintainerModes:
         from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["maintainer"]
-        assert set(entry.modes.keys()) == {"hunt", "extraction"}, (
-            f"Expected modes {{'hunt', 'extraction'}}, got {set(entry.modes.keys())} (100-REQ-1.1)"
+        assert set(entry.modes.keys()) == {"hunt", "fix-triage", "extraction"}, (
+            f"Expected modes {{'hunt', 'fix-triage', 'extraction'}}, got {set(entry.modes.keys())} (100-REQ-1.1)"
         )
 
 

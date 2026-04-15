@@ -127,6 +127,10 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
                 # Read-only analysis allowlist (100-REQ-1.2)
                 allowlist=["ls", "cat", "git", "wc", "head", "tail"],
             ),
+            "fix-triage": ModeConfig(
+                # Read-only analysis for single-issue triage (fixes #383)
+                allowlist=["ls", "cat", "git", "wc", "head", "tail"],
+            ),
             "extraction": ModeConfig(
                 # No shell access for extraction mode (100-REQ-1.3)
                 allowlist=[],
