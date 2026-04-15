@@ -49,13 +49,6 @@ class TestModuleExistence:
         assert load_all_facts is not None
         assert load_facts_by_spec is not None
 
-    @pytest.mark.skip(reason="Legacy function removed per spec 104-REQ-6")
-    def test_filtering_module(self) -> None:
-        """agent_fox.knowledge.filtering contains select_relevant_facts."""
-        from agent_fox.knowledge.filtering import select_relevant_facts
-
-        assert select_relevant_facts is not None
-
     def test_rendering_module(self) -> None:
         """agent_fox.knowledge.rendering contains render_summary."""
         from agent_fox.knowledge.rendering import render_summary
