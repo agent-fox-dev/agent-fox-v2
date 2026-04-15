@@ -230,14 +230,14 @@ precedes the final wiring verification.
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
     - [x] Requirements 107-REQ-4.* acceptance criteria met
 
-- [ ] 6. Checkpoint — All Languages Complete
-  - [ ] 6.1 Run full test suite including all new and existing tests
+- [x] 6. Checkpoint — All Languages Complete
+  - [x] 6.1 Run full test suite including all new and existing tests
     - `make check`
-  - [ ] 6.2 Verify all four analyzers appear in default registry
+  - [x] 6.2 Verify all four analyzers appear in default registry
     - `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Registry"`
-  - [ ] 6.3 Run integration smoke test
-    - `uv run pytest -q tests/integration/knowledge/ -k "107"`
-  - [ ] 6.4 Verify extension uniqueness property test passes
+  - [x] 6.3 Run integration smoke test
+    - `uv run pytest -q tests/integration/knowledge/test_new_lang_smoke.py`
+  - [x] 6.4 Verify extension uniqueness property test passes
     - `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "extension"`
 
 - [ ] 7. Wiring verification
