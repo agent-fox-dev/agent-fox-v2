@@ -491,3 +491,71 @@ def test_missing_db_status(tmp_path) -> None:
     result = generate_status(db_path=nonexistent_db)
     # Either result contains "No plan found" or is a falsy/empty value
     assert result is None or "No plan found" in str(result) or result == {}
+
+
+# -- Regression tests: issue #379 — load_state_from_db gates on plan_nodes ----
+
+
+def test_load_state_from_db_empty_plan_nodes_loads_sessions(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Regression #379: load_state_from_db returns session history even when plan_nodes is empty.
+
+    Previously the function returned None immediately when plan_nodes was empty,
+    silently discarding all session_outcomes data.
+    """
+    from agent_fox.engine.state import load_state_from_db
+
+    # plan_nodes is empty (no rows inserted)
+    assert db_conn.sql("SELECT COUNT(*) FROM plan_nodes").fetchone()[0] == 0
+
+    # Populate session_outcomes with real data
+    db_conn.execute(
+        """
+        INSERT INTO session_outcomes
+            (id, spec_name, task_group, node_id, status,
+             input_tokens, output_tokens, cost, duration_ms,
+             created_at, run_id, attempt, model, archetype, commit_sha,
+             error_message, is_transport_error)
+        VALUES ('s1', 'spec_a', '1', 'spec_a:1', 'completed',
+                5000, 2500, 0.75, 30000,
+                '2026-01-01T00:00:00', 'run_1', 1, 'claude-sonnet-4-6',
+                'coder', 'abc123', NULL, FALSE)
+        """
+    )
+
+    state = load_state_from_db(db_conn)
+
+    assert state is not None, "load_state_from_db must not return None when sessions exist"
+    assert len(state.session_history) == 1
+    assert state.session_history[0].node_id == "spec_a:1"
+    assert state.session_history[0].input_tokens == 5000
+    assert abs(state.session_history[0].cost - 0.75) < 1e-9
+    assert state.node_states == {}  # empty plan, not an error
+
+
+def test_load_state_from_db_empty_plan_nodes_loads_run_totals(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Regression #379: load_state_from_db returns run totals even when plan_nodes is empty.
+
+    The runs table is written by the engine's result handler and exists
+    independently of plan_nodes. Token counts and costs must always be read.
+    """
+    from agent_fox.engine.state import load_state_from_db
+
+    # plan_nodes is empty
+    assert db_conn.sql("SELECT COUNT(*) FROM plan_nodes").fetchone()[0] == 0
+
+    # Populate runs table
+    create_run(db_conn, "run_1", "hash_abc")
+    update_run_totals(db_conn, "run_1", input_tokens=10000, output_tokens=4000, cost=1.50)
+    complete_run(db_conn, "run_1", "completed")
+
+    state = load_state_from_db(db_conn)
+
+    assert state is not None, "load_state_from_db must not return None when run data exists"
+    assert state.total_input_tokens == 10000
+    assert state.total_output_tokens == 4000
+    assert abs(state.total_cost - 1.50) < 1e-6
+    assert state.node_states == {}  # empty plan, not an error
