@@ -240,9 +240,9 @@ precedes the final wiring verification.
   - [x] 6.4 Verify extension uniqueness property test passes
     - `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "extension"`
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
 
-  - [ ] 7.1 Trace every execution path from design.md end-to-end
+  - [x] 7.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -250,39 +250,68 @@ precedes the final wiring verification.
     - Every path must be live in production code — errata or deferrals do not
       satisfy this check
     - _Requirements: all_
+    - Path 1 verified: analyze_codebase (line 90) → detect_languages →
+      _build_default_registry (all 4 new analyzers registered) → for each
+      analyzer: _analyze_language → build_module_map (line 281) →
+      make_parser (line 282) → extract_entities (line 297) →
+      extract_edges (line 300) → upsert_entities (line 146) →
+      upsert_edges (line 237). All live, no stubs.
+    - Path 2 verified: _build_default_registry wraps each import in
+      try/except ImportError + _try_register wraps make_parser() probe
+      in try/except Exception. Missing grammar → info log, skip.
 
-  - [ ] 7.2 Verify return values propagate correctly
+  - [x] 7.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
+    - detect_languages() → stored in `analyzers` → iterated at line 108.
+    - _analyze_language appends to caller-provided lists (lang_entities,
+      lang_edges); results collected in lang_entity_batches/all_sentinel_edges.
+    - upsert_entities() → lang_ids extended into all_upserted_ids at line 147;
+      used for edge resolution at line 157.
+    - build_module_map() → stored in module_map → passed to extract_edges at
+      line 300.
 
-  - [ ] 7.3 Run the integration smoke tests
+  - [x] 7.3 Run the integration smoke tests
     - All `TS-107-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-107-SMOKE-1_
+    - TS-107-SMOKE-1: 3/3 tests pass (languages_analyzed, entities_inserted,
+      total entity count all verified).
 
-  - [ ] 7.4 Stub / dead-code audit
+  - [x] 7.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - Audit result: Zero `return []`, zero `pass`, zero `# TODO`/`# stub`/
+      `NotImplementedError` in any of the four new analyzer files. All
+      `return None` hits are in private helper functions with `Optional`
+      return types (e.g., `_get_namespace_name`, `_get_using_name`,
+      `_find_first_child_by_types`), which is correct behavior.
 
-  - [ ] 7.5 Cross-spec entry point verification
+  - [x] 7.5 Cross-spec entry point verification
     - Verify that `analyze_codebase()` in `static_analysis.py` calls
       `_analyze_language()` for the new analyzers when their files are present
     - Verify that `detect_languages()` returns the new analyzers
     - Verify that `get_default_registry()` includes all four new analyzers
     - These entry points are owned by spec 102 and must be live
     - _Requirements: all_
+    - analyze_codebase() calls detect_languages() at static_analysis.py:90,
+      then calls _analyze_language() for each analyzer at lines 112-117.
+    - detect_languages() calls _build_default_registry() and scans files for
+      each analyzer (registry.py:131-137).
+    - get_default_registry() / _build_default_registry() registers all four
+      new analyzers (registry.py:234-264) — confirmed live with uv run.
 
-  - [ ] 7.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 7.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
