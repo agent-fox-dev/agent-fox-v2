@@ -83,4 +83,4 @@ type = "github"
 ## Issue tracker URL (defaults from type) (default: "")
 # url = ""
 
-## For all configuration options, see docs/config-reference.md
+## For all configuration options, see https://github.com/agent-fox-dev/agent-fox/blob/main/docs/config-reference.md

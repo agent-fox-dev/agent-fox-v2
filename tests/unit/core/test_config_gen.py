@@ -19,7 +19,10 @@ from agent_fox.core.config import (
     OrchestratorConfig,
     load_config,
 )
+from agent_fox import __version__
 from agent_fox.core.config_gen import (
+    _FOOTER_COMMENT,
+    _GITHUB_REPO_URL,
     _PROMOTED_DEFAULTS,
     extract_schema,
     generate_default_config,
@@ -438,3 +441,44 @@ class TestMergeEdgeCases:
         assert bash_allowlist_extend.default == [], (
             f"Expected [] for bash_allowlist_extend default, got {bash_allowlist_extend.default!r}"
         )
+
+
+class TestTemplateHeaderFooter:
+    """Tests for config template header and footer comments (issue #360)."""
+
+    def test_header_contains_version(self) -> None:
+        """Template header includes the agent-fox version that generated the file."""
+        template = generate_default_config()
+        assert f"agent-fox {__version__}" in template, (
+            f"Template header must include version '{__version__}'"
+        )
+
+    def test_header_contains_github_repo_url(self) -> None:
+        """Template header includes the full GitHub repo URL."""
+        template = generate_default_config()
+        assert _GITHUB_REPO_URL in template, (
+            f"Template header must include GitHub URL '{_GITHUB_REPO_URL}'"
+        )
+
+    def test_footer_contains_full_docs_url(self) -> None:
+        """Template footer references the docs via full GitHub URL, not a relative path."""
+        template = generate_default_config()
+        assert "https://github.com/agent-fox-dev/agent-fox/blob/main/docs/config-reference.md" in template, (
+            "Template footer must reference docs via full GitHub URL"
+        )
+        assert "see docs/config-reference.md" not in template, (
+            "Template footer must not use a bare relative path to docs"
+        )
+
+    def test_footer_appears_exactly_once(self) -> None:
+        """Footer appears exactly once at the end of the template."""
+        template = generate_default_config()
+        lines = template.splitlines()
+        footer_lines = [ln for ln in lines if _FOOTER_COMMENT.strip() in ln]
+        assert len(footer_lines) == 1, f"Footer should appear exactly once, found {len(footer_lines)}"
+
+    def test_merge_preserves_new_footer(self) -> None:
+        """Merge of a fresh config is byte-for-byte identical (footer preserved)."""
+        fresh = generate_default_config()
+        merged = merge_existing_config(fresh)
+        assert merged == fresh, "Merging a fresh config must be idempotent"
