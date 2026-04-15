@@ -4,15 +4,16 @@ Configures Python's logging module with a consistent format and
 level control via --verbose, --trace, and --quiet flags. Uses named
 loggers per module for component-based log filtering.
 
-Verbosity tiers (highest to lowest detail):
-  TRACE (5)  -- bulk AI prompt/response payloads (--trace)
-  DEBUG (10) -- detailed per-step debug info (--verbose)
-  WARNING    -- default level (omit --verbose / --trace)
-  ERROR      -- errors only (--quiet)
-
 When a Rich Live display is active (e.g. the progress spinner),
 log messages are routed through Rich's console so they appear
 cleanly above the spinner instead of corrupting it.
+
+Log level hierarchy (low → high):
+  TRACE (5) — bulk AI payload dumps (prompts, raw responses)
+  DEBUG (10) — standard debug output
+  INFO (20) — progress and informational messages
+  WARNING (30) — default level
+  ERROR (40) — errors only (--quiet)
 
 Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.E1
 """
@@ -106,7 +107,7 @@ def setup_logging(*, verbose: bool = False, quiet: bool = False, trace: bool = F
       - ``quiet=True``   → ERROR      — errors only
 
     Args:
-        verbose: If True, set level to DEBUG (most information).
+        verbose: If True, set level to DEBUG (standard debug output).
         quiet: If True, set level to ERROR (errors only).
         trace: If True, set level to TRACE (enables AI payload dumps).
                Implies ``verbose``.

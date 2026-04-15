@@ -99,6 +99,30 @@ class TestSetupLoggingTiers:
         setup_logging(verbose=True, quiet=True, trace=False)
         assert self._get_agent_fox_level() == logging.DEBUG
 
+    def test_trace_implies_debug_messages_visible(self) -> None:
+        """With trace=True, DEBUG-level records pass the level filter."""
+        from agent_fox.core.logging import setup_logging
+
+        setup_logging(verbose=False, quiet=False, trace=True)
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.isEnabledFor(logging.DEBUG)
+
+    def test_verbose_does_not_show_trace_records(self) -> None:
+        """With verbose=True, TRACE-level records are filtered out."""
+        from agent_fox.core.logging import TRACE, setup_logging
+
+        setup_logging(verbose=True, quiet=False, trace=False)
+        agent_logger = logging.getLogger("agent_fox")
+        assert not agent_logger.isEnabledFor(TRACE)
+
+    def test_trace_shows_trace_records(self) -> None:
+        """With trace=True, TRACE-level records are enabled."""
+        from agent_fox.core.logging import TRACE, setup_logging
+
+        setup_logging(verbose=False, quiet=False, trace=True)
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.isEnabledFor(TRACE)
+
 
 # ---------------------------------------------------------------------------
 # TRACE emission gating

@@ -176,6 +176,27 @@ class TestTraceFlagWiring:
             f"Expected ctx.obj['trace']=True, got: {captured}"
         )
 
+    def test_trace_sets_log_level_to_trace(self, cli_runner: CliRunner) -> None:
+        """--trace sets the agent_fox logger to TRACE level."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--trace", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == TRACE
+
+    def test_verbose_alone_does_not_set_trace(self, cli_runner: CliRunner) -> None:
+        """--verbose alone does not enable TRACE-level output."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--verbose", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == logging.DEBUG
+        assert agent_logger.level != TRACE
+
 
 class TestConfigAutoDiscovery:
     """01-REQ-2.1: CLI auto-discovers .agent-fox/config.toml.
