@@ -61,24 +61,24 @@ and infrastructure setup.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced
 
-- [ ] 2. Implement issue_summary module
-  - [ ] 2.1 Create `agent_fox/engine/issue_summary.py`
+- [x] 2. Implement issue_summary module
+  - [x] 2.1 Create `agent_fox/engine/issue_summary.py`
     - Define `SourceIssue` dataclass
     - Implement `parse_source_url(prd_path)` with GitHub regex
     - _Requirements: 108-REQ-1.1, 108-REQ-1.2, 108-REQ-1.3, 108-REQ-1.E1,
       108-REQ-1.E2, 108-REQ-1.E3_
 
-  - [ ] 2.2 Implement `_get_develop_head(repo_root)`
+  - [x] 2.2 Implement `_get_develop_head(repo_root)`
     - Run `git rev-parse develop` via subprocess
     - Return `"unknown"` on failure
     - _Requirements: 108-REQ-6.1, 108-REQ-6.E1_
 
-  - [ ] 2.3 Implement `build_summary_comment(spec_name, commit_sha, tasks_path)`
+  - [x] 2.3 Implement `build_summary_comment(spec_name, commit_sha, tasks_path)`
     - Use `parse_tasks()` to extract group titles
     - Format as Markdown with spec name, commit SHA, task list, footer
     - _Requirements: 108-REQ-3.1, 108-REQ-3.2, 108-REQ-3.3, 108-REQ-3.4_
 
-  - [ ] 2.4 Implement `post_issue_summaries(platform, specs_dir, completed_specs, already_posted, repo_root)`
+  - [x] 2.4 Implement `post_issue_summaries(platform, specs_dir, completed_specs, already_posted, repo_root)`
     - Iterate newly completed specs (completed - already_posted)
     - Call parse_source_url, build_summary_comment, add_issue_comment
     - Handle failures gracefully (warn + skip)
@@ -86,13 +86,13 @@ and infrastructure setup.
     - _Requirements: 108-REQ-2.1, 108-REQ-2.2, 108-REQ-4.1, 108-REQ-4.E1,
       108-REQ-4.E2, 108-REQ-2.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] parse_source_url tests pass
-    - [ ] build_summary_comment tests pass
-    - [ ] post_issue_summaries tests pass
-    - [ ] get_develop_head tests pass
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+  - [x] 2.V Verify task group 2
+    - [x] parse_source_url tests pass
+    - [x] build_summary_comment tests pass
+    - [x] post_issue_summaries tests pass
+    - [x] get_develop_head tests pass
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
 
 - [ ] 3. Wire platform into orchestrator
   - [ ] 3.1 Add `create_platform_safe()` to `nightshift/platform_factory.py`
