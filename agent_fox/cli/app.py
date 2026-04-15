@@ -77,6 +77,12 @@ class BannerGroup(click.Group):
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress info messages")
 @click.option(
+    "--trace",
+    is_flag=True,
+    default=False,
+    help="Enable trace logging (includes full AI prompt/response dumps; implies --verbose)",
+)
+@click.option(
     "--json",
     "json_mode",
     is_flag=True,
@@ -84,7 +90,9 @@ class BannerGroup(click.Group):
     help="Switch to structured JSON I/O mode",
 )
 @click.pass_context
-def main(ctx: click.Context, verbose: bool, quiet: bool, json_mode: bool) -> None:
+def main(
+    ctx: click.Context, verbose: bool, quiet: bool, trace: bool, json_mode: bool
+) -> None:
     """agent-fox: autonomous coding-agent orchestrator."""
     ctx.ensure_object(dict)
 
@@ -93,14 +101,16 @@ def main(ctx: click.Context, verbose: bool, quiet: bool, json_mode: bool) -> Non
 
     # In JSON mode, suppress warning-level log output so it doesn't pollute
     # the structured JSON stdout stream. Verbose flag overrides this.
-    effective_quiet = quiet or (json_mode and not verbose)
-    setup_logging(verbose=verbose, quiet=effective_quiet)
+    # --trace implies --verbose, so treat trace as verbose for quiet suppression.
+    effective_quiet = quiet or (json_mode and not verbose and not trace)
+    setup_logging(verbose=verbose, quiet=effective_quiet, trace=trace)
 
     config = load_config(Path(".agent-fox/config.toml"))
 
     ctx.obj["config"] = config
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
+    ctx.obj["trace"] = trace
 
     # 14-REQ-4.1: render banner on every invocation (suppressed by --quiet)
     # 23-REQ-2.1: suppress banner in JSON mode

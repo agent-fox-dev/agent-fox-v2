@@ -125,6 +125,48 @@ class TestVersionFlagSkipsBanner:
         assert "/\\_/\\" not in result.output, f"Fox art should not appear with --version, got:\n{result.output!r}"
 
 
+class TestTraceFlag:
+    """--trace flag enables TRACE-level logging."""
+
+    def test_trace_flag_accepted(self, cli_runner: CliRunner) -> None:
+        """--trace flag is accepted without error."""
+        result = cli_runner.invoke(main, ["--trace", "--quiet"])
+        assert result.exit_code == 0
+
+    def test_trace_stored_in_context(self, cli_runner: CliRunner) -> None:
+        """--trace stores True in ctx.obj['trace']."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        with patch("agent_fox.cli.app.setup_logging") as mock_setup:
+            cli_runner.invoke(main, ["--trace", "--quiet"])
+            mock_setup.assert_called_once()
+            call_kwargs = mock_setup.call_args.kwargs
+            assert call_kwargs.get("trace") is True
+
+    def test_trace_sets_log_level_to_trace(self, cli_runner: CliRunner) -> None:
+        """--trace sets the agent_fox logger to TRACE level."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--trace", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == TRACE
+
+    def test_verbose_alone_does_not_set_trace(self, cli_runner: CliRunner) -> None:
+        """--verbose alone does not enable TRACE-level output."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--verbose", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == logging.DEBUG
+        assert agent_logger.level != TRACE
+
+
 class TestConfigAutoDiscovery:
     """01-REQ-2.1: CLI auto-discovers .agent-fox/config.toml.
 

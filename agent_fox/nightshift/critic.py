@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
+from agent_fox.core.logging import TRACE
 from agent_fox.nightshift.finding import Finding, FindingGroup
 
 if TYPE_CHECKING:
@@ -163,8 +164,8 @@ async def _run_critic(
 
     user_message = _build_critic_user_message(findings)
 
-    logger.debug("Critic system prompt:\n%s", _CRITIC_SYSTEM_PROMPT)
-    logger.debug("Critic user message:\n%s", user_message)
+    logger.log(TRACE, "Critic system prompt:\n%s", _CRITIC_SYSTEM_PROMPT)
+    logger.log(TRACE, "Critic user message:\n%s", user_message)
 
     response_text, _response = await nightshift_ai_call(
         model_tier="ADVANCED",
@@ -181,7 +182,7 @@ async def _run_critic(
     if response_text is None:
         raise ValueError("AI critic response has no text content")
 
-    logger.debug("Critic raw response:\n%s", response_text)
+    logger.log(TRACE, "Critic raw response:\n%s", response_text)
     return response_text
 
 

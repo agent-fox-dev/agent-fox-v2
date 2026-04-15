@@ -1,12 +1,19 @@
 """Logging configuration for agent-fox.
 
 Configures Python's logging module with a consistent format and
-level control via --verbose and --quiet flags. Uses named loggers
-per module for component-based log filtering.
+level control via --verbose, --quiet, and --trace flags. Uses named
+loggers per module for component-based log filtering.
 
 When a Rich Live display is active (e.g. the progress spinner),
 log messages are routed through Rich's console so they appear
 cleanly above the spinner instead of corrupting it.
+
+Log level hierarchy (low → high):
+  TRACE (5) — bulk AI payload dumps (prompts, raw responses)
+  DEBUG (10) — standard debug output
+  INFO (20) — progress and informational messages
+  WARNING (30) — default level
+  ERROR (40) — errors only (--quiet)
 
 Requirements: 01-REQ-6.1, 01-REQ-6.2, 01-REQ-6.3, 01-REQ-6.E1
 """
@@ -20,6 +27,11 @@ if TYPE_CHECKING:
     from rich.console import Console
 
 _LOG_FORMAT = "[%(levelname)s] %(name)s: %(message)s"
+
+# Custom level below DEBUG for bulk AI payload dumps (full prompts, raw responses).
+# Use logger.log(TRACE, ...) for multi-KB payloads that would drown --verbose output.
+TRACE: int = logging.DEBUG - 5  # 5
+logging.addLevelName(TRACE, "TRACE")
 
 
 class LiveAwareHandler(logging.Handler):
@@ -77,23 +89,30 @@ def get_live_handler() -> LiveAwareHandler | None:
     return _live_handler
 
 
-def setup_logging(*, verbose: bool = False, quiet: bool = False) -> None:
+def setup_logging(
+    *, verbose: bool = False, quiet: bool = False, trace: bool = False
+) -> None:
     """Configure Python logging for agent-fox.
 
     Sets the root ``agent_fox`` logger level and format.
 
     Args:
-        verbose: If True, set level to DEBUG (most information).
+        verbose: If True, set level to DEBUG (standard debug output).
         quiet: If True, set level to ERROR (errors only).
+        trace: If True, set level to TRACE (includes bulk AI payload dumps).
+            Implies verbose — all DEBUG messages are also shown.
 
     Note:
         When both ``verbose`` and ``quiet`` are True, ``verbose`` wins
-        (01-REQ-6.E1: most information wins).
+        (01-REQ-6.E1: most information wins). ``trace`` takes highest
+        precedence and implies verbose.
     """
     global _live_handler  # noqa: PLW0603
 
-    # 01-REQ-6.E1: verbose wins when both flags are set
-    if verbose:
+    # 01-REQ-6.E1: verbose wins when both flags are set; trace wins over verbose
+    if trace:
+        level = TRACE
+    elif verbose:
         level = logging.DEBUG
     elif quiet:
         level = logging.ERROR
