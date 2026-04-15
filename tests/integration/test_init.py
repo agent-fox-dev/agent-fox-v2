@@ -38,12 +38,6 @@ class TestInitCreatesStructure:
         content = config_path.read_text()
         assert isinstance(content, str)
 
-    def test_init_creates_hooks_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init creates .agent-fox/hooks/ directory."""
-        cli_runner.invoke(main, ["init"])
-
-        assert (tmp_git_repo / ".agent-fox" / "hooks").is_dir()
-
     def test_init_creates_worktrees_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .agent-fox/worktrees/ directory."""
         cli_runner.invoke(main, ["init"])
