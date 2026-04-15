@@ -159,23 +159,23 @@ precedes the final wiring verification.
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
     - [x] Requirements 107-REQ-2.* acceptance criteria met
 
-- [ ] 4. Implement Kotlin analyzer
-  - [ ] 4.1 Add `tree-sitter-kotlin>=1.0` to pyproject.toml dependencies
+- [x] 4. Implement Kotlin analyzer
+  - [x] 4.1 Add `tree-sitter-kotlin>=1.0` to pyproject.toml dependencies
     - Run `uv sync` to install
     - _Requirements: 107-REQ-6.1_
 
-  - [ ] 4.2 Create `agent_fox/knowledge/lang/kotlin_lang.py`
+  - [x] 4.2 Create `agent_fox/knowledge/lang/kotlin_lang.py`
     - Implement `KotlinAnalyzer` class with protocol properties
     - Implement `make_parser()` using `tree_sitter_kotlin`
     - _Requirements: 107-REQ-3.1, 107-REQ-3.2_
 
-  - [ ] 4.3 Implement Kotlin entity extraction
+  - [x] 4.3 Implement Kotlin entity extraction
     - Extract FILE, MODULE (package), CLASS (class/interface/object/enum class/data class),
       FUNCTION (fun with qualified names)
     - Companion object methods qualified as `ClassName.methodName`
     - _Requirements: 107-REQ-3.3, 107-REQ-3.E1_
 
-  - [ ] 4.4 Implement Kotlin edge extraction and module map
+  - [x] 4.4 Implement Kotlin edge extraction and module map
     - CONTAINS edges (file->class, class->method, file->function)
     - IMPORTS edges from `import` statements
     - EXTENDS edges from `:` clause
@@ -183,16 +183,16 @@ precedes the final wiring verification.
     - Skip unresolvable imports silently
     - _Requirements: 107-REQ-3.4, 107-REQ-3.5, 107-REQ-3.E2_
 
-  - [ ] 4.5 Register KotlinAnalyzer in registry.py
+  - [x] 4.5 Register KotlinAnalyzer in registry.py
     - Add `_try_register(registry, KotlinAnalyzer, "kotlin")`
     - _Requirements: 107-REQ-5.1, 107-REQ-5.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Kotlin spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Kotlin"`
-    - [ ] Kotlin property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "kotlin"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
-    - [ ] Requirements 107-REQ-3.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Kotlin spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Kotlin"`
+    - [x] Kotlin property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "kotlin"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+    - [x] Requirements 107-REQ-3.* acceptance criteria met
 
 - [ ] 5. Implement Dart analyzer
   - [ ] 5.1 Add `tree-sitter-dart-orchard>=0.3.1` to pyproject.toml dependencies

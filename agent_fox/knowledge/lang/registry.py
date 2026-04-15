@@ -247,4 +247,12 @@ def _build_default_registry() -> LanguageRegistry:
     except ImportError:
         logger.info("Skipping elixir analyzer: elixir_lang module not available")
 
+    # Kotlin
+    try:
+        from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
+
+        _try_register(registry, KotlinAnalyzer, "kotlin")
+    except ImportError:
+        logger.info("Skipping kotlin analyzer: kotlin_lang module not available")
+
     return registry

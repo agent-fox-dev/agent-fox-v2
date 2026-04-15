@@ -27,6 +27,7 @@ dependencies = [
     "tree-sitter-ruby>=0.23",
     "tree-sitter-c-sharp>=0.23",
     "tree-sitter-elixir>=0.3.4",
+    "tree-sitter-kotlin>=1.0",
 ]
 
 [project.scripts]
