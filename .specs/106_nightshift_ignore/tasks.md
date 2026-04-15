@@ -72,28 +72,30 @@ end-to-end wiring.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Implement `nightshift.ignore` module and add `pathspec` dependency
-  - [ ] 2.1 Add `pathspec>=0.12` to `pyproject.toml` dependencies
+- [x] 2. Implement `nightshift.ignore` module and add `pathspec` dependency
+  - [x] 2.1 Add `pathspec>=0.12` to `pyproject.toml` dependencies
     - Add to `[project] dependencies` list
     - Run `uv lock` to update lockfile
     - _Requirements: 106-REQ-5.1_
 
-  - [ ] 2.2 Create `agent_fox/nightshift/ignore.py`
+  - [x] 2.2 Create `agent_fox/nightshift/ignore.py`
     - Define `DEFAULT_EXCLUSIONS` constant list
     - Define `NIGHTSHIFT_IGNORE_FILENAME = ".night-shift"`
     - Define `NIGHTSHIFT_IGNORE_SEED` constant with seed file content
     - Implement `NightShiftIgnoreSpec` frozen dataclass with `is_ignored()` method
     - Implement `load_ignore_spec(project_root)` function
     - Implement `filter_findings(findings, spec)` function
+    - Also added `_ensure_nightshift_ignore` and `InitResult.nightshift_ignore` to
+      `init_project.py` to make unit test module importable (per test design)
     - _Requirements: 106-REQ-1.1, 106-REQ-1.2, 106-REQ-1.3, 106-REQ-1.4,
       106-REQ-1.E1, 106-REQ-1.E2, 106-REQ-2.1, 106-REQ-2.E1,
       106-REQ-3.2, 106-REQ-3.3, 106-REQ-6.1, 106-REQ-6.2, 106-REQ-6.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py -k "not init and not scanner"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/ignore.py`
-    - [ ] Requirements 106-REQ-1.*, 106-REQ-2.*, 106-REQ-5.1, 106-REQ-6.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py -k "not init and not scanner"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/ignore.py`
+    - [x] Requirements 106-REQ-1.*, 106-REQ-2.*, 106-REQ-5.1, 106-REQ-6.* acceptance criteria met
 
 - [ ] 3. Integrate with HuntScanner
   - [ ] 3.1 Modify `HuntScanner.run()` in `agent_fox/nightshift/hunt.py`

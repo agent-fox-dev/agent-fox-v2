@@ -404,6 +404,34 @@ class InitResult:
     agents_md: str  # "created" | "skipped"
     steering_md: str = "skipped"
     skills_installed: int = 0
+    nightshift_ignore: str = "skipped"  # "created" | "skipped"
+
+
+def _ensure_nightshift_ignore(project_root: Path) -> str:
+    """Create the .night-shift seed file if it does not already exist.
+
+    Returns ``"created"`` if the file was written, ``"skipped"`` if it already
+    existed or if the file could not be created (permission error).
+
+    Requirements: 106-REQ-4.1, 106-REQ-4.2, 106-REQ-4.E1, 106-REQ-4.E2
+    """
+    from agent_fox.nightshift.ignore import NIGHTSHIFT_IGNORE_FILENAME, NIGHTSHIFT_IGNORE_SEED
+
+    night_shift_path = project_root / NIGHTSHIFT_IGNORE_FILENAME
+    if night_shift_path.exists():
+        return "skipped"
+
+    try:
+        night_shift_path.write_text(NIGHTSHIFT_IGNORE_SEED, encoding="utf-8")
+        return "created"
+    except Exception:
+        logger.warning(
+            "Could not create %s in %s; skipping",
+            NIGHTSHIFT_IGNORE_FILENAME,
+            project_root,
+            exc_info=True,
+        )
+        return "skipped"
 
 
 def init_project(
