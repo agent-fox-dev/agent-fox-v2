@@ -123,41 +123,44 @@ and infrastructure setup.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
 
-- [ ] 4. Wiring verification
-  - [ ] 4.1 Trace every execution path from design.md end-to-end
+- [x] 4. Wiring verification
+  - [x] 4.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next
       function in the chain
     - Confirm no function in the chain is a stub
     - _Requirements: all_
 
-  - [ ] 4.2 Verify return values propagate correctly
+  - [x] 4.2 Verify return values propagate correctly
     - `parse_source_url()` result consumed by `post_issue_summaries()`
     - `build_summary_comment()` result passed to `add_issue_comment()`
     - `_get_develop_head()` result included in comment body
     - `post_issue_summaries()` return value updates `_issue_summaries_posted`
     - _Requirements: all_
 
-  - [ ] 4.3 Run the integration smoke test
+  - [x] 4.3 Run the integration smoke test
     - TS-108-SMOKE-1 passes using real components (no stub bypass)
     - _Test Spec: TS-108-SMOKE-1_
 
-  - [ ] 4.4 Stub / dead-code audit
+  - [x] 4.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be justified or replaced
+    - Two `pass` hits in `platform_factory.py` are `except Exception: pass`
+      handlers — justified (silent error swallowing for optional git remote
+      detection and GitHubPlatform construction)
 
-  - [ ] 4.5 Cross-spec entry point verification
+  - [x] 4.5 Cross-spec entry point verification
     - Verify `Orchestrator.run()` calls `post_issue_summaries()` in the
       finally block
     - Verify `_setup_infrastructure()` calls `create_platform_safe()`
     - Verify `create_platform_safe()` returns a platform or `None`
 
-  - [ ] 4.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 4.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ### Checkbox States
 
