@@ -3,6 +3,9 @@
 Test Spec: TS-73-2, TS-73-5, TS-73-7, TS-73-8, TS-73-10, TS-73-11, TS-73-E6, TS-73-E8
 Requirements: 73-REQ-1.2, 73-REQ-2.3, 73-REQ-3.2, 73-REQ-4.1, 73-REQ-4.2, 73-REQ-4.E1,
               73-REQ-5.E2, 73-REQ-6.3, 73-REQ-7.1, 73-REQ-7.2, 73-REQ-7.3
+
+Trace logging tests verify that bulk AI payloads are only emitted at TRACE level,
+not at DEBUG, so that --verbose remains usable (issue #410).
 """
 
 from __future__ import annotations
@@ -363,3 +366,64 @@ class TestSummaryLog:
         assert "5" in info_messages  # total_received
         assert "1" in info_messages  # total_dropped
         assert "2" in info_messages  # groups_produced
+
+
+# ---------------------------------------------------------------------------
+# Issue #410: Bulk AI payloads must be logged at TRACE, not DEBUG
+# ---------------------------------------------------------------------------
+
+
+class TestBulkPayloadsAtTraceLevel:
+    """Critic's AI prompt/response dumps use TRACE level, not DEBUG (issue #410).
+
+    This ensures --verbose does not emit multi-KB blobs while --trace does.
+    """
+
+    @pytest.mark.asyncio
+    async def test_bulk_payloads_not_emitted_at_debug(self, caplog: pytest.LogCaptureFixture) -> None:
+        """System prompt and user message are NOT emitted when level is DEBUG."""
+        from unittest.mock import AsyncMock, patch
+
+        from agent_fox.core.logging import TRACE
+        from agent_fox.nightshift.critic import _run_critic
+
+        findings = [_make_finding(title=f"F{i}") for i in range(3)]
+
+        mock_response = ("raw AI text", object())
+        with patch(
+            "agent_fox.nightshift.cost_helpers.nightshift_ai_call",
+            new=AsyncMock(return_value=mock_response),
+        ), caplog.at_level(logging.DEBUG, logger="agent_fox"):
+            await _run_critic(findings)
+
+        trace_records = [r for r in caplog.records if r.levelno == TRACE]
+        assert trace_records == [], (
+            "TRACE records must not be emitted when the logger level is DEBUG. "
+            f"Got: {[r.message[:80] for r in trace_records]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_bulk_payloads_emitted_at_trace(self, caplog: pytest.LogCaptureFixture) -> None:
+        """System prompt, user message, and raw response ARE emitted at TRACE level."""
+        from unittest.mock import AsyncMock, patch
+
+        from agent_fox.core.logging import TRACE
+        from agent_fox.nightshift.critic import _run_critic
+
+        findings = [_make_finding(title=f"F{i}") for i in range(3)]
+
+        mock_response = ("raw AI text for trace check", object())
+        with patch(
+            "agent_fox.nightshift.cost_helpers.nightshift_ai_call",
+            new=AsyncMock(return_value=mock_response),
+        ), caplog.at_level(TRACE, logger="agent_fox"):
+            await _run_critic(findings)
+
+        trace_records = [r for r in caplog.records if r.levelno == TRACE]
+        messages = " ".join(r.message for r in trace_records)
+
+        # All three payload dumps must appear
+        assert "system prompt" in messages.lower(), "Expected critic system prompt log at TRACE"
+        assert "user message" in messages.lower(), "Expected critic user message log at TRACE"
+        assert "raw AI text for trace check" in messages, "Expected raw response log at TRACE"
+        assert len(trace_records) == 3, f"Expected exactly 3 TRACE records, got {len(trace_records)}"
