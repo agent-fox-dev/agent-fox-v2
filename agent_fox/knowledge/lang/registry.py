@@ -231,4 +231,12 @@ def _build_default_registry() -> LanguageRegistry:
     except ImportError:
         logger.info("Skipping ruby analyzer: ruby_lang module not available")
 
+    # C#
+    try:
+        from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
+
+        _try_register(registry, CSharpAnalyzer, "csharp")
+    except ImportError:
+        logger.info("Skipping csharp analyzer: csharp_lang module not available")
+
     return registry

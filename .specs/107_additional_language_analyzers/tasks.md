@@ -85,23 +85,23 @@ precedes the final wiring verification.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
-- [ ] 2. Add dependencies and implement C# analyzer
-  - [ ] 2.1 Add `tree-sitter-c-sharp>=0.23` to pyproject.toml dependencies
+- [x] 2. Add dependencies and implement C# analyzer
+  - [x] 2.1 Add `tree-sitter-c-sharp>=0.23` to pyproject.toml dependencies
     - Run `uv sync` to install
     - _Requirements: 107-REQ-6.1_
 
-  - [ ] 2.2 Create `agent_fox/knowledge/lang/csharp_lang.py`
+  - [x] 2.2 Create `agent_fox/knowledge/lang/csharp_lang.py`
     - Implement `CSharpAnalyzer` class with protocol properties
     - Implement `make_parser()` using `tree_sitter_c_sharp`
     - _Requirements: 107-REQ-1.1, 107-REQ-1.2_
 
-  - [ ] 2.3 Implement C# entity extraction
+  - [x] 2.3 Implement C# entity extraction
     - Extract FILE, MODULE (namespace), CLASS (class/struct/interface/enum/record),
       FUNCTION (methods with qualified names)
     - Handle multiple namespaces per file
     - _Requirements: 107-REQ-1.3, 107-REQ-1.E2_
 
-  - [ ] 2.4 Implement C# edge extraction and module map
+  - [x] 2.4 Implement C# edge extraction and module map
     - CONTAINS edges (namespace->class, class->method)
     - IMPORTS edges from `using` directives
     - EXTENDS edges from `:` inheritance clause
@@ -109,18 +109,18 @@ precedes the final wiring verification.
     - Skip unresolvable using directives silently
     - _Requirements: 107-REQ-1.4, 107-REQ-1.5, 107-REQ-1.E1_
 
-  - [ ] 2.5 Register CSharpAnalyzer in registry.py
+  - [x] 2.5 Register CSharpAnalyzer in registry.py
     - Add `_try_register(registry, CSharpAnalyzer, "csharp")` in
       `_build_default_registry()`
     - Handle ImportError gracefully
     - _Requirements: 107-REQ-5.1, 107-REQ-5.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] C# spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "CSharp"`
-    - [ ] C# property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "csharp"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
-    - [ ] Requirements 107-REQ-1.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] C# spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "CSharp"`
+    - [x] C# property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "csharp"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+    - [x] Requirements 107-REQ-1.* acceptance criteria met
 
 - [ ] 3. Implement Elixir analyzer
   - [ ] 3.1 Add `tree-sitter-elixir>=0.3.4` to pyproject.toml dependencies
