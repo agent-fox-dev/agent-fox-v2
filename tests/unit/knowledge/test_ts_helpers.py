@@ -9,8 +9,6 @@ from __future__ import annotations
 import typing
 import uuid
 
-import pytest
-
 from agent_fox.knowledge.entities import EdgeType, EntityEdge, EntityType
 from agent_fox.knowledge.lang._ts_helpers import make_edge, make_entity
 
