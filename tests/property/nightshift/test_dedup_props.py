@@ -53,7 +53,7 @@ def _make_group(category: str, affected_files: list[str]) -> object:
 def _make_issue_result_with_fp(number: int, fp: str) -> object:
     """Build an IssueResult whose body embeds the given fingerprint."""
     from agent_fox.nightshift.dedup import embed_fingerprint
-    from agent_fox.platform.github import IssueResult
+    from agent_fox.platform.protocol import IssueResult
 
     body = embed_fingerprint("Existing issue body", fp)
     return IssueResult(

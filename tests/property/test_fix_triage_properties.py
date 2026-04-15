@@ -221,7 +221,7 @@ class TestRetryFeedbackInjection:
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
         from agent_fox.nightshift.spec_builder import build_in_memory_spec
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
         from agent_fox.session.review_parser import (
             parse_fix_review_output,
             parse_triage_output,
