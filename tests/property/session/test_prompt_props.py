@@ -3,12 +3,10 @@
 Test Spec: TS-15-P1 through TS-15-P5
 Properties: 1-6 from design.md
 Requirements: 15-REQ-1.1, 15-REQ-1.2, 15-REQ-2.1 through 15-REQ-2.3,
-              15-REQ-3.1, 15-REQ-3.E1, 15-REQ-4.1, 15-REQ-4.2,
+              15-REQ-4.1, 15-REQ-4.2,
               15-REQ-5.1 through 15-REQ-5.3
 
-Uses lazy imports inside test methods for functions that may not exist
-yet (``build_system_prompt`` with ``role`` parameter) so property tests
-are syntactically valid and individually fail at runtime.
+Updated after legacy template path removal (issue #342).
 """
 
 from __future__ import annotations
@@ -91,61 +89,54 @@ class TestContextAlwaysIncludesTestSpec:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-P2: Template content always present for valid roles
-# Property 2: System prompt contains role-specific keywords
+# TS-15-P2: Profile content always present for valid archetypes
+# Property 2: System prompt contains archetype-specific keywords
 # Requirements: 15-REQ-2.1, 15-REQ-2.2, 15-REQ-2.3
 # ---------------------------------------------------------------------------
 
 
-class TestTemplateContentPresent:
-    """TS-15-P2: For any valid role, the system prompt contains
-    recognizable template content.
+class TestProfileContentPresent:
+    """TS-15-P2: For any valid archetype, the system prompt contains
+    recognizable profile content.
     """
 
     @given(
         archetype=_archetype_strategy,
-        spec_name=_spec_name_strategy,
     )
     @settings(max_examples=50)
-    def test_role_specific_content_present(
+    def test_archetype_specific_content_present(
         self,
         archetype: str,
-        spec_name: str,
     ) -> None:
         """System prompt contains archetype-specific keywords."""
-        result = build_system_prompt("ctx", 1, spec_name, archetype=archetype)
+        result = build_system_prompt("ctx", archetype=archetype)
         assert len(result) > 100
         if archetype == "coder":
-            assert "CODER ARCHETYPE" in result
+            assert "Identity" in result
         else:
-            assert "REVIEWER ARCHETYPE" in result
+            assert "Identity" in result
 
 
 # ---------------------------------------------------------------------------
-# TS-15-P3: Interpolation never crashes
-# Property 3, 4: No crash on any spec name or task group; literal braces OK
-# Requirements: 15-REQ-3.1, 15-REQ-3.E1
+# TS-15-P3: build_system_prompt never crashes
+# Property 3, 4: No crash on any archetype
 # ---------------------------------------------------------------------------
 
 
-class TestInterpolationNeverCrashes:
-    """TS-15-P3: build_system_prompt never raises on any spec_name
-    or task_group combination.
-    """
+class TestBuildSystemPromptNeverCrashes:
+    """TS-15-P3: build_system_prompt never raises on valid archetypes."""
 
     @given(
-        spec_name=_fuzz_spec_name_strategy,
-        task_group=st.integers(min_value=1, max_value=100),
+        archetype=_archetype_strategy,
     )
-    @settings(max_examples=100)
-    def test_no_exception_and_spec_name_present(
+    @settings(max_examples=50)
+    def test_no_exception(
         self,
-        spec_name: str,
-        task_group: int,
+        archetype: str,
     ) -> None:
-        """No exception raised and result contains spec_name."""
-        result = build_system_prompt("ctx", task_group, spec_name)
-        assert spec_name in result
+        """No exception raised for valid archetypes."""
+        result = build_system_prompt("ctx", archetype=archetype)
+        assert len(result) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -158,16 +149,14 @@ class TestInterpolationNeverCrashes:
 class TestFrontmatterNeverLeaks:
     """TS-15-P4: Frontmatter content never appears in the final prompt."""
 
-    @given(spec_name=_spec_name_strategy)
-    @settings(max_examples=20)
-    def test_frontmatter_not_in_coder_output(self, spec_name: str) -> None:
+    def test_frontmatter_not_in_coder_output(self) -> None:
         """Coder prompt does not contain frontmatter delimiters."""
-        result = build_system_prompt("ctx", 1, spec_name, role="coding")
+        result = build_system_prompt("ctx", archetype="coder")
         assert not result.startswith("---")
 
     def test_frontmatter_stripped_from_reviewer(self) -> None:
-        """Reviewer template has frontmatter; verify it's stripped."""
-        result = build_system_prompt("ctx", 1, "test_spec", archetype="reviewer")
+        """Reviewer profile has frontmatter; verify it's stripped."""
+        result = build_system_prompt("ctx", archetype="reviewer")
         assert "role: reviewer" not in result
         assert not result.startswith("---")
 

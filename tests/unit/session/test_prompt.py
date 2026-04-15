@@ -3,58 +3,51 @@
 Test Spec: TS-15-3 through TS-15-10, TS-15-E2 through TS-15-E6
 Requirements: 15-REQ-2.1 through 15-REQ-5.E1
 
-Supersedes the original TS-03-6 tests. The prompt builder now loads
-templates from agent_fox/_templates/prompts/ and supports a ``role``
-parameter, so the old inline-f-string tests are replaced.
-
-Uses lazy imports inside test methods for functions that do not exist yet
-(``_strip_frontmatter``, ``_TEMPLATE_DIR``) so that the file collects
-successfully and individual tests fail at runtime.
+Tests updated after legacy template path removal (issue #342).
+The prompt builder now uses 3-layer assembly exclusively.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from agent_fox.core.errors import ConfigError
 from agent_fox.session.prompt import build_system_prompt, build_task_prompt
 
 # ---------------------------------------------------------------------------
-# TS-15-3: System prompt loads coding template
+# TS-15-3: System prompt loads archetype profile
 # Requirements: 15-REQ-2.1, 15-REQ-2.2
 # ---------------------------------------------------------------------------
 
 
-class TestSystemPromptCodingTemplate:
-    """TS-15-3: build_system_prompt with role='coding' loads coding.md."""
+class TestSystemPromptCoderProfile:
+    """TS-15-3: build_system_prompt with archetype='coder' loads coder profile."""
 
     def test_contains_coder_archetype_keyword(self) -> None:
-        """Output contains recognizable text from coding.md."""
-        result = build_system_prompt("context", 2, "my_spec", role="coding")
-        assert "CODER ARCHETYPE" in result
+        """Output contains recognizable text from coder profile."""
+        result = build_system_prompt("context", archetype="coder")
+        assert "Identity" in result
 
     def test_contains_git_workflow_section(self) -> None:
-        """Output contains git workflow instructions (inlined in coding.md)."""
-        result = build_system_prompt("context", 2, "my_spec", role="coding")
-        assert "GIT WORKFLOW" in result
+        """Output contains git workflow instructions (in coder profile)."""
+        result = build_system_prompt("context", archetype="coder")
+        assert "conventional commits" in result.lower()
 
 
 # ---------------------------------------------------------------------------
-# TS-15-5: Role parameter defaults to coding
+# TS-15-5: Archetype defaults to coder
 # Requirement: 15-REQ-2.4
 # ---------------------------------------------------------------------------
 
 
-class TestRoleDefaultsToCoding:
-    """TS-15-5: Omitting role defaults to coding template."""
+class TestArchetypeDefaultsToCoder:
+    """TS-15-5: Omitting archetype defaults to coder profile."""
 
-    def test_default_role_is_coding(self) -> None:
-        """Calling without role argument loads coding template."""
-        result = build_system_prompt("context", 2, "my_spec")
-        assert "CODER ARCHETYPE" in result
+    def test_default_archetype_is_coder(self) -> None:
+        """Calling without archetype argument loads coder profile."""
+        result = build_system_prompt("context")
+        assert "Identity" in result
 
 
 # ---------------------------------------------------------------------------
@@ -68,28 +61,8 @@ class TestContextAppendedToSystemPrompt:
 
     def test_context_present_in_output(self) -> None:
         """System prompt contains the exact context string."""
-        result = build_system_prompt("unique_context_xyz", 2, "my_spec")
+        result = build_system_prompt("unique_context_xyz")
         assert "unique_context_xyz" in result
-
-
-# ---------------------------------------------------------------------------
-# TS-15-7: Placeholder interpolation
-# Requirement: 15-REQ-3.1
-# ---------------------------------------------------------------------------
-
-
-class TestPlaceholderInterpolation:
-    """TS-15-7: {spec_name} and {task_group} placeholders are replaced."""
-
-    def test_spec_name_interpolated(self) -> None:
-        """Output contains the spec_name value."""
-        result = build_system_prompt("ctx", 3, "05_my_feature")
-        assert "05_my_feature" in result
-
-    def test_task_group_interpolated(self) -> None:
-        """Output contains the task_group value as a string."""
-        result = build_system_prompt("ctx", 3, "05_my_feature")
-        assert "3" in result
 
 
 # ---------------------------------------------------------------------------
@@ -99,14 +72,11 @@ class TestPlaceholderInterpolation:
 
 
 class TestFrontmatterStripped:
-    """TS-15-8: YAML frontmatter is stripped from templates."""
+    """TS-15-8: YAML frontmatter is stripped from profiles."""
 
     def test_frontmatter_not_in_output(self) -> None:
-        """Output does NOT contain YAML frontmatter delimiters."""
-        result = build_system_prompt("ctx", 1, "spec", role="coding")
-        # Coding.md has no frontmatter; verify none leaks from any template
-        assert "inclusion: always" not in result
-        # Also verify no frontmatter delimiter at the start
+        """Output does NOT contain YAML frontmatter delimiters at start."""
+        result = build_system_prompt("ctx", archetype="coder")
         assert not result.startswith("---")
 
 
@@ -163,56 +133,6 @@ class TestTaskPromptQualityInstructions:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-E2: Missing template file raises ConfigError
-# Requirement: 15-REQ-2.E1
-# ---------------------------------------------------------------------------
-
-
-class TestMissingTemplateRaisesConfigError:
-    """TS-15-E2: Prompt builder raises ConfigError for missing template."""
-
-    def test_missing_template_raises_config_error(self, tmp_path: Path) -> None:
-        """ConfigError raised when a template file does not exist."""
-        # Lazy import to avoid collection failure before implementation
-        from agent_fox.session import prompt as prompt_mod  # type: ignore[attr-error]
-
-        # Point _TEMPLATE_DIR to an empty temp directory
-        with patch.object(prompt_mod, "_TEMPLATE_DIR", tmp_path):
-            with pytest.raises(ConfigError):
-                build_system_prompt("ctx", 1, "spec", role="coding")
-
-
-# ---------------------------------------------------------------------------
-# TS-15-E3: Unknown role raises ValueError
-# Requirement: 15-REQ-2.E2
-# ---------------------------------------------------------------------------
-
-
-class TestUnknownRoleRaisesValueError:
-    """TS-15-E3: Prompt builder raises ValueError for unknown role."""
-
-    def test_invalid_role_raises_value_error(self) -> None:
-        """ValueError raised for an unrecognized role string."""
-        with pytest.raises(ValueError):
-            build_system_prompt("ctx", 1, "spec", role="invalid")
-
-
-# ---------------------------------------------------------------------------
-# TS-15-E4: Template with literal braces preserved
-# Requirement: 15-REQ-3.E1
-# ---------------------------------------------------------------------------
-
-
-class TestLiteralBracesPreserved:
-    """TS-15-E4: Literal braces in templates don't cause interpolation errors."""
-
-    def test_coding_template_braces_preserved(self) -> None:
-        """Coding template with literal braces doesn't cause interpolation errors."""
-        result = build_system_prompt("ctx", 1, "spec", role="coding")
-        assert "CODER ARCHETYPE" in result
-
-
-# ---------------------------------------------------------------------------
 # TS-15-E5: Invalid task_group raises ValueError
 # Requirement: 15-REQ-5.E1
 # ---------------------------------------------------------------------------
@@ -233,21 +153,41 @@ class TestInvalidTaskGroupRaisesValueError:
 
 
 # ---------------------------------------------------------------------------
-# TS-15-E6: Template without frontmatter unchanged
+# TS-15-E6: Profile without frontmatter unchanged
 # Requirement: 15-REQ-4.2
 # ---------------------------------------------------------------------------
 
 
-class TestTemplateWithoutFrontmatterUnchanged:
-    """TS-15-E6: Templates without frontmatter are returned unchanged."""
+class TestProfileWithoutFrontmatterUnchanged:
+    """TS-15-E6: Profiles without frontmatter are returned unchanged."""
 
     def test_no_frontmatter_content_unchanged(self) -> None:
         """Content without frontmatter passes through _strip_frontmatter unchanged."""
-        # Lazy import: _strip_frontmatter doesn't exist yet
-        from agent_fox.session.prompt import (  # type: ignore[attr-error]
-            _strip_frontmatter,
-        )
+        from agent_fox.session.profiles import _strip_frontmatter
 
         content = "## CODING AGENT\n\nContent here"
         result = _strip_frontmatter(content)
         assert result == content
+
+
+# ---------------------------------------------------------------------------
+# 3-layer assembly with project_dir
+# ---------------------------------------------------------------------------
+
+
+class TestThreeLayerAssemblyWithProjectDir:
+    """Verify 3-layer assembly works correctly with project_dir."""
+
+    def test_project_claude_md_included(self, tmp_path: Path) -> None:
+        """CLAUDE.md content is included as Layer 1."""
+        (tmp_path / "CLAUDE.md").write_text("PROJECT RULES")
+        result = build_system_prompt("ctx", archetype="coder", project_dir=tmp_path)
+        assert "PROJECT RULES" in result
+
+    def test_mode_specific_profile(self, tmp_path: Path) -> None:
+        """Mode-specific profile is loaded when mode is provided."""
+        profiles_dir = tmp_path / ".agent-fox" / "profiles"
+        profiles_dir.mkdir(parents=True)
+        (profiles_dir / "coder_fix.md").write_text("FIX MODE PROFILE")
+        result = build_system_prompt("ctx", archetype="coder", mode="fix", project_dir=tmp_path)
+        assert "FIX MODE PROFILE" in result

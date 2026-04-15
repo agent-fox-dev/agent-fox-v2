@@ -74,27 +74,22 @@ class TestTriageSystemPrompt:
     The maintainer.md template will be verified once created in task group 4.
     """
 
-    def test_prompt_contains_spec_name_with_triage_fallback(self) -> None:
-        """TS-82-2: build_system_prompt with archetype='triage' falls back gracefully."""
-        from agent_fox.session.prompt import build_system_prompt
-
-        prompt = build_system_prompt(
-            context="issue body",
-            task_group=0,
-            spec_name="fix-issue-42",
-            archetype="triage",
-        )
-        # Spec name must still be present regardless of fallback archetype
-        assert "fix-issue-42" in prompt
-
     def test_prompt_contains_context_with_triage_fallback(self) -> None:
         """TS-82-2: Context is included in prompt even after triage fallback."""
         from agent_fox.session.prompt import build_system_prompt
 
         prompt = build_system_prompt(
             context="issue body",
-            task_group=0,
-            spec_name="fix-issue-42",
+            archetype="triage",
+        )
+        assert "issue body" in prompt
+
+    def test_prompt_has_context_with_triage_fallback(self) -> None:
+        """TS-82-2: Prompt contains context even when triage profile is missing."""
+        from agent_fox.session.prompt import build_system_prompt
+
+        prompt = build_system_prompt(
+            context="issue body",
             archetype="triage",
         )
         assert "issue body" in prompt

@@ -23,7 +23,6 @@ class TestModeConfigDefaults:
         from agent_fox.archetypes import ModeConfig
 
         mc = ModeConfig()
-        assert mc.templates is None
         assert mc.injection is None
         assert mc.allowlist is None
         assert mc.model_tier is None
@@ -51,7 +50,6 @@ class TestModeConfigDefaults:
         from agent_fox.archetypes import ModeConfig
 
         mc = ModeConfig(
-            templates=["custom.md"],
             injection="auto_pre",
             allowlist=["ls", "cat"],
             model_tier="SIMPLE",
@@ -60,7 +58,6 @@ class TestModeConfigDefaults:
             thinking_budget=8000,
             retry_predecessor=True,
         )
-        assert mc.templates == ["custom.md"]
         assert mc.injection == "auto_pre"
         assert mc.allowlist == ["ls", "cat"]
         assert mc.model_tier == "SIMPLE"
@@ -132,7 +129,6 @@ class TestResolveEffectiveConfigValidMode:
 
         entry = ArchetypeEntry(
             name="test",
-            templates=["base.md"],
             default_model_tier="STANDARD",
             default_max_turns=200,
             modes={"fast": ModeConfig(model_tier="SIMPLE", max_turns=50)},
@@ -140,20 +136,6 @@ class TestResolveEffectiveConfigValidMode:
         result = resolve_effective_config(entry, "fast")
         assert result.default_model_tier == "SIMPLE"
         assert result.default_max_turns == 50
-        # Non-overridden field is inherited
-        assert result.templates == ["base.md"]
-
-    def test_mode_overrides_templates(self) -> None:
-        """Overriding templates replaces the base templates list."""
-        from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
-
-        entry = ArchetypeEntry(
-            name="test",
-            templates=["base.md"],
-            modes={"custom": ModeConfig(templates=["custom.md"])},
-        )
-        result = resolve_effective_config(entry, "custom")
-        assert result.templates == ["custom.md"]
 
     def test_mode_overrides_allowlist(self) -> None:
         """Overriding allowlist with empty list gives empty allowlist."""
@@ -211,7 +193,6 @@ class TestResolveEffectiveConfigValidMode:
 
         entry = ArchetypeEntry(
             name="test",
-            templates=["base.md"],
             default_model_tier="STANDARD",
             default_max_turns=200,
             default_thinking_mode="disabled",
@@ -223,7 +204,6 @@ class TestResolveEffectiveConfigValidMode:
         # Override applied
         assert result.default_model_tier == "SIMPLE"
         # Everything else inherited
-        assert result.templates == ["base.md"]
         assert result.default_max_turns == 200
         assert result.default_thinking_mode == "disabled"
         assert result.injection == "auto_post"
@@ -276,7 +256,6 @@ class TestResolveEffectiveConfigNoneMode:
 
         entry = ArchetypeEntry(
             name="test",
-            templates=["t.md"],
             default_model_tier="ADVANCED",
             default_max_turns=150,
             default_thinking_mode="adaptive",
@@ -286,7 +265,6 @@ class TestResolveEffectiveConfigNoneMode:
             default_allowlist=["ls"],
         )
         result = resolve_effective_config(entry, None)
-        assert result.templates == ["t.md"]
         assert result.default_model_tier == "ADVANCED"
         assert result.default_max_turns == 150
         assert result.default_thinking_mode == "adaptive"

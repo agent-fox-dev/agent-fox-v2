@@ -182,3 +182,21 @@ First character must be `{`, last must be `}`.**
 Fields: `criterion_id`, `verdict` (`PASS`/`FAIL`), `evidence` (per entry);
 `overall_verdict`, `summary` (top-level).
 
+## CRITICAL REMINDERS
+
+- Use exactly the field names shown in your active mode's schema above.
+- Output bare JSON only — no markdown fences, no prose, no preamble.
+- The first character of your output MUST be `{`. The last MUST be `}`.
+- DO NOT wrap JSON in markdown fences — the harvester is a strict parser and
+  fenced output WILL be lost.
+
+INCORRECT (will cause parse failure):
+
+    ```json
+    {"findings": [...]}
+    ```
+
+CORRECT (bare JSON):
+
+    {"findings": [...]}
+

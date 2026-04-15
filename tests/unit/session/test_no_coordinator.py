@@ -57,22 +57,6 @@ class TestGetArchetypeCoordinatorFallback:
 
 
 # -------------------------------------------------------------------
-# TS-62-6: Prompt Role Mapping Excludes Coordinator
-# Requirement: 62-REQ-4.1
-# -------------------------------------------------------------------
-
-
-class TestPromptRoleMappingExcludesCoordinator:
-    """TS-62-6: Verify _ROLE_TO_ARCHETYPE does not contain coordinator."""
-
-    def test_prompt_role_mapping_excludes_coordinator(self) -> None:
-        """The prompt role mapping must not include 'coordinator'."""
-        from agent_fox.session.prompt import _ROLE_TO_ARCHETYPE
-
-        assert "coordinator" not in _ROLE_TO_ARCHETYPE
-
-
-# -------------------------------------------------------------------
 # TS-62-7: Parser Known Archetypes Excludes Coordinator
 # Requirement: 62-REQ-5.1
 # -------------------------------------------------------------------

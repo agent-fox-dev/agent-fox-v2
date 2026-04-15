@@ -506,7 +506,6 @@ class TestIntegrationSmoke:
         # Register a test archetype with a mode that overrides model_tier to SIMPLE.
         test_arch = ArchetypeEntry(
             name="test_smoke1",
-            templates=[],
             default_model_tier="STANDARD",
             modes={"fast": ModeConfig(model_tier="SIMPLE")},
         )
@@ -547,7 +546,6 @@ class TestIntegrationSmoke:
         # Register a test archetype with a mode that has no shell access.
         test_arch = ArchetypeEntry(
             name="test_smoke2",
-            templates=[],
             default_model_tier="STANDARD",
             default_allowlist=["ls", "cat"],  # base has allowlist
             modes={"no-shell": ModeConfig(allowlist=[])},  # mode blocks all
@@ -583,7 +581,6 @@ class TestIntegrationSmoke:
 
         test_arch = ArchetypeEntry(
             name="test_smoke2b",
-            templates=[],
             default_model_tier="STANDARD",
             modes={"no-shell": ModeConfig(allowlist=[])},
         )

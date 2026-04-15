@@ -22,11 +22,11 @@ from pathlib import Path
 
 
 def _template_path(name: str) -> Path:
-    """Return the absolute path to a prompts template file."""
+    """Return the absolute path to a profile template file."""
     import agent_fox
 
     package_root = Path(agent_fox.__file__).resolve().parent
-    return package_root / "_templates" / "prompts" / name
+    return package_root / "_templates" / "profiles" / name
 
 
 # ===========================================================================
@@ -173,7 +173,7 @@ class TestMaintainerTemplate:
         template = _template_path("maintainer.md")
         assert template.exists(), (
             f"maintainer.md template not found at {template} — "
-            "create agent_fox/_templates/prompts/maintainer.md (100-REQ-3.1)"
+            "create agent_fox/_templates/profiles/maintainer.md (100-REQ-3.1)"
         )
 
     def test_template_contains_hunt_section(self) -> None:

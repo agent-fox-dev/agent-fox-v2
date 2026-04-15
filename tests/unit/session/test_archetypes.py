@@ -47,7 +47,6 @@ class TestRegistryCompleteness:
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
         for name, entry in ARCHETYPE_REGISTRY.items():
             assert entry.name == name
-            assert len(entry.templates) >= 1, f"{name} has no templates"
             assert entry.default_model_tier in valid_tiers, f"{name} has invalid model tier: {entry.default_model_tier}"
 
 
@@ -126,7 +125,6 @@ class TestPropertyRegistryCompleteness:
         for name in roster:
             assert name in ARCHETYPE_REGISTRY, f"Missing: {name}"
             entry = ARCHETYPE_REGISTRY[name]
-            assert len(entry.templates) >= 1
             assert entry.default_model_tier in valid_tiers
 
 

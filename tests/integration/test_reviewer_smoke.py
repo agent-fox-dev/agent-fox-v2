@@ -243,32 +243,26 @@ class TestCoderFixModeSessionSetup:
             f"coder:fix mode should resolve to STANDARD (Sonnet), got {runner._resolved_model_id!r}"
         )
 
-    def test_coder_fix_mode_uses_fix_coding_template(self) -> None:
-        """TS-98-SMOKE-3: coder:fix build_system_prompt uses fix_coding.md content."""
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+    def test_coder_fix_mode_uses_fix_profile(self) -> None:
+        """TS-98-SMOKE-3: coder:fix build_system_prompt uses coder_fix.md profile."""
         from agent_fox.session.prompt import build_system_prompt
 
-        entry = ARCHETYPE_REGISTRY["coder"]
+        # Real build_system_prompt with mode="fix" — no mocking of profile loading
+        system_prompt = build_system_prompt("test context", mode="fix")
 
-        # Real build_system_prompt with mode="fix" — no mocking of template loading
-        system_prompt = build_system_prompt(entry, mode="fix")
-
-        # fix_coding.md should NOT contain spec-driven workflow text from coding.md
+        # coder_fix.md should NOT contain spec-driven workflow text from coder.md
         assert "task group" not in system_prompt.lower() or "fix" in system_prompt.lower(), (
-            "System prompt for coder:fix should use fix_coding.md, not standard coding.md"
+            "System prompt for coder:fix should use coder_fix.md, not coder.md"
         )
 
-        # fix_coding.md content should be present — check for distinctive fix mode text
+        # coder_fix.md content should be present — check for distinctive fix mode text
         assert len(system_prompt) > 100, "System prompt for coder:fix should have meaningful content"
 
-    def test_coder_no_mode_uses_default_template(self) -> None:
-        """TS-98-SMOKE-3 (regression): coder with no mode still uses coding.md."""
-        from agent_fox.archetypes import ARCHETYPE_REGISTRY
+    def test_coder_no_mode_uses_default_profile(self) -> None:
+        """TS-98-SMOKE-3 (regression): coder with no mode still uses coder.md."""
         from agent_fox.session.prompt import build_system_prompt
 
-        entry = ARCHETYPE_REGISTRY["coder"]
-
         # Real build_system_prompt with mode=None — no mocking
-        system_prompt = build_system_prompt(entry, mode=None)
+        system_prompt = build_system_prompt("test context", mode=None)
 
         assert len(system_prompt) > 100, "System prompt for coder (no mode) should have meaningful content"

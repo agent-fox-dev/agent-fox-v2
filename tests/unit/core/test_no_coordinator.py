@@ -15,15 +15,14 @@ from pathlib import Path
 
 
 class TestCoordinatorTemplateDeleted:
-    """TS-62-3: Verify coordinator.md template file does not exist."""
+    """TS-62-3: Verify coordinator is not a registered archetype."""
 
-    def test_coordinator_template_deleted(self) -> None:
-        """The coordinator.md template must not exist in the prompts directory."""
-        from agent_fox.session.prompt import _TEMPLATE_DIR
+    def test_coordinator_not_in_registry(self) -> None:
+        """coordinator must not appear in the archetype registry."""
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
-        template_path = _TEMPLATE_DIR / "coordinator.md"
-        assert not template_path.exists(), (
-            f"coordinator.md template should have been deleted but exists at {template_path}"
+        assert "coordinator" not in ARCHETYPE_REGISTRY, (
+            "coordinator should have been removed from the archetype registry"
         )
 
 
