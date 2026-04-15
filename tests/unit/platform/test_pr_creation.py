@@ -85,6 +85,8 @@ class TestPlatformProtocolCreatePR:
 
             async def get_issue(self, issue_number: int) -> IssueResult: ...  # type: ignore[empty-body]
 
+            async def create_label(self, name: str, color: str, description: str = "") -> None: ...
+
         assert isinstance(WithPR(), PlatformProtocol)
 
 

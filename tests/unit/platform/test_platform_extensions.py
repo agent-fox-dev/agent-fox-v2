@@ -218,6 +218,9 @@ class TestPlatformProtocol:
         assert callable(platform.remove_label)
         assert callable(platform.list_issue_comments)
         assert callable(platform.get_issue)
+        # 358-REQ-1: create_label added to protocol
+        assert hasattr(platform, "create_label")
+        assert callable(platform.create_label)
 
 
 # ---------------------------------------------------------------------------

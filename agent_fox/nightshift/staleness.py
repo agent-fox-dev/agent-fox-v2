@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
+from agent_fox.platform.labels import LABEL_FIX
 from agent_fox.platform.protocol import IssueResult
 
 if TYPE_CHECKING:
@@ -164,7 +165,7 @@ async def check_staleness(
     # Step 2: Verify with GitHub API by re-fetching issues (71-REQ-5.2)
     try:
         still_open = await platform.list_issues_by_label(  # type: ignore[attr-defined]
-            "af:fix",
+            LABEL_FIX,
             state="open",
         )
         still_open_numbers = {i.number for i in still_open}

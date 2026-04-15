@@ -18,11 +18,13 @@ if TYPE_CHECKING:
     from agent_fox.nightshift.finding import FindingGroup
     from agent_fox.platform.protocol import PlatformProtocol
 
+from agent_fox.platform.labels import LABEL_HUNT
+
 logger = logging.getLogger(__name__)
 
 # Label applied to every issue created by the hunt scan pipeline.
 # Used to efficiently query only night-shift-created issues during dedup.
-FINGERPRINT_LABEL: str = "af:hunt"
+FINGERPRINT_LABEL: str = LABEL_HUNT
 
 # Regex pattern for extracting fingerprint markers from issue bodies.
 _FINGERPRINT_PATTERN: re.Pattern[str] = re.compile(r"<!-- af:fingerprint:([0-9a-f]{16}) -->")
