@@ -34,16 +34,6 @@ from tests.unit.knowledge.conftest import SCHEMA_DDL
 # Strategies
 # ---------------------------------------------------------------------------
 
-# TS-84-P1: Text strategy for response truncation
-response_text_strategy = st.text(
-    alphabet=st.characters(
-        whitelist_categories=("L", "N", "P", "Z"),
-        blacklist_characters="\x00",
-    ),
-    min_size=0,
-    max_size=200_000,
-)
-
 SEVERITY_LEVELS = ["critical", "major", "minor", "observation"]
 SEVERITY_ORDER = {"critical": 0, "major": 1, "minor": 2, "observation": 3}
 
@@ -67,28 +57,6 @@ def finding_row_strategy():
         ),
         created_at=st.just(datetime.now(UTC)),
     )
-
-
-# ---------------------------------------------------------------------------
-# TS-84-P1: Response truncation preserves prefix
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.skip(reason="JsonlSink removed in refactor(103); _truncate_response no longer exists")
-class TestResponseTruncationProperty:
-    """TS-84-P1: For any response string, truncation is correct."""
-
-    @given(s=response_text_strategy)
-    @settings(max_examples=50)
-    def test_truncation_preserves_prefix(self, s: str) -> None:
-        """For any string, truncation either preserves it or takes first 100k + marker."""
-        from agent_fox.knowledge.jsonl_sink import _truncate_response
-
-        result = _truncate_response(s)
-        if len(s) <= 100_000:
-            assert result == s
-        else:
-            assert result == s[:100_000] + "[truncated]"
 
 
 # ---------------------------------------------------------------------------

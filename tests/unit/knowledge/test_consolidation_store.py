@@ -6,8 +6,6 @@ Requirements: 39-REQ-2.*, 39-REQ-3.*
 
 from __future__ import annotations
 
-import json
-import logging
 import uuid
 from collections.abc import Generator
 from pathlib import Path
@@ -189,44 +187,6 @@ class TestMemoryStoreDuckDBOnly:
         assert not tmp_jsonl.exists()
 
 
-@pytest.mark.skip(reason="export_facts_to_jsonl removed per spec 104-REQ-6")
-class TestJSONLExport:
-    """TS-39-8: export_facts_to_jsonl writes DuckDB facts to JSONL."""
-
-    def test_export_writes_correct_jsonl(
-        self,
-        knowledge_conn: duckdb.DuckDBPyConnection,
-        tmp_jsonl: Path,
-    ) -> None:
-        from agent_fox.knowledge.store import MemoryStore, export_facts_to_jsonl
-
-        store = MemoryStore(jsonl_path=tmp_jsonl, db_conn=knowledge_conn)
-
-        from agent_fox.knowledge.facts import Fact
-
-        for i in range(3):
-            fact = Fact(
-                id=str(uuid.uuid4()),
-                content=f"Export fact {i}",
-                category="decision",
-                spec_name="test_spec",
-                keywords=["test"],
-                confidence=0.9,
-                created_at="2026-01-01T00:00:00Z",
-            )
-            store.write_fact(fact)
-
-        count = export_facts_to_jsonl(knowledge_conn, tmp_jsonl)
-        assert count == 3
-
-        lines = tmp_jsonl.read_text().strip().split("\n")
-        assert len(lines) == 3
-        for line in lines:
-            data = json.loads(line)
-            assert "content" in data
-            assert "id" in data
-
-
 class TestCompactionViaDuckDB:
     """TS-39-9: compact reads from DuckDB, deduplicates, exports to JSONL."""
 
@@ -275,47 +235,3 @@ class TestCompactionViaDuckDB:
         assert rows[0] >= surviving
 
 
-@pytest.mark.skip(reason="export_facts_to_jsonl removed per spec 104-REQ-6")
-class TestJSONLExportFailure:
-    """TS-39-10: JSONL export failure logs warning, DuckDB unaffected."""
-
-    def test_export_failure_logs_warning_keeps_duckdb(
-        self,
-        knowledge_conn: duckdb.DuckDBPyConnection,
-        tmp_path: Path,
-        caplog: pytest.LogCaptureFixture,
-    ) -> None:
-        from agent_fox.knowledge.facts import Fact
-        from agent_fox.knowledge.store import MemoryStore, export_facts_to_jsonl
-
-        store = MemoryStore(
-            jsonl_path=tmp_path / "memory.jsonl",
-            db_conn=knowledge_conn,
-        )
-        fact = Fact(
-            id=str(uuid.uuid4()),
-            content="Persist me",
-            category="decision",
-            spec_name="test_spec",
-            keywords=["test"],
-            confidence=0.9,
-            created_at="2026-01-01T00:00:00Z",
-        )
-        store.write_fact(fact)
-
-        # Use a path that cannot be written (directory doesn't exist and
-        # we'll make it read-only)
-        bad_path = tmp_path / "readonly" / "memory.jsonl"
-        (tmp_path / "readonly").mkdir()
-        (tmp_path / "readonly").chmod(0o444)
-
-        with caplog.at_level(logging.WARNING):
-            export_facts_to_jsonl(knowledge_conn, bad_path)
-
-        # Fact should still be in DuckDB
-        rows = knowledge_conn.execute("SELECT COUNT(*) FROM memory_facts").fetchone()
-        assert rows is not None
-        assert rows[0] == 1
-
-        # Restore permissions for cleanup
-        (tmp_path / "readonly").chmod(0o755)

@@ -7,7 +7,6 @@ Requirements: 37-REQ-1.*, 37-REQ-3.*, 37-REQ-6.1
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -174,25 +173,3 @@ class TestJsonlConfidence:
         assert fact.confidence == 0.9
         assert isinstance(fact.confidence, float)
 
-    @pytest.mark.skip(reason="JSONL append_facts removed per spec 104-REQ-6")
-    def test_write_float_confidence(self, tmp_path: Path) -> None:
-        """TS-37-8: Writing facts to JSONL outputs float confidence."""
-        jsonl_path = tmp_path / "memory.jsonl"
-        fact = Fact(
-            id="test-uuid-1",
-            content="Test fact",
-            category="gotcha",
-            spec_name="spec_01",
-            keywords=["test"],
-            confidence=0.85,
-            created_at="2026-03-01T00:00:00+00:00",
-        )
-
-        from agent_fox.knowledge.store import append_facts
-
-        append_facts([fact], jsonl_path)
-
-        # Read raw JSON to verify float is written
-        raw = json.loads(jsonl_path.read_text(encoding="utf-8").strip())
-        assert raw["confidence"] == 0.85
-        assert isinstance(raw["confidence"], float)
