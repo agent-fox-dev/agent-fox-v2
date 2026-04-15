@@ -50,6 +50,9 @@ exclude = [".claude/worktrees"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-n auto"
+markers = [
+    "property: Hypothesis property-based test",
+]
 
 [dependency-groups]
 dev = [
