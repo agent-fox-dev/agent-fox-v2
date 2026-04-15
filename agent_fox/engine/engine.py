@@ -33,7 +33,7 @@ from agent_fox.core.config import (
     load_config,
 )
 from agent_fox.core.errors import ConfigError, PlanError
-from agent_fox.core.models import content_hash
+from agent_fox.core.models import TIER_DEFAULTS, ModelTier, content_hash
 from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
@@ -622,7 +622,7 @@ class Orchestrator:
                             self._knowledge_db_conn,
                             self._plan_path.parent,
                             remaining,
-                            model="claude-3-5-haiku-20241022",
+                            model=TIER_DEFAULTS[ModelTier.SIMPLE],
                             sink_dispatcher=self._sink,
                             run_id=self._run_id,
                         )

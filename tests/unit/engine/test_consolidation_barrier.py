@@ -111,6 +111,45 @@ class TestBarrierTriggersConsolidation:
         assert passed_specs is not None
         assert "spec_a" in passed_specs
 
+    @pytest.mark.asyncio
+    async def test_barrier_uses_registry_model(
+        self, entity_conn: duckdb.DuckDBPyConnection, tmp_path: Path
+    ) -> None:
+        """Barrier passes registry SIMPLE model, not a hardcoded string."""
+        from agent_fox.core.models import TIER_DEFAULTS, ModelTier
+
+        state = _make_minimal_barrier_state({"task_a": "completed"})
+        mock_consolidation = AsyncMock(return_value=_make_zero_consolidation_result())
+        completed_specs_fn = MagicMock(return_value={"spec_a"})
+        consolidated_specs: set[str] = set()
+
+        with patch("agent_fox.engine.barrier.run_consolidation", mock_consolidation):
+            await run_sync_barrier_sequence(
+                state=state,
+                sync_interval=1,
+                repo_root=tmp_path,
+                emit_audit=MagicMock(),
+                specs_dir=None,
+                hot_load_enabled=False,
+                hot_load_fn=AsyncMock(),
+                sync_plan_fn=MagicMock(),
+                barrier_callback=None,
+                knowledge_db_conn=entity_conn,
+                sink_dispatcher=None,
+                completed_specs_fn=completed_specs_fn,
+                consolidated_specs=consolidated_specs,
+            )
+
+        assert mock_consolidation.called
+        call_kwargs = mock_consolidation.call_args
+        passed_model = call_kwargs.kwargs.get("model") or (
+            call_kwargs.args[3] if call_kwargs.args and len(call_kwargs.args) > 3 else None
+        )
+        expected_model = TIER_DEFAULTS[ModelTier.SIMPLE]
+        assert passed_model == expected_model, (
+            f"Barrier must use registry model '{expected_model}', got '{passed_model}'"
+        )
+
 
 # ---------------------------------------------------------------------------
 # TS-96-22: End-of-run consolidation for remaining specs
