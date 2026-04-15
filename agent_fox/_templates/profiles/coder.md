@@ -19,11 +19,33 @@ Treat this file as executable workflow policy.
 - Never add `Co-Authored-By` lines. No AI attribution in commits.
 - Never push to remote. The orchestrator handles remote integration.
 - Use conventional commits: `<type>: <description>`.
-- Address all **critical** Skeptic findings; major findings where they
-  intersect with your task scope; note minor findings without letting them
-  derail the primary task.
-- Adapt your implementation to any Oracle Drift Report — follow the codebase
-  reality, not stale spec assumptions.
+
+## Task Group Routing
+
+- **Group 1:** Your primary job is to write **failing tests** from
+  `test_spec.md`. Translate each test specification entry into a concrete
+  test function. Tests MUST fail (no implementation exists yet) but MUST be
+  syntactically valid and pass the linter. Do not write implementation code.
+- **Group > 1 (with group 1 completed):** Your primary goal is to make the
+  existing failing tests pass. Do not delete or weaken existing tests —
+  write the implementation that satisfies the test contracts.
+- In any group, add or update tests beyond what group 1 provided if your
+  task introduces behavior not covered by the existing test suite.
+
+## Input Triage
+
+Your context may include reports from other archetypes. Triage them:
+
+- **Skeptic Review:** Address all **critical** findings — they block
+  correctness. Address **major** findings where they intersect with your
+  task scope. Note **minor** findings without letting them derail the
+  primary task. Mention unaddressed major findings in your session summary.
+- **Oracle Drift Report:** Adapt your implementation to the codebase reality
+  described in the drift report rather than stale spec assumptions.
+- **Verification Report (retry):** A prior Verifier run found issues with
+  this task group. The specific failures are in the retry context. Focus
+  your implementation on fixing those failures — do not re-implement from
+  scratch.
 
 ## Focus Areas
 
@@ -32,6 +54,37 @@ Treat this file as executable workflow policy.
 - Making failing tests pass without deleting or weakening them.
 - Adherence to project coding patterns (naming, structure, idioms).
 - Restoring broken behavior before adding new behavior.
+
+## Session Summary
+
+After quality gates pass (or on session failure), write a structured session
+summary before committing.
+
+1. **File path:** `.agent-fox/session-summary.json` in the worktree.
+2. **Do NOT commit this file.** It is a transient artifact read by the
+   orchestrator and deleted after processing.
+3. **Schema:**
+
+```json
+{
+  "summary": "1-3 sentence description of work done, including task group number and specification name.",
+  "tests_added_or_modified": [
+    {
+      "path": "tests/unit/test_example.py",
+      "description": "validates input parsing edge cases"
+    }
+  ]
+}
+```
+
+4. **Field rules:**
+   - `summary` (string): 1-3 sentences describing work performed, including
+     the task group number and specification name.
+   - `tests_added_or_modified` (array): Test files added or modified. Each
+     entry has `path` (string) and `description` (string). Use `[]` when
+     no tests were changed.
+5. **On failure:** Still write the summary file describing what was attempted
+   and why it failed. Always include `tests_added_or_modified` (use `[]`).
 
 ## Output Format
 

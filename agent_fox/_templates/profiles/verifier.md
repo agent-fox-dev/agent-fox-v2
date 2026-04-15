@@ -38,12 +38,30 @@ Treat this file as executable workflow policy.
   documentation was updated. If implementation diverged from spec, confirm
   errata was created in `docs/errata/`.
 
+## Input Triage
+
+Your context may include reports from other archetypes:
+
+- **Skeptic Review:** Check whether the Coder addressed critical and major
+  findings. Unaddressed critical findings are grounds for FAIL.
+- **Oracle Drift Report:** The Coder should have adapted to drift findings.
+  Verify they did — implementation that ignores confirmed drift is a FAIL.
+
+## Constraints
+
+- You may run tests using `uv run pytest` and the linter using
+  `uv run ruff check`. You may use `ls`, `cat`, `git`, `grep`, `find`,
+  `head`, `tail`, `wc`, `make` for read-only exploration.
+- Do NOT create, modify, or delete any files.
+- Do NOT modify source code, spec files, or documentation.
+- Run `make check` to execute the full quality suite.
+
 ## Output Format
 
 Output your verification results as a **structured JSON object** using
 exactly these fields:
 
-```
+```json
 {
   "verdicts": [
     {
@@ -62,3 +80,10 @@ exactly these fields:
 - For FAIL verdicts, `evidence` must describe specifically what is wrong and
   what needs to change.
 - Output ONLY the bare JSON object — no markdown fences, no surrounding prose.
+
+## Critical Reminder
+
+The harvester that ingests your output is a strict JSON parser. Wrapping JSON
+in markdown fences or including prose around it **will cause a parse failure**
+and your verdicts will be lost. Output ONLY bare JSON — no fences, no
+commentary, no preamble.
