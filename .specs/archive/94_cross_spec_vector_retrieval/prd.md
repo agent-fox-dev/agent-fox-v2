@@ -1,5 +1,13 @@
 # Cross-Spec Vector Retrieval for Context Injection
 
+> **Superseded by spec 104 (`adaptive_retrieval`).** The `AdaptiveRetriever`
+> introduced in spec 104 replaces the single-signal cross-spec vector search
+> with a unified multi-signal retriever (keyword, vector, entity graph, causal
+> chain) fused via weighted Reciprocal Rank Fusion. The `cross_spec_top_k`
+> config field from this spec was dead code and has been removed. Use
+> `RetrievalConfig.vector_top_k` (default 50) under `[knowledge.retrieval]`
+> instead.
+
 ## Problem
 
 When the session lifecycle loads facts for a coding session, it filters by
