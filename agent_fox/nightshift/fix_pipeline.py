@@ -495,7 +495,7 @@ class FixPipeline:
 
         node_id = f"fix-issue-{spec.issue_number}:0:triage"
         try:
-            outcome = await self._run_session("maintainer", workspace, spec=spec, mode="hunt")
+            outcome = await self._run_session("maintainer", workspace, spec=spec, mode="fix-triage")
             self._emit_session_event(outcome, "maintainer", self._run_id, node_id=node_id)
         except Exception as exc:
             logger.warning(
