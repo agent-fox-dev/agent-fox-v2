@@ -71,3 +71,15 @@ surrounding prose, no explanatory text before or after the JSON.
 - `id` format: `AC-1`, `AC-2`, etc.
 - `assertion` should describe a concrete check (a test case, a grep, a
   behavioral observation) — not a vague "verify it works".
+
+## CRITICAL OUTPUT RULES
+
+Your final message — the very last text you produce before the session ends —
+MUST be a single, bare JSON object and nothing else.
+
+- First character: `{`. Last character: `}`. No exceptions.
+- No preamble, no postscript, no markdown fences, no prose.
+- Intermediate messages (between tool calls) may contain analysis text.
+  Only the **final message** is parsed; everything before it is discarded.
+
+Violating these rules causes a parse failure and the triage is lost.

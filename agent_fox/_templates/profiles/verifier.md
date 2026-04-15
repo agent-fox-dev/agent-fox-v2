@@ -81,20 +81,32 @@ exactly these fields:
   what needs to change.
 - Output ONLY the bare JSON object — no markdown fences, no surrounding prose.
 
-## CRITICAL REMINDERS
+## CRITICAL OUTPUT RULES
 
-- Use exactly the field names shown in the Output Format schema above.
-- Output bare JSON only — no markdown fences, no prose, no preamble.
-- The first character of your output MUST be `{`. The last MUST be `}`.
-- DO NOT wrap JSON in markdown fences — the harvester is a strict parser and
-  fenced output WILL be lost.
+Your final message — the very last text you produce before the session ends —
+MUST be a single, bare JSON object and nothing else.
 
-INCORRECT (will cause parse failure):
+- First character: `{`. Last character: `}`. No exceptions.
+- No preamble ("Here are my findings:"), no postscript ("Let me know if…").
+- No markdown fences. No prose before or after the JSON.
+- Use exactly the field names shown in the Output Format schema.
+- Intermediate messages (between tool calls) may contain analysis text.
+  Only the **final message** is parsed; everything before it is discarded.
+
+Violating these rules triggers an expensive retry loop (re-running the
+full session). Produce clean JSON the first time.
+
+INCORRECT (triggers retry):
+
+    Here are my findings:
+    {"verdicts": [...]}
+
+INCORRECT (triggers retry):
 
     ```json
     {"verdicts": [...]}
     ```
 
-CORRECT (bare JSON):
+CORRECT:
 
     {"verdicts": [...]}

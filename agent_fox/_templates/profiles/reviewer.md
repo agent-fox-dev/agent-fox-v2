@@ -182,21 +182,33 @@ First character must be `{`, last must be `}`.**
 Fields: `criterion_id`, `verdict` (`PASS`/`FAIL`), `evidence` (per entry);
 `overall_verdict`, `summary` (top-level).
 
-## CRITICAL REMINDERS
+## CRITICAL OUTPUT RULES
 
-- Use exactly the field names shown in your active mode's schema above.
-- Output bare JSON only — no markdown fences, no prose, no preamble.
-- The first character of your output MUST be `{`. The last MUST be `}`.
-- DO NOT wrap JSON in markdown fences — the harvester is a strict parser and
-  fenced output WILL be lost.
+Your final message — the very last text you produce before the session ends —
+MUST be a single, bare JSON object and nothing else.
 
-INCORRECT (will cause parse failure):
+- First character: `{`. Last character: `}`. No exceptions.
+- No preamble ("Here are my findings:"), no postscript ("Let me know if…").
+- No markdown fences. No prose before or after the JSON.
+- Use exactly the field names shown in your active mode's schema.
+- Intermediate messages (between tool calls) may contain analysis text.
+  Only the **final message** is parsed; everything before it is discarded.
+
+Violating these rules triggers an expensive retry loop (re-running the
+full session). Produce clean JSON the first time.
+
+INCORRECT (triggers retry):
+
+    Here are my findings:
+    {"findings": [...]}
+
+INCORRECT (triggers retry):
 
     ```json
     {"findings": [...]}
     ```
 
-CORRECT (bare JSON):
+CORRECT:
 
     {"findings": [...]}
 
