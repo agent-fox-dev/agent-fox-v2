@@ -60,16 +60,37 @@ _base_func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=Tr
 # Filter out language keywords — using them as identifiers produces unparseable source.
 import keyword as _keyword  # noqa: E402
 
-_py_func_name_strategy = _base_func_name_strategy.filter(
-    lambda n: not _keyword.iskeyword(n)
-)
+_py_func_name_strategy = _base_func_name_strategy.filter(lambda n: not _keyword.iskeyword(n))
 
-_GO_KEYWORDS = frozenset({
-    "break", "case", "chan", "const", "continue", "default", "defer", "else",
-    "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
-    "map", "package", "range", "return", "select", "struct", "switch", "type",
-    "var",
-})
+_GO_KEYWORDS = frozenset(
+    {
+        "break",
+        "case",
+        "chan",
+        "const",
+        "continue",
+        "default",
+        "defer",
+        "else",
+        "fallthrough",
+        "for",
+        "func",
+        "go",
+        "goto",
+        "if",
+        "import",
+        "interface",
+        "map",
+        "package",
+        "range",
+        "return",
+        "select",
+        "struct",
+        "switch",
+        "type",
+        "var",
+    }
+)
 _go_func_name_strategy = _base_func_name_strategy.filter(lambda n: n not in _GO_KEYWORDS)
 
 
@@ -378,3 +399,542 @@ class TestScanSubset:
         result = _scan_files(tmp_path, {".py"})
 
         assert result == sorted(result), "Results must always be sorted alphabetically"
+
+
+# ---------------------------------------------------------------------------
+# Keyword filters for new language strategies (TS-107-P2, P3, P4, P5)
+# ---------------------------------------------------------------------------
+
+_CS_KEYWORDS = frozenset(
+    {
+        "abstract",
+        "as",
+        "base",
+        "bool",
+        "break",
+        "byte",
+        "case",
+        "catch",
+        "char",
+        "checked",
+        "class",
+        "const",
+        "continue",
+        "decimal",
+        "default",
+        "delegate",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "event",
+        "explicit",
+        "extern",
+        "false",
+        "finally",
+        "fixed",
+        "float",
+        "for",
+        "foreach",
+        "goto",
+        "if",
+        "implicit",
+        "in",
+        "int",
+        "interface",
+        "internal",
+        "is",
+        "lock",
+        "long",
+        "namespace",
+        "new",
+        "null",
+        "object",
+        "operator",
+        "out",
+        "override",
+        "params",
+        "private",
+        "protected",
+        "public",
+        "readonly",
+        "ref",
+        "return",
+        "sbyte",
+        "sealed",
+        "short",
+        "sizeof",
+        "stackalloc",
+        "static",
+        "string",
+        "struct",
+        "switch",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typeof",
+        "uint",
+        "ulong",
+        "unchecked",
+        "unsafe",
+        "ushort",
+        "using",
+        "virtual",
+        "void",
+        "volatile",
+        "while",
+    }
+)
+
+_KT_KEYWORDS = frozenset(
+    {
+        "as",
+        "break",
+        "class",
+        "continue",
+        "do",
+        "else",
+        "false",
+        "for",
+        "fun",
+        "if",
+        "in",
+        "interface",
+        "is",
+        "null",
+        "object",
+        "package",
+        "return",
+        "super",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typealias",
+        "typeof",
+        "val",
+        "var",
+        "when",
+        "while",
+    }
+)
+
+_DART_KEYWORDS = frozenset(
+    {
+        "abstract",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "covariant",
+        "default",
+        "deferred",
+        "do",
+        "dynamic",
+        "else",
+        "enum",
+        "export",
+        "extends",
+        "extension",
+        "external",
+        "factory",
+        "false",
+        "final",
+        "finally",
+        "for",
+        "Function",
+        "get",
+        "hide",
+        "if",
+        "implements",
+        "import",
+        "in",
+        "interface",
+        "is",
+        "late",
+        "library",
+        "mixin",
+        "new",
+        "null",
+        "on",
+        "operator",
+        "part",
+        "required",
+        "rethrow",
+        "return",
+        "set",
+        "show",
+        "static",
+        "super",
+        "switch",
+        "sync",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typedef",
+        "var",
+        "void",
+        "while",
+        "with",
+        "yield",
+    }
+)
+
+_ELIXIR_KEYWORDS = frozenset(
+    {
+        "after",
+        "and",
+        "catch",
+        "defmodule",
+        "defp",
+        "def",
+        "do",
+        "else",
+        "end",
+        "fn",
+        "in",
+        "not",
+        "or",
+        "receive",
+        "rescue",
+        "true",
+        "false",
+        "nil",
+        "when",
+        "with",
+    }
+)
+
+_cs_class_strategy = _class_name_strategy.filter(lambda n: n not in _CS_KEYWORDS)
+_cs_method_strategy = _base_func_name_strategy.filter(lambda n: n not in _CS_KEYWORDS)
+
+_kt_class_strategy = _class_name_strategy.filter(lambda n: n not in _KT_KEYWORDS)
+_kt_func_strategy = _base_func_name_strategy.filter(lambda n: n not in _KT_KEYWORDS)
+
+_dart_class_strategy = _class_name_strategy.filter(lambda n: n not in _DART_KEYWORDS)
+_dart_method_strategy = _base_func_name_strategy.filter(lambda n: n not in _DART_KEYWORDS)
+
+_elixir_module_strategy = _class_name_strategy.filter(lambda n: n not in _ELIXIR_KEYWORDS)
+_elixir_func_strategy = _base_func_name_strategy.filter(lambda n: n not in _ELIXIR_KEYWORDS)
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P1: Protocol conformance
+# ---------------------------------------------------------------------------
+
+
+class TestProtocolConformance107:
+    """TS-107-P1: All four new analyzers satisfy the LanguageAnalyzer protocol.
+
+    Property: Property 1 from design.md
+    Requirements: 107-REQ-1.1, 107-REQ-2.1, 107-REQ-3.1, 107-REQ-4.1
+    """
+
+    def test_protocol_conformance_all_new_analyzers(self) -> None:
+        """All four new analyzers satisfy LanguageAnalyzer protocol."""
+        from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
+        from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
+        from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
+        from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
+
+        from agent_fox.knowledge.lang.base import LanguageAnalyzer
+
+        for AnalyzerCls in [CSharpAnalyzer, ElixirAnalyzer, KotlinAnalyzer, DartAnalyzer]:
+            analyzer = AnalyzerCls()
+            assert isinstance(analyzer, LanguageAnalyzer), (
+                f"{AnalyzerCls.__name__} must implement LanguageAnalyzer protocol"
+            )
+            assert len(analyzer.language_name) > 0, f"{AnalyzerCls.__name__}.language_name must be non-empty"
+            assert len(analyzer.file_extensions) > 0, f"{AnalyzerCls.__name__}.file_extensions must be non-empty"
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P2: C# entity validity
+# ---------------------------------------------------------------------------
+
+
+class TestCSharpEntityValidity:
+    """TS-107-P2: For any valid C# source, entities have non-empty names and valid types.
+
+    Property: Property 2 from design.md
+    Requirements: 107-REQ-1.3
+    """
+
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(class_name=_cs_class_strategy, method_name=_cs_method_strategy)
+    def test_csharp_entities_always_valid(
+        self,
+        tmp_path: Path,
+        class_name: str,
+        method_name: str,
+    ) -> None:
+        """For any valid C# class and method name, extract_entities returns valid entities."""
+        from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
+
+        from agent_fox.knowledge.static_analysis import _parse_file
+
+        source = f"namespace Ns {{ class {class_name} {{ void {method_name}() {{}} }} }}"
+        cs_file = tmp_path / "gen.cs"
+        cs_file.write_text(source)
+
+        analyzer = CSharpAnalyzer()
+        tree = _parse_file(cs_file, analyzer.make_parser())
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "gen.cs")
+        valid_types = set(EntityType)
+        for entity in entities:
+            assert isinstance(entity.entity_name, str)
+            assert len(entity.entity_name) > 0, "entity_name must be non-empty"
+            assert isinstance(entity.entity_path, str)
+            assert len(entity.entity_path) > 0, "entity_path must be non-empty"
+            assert entity.entity_type in valid_types, f"entity_type {entity.entity_type!r} is invalid"
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P3: Kotlin entity validity
+# ---------------------------------------------------------------------------
+
+
+class TestKotlinEntityValidity:
+    """TS-107-P3: For any valid Kotlin source, entities have valid types and names.
+
+    Property: Property 2 from design.md
+    Requirements: 107-REQ-3.3
+    """
+
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(class_name=_kt_class_strategy, func_name=_kt_func_strategy)
+    def test_kotlin_entities_always_valid(
+        self,
+        tmp_path: Path,
+        class_name: str,
+        func_name: str,
+    ) -> None:
+        """For any valid Kotlin class and function name, extract_entities returns valid entities."""
+        from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
+
+        from agent_fox.knowledge.static_analysis import _parse_file
+
+        source = f"class {class_name} {{ fun {func_name}() {{}} }}"
+        kt_file = tmp_path / "gen.kt"
+        kt_file.write_text(source)
+
+        analyzer = KotlinAnalyzer()
+        tree = _parse_file(kt_file, analyzer.make_parser())
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "gen.kt")
+        valid_types = set(EntityType)
+        for entity in entities:
+            assert isinstance(entity.entity_name, str)
+            assert len(entity.entity_name) > 0, "entity_name must be non-empty"
+            assert entity.entity_type in valid_types, f"entity_type {entity.entity_type!r} is invalid"
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P4: Dart entity validity
+# ---------------------------------------------------------------------------
+
+
+class TestDartEntityValidity:
+    """TS-107-P4: For any valid Dart source, entities have valid types and names.
+
+    Property: Property 2 from design.md
+    Requirements: 107-REQ-4.3
+    """
+
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(class_name=_dart_class_strategy, method_name=_dart_method_strategy)
+    def test_dart_entities_always_valid(
+        self,
+        tmp_path: Path,
+        class_name: str,
+        method_name: str,
+    ) -> None:
+        """For any valid Dart class and method name, extract_entities returns valid entities."""
+        from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
+
+        from agent_fox.knowledge.static_analysis import _parse_file
+
+        source = f"class {class_name} {{ void {method_name}() {{}} }}"
+        dart_file = tmp_path / "gen.dart"
+        dart_file.write_text(source)
+
+        analyzer = DartAnalyzer()
+        tree = _parse_file(dart_file, analyzer.make_parser())
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "gen.dart")
+        valid_types = set(EntityType)
+        for entity in entities:
+            assert isinstance(entity.entity_name, str)
+            assert len(entity.entity_name) > 0, "entity_name must be non-empty"
+            assert entity.entity_type in valid_types, f"entity_type {entity.entity_type!r} is invalid"
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P5: Elixir no-class invariant
+# ---------------------------------------------------------------------------
+
+
+class TestElixirNoClassInvariant:
+    """TS-107-P5: Elixir analyzer never produces CLASS entities or EXTENDS edges.
+
+    Property: Property 7 from design.md
+    Requirements: 107-REQ-2.4
+    """
+
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(module_name=_elixir_module_strategy, func_name=_elixir_func_strategy)
+    def test_elixir_never_class_or_extends(
+        self,
+        tmp_path: Path,
+        module_name: str,
+        func_name: str,
+    ) -> None:
+        """For any Elixir module and function, no CLASS or EXTENDS appears."""
+        from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
+
+        from agent_fox.knowledge.static_analysis import _parse_file
+
+        source = f"defmodule {module_name} do\n  def {func_name}(x), do: x\nend"
+        ex_file = tmp_path / "gen.ex"
+        ex_file.write_text(source)
+
+        analyzer = ElixirAnalyzer()
+        tree = _parse_file(ex_file, analyzer.make_parser())
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "gen.ex")
+        assert not any(e.entity_type == EntityType.CLASS for e in entities), "Elixir must never produce CLASS entities"
+
+        edges = analyzer.extract_edges(tree, "gen.ex", entities, {})
+        from agent_fox.knowledge.entities import EdgeType
+
+        assert not any(e.relationship == EdgeType.EXTENDS for e in edges), "Elixir must never produce EXTENDS edges"
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P6: Extension uniqueness
+# ---------------------------------------------------------------------------
+
+
+class TestExtensionUniqueness107:
+    """TS-107-P6: No two registered analyzers share a file extension.
+
+    Property: Property 4 from design.md
+    Requirements: 107-REQ-5.2
+    """
+
+    def test_all_extensions_unique(self) -> None:
+        """All registered file extensions are pairwise disjoint."""
+        from agent_fox.knowledge.lang.registry import get_default_registry
+
+        registry = get_default_registry()
+        all_exts: list[str] = []
+        for analyzer in registry.all_analyzers():
+            for ext in analyzer.file_extensions:
+                assert ext not in all_exts, f"Extension {ext!r} is claimed by multiple analyzers"
+                all_exts.append(ext)
+
+
+# ---------------------------------------------------------------------------
+# TS-107-P7: Module map path format
+# ---------------------------------------------------------------------------
+
+
+class TestModuleMapPathFormat107:
+    """TS-107-P7: Module map values are POSIX-style repo-relative paths.
+
+    Property: Property 6 from design.md
+    Requirements: 107-REQ-1.5, 107-REQ-2.6, 107-REQ-3.5, 107-REQ-4.5
+    """
+
+    def _write_cs_file(self, tmp_path: Path) -> list:
+        """Create a C# source file."""
+        cs_dir = tmp_path / "src"
+        cs_dir.mkdir(exist_ok=True)
+        f = cs_dir / "Foo.cs"
+        f.write_text("namespace App { class Foo { } }\n")
+        return [f]
+
+    def _write_ex_file(self, tmp_path: Path) -> list:
+        """Create an Elixir source file."""
+        lib = tmp_path / "lib"
+        lib.mkdir(exist_ok=True)
+        f = lib / "foo.ex"
+        f.write_text("defmodule App.Foo do\n  def bar, do: :ok\nend\n")
+        return [f]
+
+    def _write_kt_file(self, tmp_path: Path) -> list:
+        """Create a Kotlin source file."""
+        src = tmp_path / "src"
+        src.mkdir(exist_ok=True)
+        f = src / "Foo.kt"
+        f.write_text("package app\nclass Foo { fun bar() {} }\n")
+        return [f]
+
+    def _write_dart_file(self, tmp_path: Path) -> list:
+        """Create a Dart source file."""
+        lib = tmp_path / "lib"
+        lib.mkdir(exist_ok=True)
+        f = lib / "foo.dart"
+        f.write_text("class Foo {}\n")
+        return [f]
+
+    def test_csharp_module_map_paths_are_posix(self, tmp_path: Path) -> None:
+        """CSharpAnalyzer module map values are POSIX-style paths."""
+        from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
+
+        files = self._write_cs_file(tmp_path)
+        analyzer = CSharpAnalyzer()
+        mm = analyzer.build_module_map(tmp_path, files)
+        for val in mm.values():
+            assert len(val) > 0
+            assert "\\" not in val
+            assert not val.startswith("/")
+
+    def test_elixir_module_map_paths_are_posix(self, tmp_path: Path) -> None:
+        """ElixirAnalyzer module map values are POSIX-style paths."""
+        from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
+
+        files = self._write_ex_file(tmp_path)
+        analyzer = ElixirAnalyzer()
+        mm = analyzer.build_module_map(tmp_path, files)
+        for val in mm.values():
+            assert len(val) > 0
+            assert "\\" not in val
+            assert not val.startswith("/")
+
+    def test_kotlin_module_map_paths_are_posix(self, tmp_path: Path) -> None:
+        """KotlinAnalyzer module map values are POSIX-style paths."""
+        from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
+
+        files = self._write_kt_file(tmp_path)
+        analyzer = KotlinAnalyzer()
+        mm = analyzer.build_module_map(tmp_path, files)
+        for val in mm.values():
+            assert len(val) > 0
+            assert "\\" not in val
+            assert not val.startswith("/")
+
+    def test_dart_module_map_paths_are_posix(self, tmp_path: Path) -> None:
+        """DartAnalyzer module map values are POSIX-style paths."""
+        from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
+
+        files = self._write_dart_file(tmp_path)
+        analyzer = DartAnalyzer()
+        mm = analyzer.build_module_map(tmp_path, files)
+        for val in mm.values():
+            assert len(val) > 0
+            assert "\\" not in val
+            assert not val.startswith("/")

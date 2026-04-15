@@ -28,8 +28,8 @@ precedes the final wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add C# unit tests to test_lang_analyzers.py
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add C# unit tests to test_lang_analyzers.py
     - TestCSharpAnalyzerProperties (TS-107-1)
     - TestCSharpEntitiesAndEdges (TS-107-2, TS-107-3)
     - TestCSharpModuleMap (TS-107-4)
@@ -37,7 +37,7 @@ precedes the final wiring verification.
     - TestCSharpMultipleNamespaces (TS-107-E2)
     - _Test Spec: TS-107-1 through TS-107-4, TS-107-E1, TS-107-E2_
 
-  - [ ] 1.2 Add Elixir unit tests to test_lang_analyzers.py
+  - [x] 1.2 Add Elixir unit tests to test_lang_analyzers.py
     - TestElixirAnalyzerProperties (TS-107-5)
     - TestElixirEntitiesAndEdges (TS-107-6, TS-107-7)
     - TestElixirModuleMap (TS-107-8)
@@ -45,7 +45,7 @@ precedes the final wiring verification.
     - TestElixirExternalImportSkipped (TS-107-E4)
     - _Test Spec: TS-107-5 through TS-107-8, TS-107-E3, TS-107-E4_
 
-  - [ ] 1.3 Add Kotlin unit tests to test_lang_analyzers.py
+  - [x] 1.3 Add Kotlin unit tests to test_lang_analyzers.py
     - TestKotlinAnalyzerProperties (TS-107-9)
     - TestKotlinEntitiesAndEdges (TS-107-10, TS-107-11)
     - TestKotlinModuleMap (TS-107-12)
@@ -53,7 +53,7 @@ precedes the final wiring verification.
     - TestKotlinExternalImportSkipped (TS-107-E6)
     - _Test Spec: TS-107-9 through TS-107-12, TS-107-E5, TS-107-E6_
 
-  - [ ] 1.4 Add Dart unit tests to test_lang_analyzers.py
+  - [x] 1.4 Add Dart unit tests to test_lang_analyzers.py
     - TestDartAnalyzerProperties (TS-107-13)
     - TestDartEntitiesAndEdges (TS-107-14, TS-107-16)
     - TestDartLibraryDirective (TS-107-15)
@@ -62,7 +62,7 @@ precedes the final wiring verification.
     - TestDartSdkImportSkipped (TS-107-E7)
     - _Test Spec: TS-107-13 through TS-107-17, TS-107-E7, TS-107-E8_
 
-  - [ ] 1.5 Add property tests to test_multilang_props.py
+  - [x] 1.5 Add property tests to test_multilang_props.py
     - TS-107-P1: Protocol conformance (all four)
     - TS-107-P2: C# entity validity
     - TS-107-P3: Kotlin entity validity
@@ -73,17 +73,17 @@ precedes the final wiring verification.
     - Add language-specific keyword filters for strategies
     - _Test Spec: TS-107-P1 through TS-107-P7_
 
-  - [ ] 1.6 Add registry and integration tests
+  - [x] 1.6 Add registry and integration tests
     - TestRegistryIntegration (TS-107-18)
     - TestDetectLanguages (TS-107-19)
     - TestGrammarNotInstalled (TS-107-E9)
     - Integration smoke test (TS-107-SMOKE-1)
     - _Test Spec: TS-107-18, TS-107-19, TS-107-E9, TS-107-SMOKE-1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
 
 - [ ] 2. Add dependencies and implement C# analyzer
   - [ ] 2.1 Add `tree-sitter-c-sharp>=0.23` to pyproject.toml dependencies
