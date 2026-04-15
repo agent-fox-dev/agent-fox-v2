@@ -274,3 +274,99 @@ class TestStatusNoPlanFile:
             generate_status(plan_path=bad_plan)
 
         assert "plan" in str(exc_info.value).lower()
+
+
+# ---------------------------------------------------------------------------
+# Regression #379: empty plan_nodes must not zero-out token/cost reporting
+# ---------------------------------------------------------------------------
+
+
+class TestStatusEmptyPlanNodes:
+    """Regression #379: token counts and costs are loaded from session_outcomes/runs
+    even when plan_nodes is empty (nightshift path)."""
+
+    def test_correct_cost_when_plan_nodes_empty(
+        self,
+        tmp_plan_dir: Path,
+    ) -> None:
+        """generate_status shows real tokens/cost from DB when plan_nodes has no rows."""
+        import duckdb
+        from unittest.mock import patch
+
+        # Build a simple plan file (no DB plan, so plan_nodes stays empty)
+        nodes = {"spec_a:1": {"title": "Task 1"}}
+        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+
+        # Set up an in-memory DuckDB with the full schema but no plan_nodes rows
+        _SCHEMA = """
+        CREATE TABLE IF NOT EXISTS plan_nodes (
+            id VARCHAR PRIMARY KEY, spec_name VARCHAR NOT NULL,
+            group_number INTEGER NOT NULL, title VARCHAR NOT NULL,
+            body TEXT NOT NULL DEFAULT '', archetype VARCHAR NOT NULL DEFAULT 'coder',
+            mode VARCHAR, model_tier VARCHAR,
+            status VARCHAR NOT NULL DEFAULT 'pending', subtask_count INTEGER NOT NULL DEFAULT 0,
+            optional BOOLEAN NOT NULL DEFAULT FALSE, instances INTEGER NOT NULL DEFAULT 1,
+            sort_position INTEGER NOT NULL DEFAULT 0, blocked_reason VARCHAR,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS runs (
+            id VARCHAR PRIMARY KEY, plan_content_hash VARCHAR NOT NULL,
+            started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP, status VARCHAR NOT NULL DEFAULT 'running',
+            total_input_tokens BIGINT NOT NULL DEFAULT 0,
+            total_output_tokens BIGINT NOT NULL DEFAULT 0,
+            total_cost DOUBLE NOT NULL DEFAULT 0.0,
+            total_sessions INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS session_outcomes (
+            id VARCHAR PRIMARY KEY, spec_name VARCHAR, task_group VARCHAR,
+            node_id VARCHAR, touched_path VARCHAR, status VARCHAR,
+            input_tokens INTEGER, output_tokens INTEGER, duration_ms INTEGER,
+            created_at TIMESTAMP, run_id VARCHAR, attempt INTEGER DEFAULT 1,
+            cost DOUBLE DEFAULT 0.0, model VARCHAR, archetype VARCHAR,
+            commit_sha VARCHAR, error_message TEXT, is_transport_error BOOLEAN DEFAULT FALSE
+        );
+        CREATE TABLE IF NOT EXISTS plan_meta (
+            id INTEGER PRIMARY KEY, content_hash VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            fast_mode BOOLEAN NOT NULL DEFAULT FALSE, filtered_spec VARCHAR,
+            version VARCHAR NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS audit_events (
+            id VARCHAR PRIMARY KEY, event_type VARCHAR NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            payload JSON
+        );
+        """
+        conn = duckdb.connect(":memory:")
+        conn.execute(_SCHEMA)
+
+        # plan_nodes intentionally left empty (nightshift scenario)
+        assert conn.sql("SELECT count(*) FROM plan_nodes").fetchone()[0] == 0
+
+        # Insert run totals directly (as the engine would after completing sessions)
+        conn.execute(
+            "INSERT INTO runs (id, plan_content_hash, total_input_tokens, "
+            "total_output_tokens, total_cost, total_sessions, status) "
+            "VALUES ('run_ns', 'hash_ns', 75000, 15000, 2.10, 5, 'completed')"
+        )
+
+        # Suppress the audit path (no audit_events rows) so the test exercises
+        # the state.total_* fallback branch in generate_status
+        with patch(
+            "agent_fox.reporting.status.build_status_report_from_audit",
+            return_value=None,
+        ), patch(
+            "agent_fox.graph.persistence._load_plan_from_db",
+            return_value=None,
+        ):
+            report = generate_status(plan_path=plan_path, db_conn=conn)
+
+        conn.close()
+
+        # The fix: state is no longer None when plan_nodes is empty,
+        # so token counts and cost come from the runs table
+        assert report.input_tokens == 75_000
+        assert report.output_tokens == 15_000
+        assert abs(report.estimated_cost - 2.10) < 0.01

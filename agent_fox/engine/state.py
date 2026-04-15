@@ -239,7 +239,10 @@ def load_state_from_db(
 
     Loads node_states from plan_nodes, session history from
     session_outcomes, blocked reasons, and run totals. Returns None
-    if no plan data exists in the database.
+    only if the plan_nodes table cannot be queried (missing table or
+    corrupt DB). An empty plan_nodes table yields an ExecutionState
+    with node_states={} — session_outcomes and runs are always loaded
+    regardless of whether plan_nodes has any rows.
 
     Requirements: 105-REQ-5.3
     """
@@ -248,8 +251,8 @@ def load_state_from_db(
         rows = conn.sql("SELECT id, status FROM plan_nodes").fetchall()
     except Exception:
         return None
-    if not rows:
-        return None
+    # Empty plan_nodes is valid (nightshift path or pre-migration plan):
+    # continue loading session_outcomes and runs rather than returning None.
     node_states = {row[0]: row[1] for row in rows}
 
     # Load blocked reasons
