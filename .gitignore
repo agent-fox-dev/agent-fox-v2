@@ -25,3 +25,4 @@ hack/**
 # other
 **/.env
 MagicMock/**
+!.agent-fox/memory.jsonl
