@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -68,6 +69,26 @@ def _make_improve_result() -> ImproveResult:
     )
 
 
+def _fake_asyncio_run(
+    *,
+    return_value: Any = None,
+    side_effect: BaseException | None = None,
+):
+    """Build a side_effect for mocking ``asyncio.run`` that closes the coroutine.
+
+    Without closing the coroutine, Python emits
+    ``RuntimeWarning: coroutine '...' was never awaited``.
+    """
+
+    def _run(coro, **_kwargs: Any):
+        coro.close()
+        if side_effect is not None:
+            raise side_effect
+        return return_value
+
+    return _run
+
+
 def _make_cli_obj(
     config: AgentFoxConfig | None = None,
     *,
@@ -106,7 +127,7 @@ class TestBannerRendering:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.render_banner",
@@ -137,7 +158,7 @@ class TestBannerRendering:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.render_banner",
@@ -168,7 +189,7 @@ class TestBannerRendering:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.render_banner",
@@ -213,7 +234,7 @@ class TestProgressDisplayLifecycle:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
@@ -245,7 +266,7 @@ class TestProgressDisplayLifecycle:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                side_effect=RuntimeError("Simulated error"),
+                side_effect=_fake_asyncio_run(side_effect=RuntimeError("Simulated error")),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
@@ -278,7 +299,7 @@ class TestProgressDisplayLifecycle:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
@@ -311,7 +332,7 @@ class TestProgressDisplayLifecycle:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
@@ -780,7 +801,7 @@ class TestEdgeCases:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                side_effect=KeyboardInterrupt(),
+                side_effect=_fake_asyncio_run(side_effect=KeyboardInterrupt()),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -57,6 +58,22 @@ def _make_fix_result(reason: TerminationReason = TerminationReason.ALL_FIXED):  
     )
 
 
+def _fake_asyncio_run(
+    *,
+    return_value: Any = None,
+    side_effect: BaseException | None = None,
+):
+    """Build a side_effect for mocking ``asyncio.run`` that closes the coroutine."""
+
+    def _run(coro, **_kwargs: Any):
+        coro.close()
+        if side_effect is not None:
+            raise side_effect
+        return return_value
+
+    return _run
+
+
 def _make_cli_obj(
     config: AgentFoxConfig | None = None,
     *,
@@ -101,7 +118,7 @@ class TestQuietSuppressionInvariant:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result()),
             ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
@@ -178,16 +195,16 @@ class TestLifecycleCompleteness:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-            ) as mock_asyncio_run,
+                side_effect=_fake_asyncio_run(
+                    return_value=_make_fix_result() if side_effect is None else None,
+                    side_effect=side_effect,
+                ),
+            ),
             patch(
                 "agent_fox.cli.fix.ProgressDisplay",
                 create=True,
             ) as mock_pd_cls,
         ):
-            if side_effect is None:
-                mock_asyncio_run.return_value = _make_fix_result()
-            else:
-                mock_asyncio_run.side_effect = side_effect
 
             runner.invoke(
                 fix_cmd,

@@ -7,6 +7,7 @@ Requirements: 31-REQ-1.1, 31-REQ-1.3, 31-REQ-1.4, 31-REQ-1.E1,
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from click.testing import CliRunner
@@ -43,6 +44,30 @@ def _make_improve_result() -> ImproveResult:
     )
 
 
+def _fake_asyncio_run(
+    *,
+    return_value: Any = None,
+    side_effect: list[Any] | BaseException | None = None,
+):
+    """Build a side_effect for mocking ``asyncio.run`` that closes the coroutine."""
+    if isinstance(side_effect, list):
+        values = list(side_effect)
+
+        def _run_seq(coro, **_kwargs: Any):
+            coro.close()
+            return values.pop(0)
+
+        return _run_seq
+
+    def _run(coro, **_kwargs: Any):
+        coro.close()
+        if side_effect is not None:
+            raise side_effect
+        return return_value
+
+    return _run
+
+
 class TestAutoFlag:
     """TS-31-1, TS-31-2: --auto flag behavior."""
 
@@ -61,10 +86,10 @@ class TestAutoFlag:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                side_effect=[
+                side_effect=_fake_asyncio_run(side_effect=[
                     _make_fix_result(TerminationReason.ALL_FIXED),
                     improve_result,
-                ],
+                ]),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
@@ -95,7 +120,7 @@ class TestAutoFlag:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(TerminationReason.MAX_PASSES),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result(TerminationReason.MAX_PASSES)),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
@@ -146,10 +171,10 @@ class TestImprovePassesValidation:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                side_effect=[
+                side_effect=_fake_asyncio_run(side_effect=[
                     _make_fix_result(TerminationReason.ALL_FIXED),
                     improve_result,
-                ],
+                ]),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
@@ -186,7 +211,7 @@ class TestDryRunWithAuto:
             ),
             patch(
                 "agent_fox.cli.fix.asyncio.run",
-                return_value=_make_fix_result(TerminationReason.ALL_FIXED),
+                side_effect=_fake_asyncio_run(return_value=_make_fix_result(TerminationReason.ALL_FIXED)),
             ),
             patch(
                 "agent_fox.cli.fix.run_improve_loop",
