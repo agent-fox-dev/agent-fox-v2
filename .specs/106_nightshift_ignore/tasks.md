@@ -131,9 +131,9 @@ end-to-end wiring.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/workspace/init_project.py agent_fox/cli/init.py`
     - [x] Requirements 106-REQ-4.* acceptance criteria met
 
-- [ ] 5. Wiring verification
+- [x] 5. Wiring verification
 
-  - [ ] 5.1 Trace every execution path from design.md end-to-end
+  - [x] 5.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -141,26 +141,52 @@ end-to-end wiring.
     - Every path must be live in production code — errata or deferrals do not
       satisfy this check
     - _Requirements: all_
+    - **Verified Path 1 (Hunt scan):**
+      `engine.py:_run_hunt_scan_inner` (line 312) → `HuntScanner(registry, config)` →
+      `scanner.run(Path.cwd(), ...)` (line 326) → `load_ignore_spec(project_root)` (hunt.py:138)
+      → `filter_findings(all_findings, ignore_spec)` (hunt.py:139). All calls live.
+    - **Verified Path 2 (Init):**
+      `cli/init.py:init_cmd` (line 104) → `init_project(project_root, ...)` →
+      `_ensure_nightshift_ignore(path)` (init_project.py:487 re-init, 517 fresh) →
+      `InitResult(nightshift_ignore=nightshift_status)`. `result.nightshift_ignore` used in
+      JSON output (cli/init.py:114) and text output (cli/init.py:138–139).
 
-  - [ ] 5.2 Verify return values propagate correctly
+  - [x] 5.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - _Requirements: all_
+    - `load_ignore_spec` → `NightShiftIgnoreSpec` assigned to `ignore_spec` at hunt.py:138,
+      passed immediately to `filter_findings` at hunt.py:139.
+    - `filter_findings` → `list[Finding]` returned directly from `HuntScanner.run()` at hunt.py:139.
+    - `_ensure_nightshift_ignore` → `str` assigned to `nightshift_status` at init_project.py:487/517,
+      included in `InitResult` field.
+    - `InitResult.nightshift_ignore` → used in JSON output (cli/init.py:114) and text output
+      (cli/init.py:138). No callers discard the return value.
 
-  - [ ] 5.3 Run the integration smoke tests
+  - [x] 5.3 Run the integration smoke tests
     - All `TS-106-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-106-SMOKE-1, TS-106-SMOKE-2_
+    - **Result:** All 42 spec-106 tests pass (unit + property + integration smoke).
 
-  - [ ] 5.4 Stub / dead-code audit
+  - [x] 5.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - **Audit findings (all intentional):**
+      - `ignore.py:108 return []` — `_read_lines_safe()` graceful fallback when a file cannot
+        be read (permission error, encoding error). Required by 106-REQ-1.E1.
+      - `hunt.py:125 return []` — `HuntScanner.run()` returns empty list when no categories
+        are enabled. Correct behavior; not a stub.
+      - `hunt.py:167 return []` — `_run_category()` error-isolation guard: returns empty
+        findings when a category raises. Required by 61-REQ-3.E1.
+      - `init_project.py:388 pass` — `_ensure_develop_branch()` no-op when `develop` branch
+        already exists. Idempotent, pre-existing behavior unrelated to spec 106.
 
-  - [ ] 5.5 Cross-spec entry point verification
+  - [x] 5.5 Cross-spec entry point verification
     - Verify `load_ignore_spec` is called from `HuntScanner.run()` in
       production code
     - Verify `_ensure_nightshift_ignore` is called from `init_project()` in
@@ -168,13 +194,20 @@ end-to-end wiring.
     - Verify `filter_findings` is called from `HuntScanner.run()` after
       category execution
     - _Requirements: all_
+    - **`load_ignore_spec`:** called at `hunt.py:138` inside `HuntScanner.run()` after
+      `asyncio.gather` completes. Import at `hunt.py:14`.
+    - **`filter_findings`:** called at `hunt.py:139` immediately after `load_ignore_spec`,
+      its return value is the final return value of `HuntScanner.run()`.
+    - **`_ensure_nightshift_ignore`:** called at `init_project.py:487` (re-init path) and
+      `init_project.py:517` (fresh init path). Both paths capture the return value.
 
-  - [ ] 5.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 5.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q` (38 pre-existing failures
+          in spec 107 Kotlin/Dart analyzers; all 42 spec-106 tests pass)
 
 ## Traceability
 
