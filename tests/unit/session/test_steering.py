@@ -194,3 +194,58 @@ class TestLoadSteeringHandlesUnreadableFile:
             load_steering(tmp_path)
 
         assert any(record.levelno >= logging.WARNING for record in caplog.records), "Expected a warning to be logged"
+
+
+# ---------------------------------------------------------------------------
+# Security: symlink rejection (Issue #350, CWE-59)
+# ---------------------------------------------------------------------------
+
+
+class TestLoadSteeringRejectsSymlink:
+    """load_steering() skips steering.md when it is a symlink (CWE-59 mitigation)."""
+
+    def test_returns_none_for_symlink(self, tmp_path: Path) -> None:
+        """load_steering() returns None when steering.md is a symlink."""
+        from agent_fox.session.prompt import load_steering
+
+        # Create a target file outside the project
+        target = tmp_path / "sensitive_file.txt"
+        target.write_text("sensitive content")
+
+        specs_dir = tmp_path / ".specs"
+        specs_dir.mkdir()
+        symlink = specs_dir / "steering.md"
+        symlink.symlink_to(target)
+
+        result = load_steering(tmp_path)
+        assert result is None
+
+    def test_logs_warning_for_symlink(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """load_steering() logs a warning when steering.md is a symlink."""
+        from agent_fox.session.prompt import load_steering
+
+        target = tmp_path / "sensitive_file.txt"
+        target.write_text("sensitive content")
+
+        specs_dir = tmp_path / ".specs"
+        specs_dir.mkdir()
+        symlink = specs_dir / "steering.md"
+        symlink.symlink_to(target)
+
+        with caplog.at_level(logging.WARNING):
+            load_steering(tmp_path)
+
+        assert any(record.levelno >= logging.WARNING for record in caplog.records)
+
+    def test_non_symlink_still_loads(self, tmp_path: Path) -> None:
+        """Normal (non-symlink) steering.md continues to load correctly."""
+        from agent_fox.session.prompt import load_steering
+
+        specs_dir = tmp_path / ".specs"
+        specs_dir.mkdir()
+        (specs_dir / "steering.md").write_text("Always add type hints.")
+
+        result = load_steering(tmp_path)
+        assert result == "Always add type hints."

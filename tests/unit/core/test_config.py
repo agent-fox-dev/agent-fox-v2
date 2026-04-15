@@ -130,3 +130,45 @@ class TestConfigUnrecognizedKeys:
         config = load_config(path=config_file)
 
         assert config.orchestrator.parallel == 2
+
+
+class TestConfigSymlinkRejection:
+    """Security: load_config() rejects symlinked config files (CWE-59 mitigation)."""
+
+    def test_symlink_config_returns_defaults(self, tmp_path: Path) -> None:
+        """load_config() returns defaults when config path is a symlink."""
+        target = tmp_path / "sensitive.toml"
+        target.write_text('[orchestrator]\nparallel = 99\n')
+        symlink = tmp_path / "config.toml"
+        symlink.symlink_to(target)
+
+        config = load_config(path=symlink)
+
+        # Falls back to defaults, does NOT load the symlink target
+        assert isinstance(config, AgentFoxConfig)
+        assert config.orchestrator.parallel == 2  # default, not 99
+
+    def test_symlink_config_logs_warning(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """load_config() logs a warning when config path is a symlink."""
+        import logging
+
+        target = tmp_path / "sensitive.toml"
+        target.write_text("")
+        symlink = tmp_path / "config.toml"
+        symlink.symlink_to(target)
+
+        with caplog.at_level(logging.WARNING):
+            load_config(path=symlink)
+
+        assert any(record.levelno >= logging.WARNING for record in caplog.records)
+
+    def test_non_symlink_config_loads_normally(self, tmp_path: Path) -> None:
+        """A regular (non-symlink) config file still loads correctly."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text("[orchestrator]\nparallel = 4\n")
+
+        config = load_config(path=config_file)
+
+        assert config.orchestrator.parallel == 4
