@@ -30,7 +30,7 @@ from agent_fox.workspace.init_project import InitResult, _ensure_nightshift_igno
 # ---------------------------------------------------------------------------
 
 _DEFAULT_TEST_PATHS = [
-    ".agent-fox/state.jsonl",
+    ".agent-fox/sessions.db",
     ".git/HEAD",
     "node_modules/pkg/index.js",
     "__pycache__/mod.pyc",
@@ -504,7 +504,7 @@ class TestUnreadableFile:
 
             assert isinstance(spec, NightShiftIgnoreSpec)
             # Default exclusions still apply
-            assert spec.is_ignored(".agent-fox/state.jsonl") is True
+            assert spec.is_ignored(".agent-fox/sessions.db") is True
             assert spec.is_ignored("src/main.py") is False
             # User pattern should NOT be applied (since file was unreadable)
             # secret/ may or may not be ignored depending on defaults

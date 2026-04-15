@@ -65,7 +65,6 @@ class TestExecutionLoopLinearChain:
     async def test_sessions_dispatched_in_order(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sessions dispatched in dependency order: A, then B, then C."""
@@ -75,7 +74,6 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -89,7 +87,6 @@ class TestExecutionLoopLinearChain:
     async def test_all_nodes_completed(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """All nodes end in completed status."""
@@ -99,7 +96,6 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -113,7 +109,6 @@ class TestExecutionLoopLinearChain:
     async def test_total_sessions_count(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Total sessions count equals number of tasks."""
@@ -123,7 +118,6 @@ class TestExecutionLoopLinearChain:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -143,7 +137,6 @@ class TestRetryWithError:
     async def test_retries_with_error_context(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Second attempt receives previous_error from first failure."""
         plan_path = write_plan_file(
@@ -177,7 +170,6 @@ class TestRetryWithError:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -200,7 +192,6 @@ class TestBlockedAfterRetries:
     async def test_blocked_after_max_retries(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Task blocked after 3 failed attempts (1 initial + 2 retries)."""
         plan_path = write_plan_file(
@@ -239,7 +230,6 @@ class TestBlockedAfterRetries:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -259,9 +249,8 @@ class TestGracefulShutdown:
     async def test_state_saved_on_interrupt(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
-        """state.jsonl exists after interruption with completed tasks."""
+        """DB state persists after interruption with completed tasks."""
         plan_path = write_plan_file(
             tmp_plan_dir,
             nodes={
@@ -308,7 +297,6 @@ class TestGracefulShutdown:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -334,7 +322,6 @@ class TestStalledExecution:
     async def test_stalled_run_status(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run status is 'stalled' when all tasks end up blocked."""
         plan_path = write_plan_file(
@@ -369,7 +356,6 @@ class TestStalledExecution:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -504,7 +490,7 @@ class TestResumeAfterStatusSync:
 class TestFreshStartWithCompletedNodes:
     """Fresh start seeds node states from plan.json statuses.
 
-    When no state.jsonl exists, the orchestrator should read node
+    When no prior DB state exists, the orchestrator should read node
     statuses from plan.json (which reflect tasks.md [x] markers)
     rather than hardcoding everything to pending.
     """
@@ -513,7 +499,6 @@ class TestFreshStartWithCompletedNodes:
     async def test_completed_nodes_in_plan_are_skipped(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Nodes marked completed in plan.json are skipped on fresh start."""
         plan_path = write_plan_file(
@@ -528,13 +513,12 @@ class TestFreshStartWithCompletedNodes:
             order=["spec:1", "spec:2"],
         )
 
-        # No state.jsonl — fresh start
+        # No prior DB state — fresh start
         mock = MockSessionRunner()
         config = OrchestratorConfig(parallel=1, inter_session_delay=0)
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -558,7 +542,6 @@ class TestCostLimitStopsOrchestrator:
     async def test_cost_limit_stops_dispatching(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """C is NOT dispatched when cost limit exceeded after A + B."""
         plan_path = write_plan_file(
@@ -612,7 +595,6 @@ class TestCostLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -627,7 +609,6 @@ class TestCostLimitStopsOrchestrator:
     async def test_cost_limit_run_status(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run status indicates cost_limit when limit is reached."""
         plan_path = write_plan_file(
@@ -656,7 +637,6 @@ class TestCostLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -678,7 +658,6 @@ class TestSessionLimitStopsOrchestrator:
     async def test_session_limit_stops_dispatching(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Exactly 3 sessions dispatched with max_sessions=3."""
         plan_path = write_plan_file(
@@ -702,7 +681,6 @@ class TestSessionLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -717,7 +695,6 @@ class TestSessionLimitStopsOrchestrator:
     async def test_session_limit_remaining_pending(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """2 nodes remain pending after session limit is reached."""
         plan_path = write_plan_file(
@@ -741,7 +718,6 @@ class TestSessionLimitStopsOrchestrator:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -761,7 +737,6 @@ class TestMissingPlanFile:
     async def test_raises_plan_error(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """PlanError raised when plan.json does not exist."""
@@ -771,7 +746,6 @@ class TestMissingPlanFile:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -784,7 +758,6 @@ class TestMissingPlanFile:
     async def test_no_sessions_dispatched(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No sessions are dispatched when plan is missing."""
@@ -794,7 +767,6 @@ class TestMissingPlanFile:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -814,7 +786,6 @@ class TestEmptyPlan:
     async def test_empty_plan_completes_immediately(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Empty plan returns completed status with zero sessions."""
@@ -828,7 +799,6 @@ class TestEmptyPlan:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -841,7 +811,6 @@ class TestEmptyPlan:
     async def test_no_sessions_dispatched_for_empty_plan(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No sessions dispatched for an empty plan."""
@@ -855,7 +824,6 @@ class TestEmptyPlan:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -876,7 +844,6 @@ class TestSyncBarrierTriggering:
     async def test_sync_barrier_fires_at_interval(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sync barrier fires after sync_interval completions."""
@@ -929,7 +896,6 @@ class TestSyncBarrierTriggering:
     async def test_sync_barrier_fires_multiple_times(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sync barrier fires at each interval crossing."""
@@ -973,7 +939,6 @@ class TestSyncBarrierTriggering:
     async def test_sync_barrier_disabled_when_interval_zero(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No barrier fires when sync_interval=0 (disabled)."""
@@ -1019,7 +984,6 @@ class TestSyncBarrierTriggering:
     async def test_sync_barrier_without_specs_dir(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Barrier still renders summary when no specs_dir provided."""
@@ -1076,7 +1040,6 @@ class TestParallelDispatchWithDependencies:
     async def test_dependent_task_runs_after_prerequisite(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """In parallel mode, B waits for A; C waits for B."""
@@ -1098,7 +1061,6 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1112,7 +1074,6 @@ class TestParallelDispatchWithDependencies:
     async def test_independent_tasks_dispatched_together(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Independent tasks are dispatched in the same pool cycle."""
@@ -1135,7 +1096,6 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1151,7 +1111,6 @@ class TestParallelDispatchWithDependencies:
     async def test_cascade_block_prevents_dependent_dispatch(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """When A fails, B (which depends on A) is not dispatched."""
         plan_path = write_plan_file(
@@ -1186,7 +1145,6 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 
@@ -1201,7 +1159,6 @@ class TestParallelDispatchWithDependencies:
     async def test_streaming_pool_dispatches_unblocked_tasks(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Streaming pool dispatches newly-ready tasks without waiting
@@ -1228,7 +1185,6 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
         )
 
@@ -1241,7 +1197,6 @@ class TestParallelDispatchWithDependencies:
     async def test_pool_bounded_by_max_parallelism(
         self,
         tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Only max_parallelism tasks are in_progress at any given time.
 
@@ -1276,7 +1231,6 @@ class TestParallelDispatchWithDependencies:
         orchestrator = Orchestrator(
             config=config,
             plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
         )
 

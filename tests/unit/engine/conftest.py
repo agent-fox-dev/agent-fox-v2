@@ -150,14 +150,6 @@ def write_plan_file(
 
 
 @pytest.fixture
-def tmp_state_path(tmp_path: Path) -> Path:
-    """Return a path to a temporary state.jsonl file (not yet created)."""
-    state_dir = tmp_path / ".agent-fox"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return state_dir / "state.jsonl"
-
-
-@pytest.fixture
 def tmp_plan_dir(tmp_path: Path) -> Path:
     """Return a path to a temporary .agent-fox directory for plan.json."""
     plan_dir = tmp_path / ".agent-fox"

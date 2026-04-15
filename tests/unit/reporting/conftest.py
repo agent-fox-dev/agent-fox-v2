@@ -1,7 +1,7 @@
 """Fixtures for reporting and reset engine tests.
 
-Provides helpers to create sample state.jsonl and plan.json files
-with various task states, session records, and dependency structures.
+Provides helpers to create sample plan.json files and DB-backed execution
+states with various task states, session records, and dependency structures.
 """
 
 from __future__ import annotations
@@ -85,30 +85,6 @@ def make_execution_state(
     )
 
 
-def write_state_file(state_path: Path, state: ExecutionState) -> None:
-    """Write an ExecutionState to a state.jsonl file (legacy, kept for compat).
-
-    Note: StateManager has been removed. This writes a minimal JSON
-    representation for tests that still reference state files.
-    """
-    import json
-
-    data = {
-        "plan_hash": state.plan_hash,
-        "node_states": state.node_states,
-        "session_history": [],
-        "total_input_tokens": state.total_input_tokens,
-        "total_output_tokens": state.total_output_tokens,
-        "total_cost": state.total_cost,
-        "total_sessions": state.total_sessions,
-        "started_at": state.started_at,
-        "updated_at": state.updated_at,
-        "run_status": state.run_status,
-        "blocked_reasons": state.blocked_reasons,
-    }
-    state_path.write_text(json.dumps(data) + "\n")
-
-
 @contextmanager
 def mock_state(state: ExecutionState):
     """Context manager to mock load_state_from_db to return the given state.
@@ -183,14 +159,6 @@ def write_plan_file(plan_dir: Path, **kwargs: Any) -> Path:
 
 
 # -- Shared fixtures ----------------------------------------------------------
-
-
-@pytest.fixture
-def tmp_state_path(tmp_path: Path) -> Path:
-    """Return a path to a temporary state.jsonl file (not yet created)."""
-    state_dir = tmp_path / ".agent-fox"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return state_dir / "state.jsonl"
 
 
 @pytest.fixture

@@ -94,7 +94,7 @@ def _make_sample_report(
     if file_overlaps is None:
         file_overlaps = [
             FileOverlap(
-                path=".agent-fox/state.jsonl",
+                path="agent_fox/engine/state.py",
                 agent_task_ids=["07_ops:3", "10_plat:2"],
                 human_commits=[
                     "7510417abcdef1234567890abcdef1234567890ab",
@@ -311,7 +311,7 @@ class TestFileOverlapsSection:
         """Overlap line shows path, truncated SHAs, display task IDs."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = "  .agent-fox/state.jsonl — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
+        expected = "  agent_fox/engine/state.py — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
         assert expected in output
 
 

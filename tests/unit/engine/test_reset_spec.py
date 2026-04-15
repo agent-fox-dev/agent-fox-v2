@@ -514,7 +514,7 @@ class TestMissingPlanFile:
 
 
 class TestMissingStateFile:
-    """TS-50-E3: Error when state.jsonl does not exist."""
+    """TS-50-E3: Error when no DB state exists."""
 
     def test_raises_error_for_missing_state(self, tmp_path: Path) -> None:
         """AgentFoxError raised for missing state (no DB connection)."""
