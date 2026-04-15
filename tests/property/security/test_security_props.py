@@ -106,6 +106,55 @@ class TestAllowlistEnforcementCompleteness:
         assert allowed == expected, f"Command '{command}' allowed={allowed} but expected allowed={expected}"
 
 
+class TestShellVariableExpansionBlockedProperty:
+    """Property: any command containing $VAR or ${VAR} is always blocked.
+
+    Issue #345: variable expansion was missing from _SHELL_OPERATOR_PATTERN.
+    """
+
+    # Variable names must start with an ASCII letter or underscore (POSIX).
+    # The fix covers $[a-zA-Z_{] — numeric positional params ($0, $1) and
+    # non-ASCII letters are intentionally out of scope.
+    _var_first_char = st.sampled_from(
+        list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
+    )
+    _var_rest = st.text(
+        alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
+        min_size=0,
+        max_size=19,
+    )
+
+    @given(
+        cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
+        first=_var_first_char,
+        rest=_var_rest,
+    )
+    @settings(max_examples=60)
+    def test_dollar_var_always_blocked(self, cmd: str, first: str, rest: str) -> None:
+        """Any allowlisted command with $VAR (letter/underscore-led) is rejected."""
+        var = first + rest
+        command = f"{cmd} ${var}"
+        result = check_shell_operators(command)
+        assert result is not None, (
+            f"Expected check_shell_operators to reject '{command}' containing variable expansion"
+        )
+
+    @given(
+        cmd=st.sampled_from(sorted(DEFAULT_ALLOWLIST)),
+        first=_var_first_char,
+        rest=_var_rest,
+    )
+    @settings(max_examples=60)
+    def test_braced_dollar_var_always_blocked(self, cmd: str, first: str, rest: str) -> None:
+        """Any allowlisted command with ${VAR} (letter/underscore-led) is rejected."""
+        var = first + rest
+        command = f"{cmd} ${{{var}}}"
+        result = check_shell_operators(command)
+        assert result is not None, (
+            f"Expected check_shell_operators to reject '{command}' containing braced variable expansion"
+        )
+
+
 class TestDefaultAllowlistStability:
     """TS-06-P2: Default allowlist stability.
 

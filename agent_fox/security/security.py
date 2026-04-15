@@ -158,12 +158,13 @@ def extract_command_name(command_string: str) -> str:
 # Matched against the raw command string before allowlist checking.
 _SHELL_OPERATOR_PATTERN = re.compile(
     r"""
-      \|          # pipe (including ||)
-    | ;           # command separator
-    | &&          # logical AND chaining
-    | `           # backtick subshell
-    | \$\(        # $() subshell
-    | [<>]        # redirects (>, <, >>, etc.)
+      \|              # pipe (including ||)
+    | ;               # command separator
+    | &&              # logical AND chaining
+    | `               # backtick subshell
+    | \$\(            # $() subshell
+    | \$[a-zA-Z_{]   # variable expansion ($VAR, ${VAR}) — prevents secret leakage
+    | [<>]            # redirects (>, <, >>, etc.)
     """,
     re.VERBOSE,
 )
