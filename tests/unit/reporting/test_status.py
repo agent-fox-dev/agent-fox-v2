@@ -274,3 +274,132 @@ class TestStatusNoPlanFile:
             generate_status(plan_path=bad_plan)
 
         assert "plan" in str(exc_info.value).lower()
+
+
+# ---------------------------------------------------------------------------
+# Regression: issue #379 — generate_status shows correct cost when
+# plan_nodes is empty but session_outcomes / runs tables have data.
+# ---------------------------------------------------------------------------
+
+
+class TestStatusEmptyPlanNodes:
+    """Regression #379: token counts/costs must not be gated on plan_nodes."""
+
+    def test_correct_cost_when_plan_nodes_empty(
+        self,
+        tmp_plan_dir: Path,
+    ) -> None:
+        """generate_status shows real cost/tokens from DB even when plan_nodes is empty.
+
+        Preconditions: plan.json exists, DB has session_outcomes/runs data but
+        plan_nodes table is empty (nightshift execution path).
+        Expected: StatusReport reflects actual token counts and cost from DB.
+        Assertion: report.input_tokens > 0 and report.estimated_cost > 0.
+        """
+        import duckdb
+
+        from agent_fox.engine.state import (
+            SessionOutcomeRecord,
+            create_run,
+            record_session,
+            update_run_totals,
+        )
+
+        nodes = {
+            "spec_a:1": {"title": "Task 1"},
+            "spec_a:2": {"title": "Task 2"},
+        }
+        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+
+        # Build a real in-memory DB with session data but empty plan_nodes
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            """
+            CREATE TABLE plan_nodes (
+                id VARCHAR PRIMARY KEY, spec_name VARCHAR NOT NULL,
+                group_number INTEGER NOT NULL, title VARCHAR NOT NULL,
+                body TEXT NOT NULL DEFAULT '', archetype VARCHAR NOT NULL DEFAULT 'coder',
+                mode VARCHAR, model_tier VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'pending',
+                subtask_count INTEGER NOT NULL DEFAULT 0,
+                optional BOOLEAN NOT NULL DEFAULT FALSE,
+                instances INTEGER NOT NULL DEFAULT 1,
+                sort_position INTEGER NOT NULL DEFAULT 0,
+                blocked_reason VARCHAR,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE plan_meta (
+                id INTEGER PRIMARY KEY, content_hash VARCHAR NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fast_mode BOOLEAN NOT NULL DEFAULT FALSE,
+                filtered_spec VARCHAR, version VARCHAR NOT NULL DEFAULT ''
+            );
+            CREATE TABLE runs (
+                id VARCHAR PRIMARY KEY, plan_content_hash VARCHAR NOT NULL,
+                started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                status VARCHAR NOT NULL DEFAULT 'running',
+                total_input_tokens BIGINT NOT NULL DEFAULT 0,
+                total_output_tokens BIGINT NOT NULL DEFAULT 0,
+                total_cost DOUBLE NOT NULL DEFAULT 0.0,
+                total_sessions INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE session_outcomes (
+                id VARCHAR PRIMARY KEY, spec_name VARCHAR, task_group VARCHAR,
+                node_id VARCHAR, touched_path VARCHAR, status VARCHAR,
+                input_tokens INTEGER, output_tokens INTEGER, duration_ms INTEGER,
+                created_at TIMESTAMP, run_id VARCHAR, attempt INTEGER DEFAULT 1,
+                cost DOUBLE DEFAULT 0.0, model VARCHAR, archetype VARCHAR,
+                commit_sha VARCHAR, error_message TEXT,
+                is_transport_error BOOLEAN DEFAULT FALSE
+            );
+            CREATE TABLE IF NOT EXISTS audit_events (
+                id VARCHAR PRIMARY KEY,
+                event_type VARCHAR,
+                payload VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        # plan_nodes is empty — the nightshift case
+
+        # Insert session data
+        create_run(conn, "run_1", "hash_abc")
+        record_session(
+            conn,
+            SessionOutcomeRecord(
+                id="s1",
+                spec_name="spec_a",
+                task_group="1",
+                node_id="spec_a:1",
+                touched_path="file.py",
+                status="completed",
+                input_tokens=8000,
+                output_tokens=3000,
+                duration_ms=20000,
+                created_at="2026-01-01T00:00:00",
+                run_id="run_1",
+                attempt=1,
+                cost=1.20,
+                model="claude-sonnet-4-6",
+                archetype="coder",
+                commit_sha="abc123",
+                error_message=None,
+                is_transport_error=False,
+            ),
+        )
+        update_run_totals(conn, "run_1", input_tokens=8000, output_tokens=3000, cost=1.20)
+
+        report = generate_status(plan_path=plan_path, db_conn=conn)
+        conn.close()
+
+        assert report.input_tokens == 8000, (
+            f"Expected 8000 input tokens from DB, got {report.input_tokens}. "
+            "load_state_from_db must not gate on plan_nodes being non-empty."
+        )
+        assert report.output_tokens == 3000
+        assert abs(report.estimated_cost - 1.20) < 0.01, (
+            f"Expected cost ~1.20 from DB, got {report.estimated_cost}. "
+            "Cost must not silently fall back to $0.00 when plan_nodes is empty."
+        )
