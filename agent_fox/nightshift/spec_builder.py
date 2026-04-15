@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 
 from agent_fox.core.prompt_safety import sanitize_prompt_content
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 
 @dataclass(frozen=True)

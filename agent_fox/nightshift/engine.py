@@ -418,7 +418,7 @@ class NightShiftEngine:
         Requirements: 61-REQ-6.1, 61-REQ-6.2, 61-REQ-6.3, 61-REQ-6.4,
                       61-REQ-9.3
         """
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         if not isinstance(issue, IssueResult):
             return

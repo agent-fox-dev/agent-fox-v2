@@ -79,7 +79,7 @@ class TestNightshiftTriageViaMaintainer:
         from agent_fox.core.config import AgentFoxConfig
         from agent_fox.nightshift.dep_graph import DependencyEdge
         from agent_fox.nightshift.triage import run_batch_triage
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = AgentFoxConfig()
         issues = [

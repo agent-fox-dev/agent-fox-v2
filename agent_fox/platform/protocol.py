@@ -8,9 +8,46 @@ Requirements: 61-REQ-8.1, 65-REQ-4.1, 86-REQ-1.5
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from agent_fox.platform.github import IssueComment, IssueResult, PullRequestResult
+
+@dataclass(frozen=True)
+class IssueResult:
+    """Structured result for issue operations.
+
+    Requirements: 28-REQ-2.2
+    """
+
+    number: int
+    title: str
+    html_url: str
+    body: str = ""
+
+
+@dataclass(frozen=True)
+class PullRequestResult:
+    """Structured result for pull request creation.
+
+    Requirements: 85-REQ-8.3
+    """
+
+    number: int
+    url: str
+    html_url: str
+
+
+@dataclass(frozen=True)
+class IssueComment:
+    """Structured result for issue comments.
+
+    Requirements: 86-REQ-1.3
+    """
+
+    id: int
+    body: str
+    user: str  # login
+    created_at: str  # ISO 8601
 
 
 @runtime_checkable

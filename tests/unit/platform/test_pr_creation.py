@@ -19,7 +19,7 @@ class TestDraftPrCreation:
 
     async def test_create_pull_request_returns_result(self) -> None:
         """create_pull_request returns PullRequestResult with correct fields."""
-        from agent_fox.platform.github import PullRequestResult
+        from agent_fox.platform.protocol import PullRequestResult
 
         result = PullRequestResult(
             number=42,
@@ -31,7 +31,7 @@ class TestDraftPrCreation:
 
     async def test_mock_platform_create_pr(self) -> None:
         """Mock platform returns PullRequestResult."""
-        from agent_fox.platform.github import PullRequestResult
+        from agent_fox.platform.protocol import PullRequestResult
 
         platform = MagicMock()
         platform.create_pull_request = AsyncMock(
@@ -57,7 +57,7 @@ class TestPlatformProtocolCreatePR:
 
     def test_class_with_create_pr_passes_isinstance(self) -> None:
         """Class implementing all methods including create_pull_request passes."""
-        from agent_fox.platform.github import IssueComment, IssueResult, PullRequestResult
+        from agent_fox.platform.protocol import IssueComment, IssueResult, PullRequestResult
         from agent_fox.platform.protocol import PlatformProtocol
 
         class WithPR:

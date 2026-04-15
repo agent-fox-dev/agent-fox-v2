@@ -17,7 +17,7 @@ from agent_fox.core.json_extraction import extract_json_object
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.sdk_params import resolve_model_tier, resolve_security_config
 from agent_fox.nightshift.dep_graph import DependencyEdge
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher

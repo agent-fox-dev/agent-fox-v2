@@ -53,7 +53,7 @@ def _make_group(**overrides: object) -> object:
 
 def _make_issue_result(number: int, body: str = "") -> object:
     """Create an IssueResult with a given body."""
-    from agent_fox.platform.github import IssueResult
+    from agent_fox.platform.protocol import IssueResult
 
     return IssueResult(
         number=number,
@@ -425,7 +425,7 @@ class TestHuntScanSmokeTests:
 
         async def mock_create_issue(title: str, body: str, labels: list[str] | None = None) -> object:
             issue_counter[0] += 1
-            from agent_fox.platform.github import IssueResult
+            from agent_fox.platform.protocol import IssueResult
 
             issue = IssueResult(
                 number=issue_counter[0],
@@ -530,7 +530,7 @@ class TestHuntScanSmokeTests:
 
         async def mock_create_issue(title: str, body: str, labels: list[str] | None = None) -> object:
             issue_counter[0] += 1
-            from agent_fox.platform.github import IssueResult
+            from agent_fox.platform.protocol import IssueResult
 
             return IssueResult(
                 number=issue_counter[0],

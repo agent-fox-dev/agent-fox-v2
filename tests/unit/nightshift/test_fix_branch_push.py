@@ -20,7 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 from agent_fox.workspace import WorkspaceInfo
 
 # ---------------------------------------------------------------------------

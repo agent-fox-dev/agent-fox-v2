@@ -248,7 +248,7 @@ class TestProcessIssueGeneratesRunId:
         """Two successive process_issue calls produce two distinct run_ids."""
         from agent_fox.knowledge.audit import generate_run_id as real_generate_run_id
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         config = _make_config()
         mock_platform = AsyncMock()
@@ -643,7 +643,7 @@ class TestAuditWriteFailureContinues:
     async def test_pipeline_continues_despite_audit_write_failure(self) -> None:
         """process_issue returns FixMetrics even if sink.emit_audit_event raises."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
-        from agent_fox.platform.github import IssueResult
+        from agent_fox.platform.protocol import IssueResult
 
         mock_sink = MagicMock(spec=SinkDispatcher)
         mock_sink.emit_audit_event.side_effect = RuntimeError("write failed")

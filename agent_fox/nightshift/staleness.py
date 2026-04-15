@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from agent_fox.core.json_extraction import extract_json_object
-from agent_fox.platform.github import IssueResult
+from agent_fox.platform.protocol import IssueResult
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
