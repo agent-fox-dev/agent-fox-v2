@@ -1,7 +1,7 @@
 """Archetype registry: named configurations for agent session execution.
 
-Maps archetype names to their configuration (template files, model tier,
-allowlist overrides, injection mode, flags).
+Maps archetype names to their configuration (model tier, allowlist
+overrides, injection mode, flags).
 
 Moved to top-level package so both ``graph`` and ``session`` can import
 without cross-module coupling.

@@ -3,7 +3,7 @@
 Assembles a 3-layer system prompt from project context (CLAUDE.md),
 archetype profile, and task context.
 
-Requirements: 15-REQ-2.2 through 15-REQ-5.E1,
+Requirements: 15-REQ-2.2, 15-REQ-5.1 through 15-REQ-5.E1,
               99-REQ-1.1, 99-REQ-1.E1, 99-REQ-1.E2
 """
 
@@ -109,15 +109,15 @@ def build_task_prompt(
     gates.
 
     For non-coder archetypes (skeptic, verifier, etc.): returns a concise
-    prompt that defers to the system prompt template for detailed
+    prompt that defers to the system prompt profile for detailed
     instructions.
 
     Args:
         task_group: The target task group number.
         spec_name: The specification name.
         archetype: Archetype name (defaults to ``"coder"``).
-        mode: Optional archetype mode variant (97-REQ-5.3). Reserved for
-            future per-mode prompt customisation (spec 98).
+        mode: Optional archetype mode variant (97-REQ-5.3). Used for
+            mode-specific profile resolution.
 
     Raises:
         ValueError: If *task_group* < 1 for coder archetype.

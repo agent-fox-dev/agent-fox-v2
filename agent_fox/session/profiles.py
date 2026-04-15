@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 _DEFAULT_PROFILES_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "profiles"
 
 # Regex to match YAML frontmatter at the very start of a file.
-# Replicates the pattern from session/prompt.py to avoid cross-module coupling.
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n.*?\n---\s*\n", re.DOTALL)
 
 
