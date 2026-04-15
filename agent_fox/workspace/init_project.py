@@ -405,6 +405,68 @@ class InitResult:
     steering_md: str = "skipped"
     skills_installed: int = 0
     nightshift_ignore: str = "skipped"  # "created" | "skipped"
+    labels_ensured: int = 0  # number of required labels created/verified
+
+
+async def _ensure_platform_labels_async(project_root: Path) -> int:
+    """Create required platform labels if the platform is configured.
+
+    Attempts to create the labels defined in ``REQUIRED_LABELS`` via the
+    configured platform.  Returns silently if no platform is configured or
+    if ``GITHUB_PAT`` is absent (fail-open: local-only init still succeeds).
+
+    Returns:
+        Number of labels successfully created or already existing.
+
+    Requirements: 358-REQ-3, 358-REQ-4, 358-REQ-5
+    """
+    from agent_fox.core.config import load_config
+    from agent_fox.nightshift.platform_factory import create_platform_safe
+    from agent_fox.platform.labels import REQUIRED_LABELS
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    try:
+        config = load_config(config_path)
+    except Exception:
+        logger.debug("Could not load config for label creation; skipping")
+        return 0
+
+    platform = create_platform_safe(config, project_root)
+    if platform is None:
+        logger.debug("Platform not configured; skipping required label creation")
+        return 0
+
+    count = 0
+    for spec in REQUIRED_LABELS:
+        try:
+            await platform.create_label(spec.name, spec.color, spec.description)
+            count += 1
+        except Exception:
+            logger.warning(
+                "Could not ensure label %r on platform; skipping",
+                spec.name,
+                exc_info=True,
+            )
+
+    return count
+
+
+def _ensure_platform_labels(project_root: Path) -> int:
+    """Synchronous wrapper for :func:`_ensure_platform_labels_async`.
+
+    Uses :func:`asyncio.run` following the same pattern as
+    :func:`_ensure_develop_branch`.  Returns 0 silently on any error so that
+    a platform misconfiguration does not block local ``af init``.
+
+    Requirements: 358-REQ-3, 358-REQ-4, 358-REQ-5
+    """
+    import asyncio
+
+    try:
+        return asyncio.run(_ensure_platform_labels_async(project_root))
+    except Exception as exc:
+        logger.warning("Failed to ensure platform labels: %s", exc)
+        return 0
 
 
 def _ensure_nightshift_ignore(project_root: Path) -> str:
@@ -485,6 +547,7 @@ def init_project(
             skills_count = _install_skills(path)
 
         nightshift_status = _ensure_nightshift_ignore(path)
+        labels_count = _ensure_platform_labels(path)
 
         return InitResult(
             status="already_initialized",
@@ -492,6 +555,7 @@ def init_project(
             steering_md=steering_status,
             skills_installed=skills_count,
             nightshift_ignore=nightshift_status,
+            labels_ensured=labels_count,
         )
 
     # Fresh initialization
@@ -515,6 +579,7 @@ def init_project(
         skills_count = _install_skills(path)
 
     nightshift_status = _ensure_nightshift_ignore(path)
+    labels_count = _ensure_platform_labels(path)
 
     return InitResult(
         status="ok",
@@ -522,4 +587,5 @@ def init_project(
         steering_md=steering_status,
         skills_installed=skills_count,
         nightshift_ignore=nightshift_status,
+        labels_ensured=labels_count,
     )

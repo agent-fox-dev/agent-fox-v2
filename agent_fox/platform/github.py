@@ -485,6 +485,47 @@ class GitHubPlatform:
         logger.debug("Fetched issue #%d: %s", result.number, result.title)
         return result
 
+    async def create_label(
+        self,
+        name: str,
+        color: str,
+        description: str = "",
+    ) -> None:
+        """Create a label on the repository.
+
+        Uses POST /repos/{owner}/{repo}/labels.
+        Treats 422 "already_exists" as success (idempotent).
+        Raises IntegrationError on any other API error.
+
+        Requirements: 358-REQ-1, 358-REQ-2
+        """
+        headers = self._auth_headers()
+        url = f"{self._api_base}/repos/{self._owner}/{self._repo}/labels"
+        payload = {"name": name, "color": color, "description": description}
+        resp = await self._request("post", url, json=payload, headers=headers)
+        if resp.status_code == 201:
+            logger.info("Created label %r on %s/%s", name, self._owner, self._repo)
+            return
+        if resp.status_code == 422:
+            # Check if this is an "already_exists" error — treat as success.
+            try:
+                errors = resp.json().get("errors", [])
+                if any(e.get("code") == "already_exists" for e in errors):
+                    logger.debug(
+                        "Label %r already exists on %s/%s, skipping creation",
+                        name,
+                        self._owner,
+                        self._repo,
+                    )
+                    return
+            except Exception:
+                pass
+        detail = _truncate_response(resp.text)
+        logger.debug("Label creation response (%d): %s", resp.status_code, detail)
+        raise IntegrationError(
+            f"GitHub label creation failed ({resp.status_code})",
+        )
+
     async def close(self) -> None:
         """Clean up resources.
 

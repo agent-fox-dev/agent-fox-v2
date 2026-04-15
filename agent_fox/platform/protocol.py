@@ -138,4 +138,26 @@ class PlatformProtocol(Protocol):
         """
         ...
 
+    async def create_label(
+        self,
+        name: str,
+        color: str,
+        description: str = "",
+    ) -> None:
+        """Create a label on the repository, succeeding silently if it exists.
+
+        Uses POST /repos/{owner}/{repo}/labels.  Treats a 422
+        "already_exists" response as success so this method is safe to
+        call on every ``af init`` run.
+
+        Args:
+            name: Label name (e.g. ``"af:fix"``).
+            color: Six-character hex color without leading ``#``
+                   (e.g. ``"12ec39"``).
+            description: Optional human-readable description.
+
+        Requirements: 358-REQ-1, 358-REQ-2
+        """
+        ...
+
     async def close(self) -> None: ...

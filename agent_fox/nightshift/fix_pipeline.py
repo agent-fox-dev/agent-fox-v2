@@ -28,6 +28,7 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
+from agent_fox.platform.labels import LABEL_FIX
 from agent_fox.platform.protocol import IssueResult
 from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
@@ -985,7 +986,7 @@ class FixPipeline:
         try:
             await self._platform.remove_label(  # type: ignore[attr-defined]
                 issue.number,
-                "af:fix",
+                LABEL_FIX,
             )
         except Exception as exc:
             logger.warning(

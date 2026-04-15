@@ -115,6 +115,8 @@ def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
         }
         if result.skills_installed:
             result_data["skills_installed"] = result.skills_installed
+        if result.labels_ensured:
+            result_data["labels_ensured"] = result.labels_ensured
         emit(result_data)
         return
 
@@ -139,6 +141,8 @@ def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
         click.echo("Created .night-shift.")
     if result.skills_installed:
         click.echo(f"Installed {result.skills_installed} skills.")
+    if result.labels_ensured:
+        click.echo(f"Ensured {result.labels_ensured} required label(s) on GitHub repository.")
     if profiles:
         created_profiles = init_profiles(project_root)
         if created_profiles:

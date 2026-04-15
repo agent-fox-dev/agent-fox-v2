@@ -31,6 +31,7 @@ from agent_fox.nightshift.reference_parser import (
 from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
+from agent_fox.platform.labels import LABEL_FIX
 from agent_fox.ui.progress import ActivityCallback, TaskCallback
 
 if TYPE_CHECKING:
@@ -146,7 +147,7 @@ class NightShiftEngine:
         self._emit_status("Checking for af:fix issues\u2026")
         try:
             issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
-                "af:fix",
+                LABEL_FIX,
                 sort="created",
                 direction="asc",
             )
@@ -219,7 +220,7 @@ class NightShiftEngine:
                 try:
                     await self._platform.remove_label(  # type: ignore[attr-defined]
                         obsolete,
-                        "af:fix",
+                        LABEL_FIX,
                     )
                 except Exception:
                     logger.warning(
@@ -294,7 +295,7 @@ class NightShiftEngine:
                             try:
                                 await self._platform.remove_label(  # type: ignore[attr-defined]
                                     obsolete_num,
-                                    "af:fix",
+                                    LABEL_FIX,
                                 )
                             except Exception:
                                 logger.warning(
@@ -373,7 +374,7 @@ class NightShiftEngine:
             # Assign af:fix label to the issues already created above.
             for result in created:
                 try:
-                    await self._platform.assign_label(result.number, "af:fix")  # type: ignore[attr-defined]
+                    await self._platform.assign_label(result.number, LABEL_FIX)  # type: ignore[attr-defined]
                     _emit_audit_event(
                         self._sink,
                         hunt_run_id,
@@ -514,7 +515,7 @@ class NightShiftEngine:
             # Re-poll to see if any af:fix issues remain
             try:
                 remaining = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
-                    "af:fix",
+                    LABEL_FIX,
                     sort="created",
                     direction="asc",
                 )
