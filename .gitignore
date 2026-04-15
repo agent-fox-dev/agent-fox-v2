@@ -1,7 +1,6 @@
 # agent-fox
 .agent-fox/*
 !.agent-fox/config.toml
-!.agent-fox/state.jsonl
 .claude/worktrees/
 
 # Python

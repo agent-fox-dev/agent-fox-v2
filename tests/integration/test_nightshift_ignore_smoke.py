@@ -171,7 +171,7 @@ class TestInitCreatesLoadableNightshiftFile:
         assert spec is not None
 
         # Default exclusions must be active
-        assert spec.is_ignored(".agent-fox/state.jsonl") is True
+        assert spec.is_ignored(".agent-fox/sessions.db") is True
         assert spec.is_ignored(".git/config") is True
 
     def test_smoke_init_idempotent_nightshift(self, tmp_path: Path) -> None:
