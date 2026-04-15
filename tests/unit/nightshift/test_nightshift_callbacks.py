@@ -172,7 +172,7 @@ class TestFixPipelinePassesCallback:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if "triage" in str(node_id):
+            if "maintainer" in str(node_id):
                 mock_outcome.response = triage_response
             elif "reviewer" in str(node_id):
                 mock_outcome.response = review_response
@@ -243,7 +243,7 @@ class TestFixPipelinePassesCallback:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if "triage" in str(node_id):
+            if "maintainer" in str(node_id):
                 mock_outcome.response = triage_response
             elif "reviewer" in str(node_id):
                 mock_outcome.response = review_response
@@ -323,7 +323,7 @@ class TestFixPipelineTaskEvents:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -339,7 +339,7 @@ class TestFixPipelineTaskEvents:
 
         # triage + coder + reviewer = 3 archetype events
         archetype_names = [e.archetype for e in events]
-        assert "triage" in archetype_names
+        assert "maintainer" in archetype_names
         assert "coder" in archetype_names
         assert "reviewer" in archetype_names
         assert all(e.status == "completed" for e in events)
@@ -390,7 +390,7 @@ class TestFixPipelineTaskEvents:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -408,7 +408,7 @@ class TestFixPipelineTaskEvents:
             assert e.duration_s >= 0
             assert e.node_id.startswith("fix-issue-99")
             assert e.status == "completed"
-            assert e.archetype in ("triage", "coder", "reviewer")
+            assert e.archetype in ("maintainer", "coder", "reviewer")
 
     @pytest.mark.asyncio
     async def test_81_task_event_on_failure(self) -> None:
@@ -445,7 +445,7 @@ class TestFixPipelineTaskEvents:
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             call_count["n"] += 1
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome = MagicMock(
                     input_tokens=10,
                     output_tokens=5,
@@ -511,7 +511,7 @@ class TestFixPipelineTaskEvents:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -595,7 +595,7 @@ class TestActivityEventForwarded:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if "triage" in str(node_id):
+            if "maintainer" in str(node_id):
                 mock_outcome.response = triage_response
             elif "reviewer" in str(node_id):
                 mock_outcome.response = review_response

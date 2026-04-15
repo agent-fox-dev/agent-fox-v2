@@ -494,8 +494,8 @@ class FixPipeline:
 
         node_id = f"fix-issue-{spec.issue_number}:0:triage"
         try:
-            outcome = await self._run_session("triage", workspace, spec=spec)
-            self._emit_session_event(outcome, "triage", self._run_id, node_id=node_id)
+            outcome = await self._run_session("maintainer", workspace, spec=spec, mode="hunt")
+            self._emit_session_event(outcome, "maintainer", self._run_id, node_id=node_id)
         except Exception as exc:
             logger.warning(
                 "Triage session failed for issue #%d: %s",
@@ -507,10 +507,10 @@ class FixPipeline:
                 self._run_id,
                 AuditEventType.SESSION_FAIL,
                 node_id=node_id,
-                archetype="triage",
+                archetype="maintainer",
                 payload={
-                    "archetype": "triage",
-                    "model_id": self._get_model_id("triage"),
+                    "archetype": "maintainer",
+                    "model_id": self._get_model_id("maintainer"),
                     "error_message": str(exc),
                     "attempt": 1,
                 },
@@ -895,7 +895,7 @@ class FixPipeline:
                         node_id=triage_node_id,
                         status="completed",
                         duration_s=duration,
-                        archetype="triage",
+                        archetype="maintainer",
                     )
                 )
             # Count triage session in metrics if it produced output

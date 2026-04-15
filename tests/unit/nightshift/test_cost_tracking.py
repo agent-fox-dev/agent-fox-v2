@@ -369,7 +369,7 @@ class TestSessionCompleteEmitted:
         assert len(complete_calls) >= 1, "_run_triage must emit session.complete after a successful triage session"
 
         payload = complete_calls[0].kwargs.get("payload", {})
-        assert payload.get("archetype") == "triage", "session.complete payload must include archetype='triage'"
+        assert payload.get("archetype") == "maintainer", "session.complete payload must include archetype='maintainer'"
         assert isinstance(payload.get("cost"), float) and payload["cost"] >= 0, (
             "session.complete payload must include a non-negative cost"
         )

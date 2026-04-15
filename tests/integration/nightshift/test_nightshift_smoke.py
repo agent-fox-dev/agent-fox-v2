@@ -147,7 +147,7 @@ class TestFixSessionActivityDisplay:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if "triage" in str(node_id):
+            if "maintainer" in str(node_id):
                 mock_outcome.response = triage_response
             elif "reviewer" in str(node_id):
                 mock_outcome.response = review_response
@@ -179,7 +179,7 @@ class TestFixSessionActivityDisplay:
 
         # Verify TaskEvents: one per archetype (triage + coder + reviewer)
         archetype_names = [e.archetype for e in task_events]
-        assert "triage" in archetype_names
+        assert "maintainer" in archetype_names
         assert "coder" in archetype_names
         assert "reviewer" in archetype_names
         assert all(e.status == "completed" for e in task_events)

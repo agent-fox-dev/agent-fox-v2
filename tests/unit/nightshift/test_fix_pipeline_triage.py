@@ -138,7 +138,7 @@ class TestPipelineArchetypeSequence:
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             archetypes_called.append(archetype)
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("PASS", ["AC-1"]))
@@ -148,7 +148,7 @@ class TestPipelineArchetypeSequence:
 
         await pipeline.process_issue(_make_issue(), issue_body="fix the bug")
 
-        assert archetypes_called[0] == "triage"
+        assert archetypes_called[0] == "maintainer"
         assert "coder" in archetypes_called or any("coder" in str(a) for a in archetypes_called)
         assert archetypes_called[-1] == "reviewer"
 
@@ -221,7 +221,7 @@ class TestTriageCommentPosted:
         pipeline, mock_platform, _ = _make_pipeline()
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("PASS", ["AC-1"]))
@@ -250,7 +250,7 @@ class TestReviewerCommentPosted:
         pipeline, mock_platform, _ = _make_pipeline()
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("PASS", ["AC-1"]))
@@ -284,7 +284,7 @@ class TestCoderRetryOnFail:
         coder_prompts: list[dict] = []
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 call_count["reviewer"] += 1
@@ -331,7 +331,7 @@ class TestModelEscalation:
         model_ids_used: list[str | None] = []
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
@@ -376,7 +376,7 @@ class TestPipelineExhaustion:
         pipeline, mock_platform, _ = _make_pipeline(max_retries=1, retries_before_escalation=1)
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("FAIL", ["AC-1"], ["FAIL"]))
@@ -411,7 +411,7 @@ class TestTriageFailureFallback:
         coder_called = {"value": False}
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 raise Exception("timeout")
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("PASS", ["AC-1"]))
@@ -444,7 +444,7 @@ class TestCommentPostingResilience:
         mock_platform.add_issue_comment = AsyncMock(side_effect=Exception("API error"))
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 return _make_session_outcome(_review_json("PASS", ["AC-1"]))
@@ -478,7 +478,7 @@ class TestOnlyCoderRetried:
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
             archetype_counts[archetype] = archetype_counts.get(archetype, 0) + 1
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_session_outcome(_triage_json(1))
             if archetype == "reviewer":
                 call_count["reviewer"] += 1
@@ -491,7 +491,7 @@ class TestOnlyCoderRetried:
 
         await pipeline.process_issue(_make_issue(), issue_body="bug")
 
-        assert archetype_counts.get("triage", 0) == 1
+        assert archetype_counts.get("maintainer", 0) == 1
         assert archetype_counts.get("coder", 0) == 3
         assert archetype_counts.get("reviewer", 0) == 3
 

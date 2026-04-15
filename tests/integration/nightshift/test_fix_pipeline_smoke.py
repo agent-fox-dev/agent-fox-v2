@@ -114,7 +114,7 @@ class TestFullPipelineHappyPath:
         pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_outcome(_triage_json(2))
             if archetype == "reviewer":
                 return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
@@ -171,7 +171,7 @@ class TestRetryLoopWithEscalation:
         model_ids_used: list[str | None] = []
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 return _make_outcome(_triage_json(2))
             if archetype == "reviewer":
                 reviewer_call_count["n"] += 1
@@ -238,7 +238,7 @@ class TestTriageFailureFallback:
         triage_attempted = {"value": False}
 
         async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
-            if archetype == "triage":
+            if archetype == "maintainer":
                 triage_attempted["value"] = True
                 raise Exception("backend error")
             if archetype == "reviewer":
