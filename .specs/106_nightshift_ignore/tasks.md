@@ -111,8 +111,8 @@ end-to-end wiring.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/hunt.py`
     - [x] Requirements 106-REQ-3.1, 106-REQ-3.E1 acceptance criteria met
 
-- [ ] 4. Extend init command
-  - [ ] 4.1 Add `_ensure_nightshift_ignore()` to `agent_fox/workspace/init_project.py`
+- [x] 4. Extend init command
+  - [x] 4.1 Add `_ensure_nightshift_ignore()` to `agent_fox/workspace/init_project.py`
     - Import `NIGHTSHIFT_IGNORE_SEED` from `nightshift.ignore`
     - Implement `_ensure_nightshift_ignore(project_root) -> str`
     - Add `nightshift_ignore: str = "skipped"` field to `InitResult`
@@ -120,16 +120,16 @@ end-to-end wiring.
     - _Requirements: 106-REQ-4.1, 106-REQ-4.2, 106-REQ-4.4,
       106-REQ-4.E1, 106-REQ-4.E2_
 
-  - [ ] 4.2 Update CLI output in `agent_fox/cli/init.py`
+  - [x] 4.2 Update CLI output in `agent_fox/cli/init.py`
     - Add text output: `"Created .night-shift."` when status is `"created"`
     - Add JSON output: `"night_shift_ignore": result.nightshift_ignore`
     - _Requirements: 106-REQ-4.3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py -k "init"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/workspace/init_project.py agent_fox/cli/init.py`
-    - [ ] Requirements 106-REQ-4.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py -k "init"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/workspace/init_project.py agent_fox/cli/init.py`
+    - [x] Requirements 106-REQ-4.* acceptance criteria met
 
 - [ ] 5. Wiring verification
 

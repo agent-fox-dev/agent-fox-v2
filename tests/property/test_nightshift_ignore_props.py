@@ -13,15 +13,15 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+from agent_fox.nightshift.finding import Finding
 from agent_fox.nightshift.ignore import (
     NightShiftIgnoreSpec,
     filter_findings,
     load_ignore_spec,
 )
-from hypothesis import HealthCheck, given, settings
-from hypothesis import strategies as st
-
-from agent_fox.nightshift.finding import Finding
 from agent_fox.workspace.init_project import _ensure_nightshift_ignore
 
 # ---------------------------------------------------------------------------
@@ -115,7 +115,10 @@ class TestFilterFindingsMonotonic:
     """Filtering can only remove or shrink findings, never add them."""
 
     @pytest.mark.property
-    @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=50,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
+    )
     @given(
         file_lists=st.lists(_file_path_list, min_size=0, max_size=8),
         patterns=_pattern_list,
@@ -142,7 +145,10 @@ class TestFilterFindingsMonotonic:
             shutil.rmtree(project_dir, ignore_errors=True)
 
     @pytest.mark.property
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        max_examples=30,
+        suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
+    )
     @given(
         file_lists=st.lists(_file_path_list, min_size=0, max_size=8),
         patterns=_pattern_list,

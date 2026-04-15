@@ -484,11 +484,14 @@ def init_project(
         if skills:
             skills_count = _install_skills(path)
 
+        nightshift_status = _ensure_nightshift_ignore(path)
+
         return InitResult(
             status="already_initialized",
             agents_md=agents_md_status,
             steering_md=steering_status,
             skills_installed=skills_count,
+            nightshift_ignore=nightshift_status,
         )
 
     # Fresh initialization
@@ -511,9 +514,12 @@ def init_project(
     if skills:
         skills_count = _install_skills(path)
 
+    nightshift_status = _ensure_nightshift_ignore(path)
+
     return InitResult(
         status="ok",
         agents_md=agents_md_status,
         steering_md=steering_status,
         skills_installed=skills_count,
+        nightshift_ignore=nightshift_status,
     )

@@ -15,14 +15,14 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from agent_fox.nightshift.finding import Finding
 from agent_fox.nightshift.ignore import (
     DEFAULT_EXCLUSIONS,
     NightShiftIgnoreSpec,
     filter_findings,
     load_ignore_spec,
 )
-
-from agent_fox.nightshift.finding import Finding
 from agent_fox.workspace.init_project import InitResult, _ensure_nightshift_ignore
 
 # ---------------------------------------------------------------------------

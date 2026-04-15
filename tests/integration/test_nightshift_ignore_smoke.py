@@ -12,10 +12,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from agent_fox.nightshift.ignore import filter_findings, load_ignore_spec
 
 from agent_fox.nightshift.finding import Finding
 from agent_fox.nightshift.hunt import HuntCategoryRegistry, HuntScanner
+from agent_fox.nightshift.ignore import filter_findings, load_ignore_spec
 from agent_fox.workspace.init_project import init_project
 
 # ---------------------------------------------------------------------------
