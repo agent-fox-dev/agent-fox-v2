@@ -53,18 +53,24 @@ def _make_go_source(struct_name: str, func_name: str) -> str:
     return f"package main\n\ntype {struct_name} struct {{}}\n\nfunc {func_name}() {{}}\n"
 
 
-# Valid Python identifier strategy (uppercase first char for class, lowercase for func)
+# Valid identifier strategies (uppercase first char for class, lowercase for func)
 _class_name_strategy = st.from_regex(r"[A-Z][a-zA-Z0-9]{1,10}", fullmatch=True)
-_func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=True)
+_base_func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=True)
 
-# Go reserved keywords — using these as identifiers produces unparseable Go.
+# Filter out language keywords — using them as identifiers produces unparseable source.
+import keyword as _keyword  # noqa: E402
+
+_py_func_name_strategy = _base_func_name_strategy.filter(
+    lambda n: not _keyword.iskeyword(n)
+)
+
 _GO_KEYWORDS = frozenset({
     "break", "case", "chan", "const", "continue", "default", "defer", "else",
     "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
     "map", "package", "range", "return", "select", "struct", "switch", "type",
     "var",
 })
-_go_func_name_strategy = _func_name_strategy.filter(lambda n: n not in _GO_KEYWORDS)
+_go_func_name_strategy = _base_func_name_strategy.filter(lambda n: n not in _GO_KEYWORDS)
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +85,7 @@ class TestEntityValidity:
     """
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_entities_always_valid(
         self,
         tmp_path: Path,
@@ -152,7 +158,7 @@ class TestEdgeReferentialIntegrity:
     """
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_edge_ids_in_entity_set_or_sentinel(
         self,
         tmp_path: Path,
@@ -240,7 +246,7 @@ class TestUpsertIdempotency:
     """
 
     @settings(max_examples=10, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(class_name=_class_name_strategy, method_name=_func_name_strategy)
+    @given(class_name=_class_name_strategy, method_name=_py_func_name_strategy)
     def test_python_analysis_idempotent(
         self,
         tmp_path: Path,
