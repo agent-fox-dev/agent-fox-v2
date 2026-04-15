@@ -14,6 +14,7 @@ import pytest
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.reporting.formatters import (
     JsonFormatter,
+    TableFormatter,
     write_output,
 )
 from agent_fox.reporting.standup import (
@@ -113,6 +114,43 @@ def _make_standup_report() -> StandupReport:
             completed=4,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #375: TableFormatter must not display Memory line in status header
+# ---------------------------------------------------------------------------
+
+
+class TestTableFormatter:
+    """Regression tests for TableFormatter.format_status text output."""
+
+    def test_memory_line_absent_when_zero_facts(self) -> None:
+        """'Memory: 0 facts' must not appear in status output (issue #375)."""
+        formatter = TableFormatter()
+        report = _make_status_report()  # memory_total defaults to 0
+
+        output = formatter.format_status(report)
+
+        assert "Memory" not in output, (
+            "Status header must not contain a Memory line (issue #375)"
+        )
+
+    def test_memory_line_absent_when_facts_present(self) -> None:
+        """'Memory: N facts' must not appear even when facts exist (issue #375)."""
+        import dataclasses
+
+        formatter = TableFormatter()
+        report = dataclasses.replace(
+            _make_status_report(),
+            memory_total=5,
+            memory_by_category={"pattern": 3, "decision": 2},
+        )
+
+        output = formatter.format_status(report)
+
+        assert "Memory" not in output, (
+            "Status header must not contain a Memory line even when facts exist (issue #375)"
+        )
 
 
 # ---------------------------------------------------------------------------
