@@ -139,11 +139,14 @@ def _entities_list(draw: st.DrawFn, min_size: int = 1, max_size: int = 10) -> li
         alphabet="abcdefghijklmnopqrstuvwxyz0123456789_./",
         min_size=1,
         max_size=50,
-    )
+    ).filter(lambda p: not all(c in "./" for c in p))
 )
 def test_path_normalization_invariant(path: str) -> None:
     """For any path string, normalize_path output has no leading slash, no '..',
     and no trailing slash.
+
+    Paths composed entirely of '.' and '/' (e.g. "..") cannot have their '..'
+    resolved without a repo_root, so they are excluded from this property.
 
     Property 1 from design.md; Requirement: 95-REQ-1.3
     """
