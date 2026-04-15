@@ -37,6 +37,11 @@ def load_steering(project_root: Path) -> str | None:
     """
     steering_path = project_root / _STEERING_PATH
 
+    # Security: reject symlinks to prevent path traversal (CWE-59)
+    if steering_path.is_symlink():
+        logger.warning("Steering file is a symlink; skipping for security")
+        return None
+
     # 64-REQ-2.3: Skip silently when file is absent
     if not steering_path.exists():
         logger.debug("Steering file not found at %s, skipping", steering_path)

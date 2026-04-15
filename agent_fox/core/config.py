@@ -936,6 +936,11 @@ def load_config(path: Path | None = None) -> AgentFoxConfig:
     if path is None or not path.exists():
         return AgentFoxConfig()
 
+    # Security: reject symlinks to prevent path traversal (CWE-59)
+    if path.is_symlink():
+        logger.warning("Config file is a symlink; skipping for security")
+        return AgentFoxConfig()
+
     # Read and parse TOML
     raw = path.read_text(encoding="utf-8")
 
