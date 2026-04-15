@@ -87,13 +87,6 @@ class TableFormatter:
             task_parts.append(f"agents running: {agent_names}")
         lines.append(" | ".join(task_parts))
 
-        # Memory line
-        if report.memory_total > 0:
-            cat_parts = ", ".join(f"{count} {cat}" for cat, count in sorted(report.memory_by_category.items()))
-            lines.append(f"Memory: {report.memory_total} facts ({cat_parts})")
-        else:
-            lines.append("Memory: 0 facts")
-
         # Tokens line
         in_tok = format_tokens(report.input_tokens)
         out_tok = format_tokens(report.output_tokens)
