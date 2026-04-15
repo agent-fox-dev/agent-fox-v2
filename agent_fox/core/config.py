@@ -297,10 +297,6 @@ class KnowledgeConfig(BaseModel):
         default=True,
         description="Enable/disable end-of-run fact lifecycle cleanup",
     )
-    cross_spec_top_k: Annotated[int, Clamped(ge=0, cast=int)] = Field(
-        default=15,
-        description="Number of cross-spec facts to retrieve via vector search (0 to disable)",
-    )
     retrieval: RetrievalConfig = Field(
         default_factory=RetrievalConfig,
         description="Adaptive retrieval configuration (rrf_k, max_facts, token_budget, etc.)",
