@@ -94,34 +94,34 @@ and infrastructure setup.
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
 
-- [ ] 3. Wire platform into orchestrator
-  - [ ] 3.1 Add `create_platform_safe()` to `nightshift/platform_factory.py`
+- [x] 3. Wire platform into orchestrator
+  - [x] 3.1 Add `create_platform_safe()` to `nightshift/platform_factory.py`
     - Return `None` instead of `sys.exit(1)` when platform not configured
     - Return `None` when `GITHUB_PAT` is missing
     - _Requirements: 108-REQ-5.3_
 
-  - [ ] 3.2 Update `_setup_infrastructure()` in `engine/run.py`
+  - [x] 3.2 Update `_setup_infrastructure()` in `engine/run.py`
     - Call `create_platform_safe()` and include result in infra dict
     - Pass `platform` to orchestrator kwargs
     - _Requirements: 108-REQ-5.1_
 
-  - [ ] 3.3 Update `Orchestrator.__init__()` in `engine/engine.py`
+  - [x] 3.3 Update `Orchestrator.__init__()` in `engine/engine.py`
     - Accept optional `platform: PlatformProtocol | None = None`
     - Store as `self._platform`
     - Initialize `self._issue_summaries_posted: set[str] = set()`
     - _Requirements: 108-REQ-5.2_
 
-  - [ ] 3.4 Add `post_issue_summaries()` call to Orchestrator `run()` finally block
+  - [x] 3.4 Add `post_issue_summaries()` call to Orchestrator `run()` finally block
     - After existing cleanup (audit, consolidation, memory rendering)
     - Guard with `if self._platform is not None`
     - _Requirements: 108-REQ-4.2, 108-REQ-5.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] create_platform_safe tests pass
-    - [ ] Orchestrator integration tests pass
-    - [ ] Smoke test passes
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+  - [x] 3.V Verify task group 3
+    - [x] create_platform_safe tests pass
+    - [x] Orchestrator integration tests pass
+    - [x] Smoke test passes
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
 
 - [ ] 4. Wiring verification
   - [ ] 4.1 Trace every execution path from design.md end-to-end

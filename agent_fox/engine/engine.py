@@ -194,6 +194,7 @@ class Orchestrator:
         knowledge_db_conn: Any | None = None,
         config_path: Path | None = None,
         full_config: AgentFoxConfig | None = None,
+        platform: Any | None = None,
     ) -> None:
         self._config = config
         # 70-REQ-1.1: Watch mode flag — keep running after all tasks complete
@@ -217,6 +218,10 @@ class Orchestrator:
         # 96-REQ-7.1, 96-REQ-7.2: Track which specs have been consolidated
         # at sync barriers so end-of-run can skip them.
         self._consolidated_specs: set[str] = set()
+        # 108-REQ-5.2: Optional platform for issue summary posting
+        self._platform = platform
+        # 108-REQ-2.E1: Track which specs have already had summaries posted
+        self._issue_summaries_posted: set[str] = set()
         # 66-REQ-7.1, 66-REQ-7.2: Config hot-reload state
         self._config_reloader = ConfigReloader(config_path, full_config)
 
@@ -637,6 +642,26 @@ class Orchestrator:
                 render_summary(conn=self._knowledge_db_conn)
             except Exception:
                 logger.warning("Final memory summary render failed", exc_info=True)
+            # 108-REQ-4.2: Post issue summaries for newly completed specs.
+            if self._platform is not None and self._graph_sync is not None:
+                try:
+                    from agent_fox.engine.issue_summary import (  # noqa: PLC0415
+                        post_issue_summaries as _post_issue_summaries,
+                    )
+
+                    completed = self._graph_sync.completed_spec_names()
+                    newly_completed = completed - self._issue_summaries_posted
+                    if newly_completed:
+                        posted = await _post_issue_summaries(
+                            self._platform,
+                            self._specs_dir or Path(".specs"),
+                            newly_completed,
+                            self._issue_summaries_posted,
+                            Path.cwd(),
+                        )
+                        self._issue_summaries_posted.update(posted)
+                except Exception:
+                    logger.warning("Issue summary posting failed", exc_info=True)
             # 105-REQ-4.4: Mark run as complete in DB with final status.
             if self._knowledge_db_conn is not None:
                 try:

@@ -85,11 +85,14 @@ def _setup_infrastructure(
     Returns a dict of infrastructure components needed by the orchestrator.
     This is separated from run_code so the orchestrator construction can
     be tested independently.
+
+    Requirements: 108-REQ-5.1
     """
     from agent_fox.core.paths import AUDIT_DIR
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
+    from agent_fox.nightshift.platform_factory import create_platform_safe
 
     # Create DuckDB sink for session outcome recording
     sink_dispatcher = SinkDispatcher()
@@ -152,11 +155,19 @@ def _setup_infrastructure(
             embedder=embedder,
         )
 
+    # 108-REQ-5.1: Create platform instance (None if not configured)
+    platform = None
+    try:
+        platform = create_platform_safe(config, Path.cwd())
+    except Exception:
+        logger.debug("create_platform_safe failed; proceeding without platform", exc_info=True)
+
     return {
         "sink_dispatcher": sink_dispatcher,
         "knowledge_db": knowledge_db,
         "session_runner_factory": session_runner_factory,
         "audit_dir": AUDIT_DIR,
+        "platform": platform,
     }
 
 
@@ -249,6 +260,7 @@ async def run_code(
                     "audit_dir": infra["audit_dir"],
                     "audit_db_conn": infra["knowledge_db"].connection,
                     "knowledge_db_conn": infra["knowledge_db"].connection,
+                    "platform": infra.get("platform"),
                 }
             )
 
