@@ -199,10 +199,10 @@
 - When relocating a module, update the logger name to match the new package path (e.g., 'agent_fox.hooks.security' → 'agent_fox.security.security') to ensure proper log filtering and tracing. _(spec: 103_remove_hook_runner, confidence: 0.90)_
 - Import statements in test files should be ordered with module imports before local package imports, maintaining consistency with linter expectations. _(spec: 103_remove_hook_runner, confidence: 0.60)_
 - Version numbers must be synchronized across multiple files: __init__.py, pyproject.toml, and uv.lock to maintain consistency. _(spec: 105_db_plan_state, confidence: 0.90)_
-- Pre-release versions use the format 'X.Y.ZrcN' (e.g., '3.0.0rc5') to denote release candidates. _(spec: 103_agent_conversation_trace, confidence: 0.90)_
-- Release candidate versions use the format 'X.Y.ZrcN' (e.g., '3.0.0rc5') to indicate pre-release status before final release. _(spec: 104_adaptive_retrieval, confidence: 0.90)_
-- Release candidates should use semantic versioning format with 'rc' suffix (e.g., 3.0.0rc5) to indicate pre-release versions. _(spec: 103_agent_conversation_trace, confidence: 0.90)_
-- Pre-release versions follow the semantic versioning format with rc suffix (e.g., 3.0.0rc5) to indicate release candidate status. _(spec: 104_adaptive_retrieval, confidence: 0.90)_
+- Pre-release versions use the format 'X.Y.ZrcN' (e.g., '3.0.0rc6') to denote release candidates. _(spec: 103_agent_conversation_trace, confidence: 0.90)_
+- Release candidate versions use the format 'X.Y.ZrcN' (e.g., '3.0.0rc6') to indicate pre-release status before final release. _(spec: 104_adaptive_retrieval, confidence: 0.90)_
+- Release candidates should use semantic versioning format with 'rc' suffix (e.g., 3.0.0rc6) to indicate pre-release versions. _(spec: 103_agent_conversation_trace, confidence: 0.90)_
+- Pre-release versions follow the semantic versioning format with rc suffix (e.g., 3.0.0rc6) to indicate release candidate status. _(spec: 104_adaptive_retrieval, confidence: 0.90)_
 - Schema DDL should be defined as a module-level constant string and reused across multiple test files to ensure consistency and reduce duplication. _(spec: 105_db_plan_state, confidence: 0.90)_
 - Import statements for not-yet-implemented modules should use `# noqa: F401` comments to suppress linter warnings in spec test files that serve as forward contracts. _(spec: 105_db_plan_state, confidence: 0.90)_
 - Test files should be organized by type: unit tests in tests/unit/, property tests in tests/property/, and integration smoke tests in tests/integration/. _(spec: 103_agent_conversation_trace, confidence: 0.90)_
