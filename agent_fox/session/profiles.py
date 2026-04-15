@@ -2,8 +2,10 @@
 
 Profiles are markdown files that define archetype behavioral guidance
 (identity, rules, focus areas, output format). They are loaded from:
-  1. Project-level: <project_dir>/.agent-fox/profiles/<archetype>.md
-  2. Package default: agent_fox/_templates/profiles/<archetype>.md
+  1. Project-level: <project_dir>/.agent-fox/profiles/<archetype>_<mode>.md
+  2. Package default: agent_fox/_templates/profiles/<archetype>_<mode>.md
+  3. Project-level: <project_dir>/.agent-fox/profiles/<archetype>.md
+  4. Package default: agent_fox/_templates/profiles/<archetype>.md
 
 Requirements: 99-REQ-5.1, 99-REQ-5.2, 99-REQ-5.3, 99-REQ-5.E1,
               99-REQ-1.E2, 99-REQ-4.1
@@ -17,8 +19,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Profile directory in the package (package-relative resolution, mirrors
-# the pattern used in session/prompt.py for _TEMPLATE_DIR).
+# Profile directory in the package (package-relative resolution).
 _DEFAULT_PROFILES_DIR: Path = Path(__file__).resolve().parent.parent / "_templates" / "profiles"
 
 # Regex to match YAML frontmatter at the very start of a file.
@@ -40,21 +41,28 @@ def _strip_frontmatter(content: str) -> str:
 def load_profile(
     archetype: str,
     project_dir: Path | None = None,
+    mode: str | None = None,
 ) -> str:
-    """Load an archetype profile, checking project dir then package default.
+    """Load an archetype profile, with mode-aware resolution.
 
-    Resolution order:
-    1. ``<project_dir>/.agent-fox/profiles/<archetype>.md`` (when *project_dir*
-       is provided and the file exists).
-    2. Package-embedded default profile from ``_templates/profiles/``.
+    Resolution order (first match wins):
+    1. ``<project_dir>/.agent-fox/profiles/<archetype>_<mode>.md``
+    2. ``_templates/profiles/<archetype>_<mode>.md``
+    3. ``<project_dir>/.agent-fox/profiles/<archetype>.md``
+    4. ``_templates/profiles/<archetype>.md``
+
+    Steps 1-2 are skipped when *mode* is ``None``.
+    Steps 1 and 3 are skipped when *project_dir* is ``None``.
 
     The returned content has YAML frontmatter stripped.  Returns an empty
-    string and logs a WARNING if no profile is found in either location.
+    string and logs a WARNING if no profile is found in any location.
 
     Args:
         archetype: Archetype name (e.g. ``"coder"``, ``"reviewer"``).
         project_dir: Root of the project directory.  Pass ``None`` to use only
             the package default (useful when no project is open).
+        mode: Optional mode variant (e.g. ``"fix"``).  When provided,
+            mode-specific profiles are checked before the base profile.
 
     Returns:
         Profile content as a plain string (frontmatter removed).
@@ -62,33 +70,40 @@ def load_profile(
     Requirements: 99-REQ-5.1, 99-REQ-5.2, 99-REQ-5.3, 99-REQ-5.E1,
                   99-REQ-1.E2
     """
-    # --- Layer 1: project-level profile ---
-    if project_dir is not None:
-        project_profile = project_dir / ".agent-fox" / "profiles" / f"{archetype}.md"
-        if project_profile.exists():
-            logger.debug(
-                "Loading profile for %r from project: %s",
-                archetype,
-                project_profile,
-            )
-            content = project_profile.read_text(encoding="utf-8")
-            return _strip_frontmatter(content)
+    # Build candidate filenames in priority order.
+    candidates: list[Path] = []
 
-    # --- Layer 2: package-embedded default ---
-    default_profile = _DEFAULT_PROFILES_DIR / f"{archetype}.md"
-    if default_profile.exists():
-        logger.debug(
-            "Loading default profile for %r from package: %s",
-            archetype,
-            default_profile,
-        )
-        content = default_profile.read_text(encoding="utf-8")
-        return _strip_frontmatter(content)
+    if mode is not None:
+        mode_filename = f"{archetype}_{mode}.md"
+        # Priority 1: project-level mode-specific profile
+        if project_dir is not None:
+            candidates.append(project_dir / ".agent-fox" / "profiles" / mode_filename)
+        # Priority 2: package-embedded mode-specific profile
+        candidates.append(_DEFAULT_PROFILES_DIR / mode_filename)
+
+    base_filename = f"{archetype}.md"
+    # Priority 3: project-level base profile
+    if project_dir is not None:
+        candidates.append(project_dir / ".agent-fox" / "profiles" / base_filename)
+    # Priority 4: package-embedded base profile
+    candidates.append(_DEFAULT_PROFILES_DIR / base_filename)
+
+    for candidate in candidates:
+        if candidate.exists():
+            logger.debug(
+                "Loading profile for %r (mode=%r) from: %s",
+                archetype,
+                mode,
+                candidate,
+            )
+            content = candidate.read_text(encoding="utf-8")
+            return _strip_frontmatter(content)
 
     # --- No profile found ---
     logger.warning(
-        "No profile found for archetype %r (checked project dir and package defaults). Using empty profile.",
+        "No profile found for archetype %r (mode=%r). Using empty profile.",
         archetype,
+        mode,
     )
     return ""
 

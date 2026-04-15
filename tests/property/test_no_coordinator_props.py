@@ -2,6 +2,8 @@
 
 Test Spec: TS-62-P1, TS-62-P2
 Requirements: 62-REQ-1.1, 62-REQ-5.1, 62-REQ-6.E1
+
+Updated after legacy template path removal (issue #342).
 """
 
 from __future__ import annotations
@@ -32,22 +34,14 @@ class TestNoCoordinatorInAnyCollection:
 
         assert "coordinator" not in _KNOWN_ARCHETYPES
 
-    def test_no_coordinator_in_role_mapping(self) -> None:
-        """Prompt role mapping must not contain 'coordinator'."""
-        from agent_fox.session.prompt import _ROLE_TO_ARCHETYPE
-
-        assert "coordinator" not in set(_ROLE_TO_ARCHETYPE.keys())
-
     def test_no_coordinator_in_any_collection(self) -> None:
         """Coordinator absent from every archetype enumeration simultaneously."""
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
-        from agent_fox.session.prompt import _ROLE_TO_ARCHETYPE
         from agent_fox.spec.parser import _KNOWN_ARCHETYPES
 
         all_collections = [
             set(ARCHETYPE_REGISTRY.keys()),
             _KNOWN_ARCHETYPES,
-            set(_ROLE_TO_ARCHETYPE.keys()),
         ]
         for collection in all_collections:
             assert "coordinator" not in collection, f"'coordinator' found in collection: {collection}"

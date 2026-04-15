@@ -96,3 +96,52 @@ def test_none_project_dir() -> None:
     content = load_profile("coder", project_dir=None)
 
     assert len(content) > 0
+
+
+# ---------------------------------------------------------------------------
+# Mode-aware profile resolution (issue #342)
+# ---------------------------------------------------------------------------
+
+
+def test_mode_specific_profile_from_package() -> None:
+    """Package-level mode-specific profile is loaded when mode is provided."""
+    from agent_fox.session.profiles import load_profile
+
+    content = load_profile("coder", mode="fix")
+
+    assert len(content) > 0
+    assert "nightshift" in content.lower()
+
+
+def test_mode_specific_profile_project_override(tmp_path: Path) -> None:
+    """Project-level mode-specific profile overrides package default."""
+    from agent_fox.session.profiles import load_profile
+
+    profiles_dir = tmp_path / ".agent-fox" / "profiles"
+    profiles_dir.mkdir(parents=True)
+    (profiles_dir / "coder_fix.md").write_text("CUSTOM FIX PROFILE")
+
+    content = load_profile("coder", project_dir=tmp_path, mode="fix")
+
+    assert content == "CUSTOM FIX PROFILE"
+
+
+def test_mode_fallback_to_base_profile() -> None:
+    """When mode-specific profile doesn't exist, falls back to base profile."""
+    from agent_fox.session.profiles import load_profile
+
+    # "nonexistent-mode" has no profile, should fall back to base coder profile
+    content = load_profile("coder", mode="nonexistent-mode")
+
+    assert len(content) > 0
+    assert "Identity" in content  # base coder profile has Identity section
+
+
+def test_mode_none_loads_base_profile() -> None:
+    """mode=None loads the base profile, same as omitting mode."""
+    from agent_fox.session.profiles import load_profile
+
+    with_mode = load_profile("coder", mode=None)
+    without_mode = load_profile("coder")
+
+    assert with_mode == without_mode

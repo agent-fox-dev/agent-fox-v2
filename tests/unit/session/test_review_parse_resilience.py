@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 # Path to prompt template files
-_TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "agent_fox" / "_templates" / "prompts"
+_TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "agent_fox" / "_templates" / "profiles"
 
 _REVIEW_TEMPLATES = [
     ("reviewer", _TEMPLATE_DIR / "reviewer.md"),
@@ -76,15 +76,15 @@ class TestCriticalRemindersSection:
 
     @pytest.mark.parametrize("name,path", _REVIEW_TEMPLATES)
     def test_critical_section_after_output_format(self, name: str, path: Path) -> None:
-        """74-REQ-1.5: CRITICAL section appears after the OUTPUT FORMAT section."""
+        """74-REQ-1.5: CRITICAL section appears after the Output Format section."""
         content = path.read_text()
-        assert "OUTPUT FORMAT" in content, f"{name} template must have an OUTPUT FORMAT section"
+        assert "Output Format" in content, f"{name} template must have an Output Format section"
         assert "CRITICAL" in content, f"{name} template must have a CRITICAL section"
-        output_idx = content.index("OUTPUT FORMAT")
+        output_idx = content.index("Output Format")
         critical_idx = content.index("CRITICAL")
         assert critical_idx > output_idx, (
-            f"{name} template: CRITICAL section must appear after OUTPUT FORMAT "
-            f"(CRITICAL at {critical_idx}, OUTPUT FORMAT at {output_idx})"
+            f"{name} template: CRITICAL section must appear after Output Format "
+            f"(CRITICAL at {critical_idx}, Output Format at {output_idx})"
         )
 
 

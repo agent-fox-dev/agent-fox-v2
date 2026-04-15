@@ -1,8 +1,8 @@
-"""Unit tests for the reviewer.md template file.
+"""Unit tests for the reviewer.md profile template file.
 
 Covers:
 - reviewer.md exists and contains mode-specific sections (TS-98-7)
-- fix_coding.md is retained as a separate template (TS-98-7, 98-REQ-3.3)
+- coder_fix.md profile exists (migrated from fix_coding.md, TS-98-7, 98-REQ-3.3)
 
 Test Spec: TS-98-7
 Requirements: 98-REQ-3.1, 98-REQ-3.2, 98-REQ-3.3
@@ -20,11 +20,11 @@ import pytest
 
 
 def _template_path(name: str) -> Path:
-    """Return the absolute path to a template file."""
+    """Return the absolute path to a profile template file."""
     import agent_fox
 
     package_root = Path(agent_fox.__file__).resolve().parent
-    return package_root / "_templates" / "prompts" / name
+    return package_root / "_templates" / "profiles" / name
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +41,7 @@ class TestReviewerTemplate:
         template = _template_path("reviewer.md")
         assert template.exists(), (
             f"reviewer.md template not found at {template}. "
-            "Create agent_fox/_templates/prompts/reviewer.md as required by 98-REQ-3.1"
+            "Create agent_fox/_templates/profiles/reviewer.md as required by 98-REQ-3.1"
         )
 
     def test_reviewer_template_has_pre_review_section(self) -> None:
@@ -86,27 +86,26 @@ class TestReviewerTemplate:
 
 
 # ---------------------------------------------------------------------------
-# TS-98-7 (98-REQ-3.3): fix_coding.md Retained
-# Requirement: 98-REQ-3.3
+# TS-98-7 (98-REQ-3.3): coder_fix.md Profile Exists
+# Requirement: 98-REQ-3.3 (migrated from fix_coding.md template to profile)
 # ---------------------------------------------------------------------------
 
 
-class TestFixCodingTemplateRetained:
-    """Verify fix_coding.md is retained as a separate template file."""
+class TestFixCoderProfileRetained:
+    """Verify coder_fix.md is available as a mode-specific profile."""
 
-    def test_fix_coding_retained(self) -> None:
-        """TS-98-7 (3.3): fix_coding.md template still exists separately."""
-        template = _template_path("fix_coding.md")
-        assert template.exists(), f"fix_coding.md should be retained as a separate template at {template} (98-REQ-3.3)"
+    def test_coder_fix_profile_exists(self) -> None:
+        """TS-98-7 (3.3): coder_fix.md profile exists in profiles directory."""
+        template = _template_path("coder_fix.md")
+        assert template.exists(), f"coder_fix.md should exist at {template} (98-REQ-3.3)"
 
-    def test_fix_coding_not_merged_into_reviewer(self) -> None:
-        """TS-98-7 (3.3): fix_coding.md content is separate from reviewer.md."""
-        fix_template = _template_path("fix_coding.md")
-        reviewer_template = _template_path("reviewer.md")
-        if not fix_template.exists() or not reviewer_template.exists():
-            pytest.skip("Templates not yet created")
-        # Both files should be non-empty distinct files
-        assert fix_template.is_file(), "fix_coding.md should be a regular file"
-        assert reviewer_template.is_file(), "reviewer.md should be a regular file"
-        assert fix_template.stat().st_size > 0, "fix_coding.md should not be empty"
-        assert reviewer_template.stat().st_size > 0, "reviewer.md should not be empty"
+    def test_coder_fix_profile_separate_from_reviewer(self) -> None:
+        """TS-98-7 (3.3): coder_fix.md content is separate from reviewer.md."""
+        fix_profile = _template_path("coder_fix.md")
+        reviewer_profile = _template_path("reviewer.md")
+        if not fix_profile.exists() or not reviewer_profile.exists():
+            pytest.skip("Profiles not yet created")
+        assert fix_profile.is_file(), "coder_fix.md should be a regular file"
+        assert reviewer_profile.is_file(), "reviewer.md should be a regular file"
+        assert fix_profile.stat().st_size > 0, "coder_fix.md should not be empty"
+        assert reviewer_profile.stat().st_size > 0, "reviewer.md should not be empty"

@@ -25,7 +25,7 @@ class TestVerifierTemplate:
             "..",
             "agent_fox",
             "_templates",
-            "prompts",
+            "profiles",
             "verifier.md",
         )
         template_path = os.path.normpath(template_path)

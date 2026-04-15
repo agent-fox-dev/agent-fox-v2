@@ -81,9 +81,20 @@ exactly these fields:
   what needs to change.
 - Output ONLY the bare JSON object — no markdown fences, no surrounding prose.
 
-## Critical Reminder
+## CRITICAL REMINDERS
 
-The harvester that ingests your output is a strict JSON parser. Wrapping JSON
-in markdown fences or including prose around it **will cause a parse failure**
-and your verdicts will be lost. Output ONLY bare JSON — no fences, no
-commentary, no preamble.
+- Use exactly the field names shown in the Output Format schema above.
+- Output bare JSON only — no markdown fences, no prose, no preamble.
+- The first character of your output MUST be `{`. The last MUST be `}`.
+- DO NOT wrap JSON in markdown fences — the harvester is a strict parser and
+  fenced output WILL be lost.
+
+INCORRECT (will cause parse failure):
+
+    ```json
+    {"verdicts": [...]}
+    ```
+
+CORRECT (bare JSON):
+
+    {"verdicts": [...]}
