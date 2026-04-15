@@ -8,10 +8,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3, 102-REQ-3.E1
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 
 class CAnalyzer:
@@ -111,34 +118,14 @@ class CppAnalyzer:
 
 
 # ---------------------------------------------------------------------------
-# Tree-sitter helpers
+# Tree-sitter helpers (delegated to _ts_helpers)
 # ---------------------------------------------------------------------------
 
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -260,20 +247,11 @@ def _extract_c_entities(tree, rel_path: str) -> list[Entity]:
     No MODULE entities (C has no module system).
     No EXTENDS edges (C has no inheritance).
     """
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
     _extract_c_scope_entities(root.children, rel_path, entities, now, current_class=None)
@@ -296,16 +274,7 @@ def _extract_c_scope_entities(
             func_name = _get_function_name_from_definition(node)
             if func_name:
                 qualified = f"{current_class}.{func_name}" if current_class else func_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif node_type == "declaration":
             # Could contain a named struct definition
@@ -314,32 +283,14 @@ def _extract_c_scope_entities(
                 struct_name = _field_text(type_node, "name") or _child_text_by_type(type_node, "type_identifier")
                 body = type_node.child_by_field_name("body") or _child_by_type(type_node, "field_declaration_list")
                 if struct_name and body:
-                    entities.append(
-                        Entity(
-                            id=str(uuid.uuid4()),
-                            entity_type=EntityType.CLASS,
-                            entity_name=struct_name,
-                            entity_path=rel_path,
-                            created_at=now,
-                            deleted_at=None,
-                        )
-                    )
+                    entities.append(make_entity(EntityType.CLASS, struct_name, rel_path, now=now))
 
         elif node_type in ("struct_specifier", "union_specifier"):
             # Top-level standalone struct specifier
             struct_name = _field_text(node, "name") or _child_text_by_type(node, "type_identifier")
             body = node.child_by_field_name("body") or _child_by_type(node, "field_declaration_list")
             if struct_name and body:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.CLASS,
-                        entity_name=struct_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.CLASS, struct_name, rel_path, now=now))
 
         elif node_type == "type_definition":
             # typedef struct { ... } Name; or typedef struct Name { ... } Alias;
@@ -348,16 +299,7 @@ def _extract_c_scope_entities(
                 struct_name = _field_text(type_node, "name") or _child_text_by_type(type_node, "type_identifier")
                 body = type_node.child_by_field_name("body") or _child_by_type(type_node, "field_declaration_list")
                 if struct_name and body:
-                    entities.append(
-                        Entity(
-                            id=str(uuid.uuid4()),
-                            entity_type=EntityType.CLASS,
-                            entity_name=struct_name,
-                            entity_path=rel_path,
-                            created_at=now,
-                            deleted_at=None,
-                        )
-                    )
+                    entities.append(make_entity(EntityType.CLASS, struct_name, rel_path, now=now))
 
 
 # ---------------------------------------------------------------------------
@@ -367,20 +309,11 @@ def _extract_c_scope_entities(
 
 def _extract_cpp_entities(tree, rel_path: str) -> list[Entity]:
     """Extract FILE, MODULE (namespace), CLASS (class/struct), and FUNCTION entities."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
     _extract_cpp_scope_entities(root.children, rel_path, entities, now, current_class=None)
@@ -402,16 +335,7 @@ def _extract_cpp_scope_entities(
         if node_type == "namespace_definition":
             ns_name = _field_text(node, "name") or _child_text_by_type(node, "namespace_identifier", "identifier")
             if ns_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.MODULE,
-                        entity_name=ns_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.MODULE, ns_name, rel_path, now=now))
             body = node.child_by_field_name("body") or _child_by_type(node, "declaration_list")
             if body:
                 _extract_cpp_scope_entities(body.children, rel_path, entities, now, current_class=None)
@@ -421,16 +345,7 @@ def _extract_cpp_scope_entities(
             if not cls_name:
                 # Anonymous class/struct — skip
                 continue
-            entities.append(
-                Entity(
-                    id=str(uuid.uuid4()),
-                    entity_type=EntityType.CLASS,
-                    entity_name=cls_name,
-                    entity_path=rel_path,
-                    created_at=now,
-                    deleted_at=None,
-                )
-            )
+            entities.append(make_entity(EntityType.CLASS, cls_name, rel_path, now=now))
             body = node.child_by_field_name("body") or _child_by_type(node, "field_declaration_list")
             if body:
                 _extract_cpp_scope_entities(body.children, rel_path, entities, now, current_class=cls_name)
@@ -439,32 +354,14 @@ def _extract_cpp_scope_entities(
             func_name = _get_function_name_from_definition(node)
             if func_name:
                 qualified = f"{current_class}.{func_name}" if current_class else func_name
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif node_type in ("declaration", "field_declaration"):
             # Could be a method declaration inside a class
             func_name = _get_function_name_from_declaration(node)
             if func_name and current_class:
                 qualified = f"{current_class}.{func_name}"
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
         elif node_type == "access_specifier":
             pass  # public:, private:, protected: — skip
@@ -475,16 +372,7 @@ def _extract_cpp_scope_entities(
             if type_node:
                 cls_name = _field_text(type_node, "name") or _child_text_by_type(type_node, "type_identifier")
                 if cls_name:
-                    entities.append(
-                        Entity(
-                            id=str(uuid.uuid4()),
-                            entity_type=EntityType.CLASS,
-                            entity_name=cls_name,
-                            entity_path=rel_path,
-                            created_at=now,
-                            deleted_at=None,
-                        )
-                    )
+                    entities.append(make_entity(EntityType.CLASS, cls_name, rel_path, now=now))
                     body = type_node.child_by_field_name("body") or _child_by_type(type_node, "field_declaration_list")
                     if body:
                         _extract_cpp_scope_entities(body.children, rel_path, entities, now, current_class=cls_name)

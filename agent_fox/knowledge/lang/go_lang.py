@@ -8,10 +8,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.E1
 from __future__ import annotations
 
 import re
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType, normalize_path
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 # Module-level import so the name can be patched in tests (TS-102-E2).
 # The try/except allows the module to be imported even when tree-sitter-go
@@ -79,35 +86,11 @@ class GoAnalyzer:
         return _build_go_module_map(repo_root, files)
 
 
-# ---------------------------------------------------------------------------
-# Tree-sitter helpers
-# ---------------------------------------------------------------------------
-
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -117,21 +100,12 @@ def _child_text_by_type(node, *types: str) -> str | None:
 
 def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
     """Extract all entities from a parsed Go source tree."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
     # FILE entity
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
 
@@ -144,16 +118,7 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
                 # For root-level files dir_path is "" (empty); fall back to
                 # the file's rel_path so entity_path is always non-empty.
                 module_path = dir_path if dir_path else rel_path
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.MODULE,
-                        entity_name=pkg_name,
-                        entity_path=module_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.MODULE, pkg_name, module_path, now=now))
 
         # CLASS entities from type_declaration → type_spec
         elif child.type == "type_declaration":
@@ -164,31 +129,13 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
                 # Only extract struct and interface types as CLASS entities
                 has_struct_or_iface = any(c.type in ("struct_type", "interface_type") for c in type_spec.children)
                 if type_name and has_struct_or_iface:
-                    entities.append(
-                        Entity(
-                            id=str(uuid.uuid4()),
-                            entity_type=EntityType.CLASS,
-                            entity_name=type_name,
-                            entity_path=rel_path,
-                            created_at=now,
-                            deleted_at=None,
-                        )
-                    )
+                    entities.append(make_entity(EntityType.CLASS, type_name, rel_path, now=now))
 
         # FUNCTION entity from function_declaration
         elif child.type == "function_declaration":
             func_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
             if func_name:
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=func_name,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, func_name, rel_path, now=now))
 
         # FUNCTION entity from method_declaration (qualified as Type.Method)
         elif child.type == "method_declaration":
@@ -196,16 +143,7 @@ def _extract_go_entities(tree, rel_path: str) -> list[Entity]:
             method_name = _field_text(child, "name") or _child_text_by_type(child, "field_identifier")
             if receiver_type and method_name:
                 qualified = f"{receiver_type}.{method_name}"
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
     return entities
 

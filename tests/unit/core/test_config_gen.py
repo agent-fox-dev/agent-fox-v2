@@ -275,6 +275,7 @@ class TestSchemaExtraction:
             "planning",
             "blocking",
             "caching",
+            "night_shift",
         }
         assert section_paths == expected
 
