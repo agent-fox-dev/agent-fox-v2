@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import subprocess
 from pathlib import Path
 
 import click
@@ -55,6 +56,21 @@ def init_profiles(project_dir: Path) -> list[Path]:
             continue
         shutil.copy2(src_file, dest_file)
         created.append(dest_file)
+
+    if created:
+        # Stage the newly created profiles in git.  The .gitignore exception
+        # !.agent-fox/profiles/* ensures git accepts the files without --force.
+        try:
+            subprocess.run(
+                ["git", "add", *[str(p) for p in created]],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.debug("Staged %d profile(s) in git", len(created))
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            logger.warning("Could not git add profiles: %s", exc)
 
     return created
 
