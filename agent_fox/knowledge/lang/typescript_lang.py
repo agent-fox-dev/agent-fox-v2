@@ -8,10 +8,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 
 class TypeScriptAnalyzer:
@@ -112,31 +119,11 @@ class JavaScriptAnalyzer:
 # Tree-sitter helpers
 # ---------------------------------------------------------------------------
 
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -146,21 +133,12 @@ def _child_text_by_type(node, *types: str) -> str | None:
 
 def _extract_ts_entities(tree, rel_path: str, *, include_interfaces: bool) -> list[Entity]:
     """Extract all entities from a parsed TypeScript/JavaScript source tree."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
     # FILE entity
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
     for child in root.children:
@@ -196,16 +174,7 @@ def _extract_ts_node_entities(
     if node_type in ("class_declaration", "abstract_class_declaration"):
         class_name = _field_text(node, "name") or _child_text_by_type(node, "type_identifier", "identifier")
         if class_name:
-            entities.append(
-                Entity(
-                    id=str(uuid.uuid4()),
-                    entity_type=EntityType.CLASS,
-                    entity_name=class_name,
-                    entity_path=rel_path,
-                    created_at=now,
-                    deleted_at=None,
-                )
-            )
+            entities.append(make_entity(EntityType.CLASS, class_name, rel_path, now=now))
             # Extract methods from class body
             body = node.child_by_field_name("body") or _child_by_type(node, "class_body")
             if body:
@@ -216,32 +185,14 @@ def _extract_ts_node_entities(
     if node_type == "interface_declaration" and include_interfaces:
         iface_name = _field_text(node, "name") or _child_text_by_type(node, "type_identifier", "identifier")
         if iface_name:
-            entities.append(
-                Entity(
-                    id=str(uuid.uuid4()),
-                    entity_type=EntityType.CLASS,
-                    entity_name=iface_name,
-                    entity_path=rel_path,
-                    created_at=now,
-                    deleted_at=None,
-                )
-            )
+            entities.append(make_entity(EntityType.CLASS, iface_name, rel_path, now=now))
         return
 
     # Function declaration → FUNCTION entity
     if node_type == "function_declaration":
         func_name = _field_text(node, "name") or _child_text_by_type(node, "identifier")
         if func_name:
-            entities.append(
-                Entity(
-                    id=str(uuid.uuid4()),
-                    entity_type=EntityType.FUNCTION,
-                    entity_name=func_name,
-                    entity_path=rel_path,
-                    created_at=now,
-                    deleted_at=None,
-                )
-            )
+            entities.append(make_entity(EntityType.FUNCTION, func_name, rel_path, now=now))
         return
 
     # Lexical declaration: const/let with arrow function → FUNCTION entity
@@ -251,16 +202,7 @@ def _extract_ts_node_entities(
                 var_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
                 value = child.child_by_field_name("value")
                 if var_name and value and value.type == "arrow_function":
-                    entities.append(
-                        Entity(
-                            id=str(uuid.uuid4()),
-                            entity_type=EntityType.FUNCTION,
-                            entity_name=var_name,
-                            entity_path=rel_path,
-                            created_at=now,
-                            deleted_at=None,
-                        )
-                    )
+                    entities.append(make_entity(EntityType.FUNCTION, var_name, rel_path, now=now))
         return
 
 
@@ -278,16 +220,7 @@ def _extract_ts_class_methods(
             if method_name and not method_name.startswith("#"):
                 # Skip constructor as it's not a regular method in most contexts
                 qualified = f"{class_name}.{method_name}"
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
 
 
 # ---------------------------------------------------------------------------

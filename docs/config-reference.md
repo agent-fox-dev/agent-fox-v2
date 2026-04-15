@@ -421,6 +421,10 @@ stale dependencies, TODO debt, and linter violations.
 | `hunt_scan_interval` | int | `14400` | ≥ 60 | Seconds between full hunt scans |
 | `quality_gate_timeout` | int | `600` | ≥ 60 | Per-check timeout in seconds |
 | `categories` | table | (all enabled) | — | Per-category enable/disable toggles |
+| `spec_interval` | int | `60` | ≥ 10 | Seconds between spec executor cycles |
+| `enabled_streams` | list | `["specs","fixes","hunts"]` | — | List of enabled work stream names |
+| `merge_strategy` | string | `"direct"` | — | Merge strategy: `direct` or `pr` |
+| `push_fix_branch` | bool | `false` | — | Push fix branches to origin before harvest |
 
 ### night_shift.categories
 

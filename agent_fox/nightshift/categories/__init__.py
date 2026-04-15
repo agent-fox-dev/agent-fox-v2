@@ -8,18 +8,16 @@ Requirements: 61-REQ-3.1, 61-REQ-4.1, 61-REQ-4.2, 61-REQ-4.3
 """
 
 from agent_fox.nightshift.categories.base import BaseHuntCategory
-from agent_fox.nightshift.categories.dead_code import DeadCodeCategory
-from agent_fox.nightshift.categories.dependency_freshness import (
+from agent_fox.nightshift.categories.builtins import (
+    DeadCodeCategory,
     DependencyFreshnessCategory,
-)
-from agent_fox.nightshift.categories.deprecated_api import DeprecatedAPICategory
-from agent_fox.nightshift.categories.documentation_drift import (
+    DeprecatedAPICategory,
     DocumentationDriftCategory,
+    LinterDebtCategory,
+    TestCoverageCategory,
+    TodoFixmeCategory,
 )
-from agent_fox.nightshift.categories.linter_debt import LinterDebtCategory
 from agent_fox.nightshift.categories.quality_gate import QualityGateCategory
-from agent_fox.nightshift.categories.test_coverage import TestCoverageCategory
-from agent_fox.nightshift.categories.todo_fixme import TodoFixmeCategory
 
 __all__ = [
     "BaseHuntCategory",

@@ -8,10 +8,17 @@ Requirements: 102-REQ-2.1, 102-REQ-3.1, 102-REQ-3.2, 102-REQ-3.3
 from __future__ import annotations
 
 import re
-import uuid
 from pathlib import Path
 
 from agent_fox.knowledge.entities import EdgeType, Entity, EntityEdge, EntityType
+from agent_fox.knowledge.lang._ts_helpers import (
+    ENTITY_EPOCH,
+    child_by_type,
+    child_text_by_type,
+    field_text,
+    make_entity,
+    node_text,
+)
 
 # Module-level import so the name can be patched in tests (TS-102-E2).
 try:
@@ -83,31 +90,11 @@ class JavaAnalyzer:
 # Tree-sitter helpers
 # ---------------------------------------------------------------------------
 
-
-def _node_text(node) -> str | None:
-    """Safely decode text from a tree-sitter node."""
-    if node is None:
-        return None
-    return node.text.decode("utf-8") if node.text else None
-
-
-def _field_text(node, field_name: str) -> str | None:
-    """Get decoded text of the named field child."""
-    child = node.child_by_field_name(field_name)
-    return _node_text(child)
-
-
-def _child_by_type(node, *types: str):
-    """Return the first child whose type is in *types*, or None."""
-    for child in node.children:
-        if child.type in types:
-            return child
-    return None
-
-
-def _child_text_by_type(node, *types: str) -> str | None:
-    """Return text of the first child whose type is in *types*, or None."""
-    return _node_text(_child_by_type(node, *types))
+# Aliases for backward compatibility with internal references.
+_node_text = node_text
+_field_text = field_text
+_child_by_type = child_by_type
+_child_text_by_type = child_text_by_type
 
 
 # ---------------------------------------------------------------------------
@@ -117,21 +104,12 @@ def _child_text_by_type(node, *types: str) -> str | None:
 
 def _extract_java_entities(tree, rel_path: str) -> list[Entity]:
     """Extract all entities from a parsed Java source tree."""
-    now = "1970-01-01T00:00:00"
+    now = ENTITY_EPOCH
     file_name = Path(rel_path).name
     entities: list[Entity] = []
 
     # FILE entity
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.FILE,
-            entity_name=file_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.FILE, file_name, rel_path, now=now))
 
     root = tree.root_node
 
@@ -142,16 +120,7 @@ def _extract_java_entities(tree, rel_path: str) -> list[Entity]:
             if pkg_name:
                 # Convert dotted package to slash-based path for entity_path
                 pkg_path = pkg_name.replace(".", "/")
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.MODULE,
-                        entity_name=pkg_name,
-                        entity_path=pkg_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.MODULE, pkg_name, pkg_path, now=now))
 
         # CLASS entities from class/interface/enum declarations
         elif child.type in (
@@ -178,16 +147,7 @@ def _collect_java_class_entities(
         return
 
     # Use simple class name (not qualified with parent for top-level)
-    entities.append(
-        Entity(
-            id=str(uuid.uuid4()),
-            entity_type=EntityType.CLASS,
-            entity_name=class_name,
-            entity_path=rel_path,
-            created_at=now,
-            deleted_at=None,
-        )
-    )
+    entities.append(make_entity(EntityType.CLASS, class_name, rel_path, now=now))
 
     # Find the class/interface/enum body
     body = None
@@ -205,16 +165,7 @@ def _collect_java_class_entities(
             method_name = _field_text(child, "name") or _child_text_by_type(child, "identifier")
             if method_name:
                 qualified = f"{class_name}.{method_name}"
-                entities.append(
-                    Entity(
-                        id=str(uuid.uuid4()),
-                        entity_type=EntityType.FUNCTION,
-                        entity_name=qualified,
-                        entity_path=rel_path,
-                        created_at=now,
-                        deleted_at=None,
-                    )
-                )
+                entities.append(make_entity(EntityType.FUNCTION, qualified, rel_path, now=now))
         # Nested classes
         elif child.type in ("class_declaration", "interface_declaration", "enum_declaration"):
             _collect_java_class_entities(child, rel_path, entities, now, parent_class=class_name)
