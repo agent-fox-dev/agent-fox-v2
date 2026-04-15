@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from agent_fox.core.models import TIER_DEFAULTS, ModelTier
 from agent_fox.workspace.develop import _sync_develop_with_remote
 from agent_fox.workspace.git import run_git
 from agent_fox.workspace.merge_lock import MergeLock
@@ -236,7 +237,7 @@ async def run_sync_barrier_sequence(
                     knowledge_db_conn,
                     repo_root,
                     new_completed,
-                    model="claude-3-5-haiku-20241022",
+                    model=TIER_DEFAULTS[ModelTier.SIMPLE],
                     sink_dispatcher=sink_dispatcher,
                 )
                 consolidated_specs.update(new_completed)
