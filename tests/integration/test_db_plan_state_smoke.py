@@ -218,19 +218,27 @@ def test_full_orchestration_cycle(tmp_path: Path) -> None:
     # Reopen to verify final state
     verify_conn = duckdb.connect(db_path)
 
-    completed_nodes = verify_conn.sql("SELECT count(*) FROM plan_nodes WHERE status = 'completed'").fetchone()[0]
+    _row = verify_conn.sql("SELECT count(*) FROM plan_nodes WHERE status = 'completed'").fetchone()
+    assert _row is not None
+    completed_nodes = _row[0]
     assert completed_nodes == 2, f"Expected 2 completed nodes, got {completed_nodes}"
 
-    session_count = verify_conn.sql("SELECT count(*) FROM session_outcomes").fetchone()[0]
+    _row = verify_conn.sql("SELECT count(*) FROM session_outcomes").fetchone()
+    assert _row is not None
+    session_count = _row[0]
     assert session_count == 2, f"Expected 2 session rows, got {session_count}"
 
     # All sessions must have run_id and model populated
-    incomplete_sessions = verify_conn.sql(
+    _row = verify_conn.sql(
         "SELECT count(*) FROM session_outcomes WHERE run_id IS NULL OR model IS NULL"
-    ).fetchone()[0]
+    ).fetchone()
+    assert _row is not None
+    incomplete_sessions = _row[0]
     assert incomplete_sessions == 0
 
-    run_status = verify_conn.execute("SELECT status FROM runs WHERE id = ?", [run_id]).fetchone()[0]
+    _row = verify_conn.execute("SELECT status FROM runs WHERE id = ?", [run_id]).fetchone()
+    assert _row is not None
+    run_status = _row[0]
     assert run_status == "completed"
 
     verify_conn.close()

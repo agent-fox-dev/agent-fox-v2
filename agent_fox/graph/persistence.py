@@ -153,7 +153,9 @@ def _load_plan_from_db(conn: duckdb.DuckDBPyConnection) -> TaskGraph | None:
     Requirements: 105-REQ-1.2, 105-REQ-1.E1, 105-REQ-1.E2, 105-REQ-5.E1
     """
     # Check whether a plan has been saved
-    meta_count = conn.sql("SELECT count(*) FROM plan_meta").fetchone()[0]
+    _count_row = conn.sql("SELECT count(*) FROM plan_meta").fetchone()
+    assert _count_row is not None  # COUNT(*) always returns exactly one row
+    meta_count = _count_row[0]
     if meta_count == 0:
         return None
 
@@ -161,6 +163,7 @@ def _load_plan_from_db(conn: duckdb.DuckDBPyConnection) -> TaskGraph | None:
     meta_row = conn.sql(
         "SELECT content_hash, created_at, fast_mode, filtered_spec, version FROM plan_meta WHERE id = 1"
     ).fetchone()
+    assert meta_row is not None  # guaranteed: meta_count > 0 confirmed above
 
     created_at_val = meta_row[1]
     if hasattr(created_at_val, "isoformat"):
