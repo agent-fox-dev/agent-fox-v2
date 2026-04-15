@@ -363,7 +363,7 @@ class StandupReport:
     task_activities: list[TaskActivity] = field(
         default_factory=list,
     )  # per-task breakdown
-    total_cost: float = 0.0  # all-time total from ExecutionState
+    total_cost: float | None = None  # all-time total; None when no session data available
 
 
 def generate_standup(
@@ -448,11 +448,15 @@ def generate_standup(
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
 
-    # All-time total cost: prefer DuckDB audit data, fall back to state
+    # All-time total cost: prefer DuckDB audit data, fall back to state.
+    # Use None (not 0.0) when no session data is available so the display
+    # layer can distinguish "no data" from "ran but cost nothing".
     if audit_standup is not None and audit_standup.total_cost > 0:
-        all_time_cost = audit_standup.total_cost
+        all_time_cost: float | None = audit_standup.total_cost
+    elif state is not None:
+        all_time_cost = state.total_cost
     else:
-        all_time_cost = state.total_cost if state is not None else 0.0
+        all_time_cost = None
 
     return StandupReport(
         window_hours=hours,

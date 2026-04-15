@@ -255,6 +255,8 @@ def load_state_from_db(
         rows = conn.sql("SELECT id, status FROM plan_nodes").fetchall()
     except Exception:
         return None
+    # Empty plan_nodes is valid (nightshift path or pre-migration plan):
+    # continue loading session_outcomes and runs rather than returning None.
     node_states = {row[0]: row[1] for row in rows}
 
     # Load blocked reasons

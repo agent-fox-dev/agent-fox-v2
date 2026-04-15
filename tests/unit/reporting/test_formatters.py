@@ -117,6 +117,70 @@ def _make_standup_report() -> StandupReport:
 
 
 # ---------------------------------------------------------------------------
+# Issue #379: "no session data" instead of silent zero when DB has no records
+# ---------------------------------------------------------------------------
+
+
+class TestNoSessionDataDisplay:
+    """Regression #379: formatters show 'no session data' instead of $0.00."""
+
+    def test_status_no_session_data_when_tokens_none(self) -> None:
+        """format_status shows 'no session data' when input_tokens is None."""
+        import dataclasses
+
+        formatter = TableFormatter()
+        report = dataclasses.replace(
+            _make_status_report(),
+            input_tokens=None,
+            output_tokens=None,
+            estimated_cost=None,
+        )
+        output = formatter.format_status(report)
+
+        assert "no session data" in output
+        assert "$" not in output.split("\n")[1], (
+            "Cost line must not show a dollar amount when tokens are None"
+        )
+
+    def test_status_tokens_and_cost_shown_when_data_available(self) -> None:
+        """format_status shows normal token/cost line when values are present."""
+        formatter = TableFormatter()
+        report = _make_status_report()  # has real values
+        output = formatter.format_status(report)
+
+        assert "Tokens:" in output
+        assert "$2.50" in output
+        assert "no session data" not in output
+
+    def test_standup_no_session_data_when_cost_none(self) -> None:
+        """format_standup shows 'no session data' when total_cost is None."""
+        import dataclasses
+
+        formatter = TableFormatter()
+        report = dataclasses.replace(
+            _make_standup_report(),
+            total_cost=None,
+        )
+        output = formatter.format_standup(report)
+
+        assert "Total Cost: no session data" in output
+
+    def test_standup_cost_shown_when_data_available(self) -> None:
+        """format_standup shows dollar amount when total_cost is not None."""
+        import dataclasses
+
+        formatter = TableFormatter()
+        report = dataclasses.replace(
+            _make_standup_report(),
+            total_cost=1.23,
+        )
+        output = formatter.format_standup(report)
+
+        assert "Total Cost: $1.23" in output
+        assert "no session data" not in output
+
+
+# ---------------------------------------------------------------------------
 # Issue #375: TableFormatter must not display Memory line in status header
 # ---------------------------------------------------------------------------
 

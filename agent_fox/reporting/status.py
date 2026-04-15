@@ -116,9 +116,9 @@ class StatusReport:
 
     counts: dict[str, int]  # status -> count
     total_tasks: int
-    input_tokens: int
-    output_tokens: int
-    estimated_cost: float  # USD
+    input_tokens: int | None  # None when no session data is available
+    output_tokens: int | None  # None when no session data is available
+    estimated_cost: float | None  # USD; None when no session data is available
     problem_tasks: list[TaskSummary]
     per_spec: dict[str, dict[str, int]]  # spec_name -> {status -> count}
     memory_total: int = 0
@@ -297,9 +297,9 @@ def generate_status(
             return StatusReport(
                 counts={},
                 total_tasks=0,
-                input_tokens=0,
-                output_tokens=0,
-                estimated_cost=0.0,
+                input_tokens=None,
+                output_tokens=None,
+                estimated_cost=None,
                 problem_tasks=[],
                 per_spec={},
             )
@@ -364,9 +364,10 @@ def generate_status(
         cost_by_archetype = dict(cost_by_archetype_agg)
         logger.debug("Status report: using DB-loaded state totals")
     else:
-        input_tokens = 0
-        output_tokens = 0
-        estimated_cost = 0.0
+        # Both audit and state are unavailable — surface as missing, not zero
+        input_tokens = None
+        output_tokens = None
+        estimated_cost = None
         cost_by_archetype = {}
 
     # Failure reasons from session history
