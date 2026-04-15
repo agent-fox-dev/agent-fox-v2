@@ -320,10 +320,13 @@ async def has_new_commits(
     """
     validate_ref_name(branch)
     validate_ref_name(base)
-    _rc, stdout, _stderr = await run_git(
+    rc, stdout, _stderr = await run_git(
         ["rev-list", "--count", f"{base}..{branch}"],
         cwd=repo_path,
+        check=False,
     )
+    if rc != 0:
+        return False
     return int(stdout.strip()) > 0
 
 
