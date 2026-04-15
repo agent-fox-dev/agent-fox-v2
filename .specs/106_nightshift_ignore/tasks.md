@@ -97,19 +97,19 @@ end-to-end wiring.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/ignore.py`
     - [x] Requirements 106-REQ-1.*, 106-REQ-2.*, 106-REQ-5.1, 106-REQ-6.* acceptance criteria met
 
-- [ ] 3. Integrate with HuntScanner
-  - [ ] 3.1 Modify `HuntScanner.run()` in `agent_fox/nightshift/hunt.py`
+- [x] 3. Integrate with HuntScanner
+  - [x] 3.1 Modify `HuntScanner.run()` in `agent_fox/nightshift/hunt.py`
     - Import `load_ignore_spec` and `filter_findings`
     - After gathering all findings, call `load_ignore_spec(project_root)`
     - Call `filter_findings(all_findings, ignore_spec)`
     - Wrap in try/except to handle unexpected errors (106-REQ-3.E1)
     - _Requirements: 106-REQ-3.1, 106-REQ-3.E1_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py tests/integration/test_nightshift_ignore_smoke.py -k "scanner or smoke_1"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/hunt.py`
-    - [ ] Requirements 106-REQ-3.1, 106-REQ-3.E1 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/test_nightshift_ignore.py tests/integration/test_nightshift_ignore_smoke.py -k "scanner or smoke_1"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/nightshift/hunt.py`
+    - [x] Requirements 106-REQ-3.1, 106-REQ-3.E1 acceptance criteria met
 
 - [ ] 4. Extend init command
   - [ ] 4.1 Add `_ensure_nightshift_ignore()` to `agent_fox/workspace/init_project.py`
