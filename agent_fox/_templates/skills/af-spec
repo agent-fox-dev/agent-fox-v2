@@ -99,6 +99,15 @@ Regardless of how the PRD was provided, **always** create `.specs/NN_specificati
 - If the PRD was a GitHub issue, save the finalized PRD (with all
   clarifications incorporated) into the spec folder's `prd.md`.
 
+Every `prd.md` **must** end with a `## Source` section that records where the
+PRD input came from. This section is mandatory — never omit it.
+
+- **GitHub issue:** `Source: <full issue URL>` (e.g.
+  `Source: https://github.com/owner/repo/issues/42`).
+- **File:** `Source: <path to the file that was read>` (e.g.
+  `Source: docs/draft-prd.md`).
+- **User prompt:** `Source: Input provided by <user> via interactive prompt`.
+
 ### Post Finalized PRD to GitHub
 
 If the PRD originated from a GitHub issue, post the finalized PRD back as a
