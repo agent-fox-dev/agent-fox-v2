@@ -122,17 +122,17 @@ precedes the final wiring verification.
     - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
     - [x] Requirements 107-REQ-1.* acceptance criteria met
 
-- [ ] 3. Implement Elixir analyzer
-  - [ ] 3.1 Add `tree-sitter-elixir>=0.3.4` to pyproject.toml dependencies
+- [x] 3. Implement Elixir analyzer
+  - [x] 3.1 Add `tree-sitter-elixir>=0.3.4` to pyproject.toml dependencies
     - Run `uv sync` to install
     - _Requirements: 107-REQ-6.1_
 
-  - [ ] 3.2 Create `agent_fox/knowledge/lang/elixir_lang.py`
+  - [x] 3.2 Create `agent_fox/knowledge/lang/elixir_lang.py`
     - Implement `ElixirAnalyzer` class with protocol properties
     - Implement `make_parser()` using `tree_sitter_elixir`
     - _Requirements: 107-REQ-2.1, 107-REQ-2.2_
 
-  - [ ] 3.3 Implement Elixir entity extraction
+  - [x] 3.3 Implement Elixir entity extraction
     - Extract FILE, MODULE (defmodule with dotted names),
       FUNCTION (def/defp with qualified names)
     - No CLASS entities
@@ -140,7 +140,7 @@ precedes the final wiring verification.
     - Note: Elixir tree-sitter represents keywords as `call` nodes
     - _Requirements: 107-REQ-2.3, 107-REQ-2.4, 107-REQ-2.E1_
 
-  - [ ] 3.4 Implement Elixir edge extraction and module map
+  - [x] 3.4 Implement Elixir edge extraction and module map
     - CONTAINS edges (file->module, module->function)
     - IMPORTS edges from `use`, `import`, `alias`, `require` (all `call` nodes)
     - No EXTENDS edges
@@ -148,16 +148,16 @@ precedes the final wiring verification.
     - Skip unresolvable imports silently
     - _Requirements: 107-REQ-2.5, 107-REQ-2.6, 107-REQ-2.E2_
 
-  - [ ] 3.5 Register ElixirAnalyzer in registry.py
+  - [x] 3.5 Register ElixirAnalyzer in registry.py
     - Add `_try_register(registry, ElixirAnalyzer, "elixir")`
     - _Requirements: 107-REQ-5.1, 107-REQ-5.3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Elixir spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Elixir"`
-    - [ ] Elixir property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "elixir"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
-    - [ ] Requirements 107-REQ-2.* acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Elixir spec tests pass: `uv run pytest -q tests/unit/knowledge/test_lang_analyzers.py -k "Elixir"`
+    - [x] Elixir property tests pass: `uv run pytest -q tests/property/knowledge/test_multilang_props.py -k "elixir"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings: `uv run ruff check agent_fox/ && uv run ruff format --check agent_fox/`
+    - [x] Requirements 107-REQ-2.* acceptance criteria met
 
 - [ ] 4. Implement Kotlin analyzer
   - [ ] 4.1 Add `tree-sitter-kotlin>=1.0` to pyproject.toml dependencies

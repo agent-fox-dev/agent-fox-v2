@@ -239,4 +239,12 @@ def _build_default_registry() -> LanguageRegistry:
     except ImportError:
         logger.info("Skipping csharp analyzer: csharp_lang module not available")
 
+    # Elixir
+    try:
+        from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
+
+        _try_register(registry, ElixirAnalyzer, "elixir")
+    except ImportError:
+        logger.info("Skipping elixir analyzer: elixir_lang module not available")
+
     return registry
