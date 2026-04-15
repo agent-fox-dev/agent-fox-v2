@@ -34,6 +34,7 @@ def persist_auditor_results(
     result: AuditResult,
     *,
     attempt: int = 1,
+    project_root: Path | None = None,
 ) -> None:
     """Write audit findings to .agent-fox/audit/audit_{spec_name}.md.
 
@@ -43,12 +44,21 @@ def persist_auditor_results(
 
     Handles filesystem errors gracefully — logs and does not raise.
 
+    Args:
+        spec_dir: Path to the spec directory (e.g. ``.specs/05_foo``).
+        result: The audit result to persist.
+        attempt: The attempt number for the audit report header.
+        project_root: Root directory of the project (parent of
+            ``.agent-fox/``).  Falls back to ``spec_dir.parent.parent``
+            when not supplied, for backward compatibility.
+
     Requirements: 46-REQ-8.1, 46-REQ-8.E2,
                   92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-1.E1,
                   92-REQ-2.1, 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2
     """
     spec_name = spec_dir.name
-    audit_dir = spec_dir.parent.parent / ".agent-fox" / "audit"
+    root = project_root if project_root is not None else spec_dir.parent.parent
+    audit_dir = root / ".agent-fox" / "audit"
     audit_path = audit_dir / f"audit_{spec_name}.md"
 
     # PASS verdict: delete existing report and return (do not write).

@@ -550,3 +550,68 @@ class TestPropertyInjectionIntegrity:
 
         assert len(incoming) == 1
         assert len(outgoing) <= 1
+
+
+# ---------------------------------------------------------------------------
+# Regression: ensure_graph_archetypes uses specs_dir, not hardcoded .specs/
+# Issue: #355
+# ---------------------------------------------------------------------------
+
+
+class TestAutoMidUsesSpecsDir:
+    """Verify auto_mid injection uses the specs_dir parameter, not a hardcoded path."""
+
+    def test_auto_mid_injection_with_custom_specs_dir(self, tmp_path: Path) -> None:
+        """Regression for #355: auto_mid must use specs_dir, not Path('.specs/...')."""
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
+        from agent_fox.graph.injection import ensure_graph_archetypes
+        from agent_fox.graph.types import Edge, Node, TaskGraph
+
+        # Create spec dir at a non-standard location (NOT .specs/)
+        custom_specs = tmp_path / "custom_specs"
+        spec_dir = custom_specs / "myspec"
+        spec_dir.mkdir(parents=True)
+        ts_content = "\n".join(f"### TS-X-{i}\nDesc\n" for i in range(1, 8))
+        (spec_dir / "test_spec.md").write_text(ts_content)
+
+        # Build a graph with two coder groups, one test-writing
+        nodes = {
+            "myspec:1": Node(id="myspec:1", spec_name="myspec", group_number=1, title="Write failing spec tests", optional=False),
+            "myspec:2": Node(id="myspec:2", spec_name="myspec", group_number=2, title="Implement core", optional=False),
+        }
+        edges = [Edge(source="myspec:1", target="myspec:2", kind="intra_spec")]
+        graph = TaskGraph(nodes=nodes, edges=edges, order=["myspec:1", "myspec:2"])
+
+        config = ArchetypesConfig(
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
+        )
+
+        injected = ensure_graph_archetypes(graph, config, specs_dir=custom_specs)
+        assert injected, "auto_mid should inject when specs_dir points to valid spec dir"
+
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 1
+
+    def test_auto_mid_skips_when_specs_dir_is_none(self) -> None:
+        """When specs_dir is None, auto_mid injection should be skipped."""
+        from agent_fox.core.config import ArchetypesConfig, ReviewerConfig
+        from agent_fox.graph.injection import ensure_graph_archetypes
+        from agent_fox.graph.types import Edge, Node, TaskGraph
+
+        nodes = {
+            "myspec:1": Node(id="myspec:1", spec_name="myspec", group_number=1, title="Write failing spec tests", optional=False),
+            "myspec:2": Node(id="myspec:2", spec_name="myspec", group_number=2, title="Implement core", optional=False),
+        }
+        edges = [Edge(source="myspec:1", target="myspec:2", kind="intra_spec")]
+        graph = TaskGraph(nodes=nodes, edges=edges, order=["myspec:1", "myspec:2"])
+
+        config = ArchetypesConfig(
+            reviewer=True,
+            reviewer_config=ReviewerConfig(audit_min_ts_entries=5),
+        )
+
+        injected = ensure_graph_archetypes(graph, config, specs_dir=None)
+
+        audit_nodes = [n for n in graph.nodes.values() if n.archetype == "reviewer" and n.mode == "audit-review"]
+        assert len(audit_nodes) == 0, "auto_mid should not inject when specs_dir is None"

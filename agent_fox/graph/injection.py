@@ -305,7 +305,9 @@ def ensure_graph_archetypes(
                 continue
 
             # Resolve spec path for TS count
-            candidate_path = Path(f".specs/{spec}")
+            if specs_dir is None:
+                continue
+            candidate_path = specs_dir / spec
             if not candidate_path.exists():
                 continue
             ts_count = count_ts_entries(candidate_path)
