@@ -26,40 +26,40 @@ and infrastructure setup.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Add parse_source_url unit tests to test_issue_summary.py
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Add parse_source_url unit tests to test_issue_summary.py
     - TestParseSourceUrl: TS-108-1, TS-108-2, TS-108-3, TS-108-4, TS-108-5
     - TestParseSourceUrlEdgeCases: TS-108-E1, TS-108-E2
     - _Test Spec: TS-108-1 through TS-108-5, TS-108-E1, TS-108-E2_
 
-  - [ ] 1.2 Add build_summary_comment unit tests to test_issue_summary.py
+  - [x] 1.2 Add build_summary_comment unit tests to test_issue_summary.py
     - TestBuildSummaryComment: TS-108-6, TS-108-7
     - _Test Spec: TS-108-6, TS-108-7_
 
-  - [ ] 1.3 Add post_issue_summaries unit tests to test_issue_summary.py
+  - [x] 1.3 Add post_issue_summaries unit tests to test_issue_summary.py
     - TestPostIssueSummaries: TS-108-8, TS-108-9, TS-108-10, TS-108-11
     - TestPostIssueSummariesForgeMismatch: TS-108-17
     - _Test Spec: TS-108-8 through TS-108-11, TS-108-17_
 
-  - [ ] 1.4 Add get_develop_head unit tests to test_issue_summary.py
+  - [x] 1.4 Add get_develop_head unit tests to test_issue_summary.py
     - TestGetDevelopHead: TS-108-15, TS-108-16
     - _Test Spec: TS-108-15, TS-108-16_
 
-  - [ ] 1.5 Add create_platform_safe unit tests
+  - [x] 1.5 Add create_platform_safe unit tests
     - TestCreatePlatformSafe: TS-108-12, TS-108-13, TS-108-14
     - File: tests/unit/nightshift/test_platform_factory_safe.py
     - _Test Spec: TS-108-12 through TS-108-14_
 
-  - [ ] 1.6 Add orchestrator integration tests
+  - [x] 1.6 Add orchestrator integration tests
     - TestOrchestratorSkipsWhenNoPlatform: TS-108-E3
     - TestEndToEndIssueSummary: TS-108-SMOKE-1
     - File: tests/integration/engine/test_issue_summary_smoke.py
     - _Test Spec: TS-108-E3, TS-108-SMOKE-1_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced
 
 - [ ] 2. Implement issue_summary module
   - [ ] 2.1 Create `agent_fox/engine/issue_summary.py`
