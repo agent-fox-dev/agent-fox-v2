@@ -16,6 +16,7 @@ from pydantic.fields import FieldInfo
 
 from agent_fox.core.config import ArchetypeInstancesConfig
 from agent_fox.core.config_gen import (
+    _FOOTER_COMMENT,
     _get_description,
     generate_default_config,
     merge_existing_config,
@@ -42,7 +43,7 @@ _EXPECTED_HIDDEN_SECTIONS = {
     "night_shift",
 }
 
-_FOOTER = "## For all configuration options, see docs/config-reference.md"
+_FOOTER = _FOOTER_COMMENT
 
 # Promoted fields expected after implementation (section_path, field_name).
 _EXPECTED_PROMOTED_FIELDS = [
