@@ -533,7 +533,6 @@ def init_project(
             config_path.write_text(merged_content, encoding="utf-8")
 
         # Ensure structure is complete
-        (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
         _ensure_seed_files(path)
         _update_gitignore(path)
@@ -560,7 +559,6 @@ def init_project(
 
     # Fresh initialization
     _secure_mkdir(agent_fox_dir)
-    (agent_fox_dir / "hooks").mkdir(exist_ok=True)
     (agent_fox_dir / "worktrees").mkdir(exist_ok=True)
 
     from agent_fox.core.config_gen import generate_default_config
