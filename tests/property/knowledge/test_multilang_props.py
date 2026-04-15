@@ -57,6 +57,15 @@ def _make_go_source(struct_name: str, func_name: str) -> str:
 _class_name_strategy = st.from_regex(r"[A-Z][a-zA-Z0-9]{1,10}", fullmatch=True)
 _func_name_strategy = st.from_regex(r"[a-z][a-zA-Z0-9]{1,10}", fullmatch=True)
 
+# Go reserved keywords — using these as identifiers produces unparseable Go.
+_GO_KEYWORDS = frozenset({
+    "break", "case", "chan", "const", "continue", "default", "defer", "else",
+    "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
+    "map", "package", "range", "return", "select", "struct", "switch", "type",
+    "var",
+})
+_go_func_name_strategy = _func_name_strategy.filter(lambda n: n not in _GO_KEYWORDS)
+
 
 # ---------------------------------------------------------------------------
 # TS-102-P1: Entity validity
@@ -101,7 +110,7 @@ class TestEntityValidity:
             assert entity.entity_type in valid_types, f"entity_type {entity.entity_type!r} is invalid"
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_go_entities_always_valid(
         self,
         tmp_path: Path,
@@ -182,7 +191,7 @@ class TestEdgeReferentialIntegrity:
             )
 
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_go_edge_ids_in_entity_set_or_sentinel(
         self,
         tmp_path: Path,
@@ -265,7 +274,7 @@ class TestUpsertIdempotency:
         )
 
     @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    @given(struct_name=_class_name_strategy, func_name=_func_name_strategy)
+    @given(struct_name=_class_name_strategy, func_name=_go_func_name_strategy)
     def test_multilang_analysis_idempotent(
         self,
         tmp_path: Path,
