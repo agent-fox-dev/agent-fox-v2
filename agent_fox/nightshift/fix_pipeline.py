@@ -28,7 +28,7 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
-from agent_fox.platform.labels import LABEL_FIX
+from agent_fox.platform.labels import LABEL_FIXED
 from agent_fox.platform.protocol import IssueResult
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
@@ -1002,15 +1002,17 @@ class FixPipeline:
                 issue.number,
                 exc,
             )
-        # Remove the af:fix label so the issue is not re-processed (#295).
+        # Add af:fixed label for provenance and re-processing guard (#429).
+        # The af:fix label is intentionally preserved to record that the issue
+        # was submitted for automated fixing. af:fixed signals it was resolved.
         try:
-            await self._platform.remove_label(  # type: ignore[attr-defined]
+            await self._platform.assign_label(  # type: ignore[attr-defined]
                 issue.number,
-                LABEL_FIX,
+                LABEL_FIXED,
             )
         except Exception as exc:
             logger.warning(
-                "Failed to remove af:fix label from issue #%d: %s",
+                "Failed to assign af:fixed label to issue #%d: %s",
                 issue.number,
                 exc,
             )

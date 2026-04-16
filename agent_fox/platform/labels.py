@@ -19,6 +19,9 @@ from dataclasses import dataclass
 #: Applied to issues managed by the fix pipeline.
 LABEL_FIX: str = "af:fix"
 
+#: Applied to issues resolved by the fix pipeline (provenance + re-process guard).
+LABEL_FIXED: str = "af:fixed"
+
 #: Applied to issues created by hunt scans (dedup fingerprint label).
 LABEL_HUNT: str = "af:hunt"
 
@@ -43,6 +46,11 @@ REQUIRED_LABELS: list[LabelSpec] = [
         name=LABEL_FIX,
         color="12ec39",
         description="Issues ready to be implemented by the fix pipeline",
+    ),
+    LabelSpec(
+        name=LABEL_FIXED,
+        color="2ea44f",
+        description="Issues resolved by the agent-fox fix pipeline",
     ),
     LabelSpec(
         name=LABEL_HUNT,

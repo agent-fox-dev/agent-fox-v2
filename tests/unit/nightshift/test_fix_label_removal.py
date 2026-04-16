@@ -1,9 +1,12 @@
-"""Tests for af:fix label removal on issue closure (fixes #295).
+"""Tests for af:fixed label assignment on issue closure (fixes #429).
 
-Verifies that the af:fix label is removed when issues are closed via:
+Verifies that the af:fixed label is added when issues are closed via:
 1. fix_pipeline.py — successful fix closure
 2. engine.py — supersession closure
 3. engine.py — staleness closure
+
+The af:fix label is intentionally preserved on closure to maintain provenance.
+af:fixed is added as a re-processing guard and to signal resolution by agent-fox.
 """
 
 from __future__ import annotations
@@ -27,20 +30,81 @@ def _mock_workspace() -> WorkspaceInfo:
     )
 
 
-LABEL = "af:fix"
+LABEL_FIXED = "af:fixed"
 
 
 # ---------------------------------------------------------------------------
-# Fix pipeline: label removed after successful close
+# Fix pipeline: af:fixed added after successful close
 # ---------------------------------------------------------------------------
 
 
-class TestFixPipelineLabelRemoval:
-    """Verify af:fix label is removed when fix pipeline closes an issue."""
+class TestFixPipelineLabelFixed:
+    """Verify af:fixed label is assigned when fix pipeline closes an issue."""
 
     @pytest.mark.asyncio
-    async def test_label_removed_on_successful_close(self) -> None:
-        """After close_issue succeeds, remove_label('af:fix') is called."""
+    async def test_fixed_label_assigned_on_successful_close(self) -> None:
+        """After close_issue succeeds, assign_label('af:fixed') is called."""
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+        mock_platform = AsyncMock()
+        mock_platform.assign_label = AsyncMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            outcome = MagicMock(
+                input_tokens=10,
+                output_tokens=5,
+                cache_read_input_tokens=0,
+                cache_creation_input_tokens=0,
+            )
+            if archetype == "triage":
+                outcome.response = triage_response
+            elif archetype == "reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=42,
+            title="Some bug",
+            html_url="https://github.com/test/repo/issues/42",
+        )
+
+        with patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")):
+            await pipeline.process_issue(issue, issue_body="Bug description.")
+
+        mock_platform.close_issue.assert_awaited_once()
+        mock_platform.assign_label.assert_any_await(42, LABEL_FIXED)
+
+    @pytest.mark.asyncio
+    async def test_fix_label_not_removed_on_successful_close(self) -> None:
+        """After close_issue succeeds, remove_label is NOT called (af:fix preserved)."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()
@@ -97,18 +161,18 @@ class TestFixPipelineLabelRemoval:
             await pipeline.process_issue(issue, issue_body="Bug description.")
 
         mock_platform.close_issue.assert_awaited_once()
-        mock_platform.remove_label.assert_any_await(42, LABEL)
+        mock_platform.remove_label.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_label_not_removed_when_harvest_fails(self) -> None:
-        """When harvest fails and issue is NOT closed, label is NOT removed."""
+    async def test_fixed_label_not_assigned_when_harvest_fails(self) -> None:
+        """When harvest fails and issue is NOT closed, assign_label is NOT called."""
         from agent_fox.nightshift.fix_pipeline import FixPipeline
 
         config = MagicMock()
         config.orchestrator.retries_before_escalation = 1
         config.orchestrator.max_retries = 3
         mock_platform = AsyncMock()
-        mock_platform.remove_label = AsyncMock()
+        mock_platform.assign_label = AsyncMock()
 
         pipeline = FixPipeline(config=config, platform=mock_platform)
         pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
@@ -158,20 +222,20 @@ class TestFixPipelineLabelRemoval:
             await pipeline.process_issue(issue, issue_body="Bug description.")
 
         mock_platform.close_issue.assert_not_awaited()
-        mock_platform.remove_label.assert_not_awaited()
+        mock_platform.assign_label.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
-# Engine: label removed on supersession and staleness closures
+# Engine: af:fixed assigned on supersession and staleness closures
 # ---------------------------------------------------------------------------
 
 
-class TestEngineLabelRemovalOnClose:
-    """Verify af:fix label is removed when engine closes issues."""
+class TestEngineLabelFixedOnClose:
+    """Verify af:fixed label is assigned when engine closes issues."""
 
     @pytest.mark.asyncio
-    async def test_label_removed_on_supersession_close(self) -> None:
-        """When an issue is closed as superseded, af:fix label is removed."""
+    async def test_fixed_label_assigned_on_supersession_close(self) -> None:
+        """When an issue is closed as superseded, af:fixed label is assigned."""
         from agent_fox.nightshift.engine import NightShiftEngine
 
         config = MagicMock()
@@ -192,7 +256,7 @@ class TestEngineLabelRemovalOnClose:
         mock_platform = AsyncMock()
         mock_platform.list_issues_by_label = AsyncMock(return_value=[issue1, issue2, issue3])
         mock_platform.close_issue = AsyncMock()
-        mock_platform.remove_label = AsyncMock()
+        mock_platform.assign_label = AsyncMock()
 
         engine = NightShiftEngine(config=config, platform=mock_platform)
 
@@ -211,14 +275,14 @@ class TestEngineLabelRemovalOnClose:
         ):
             await engine._run_issue_check()
 
-        # Issue #11 should have been closed AND had its label removed
+        # Issue #11 should have been closed AND had af:fixed assigned
         close_calls = [call.args[0] for call in mock_platform.close_issue.call_args_list]
         assert 11 in close_calls
-        mock_platform.remove_label.assert_any_await(11, LABEL)
+        mock_platform.assign_label.assert_any_await(11, LABEL_FIXED)
 
     @pytest.mark.asyncio
-    async def test_label_removed_on_staleness_close(self) -> None:
-        """When an issue is closed as stale after a fix, af:fix label is removed."""
+    async def test_fixed_label_assigned_on_staleness_close(self) -> None:
+        """When an issue is closed as stale after a fix, af:fixed label is assigned."""
         from agent_fox.nightshift.engine import NightShiftEngine
 
         config = MagicMock()
@@ -238,7 +302,7 @@ class TestEngineLabelRemovalOnClose:
         mock_platform = AsyncMock()
         mock_platform.list_issues_by_label = AsyncMock(return_value=[issue1, issue2])
         mock_platform.close_issue = AsyncMock()
-        mock_platform.remove_label = AsyncMock()
+        mock_platform.assign_label = AsyncMock()
 
         engine = NightShiftEngine(config=config, platform=mock_platform)
 
@@ -256,7 +320,7 @@ class TestEngineLabelRemovalOnClose:
         ):
             await engine._run_issue_check()
 
-        # Issue #21 should have been closed AND had its label removed
+        # Issue #21 should have been closed AND had af:fixed assigned
         close_calls = [call.args[0] for call in mock_platform.close_issue.call_args_list]
         assert 21 in close_calls
-        mock_platform.remove_label.assert_any_await(21, LABEL)
+        mock_platform.assign_label.assert_any_await(21, LABEL_FIXED)

@@ -31,7 +31,7 @@ from agent_fox.nightshift.reference_parser import (
 from agent_fox.nightshift.staleness import check_staleness
 from agent_fox.nightshift.state import NightShiftState
 from agent_fox.nightshift.triage import run_batch_triage
-from agent_fox.platform.labels import LABEL_FIX
+from agent_fox.platform.labels import LABEL_FIX, LABEL_FIXED
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback
 
 if TYPE_CHECKING:
@@ -220,13 +220,13 @@ class NightShiftEngine:
                     payload={"closed_issue": obsolete, "superseded_by": _keep},
                 )
                 try:
-                    await self._platform.remove_label(  # type: ignore[attr-defined]
+                    await self._platform.assign_label(  # type: ignore[attr-defined]
                         obsolete,
-                        LABEL_FIX,
+                        LABEL_FIXED,
                     )
                 except Exception:
                     logger.warning(
-                        "Failed to remove af:fix label from superseded issue #%d",
+                        "Failed to assign af:fixed label to superseded issue #%d",
                         obsolete,
                         exc_info=True,
                     )
@@ -295,13 +295,13 @@ class NightShiftEngine:
                                 },
                             )
                             try:
-                                await self._platform.remove_label(  # type: ignore[attr-defined]
+                                await self._platform.assign_label(  # type: ignore[attr-defined]
                                     obsolete_num,
-                                    LABEL_FIX,
+                                    LABEL_FIXED,
                                 )
                             except Exception:
                                 logger.warning(
-                                    "Failed to remove af:fix label from obsolete issue #%d",
+                                    "Failed to assign af:fixed label to obsolete issue #%d",
                                     obsolete_num,
                                     exc_info=True,
                                 )
