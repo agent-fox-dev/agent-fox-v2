@@ -206,9 +206,10 @@ def night_shift_cmd(
 
     _known_specs: set[str] = set()
     _specs_dir = project_root / ".specs"
+    _plan_path = project_root / ".agent-fox" / "plan.json"
 
     async def _discover_fn() -> list:
-        found = await discover_new_specs_gated(_specs_dir, _known_specs, project_root)
+        found = await discover_new_specs_gated(_specs_dir, _known_specs, project_root, plan_path=_plan_path)
         for spec in found:
             _known_specs.add(spec.name)
         return found

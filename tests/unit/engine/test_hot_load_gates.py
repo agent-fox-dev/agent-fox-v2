@@ -1,10 +1,11 @@
-"""Hot-load gate pipeline tests: git-tracked, completeness, lint gates.
+"""Hot-load gate pipeline tests: git-tracked, completeness, lint, tasks-complete gates.
 
-Test Spec: TS-51-12 through TS-51-22
+Test Spec: TS-51-12 through TS-51-22, TS-444-1 through TS-444-5
 Requirements: 51-REQ-4.1, 51-REQ-4.2, 51-REQ-4.E1,
               51-REQ-5.1, 51-REQ-5.2, 51-REQ-5.E1,
               51-REQ-6.1, 51-REQ-6.2, 51-REQ-6.3, 51-REQ-6.E1,
-              51-REQ-7.1, 51-REQ-7.2, 51-REQ-7.3
+              51-REQ-7.1, 51-REQ-7.2, 51-REQ-7.3,
+              444-AC-1, 444-AC-2, 444-AC-3, 444-AC-4
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from unittest.mock import patch
 import pytest
 
 from agent_fox.engine.hot_load import (
+    _are_all_plan_nodes_done,
+    are_all_tasks_done,
     discover_new_specs_gated,
     is_spec_complete,
     is_spec_tracked_on_develop,
@@ -491,3 +494,480 @@ class TestSkippedSpecReEvaluation:
             result_2 = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
             assert len(result_2) == 1
             assert result_2[0].name == "42_feature"
+
+
+# ---------------------------------------------------------------------------
+# TS-444-1: are_all_tasks_done
+# ---------------------------------------------------------------------------
+
+_COMPLETED_TASKS_MD = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+  - [x] 1.2 Subtask two
+- [x] 2. Second task group
+  - [x] 2.1 Subtask one
+"""
+
+_INCOMPLETE_TASKS_MD = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+- [ ] 2. Second task group
+  - [ ] 2.1 Subtask one
+"""
+
+_ALL_INCOMPLETE_TASKS_MD = """\
+# Tasks
+
+- [ ] 1. First task group
+  - [ ] 1.1 Subtask one
+- [ ] 2. Second task group
+  - [ ] 2.1 Subtask one
+"""
+
+
+class TestAreAllTasksDone:
+    """TS-444-1: tasks.md checkbox gate for completed specs.
+
+    Requirements: 444-AC-1
+    """
+
+    def test_all_groups_completed(self, tmp_path: Path) -> None:
+        """Returns True when all task groups are marked [x]."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        assert are_all_tasks_done(spec_path) is True
+
+    def test_some_groups_incomplete(self, tmp_path: Path) -> None:
+        """Returns False when some groups are not completed."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_INCOMPLETE_TASKS_MD)
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_no_groups_found(self, tmp_path: Path) -> None:
+        """Returns False when tasks.md has no parseable groups."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text("# Tasks\n\nNo task groups here.\n")
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_tasks_md_missing(self, tmp_path: Path) -> None:
+        """Returns False when tasks.md does not exist."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_parse_error(self, tmp_path: Path) -> None:
+        """Returns False when parse_tasks raises an exception."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        with patch(
+            "agent_fox.engine.hot_load.parse_tasks",
+            side_effect=RuntimeError("parse error"),
+        ):
+            assert are_all_tasks_done(spec_path) is False
+
+    def test_new_unchecked_tasks_added(self, tmp_path: Path) -> None:
+        """Returns False when previously complete spec has new unchecked tasks.
+
+        Acceptance criterion: 444-AC-4
+        """
+        tasks_with_new = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+- [x] 2. Second task group
+  - [x] 2.1 Subtask one
+- [ ] 3. New task group added later
+  - [ ] 3.1 New subtask
+"""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(tasks_with_new)
+
+        assert are_all_tasks_done(spec_path) is False
+
+
+# ---------------------------------------------------------------------------
+# TS-444-2: _are_all_plan_nodes_done
+# ---------------------------------------------------------------------------
+
+
+class TestAreAllPlanNodesDone:
+    """TS-444-2: plan node state gate for completed specs.
+
+    Requirements: 444-AC-2
+    """
+
+    def test_all_nodes_completed(self) -> None:
+        """Returns True when all nodes for spec have COMPLETED status."""
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        graph = TaskGraph(
+            nodes={
+                "42_feature:0": Node(
+                    id="42_feature:0",
+                    spec_name="42_feature",
+                    group_number=0,
+                    title="Group 0",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+                "42_feature:1": Node(
+                    id="42_feature:1",
+                    spec_name="42_feature",
+                    group_number=1,
+                    title="Group 1",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+            },
+            edges=[],
+            order=["42_feature:0", "42_feature:1"],
+        )
+
+        assert _are_all_plan_nodes_done("42_feature", graph) is True
+
+    def test_some_nodes_not_completed(self) -> None:
+        """Returns False when some nodes are pending."""
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        graph = TaskGraph(
+            nodes={
+                "42_feature:0": Node(
+                    id="42_feature:0",
+                    spec_name="42_feature",
+                    group_number=0,
+                    title="Group 0",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+                "42_feature:1": Node(
+                    id="42_feature:1",
+                    spec_name="42_feature",
+                    group_number=1,
+                    title="Group 1",
+                    optional=False,
+                    status=NodeStatus.PENDING,
+                ),
+            },
+            edges=[],
+            order=["42_feature:0", "42_feature:1"],
+        )
+
+        assert _are_all_plan_nodes_done("42_feature", graph) is False
+
+    def test_no_nodes_for_spec(self) -> None:
+        """Returns False when plan has no nodes for this spec."""
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        graph = TaskGraph(
+            nodes={
+                "99_other:0": Node(
+                    id="99_other:0",
+                    spec_name="99_other",
+                    group_number=0,
+                    title="Other",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+            },
+            edges=[],
+            order=["99_other:0"],
+        )
+
+        assert _are_all_plan_nodes_done("42_feature", graph) is False
+
+    def test_graph_is_none(self) -> None:
+        """Returns False when no plan graph is available."""
+        assert _are_all_plan_nodes_done("42_feature", None) is False
+
+
+# ---------------------------------------------------------------------------
+# TS-444-3: Gate 4 integration in discover_new_specs_gated pipeline
+# ---------------------------------------------------------------------------
+
+
+class TestTasksCompleteGatePipeline:
+    """TS-444-3: Tasks-complete gate filters fully implemented specs.
+
+    Requirements: 444-AC-1, 444-AC-2, 444-AC-3, 444-AC-4
+    """
+
+    @pytest.mark.asyncio
+    async def test_both_signals_done_skips_spec(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Spec skipped when tasks.md all [x] AND plan nodes all completed."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        # Overwrite tasks.md with completed content (after _create_spec_files)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        # Create plan.json with completed nodes
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        plan_graph = TaskGraph(
+            nodes={
+                "42_feature:1": Node(
+                    id="42_feature:1",
+                    spec_name="42_feature",
+                    group_number=1,
+                    title="First",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+                "42_feature:2": Node(
+                    id="42_feature:2",
+                    spec_name="42_feature",
+                    group_number=2,
+                    title="Second",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+            },
+            edges=[],
+            order=["42_feature:1", "42_feature:2"],
+        )
+
+        from agent_fox.graph.persistence import save_plan
+
+        plan_path = tmp_path / ".agent-fox" / "plan.json"
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        save_plan(plan_graph, plan_path)
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+            caplog.at_level(logging.INFO, logger="agent_fox.engine.hot_load"),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+            )
+
+        assert result == []
+        assert any("fully implemented" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_tasks_done_but_nodes_not_done(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when tasks.md all [x] but plan nodes are pending."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        # Create plan.json with pending nodes
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        plan_graph = TaskGraph(
+            nodes={
+                "42_feature:1": Node(
+                    id="42_feature:1",
+                    spec_name="42_feature",
+                    group_number=1,
+                    title="First",
+                    optional=False,
+                    status=NodeStatus.PENDING,
+                ),
+            },
+            edges=[],
+            order=["42_feature:1"],
+        )
+
+        from agent_fox.graph.persistence import save_plan
+
+        plan_path = tmp_path / ".agent-fox" / "plan.json"
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        save_plan(plan_graph, plan_path)
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+            )
+
+        assert len(result) == 1
+        assert result[0].name == "42_feature"
+
+    @pytest.mark.asyncio
+    async def test_nodes_done_but_tasks_not_done(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when plan nodes completed but tasks.md has unchecked boxes."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_INCOMPLETE_TASKS_MD)
+
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+
+        plan_graph = TaskGraph(
+            nodes={
+                "42_feature:1": Node(
+                    id="42_feature:1",
+                    spec_name="42_feature",
+                    group_number=1,
+                    title="First",
+                    optional=False,
+                    status=NodeStatus.COMPLETED,
+                ),
+            },
+            edges=[],
+            order=["42_feature:1"],
+        )
+
+        from agent_fox.graph.persistence import save_plan
+
+        plan_path = tmp_path / ".agent-fox" / "plan.json"
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        save_plan(plan_graph, plan_path)
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+            )
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_plan_file_does_not_skip(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when plan.json does not exist (even if tasks all done)."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        plan_path = tmp_path / ".agent-fox" / "plan.json"  # does not exist
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+            )
+
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_no_plan_path_provided(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when plan_path is None (backward compat)."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            # No plan_path argument — backward compatible
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path
+            )
+
+        assert len(result) == 1

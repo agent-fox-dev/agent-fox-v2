@@ -164,21 +164,80 @@ def lint_spec_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
         return (False, [f"Validator error: {exc}"])
 
 
+def are_all_tasks_done(spec_path: Path) -> bool:
+    """Check if all task groups in tasks.md are marked complete.
+
+    Returns True only when tasks.md exists, contains at least one group,
+    and every group has ``completed=True``.
+
+    Args:
+        spec_path: Path to the spec folder (e.g., ``.specs/42_feature``).
+
+    Returns:
+        True if all task groups are completed, False otherwise.
+    """
+    tasks_path = spec_path / "tasks.md"
+    if not tasks_path.is_file():
+        return False
+    try:
+        groups = parse_tasks(tasks_path)
+    except Exception:
+        return False
+    if not groups:
+        return False
+    return all(g.completed for g in groups)
+
+
+def _are_all_plan_nodes_done(
+    spec_name: str,
+    graph: TaskGraph | None,
+) -> bool:
+    """Check if all nodes for a spec in the plan graph are completed.
+
+    Returns True only when the graph exists, contains nodes for this
+    spec, and all of them have ``NodeStatus.COMPLETED``.
+
+    Args:
+        spec_name: The spec name to check (e.g., ``"42_feature"``).
+        graph: The loaded plan graph, or None if unavailable.
+
+    Returns:
+        True if all nodes for the spec are completed, False otherwise.
+    """
+    if graph is None:
+        return False
+    spec_nodes = [n for n in graph.nodes.values() if n.spec_name == spec_name]
+    if not spec_nodes:
+        return False
+    return all(n.status == NodeStatus.COMPLETED for n in spec_nodes)
+
+
 async def discover_new_specs_gated(
     specs_dir: Path,
     known_specs: set[str],
     repo_root: Path,
+    *,
+    plan_path: Path | None = None,
 ) -> list[SpecInfo]:
-    """Discover new specs that pass all three gates.
+    """Discover new specs that pass all four gates.
 
     Pipeline:
     1. Filesystem discovery (existing ``discover_new_specs``).
     2. Gate 1: git-tracked on develop.
     3. Gate 2: all 5 required files present and non-empty.
     4. Gate 3: no lint errors from validator.
+    5. Gate 4: not already fully implemented (tasks.md + plan state).
 
     Returns only specs that pass all gates.  Skipped specs are
     re-evaluated at the next barrier with a clean slate (51-REQ-7.2).
+
+    Args:
+        specs_dir: Path to the .specs/ directory.
+        known_specs: Set of spec names already in the current plan.
+        repo_root: Path to the repository root (for git checks).
+        plan_path: Optional path to plan.json for the tasks-complete gate.
+            When None, the plan node check is skipped (gate degrades
+            gracefully — specs are never skipped based on plan state alone).
 
     Requirements: 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1, 51-REQ-7.1,
                   51-REQ-7.2, 51-REQ-7.3
@@ -186,6 +245,13 @@ async def discover_new_specs_gated(
     candidates = discover_new_specs(specs_dir, known_specs)
     if not candidates:
         return []
+
+    # Load plan graph once for the tasks-complete gate (Gate 4).
+    plan_graph: TaskGraph | None = None
+    if plan_path is not None:
+        from agent_fox.graph.persistence import load_plan
+
+        plan_graph = load_plan(plan_path)
 
     accepted: list[SpecInfo] = []
     for spec in candidates:
@@ -212,6 +278,15 @@ async def discover_new_specs_gated(
                 "Spec '%s' has lint errors: %s, skipping",
                 spec.name,
                 "; ".join(errors),
+            )
+            continue
+
+        # Gate 4: tasks-complete — skip specs that are fully implemented.
+        # Both tasks.md AND plan node state must agree the spec is done.
+        if are_all_tasks_done(spec.path) and _are_all_plan_nodes_done(spec.name, plan_graph):
+            logger.info(
+                "Spec '%s' is fully implemented (all tasks complete, all plan nodes done), skipping",
+                spec.name,
             )
             continue
 

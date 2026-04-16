@@ -1303,7 +1303,7 @@ class Orchestrator:
         # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
         repo_root = self._plan_path.parent
         known_specs = {n.spec_name for n in self._graph.nodes.values()}
-        gated_specs = await discover_new_specs_gated(self._specs_dir, known_specs, repo_root)
+        gated_specs = await discover_new_specs_gated(self._specs_dir, known_specs, repo_root, plan_path=self._plan_path)
 
         if not gated_specs:
             return
