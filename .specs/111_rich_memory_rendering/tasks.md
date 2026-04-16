@@ -51,27 +51,27 @@ and rich rendering, (3) wiring verification.
     - [x] All spec tests FAIL (red) -- no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_rich_rendering.py tests/property/knowledge/test_rich_rendering_props.py tests/integration/knowledge/test_rich_rendering_smoke.py`
 
-- [ ] 2. Implement enrichment loading and rich rendering
-  - [ ] 2.1 Add constants and `Enrichments` dataclass to `rendering.py`
+- [x] 2. Implement enrichment loading and rich rendering
+  - [x] 2.1 Add constants and `Enrichments` dataclass to `rendering.py`
     - Add `_MAX_CAUSES = 2`, `_MAX_EFFECTS = 2`, `_MAX_ENTITY_PATHS = 3`,
       `_CAUSE_TRUNCATE = 60`, `_SUPERSEDED_TRUNCATE = 80`
     - Add `Enrichments` dataclass with `causes`, `effects`, `entity_paths`,
       `superseded` fields
     - _Requirements: 111-REQ-4.2, 111-REQ-5.1, 111-REQ-5.2, 111-REQ-6.1_
 
-  - [ ] 2.2 Implement `_format_relative_age()` in `rendering.py`
+  - [x] 2.2 Implement `_format_relative_age()` in `rendering.py`
     - Parse ISO timestamp, compute delta from `now`
     - Return "Xd ago" / "Xmo ago" / "Xy ago" based on day thresholds
     - Return `None` on parse failure
     - _Requirements: 111-REQ-2.1, 111-REQ-2.2, 111-REQ-2.E1_
 
-  - [ ] 2.3 Implement `load_enrichments()` in `rendering.py`
+  - [x] 2.3 Implement `load_enrichments()` in `rendering.py`
     - Execute 4 batch queries (causes, effects, entity paths, superseded)
     - Each query wrapped in try/except with warning log on failure
     - Return empty `Enrichments` when `conn is None`
     - _Requirements: 111-REQ-7.1, 111-REQ-7.2, 111-REQ-7.E1, 111-REQ-7.E2_
 
-  - [ ] 2.4 Update `_render_fact()` in `rendering.py`
+  - [x] 2.4 Update `_render_fact()` in `rendering.py`
     - Add `enrichments` and `now` parameters
     - Include relative age in metadata parenthetical
     - Render cause, effect, files, and replaces sub-bullets with limits and
@@ -80,7 +80,7 @@ and rich rendering, (3) wiring verification.
       111-REQ-5.2, 111-REQ-6.1, 111-REQ-4.E1, 111-REQ-5.E1, 111-REQ-5.E2,
       111-REQ-6.E1_
 
-  - [ ] 2.5 Update `render_summary()` in `rendering.py`
+  - [x] 2.5 Update `render_summary()` in `rendering.py`
     - Add summary header line with fact count and last-updated date
     - Sort facts by confidence desc, created_at desc before grouping
     - Call `load_enrichments()` and pass to `_render_fact()`
@@ -88,11 +88,11 @@ and rich rendering, (3) wiring verification.
     - _Requirements: 111-REQ-1.1, 111-REQ-1.2, 111-REQ-1.E1, 111-REQ-3.1,
       111-REQ-3.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All spec tests pass: `uv run pytest tests/unit/knowledge/test_rich_rendering.py tests/property/knowledge/test_rich_rendering_props.py tests/integration/knowledge/test_rich_rendering_smoke.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/rendering.py`
-    - [ ] Requirements 111-REQ-1.* through 111-REQ-7.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] All spec tests pass: `uv run pytest tests/unit/knowledge/test_rich_rendering.py tests/property/knowledge/test_rich_rendering_props.py tests/integration/knowledge/test_rich_rendering_smoke.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/rendering.py`
+    - [x] Requirements 111-REQ-1.* through 111-REQ-7.* acceptance criteria met
 
 - [ ] 3. Wiring verification
 
