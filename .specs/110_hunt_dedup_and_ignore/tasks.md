@@ -37,8 +37,8 @@ Implementation is split into 6 task groups plus a final wiring verification:
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create `tests/test_hunt_dedup_similarity.py`
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create `tests/test_hunt_dedup_similarity.py`
     - Unit tests for `cosine_similarity()`: TS-110-4, TS-110-E1
     - Unit tests for `build_finding_group_text()`: TS-110-5
     - Unit tests for `build_issue_text()`: TS-110-6
@@ -47,14 +47,14 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Property tests: TS-110-P1, TS-110-P2, TS-110-P3, TS-110-P4, TS-110-P7, TS-110-P8
     - _Test Spec: TS-110-4 through TS-110-9, TS-110-E1 through TS-110-E3, TS-110-E8, TS-110-E9, TS-110-P1 through TS-110-P4, TS-110-P7, TS-110-P8_
 
-  - [ ] 1.2 Create `tests/test_ignore_filter.py`
+  - [x] 1.2 Create `tests/test_ignore_filter.py`
     - Integration tests for `filter_ignored()`: TS-110-10, TS-110-11
     - Edge case tests: TS-110-E4
     - Property test: TS-110-P5
     - Smoke test: TS-110-SMOKE-1
     - _Test Spec: TS-110-10, TS-110-11, TS-110-E4, TS-110-P5, TS-110-SMOKE-1_
 
-  - [ ] 1.3 Create `tests/test_ignore_ingest.py`
+  - [x] 1.3 Create `tests/test_ignore_ingest.py`
     - Integration tests for `ingest_ignore_signals()`: TS-110-12, TS-110-13
     - Unit test for category extraction: TS-110-17
     - Edge case tests: TS-110-E5, TS-110-E6, TS-110-E7
@@ -62,21 +62,21 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Smoke test: TS-110-SMOKE-2
     - _Test Spec: TS-110-12, TS-110-13, TS-110-17, TS-110-E5 through TS-110-E7, TS-110-P6, TS-110-SMOKE-2_
 
-  - [ ] 1.4 Create `tests/test_critic_false_positives.py`
+  - [x] 1.4 Create `tests/test_critic_false_positives.py`
     - Unit tests for critic prompt enhancement: TS-110-14, TS-110-15
     - Property test: TS-110-P9
     - Smoke test: TS-110-SMOKE-3
     - _Test Spec: TS-110-14, TS-110-15, TS-110-P9, TS-110-SMOKE-3_
 
-  - [ ] 1.5 Create `tests/test_ignore_label.py`
+  - [x] 1.5 Create `tests/test_ignore_label.py`
     - Unit tests for label constants: TS-110-1, TS-110-2, TS-110-3
     - Unit test for config field: TS-110-16
     - _Test Spec: TS-110-1, TS-110-2, TS-110-3, TS-110-16_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check .`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check .`
 
 - [ ] 2. Label and configuration
   - [ ] 2.1 Add `LABEL_IGNORE` and `LABEL_IGNORE_COLOR` to `platform/labels.py`
