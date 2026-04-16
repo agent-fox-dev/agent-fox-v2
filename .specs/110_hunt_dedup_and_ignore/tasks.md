@@ -95,18 +95,18 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] No linter warnings introduced: `uv run ruff check .`
     - [x] Requirements 1.1, 1.2, 1.3, 1.4, 7.1 acceptance criteria met
 
-- [ ] 3. Similarity computation and enhanced dedup
-  - [ ] 3.1 Add `cosine_similarity()` to `nightshift/dedup.py`
+- [x] 3. Similarity computation and enhanced dedup
+  - [x] 3.1 Add `cosine_similarity()` to `nightshift/dedup.py`
     - Implement using `math.sqrt` and dot product
     - Handle None and empty vectors (return 0.0)
     - _Requirements: 2.4, 2.E1_
 
-  - [ ] 3.2 Add text representation builders to `nightshift/dedup.py`
+  - [x] 3.2 Add text representation builders to `nightshift/dedup.py`
     - `build_finding_group_text(group: FindingGroup) -> str`
     - `build_issue_text(issue: IssueResult) -> str`
     - _Requirements: 2.2, 2.3_
 
-  - [ ] 3.3 Enhance `filter_known_duplicates()` in `nightshift/dedup.py`
+  - [x] 3.3 Enhance `filter_known_duplicates()` in `nightshift/dedup.py`
     - Change `state="open"` to `state="all"` in `list_issues_by_label` call
     - Add `similarity_threshold` and `embedder` parameters
     - After fingerprint check, compute embeddings for remaining groups and issues
@@ -116,11 +116,11 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Log INFO for each similarity-matched group with title, issue number, score
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.E1, 3.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/test_hunt_dedup_similarity.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check .`
-    - [ ] Requirements 2.1, 2.2, 2.3, 2.4, 3.1-3.5 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/test_hunt_dedup_similarity.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check .`
+    - [x] Requirements 2.1, 2.2, 2.3, 2.4, 3.1-3.5 acceptance criteria met
 
 - [ ] 4. Ignore filter
   - [ ] 4.1 Create `nightshift/ignore_filter.py`
