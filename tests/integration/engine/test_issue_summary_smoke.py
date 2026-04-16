@@ -110,7 +110,7 @@ class TestOrchestratorSkipsWhenNoPlatform:
             )
         )
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         # platform=None: Orchestrator must NOT require platform, must skip summaries
         orchestrator = Orchestrator(
             config=config,
@@ -184,7 +184,7 @@ class TestEndToEndIssueSummary:
         mock_git.returncode = 0
         mock_git.stdout = "deadbeef1234\n"
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             specs_dir=specs_dir,

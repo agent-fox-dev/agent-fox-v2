@@ -13,7 +13,7 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -67,7 +67,7 @@ class TestExecutionLoopLinearChain:
         """Sessions dispatched in dependency order: A, then B, then C."""
         db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -88,7 +88,7 @@ class TestExecutionLoopLinearChain:
         """All nodes end in completed status."""
         db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -109,7 +109,7 @@ class TestExecutionLoopLinearChain:
         """Total sessions count equals number of tasks."""
         db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -159,6 +159,8 @@ class TestRetryWithError:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -217,6 +219,8 @@ class TestBlockedAfterRetries:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -282,6 +286,8 @@ class TestGracefulShutdown:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -339,6 +345,8 @@ class TestStalledExecution:
             parallel=1,
             max_retries=0,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -395,6 +403,7 @@ class TestResumeWithInProgressTask:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with patch(
@@ -458,7 +467,7 @@ class TestResumeAfterStatusSync:
         assert compute_plan_hash(graph2) == plan_hash
 
         mock = MockSessionRunner()
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock,
@@ -501,7 +510,7 @@ class TestFreshStartWithCompletedNodes:
 
         # No prior DB state — fresh start
         mock = MockSessionRunner()
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock,
@@ -575,6 +584,8 @@ class TestCostLimitStopsOrchestrator:
             parallel=1,
             max_cost=0.50,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -615,6 +626,8 @@ class TestCostLimitStopsOrchestrator:
             parallel=1,
             max_cost=0.50,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -657,6 +670,8 @@ class TestSessionLimitStopsOrchestrator:
             parallel=1,
             max_sessions=3,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -692,6 +707,8 @@ class TestSessionLimitStopsOrchestrator:
             parallel=1,
             max_sessions=3,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -722,7 +739,7 @@ class TestMissingPlanFile:
         # DB with schema but no plan data
         empty_db = _create_db_with_schema()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -744,7 +761,7 @@ class TestMissingPlanFile:
 
         empty_db = _create_db_with_schema()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -774,7 +791,7 @@ class TestEmptyPlan:
             edges=[],
         )
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -797,7 +814,7 @@ class TestEmptyPlan:
             edges=[],
         )
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -853,6 +870,8 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
@@ -894,6 +913,8 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
@@ -931,6 +952,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=0,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with (
@@ -980,6 +1002,8 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
@@ -1022,7 +1046,7 @@ class TestParallelDispatchWithDependencies:
             order=["spec:1", "spec:2", "spec:3"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -1055,7 +1079,7 @@ class TestParallelDispatchWithDependencies:
             order=["spec_a:1", "spec_b:1", "spec_c:1"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -1102,6 +1126,8 @@ class TestParallelDispatchWithDependencies:
             parallel=4,
             max_retries=0,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
@@ -1140,7 +1166,7 @@ class TestParallelDispatchWithDependencies:
             order=["spec_a:1", "spec_b:1", "spec_c:1"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock_runner,
@@ -1184,7 +1210,7 @@ class TestParallelDispatchWithDependencies:
                 return result
 
         mock = ConcurrencyTracker()
-        config = OrchestratorConfig(parallel=2, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=2, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock,

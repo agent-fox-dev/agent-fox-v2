@@ -106,6 +106,8 @@ class TestBlockBudget:
             parallel=1,
             inter_session_delay=0,
             max_retries=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -142,6 +144,8 @@ class TestBlockBudget:
             inter_session_delay=0,
             max_retries=0,
             max_blocked_fraction=0.4,  # 40% threshold
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -175,6 +179,8 @@ class TestBlockBudget:
             inter_session_delay=0,
             max_retries=0,
             max_blocked_fraction=0.5,  # 50% threshold
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -228,6 +234,8 @@ class TestSkepticBlocking:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -291,6 +299,8 @@ class TestSkepticBlocking:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -364,6 +374,8 @@ class TestSkepticBlocking:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
@@ -411,6 +423,8 @@ class TestSkepticBlocking:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orch = Orchestrator(
             config=config,
