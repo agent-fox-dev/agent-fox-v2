@@ -117,13 +117,11 @@ Full documentation lives in [`docs/`](docs/README.md):
 - [Archetypes](docs/archetypes.md) — agent roles (Coder, Skeptic, Oracle, Auditor, Verifier, …)
 - [Skills](docs/skills.md) — bundled Claude Code slash commands (`/af-spec`, `/af-fix`, …)
 
-TBD
-include a short paragraph about the architecture documents in `docs/architecture` and link to them.
+TBD: Include a short paragraph about the architecture documents in `docs/architecture` and link to them.
 
 ## References
 
-TBD
-Include references to academic papers that are relevant to agent-fox or that agent-fox is conceptually or architecturally grounded in.
+TBD: Include references to academic papers that are relevant to agent-fox or that agent-fox is conceptually or architecturally grounded in.
 
 ### MAGMA: A Multi-Graph based Agentic Memory Architecture for AI Agents
 https://arxiv.org/abs/2601.03236

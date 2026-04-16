@@ -13,7 +13,22 @@ from agent_fox.knowledge.lang.base import LanguageAnalyzer
 logger = logging.getLogger(__name__)
 
 # Directories excluded during non-gitignore fallback scan.
-_EXCLUDED_DIRS: frozenset[str] = frozenset({"node_modules", ".git", "__pycache__", "vendor", "target", "build", "dist"})
+_EXCLUDED_DIRS: frozenset[str] = frozenset(
+    {
+        "node_modules",
+        ".git",
+        "__pycache__",
+        "vendor",
+        "target",
+        "build",
+        "dist",
+        ".venv",
+        "venv",
+        "env",
+        ".env",
+        ".tox",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
