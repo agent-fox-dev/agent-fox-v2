@@ -1,6 +1,6 @@
 """Harvester tests.
 
-Test Spec: TS-03-10 (fast-forward merge), TS-03-11 (rebase on conflict),
+Test Spec: TS-03-10 (squash merge), TS-03-11 (diverged squash merge),
            TS-03-E5 (no commits), TS-03-E6 (unresolvable conflict)
 Requirements: 03-REQ-7.1 through 03-REQ-7.E2,
               45-REQ-4.1, 45-REQ-6.1
@@ -18,18 +18,18 @@ from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace import create_worktree
 from agent_fox.workspace.harvest import harvest
 
-from .conftest import add_commit_to_branch, get_branch_tip
+from .conftest import add_commit_to_branch
 
 
-class TestHarvesterFastForward:
-    """TS-03-10: Harvester merges changes via fast-forward."""
+class TestHarvesterSquashMerge:
+    """TS-03-10: Harvester merges changes via squash merge."""
 
     @pytest.mark.asyncio
-    async def test_fast_forward_merge_succeeds(
+    async def test_squash_merge_succeeds(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """Harvesting a feature branch with commits merges into develop."""
+        """Harvesting a feature branch with commits squash-merges into develop."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
         add_commit_to_branch(ws.path, "new_file.py", "print('hello')\n")
 
@@ -37,30 +37,45 @@ class TestHarvesterFastForward:
         assert "new_file.py" in files
 
     @pytest.mark.asyncio
-    async def test_develop_tip_matches_feature_after_merge(
+    async def test_squash_produces_single_commit(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """After harvest, develop tip matches the feature branch tip."""
+        """After harvest, develop has exactly one new commit (squash)."""
+        develop_tip_before = subprocess.run(
+            ["git", "rev-parse", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
-        add_commit_to_branch(ws.path, "new_file.py", "print('hello')\n")
+        add_commit_to_branch(ws.path, "file_a.py", "a\n")
+        add_commit_to_branch(ws.path, "file_b.py", "b\n")
 
         await harvest(tmp_worktree_repo, ws)
 
-        develop_tip = get_branch_tip(tmp_worktree_repo, "develop")
-        feature_tip = get_branch_tip(tmp_worktree_repo, ws.branch)
-        assert develop_tip == feature_tip
+        # Count commits on develop since the tip before harvest
+        result = subprocess.run(
+            ["git", "rev-list", "--count", f"{develop_tip_before}..develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert int(result.stdout.strip()) == 1, "Squash merge should produce exactly one commit"
 
 
-class TestHarvesterRebaseRetry:
-    """TS-03-11: Harvester rebases on conflict and retries."""
+class TestHarvesterDivergedSquashMerge:
+    """TS-03-11: Harvester squash-merges diverged branches."""
 
     @pytest.mark.asyncio
-    async def test_diverged_merge_succeeds_after_rebase(
+    async def test_diverged_merge_succeeds(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """When develop has diverged, harvester rebases and merges."""
+        """When develop has diverged, harvester squash-merges successfully."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Add a commit on the feature branch (different file)
@@ -88,18 +103,15 @@ class TestHarvesterRebaseRetry:
 
 
 class TestHarvesterMergeFallback:
-    """Merge-commit fallback when rebase has conflicts but merge succeeds."""
+    """Squash merge with identical content on both branches."""
 
     @pytest.mark.asyncio
     async def test_cherry_pick_conflict_falls_back_to_merge(
         self,
         tmp_worktree_repo: Path,
     ) -> None:
-        """When a cherry-picked commit causes rebase conflicts,
-        the harvester falls back to a merge commit and succeeds."""
-        # Simulate the real-world scenario: session 1 adds a file,
-        # its changes get merged into develop. Session 2 independently
-        # added the same content (cherry-pick equivalent).
+        """When both branches have the same file with the same content,
+        squash merge produces no new changes (no-op commit)."""
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         # Add a file on the feature branch
@@ -123,10 +135,8 @@ class TestHarvesterMergeFallback:
             "def test_scaffold(): pass\n",
         )
 
-        # Harvest should succeed via merge fallback (not raise)
+        # Harvest should succeed — no IntegrationError raised
         files = await harvest(tmp_worktree_repo, ws)
-        # The file was already on develop, so changed_files may be empty
-        # The key assertion: no IntegrationError is raised
         assert isinstance(files, list)
 
 
@@ -150,12 +160,24 @@ class TestHarvesterNoCommits:
         tmp_worktree_repo: Path,
     ) -> None:
         """Harvesting with no new commits does not change develop."""
-        develop_tip_before = get_branch_tip(tmp_worktree_repo, "develop")
+        develop_tip_before = subprocess.run(
+            ["git", "rev-parse", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
         ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
 
         await harvest(tmp_worktree_repo, ws)
 
-        develop_tip_after = get_branch_tip(tmp_worktree_repo, "develop")
+        develop_tip_after = subprocess.run(
+            ["git", "rev-parse", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
         assert develop_tip_after == develop_tip_before
 
 

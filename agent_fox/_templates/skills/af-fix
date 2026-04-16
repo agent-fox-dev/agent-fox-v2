@@ -588,7 +588,7 @@ If PR creation fails for any reason, print a warning and continue:
 ```bash
 git checkout develop
 git pull origin develop
-git merge --no-ff {branch_name} -m "Merge {branch_name} into develop"
+git merge --squash {branch_name} && git commit --no-edit
 ```
 
 If the merge produces conflicts:

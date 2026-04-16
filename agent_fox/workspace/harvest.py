@@ -18,13 +18,10 @@ from agent_fox.core.errors import IntegrationError
 from agent_fox.workspace import (
     WorkspaceInfo,
     _sync_develop_with_remote,
-    abort_rebase,
     checkout_branch,
     get_changed_files,
     has_new_commits,
-    merge_fast_forward,
     push_to_remote,
-    rebase_onto,
     run_git,
 )
 from agent_fox.workspace.merge_agent import run_merge_agent
@@ -45,19 +42,19 @@ async def harvest(
 ) -> list[str]:
     """Integrate a workspace's changes into the development branch.
 
+    Always uses ``git merge --squash`` to produce a single commit on
+    dev_branch, regardless of the feature branch topology.
+
     Steps:
     1. Check if the feature branch has new commits relative to
        dev_branch. If not, return an empty list (no-op).
     2. Checkout dev_branch in the main repo.
-    3. Attempt a fast-forward merge of the feature branch.
-    4. If fast-forward fails, rebase the feature branch onto
-       dev_branch and retry the fast-forward merge.
-    5. If rebase fails, fall back to a squash merge (single commit
-       on dev_branch, no merge commit).
-    6. Return the list of changed files.
+    3. Squash-merge the feature branch (single commit, no merge commit).
+    4. On conflict, spawn the merge agent to resolve.
+    5. Return the list of changed files.
 
     Raises:
-        IntegrationError: If merge fails after rebase retry.
+        IntegrationError: If merge fails after merge-agent attempt.
     """
     # Step 1: Check for new commits (03-REQ-7.E2)
     if not await has_new_commits(repo_root, workspace.branch, dev_branch):
@@ -134,7 +131,11 @@ async def _harvest_under_lock(
     workspace: WorkspaceInfo,
     dev_branch: str,
 ) -> list[str]:
-    """Execute the harvest merge strategies under the merge lock.
+    """Execute the harvest squash-merge under the merge lock.
+
+    Always uses ``git merge --squash`` to produce a single commit on
+    dev_branch regardless of the feature branch topology.  On conflict,
+    spawns the merge agent to resolve.
 
     Called from harvest() after the lock is acquired.
 
@@ -157,113 +158,55 @@ async def _harvest_under_lock(
         dev_branch,
     )
 
-    # Step 2: Checkout the development branch in the main repo
+    # Checkout the development branch in the main repo
     await checkout_branch(repo_root, dev_branch)
 
-    # Step 3: Attempt fast-forward merge (03-REQ-7.1)
-    try:
-        await merge_fast_forward(repo_root, workspace.branch)
+    # Squash merge produces a single commit on dev_branch, collapsing
+    # any internal merge topology on the feature branch.
+    merge_rc, merge_stdout, merge_stderr = await run_git(
+        ["merge", "--squash", "--", workspace.branch],
+        cwd=repo_root,
+        check=False,
+    )
+    if merge_rc != 0:
+        # Spawn merge agent to resolve conflicts (45-REQ-4.1, 45-REQ-6.1)
+        merge_detail = merge_stderr.strip() or merge_stdout.strip()
         logger.info(
-            "Fast-forward merge of '%s' into '%s' succeeded",
-            workspace.branch,
-            dev_branch,
-        )
-        return changed_files
-    except IntegrationError:
-        logger.info(
-            "Fast-forward merge failed for '%s', attempting rebase",
+            "Squash merge of '%s' had conflicts, spawning merge agent",
             workspace.branch,
         )
-
-    # Step 4: Rebase and retry (03-REQ-7.2)
-    # Run rebase from the worktree directory because the feature branch
-    # is checked out there. Using `git rebase <onto>` (without a branch
-    # argument) rebases the currently checked-out branch.
-    try:
-        await rebase_onto(workspace.path, workspace.branch, dev_branch)
-    except IntegrationError:
-        # Rebase failed (conflicts) — abort and fall back to squash merge
-        logger.info(
-            "Rebase of '%s' onto '%s' had conflicts, falling back to squash merge",
-            workspace.branch,
-            dev_branch,
+        resolved = await run_merge_agent(
+            worktree_path=repo_root,
+            conflict_output=merge_detail,
+            model_id="ADVANCED",
         )
-        await abort_rebase(workspace.path)
-        # Clean working tree in repo root — a failed rebase in the worktree
-        # can leave tracked files dirty in the main repo, which blocks merge.
-        await run_git(
-            ["checkout", "--", "."],
-            cwd=repo_root,
-            check=False,
-        )
-        # Step 5: Fall back to squash merge (03-REQ-7.E1)
-        # Squash merge produces a single commit on dev_branch, avoiding
-        # the extra "Merge branch ..." commit that pollutes the log.
-        # Conflicts are left in the working tree for the merge agent.
-        merge_rc, merge_stdout, merge_stderr = await run_git(
-            ["merge", "--squash", "--", workspace.branch],
-            cwd=repo_root,
-            check=False,
-        )
-        if merge_rc != 0:
-            # Step 6: Spawn merge agent to resolve conflicts (45-REQ-4.1)
-            # Replaces blind -X theirs strategy (45-REQ-6.1)
-            merge_detail = merge_stderr.strip() or merge_stdout.strip()
-            logger.info(
-                "Squash merge of '%s' failed, spawning merge agent to resolve conflicts",
-                workspace.branch,
-            )
-            resolved = await run_merge_agent(
-                worktree_path=repo_root,
-                conflict_output=merge_detail,
-                model_id="ADVANCED",
-            )
-            if not resolved:
-                # Abort the failed squash merge and raise.
-                # Squash does not set MERGE_HEAD, so use reset --merge.
-                await run_git(
-                    ["reset", "--merge"],
-                    cwd=repo_root,
-                    check=False,
-                )
-                raise IntegrationError(
-                    f"Merge agent failed to resolve conflicts for '{workspace.branch}' into '{dev_branch}'",
-                    branch=workspace.branch,
-                )
-        else:
-            # Squash stages changes but does not commit. Commit them now,
-            # unless the squash resulted in no changes (identical content
-            # already on dev_branch).
-            diff_rc, _, _ = await run_git(
-                ["diff", "--cached", "--quiet"],
+        if not resolved:
+            # Abort the failed squash merge and raise.
+            # Squash does not set MERGE_HEAD, so use reset --merge.
+            await run_git(
+                ["reset", "--merge"],
                 cwd=repo_root,
                 check=False,
             )
-            if diff_rc != 0:
-                # Staged changes exist — commit using the SQUASH_MSG
-                await run_git(["commit", "--no-edit"], cwd=repo_root)
-        changed_files = await get_changed_files(
-            repo_root,
-            workspace.branch,
-            dev_branch,
+            raise IntegrationError(
+                f"Merge agent failed to resolve conflicts for '{workspace.branch}' into '{dev_branch}'",
+                branch=workspace.branch,
+            )
+    else:
+        # Squash stages changes but does not commit. Commit them now,
+        # unless the squash resulted in no changes (identical content
+        # already on dev_branch).
+        diff_rc, _, _ = await run_git(
+            ["diff", "--cached", "--quiet"],
+            cwd=repo_root,
+            check=False,
         )
-        logger.info(
-            "Squash merge of '%s' into '%s' succeeded",
-            workspace.branch,
-            dev_branch,
-        )
-        return changed_files
+        if diff_rc != 0:
+            # Staged changes exist — commit using the SQUASH_MSG
+            await run_git(["commit", "--no-edit"], cwd=repo_root)
 
-    # Retry the fast-forward merge after successful rebase
-    # After rebase, the changed files may differ slightly, so re-fetch
-    changed_files = await get_changed_files(
-        repo_root,
-        workspace.branch,
-        dev_branch,
-    )
-    await merge_fast_forward(repo_root, workspace.branch)
     logger.info(
-        "Merge of '%s' into '%s' succeeded after rebase",
+        "Squash merge of '%s' into '%s' succeeded",
         workspace.branch,
         dev_branch,
     )
