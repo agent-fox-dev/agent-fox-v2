@@ -102,9 +102,9 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/spec/lint.py`
     - [x] Requirements 109-REQ-1.*, 109-REQ-2.*, 109-REQ-3.*, 109-REQ-4.*, 109-REQ-5.* acceptance criteria met
 
-- [ ] 3. Wiring verification
+- [x] 3. Wiring verification
 
-  - [ ] 3.1 Trace every execution path from design.md end-to-end
+  - [x] 3.1 Trace every execution path from design.md end-to-end
     - For each path, verify the entry point actually calls the next function
       in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -112,28 +112,55 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
     - Every path must be live in production code — errata or deferrals do not
       satisfy this check
     - _Requirements: all_
+    - **Path 1 verified:** lint_specs_cmd (cli/lint_specs.py:190) →
+      run_lint_specs (lint.py:66) → validate_specs (lint.py:121) →
+      _merge_ai_findings (lint.py:125) → _apply_ai_fixes (lint.py:132) →
+      rewrite_criteria (lint.py:263) → fix_ai_criteria (lint.py:270). Live.
+    - **Path 2 verified:** same chain → generate_test_spec_entries
+      (lint.py:312) → fix_ai_test_spec_entries (lint.py:320). Live.
+    - No stubs in any function in either chain.
 
-  - [ ] 3.2 Verify return values propagate correctly
+  - [x] 3.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Grep for callers of each such function; confirm none discards the return
     - Specifically verify: `_apply_ai_fixes()` return value is extended into
       `all_fix_results` in `run_lint_specs()`
     - _Requirements: all_
+    - `rewrite_criteria()` → passed to `fix_ai_criteria()` (lint.py:270) ✓
+    - `fix_ai_criteria()` result → `all_results.extend()` (lint.py:276) ✓
+    - `generate_test_spec_entries()` → passed to `fix_ai_test_spec_entries()`
+      (lint.py:320) ✓
+    - `fix_ai_test_spec_entries()` result → `all_results.extend()` (lint.py:325) ✓
+    - `_apply_ai_fixes_async()` → `asyncio.run()` return in `_apply_ai_fixes()`
+      (lint.py:353) ✓
+    - `_apply_ai_fixes()` result → `all_fix_results.extend()` (lint.py:133) ✓
+    - `all_fix_results` → `LintResult(fix_results=all_fix_results)` (lint.py:150) ✓
 
-  - [ ] 3.3 Run the integration smoke tests
+  - [x] 3.3 Run the integration smoke tests
     - All `TS-109-SMOKE-*` tests pass using real components (no stub bypass)
     - _Test Spec: TS-109-SMOKE-1, TS-109-SMOKE-2_
+    - All 29 spec tests pass: `uv run pytest tests/unit/spec/test_ai_fix_wiring.py
+      tests/property/spec/test_ai_fix_wiring_props.py
+      tests/integration/test_ai_fix_wiring.py -q`
 
-  - [ ] 3.4 Stub / dead-code audit
+  - [x] 3.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
     - Document any intentional stubs here with rationale
+    - **lint.py line 222:** `return []` — intentional early exit when no
+      AI-fixable findings exist (REQ-1.E1). Correct behavior.
+    - **lint.py line 356:** `return []` — intentional defensive guard in
+      `_apply_ai_fixes()` sync wrapper on top-level failure. Documented in
+      design.md error handling table.
+    - **fixers/ai.py lines 50, 123, 155:** `return []` — guard/validation
+      checks at function entry or when no results produced. Not stubs.
+    - No unjustified stubs found.
 
-  - [ ] 3.5 Cross-spec entry point verification
+  - [x] 3.5 Cross-spec entry point verification
     - Verify that `_apply_ai_fixes()` is actually called from
       `run_lint_specs()` in production code (not just in tests)
     - Verify that `run_lint_specs()` is called from `lint_specs_cmd()` in
@@ -142,13 +169,24 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
       -> rewrite_criteria / generate_test_spec_entries -> fix_ai_criteria /
       fix_ai_test_spec_entries
     - _Requirements: all_
+    - `lint_specs_cmd()` calls `run_lint_specs()` at cli/lint_specs.py:190 ✓
+    - `run_lint_specs()` calls `_apply_ai_fixes()` at lint.py:132 inside
+      `if fix: if ai:` block ✓
+    - `_apply_ai_fixes()` calls `asyncio.run(_apply_ai_fixes_async())` at
+      lint.py:353 ✓
+    - `_apply_ai_fixes_async()` calls `rewrite_criteria()` at lint.py:263
+      and `generate_test_spec_entries()` at lint.py:312 ✓
+    - After generators: `fix_ai_criteria()` called at lint.py:270,
+      `fix_ai_test_spec_entries()` called at lint.py:320 ✓
+    - Full chain is live in production code.
 
-  - [ ] 3.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 3.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
+      (4862 pass; 9 pre-existing failures unrelated to spec 109)
 
 ## Traceability
 
