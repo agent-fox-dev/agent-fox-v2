@@ -29,8 +29,8 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file for dispatch logic
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file for dispatch logic
     - Create `tests/unit/spec/test_ai_fix_wiring.py`
     - Mock `rewrite_criteria`, `generate_test_spec_entries`, `fix_ai_criteria`,
       `fix_ai_test_spec_entries`, `resolve_model`
@@ -38,29 +38,29 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
     - _Test Spec: TS-109-1, TS-109-2, TS-109-3, TS-109-4, TS-109-5, TS-109-6,
       TS-109-7, TS-109-8, TS-109-9, TS-109-10, TS-109-11, TS-109-12, TS-109-13_
 
-  - [ ] 1.2 Create edge case tests
+  - [x] 1.2 Create edge case tests
     - No AI-fixable findings, rewrite/generation failure isolation, empty dicts,
       missing test_spec.md, re-validation without re-fix
     - _Test Spec: TS-109-E1, TS-109-E2, TS-109-E3, TS-109-E4, TS-109-E5,
       TS-109-E6, TS-109-E7_
 
-  - [ ] 1.3 Create property tests
+  - [x] 1.3 Create property tests
     - Create `tests/property/spec/test_ai_fix_wiring_props.py`
     - AI fix isolation, dispatch correctness, ordering invariant, batch bounds,
       per-spec error isolation, single-pass guarantee
     - _Test Spec: TS-109-P1, TS-109-P2, TS-109-P3, TS-109-P4, TS-109-P5,
       TS-109-P6_
 
-  - [ ] 1.4 Create integration smoke tests
+  - [x] 1.4 Create integration smoke tests
     - Create `tests/integration/test_ai_fix_wiring.py`
     - Full criteria rewrite path with real `fix_ai_criteria()`
     - Full test spec generation path with real `fix_ai_test_spec_entries()`
     - _Test Spec: TS-109-SMOKE-1, TS-109-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/spec/test_ai_fix_wiring.py tests/property/spec/test_ai_fix_wiring_props.py tests/integration/test_ai_fix_wiring.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/spec/test_ai_fix_wiring.py tests/property/spec/test_ai_fix_wiring_props.py tests/integration/test_ai_fix_wiring.py`
 
 - [ ] 2. Implement AI fix dispatch and wiring
   - [ ] 2.1 Add batch limit constants to `agent_fox/spec/lint.py`
