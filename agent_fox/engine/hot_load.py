@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.resolver import resolve_order
@@ -21,6 +22,9 @@ from agent_fox.spec.discovery import SpecInfo, discover_specs  # noqa: F401
 from agent_fox.spec.parser import parse_cross_deps, parse_tasks
 from agent_fox.spec.validators import EXPECTED_FILES, Finding, validate_specs
 from agent_fox.workspace.git import run_git
+
+if TYPE_CHECKING:
+    import duckdb
 
 logger = logging.getLogger("agent_fox.engine.hot_load")
 
@@ -190,26 +194,41 @@ def are_all_tasks_done(spec_path: Path) -> bool:
 
 def _are_all_plan_nodes_done(
     spec_name: str,
-    graph: TaskGraph | None,
+    conn: duckdb.DuckDBPyConnection | None,
 ) -> bool:
-    """Check if all nodes for a spec in the plan graph are completed.
+    """Check if all plan_nodes for a spec in the DB are completed.
 
-    Returns True only when the graph exists, contains nodes for this
-    spec, and all of them have ``NodeStatus.COMPLETED``.
+    Queries the ``plan_nodes`` table directly rather than loading the
+    full plan graph.  Returns True only when the DB is available,
+    contains nodes for this spec, and every one has status
+    ``'completed'``.
 
     Args:
         spec_name: The spec name to check (e.g., ``"42_feature"``).
-        graph: The loaded plan graph, or None if unavailable.
+        conn: DuckDB connection, or None if unavailable.
 
     Returns:
         True if all nodes for the spec are completed, False otherwise.
     """
-    if graph is None:
+    if conn is None:
         return False
-    spec_nodes = [n for n in graph.nodes.values() if n.spec_name == spec_name]
-    if not spec_nodes:
+    try:
+        row = conn.execute(
+            """
+            SELECT
+                count(*) AS total,
+                count(*) FILTER (WHERE status = 'completed') AS done
+            FROM plan_nodes
+            WHERE spec_name = ?
+            """,
+            [spec_name],
+        ).fetchone()
+    except Exception:
         return False
-    return all(n.status == NodeStatus.COMPLETED for n in spec_nodes)
+    if row is None:
+        return False
+    total, done = row[0], row[1]
+    return total > 0 and total == done
 
 
 async def discover_new_specs_gated(
@@ -217,7 +236,7 @@ async def discover_new_specs_gated(
     known_specs: set[str],
     repo_root: Path,
     *,
-    plan_path: Path | None = None,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> list[SpecInfo]:
     """Discover new specs that pass all four gates.
 
@@ -235,9 +254,10 @@ async def discover_new_specs_gated(
         specs_dir: Path to the .specs/ directory.
         known_specs: Set of spec names already in the current plan.
         repo_root: Path to the repository root (for git checks).
-        plan_path: Optional path to plan.json for the tasks-complete gate.
-            When None, the plan node check is skipped (gate degrades
-            gracefully — specs are never skipped based on plan state alone).
+        db_conn: Optional DuckDB connection for querying plan_nodes
+            (tasks-complete gate).  When None, the plan node check is
+            skipped (gate degrades gracefully — specs are never skipped
+            based on plan state alone).
 
     Requirements: 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1, 51-REQ-7.1,
                   51-REQ-7.2, 51-REQ-7.3
@@ -245,13 +265,6 @@ async def discover_new_specs_gated(
     candidates = discover_new_specs(specs_dir, known_specs)
     if not candidates:
         return []
-
-    # Load plan graph once for the tasks-complete gate (Gate 4).
-    plan_graph: TaskGraph | None = None
-    if plan_path is not None:
-        from agent_fox.graph.persistence import load_plan
-
-        plan_graph = load_plan(plan_path)
 
     accepted: list[SpecInfo] = []
     for spec in candidates:
@@ -283,7 +296,7 @@ async def discover_new_specs_gated(
 
         # Gate 4: tasks-complete — skip specs that are fully implemented.
         # Both tasks.md AND plan node state must agree the spec is done.
-        if are_all_tasks_done(spec.path) and _are_all_plan_nodes_done(spec.name, plan_graph):
+        if are_all_tasks_done(spec.path) and _are_all_plan_nodes_done(spec.name, db_conn):
             logger.info(
                 "Spec '%s' is fully implemented (all tasks complete, all plan nodes done), skipping",
                 spec.name,

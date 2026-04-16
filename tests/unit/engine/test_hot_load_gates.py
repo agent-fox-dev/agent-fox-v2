@@ -606,93 +606,63 @@ class TestAreAllTasksDone:
 
 
 class TestAreAllPlanNodesDone:
-    """TS-444-2: plan node state gate for completed specs.
+    """TS-444-2: plan node state gate for completed specs (queries plan_nodes DB table).
 
     Requirements: 444-AC-2
     """
 
     def test_all_nodes_completed(self) -> None:
-        """Returns True when all nodes for spec have COMPLETED status."""
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+        """Returns True when all nodes for spec have 'completed' status."""
+        import duckdb
 
-        graph = TaskGraph(
-            nodes={
-                "42_feature:0": Node(
-                    id="42_feature:0",
-                    spec_name="42_feature",
-                    group_number=0,
-                    title="Group 0",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-                "42_feature:1": Node(
-                    id="42_feature:1",
-                    spec_name="42_feature",
-                    group_number=1,
-                    title="Group 1",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-            },
-            edges=[],
-            order=["42_feature:0", "42_feature:1"],
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:0', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
 
-        assert _are_all_plan_nodes_done("42_feature", graph) is True
+        assert _are_all_plan_nodes_done("42_feature", conn) is True
+        conn.close()
 
     def test_some_nodes_not_completed(self) -> None:
         """Returns False when some nodes are pending."""
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+        import duckdb
 
-        graph = TaskGraph(
-            nodes={
-                "42_feature:0": Node(
-                    id="42_feature:0",
-                    spec_name="42_feature",
-                    group_number=0,
-                    title="Group 0",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-                "42_feature:1": Node(
-                    id="42_feature:1",
-                    spec_name="42_feature",
-                    group_number=1,
-                    title="Group 1",
-                    optional=False,
-                    status=NodeStatus.PENDING,
-                ),
-            },
-            edges=[],
-            order=["42_feature:0", "42_feature:1"],
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:0', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'pending')")
 
-        assert _are_all_plan_nodes_done("42_feature", graph) is False
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
 
     def test_no_nodes_for_spec(self) -> None:
         """Returns False when plan has no nodes for this spec."""
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
+        import duckdb
 
-        graph = TaskGraph(
-            nodes={
-                "99_other:0": Node(
-                    id="99_other:0",
-                    spec_name="99_other",
-                    group_number=0,
-                    title="Other",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-            },
-            edges=[],
-            order=["99_other:0"],
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
+        conn.execute("INSERT INTO plan_nodes VALUES ('99_other:0', '99_other', 'completed')")
 
-        assert _are_all_plan_nodes_done("42_feature", graph) is False
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
 
-    def test_graph_is_none(self) -> None:
-        """Returns False when no plan graph is available."""
+    def test_conn_is_none(self) -> None:
+        """Returns False when no DB connection is available."""
         assert _are_all_plan_nodes_done("42_feature", None) is False
+
+    def test_missing_table(self) -> None:
+        """Returns False when plan_nodes table does not exist."""
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -708,46 +678,23 @@ class TestTasksCompleteGatePipeline:
 
     @pytest.mark.asyncio
     async def test_both_signals_done_skips_spec(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
-        """Spec skipped when tasks.md all [x] AND plan nodes all completed."""
+        """Spec skipped when tasks.md all [x] AND plan nodes all completed in DB."""
+        import duckdb
+
         from agent_fox.spec.discovery import SpecInfo
 
         specs_dir = tmp_path / ".specs"
         spec_path = specs_dir / "42_feature"
         _create_spec_files(spec_path)
-        # Overwrite tasks.md with completed content (after _create_spec_files)
         (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
 
-        # Create plan.json with completed nodes
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
-
-        plan_graph = TaskGraph(
-            nodes={
-                "42_feature:1": Node(
-                    id="42_feature:1",
-                    spec_name="42_feature",
-                    group_number=1,
-                    title="First",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-                "42_feature:2": Node(
-                    id="42_feature:2",
-                    spec_name="42_feature",
-                    group_number=2,
-                    title="Second",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-            },
-            edges=[],
-            order=["42_feature:1", "42_feature:2"],
+        # Create in-memory DuckDB with completed plan nodes
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
-
-        from agent_fox.graph.persistence import save_plan
-
-        plan_path = tmp_path / ".agent-fox" / "plan.json"
-        plan_path.parent.mkdir(parents=True, exist_ok=True)
-        save_plan(plan_graph, plan_path)
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:2', '42_feature', 'completed')")
 
         mock_spec = SpecInfo(
             name="42_feature",
@@ -771,15 +718,18 @@ class TestTasksCompleteGatePipeline:
             caplog.at_level(logging.INFO, logger="agent_fox.engine.hot_load"),
         ):
             result = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
             )
 
         assert result == []
         assert any("fully implemented" in r.message for r in caplog.records)
+        conn.close()
 
     @pytest.mark.asyncio
     async def test_tasks_done_but_nodes_not_done(self, tmp_path: Path) -> None:
         """Spec NOT skipped when tasks.md all [x] but plan nodes are pending."""
+        import duckdb
+
         from agent_fox.spec.discovery import SpecInfo
 
         specs_dir = tmp_path / ".specs"
@@ -787,29 +737,11 @@ class TestTasksCompleteGatePipeline:
         _create_spec_files(spec_path)
         (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
 
-        # Create plan.json with pending nodes
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
-
-        plan_graph = TaskGraph(
-            nodes={
-                "42_feature:1": Node(
-                    id="42_feature:1",
-                    spec_name="42_feature",
-                    group_number=1,
-                    title="First",
-                    optional=False,
-                    status=NodeStatus.PENDING,
-                ),
-            },
-            edges=[],
-            order=["42_feature:1"],
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
-
-        from agent_fox.graph.persistence import save_plan
-
-        plan_path = tmp_path / ".agent-fox" / "plan.json"
-        plan_path.parent.mkdir(parents=True, exist_ok=True)
-        save_plan(plan_graph, plan_path)
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'pending')")
 
         mock_spec = SpecInfo(
             name="42_feature",
@@ -832,15 +764,18 @@ class TestTasksCompleteGatePipeline:
             patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
         ):
             result = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
             )
 
         assert len(result) == 1
         assert result[0].name == "42_feature"
+        conn.close()
 
     @pytest.mark.asyncio
     async def test_nodes_done_but_tasks_not_done(self, tmp_path: Path) -> None:
         """Spec NOT skipped when plan nodes completed but tasks.md has unchecked boxes."""
+        import duckdb
+
         from agent_fox.spec.discovery import SpecInfo
 
         specs_dir = tmp_path / ".specs"
@@ -848,28 +783,11 @@ class TestTasksCompleteGatePipeline:
         _create_spec_files(spec_path)
         (spec_path / "tasks.md").write_text(_INCOMPLETE_TASKS_MD)
 
-        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
-
-        plan_graph = TaskGraph(
-            nodes={
-                "42_feature:1": Node(
-                    id="42_feature:1",
-                    spec_name="42_feature",
-                    group_number=1,
-                    title="First",
-                    optional=False,
-                    status=NodeStatus.COMPLETED,
-                ),
-            },
-            edges=[],
-            order=["42_feature:1"],
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
         )
-
-        from agent_fox.graph.persistence import save_plan
-
-        plan_path = tmp_path / ".agent-fox" / "plan.json"
-        plan_path.parent.mkdir(parents=True, exist_ok=True)
-        save_plan(plan_graph, plan_path)
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
 
         mock_spec = SpecInfo(
             name="42_feature",
@@ -892,52 +810,15 @@ class TestTasksCompleteGatePipeline:
             patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
         ):
             result = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
             )
 
         assert len(result) == 1
+        conn.close()
 
     @pytest.mark.asyncio
-    async def test_no_plan_file_does_not_skip(self, tmp_path: Path) -> None:
-        """Spec NOT skipped when plan.json does not exist (even if tasks all done)."""
-        from agent_fox.spec.discovery import SpecInfo
-
-        specs_dir = tmp_path / ".specs"
-        spec_path = specs_dir / "42_feature"
-        _create_spec_files(spec_path)
-        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
-
-        plan_path = tmp_path / ".agent-fox" / "plan.json"  # does not exist
-
-        mock_spec = SpecInfo(
-            name="42_feature",
-            prefix=42,
-            path=spec_path,
-            has_tasks=True,
-            has_prd=True,
-        )
-
-        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
-            return True
-
-        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
-            return (True, [])
-
-        with (
-            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
-            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
-            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
-            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
-        ):
-            result = await discover_new_specs_gated(
-                specs_dir, known_specs=set(), repo_root=tmp_path, plan_path=plan_path
-            )
-
-        assert len(result) == 1
-
-    @pytest.mark.asyncio
-    async def test_no_plan_path_provided(self, tmp_path: Path) -> None:
-        """Spec NOT skipped when plan_path is None (backward compat)."""
+    async def test_no_db_conn_does_not_skip(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when db_conn is None (even if tasks all done)."""
         from agent_fox.spec.discovery import SpecInfo
 
         specs_dir = tmp_path / ".specs"
@@ -965,7 +846,7 @@ class TestTasksCompleteGatePipeline:
             patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
             patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
         ):
-            # No plan_path argument — backward compatible
+            # No db_conn argument — backward compatible
             result = await discover_new_specs_gated(
                 specs_dir, known_specs=set(), repo_root=tmp_path
             )
