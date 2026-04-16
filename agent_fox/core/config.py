@@ -807,7 +807,7 @@ class NightShiftConfig(BaseModel):
         description="Seconds between issue checks (minimum 60)",
     )
     hunt_scan_interval: int = Field(
-        default=14400,
+        default=21600,
         description="Seconds between hunt scans (minimum 60)",
     )
     categories: NightShiftCategoryConfig = Field(
@@ -822,7 +822,7 @@ class NightShiftConfig(BaseModel):
     # --- New fields for daemon framework (spec 85) ---
 
     spec_interval: int = Field(
-        default=60,
+        default=300,
         description="Seconds between spec executor cycles (minimum 10)",
     )
     enabled_streams: list[str] = Field(
