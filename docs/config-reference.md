@@ -7,6 +7,7 @@ the most commonly changed settings. Add any section below manually to
 
 ## Table of Contents
 
+- [paths](#paths)
 - [orchestrator](#orchestrator)
 - [routing](#routing)
 - [models](#models)
@@ -23,6 +24,21 @@ the most commonly changed settings. Add any section below manually to
 - [blocking](#blocking)
 - [night_shift](#night_shift)
 - [caching](#caching)
+
+---
+
+## paths
+
+Controls project directory locations.
+
+| Field | Type | Default | Bounds | Description |
+|-------|------|---------|--------|-------------|
+| `spec_root` | str | `".agent-fox/specs"` | — | Spec root directory relative to project root. Legacy projects using `.specs/` are auto-detected with a deprecation warning. |
+
+```toml
+[paths]
+spec_root = ".agent-fox/specs"
+```
 
 ---
 

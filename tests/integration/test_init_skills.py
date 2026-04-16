@@ -89,9 +89,13 @@ class TestSkillsOverwriteOnRerun:
         # Re-install
         cli_runner.invoke(main, ["init", "--skills"])
 
-        # Should be overwritten with bundled content
+        # Should be overwritten with bundled content (after template substitution)
         bundled_content = (_SKILLS_DIR / first_name).read_text()
-        assert skill_path.read_text() == bundled_content
+        # Template variables are substituted at install time (371-REQ-3.1)
+        from agent_fox.core.config import AgentFoxConfig
+
+        expected = bundled_content.replace("{{SPEC_ROOT}}", AgentFoxConfig().paths.spec_root)
+        assert skill_path.read_text() == expected
         assert skill_path.read_text() != "modified content"
 
 

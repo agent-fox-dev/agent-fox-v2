@@ -29,6 +29,7 @@ _GITIGNORE_ENTRIES = [
     "# agent-fox",
     ".agent-fox/*",
     "!.agent-fox/config.toml",
+    "!.agent-fox/specs/",
     "!.agent-fox/profiles/",
     "!.agent-fox/profiles/*",
     ".claude/worktrees/",
@@ -131,7 +132,8 @@ def _install_skills(project_root: Path) -> int:
 
     Discovers all non-hidden files in _SKILLS_DIR, creates
     {project_root}/.claude/skills/{name}/SKILL.md for each.
-    Overwrites existing files.
+    Overwrites existing files.  Template variables (``{{SPEC_ROOT}}``)
+    are substituted with the project's configured spec root.
 
     Args:
         project_root: The project root directory.
@@ -140,7 +142,7 @@ def _install_skills(project_root: Path) -> int:
         Number of skills installed.
 
     Requirements: 47-REQ-2.1, 47-REQ-2.3, 47-REQ-2.4, 47-REQ-1.E1,
-                  47-REQ-2.E1, 47-REQ-2.E2
+                  47-REQ-2.E1, 47-REQ-2.E2, 371-REQ-3.1
     """
     # 47-REQ-2.E1: empty or missing templates dir
     if not _SKILLS_DIR.exists() or not _SKILLS_DIR.is_dir():
@@ -161,14 +163,23 @@ def _install_skills(project_root: Path) -> int:
         logger.error("Cannot create skills directory %s: %s", skills_target, exc)
         return 0
 
+    # 371-REQ-3.1: Resolve spec root for template variable substitution
+    from agent_fox.core.config import load_config
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    _config = load_config(config_path if config_path.exists() else None)
+    spec_root = _config.paths.spec_root
+
     count = 0
     for template_path in templates:
         name = template_path.name
         skill_dir = skills_target / name
         try:
             skill_dir.mkdir(parents=True, exist_ok=True)
-            content = template_path.read_bytes()
-            (skill_dir / "SKILL.md").write_bytes(content)
+            content = template_path.read_text(encoding="utf-8")
+            # 371-REQ-3.1: Replace template variables
+            content = content.replace("{{SPEC_ROOT}}", spec_root)
+            (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
             count += 1
         except OSError as exc:
             # 47-REQ-1.E1: skip unreadable templates
@@ -339,13 +350,19 @@ def _ensure_agents_md(project_root: Path) -> str:
 
     # This raises FileNotFoundError if the template is missing (44-REQ-1.E1)
     content = _AGENTS_MD_TEMPLATE.read_text(encoding="utf-8")
+    # 371-REQ-3.1: Replace template variables with configured spec root
+    from agent_fox.core.config import load_config
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    _config = load_config(config_path if config_path.exists() else None)
+    content = content.replace("{{SPEC_ROOT}}", _config.paths.spec_root)
     agents_md.write_text(content, encoding="utf-8")
     logger.debug("Created AGENTS.md from template")
     return "created"
 
 
-def _ensure_steering_md(project_root: Path) -> str:
-    """Create .specs/steering.md placeholder if it does not exist.
+def _ensure_steering_md(project_root: Path, specs_dir: Path | None = None) -> str:
+    """Create {spec_root}/steering.md placeholder if it does not exist.
 
     Returns:
         "created" if the file was written, "skipped" if it already existed
@@ -354,20 +371,23 @@ def _ensure_steering_md(project_root: Path) -> str:
     Requirements: 64-REQ-1.1, 64-REQ-1.2, 64-REQ-1.3, 64-REQ-1.4,
                   64-REQ-1.E1
     """
-    specs_dir = project_root / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig
+
+        specs_dir = project_root / AgentFoxConfig().paths.spec_root
     steering_path = specs_dir / "steering.md"
 
     # 64-REQ-1.2: Skip if already exists
     if steering_path.exists():
         return "skipped"
 
-    # 64-REQ-1.4: Create .specs/ if needed
+    # 64-REQ-1.4: Create spec root directory if needed
     try:
         specs_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         # 64-REQ-1.E1: Permission error — log warning and continue
         logger.warning(
-            "Cannot create .specs/ directory at %s: %s — skipping steering.md",
+            "Cannot create spec root directory at %s: %s — skipping steering.md",
             specs_dir,
             exc,
         )
@@ -375,7 +395,7 @@ def _ensure_steering_md(project_root: Path) -> str:
 
     # 64-REQ-1.1, 64-REQ-1.3: Write placeholder with sentinel
     steering_path.write_text(_STEERING_PLACEHOLDER, encoding="utf-8")
-    logger.debug("Created .specs/steering.md placeholder")
+    logger.debug("Created %s/steering.md placeholder", specs_dir)
     return "created"
 
 

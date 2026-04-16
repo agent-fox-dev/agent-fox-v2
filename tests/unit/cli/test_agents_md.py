@@ -89,7 +89,11 @@ class TestCreatesAgentsMd:
         agents_md = tmp_path / "AGENTS.md"
         assert agents_md.exists()
         template_content = _AGENTS_MD_TEMPLATE.read_text(encoding="utf-8")
-        assert agents_md.read_text(encoding="utf-8") == template_content
+        # 371-REQ-3.1: Template variables are substituted at creation time
+        from agent_fox.core.config import AgentFoxConfig
+
+        expected = template_content.replace("{{SPEC_ROOT}}", AgentFoxConfig().paths.spec_root)
+        assert agents_md.read_text(encoding="utf-8") == expected
 
     def test_creates_returns_created(self, tmp_path: Path) -> None:
         """44-REQ-2.3: Returns 'created' when file is written."""

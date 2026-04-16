@@ -80,8 +80,8 @@ class TestIdempotentInitialization:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            specs_dir = tmp_path / ".specs"
-            specs_dir.mkdir()
+            specs_dir = tmp_path / ".agent-fox" / "specs"
+            specs_dir.mkdir(parents=True)
             steering_path = specs_dir / "steering.md"
             # Use binary write/read to avoid platform newline translation so
             # the round-trip comparison is exact (e.g. '\r' not converted to '\n').
@@ -112,8 +112,8 @@ class TestPlaceholderDetectionAccuracy:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            specs_dir = tmp_path / ".specs"
-            specs_dir.mkdir()
+            specs_dir = tmp_path / ".agent-fox" / "specs"
+            specs_dir.mkdir(parents=True)
 
             # Placeholder + real directive content
             content = _STEERING_PLACEHOLDER + "\n" + directive
@@ -130,8 +130,8 @@ class TestPlaceholderDetectionAccuracy:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            specs_dir = tmp_path / ".specs"
-            specs_dir.mkdir()
+            specs_dir = tmp_path / ".agent-fox" / "specs"
+            specs_dir.mkdir(parents=True)
 
             (specs_dir / "steering.md").write_text(directive)
 
@@ -162,10 +162,8 @@ class TestContextOrderingInvariant:
             tmp_path = Path(tmp)
             spec_dir = _make_spec_dir(tmp_path)
 
-            # Write a real steering file (no placeholder)
-            specs_dir = tmp_path / ".specs"
-            specs_dir.mkdir(exist_ok=True)
-            (specs_dir / "steering.md").write_text(steering_content)
+            # Write a real steering file in the spec root (spec_dir.parent)
+            (spec_dir.parent / "steering.md").write_text(steering_content)
 
             conn = duckdb.connect(":memory:")
             conn.execute(SCHEMA_DDL)

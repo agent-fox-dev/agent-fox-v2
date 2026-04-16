@@ -152,7 +152,7 @@ def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
     if result.agents_md == "created":
         click.echo("Created AGENTS.md.")
     if result.steering_md == "created":
-        click.echo("Created .specs/steering.md.")
+        click.echo("Created steering.md in spec root.")
     if result.nightshift_ignore == "created":
         click.echo("Created .night-shift.")
     if result.skills_installed:

@@ -371,7 +371,7 @@ def assemble_context(
     # 64-REQ-2.1, 64-REQ-2.2: Include steering directives after spec files,
     # before memory facts.
     if project_root is not None:
-        steering_content = load_steering(project_root)
+        steering_content = load_steering(project_root, spec_root=spec_dir.parent)
         if steering_content:
             sections.append(f"## Steering Directives\n\n{steering_content}")
 

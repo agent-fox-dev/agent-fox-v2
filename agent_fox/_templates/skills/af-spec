@@ -19,7 +19,7 @@ Follow the steps below **in order**. Do not skip steps.
 
 ## Project Steering Directives
 
-If `.specs/steering.md` exists in the project root, read it and follow any
+If `{{SPEC_ROOT}}/steering.md` exists in the project root, read it and follow any
 directives it contains before proceeding. These project-level directives apply
 to all agents and skills working on this project.
 
@@ -92,7 +92,7 @@ Record their answers and ask if they want:
 
 ### Save the PRD
 
-Regardless of how the PRD was provided, **always** create `.specs/NN_specification_name/prd.md`.
+Regardless of how the PRD was provided, **always** create `{{SPEC_ROOT}}/NN_specification_name/prd.md`.
 
 - If the PRD was a file, copy its content into the spec folder's `prd.md`.
 - If the PRD was a prompt, save the prompt text into the spec folder's `prd.md`.
@@ -140,7 +140,7 @@ the complete set of spec documents once all five are written.
 Analyze the contents of the current working directory. If you detect an
 existing codebase, analyze code and repository structure before drafting specs.
 
-Look for existing specifications in `.specs/`. Specification folders use a
+Look for existing specifications in `{{SPEC_ROOT}}/`. Specification folders use a
 **numbered prefix** indicating creation sequence (see below).
 Also check steering and workflow docs (`AGENTS.md`, `.agent-fox/prompts/`) so the
 generated tasks fit the required execution workflow.
@@ -150,12 +150,12 @@ generated tasks fit the required execution workflow.
 - **Format:** `NN_snake_case_name` (e.g. `01_base_app`, `102_feature_update`).
 - **NN** is a running number indicating the order the spec was created.
 - **To choose the next number when creating a new spec:**
-  1. List the contents of `.specs/`.
+  1. List the contents of `{{SPEC_ROOT}}/`.
   2. Find existing folders whose names start with digits and an underscore (e.g. `01_*`, `102_*`). If none exist, use `01`.
   3. Take the maximum numeric prefix and use the next number (e.g. after `99_foo` use `100_new_spec`).
 - Use a short, descriptive `snake_case_name` for the specification (e.g. `stream_rendering`, `color_coding`).
 
-**Uniqueness check:** After choosing the next number, verify that no existing folder in `.specs/` already uses that prefix. If a collision is found (e.g., a folder was manually created with the same number), increment
+**Uniqueness check:** After choosing the next number, verify that no existing folder in `{{SPEC_ROOT}}/` already uses that prefix. If a collision is found (e.g., a folder was manually created with the same number), increment
 until a unique prefix is available. Flag the collision to the user as a warning.
 
 ### Cross-Spec Dependencies
@@ -234,7 +234,7 @@ If the new spec **supersedes** an existing spec, also add a superseding notice.
 
 ## Step 3: Create the Requirements Document
 
-Create a requirements document at `.specs/{number}_{specification}/requirements.md` using the **EARS
+Create a requirements document at `{{SPEC_ROOT}}/{number}_{specification}/requirements.md` using the **EARS
 (Easy Approach to Requirements Syntax)** pattern.
 
 ### EARS Pattern Reference
@@ -389,7 +389,7 @@ If you find yourself listing specific values, file paths, or implementation deta
 
 ## Step 4: Create the Design Document
 
-Create a design document at `.specs/{number}_{specification}/design.md` that specifies the high-level
+Create a design document at `{{SPEC_ROOT}}/{number}_{specification}/design.md` that specifies the high-level
 architecture and includes **Correctness Properties** for verification.
 
 ### Document Structure
@@ -546,7 +546,7 @@ A task group is complete when ALL of the following are true:
 
 ## Step 5: Create the Test Specification
 
-Create a test specification at `.specs/{number}_{specification}/test_spec.md` that
+Create a test specification at `{{SPEC_ROOT}}/{number}_{specification}/test_spec.md` that
 translates every acceptance criterion and correctness property into a concrete,
 language-agnostic test contract. This document bridges the gap between
 human-readable requirements and executable tests — it defines **what "done"
@@ -739,7 +739,7 @@ testability).
 
 ## Step 6: Create the Implementation Tasks Document
 
-Create a tasks document at `.specs/{number}_{specification}/tasks.md` that breaks the
+Create a tasks document at `{{SPEC_ROOT}}/{number}_{specification}/tasks.md` that breaks the
 implementation into ordered, trackable tasks.
 
 ### Document Structure
@@ -982,15 +982,15 @@ When a new spec replaces an existing one:
 > This spec is retained for historical reference only.
 ```
 
-3. **Move** the old spec folder into `.specs/archive/`. The planner only
-   scans direct children of `.specs/` (`specs_dir.iterdir()`), so anything
-   under `.specs/archive/` is invisible to discovery and will not appear in
-   the task graph. This keeps the `.specs/` root clean while preserving
+3. **Move** the old spec folder into `{{SPEC_ROOT}}/archive/`. The planner only
+   scans direct children of `{{SPEC_ROOT}}/` (`specs_dir.iterdir()`), so anything
+   under `{{SPEC_ROOT}}/archive/` is invisible to discovery and will not appear in
+   the task graph. This keeps the `{{SPEC_ROOT}}/` root clean while preserving
    decision history.
 
 ```bash
-mkdir -p .specs/archive
-git mv .specs/09_bundled_templates .specs/archive/09_bundled_templates
+mkdir -p {{SPEC_ROOT}}/archive
+git mv {{SPEC_ROOT}}/09_bundled_templates {{SPEC_ROOT}}/archive/09_bundled_templates
 ```
 
 4. If the old spec folder contains session files or other artifacts, leave
@@ -1000,7 +1000,7 @@ git mv .specs/09_bundled_templates .specs/archive/09_bundled_templates
 
 ## Output Directory
 
-Create all spec files under a `.specs/NN_specification_name` directory (see **Specification folder naming** in Step 2 for how to choose `NN` and the name). Example: `.specs/05_my_feature/`.
+Create all spec files under a `{{SPEC_ROOT}}/NN_specification_name` directory (see **Specification folder naming** in Step 2 for how to choose `NN` and the name). Example: `{{SPEC_ROOT}}/05_my_feature/`.
 
 ```
 specs/NN_specification_name/
@@ -1011,8 +1011,8 @@ specs/NN_specification_name/
 ```
 
 If the PRD was provided as a file, leave it in its original location.
-If the PRD was provided as a prompt, save it as `.specs/NN_specification_name/prd.md`, together with all clarifications and additional user input.
-If the PRD was provided as a GitHub issue, save the finalized PRD as `.specs/NN_specification_name/prd.md` and post it back to the issue as a comment (see Step 1).
+If the PRD was provided as a prompt, save it as `{{SPEC_ROOT}}/NN_specification_name/prd.md`, together with all clarifications and additional user input.
+If the PRD was provided as a GitHub issue, save the finalized PRD as `{{SPEC_ROOT}}/NN_specification_name/prd.md` and post it back to the issue as a comment (see Step 1).
 
 ---
 

@@ -652,9 +652,14 @@ class Orchestrator:
                     completed = self._graph_sync.completed_spec_names()
                     newly_completed = completed - self._issue_summaries_posted
                     if newly_completed:
+                        _eff_specs_dir = self._specs_dir
+                        if _eff_specs_dir is None and self._full_config is not None:
+                            from agent_fox.core.config import resolve_spec_root as _rsr
+
+                            _eff_specs_dir = _rsr(self._full_config, Path.cwd())
                         posted = await _post_issue_summaries(
                             self._platform,
-                            self._specs_dir or Path(".specs"),
+                            _eff_specs_dir or Path(".specs"),
                             newly_completed,
                             self._issue_summaries_posted,
                             Path.cwd(),

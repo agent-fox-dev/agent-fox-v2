@@ -105,7 +105,7 @@ def _print_summary(state: ExecutionState) -> None:
     "--specs-dir",
     type=click.Path(),
     default=None,
-    help="Path to specs directory (default: .specs)",
+    help="Path to specs directory (default: from config, or .agent-fox/specs)",
 )
 @click.option(
     "--watch",
