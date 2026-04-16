@@ -567,17 +567,40 @@ def test_load_state_from_db_empty_plan_nodes_loads_run_totals(
 
 
 def test_missing_db_status(tmp_path) -> None:
-    """TS-105-E6: af status displays 'No plan found' when DB does not exist.
+    """TS-105-E6: generate_status returns None when DB does not exist.
 
     Requirements: 105-REQ-6.E1
     """
     nonexistent_db = tmp_path / "nonexistent.duckdb"
     assert not nonexistent_db.exists()
 
-    # The status command or generate_status function must handle missing DB
-    # gracefully (no crash, shows "No plan found" or empty dashboard).
-    from agent_fox.cli.status import generate_status  # noqa: F401
+    from agent_fox.cli.status import generate_status
 
     result = generate_status(db_path=nonexistent_db)
-    # Either result contains "No plan found" or is a falsy/empty value
-    assert result is None or "No plan found" in str(result) or result == {}
+    # Must be exactly None — not a falsy-but-meaningful value
+    assert result is None
+
+
+def test_existing_db_status(tmp_path) -> None:
+    """TS-105-E6 (existing DB): generate_status returns a StatusReport when DB exists.
+
+    Regression guard: ensures generate_status does not always return None,
+    which would make test_missing_db_status trivially pass and hide the bug.
+
+    Requirements: 105-REQ-6.E1
+    """
+    import duckdb as _duckdb
+
+    from agent_fox.cli.status import generate_status
+    from agent_fox.reporting.status import StatusReport
+
+    db_path = tmp_path / "test_status.duckdb"
+    conn = _duckdb.connect(str(db_path))
+    conn.execute(_FULL_SCHEMA_DDL)
+    conn.close()
+    assert db_path.exists()
+
+    result = generate_status(db_path=db_path)
+    # Must return a StatusReport, not None, when the DB file is present
+    assert result is not None
+    assert isinstance(result, StatusReport)

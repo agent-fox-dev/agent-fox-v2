@@ -23,6 +23,7 @@ from agent_fox.reporting.formatters import (
     get_formatter,
     write_output,
 )
+from agent_fox.reporting.status import StatusReport
 from agent_fox.reporting.status import generate_status as _reporting_generate_status
 
 logger = logging.getLogger(__name__)
@@ -30,19 +31,29 @@ logger = logging.getLogger(__name__)
 
 def generate_status(
     db_path: Path | None = None,
-) -> None:
-    """Graceful existence check for the DuckDB status file (TS-105-E6).
+) -> StatusReport | None:
+    """Generate a status report from a DuckDB database file (TS-105-E6).
 
-    Returns ``None`` when ``db_path`` is absent so ``af status`` can display
-    "No plan found" instead of raising an exception.  The full status report
-    is rendered by ``_reporting_generate_status`` inside ``status_cmd``, which
-    accepts an optional DuckDB connection for plan_nodes queries.
+    Returns ``None`` when ``db_path`` is absent or does not exist, so the
+    caller can display "No plan found" instead of raising an exception.  When
+    the database file is present, opens a read-only connection and delegates
+    to the reporting layer to produce a full ``StatusReport``.
 
     Requirements: 105-REQ-6.E1
     """
     if db_path is None or not Path(db_path).exists():
         return None
-    return None
+    try:
+        import duckdb as _duckdb
+
+        conn = _duckdb.connect(str(db_path), read_only=True)
+        try:
+            return _reporting_generate_status(db_conn=conn)
+        finally:
+            conn.close()
+    except Exception:
+        logger.debug("Failed to generate status from DB at %s", db_path, exc_info=True)
+        return None
 
 
 def _get_readonly_conn():
