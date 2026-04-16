@@ -31,10 +31,12 @@ them.
 its own feature branch. Multiple agents work simultaneously without stepping
 on each other. Integration happens through a serializing merge lock.
 
-**Separation of concerns through archetypes.** Five conceptual agent roles
-(Coder, Skeptic, Oracle, Auditor, Verifier) divide labor with different tool
-allowlists and output contracts. Review agents cannot modify code.
-Implementation agents cannot skip quality checks.
+**Separation of concerns through archetypes.** Four archetype entries (Coder,
+Reviewer, Verifier, Maintainer) with a mode system divide labor. The Reviewer
+archetype covers three distinct review roles (pre-review, drift-review,
+audit-review) through modes that override injection points and tool
+allowlists. Review modes cannot modify code. Implementation agents cannot
+skip quality checks.
 
 **Graceful degradation everywhere.** Every component handles failure
 non-fatally. If embedding generation fails, facts are stored without
@@ -65,9 +67,10 @@ hot-load discovery.
 
 How the plan is carried out. Covers the orchestrator's dispatch loop, the
 four-phase session lifecycle (prepare, execute, harvest, assess), context
-assembly, the five agent archetypes and their design rationale,
-multi-instance convergence strategies, the escalation ladder, model routing,
-workspace isolation, merge integration, sync barriers, and reset.
+assembly, the four-entry archetype registry with mode system (coder, reviewer,
+verifier, maintainer), multi-instance convergence strategies, the escalation
+ladder, model routing, workspace isolation, merge integration, sync barriers,
+and reset.
 
 ### [Part 4: Night-Shift Mode](04-night-shift.md)
 

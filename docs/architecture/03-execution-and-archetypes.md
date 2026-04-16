@@ -204,53 +204,98 @@ in the correct JSON format. This recovers from common formatting mistakes
 ## Agent Archetypes
 
 An archetype defines the role, capabilities, and constraints of an agent
-session. Each archetype has a prompt template, a model tier, a tool allowlist,
-and behavioral rules. The system defines five user-facing archetypes organized
-into two categories, plus an internal maintainer archetype used by night-shift.
+session. Each archetype has a prompt profile, a model tier, a tool allowlist,
+and behavioral rules. The archetype registry contains four built-in entries.
+Two of them — the reviewer and the maintainer — support **modes**: named
+variants that override specific fields (injection point, tool allowlist,
+model tier) while inheriting everything else from the base entry. Modes are
+the mechanism by which a single registry entry serves multiple distinct roles.
 
-### Implementation Agents
+### The Registry
 
-**Coder** is the primary implementation agent. It receives the full spec context
-and implements one task group per session. For group 1 (by convention), it writes
-failing tests from the test spec without implementing production code.
-For subsequent groups, it implements code to make existing tests pass. The Coder
-runs quality checks, commits with conventional messages, and produces a session
-summary. It operates at the STANDARD model tier by default with adaptive
-extended thinking enabled, and has unrestricted tool access.
+| Entry | Modes | Purpose |
+|---|---|---|
+| **coder** | `fix` | Implementation — writes code, tests, commits |
+| **reviewer** | `pre-review`, `drift-review`, `audit-review`, `fix-review` | Review — examines specs and code, produces structured findings |
+| **verifier** | — | Verification — runs tests, checks requirements, produces verdicts |
+| **maintainer** | `hunt`, `fix-triage`, `extraction` | Night-shift internal — not user-facing |
 
-### Review Agents
+When a mode is specified, the system resolves the effective configuration by
+overlaying the mode's overrides onto the base entry. Fields set to `None` in
+the mode config inherit from the base. This is a dataclass merge, not
+inheritance — the result is a flat `ArchetypeEntry` with no mode reference.
 
-Review agents examine code and specs but (with limited exceptions) do not
-modify them. They produce structured JSON output that the orchestrator uses
-for blocking decisions, retry triggers, and knowledge accumulation.
+### Coder
 
-**Skeptic** reviews spec quality before implementation. It examines completeness,
-consistency, feasibility, testability, edge case coverage, and security across
-six dimensions. It produces findings with severity levels (critical, major,
-minor, observation). The Skeptic has read-only tool access.
+The primary implementation agent. Receives the full spec context and implements
+one task group per session. For group 1 (by convention), it writes failing tests
+from the test spec without implementing production code. For subsequent groups,
+it implements code to make existing tests pass. The Coder runs quality checks,
+commits with conventional messages, and produces a session summary. It operates
+at the STANDARD model tier by default with adaptive extended thinking enabled,
+and has unrestricted tool access. A `fix` mode variant is used by the
+`agent-fox fix` pipeline.
 
-**Oracle** validates spec assumptions against the actual codebase. It checks
-whether referenced files, functions, and interfaces exist at their stated
-locations and whether signatures match spec descriptions. It produces drift
-findings. The Oracle has read-only access plus basic filesystem navigation
-commands. It is automatically skipped for specs that reference no existing
-code (there is nothing to detect drift against).
+### Reviewer
 
-**Verifier** performs post-implementation verification. It runs the test suite,
-checks each requirement against the acceptance criteria, and produces per-
-requirement verdicts (PASS, FAIL, PARTIAL). The Verifier has full tool access
-(it needs to run tests). It can trigger retries of its predecessor — if
-verification fails, the orchestrator may re-run the preceding coder session
-with the Verifier's findings injected as context.
+A unified review archetype that covers three conceptually distinct review
+roles through its mode system. All reviewer modes produce structured JSON
+output that the orchestrator uses for blocking decisions, retry triggers, and
+knowledge accumulation. Reviewer modes cannot modify code — their tool
+allowlists are restricted to read-only operations.
 
-**Auditor** validates test quality against test spec contracts. It examines
-coverage, assertion strength, precondition fidelity, edge case rigor, and test
-independence for each test spec entry, producing per-entry verdicts (PASS, WEAK,
-MISSING, MISALIGNED). The Auditor has read-only access plus the ability to run
-`uv` commands for test collection. Like the Verifier, it can trigger
-predecessor retries.
+**Pre-review mode** (injection: `auto_pre`) reviews spec quality before
+implementation begins. It examines completeness, consistency, feasibility,
+testability, edge case coverage, and security. It produces findings with
+severity levels (critical, major, minor, observation). This mode has no shell
+access at all — it works entirely from the spec documents provided in context.
 
-### Archetype Design Rationale
+**Drift-review mode** (injection: `auto_pre`) validates spec assumptions
+against the actual codebase. It checks whether referenced files, functions,
+and interfaces exist at their stated locations and whether signatures match
+spec descriptions. It produces drift findings. This mode has read-only
+filesystem access (`ls`, `cat`, `git`, `grep`, `find`, `head`, `tail`, `wc`).
+It is automatically skipped for specs that reference no existing code — there
+is nothing to detect drift against.
+
+**Audit-review mode** (injection: `auto_mid`) validates test quality against
+test spec contracts after tests are written. It examines coverage, assertion
+strength, precondition fidelity, edge case rigor, and test independence for
+each test spec entry, producing per-entry verdicts (PASS, WEAK, MISSING,
+MISALIGNED). This mode has read-only access plus `uv` for test collection.
+It triggers predecessor retries when tests are missing or misaligned.
+
+**Fix-review mode** is used by the `agent-fox fix` pipeline and night-shift's
+fix pipeline. It operates at the ADVANCED model tier with broader tool access
+including `make` and `uv`.
+
+Pre-review and drift-review both run at the `auto_pre` injection point. When
+both are enabled, they execute in parallel before the first coder group. If
+either produces blocking findings (critical findings exceeding the configured
+threshold), downstream coder tasks are blocked.
+
+The reviewer archetype is controlled by a single configuration toggle
+(`archetypes.reviewer`). Enabling or disabling it affects all four modes.
+Legacy configuration keys (`skeptic`, `oracle`, `auditor`) are accepted and
+mapped to the corresponding reviewer modes with deprecation warnings.
+
+### Verifier
+
+Performs post-implementation verification (injection: `auto_post`). It runs the
+test suite, checks each requirement against the acceptance criteria, and
+produces per-requirement verdicts (PASS, FAIL, PARTIAL). The Verifier has full
+tool access (it needs to run tests). It can trigger retries of its predecessor
+— if verification fails, the orchestrator may re-run the preceding coder
+session with the Verifier's findings injected as context.
+
+### Maintainer
+
+An internal archetype used exclusively by the night-shift daemon (see
+[Part 4](04-night-shift.md)). It is not user-facing and not assignable to
+task groups. Its modes cover hunt scan analysis (`hunt`), issue triage
+(`fix-triage`), and knowledge extraction (`extraction`).
+
+### Design Rationale
 
 All archetypes default to the STANDARD model tier. The adaptive routing system
 (described below) may escalate individual tasks to higher tiers based on
@@ -259,33 +304,46 @@ tiers per archetype via configuration. The intent is to start cost-effective
 and escalate only when needed, rather than running every session at the most
 capable (and expensive) tier.
 
-Read-only tool allowlists for review agents enforce a separation of concerns.
-A Skeptic that can modify code is no longer a pure reviewer — it might fix
+Read-only tool allowlists for reviewer modes enforce a separation of concerns.
+A reviewer that can modify code is no longer a pure reviewer — it might fix
 problems it finds, conflating review and implementation. Restricting tools
-keeps each archetype's role clean and its output predictable.
+keeps each mode's role clean and its output predictable.
+
+The consolidation of three conceptual review roles (spec review, drift
+detection, test auditing) into a single reviewer archetype with modes reflects
+the observation that these roles share most of their configuration: same base
+model tier, same output format, same convergence semantics. Modes capture only
+the differences — injection point, tool allowlist, and prompt profile — without
+duplicating the shared structure.
 
 ### Multi-Instance Convergence
 
-Review archetypes can run multiple instances in parallel on the same task.
-When they do, their outputs are merged using archetype-specific convergence
-strategies:
+The reviewer and verifier archetypes can run multiple instances in parallel on
+the same task. When they do, their outputs are merged using mode-specific
+convergence strategies. A single dispatcher (`converge_reviewer`) routes to
+the correct algorithm by mode.
 
-**Skeptic convergence** uses majority-gating for critical findings. All
-findings across instances are merged and deduplicated. A critical finding
-counts toward blocking only if it appears in at least a majority of instances
-(ceiling of N/2). This prevents a single overzealous instance from blocking
-progress on a spurious finding. Non-critical findings are union-merged.
+**Pre-review and drift-review convergence** uses majority-gating for critical
+findings. All findings across instances are merged and deduplicated. A critical
+finding counts toward blocking only if it appears in at least a majority of
+instances (ceiling of N/2). This prevents a single overzealous instance from
+blocking progress on a spurious finding. Non-critical findings are
+union-merged.
+
+**Audit-review convergence** uses union semantics with worst-verdict-wins. For
+each test spec entry, the worst verdict across all instances is taken. This is
+conservative — if any instance finds a test MISSING, the entry is considered
+MISSING regardless of what other instances report.
 
 **Verifier convergence** uses majority voting per requirement. A requirement
 is considered PASS if a majority of instances report PASS. The representative
 evidence comes from the first matching verdict.
 
-**Auditor convergence** uses union semantics with worst-verdict-wins. For each
-test spec entry, the worst verdict across all instances is taken. This is
-conservative — if any instance finds a test MISSING, the entry is considered
-MISSING regardless of what other instances report.
+**Fix-review** does not support multi-instance execution. If multiple results
+are provided, convergence raises an error.
 
-For single-instance execution (the default), convergence is a no-op passthrough.
+For single-instance execution (the default), convergence is a no-op
+passthrough.
 
 ---
 
