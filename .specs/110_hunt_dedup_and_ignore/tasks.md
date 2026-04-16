@@ -190,9 +190,9 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] No linter warnings introduced: `uv run ruff check .`
     - [x] Requirements 4.1, 5.1, 6.3, 7.2 acceptance criteria met
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
 
-  - [ ] 7.1 Trace every execution path from design.md end-to-end
+  - [x] 7.1 Trace every execution path from design.md end-to-end
     - For Path 1 (hunt scan with enhanced dedup): verify `_run_hunt_scan` calls
       `ingest_ignore_signals`, queries knowledge store, calls `consolidate_findings`
       with `false_positives`, calls `filter_known_duplicates` with `similarity_threshold`
@@ -205,40 +205,46 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Every path must be live in production code — no stubs or deferrals
     - _Requirements: all_
 
-  - [ ] 7.2 Verify return values propagate correctly
-    - `ingest_ignore_signals()` returns count → engine logs it
-    - Knowledge store query returns `list[str]` → engine passes to `consolidate_findings()`
-    - `filter_known_duplicates()` returns `list[FindingGroup]` → engine passes to `filter_ignored()`
-    - `filter_ignored()` returns `list[FindingGroup]` → engine passes to `create_issues_from_groups()`
+  - [x] 7.2 Verify return values propagate correctly
+    - `ingest_ignore_signals()` returns count → engine logs it (engine.py:391-392)
+    - Knowledge store query returns `list[str]` → engine passes to `consolidate_findings()` (engine.py:402, 425-428)
+    - `filter_known_duplicates()` returns `list[FindingGroup]` → engine passes to `filter_ignored()` (engine.py:436-441, 445-450)
+    - `filter_ignored()` returns `list[FindingGroup]` → engine passes to `create_issues_from_groups()` (engine.py:454)
     - Grep for callers of each function; confirm none discards the return value
     - _Requirements: all_
 
-  - [ ] 7.3 Run the integration smoke tests
+  - [x] 7.3 Run the integration smoke tests
     - All `TS-110-SMOKE-*` tests pass using real components (no stub bypass)
+    - 79 spec-110 tests pass (4949 total, 0 failures)
     - _Test Spec: TS-110-SMOKE-1, TS-110-SMOKE-2, TS-110-SMOKE-3_
 
-  - [ ] 7.4 Stub / dead-code audit
+  - [x] 7.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
-    - Document any intentional stubs here with rationale
+    - Intentional stubs documented:
+      - `dedup.py:86 return None` — `extract_fingerprint()` returns `str | None`; None means no marker found (correct Optional return)
+      - `ignore_filter.py:53 return []` — early exit when `groups` is empty (correct guard)
+      - `critic.py:92 return []` — early exit when `findings` is empty (correct guard)
+      - `engine.py:350 return []` — `_query_false_positives()` returns empty list when conn is None (fail-open per 110-REQ-6.E1)
+      - `engine.py:363 return []` — `_query_false_positives()` returns empty list on query failure (fail-open per 110-REQ-6.E1)
 
-  - [ ] 7.5 Cross-spec entry point verification
-    - `filter_known_duplicates()` is called from `engine.py:_run_hunt_scan()` — verify
-    - `filter_ignored()` is called from `engine.py:_run_hunt_scan()` — verify
-    - `ingest_ignore_signals()` is called from `engine.py:_run_hunt_scan()` — verify
-    - `consolidate_findings()` with `false_positives` is called from `engine.py` — verify
+  - [x] 7.5 Cross-spec entry point verification
+    - `filter_known_duplicates()` is called from `engine.py:_run_hunt_scan()` — verified at engine.py:436
+    - `filter_ignored()` is called from `engine.py:_run_hunt_scan()` — verified at engine.py:445
+    - `ingest_ignore_signals()` is called from `engine.py:_run_hunt_scan()` — verified at engine.py:384
+    - `consolidate_findings()` with `false_positives` is called from `engine.py` — verified at engine.py:424-429
     - All entry points are called from production code, not just tests
     - _Requirements: all_
 
-  - [ ] 7.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 7.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q` (4949 passed)
 
 ### Checkbox States
 
