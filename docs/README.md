@@ -32,8 +32,8 @@ The typical workflow has four stages:
    execution. The orchestrator dispatches agents to each ready task in
    dependency order. Each agent works in an isolated git worktree on its own
    feature branch, so multiple agents work simultaneously without conflicts.
-   Review agents (Skeptic, Oracle) check specs before coding starts;
-   verification agents (Auditor, Verifier) check the result after. Failed
+   Reviewer agents (pre-review, drift-review modes) check specs before
+   coding starts; audit-review and Verifier agents check the result after. Failed
    tasks are retried with escalation to stronger models. Completed work is
    merged into `develop` under a serializing lock via squash merge (with
    AI-assisted conflict resolution when needed).
@@ -46,27 +46,36 @@ The typical workflow has four stages:
 
 ### Agent Archetypes
 
-agent-fox uses five specialized agent archetypes to divide labor:
+agent-fox uses a four-entry archetype registry with a mode system to divide
+labor:
 
 - **Coder** — the primary implementation agent. Receives the full spec
   context and implements one task group per session. Follows a test-first
   workflow: group 1 writes failing tests, subsequent groups implement code.
-- **Skeptic** — reviews spec quality before implementation. Checks
-  completeness, consistency, feasibility, testability, edge cases, and
-  security. Can block coding if critical findings exceed a threshold.
-- **Oracle** — validates spec assumptions against the actual codebase.
-  Detects drift between what specs expect and what actually exists.
-  Automatically skipped when the spec references no existing code.
-- **Auditor** — validates test quality against test spec contracts after
-  tests are written. Triggers coder retries when tests are missing, weak,
-  or misaligned with their specifications.
+- **Reviewer** — a single archetype with four modes that cover all review
+  roles:
+  - *pre-review* — reviews spec quality before implementation. Checks
+    completeness, consistency, feasibility, and security. Can block coding
+    if critical findings exceed a threshold.
+  - *drift-review* — validates spec assumptions against the actual codebase.
+    Detects drift between what specs expect and what actually exists.
+    Automatically skipped when the spec references no existing code.
+  - *audit-review* — validates test quality against test spec contracts
+    after tests are written. Triggers coder retries when tests are missing,
+    weak, or misaligned with their specifications.
+  - *fix-review* — reviews fix-mode patches (quality fixes, night-shift
+    repairs) with full tool access and extended turn budget.
 - **Verifier** — performs post-implementation verification. Runs the test
   suite, checks each requirement against acceptance criteria, and triggers
   coder retries when verification fails.
+- **Maintainer** — drives night-shift operations with three modes (hunt,
+  fix-triage, extraction). Not assignable to spec tasks.
 
-Review archetypes can run multiple instances in parallel on the same task,
-with their outputs merged using archetype-specific convergence strategies.
-For full archetype details, see [Archetypes](archetypes.md).
+Review and verification archetypes can run multiple instances in parallel on
+the same task, with outputs merged using mode-specific convergence strategies.
+For full archetype details, see the
+[Archetypes section](architecture/03-execution-and-archetypes.md#agent-archetypes)
+in the Architecture Guide.
 
 ### Quality Fixes
 
@@ -83,7 +92,7 @@ categories — linter debt, dead code, test coverage gaps, dependency freshness,
 deprecated API usage, documentation drift, TODO/FIXME resolution, and quality
 gate failures — then groups findings by root cause and files GitHub issues.
 Issues labelled `af:fix` are automatically picked up and repaired through a
-three-agent pipeline (Skeptic, Coder, Verifier). Use `--auto` to label every
+three-agent pipeline (Reviewer, Coder, Verifier). Use `--auto` to label every
 discovered issue for hands-off repair.
 
 ### Knowledge System
@@ -119,6 +128,6 @@ stay at the conceptual level without code snippets or class hierarchies.
 |----------|-------------|
 | [CLI Reference](cli-reference.md) | All commands, flags, and exit codes |
 | [Configuration Reference](config-reference.md) | Every `config.toml` section and option |
-| [Archetypes](archetypes.md) | Agent archetype details and configuration |
+| [Archetypes](architecture/03-execution-and-archetypes.md#agent-archetypes) | Archetype registry, modes, and convergence |
 | [Skills](skills.md) | Claude Code skill reference |
 | [Architecture Guide](architecture/README.md) | System internals and design rationale |

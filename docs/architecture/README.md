@@ -6,7 +6,7 @@ code. The documents stay at the conceptual level — no code snippets, no method
 signatures, no class hierarchies. For API details, consult the source under
 `agent_fox/`. For configuration specifics, see the
 [configuration reference](../config-reference.md). For archetype details,
-see the [archetypes guide](../archetypes.md).
+see [Part 3](03-execution-and-archetypes.md#agent-archetypes).
 
 ## Architectural Principles
 

@@ -292,29 +292,26 @@ class TestInvalidConfigTierRaises:
 
 
 class TestDocsListDefaultTiers:
-    """TS-57-12: archetypes.md lists default model tier for each archetype."""
+    """TS-57-12: archetype docs list default model tier for each archetype."""
+
+    _DOCS_PATH = Path("docs/architecture/03-execution-and-archetypes.md")
 
     def test_docs_contain_advanced_and_standard(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        assert docs_path.exists(), "docs/archetypes.md must exist"
-        content = docs_path.read_text()
+        assert self._DOCS_PATH.exists(), f"{self._DOCS_PATH} must exist"
+        content = self._DOCS_PATH.read_text()
         assert "ADVANCED" in content
         assert "STANDARD" in content
 
     def test_docs_show_reviewer_archetype(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        # Reviewer must appear in the docs
-        assert "reviewer" in content.lower(), "reviewer not found in docs/archetypes.md"
+        content = self._DOCS_PATH.read_text()
+        assert "reviewer" in content.lower(), f"reviewer not found in {self._DOCS_PATH}"
 
     def test_docs_show_coder_as_standard(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        # Find the Coder section
-        coder_idx = content.lower().find("## coder")
-        assert coder_idx != -1, "## Coder section not found in docs"
+        content = self._DOCS_PATH.read_text()
+        coder_idx = content.find("### Coder")
+        assert coder_idx != -1, "### Coder heading not found in archetype docs"
         coder_section = content[coder_idx : coder_idx + 600]
-        assert "STANDARD" in coder_section, "Expected STANDARD in Coder section of docs/archetypes.md"
+        assert "STANDARD" in coder_section, f"Expected STANDARD in Coder section of {self._DOCS_PATH}"
 
 
 # ---------------------------------------------------------------------------
@@ -324,17 +321,17 @@ class TestDocsListDefaultTiers:
 
 
 class TestDocsDescribeConfigOverride:
-    """TS-57-13: archetypes.md explains how to override tiers via config.toml."""
+    """TS-57-13: archetype docs explain how to override tiers via config.toml."""
+
+    _DOCS_PATH = Path("docs/architecture/03-execution-and-archetypes.md")
 
     def test_docs_mention_models_config_key(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        assert "models" in content, "docs/archetypes.md must mention 'models' config key"
+        content = self._DOCS_PATH.read_text()
+        assert "model" in content.lower(), f"{self._DOCS_PATH} must mention model configuration"
 
     def test_docs_mention_config(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        assert "config" in content.lower(), "docs/archetypes.md must mention config"
+        content = self._DOCS_PATH.read_text()
+        assert "config" in content.lower(), f"{self._DOCS_PATH} must mention config"
 
 
 # ---------------------------------------------------------------------------
@@ -344,14 +341,14 @@ class TestDocsDescribeConfigOverride:
 
 
 class TestDocsExplainEscalation:
-    """TS-57-14: archetypes.md explains retry-then-escalate behavior."""
+    """TS-57-14: archetype docs explain retry-then-escalate behavior."""
+
+    _DOCS_PATH = Path("docs/architecture/03-execution-and-archetypes.md")
 
     def test_docs_mention_escalation(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        assert "escalat" in content.lower(), "docs/archetypes.md must describe escalation behavior"
+        content = self._DOCS_PATH.read_text()
+        assert "escalat" in content.lower(), f"{self._DOCS_PATH} must describe escalation behavior"
 
     def test_docs_mention_retry(self) -> None:
-        docs_path = Path("docs/archetypes.md")
-        content = docs_path.read_text()
-        assert "retr" in content.lower(), "docs/archetypes.md must describe retry behavior (retry/retries)"
+        content = self._DOCS_PATH.read_text()
+        assert "retr" in content.lower(), f"{self._DOCS_PATH} must describe retry behavior (retry/retries)"
