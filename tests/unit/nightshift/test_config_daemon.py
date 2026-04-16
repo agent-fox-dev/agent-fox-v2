@@ -16,11 +16,11 @@ class TestNightShiftConfigNewDefaults:
     """Verify new config fields have correct defaults."""
 
     def test_spec_interval_default(self) -> None:
-        """spec_interval defaults to 60."""
+        """spec_interval defaults to 300."""
         from agent_fox.nightshift.config import NightShiftConfig
 
         config = NightShiftConfig()
-        assert config.spec_interval == 60
+        assert config.spec_interval == 300
 
     def test_enabled_streams_default(self) -> None:
         """enabled_streams defaults to all three streams."""

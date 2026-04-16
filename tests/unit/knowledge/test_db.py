@@ -82,9 +82,10 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        # v1..v11 (review, routing, drift, confidence, audit, security category,
-        #          entity graph, multi-language entity graph, keywords, plan state)
-        assert len(rows) == 11
+        # v1..v12 (review, routing, drift, confidence, audit, security category,
+        #          entity graph, multi-language entity graph, keywords, plan state,
+        #          drop stale UNIQUE from plan_nodes)
+        assert len(rows) == 12
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
@@ -98,6 +99,7 @@ class TestSchemaVersionRecordedOnCreation:
         assert rows[8][0] == 9
         assert rows[9][0] == 10
         assert rows[10][0] == 11
+        assert rows[11][0] == 12
         db.close()
 
 
@@ -153,9 +155,10 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        # v1..v11 (review, routing, drift, confidence, audit, security category,
-        #          entity graph, multi-language entity graph, keywords, plan state)
-        assert count[0] == 11
+        # v1..v12 (review, routing, drift, confidence, audit, security category,
+        #          entity graph, multi-language entity graph, keywords, plan state,
+        #          drop stale UNIQUE from plan_nodes)
+        assert count[0] == 12
         db2.close()
 
 

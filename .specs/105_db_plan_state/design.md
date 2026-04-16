@@ -152,7 +152,8 @@ CREATE TABLE plan_nodes (
     blocked_reason  VARCHAR,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (spec_name, group_number)
+    -- No UNIQUE on (spec_name, group_number): multiple nodes share the same
+    -- group (e.g. coder + reviewer sub-nodes)
 );
 
 -- Plan edges (replaces plan.json edges)
