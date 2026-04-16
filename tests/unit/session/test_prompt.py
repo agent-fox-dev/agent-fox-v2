@@ -178,9 +178,11 @@ class TestProfileWithoutFrontmatterUnchanged:
 class TestThreeLayerAssemblyWithProjectDir:
     """Verify 3-layer assembly works correctly with project_dir."""
 
-    def test_project_claude_md_included(self, tmp_path: Path) -> None:
-        """CLAUDE.md content is included as Layer 1."""
-        (tmp_path / "CLAUDE.md").write_text("PROJECT RULES")
+    def test_project_agent_base_included(self, tmp_path: Path) -> None:
+        """agent_base profile content is included as Layer 1."""
+        profiles_dir = tmp_path / ".agent-fox" / "profiles"
+        profiles_dir.mkdir(parents=True)
+        (profiles_dir / "agent_base.md").write_text("PROJECT RULES")
         result = build_system_prompt("ctx", archetype="coder", project_dir=tmp_path)
         assert "PROJECT RULES" in result
 
