@@ -51,8 +51,9 @@ async def harvest(
     2. Checkout dev_branch in the main repo.
     3. Attempt a fast-forward merge of the feature branch.
     4. If fast-forward fails, rebase the feature branch onto
-       dev_branch and retry the merge.
-    5. If rebase fails, abort and raise IntegrationError.
+       dev_branch and retry the fast-forward merge.
+    5. If rebase fails, fall back to a squash merge (single commit
+       on dev_branch, no merge commit).
     6. Return the list of changed files.
 
     Raises:
@@ -181,9 +182,9 @@ async def _harvest_under_lock(
     try:
         await rebase_onto(workspace.path, workspace.branch, dev_branch)
     except IntegrationError:
-        # Rebase failed (conflicts) — abort and fall back to merge commit
+        # Rebase failed (conflicts) — abort and fall back to squash merge
         logger.info(
-            "Rebase of '%s' onto '%s' had conflicts, falling back to merge commit",
+            "Rebase of '%s' onto '%s' had conflicts, falling back to squash merge",
             workspace.branch,
             dev_branch,
         )
@@ -195,12 +196,12 @@ async def _harvest_under_lock(
             cwd=repo_root,
             check=False,
         )
-        # Step 5: Fall back to regular merge (03-REQ-7.E1)
-        # Run merge directly (not via merge_commit which auto-aborts on
-        # failure). We need conflicts to remain so the merge agent can
-        # resolve them.
+        # Step 5: Fall back to squash merge (03-REQ-7.E1)
+        # Squash merge produces a single commit on dev_branch, avoiding
+        # the extra "Merge branch ..." commit that pollutes the log.
+        # Conflicts are left in the working tree for the merge agent.
         merge_rc, merge_stdout, merge_stderr = await run_git(
-            ["merge", "--no-edit", "--", workspace.branch],
+            ["merge", "--squash", "--", workspace.branch],
             cwd=repo_root,
             check=False,
         )
@@ -209,7 +210,7 @@ async def _harvest_under_lock(
             # Replaces blind -X theirs strategy (45-REQ-6.1)
             merge_detail = merge_stderr.strip() or merge_stdout.strip()
             logger.info(
-                "Merge commit of '%s' failed, spawning merge agent to resolve conflicts",
+                "Squash merge of '%s' failed, spawning merge agent to resolve conflicts",
                 workspace.branch,
             )
             resolved = await run_merge_agent(
@@ -218,9 +219,10 @@ async def _harvest_under_lock(
                 model_id="ADVANCED",
             )
             if not resolved:
-                # Abort the failed merge and raise
+                # Abort the failed squash merge and raise.
+                # Squash does not set MERGE_HEAD, so use reset --merge.
                 await run_git(
-                    ["merge", "--abort"],
+                    ["reset", "--merge"],
                     cwd=repo_root,
                     check=False,
                 )
@@ -228,13 +230,25 @@ async def _harvest_under_lock(
                     f"Merge agent failed to resolve conflicts for '{workspace.branch}' into '{dev_branch}'",
                     branch=workspace.branch,
                 )
+        else:
+            # Squash stages changes but does not commit. Commit them now,
+            # unless the squash resulted in no changes (identical content
+            # already on dev_branch).
+            diff_rc, _, _ = await run_git(
+                ["diff", "--cached", "--quiet"],
+                cwd=repo_root,
+                check=False,
+            )
+            if diff_rc != 0:
+                # Staged changes exist — commit using the SQUASH_MSG
+                await run_git(["commit", "--no-edit"], cwd=repo_root)
         changed_files = await get_changed_files(
             repo_root,
             workspace.branch,
             dev_branch,
         )
         logger.info(
-            "Merge commit of '%s' into '%s' succeeded",
+            "Squash merge of '%s' into '%s' succeeded",
             workspace.branch,
             dev_branch,
         )
