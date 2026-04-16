@@ -150,6 +150,7 @@ class TestStatusTokensAndCost:
 
         assert report.input_tokens == 100_000
         assert report.output_tokens == 50_000
+        assert report.estimated_cost is not None
         assert abs(report.estimated_cost - 2.50) < 0.01
 
 
@@ -399,6 +400,7 @@ class TestStatusEmptyPlanNodes:
             "load_state_from_db must not gate on plan_nodes being non-empty."
         )
         assert report.output_tokens == 3000
+        assert report.estimated_cost is not None
         assert abs(report.estimated_cost - 1.20) < 0.01, (
             f"Expected cost ~1.20 from DB, got {report.estimated_cost}. "
             "Cost must not silently fall back to $0.00 when plan_nodes is empty."

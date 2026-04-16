@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
 
 from agent_fox.cli.reset import reset_cmd
-from agent_fox.engine.state import ExecutionState, load_state_from_db
+from agent_fox.engine.state import ExecutionState
 
 
 def _make_plan_json(nodes: dict[str, dict[str, str]]) -> str:

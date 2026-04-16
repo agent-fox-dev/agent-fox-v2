@@ -138,9 +138,8 @@ class TestEndToEndIssueSummary:
 
         Requirements: 108-REQ-4.1, 108-REQ-4.2
         """
-        from agent_fox.engine.issue_summary import post_issue_summaries  # noqa: F401 (verifies module exists)
-
         from agent_fox.engine.engine import Orchestrator
+        from agent_fox.engine.issue_summary import post_issue_summaries  # noqa: F401 (verifies module exists)
 
         spec_name = "108_smoke_spec"
         specs_dir = tmp_path / ".specs"

@@ -12,11 +12,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
-from unittest.mock import MagicMock, patch
 
 from agent_fox.engine.reset import reset_spec
 from agent_fox.engine.state import ExecutionState, SessionRecord
