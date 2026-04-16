@@ -841,6 +841,38 @@ class NightShiftConfig(BaseModel):
         description="Push fix branches to origin before harvest",
     )
 
+    # --- Embedding-based duplicate detection (spec 110) ---
+
+    similarity_threshold: float = Field(
+        default=0.85,
+        description=(
+            "Cosine similarity threshold for duplicate/ignore detection (0.0 to 1.0). "
+            "Higher values = stricter matching (fewer suppressed findings). "
+            "Lower values = looser matching (more aggressive dedup)."
+        ),
+    )
+
+    @field_validator("similarity_threshold")
+    @classmethod
+    def clamp_similarity_threshold(cls, v: float) -> float:
+        """Clamp similarity_threshold to [0.0, 1.0].
+
+        Requirements: 110-REQ-7.1
+        """
+        if v < 0.0:
+            logger.warning(
+                "Config field 'similarity_threshold' value %f below minimum, clamped to 0.0",
+                v,
+            )
+            return 0.0
+        if v > 1.0:
+            logger.warning(
+                "Config field 'similarity_threshold' value %f above maximum, clamped to 1.0",
+                v,
+            )
+            return 1.0
+        return v
+
     @field_validator("spec_interval")
     @classmethod
     def clamp_spec_interval(cls, v: int) -> int:

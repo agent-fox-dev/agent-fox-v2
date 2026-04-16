@@ -78,22 +78,22 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check .`
 
-- [ ] 2. Label and configuration
-  - [ ] 2.1 Add `LABEL_IGNORE` and `LABEL_IGNORE_COLOR` to `platform/labels.py`
+- [x] 2. Label and configuration
+  - [x] 2.1 Add `LABEL_IGNORE` and `LABEL_IGNORE_COLOR` to `platform/labels.py`
     - Define `LABEL_IGNORE: str = "af:ignore"`
     - Define `LABEL_IGNORE_COLOR: str = "999999"`
     - Add `LabelSpec(name=LABEL_IGNORE, color=LABEL_IGNORE_COLOR, description="Hunt findings marked as not-an-issue by the user")` to `REQUIRED_LABELS`
     - _Requirements: 1.1, 1.2, 1.3_
 
-  - [ ] 2.2 Add `similarity_threshold` to `NightShiftConfig` in `core/config.py`
+  - [x] 2.2 Add `similarity_threshold` to `NightShiftConfig` in `core/config.py`
     - Add field: `similarity_threshold: Annotated[float, Clamped(ge=0.0, le=1.0)] = Field(default=0.85, description="...")`
     - _Requirements: 7.1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/test_ignore_label.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check .`
-    - [ ] Requirements 1.1, 1.2, 1.3, 1.4, 7.1 acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/test_ignore_label.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check .`
+    - [x] Requirements 1.1, 1.2, 1.3, 1.4, 7.1 acceptance criteria met
 
 - [ ] 3. Similarity computation and enhanced dedup
   - [ ] 3.1 Add `cosine_similarity()` to `nightshift/dedup.py`

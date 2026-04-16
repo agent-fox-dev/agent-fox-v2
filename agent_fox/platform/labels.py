@@ -25,6 +25,12 @@ LABEL_FIXED: str = "af:fixed"
 #: Applied to issues created by hunt scans (dedup fingerprint label).
 LABEL_HUNT: str = "af:hunt"
 
+#: Applied by users to hunt issues they consider false positives.
+LABEL_IGNORE: str = "af:ignore"
+
+#: Gray hex color for the af:ignore label.
+LABEL_IGNORE_COLOR: str = "999999"
+
 
 # ---------------------------------------------------------------------------
 # Label metadata for idempotent creation
@@ -56,5 +62,10 @@ REQUIRED_LABELS: list[LabelSpec] = [
         name=LABEL_HUNT,
         color="0075ca",
         description="Issues created by hunt scans",
+    ),
+    LabelSpec(
+        name=LABEL_IGNORE,
+        color=LABEL_IGNORE_COLOR,
+        description="Hunt findings marked as not-an-issue by the user",
     ),
 ]
