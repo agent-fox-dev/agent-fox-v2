@@ -68,6 +68,7 @@ class CriticSummary:
 async def consolidate_findings(
     findings: list[Finding],
     *,
+    false_positives: list[str] | None = None,
     sink: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> list[FindingGroup]:
@@ -77,9 +78,15 @@ async def consolidate_findings(
     If len(findings) < MINIMUM_FINDING_THRESHOLD, uses mechanical grouping.
     Otherwise, runs the AI critic stage with mechanical fallback on failure.
 
+    When ``false_positives`` is a non-empty list, a ``Known False Positives``
+    section is appended to the critic system prompt instructing the AI to drop
+    findings that match the listed patterns.  When ``false_positives`` is empty
+    or None, the prompt is not modified (110-REQ-6.E2).
+
     Returns a list of FindingGroups ready for issue creation.
 
-    Requirements: 73-REQ-4.1, 73-REQ-4.2, 73-REQ-4.E1, 73-REQ-7.2, 73-REQ-7.3
+    Requirements: 73-REQ-4.1, 73-REQ-4.2, 73-REQ-4.E1, 73-REQ-7.2, 73-REQ-7.3,
+                  110-REQ-6.1, 110-REQ-6.2, 110-REQ-6.E2
     """
     if not findings:
         return []
@@ -89,7 +96,12 @@ async def consolidate_findings(
 
     # Critic path — fall back to mechanical on any failure.
     try:
-        response_text = await _run_critic(findings, sink=sink, run_id=run_id)
+        response_text = await _run_critic(
+            findings,
+            false_positives=false_positives,
+            sink=sink,
+            run_id=run_id,
+        )
     except Exception as exc:
         logger.warning(
             "Critic AI backend failed; falling back to mechanical grouping: %s",
@@ -150,6 +162,7 @@ def _mechanical_grouping(findings: list[Finding]) -> list[FindingGroup]:
 async def _run_critic(
     findings: list[Finding],
     *,
+    false_positives: list[str] | None = None,
     sink: SinkDispatcher | None = None,
     run_id: str = "",
 ) -> str:
@@ -158,20 +171,36 @@ async def _run_critic(
     Returns the raw AI response text.
     Raises on AI backend failure.
 
-    Requirements: 73-REQ-7.3
+    When ``false_positives`` is non-empty, appends a ``Known False Positives``
+    section to the system prompt so the critic can proactively drop matching
+    findings before they reach the dedup gate.
+
+    Requirements: 73-REQ-7.3, 110-REQ-6.2, 110-REQ-6.E2
     """
     from agent_fox.nightshift.cost_helpers import nightshift_ai_call
 
     user_message = _build_critic_user_message(findings)
 
-    logger.log(TRACE, "Critic system prompt:\n%s", _CRITIC_SYSTEM_PROMPT)
+    # 110-REQ-6.2: append false positives section when non-empty.
+    # 110-REQ-6.E2: do not modify prompt when list is empty or None.
+    system_prompt = _CRITIC_SYSTEM_PROMPT
+    if false_positives:
+        fp_lines = "\n".join(f"- {fp}" for fp in false_positives)
+        system_prompt = (
+            system_prompt
+            + "\n\nKnown False Positives:\n"
+            + fp_lines
+            + "\nDrop any findings that match these known false-positive patterns."
+        )
+
+    logger.log(TRACE, "Critic system prompt:\n%s", system_prompt)
     logger.log(TRACE, "Critic user message:\n%s", user_message)
 
     response_text, _response = await nightshift_ai_call(
         model_tier="ADVANCED",
         max_tokens=8192,
         messages=[{"role": "user", "content": user_message}],
-        system=_CRITIC_SYSTEM_PROMPT,
+        system=system_prompt,
         context="finding consolidation critic",
         cost_label="hunt_critic",
         config=object(),  # critic has no config; PricingConfig default used
@@ -257,6 +286,12 @@ def _parse_critic_response(
             )
 
     for raw_drop in raw_dropped:
+        if not isinstance(raw_drop, dict):
+            logger.warning(
+                "Critic dropped entry is not a dict (got %s); skipping.",
+                type(raw_drop).__name__,
+            )
+            continue
         idx = raw_drop.get("finding_index", -1)
         reason = raw_drop.get("reason", "")
 

@@ -138,8 +138,8 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] No linter warnings introduced: `uv run ruff check .`
     - [x] Requirements 4.1-4.4 acceptance criteria met
 
-- [ ] 5. Knowledge ingestion and critic enhancement
-  - [ ] 5.1 Create `nightshift/ignore_ingest.py`
+- [x] 5. Knowledge ingestion and critic enhancement
+  - [x] 5.1 Create `nightshift/ignore_ingest.py`
     - Implement `ingest_ignore_signals(platform, conn, embedder, *, sink, run_id)`
     - Fetch `af:ignore` issues with `state="all"`
     - Detect ingestion marker (`<!-- af:knowledge-ingested -->`)
@@ -151,18 +151,18 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Return count of newly ingested facts
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.E1, 5.E2, 5.E3_
 
-  - [ ] 5.2 Enhance `consolidate_findings()` in `nightshift/critic.py`
+  - [x] 5.2 Enhance `consolidate_findings()` in `nightshift/critic.py`
     - Add `false_positives: list[str] | None = None` parameter
     - When non-empty, append `Known False Positives` section to `_CRITIC_SYSTEM_PROMPT`
     - Pass through to `_run_critic()` (which uses the modified prompt)
     - When empty or None, do not modify the prompt
     - _Requirements: 6.1, 6.2, 6.E2_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests pass: `uv run pytest -q tests/test_ignore_ingest.py tests/test_critic_false_positives.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check .`
-    - [ ] Requirements 5.1-5.4, 6.1, 6.2 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests pass: `uv run pytest -q tests/test_ignore_ingest.py tests/test_critic_false_positives.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check .`
+    - [x] Requirements 5.1-5.4, 6.1, 6.2 acceptance criteria met
 
 - [ ] 6. Engine wiring
   - [ ] 6.1 Wire ingestion pre-phase in `engine.py`
