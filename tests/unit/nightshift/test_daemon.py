@@ -458,6 +458,210 @@ class TestFormatIdleText:
         assert "2m" in result
 
 
+class TestFormatWait:
+    """Verify _format_wait produces compact duration strings."""
+
+    def test_seconds(self) -> None:
+        from agent_fox.nightshift.daemon import _format_wait
+
+        assert _format_wait(45) == "45s"
+
+    def test_minutes(self) -> None:
+        from agent_fox.nightshift.daemon import _format_wait
+
+        assert _format_wait(900) == "15m"
+
+    def test_hours_exact(self) -> None:
+        from agent_fox.nightshift.daemon import _format_wait
+
+        assert _format_wait(14400) == "4h"
+
+    def test_hours_and_minutes(self) -> None:
+        from agent_fox.nightshift.daemon import _format_wait
+
+        assert _format_wait(5400) == "1h 30m"
+
+
+class TestFormatActiveText:
+    """Verify _format_active_text produces human-readable active messages."""
+
+    def test_single_spec_stream(self) -> None:
+        """Active spec-executor shows 'spec sessions' label."""
+        import time as _time
+
+        from agent_fox.nightshift.daemon import _format_active_text
+
+        next_run = {"fix-pipeline": _time.monotonic() + 900}
+        result = _format_active_text({"spec-executor"}, next_run)
+        assert result.startswith("Running spec sessions")
+        assert "Idle" not in result
+
+    def test_countdown_included(self) -> None:
+        """Active text includes countdown for next scheduled stream."""
+        import time as _time
+
+        from agent_fox.nightshift.daemon import _format_active_text
+
+        next_run = {"fix-pipeline": _time.monotonic() + 900}
+        result = _format_active_text({"spec-executor"}, next_run)
+        assert "next fix check" in result
+        assert "\u2014" in result  # em dash separator
+
+    def test_multiple_active_streams(self) -> None:
+        """Multiple active streams appear in priority order."""
+        import time as _time
+
+        from agent_fox.nightshift.daemon import _format_active_text
+
+        next_run = {"hunt-scan": _time.monotonic() + 14400}
+        result = _format_active_text({"spec-executor", "fix-pipeline"}, next_run)
+        assert "spec sessions" in result
+        assert "fix pipeline" in result
+        # spec-executor appears before fix-pipeline (priority order)
+        assert result.index("spec sessions") < result.index("fix pipeline")
+
+    def test_no_next_run_times(self) -> None:
+        """Empty next_run_times yields simple 'Running ...' with no countdown."""
+        from agent_fox.nightshift.daemon import _format_active_text
+
+        result = _format_active_text({"spec-executor"}, {})
+        assert result == "Running spec sessions"
+        assert "\u2014" not in result
+
+    def test_unknown_stream_falls_back_to_name(self) -> None:
+        """Unknown stream name is shown as-is."""
+        from agent_fox.nightshift.daemon import _format_active_text
+
+        result = _format_active_text({"my-custom-stream"}, {})
+        assert "my-custom-stream" in result
+
+
+class TestActiveStreamDisplay:
+    """Verify _update_idle_display shows Running text when streams are active."""
+
+    def test_active_stream_overrides_idle_text(self) -> None:
+        """idle_callback receives 'Running' text when _active_streams is non-empty."""
+        import time as _time
+
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        captured: list[str] = []
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(config, None, [], budget, idle_callback=captured.append)
+
+        runner._active_streams.add("spec-executor")
+        runner._update_idle_display("fix-pipeline", _time.monotonic() + 900)
+
+        assert len(captured) == 1
+        assert "Running" in captured[0]
+        assert "spec sessions" in captured[0]
+        assert "Idle" not in captured[0]
+
+    def test_idle_text_when_no_active_streams(self) -> None:
+        """idle_callback receives 'Idle' text when no streams are active."""
+        import time as _time
+
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        captured: list[str] = []
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(config, None, [], budget, idle_callback=captured.append)
+
+        runner._update_idle_display("fix-pipeline", _time.monotonic() + 900)
+
+        assert len(captured) == 1
+        assert "Idle" in captured[0]
+        assert "Running" not in captured[0]
+
+    async def test_stream_in_active_set_during_run_once(self, tmp_path: Path) -> None:
+        """Stream name is present in _active_streams while run_once() executes."""
+        import asyncio as _asyncio
+
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        active_snapshot: list[set] = []
+
+        async def recording_run() -> None:
+            active_snapshot.append(set(runner._active_streams))
+            await _asyncio.sleep(0)
+
+        stream = _make_mock_stream(name="spec-executor", interval=999, enabled=True)
+        stream.run_once = AsyncMock(side_effect=recording_run)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config, None, [stream], budget, pid_path=tmp_path / "d.pid"
+        )
+
+        async def shutdown_after() -> None:
+            await _asyncio.sleep(0.15)
+            runner.request_shutdown()
+
+        task = _asyncio.create_task(shutdown_after())
+        await runner.run()
+        await task
+
+        assert len(active_snapshot) >= 1
+        assert "spec-executor" in active_snapshot[0]
+
+    async def test_stream_removed_from_active_after_run_once(self, tmp_path: Path) -> None:
+        """Stream removed from _active_streams after run_once() completes."""
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        stream = _make_mock_stream(name="spec-executor", interval=999, enabled=True)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config, None, [stream], budget, pid_path=tmp_path / "d.pid"
+        )
+
+        async def shutdown_after() -> None:
+            import asyncio as _asyncio
+            await _asyncio.sleep(0.15)
+            runner.request_shutdown()
+
+        import asyncio as _asyncio
+        task = _asyncio.create_task(shutdown_after())
+        await runner.run()
+        await task
+
+        assert "spec-executor" not in runner._active_streams
+
+    async def test_idle_callback_shows_idle_after_spec_run_completes(
+        self, tmp_path: Path
+    ) -> None:
+        """After spec-executor run_once() completes, idle_callback shows Idle text."""
+        from agent_fox.nightshift.daemon import DaemonRunner, SharedBudget
+
+        captured: list[str] = []
+        stream = _make_mock_stream(name="spec-executor", interval=999, enabled=True)
+        budget = SharedBudget(max_cost=None)
+        config = _make_config()
+        runner = DaemonRunner(
+            config,
+            None,
+            [stream],
+            budget,
+            pid_path=tmp_path / "d.pid",
+            idle_callback=captured.append,
+        )
+
+        async def shutdown_after() -> None:
+            import asyncio as _asyncio
+            await _asyncio.sleep(0.15)
+            runner.request_shutdown()
+
+        import asyncio as _asyncio
+        task = _asyncio.create_task(shutdown_after())
+        await runner.run()
+        await task
+
+        # The post-run update_idle_display should show Idle (stream no longer active)
+        assert any("Idle" in msg for msg in captured)
+
+
 class TestIdleCallback:
     """Verify DaemonRunner calls idle_callback after run_once completes."""
 

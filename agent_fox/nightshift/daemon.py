@@ -38,20 +38,53 @@ _STREAM_DISPLAY_NAMES: dict[str, str] = {
     "spec-executor": "spec check",
 }
 
+_STREAM_ACTIVE_LABELS: dict[str, str] = {
+    "spec-executor": "spec sessions",
+    "fix-pipeline": "fix pipeline",
+    "hunt-scan": "hunt scan",
+}
+
+
+def _format_wait(remaining_seconds: float) -> str:
+    """Format a duration in seconds as a compact human-readable string."""
+    s = int(remaining_seconds)
+    if s < 60:
+        return f"{s}s"
+    elif s < 3600:
+        return f"{s // 60}m"
+    else:
+        h, m = divmod(s, 3600)
+        m //= 60
+        return f"{h}h {m}m" if m else f"{h}h"
+
 
 def _format_idle_text(stream_name: str, remaining_seconds: float) -> str:
     """Format idle spinner text for the next scheduled stream run."""
     display = _STREAM_DISPLAY_NAMES.get(stream_name, stream_name)
-    s = int(remaining_seconds)
-    if s < 60:
-        wait = f"{s}s"
-    elif s < 3600:
-        wait = f"{s // 60}m"
-    else:
-        h, m = divmod(s, 3600)
-        m //= 60
-        wait = f"{h}h {m}m" if m else f"{h}h"
-    return f"Idle \u2014 next {display} in {wait}"
+    return f"Idle \u2014 next {display} in {_format_wait(remaining_seconds)}"
+
+
+def _format_active_text(
+    active_streams: set[str],
+    next_run_times: dict[str, float],
+) -> str:
+    """Format spinner text when one or more streams are actively running.
+
+    Shows which streams are busy and (when next-run-times are available)
+    when the next idle check is scheduled.
+    """
+    # Display active streams in priority order for a consistent label.
+    _prio = ["spec-executor", "fix-pipeline", "hunt-scan"]
+    sorted_active = [s for s in _prio if s in active_streams] + sorted(s for s in active_streams if s not in _prio)
+    labels = [_STREAM_ACTIVE_LABELS.get(s, s) for s in sorted_active]
+    running_part = ", ".join(labels)
+
+    if next_run_times:
+        soonest = min(next_run_times, key=next_run_times.get)  # type: ignore[arg-type]
+        remaining = max(0.0, next_run_times[soonest] - time.monotonic())
+        display = _STREAM_DISPLAY_NAMES.get(soonest, soonest)
+        return f"Running {running_part} \u2014 next {display} in {_format_wait(remaining)}"
+    return f"Running {running_part}"
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +184,7 @@ class DaemonRunner:
         self._pid_path = pid_path
         self._idle_callback = idle_callback
         self._next_run_times: dict[str, float] = {}
+        self._active_streams: set[str] = set()
         self._shutting_down = False
         self._shutdown_event = asyncio.Event()
 
@@ -207,9 +241,16 @@ class DaemonRunner:
         )
 
     def _update_idle_display(self, stream_name: str, next_run_at: float) -> None:
-        """Update the spinner with the soonest next stream run."""
+        """Update the spinner with the soonest next stream run.
+
+        When streams are actively running, shows their activity instead
+        of the idle countdown so the user knows work is in progress.
+        """
         self._next_run_times[stream_name] = next_run_at
         if self._idle_callback is None:
+            return
+        if self._active_streams:
+            self._idle_callback(_format_active_text(self._active_streams, self._next_run_times))
             return
         soonest = min(self._next_run_times, key=self._next_run_times.get)  # type: ignore[arg-type]
         remaining = max(0.0, self._next_run_times[soonest] - time.monotonic())
@@ -260,6 +301,7 @@ class DaemonRunner:
             idle_ticks = 0
 
             # Run the stream cycle.
+            self._active_streams.add(stream.name)
             try:
                 await stream.run_once()
             except Exception:  # noqa: BLE001
@@ -267,6 +309,8 @@ class DaemonRunner:
                     "Stream %r run_once() raised; will retry next cycle",
                     stream.name,
                 )
+            finally:
+                self._active_streams.discard(stream.name)
 
             last_run = time.monotonic()
             self._update_idle_display(stream.name, last_run + stream.interval)
