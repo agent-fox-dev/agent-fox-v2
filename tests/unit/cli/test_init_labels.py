@@ -14,9 +14,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
-
 # ---------------------------------------------------------------------------
 # TS-358-6: _ensure_platform_labels creates required labels when configured
 # ---------------------------------------------------------------------------
@@ -25,9 +22,7 @@ import pytest
 class TestEnsurePlatformLabelsConfigured:
     """Verify required labels are created when platform is configured."""
 
-    def test_creates_required_labels_when_platform_configured(
-        self, tmp_path: Path
-    ) -> None:
+    def test_creates_required_labels_when_platform_configured(self, tmp_path: Path) -> None:
         """TS-358-6: create_label called for each REQUIRED_LABEL."""
         from agent_fox.platform.labels import REQUIRED_LABELS
         from agent_fox.workspace.init_project import _ensure_platform_labels

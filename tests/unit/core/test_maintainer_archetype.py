@@ -410,7 +410,7 @@ class TestExtractKnowledgeStub:
         result = extract_knowledge(inp)
         assert result.session_id == "my-session-42", f"Expected session_id='my-session-42', got {result.session_id!r}"
 
-    def test_logs_info_message(self, caplog: object) -> None:
+    def test_logs_info_message(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-100-10: extract_knowledge must log an info message when called."""
 
         from agent_fox.nightshift.extraction import ExtractionInput, extract_knowledge
@@ -421,9 +421,9 @@ class TestExtractKnowledgeStub:
             spec_name="spec",
             archetype="coder",
         )
-        with caplog.at_level(logging.INFO, logger="agent_fox.nightshift.extraction"):  # type: ignore[union-attr]
+        with caplog.at_level(logging.INFO, logger="agent_fox.nightshift.extraction"):
             extract_knowledge(inp)
-        assert len(caplog.records) > 0, (  # type: ignore[union-attr]
+        assert len(caplog.records) > 0, (
             "extract_knowledge should log an INFO message when called (100-REQ-4.3)"
         )
 
@@ -446,14 +446,14 @@ class TestTriageFallback:
             f"get_archetype('triage') should fall back to 'coder', got {entry.name!r} (100-REQ-1.E1)"
         )
 
-    def test_triage_logs_warning(self, caplog: object) -> None:
+    def test_triage_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """TS-100-E1: get_archetype('triage') must log a warning."""
 
         from agent_fox.archetypes import get_archetype
 
-        with caplog.at_level(logging.WARNING):  # type: ignore[union-attr]
+        with caplog.at_level(logging.WARNING):
             get_archetype("triage")
-        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]  # type: ignore[union-attr]
+        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
         assert any("triage" in msg.lower() for msg in warning_messages), (
             f"Expected a warning mentioning 'triage', got: {warning_messages} (100-REQ-1.E1)"
         )

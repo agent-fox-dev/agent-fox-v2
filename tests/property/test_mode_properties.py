@@ -54,7 +54,7 @@ def _archetype_entry_strategy():  # type: ignore[return]
 
     return st.fixed_dictionaries(
         {
-            "name": st.text(alphabet=st.characters(whitelist_categories=("L",)), min_size=1, max_size=20),
+            "name": st.text(alphabet=st.characters(categories=("L",)), min_size=1, max_size=20),
             "default_model_tier": st.sampled_from(_VALID_TIERS),
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "task_assignable": st.booleans(),
@@ -249,7 +249,7 @@ class TestEmptyAllowlistBlocksAll:
 
     @given(
         cmd=st.text(
-            alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="- _/"),
+            alphabet=st.characters(categories=("L", "N"), include_characters="- _/"),
             min_size=1,
             max_size=30,
         )
@@ -284,7 +284,7 @@ class TestSerializationRoundTrip:
         mode=st.one_of(
             st.none(),
             st.text(
-                alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="-_"),
+                alphabet=st.characters(categories=("L", "N"), include_characters="-_"),
                 min_size=1,
                 max_size=30,
             ),

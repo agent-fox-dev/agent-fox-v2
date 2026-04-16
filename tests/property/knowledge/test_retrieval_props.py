@@ -34,7 +34,7 @@ KNOWN_ARCHETYPES = ["coder", "auditor", "reviewer", "verifier"]
 
 # A strategy for a single ScoredFact with a fixed or random fact_id
 _fact_id_st = st.uuids().map(str)
-_content_st = st.text(min_size=1, max_size=200, alphabet=st.characters(blacklist_categories=("Cs",)))
+_content_st = st.text(min_size=1, max_size=200, alphabet=st.characters(exclude_categories=("Cs",)))
 _spec_name_st = st.text(min_size=1, max_size=30, alphabet="abcdefghijklmnopqrstuvwxyz_0123456789")
 _confidence_st = st.floats(min_value=0.0, max_value=1.0, allow_nan=False, allow_infinity=False)
 _score_st = st.floats(min_value=0.0, max_value=10.0, allow_nan=False, allow_infinity=False)

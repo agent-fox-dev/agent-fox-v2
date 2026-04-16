@@ -7,6 +7,7 @@ Requirements: 105-REQ-1.1, 105-REQ-1.2, 105-REQ-1.3, 105-REQ-1.4,
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -64,7 +65,7 @@ CREATE TABLE IF NOT EXISTS plan_meta (
 
 
 @pytest.fixture
-def plan_conn() -> duckdb.DuckDBPyConnection:
+def plan_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with plan tables (matching v9 migration schema)."""
     conn = duckdb.connect(":memory:")
     conn.execute(_PLAN_SCHEMA_DDL)

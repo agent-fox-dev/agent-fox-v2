@@ -17,7 +17,7 @@ from agent_fox.platform.github import GitHubPlatform
 _TARGET = "agent_fox.platform.github.httpx.AsyncClient"
 
 
-def _mock_client(**method_responses: MagicMock) -> AsyncMock:
+def _mock_client(**method_responses: Any) -> AsyncMock:
     """Build a mock httpx.AsyncClient with specified method responses."""
     client = AsyncMock()
     for method_name, response in method_responses.items():
@@ -60,7 +60,7 @@ class TestCreateLabelRequest:
             201,
             {"id": 1, "name": "af:fix", "color": "12ec39", "description": "test"},
         )
-        requests_made: list[tuple[str, Any]] = []
+        requests_made: list[tuple[str, Any, Any]] = []
 
         async def mock_post(url, *, json=None, headers=None, **kw: Any) -> MagicMock:
             requests_made.append(("POST", url, json))

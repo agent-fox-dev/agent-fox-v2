@@ -640,12 +640,11 @@ class TestProtocolConformance107:
 
     def test_protocol_conformance_all_new_analyzers(self) -> None:
         """All four new analyzers satisfy LanguageAnalyzer protocol."""
+        from agent_fox.knowledge.lang.base import LanguageAnalyzer
         from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
         from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
         from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
         from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
-
-        from agent_fox.knowledge.lang.base import LanguageAnalyzer
 
         for AnalyzerCls in [CSharpAnalyzer, ElixirAnalyzer, KotlinAnalyzer, DartAnalyzer]:
             analyzer = AnalyzerCls()
@@ -678,7 +677,6 @@ class TestCSharpEntityValidity:
     ) -> None:
         """For any valid C# class and method name, extract_entities returns valid entities."""
         from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = f"namespace Ns {{ class {class_name} {{ void {method_name}() {{}} }} }}"
@@ -721,7 +719,6 @@ class TestKotlinEntityValidity:
     ) -> None:
         """For any valid Kotlin class and function name, extract_entities returns valid entities."""
         from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = f"class {class_name} {{ fun {func_name}() {{}} }}"
@@ -762,7 +759,6 @@ class TestDartEntityValidity:
     ) -> None:
         """For any valid Dart class and method name, extract_entities returns valid entities."""
         from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = f"class {class_name} {{ void {method_name}() {{}} }}"
@@ -803,7 +799,6 @@ class TestElixirNoClassInvariant:
     ) -> None:
         """For any Elixir module and function, no CLASS or EXTENDS appears."""
         from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
-
         from agent_fox.knowledge.static_analysis import _parse_file
 
         source = f"defmodule {module_name} do\n  def {func_name}(x), do: x\nend"

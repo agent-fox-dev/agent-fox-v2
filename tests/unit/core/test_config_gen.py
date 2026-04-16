@@ -14,12 +14,12 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, create_model
 
+from agent_fox import __version__
 from agent_fox.core.config import (
     AgentFoxConfig,
     OrchestratorConfig,
     load_config,
 )
-from agent_fox import __version__
 from agent_fox.core.config_gen import (
     _FOOTER_COMMENT,
     _GITHUB_REPO_URL,
@@ -449,16 +449,12 @@ class TestTemplateHeaderFooter:
     def test_header_contains_version(self) -> None:
         """Template header includes the agent-fox version that generated the file."""
         template = generate_default_config()
-        assert f"agent-fox {__version__}" in template, (
-            f"Template header must include version '{__version__}'"
-        )
+        assert f"agent-fox {__version__}" in template, f"Template header must include version '{__version__}'"
 
     def test_header_contains_github_repo_url(self) -> None:
         """Template header includes the full GitHub repo URL."""
         template = generate_default_config()
-        assert _GITHUB_REPO_URL in template, (
-            f"Template header must include GitHub URL '{_GITHUB_REPO_URL}'"
-        )
+        assert _GITHUB_REPO_URL in template, f"Template header must include GitHub URL '{_GITHUB_REPO_URL}'"
 
     def test_footer_contains_full_docs_url(self) -> None:
         """Template footer references the docs via full GitHub URL, not a relative path."""
