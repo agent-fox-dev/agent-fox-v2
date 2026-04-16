@@ -16,7 +16,7 @@ Before making any changes, orient yourself:
 4. **Read relevant specs** in `.specs/` for the area you're working on.
 5. **Read ADRs** in `docs/adr/` for architectural context.
 6. **Explore the codebase:** `<main_package>/` is the main package, `<test_directory>/` has
-   unit, property, and integration tests.
+   unit, property, and integration tests. Their location is language dependent.
 7. **Check git state:** `git log --oneline -20`, `git status --short --branch`.
 8. **Run `make check`** to confirm the baseline is green. If tests fail, fix
    them before starting new work.
