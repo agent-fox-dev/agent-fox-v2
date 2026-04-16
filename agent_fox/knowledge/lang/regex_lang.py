@@ -1,10 +1,8 @@
 """Regex language analyzer for the entity graph.
 
 Implements LanguageAnalyzer for regex pattern files using tree-sitter-regex.
-Regex is a pattern syntax, not a programming language — only FILE entities
-are extracted and no edges or module maps are produced.
-
-Requirements: 102-REQ-2.1
+Regex files contain patterns without class or function constructs, so only
+FILE entities are produced.
 """
 
 from __future__ import annotations
@@ -21,19 +19,11 @@ except ImportError:
     language = None  # type: ignore[assignment]
 
 
-# ---------------------------------------------------------------------------
-# RegexAnalyzer
-# ---------------------------------------------------------------------------
-
-
 class RegexAnalyzer:
     """Language analyzer for regex pattern files (.regex).
 
-    Only FILE entities are extracted.  Regex patterns have no functions,
-    classes, or importable modules, so extract_edges and build_module_map
-    return empty collections.
-
-    Requirements: 102-REQ-2.1
+    Produces only a FILE entity — regex patterns have no class or function
+    constructs that map to graph entities.
     """
 
     @property
@@ -53,10 +43,9 @@ class RegexAnalyzer:
         return Parser(Language(language()))
 
     def extract_entities(self, tree, rel_path: str) -> list[Entity]:
-        """Extract a single FILE entity from a parsed regex tree."""
-        now = ENTITY_EPOCH
+        """Extract a FILE entity from a regex file."""
         file_name = Path(rel_path).name
-        return [make_entity(EntityType.FILE, file_name, rel_path, now=now)]
+        return [make_entity(EntityType.FILE, file_name, rel_path, now=ENTITY_EPOCH)]
 
     def extract_edges(
         self,
@@ -65,7 +54,7 @@ class RegexAnalyzer:
         entities: list[Entity],
         module_map: dict[str, str],
     ) -> list[EntityEdge]:
-        """Return empty list — regex files have no structural edges to extract."""
+        """Return no edges — regex files have no structural edges to extract."""
         return []
 
     def build_module_map(
@@ -73,5 +62,5 @@ class RegexAnalyzer:
         repo_root: Path,
         files: list[Path],
     ) -> dict[str, str]:
-        """Return empty dict — regex has no importable module system."""
+        """Return an empty module map — regex files have no import mechanism."""
         return {}

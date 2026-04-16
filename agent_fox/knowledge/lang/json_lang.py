@@ -1,10 +1,8 @@
 """JSON language analyzer for the entity graph.
 
-Implements LanguageAnalyzer for JSON files using tree-sitter-json.
-JSON is a data serialization format, not a programming language — only FILE
-entities are extracted and no edges or module maps are produced.
-
-Requirements: 102-REQ-2.1
+Implements LanguageAnalyzer for JSON source files using tree-sitter-json.
+JSON is a data format without OOP constructs, so only FILE entities
+and no structural edges are produced.
 """
 
 from __future__ import annotations
@@ -21,19 +19,11 @@ except ImportError:
     language = None  # type: ignore[assignment]
 
 
-# ---------------------------------------------------------------------------
-# JsonAnalyzer
-# ---------------------------------------------------------------------------
-
-
 class JsonAnalyzer:
-    """Language analyzer for JSON files (.json).
+    """Language analyzer for JSON source files (.json).
 
-    Only FILE entities are extracted.  JSON has no functions, classes, or
-    importable modules, so extract_edges and build_module_map return empty
-    collections.
-
-    Requirements: 102-REQ-2.1
+    Produces only a FILE entity — JSON is a data format without structural
+    class or function constructs.
     """
 
     @property
@@ -53,10 +43,9 @@ class JsonAnalyzer:
         return Parser(Language(language()))
 
     def extract_entities(self, tree, rel_path: str) -> list[Entity]:
-        """Extract a single FILE entity from a parsed JSON tree."""
-        now = ENTITY_EPOCH
+        """Extract a FILE entity from a JSON file."""
         file_name = Path(rel_path).name
-        return [make_entity(EntityType.FILE, file_name, rel_path, now=now)]
+        return [make_entity(EntityType.FILE, file_name, rel_path, now=ENTITY_EPOCH)]
 
     def extract_edges(
         self,
@@ -65,7 +54,7 @@ class JsonAnalyzer:
         entities: list[Entity],
         module_map: dict[str, str],
     ) -> list[EntityEdge]:
-        """Return empty list — JSON files have no structural edges to extract."""
+        """Return no edges — JSON has no structural edges to extract."""
         return []
 
     def build_module_map(
@@ -73,5 +62,5 @@ class JsonAnalyzer:
         repo_root: Path,
         files: list[Path],
     ) -> dict[str, str]:
-        """Return empty dict — JSON has no importable module system."""
+        """Return an empty module map — JSON has no import mechanism."""
         return {}

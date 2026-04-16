@@ -398,7 +398,7 @@ class TestEmptyRepository:
     Requirement: 95-REQ-4.E3
     """
 
-    def test_no_python_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
+    def test_no_recognized_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
         """AnalysisResult is all zeros when no recognized source files exist."""
         # Only use extensions that are genuinely unrecognized by any analyzer.
         # .json and .html are now supported; use .md and .txt instead.

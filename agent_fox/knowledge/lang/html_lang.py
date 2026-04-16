@@ -1,10 +1,8 @@
 """HTML language analyzer for the entity graph.
 
 Implements LanguageAnalyzer for HTML source files using tree-sitter-html.
-HTML is a markup language, not a programming language — only FILE entities
-are extracted and no edges or module maps are produced.
-
-Requirements: 102-REQ-2.1
+HTML is a markup language without OOP constructs, so only FILE entities
+and no structural edges are produced.
 """
 
 from __future__ import annotations
@@ -21,19 +19,10 @@ except ImportError:
     language = None  # type: ignore[assignment]
 
 
-# ---------------------------------------------------------------------------
-# HtmlAnalyzer
-# ---------------------------------------------------------------------------
-
-
 class HtmlAnalyzer:
     """Language analyzer for HTML source files (.html, .htm).
 
-    Only FILE entities are extracted.  HTML does not define functions, classes,
-    or importable modules, so extract_edges and build_module_map return empty
-    collections.
-
-    Requirements: 102-REQ-2.1
+    Produces only a FILE entity — HTML has no class or function constructs.
     """
 
     @property
@@ -53,10 +42,9 @@ class HtmlAnalyzer:
         return Parser(Language(language()))
 
     def extract_entities(self, tree, rel_path: str) -> list[Entity]:
-        """Extract a single FILE entity from a parsed HTML tree."""
-        now = ENTITY_EPOCH
+        """Extract a FILE entity from an HTML file."""
         file_name = Path(rel_path).name
-        return [make_entity(EntityType.FILE, file_name, rel_path, now=now)]
+        return [make_entity(EntityType.FILE, file_name, rel_path, now=ENTITY_EPOCH)]
 
     def extract_edges(
         self,
@@ -65,7 +53,7 @@ class HtmlAnalyzer:
         entities: list[Entity],
         module_map: dict[str, str],
     ) -> list[EntityEdge]:
-        """Return empty list — HTML files have no structural edges to extract."""
+        """Return no edges — HTML has no structural edges to extract."""
         return []
 
     def build_module_map(
@@ -73,5 +61,5 @@ class HtmlAnalyzer:
         repo_root: Path,
         files: list[Path],
     ) -> dict[str, str]:
-        """Return empty dict — HTML has no importable module system."""
+        """Return an empty module map — HTML imports are not resolved."""
         return {}
