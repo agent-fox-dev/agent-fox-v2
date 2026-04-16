@@ -342,3 +342,81 @@ class TestBlockingEdgeCases:
         threshold = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert threshold is not None
         assert isinstance(threshold, int)
+
+
+# ---------------------------------------------------------------------------
+# Regression: migration v13 creates the tables in production schema
+# ---------------------------------------------------------------------------
+
+
+class TestMigrationV13CreatesBlockingTables:
+    """Regression for issue #449: blocking_history table missing in production.
+
+    Verifies that run_migrations() creates blocking_history and
+    learned_thresholds so that record_blocking_decision() does not raise
+    CatalogException after review completion.
+    """
+
+    def test_run_migrations_creates_blocking_history(self) -> None:
+        """Regression #449: run_migrations creates blocking_history table."""
+        import duckdb as ddb
+
+        from agent_fox.knowledge.blocking_history import (
+            BlockingDecision,
+            record_blocking_decision,
+        )
+        from agent_fox.knowledge.migrations import run_migrations
+
+        conn = ddb.connect(":memory:")
+        run_migrations(conn)
+
+        # Must not raise CatalogException
+        decision = BlockingDecision(
+            spec_name="regression_449",
+            archetype="skeptic",
+            critical_count=2,
+            threshold=3,
+            blocked=False,
+            outcome="correct_pass",
+        )
+        record_blocking_decision(conn, decision)
+
+        rows = conn.execute("SELECT spec_name FROM blocking_history").fetchall()
+        assert len(rows) == 1
+        assert rows[0][0] == "regression_449"
+
+    def test_run_migrations_creates_learned_thresholds(self) -> None:
+        """Regression #449: run_migrations creates learned_thresholds table."""
+        import duckdb as ddb
+
+        from agent_fox.knowledge.blocking_history import (
+            get_learned_threshold,
+            store_learned_threshold,
+        )
+        from agent_fox.knowledge.migrations import run_migrations
+
+        conn = ddb.connect(":memory:")
+        run_migrations(conn)
+
+        # Must not raise CatalogException
+        store_learned_threshold(conn, "skeptic", 4, 0.9, 30)
+        result = get_learned_threshold(conn, "skeptic")
+        assert result == 4
+
+    def test_tables_present_in_table_list(self) -> None:
+        """Regression #449: both tables appear in information_schema after migration."""
+        import duckdb as ddb
+
+        from agent_fox.knowledge.migrations import run_migrations
+
+        conn = ddb.connect(":memory:")
+        run_migrations(conn)
+
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+            ).fetchall()
+        }
+        assert "blocking_history" in tables, "blocking_history table missing after run_migrations()"
+        assert "learned_thresholds" in tables, "learned_thresholds table missing after run_migrations()"

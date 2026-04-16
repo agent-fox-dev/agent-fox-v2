@@ -508,6 +508,39 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
         logger.info("session_outcomes table not found, skipping session_outcomes extension in v11 migration")
 
 
+def _migrate_v13(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add blocking_history and learned_thresholds tables.
+
+    These tables were referenced in agent_fox/knowledge/blocking_history.py
+    but never created in any migration or in the base schema DDL, causing a
+    CatalogException at runtime whenever a blocking decision was recorded.
+
+    Uses CREATE TABLE IF NOT EXISTS for idempotency.
+
+    Requirements: 39-REQ-10.1, 39-REQ-10.2, 39-REQ-10.3
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS blocking_history (
+            id            VARCHAR PRIMARY KEY,
+            spec_name     VARCHAR NOT NULL,
+            archetype     VARCHAR NOT NULL,
+            critical_count INTEGER NOT NULL,
+            threshold     INTEGER NOT NULL,
+            blocked       BOOLEAN NOT NULL,
+            outcome       VARCHAR,
+            created_at    TIMESTAMP DEFAULT current_timestamp
+        );
+
+        CREATE TABLE IF NOT EXISTS learned_thresholds (
+            archetype     VARCHAR PRIMARY KEY,
+            threshold     INTEGER NOT NULL,
+            confidence    FLOAT NOT NULL,
+            sample_count  INTEGER NOT NULL,
+            updated_at    TIMESTAMP DEFAULT current_timestamp
+        );
+    """)
+
+
 def _migrate_v12(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop stale UNIQUE(spec_name, group_number) constraint from plan_nodes.
 
@@ -625,6 +658,11 @@ MIGRATIONS: list[Migration] = [
         version=12,
         description="drop stale UNIQUE(spec_name, group_number) from plan_nodes",
         apply=_migrate_v12,
+    ),
+    Migration(
+        version=13,
+        description="add blocking_history and learned_thresholds tables",
+        apply=_migrate_v13,
     ),
 ]
 
@@ -746,6 +784,25 @@ CREATE TABLE IF NOT EXISTS tool_errors (
     node_id    TEXT,
     tool_name  TEXT,
     failed_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blocking_history (
+    id            VARCHAR PRIMARY KEY,
+    spec_name     VARCHAR NOT NULL,
+    archetype     VARCHAR NOT NULL,
+    critical_count INTEGER NOT NULL,
+    threshold     INTEGER NOT NULL,
+    blocked       BOOLEAN NOT NULL,
+    outcome       VARCHAR,
+    created_at    TIMESTAMP DEFAULT current_timestamp
+);
+
+CREATE TABLE IF NOT EXISTS learned_thresholds (
+    archetype     VARCHAR PRIMARY KEY,
+    threshold     INTEGER NOT NULL,
+    confidence    FLOAT NOT NULL,
+    sample_count  INTEGER NOT NULL,
+    updated_at    TIMESTAMP DEFAULT current_timestamp
 );
 
 INSERT INTO schema_version (version, description)
