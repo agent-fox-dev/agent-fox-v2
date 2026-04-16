@@ -21,7 +21,7 @@ Treat this file as executable workflow policy.
 - Use conventional commits: `<type>: <description>` (e.g. `chore:`, `fix:`,
   `refactor:`).
 - Never add `Co-Authored-By` lines. No AI attribution in commits.
-- Never push to remote. The orchestrator handles remote integration.
+- **Important:** Never push to remote. The orchestrator handles remote integration.
 
 ## Focus Areas
 
