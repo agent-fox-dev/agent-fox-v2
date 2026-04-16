@@ -24,6 +24,8 @@ from agent_fox.nightshift.finding import (
     create_issues_from_groups,
 )
 from agent_fox.nightshift.fix_pipeline import FixPipeline
+from agent_fox.nightshift.ignore_filter import filter_ignored
+from agent_fox.nightshift.ignore_ingest import ingest_ignore_signals
 from agent_fox.nightshift.reference_parser import (
     fetch_github_relationships,
     parse_text_references,
@@ -35,6 +37,9 @@ from agent_fox.platform.labels import LABEL_FIX, LABEL_FIXED
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback
 
 if TYPE_CHECKING:
+    import duckdb
+
+    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
@@ -77,6 +82,8 @@ class NightShiftEngine:
         status_callback: Callable[[str, str], None] | None = None,
         spinner_callback: SpinnerCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
+        conn: duckdb.DuckDBPyConnection | None = None,
+        embedder: EmbeddingGenerator | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
@@ -86,6 +93,8 @@ class NightShiftEngine:
         self._status_callback = status_callback
         self._spinner_callback = spinner_callback
         self._sink = sink_dispatcher
+        self._conn = conn
+        self._embedder = embedder
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
 
@@ -328,12 +337,38 @@ class NightShiftEngine:
         scanner = HuntScanner(registry, self._config)
         return await scanner.run(Path.cwd(), sink=sink, run_id=run_id)  # type: ignore[return-value]
 
+    def _query_false_positives(self) -> list[str]:
+        """Query the knowledge store for anti_pattern facts from af:ignore signals.
+
+        Returns a list of content strings for facts with category='anti_pattern'
+        and spec_name='nightshift:ignore'. Returns an empty list on failure
+        (fail-open).
+
+        Requirements: 110-REQ-6.3, 110-REQ-6.E1
+        """
+        if self._conn is None:
+            return []
+        try:
+            rows = self._conn.execute(
+                "SELECT content FROM memory_facts "
+                "WHERE category = 'anti_pattern' AND spec_name = 'nightshift:ignore'",
+            ).fetchall()
+            return [row[0] for row in rows]
+        except Exception:
+            logger.warning(
+                "Failed to query anti_pattern facts from knowledge store; "
+                "proceeding with empty false_positives list (fail-open)",
+                exc_info=True,
+            )
+            return []
+
     async def _run_hunt_scan(self) -> None:
         """Execute a full hunt scan and create issues from findings.
 
         Skips if a hunt scan is already in progress (overlap prevention).
 
-        Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2
+        Requirements: 61-REQ-2.2, 61-REQ-2.E2, 61-REQ-5.1, 61-REQ-5.2,
+                      110-REQ-4.1, 110-REQ-5.1, 110-REQ-6.3, 110-REQ-7.2
         """
         self._emit_status("Starting hunt scan\u2026")
 
@@ -342,6 +377,30 @@ class NightShiftEngine:
             return
 
         hunt_run_id = generate_run_id()
+
+        # 110-REQ-5.1: Pre-phase — ingest af:ignore signals into knowledge store.
+        # Fail-open: if conn is None or platform fails, returns 0 and logs warning.
+        try:
+            ingested = await ingest_ignore_signals(
+                self._platform,  # type: ignore[arg-type]
+                self._conn,
+                self._embedder,
+                sink=self._sink,
+                run_id=hunt_run_id,
+            )
+            if ingested:
+                logger.info("Ingested %d new af:ignore signal(s) into knowledge store", ingested)
+        except Exception:
+            logger.warning(
+                "af:ignore ingestion pre-phase failed; "
+                "continuing without ingestion (fail-open)",
+                exc_info=True,
+            )
+
+        # 110-REQ-6.3: Query knowledge store for anti_pattern facts to pass
+        # as false_positives to the AI critic.
+        false_positives = self._query_false_positives()
+
         self._hunt_scan_in_progress = True
         try:
             findings = await self._run_hunt_scan_inner(sink=self._sink, run_id=hunt_run_id)
@@ -360,12 +419,35 @@ class NightShiftEngine:
             self._emit_status("Hunt scan complete: 0 issues created from 0 findings", "bold green")
             return
 
-        groups = await consolidate_findings(findings, sink=self._sink, run_id=hunt_run_id)  # type: ignore[arg-type]
+        # 110-REQ-6.1, 110-REQ-6.2: Pass false_positives to critic so it can
+        # proactively drop findings matching known false-positive patterns.
+        groups = await consolidate_findings(  # type: ignore[arg-type]
+            findings,  # type: ignore[arg-type]
+            false_positives=false_positives or None,
+            sink=self._sink,
+            run_id=hunt_run_id,
+        )
 
-        # Dedup gate: skip groups whose fingerprint matches an existing open
-        # af:hunt issue. Fails open if the platform API is unavailable.
-        # Requirements: 79-REQ-4.1, 79-REQ-4.2
-        groups = await filter_known_duplicates(groups, self._platform)  # type: ignore[arg-type]
+        # Dedup gate: skip groups whose fingerprint or embedding matches an
+        # existing af:hunt issue (open or closed). Fails open if the platform
+        # API is unavailable.
+        # Requirements: 79-REQ-4.1, 79-REQ-4.2, 110-REQ-3.1 through 110-REQ-3.5
+        similarity_threshold = self._config.night_shift.similarity_threshold
+        groups = await filter_known_duplicates(  # type: ignore[arg-type]
+            groups,  # type: ignore[arg-type]
+            self._platform,  # type: ignore[arg-type]
+            similarity_threshold=similarity_threshold,
+            embedder=self._embedder,
+        )
+
+        # 110-REQ-4.1: Ignore gate — filter groups similar to af:ignore issues.
+        # Runs after dedup so only novel-by-fingerprint groups are checked.
+        groups = await filter_ignored(  # type: ignore[arg-type]
+            groups,  # type: ignore[arg-type]
+            self._platform,  # type: ignore[arg-type]
+            similarity_threshold=similarity_threshold,
+            embedder=self._embedder,
+        )
 
         # create_issues_from_groups returns the created IssueResults so we
         # can assign labels without creating duplicate issues (61-REQ-5.4).

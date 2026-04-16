@@ -164,31 +164,31 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] No linter warnings introduced: `uv run ruff check .`
     - [x] Requirements 5.1-5.4, 6.1, 6.2 acceptance criteria met
 
-- [ ] 6. Engine wiring
-  - [ ] 6.1 Wire ingestion pre-phase in `engine.py`
+- [x] 6. Engine wiring
+  - [x] 6.1 Wire ingestion pre-phase in `engine.py`
     - Before `_run_hunt_scan_inner()`, call `ingest_ignore_signals()`
     - Handle knowledge store unavailability (skip, warn)
     - _Requirements: 5.1, 6.3_
 
-  - [ ] 6.2 Wire false-positive query in `engine.py`
+  - [x] 6.2 Wire false-positive query in `engine.py`
     - After ingestion, query knowledge store for `anti_pattern` facts with
       `spec_name="nightshift:ignore"`
     - Pass result as `false_positives` to `consolidate_findings()`
     - Handle query failure (pass empty list, warn)
     - _Requirements: 6.3, 6.E1_
 
-  - [ ] 6.3 Wire similarity dedup and ignore filter in `engine.py`
+  - [x] 6.3 Wire similarity dedup and ignore filter in `engine.py`
     - Pass `similarity_threshold` from config to `filter_known_duplicates()`
     - Pass `embedder` to `filter_known_duplicates()`
     - Add `filter_ignored()` call after `filter_known_duplicates()`
     - Pass `similarity_threshold` and `embedder` to `filter_ignored()`
     - _Requirements: 4.1, 7.2_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests pass: `uv run pytest -q tests/test_hunt_dedup_similarity.py tests/test_ignore_filter.py tests/test_ignore_ingest.py tests/test_critic_false_positives.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check .`
-    - [ ] Requirements 4.1, 5.1, 6.3, 7.2 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests pass: `uv run pytest -q tests/test_hunt_dedup_similarity.py tests/test_ignore_filter.py tests/test_ignore_ingest.py tests/test_critic_false_positives.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check .`
+    - [x] Requirements 4.1, 5.1, 6.3, 7.2 acceptance criteria met
 
 - [ ] 7. Wiring verification
 

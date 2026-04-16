@@ -184,6 +184,22 @@ def night_shift_cmd(
     progress.start()
     # -----------------------------------------------------------------------
 
+    # Create EmbeddingGenerator for similarity-based dedup and ignore filter
+    # (110-REQ-2.1, 110-REQ-3.3, 110-REQ-4.3). Falls back to None on failure,
+    # which causes both filter functions to skip embedding-based matching
+    # (fingerprint-only dedup).
+    _embedder = None
+    try:
+        from agent_fox.knowledge.embeddings import EmbeddingGenerator
+
+        _embedder = EmbeddingGenerator(config.knowledge)
+    except Exception:
+        logger.warning(
+            "Failed to create EmbeddingGenerator for night-shift; "
+            "similarity-based dedup and ignore filtering will be disabled",
+            exc_info=True,
+        )
+
     # Create the engine for business logic (fix pipeline, hunt scan).
     # Streams delegate to engine methods; the engine is NOT the lifecycle
     # manager.  DaemonRunner handles lifecycle, scheduling, and budget.
@@ -196,6 +212,8 @@ def night_shift_cmd(
         status_callback=progress.print_status,
         spinner_callback=progress.update_spinner_text,
         sink_dispatcher=_sink_dispatcher,
+        conn=(_knowledge_db.connection if _knowledge_db is not None else None),
+        embedder=_embedder,
     )
 
     # Shared cost budget (85-REQ-5.1, 85-REQ-5.2)
