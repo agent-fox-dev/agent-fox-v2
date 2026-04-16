@@ -129,5 +129,6 @@ stay at the conceptual level without code snippets or class hierarchies.
 | [CLI Reference](cli-reference.md) | All commands, flags, and exit codes |
 | [Configuration Reference](config-reference.md) | Every `config.toml` section and option |
 | [Archetypes](architecture/03-execution-and-archetypes.md#agent-archetypes) | Archetype registry, modes, and convergence |
+| [Profiles](profiles.md) | Agent profiles, resolution, and customization |
 | [Skills](skills.md) | Claude Code skill reference |
 | [Architecture Guide](architecture/README.md) | System internals and design rationale |

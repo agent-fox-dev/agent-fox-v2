@@ -111,24 +111,10 @@ Worktree creation includes cleanup of stale artifacts: orphaned empty
 directories from prior crashes are removed, stale branch references are pruned,
 and conflicting branches are deleted if they are no longer used by any worktree.
 
-**Context assembly.** The system builds two prompts — a system prompt and a task
-prompt — tailored to the session's archetype and task. Context assembly draws
-from several sources:
-
-- Spec documents (requirements, design, test spec, tasks) provide the
-  task-specific context.
-- Memory facts from the knowledge store provide cross-session learning — what
-  worked before, what failed, what conventions the codebase follows.
-- Steering directives from `.specs/steering.md` provide project-wide guidance.
-- Prior group findings (review findings, drift findings, verification verdicts
-  from earlier groups in the same spec) provide accumulated context.
-- For retry attempts, critical and major findings from review agents are
-  injected so the coder can address them.
-
-Memory fact selection uses keyword matching with causal enrichment: facts are
-first filtered by relevance to the current task's keywords, then augmented with
-causally linked facts from the knowledge graph. A fact cache avoids redundant
-queries when the fact set has not changed.
+**Prompt generation.** The system builds two prompts — a system prompt and a
+task prompt — tailored to the session's archetype, mode, and task. This is
+described in detail in the [Prompt Generation](#prompt-generation) section
+below.
 
 **Pre-session hooks.** User-configured shell commands run before the session
 starts. These can set up dependencies, run migrations, or perform any
@@ -198,6 +184,156 @@ If the initial parse of review output fails and the session is still responsive,
 a format retry is attempted — the system asks the agent to re-emit its output
 in the correct JSON format. This recovers from common formatting mistakes
 (markdown fences around JSON, missing wrapper keys) without failing the session.
+
+---
+
+## Prompt Generation
+
+Each session receives two prompts: a **system prompt** that establishes context
+and behavioral guidance, and a **task prompt** that specifies what to do. The
+system prompt is assembled from three layers; the task prompt is constructed
+from the archetype and task group.
+
+### Three-Layer System Prompt
+
+The system prompt is built by concatenating three layers, separated by section
+breaks:
+
+**Layer 1: Agent base profile.** Loaded from `agent_base.md`, this layer
+provides instructions shared by every agent regardless of archetype — project
+orientation steps, directory structure conventions, and general policies (e.g.,
+"do not read `docs/memory.md` directly"). This layer replaces the traditional
+`CLAUDE.md` file for orchestrated sessions.
+
+**Layer 2: Archetype profile.** Loaded from the archetype's profile file
+(e.g., `coder.md`, `reviewer_pre-review.md`), this layer defines the agent's
+identity, rules, focus areas, constraints, and output format. Mode-specific
+profiles are resolved before base profiles — if a session runs the reviewer
+archetype in pre-review mode, the system loads `reviewer_pre-review.md` rather
+than `reviewer.md`. For details on profile resolution and customization, see
+the [Profiles Guide](../profiles.md).
+
+**Layer 3: Task context.** Assembled from multiple sources (see Context
+Assembly below), this layer provides the spec documents, knowledge facts,
+steering directives, and prior findings that the agent needs for its specific
+task.
+
+### Profile Resolution
+
+Profiles are markdown files that define behavioral guidance. The system
+resolves profiles using a four-step priority chain where the first matching
+file wins:
+
+1. Project-level mode-specific: `.agent-fox/profiles/{archetype}_{mode}.md`
+2. Package-embedded mode-specific: `_templates/profiles/{archetype}_{mode}.md`
+3. Project-level base: `.agent-fox/profiles/{archetype}.md`
+4. Package-embedded base: `_templates/profiles/{archetype}.md`
+
+Project-level profiles always override package defaults, and mode-specific
+profiles always override base profiles. This allows projects to customize
+agent behavior without modifying the package — for example, adding
+project-specific conventions to the coder profile or tightening review focus
+areas. If no profile is found in any location, the system logs a warning and
+uses an empty profile.
+
+### Context Assembly
+
+The task context layer is assembled from the following sources, in order:
+
+1. **Spec documents.** The four core spec files — `requirements.md`,
+   `design.md`, `test_spec.md`, `tasks.md` — are read from the spec directory
+   and formatted under markdown section headers. Missing files are logged as
+   warnings but do not prevent the session from running.
+
+2. **Archetype-produced files.** If `review.md` or `verification.md` exist on
+   disk from a prior session and have not already been rendered from the
+   database, they are included as additional spec context.
+
+3. **DB-backed findings.** Review findings, drift findings, and verification
+   verdicts are queried from DuckDB and rendered as structured markdown
+   sections (grouped by severity for reviews, tabular for verifications).
+   Legacy on-disk review and verification files are migrated to the database
+   on first access.
+
+4. **Steering directives.** Project-wide guidance from `.specs/steering.md`
+   is included after spec files and before memory facts. Placeholder-only
+   steering files (containing only HTML comment sentinels) are detected and
+   skipped.
+
+5. **Knowledge facts.** Relevant facts from the knowledge store are retrieved
+   by the adaptive retrieval pipeline and injected as a bulleted list under a
+   "Memory Facts" header. See Knowledge Retrieval below for the retrieval
+   process.
+
+6. **Prior group findings.** For task groups beyond group 1, active findings
+   from earlier groups in the same spec (reviews, drift findings, verification
+   verdicts) are queried from DuckDB, sorted by timestamp, and appended as
+   accumulated context. This gives later groups visibility into issues found
+   during earlier implementation.
+
+All external content (spec files, facts, findings, error messages) is passed
+through a sanitization layer before injection. The sanitizer labels each
+content source and filters patterns that could constitute prompt injection
+attacks.
+
+The assembled sections are joined with horizontal-rule separators (`---`) to
+produce a single context string, which becomes Layer 3 of the system prompt.
+
+### Knowledge Retrieval
+
+The adaptive retriever queries four signals in parallel and fuses their results
+to select the most relevant knowledge facts for a session:
+
+- **Keyword signal.** Matches task keywords against fact keywords and spec
+  names, scored by keyword overlap count plus a recency bonus.
+- **Vector signal.** Embeds the task description and queries
+  `memory_embeddings` via cosine similarity. Requires an embedding model;
+  gracefully excluded when unavailable.
+- **Entity signal.** Traverses the entity graph from touched file paths via
+  BFS, returning facts linked to related entities.
+- **Causal signal.** Traverses the `fact_causes` graph from same-spec facts,
+  returning causally linked facts ordered by proximity (depth).
+
+Each signal produces a ranked list of scored facts. These lists are fused via
+**weighted Reciprocal Rank Fusion (RRF)**: for each fact, a fused score is
+computed as `sum(weight_i / (k + rank_i))` across all signals where it
+appears. The per-signal weights are derived from an **intent profile** — a
+lookup table keyed by `(archetype, node_status)` that adjusts signal
+importance based on what the agent is doing:
+
+| Archetype | Status | Keyword | Vector | Entity | Causal |
+|---|---|---|---|---|---|
+| coder | fresh | 1.0 | 0.8 | 1.5 | 1.0 |
+| coder | retry | 0.8 | 0.6 | 1.0 | 2.0 |
+| reviewer | * | 1.0 | 1.5 | 0.8 | 1.0 |
+| verifier | * | 0.8 | 0.6 | 1.5 | 1.5 |
+
+For example, a coder retry session heavily weights the causal signal (to
+surface facts about what went wrong and why), while a fresh coder session
+emphasizes entity relationships (to surface facts about the files it will
+touch).
+
+After fusion, the top facts are selected and formatted with **salience-based
+token budgeting**: the top 20% by score receive full detail, the next 40%
+receive one-line summaries, and the bottom 40% are included at full detail if
+space allows or omitted if the token budget is exceeded. Facts are
+topologically sorted by causal precedence (causes before effects) using
+Kahn's algorithm, with ties broken by fused score.
+
+### Task Prompt
+
+The task prompt is a short, archetype-specific instruction:
+
+- **Coder sessions** receive explicit instructions: implement task group N
+  from specification X, update checkbox states in `tasks.md`, commit with
+  conventional messages, and run quality gates before finalizing.
+- **Non-coder sessions** (reviewer, verifier) receive a concise prompt that
+  defers to the system prompt profile for detailed instructions.
+
+For coder retry attempts (attempt > 1), the previous error message is
+sanitized and appended to the task prompt with a retry notice. Additionally,
+active critical and major review findings are prepended so the coder can
+address identified issues in the retry.
 
 ---
 
