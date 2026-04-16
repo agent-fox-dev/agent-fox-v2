@@ -222,8 +222,8 @@ class TestCoderFixModeSessionSetup:
     Does NOT mock resolve_model_tier or resolve_security_config.
     """
 
-    def test_coder_fix_mode_resolves_standard_tier(self) -> None:
-        """TS-98-SMOKE-3: coder:fix mode resolves to STANDARD (Sonnet) model tier."""
+    def test_coder_fix_mode_resolves_global_models_coding(self) -> None:
+        """TS-98-SMOKE-3: coder:fix mode resolves via config.models.coding (default ADVANCED)."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.session_lifecycle import NodeSessionRunner
 
@@ -238,9 +238,10 @@ class TestCoderFixModeSessionSetup:
             knowledge_db=_MOCK_KB,
         )
 
-        # STANDARD tier resolves to claude-sonnet-4-6
-        assert runner._resolved_model_id == "claude-sonnet-4-6", (
-            f"coder:fix mode should resolve to STANDARD (Sonnet), got {runner._resolved_model_id!r}"
+        # Default config.models.coding is ADVANCED → claude-opus-4-6
+        assert runner._resolved_model_id == "claude-opus-4-6", (
+            f"coder:fix mode should resolve to ADVANCED (Opus) via config.models.coding, "
+            f"got {runner._resolved_model_id!r}"
         )
 
     def test_coder_fix_mode_uses_fix_profile(self) -> None:
