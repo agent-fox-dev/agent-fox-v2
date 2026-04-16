@@ -29,6 +29,12 @@ dependencies = [
     "tree-sitter-elixir>=0.3.4",
     "tree-sitter-kotlin>=1.0",
     "tree-sitter-dart-orchard>=0.3.1",
+    "tree-sitter-bash>=0.23",
+    "tree-sitter-html>=0.23",
+    "tree-sitter-json>=0.23",
+    "tree-sitter-css>=0.23",
+    "tree-sitter-regex>=0.23",
+    "tree-sitter-swift>=0.0.1",
 ]
 
 [project.scripts]

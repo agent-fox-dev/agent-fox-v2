@@ -263,4 +263,52 @@ def _build_default_registry() -> LanguageRegistry:
     except ImportError:
         logger.info("Skipping dart analyzer: dart_lang module not available")
 
+    # Bash
+    try:
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        _try_register(registry, BashAnalyzer, "bash")
+    except ImportError:
+        logger.info("Skipping bash analyzer: bash_lang module not available")
+
+    # HTML
+    try:
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        _try_register(registry, HtmlAnalyzer, "html")
+    except ImportError:
+        logger.info("Skipping html analyzer: html_lang module not available")
+
+    # JSON
+    try:
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        _try_register(registry, JsonAnalyzer, "json")
+    except ImportError:
+        logger.info("Skipping json analyzer: json_lang module not available")
+
+    # CSS
+    try:
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        _try_register(registry, CssAnalyzer, "css")
+    except ImportError:
+        logger.info("Skipping css analyzer: css_lang module not available")
+
+    # Regex
+    try:
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        _try_register(registry, RegexAnalyzer, "regex")
+    except ImportError:
+        logger.info("Skipping regex analyzer: regex_lang module not available")
+
+    # Swift
+    try:
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        _try_register(registry, SwiftAnalyzer, "swift")
+    except ImportError:
+        logger.info("Skipping swift analyzer: swift_lang module not available")
+
     return registry

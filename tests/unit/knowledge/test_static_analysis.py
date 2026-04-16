@@ -399,9 +399,11 @@ class TestEmptyRepository:
     """
 
     def test_no_python_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
-        """AnalysisResult is all zeros when no .py files exist."""
+        """AnalysisResult is all zeros when no recognized source files exist."""
+        # Only use extensions that are genuinely unrecognized by any analyzer.
+        # .json and .html are now supported; use .md and .txt instead.
         (tmp_path / "README.md").write_text("# Docs\n")
-        (tmp_path / "data.json").write_text("{}")
+        (tmp_path / "notes.txt").write_text("plain text")
 
         result = analyze_codebase(tmp_path, entity_conn)
 
