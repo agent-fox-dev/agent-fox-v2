@@ -10,18 +10,16 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from agent_fox.nightshift.ignore_filter import filter_ignored
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-# This import will fail until task group 4 implements ignore_filter.py.
-# All tests in this file will error on collection until then.
 from agent_fox.nightshift.dedup import (
     compute_fingerprint,
     embed_fingerprint,
     filter_known_duplicates,
 )
 from agent_fox.nightshift.finding import Finding, FindingGroup
+from agent_fox.nightshift.ignore_filter import filter_ignored
 from agent_fox.platform.protocol import IssueResult
 
 # ---------------------------------------------------------------------------
@@ -397,11 +395,27 @@ class TestHuntScanPipelineSmoke:
 
         all_groups = [group_a, group_b, group_c, group_d]
 
-        # Embedder: group_a is already handled by fingerprint
-        # For group_b vs hunt_issue_b: same vector → similarity 1.0 → filtered
-        # For group_c vs ignore_issue_c: same vector → similarity 1.0 → filtered
-        # For group_d vs anything: orthogonal → similarity 0.0 → passes
-        embedder = _SameVectorEmbedder([1.0, 0.0, 0.0])
+        # Embedder: group_a is already handled by fingerprint (excluded from embedding).
+        # filter_known_duplicates embeds [B, C, D, hunt_a, hunt_b] in one batch:
+        #   idx 0 (B):      [1,0,0]  → sim 1.0 vs hunt → dedup-filtered ✓
+        #   idx 1 (C):      [0,1,0]  → sim 0.0 vs hunt → passes dedup ✓
+        #   idx 2 (D):      [0,0,1]  → sim 0.0 vs hunt → passes dedup ✓
+        #   idx 3 (hunt_a): [1,0,0]
+        #   idx 4 (hunt_b): [1,0,0]
+        # filter_ignored embeds [C, D, ignore_c] in one batch:
+        #   idx 5 (C):        [0,1,0]  → sim 1.0 vs ignore → ignore-filtered ✓
+        #   idx 6 (D):        [0,0,1]  → sim 0.0 vs ignore → passes ✓
+        #   idx 7 (ignore_c): [0,1,0]
+        embedder = _SequenceEmbedder(
+            [1.0, 0.0, 0.0],  # B  (dedup group batch)
+            [0.0, 1.0, 0.0],  # C  (dedup group batch)
+            [0.0, 0.0, 1.0],  # D  (dedup group batch)
+            [1.0, 0.0, 0.0],  # hunt_a (dedup issue batch)
+            [1.0, 0.0, 0.0],  # hunt_b (dedup issue batch)
+            [0.0, 1.0, 0.0],  # C  (ignore group batch)
+            [0.0, 0.0, 1.0],  # D  (ignore group batch)
+            [0.0, 1.0, 0.0],  # ignore_c (ignore issue batch)
+        )
 
         platform = _MockPlatform(
             hunt_issues=[hunt_issue_a, hunt_issue_b],

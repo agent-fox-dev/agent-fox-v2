@@ -122,8 +122,8 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - [x] No linter warnings introduced: `uv run ruff check .`
     - [x] Requirements 2.1, 2.2, 2.3, 2.4, 3.1-3.5 acceptance criteria met
 
-- [ ] 4. Ignore filter
-  - [ ] 4.1 Create `nightshift/ignore_filter.py`
+- [x] 4. Ignore filter
+  - [x] 4.1 Create `nightshift/ignore_filter.py`
     - Implement `filter_ignored(groups, platform, *, similarity_threshold, embedder)`
     - Fetch `af:ignore` issues with `state="all"`
     - Compute embeddings for groups and ignored issues
@@ -132,11 +132,11 @@ Implementation is split into 6 task groups plus a final wiring verification:
     - Log INFO for each suppressed group
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.E1, 4.E2, 4.E3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/test_ignore_filter.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check .`
-    - [ ] Requirements 4.1-4.4 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/test_ignore_filter.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check .`
+    - [x] Requirements 4.1-4.4 acceptance criteria met
 
 - [ ] 5. Knowledge ingestion and critic enhancement
   - [ ] 5.1 Create `nightshift/ignore_ingest.py`
