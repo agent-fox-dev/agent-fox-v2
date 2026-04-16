@@ -28,28 +28,28 @@ and rich rendering, (3) wiring verification.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create unit test file
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create unit test file
     - Create `tests/unit/knowledge/test_rich_rendering.py`
     - Test `_format_relative_age()`, `_render_fact()`, `load_enrichments()`,
       `render_summary()` with mocked DuckDB connections
     - _Test Spec: TS-111-1 through TS-111-25_
 
-  - [ ] 1.2 Create property tests
+  - [x] 1.2 Create property tests
     - Create `tests/property/knowledge/test_rich_rendering_props.py`
     - Age format correctness, sort stability, sub-bullet bounds, enrichment
       independence, graceful degradation, truncation boundary
     - _Test Spec: TS-111-P1 through TS-111-P6_
 
-  - [ ] 1.3 Create integration smoke tests
+  - [x] 1.3 Create integration smoke tests
     - Create `tests/integration/knowledge/test_rich_rendering_smoke.py`
     - Full rendering path with in-memory DuckDB and seeded enrichment data
     - _Test Spec: TS-111-SMOKE-1, TS-111-SMOKE-2_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) -- no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_rich_rendering.py tests/property/knowledge/test_rich_rendering_props.py tests/integration/knowledge/test_rich_rendering_smoke.py`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) -- no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/unit/knowledge/test_rich_rendering.py tests/property/knowledge/test_rich_rendering_props.py tests/integration/knowledge/test_rich_rendering_smoke.py`
 
 - [ ] 2. Implement enrichment loading and rich rendering
   - [ ] 2.1 Add constants and `Enrichments` dataclass to `rendering.py`
