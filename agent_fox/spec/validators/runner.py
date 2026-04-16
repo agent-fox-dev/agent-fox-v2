@@ -79,20 +79,30 @@ def validate_specs(
     # Build known_specs map from ALL specs in the directory, not just the
     # filtered subset.  Dependency validation needs to resolve references to
     # specs that may have been filtered out (e.g. already-implemented specs).
+    # Also include archived specs (in specs_dir/archive/) so that references
+    # to fully-implemented, archived dependencies are not flagged as broken.
     known_specs: dict[str, list[int]] = {}
     _spec_dir_pattern = re.compile(r"^\d+_.+$")
-    for entry in sorted(specs_dir.iterdir()):
-        if not entry.is_dir() or not _spec_dir_pattern.match(entry.name):
-            continue
-        tasks_path = entry / "tasks.md"
-        if tasks_path.is_file():
-            try:
-                groups = parse_tasks(tasks_path)
-                known_specs[entry.name] = [g.number for g in groups]
-            except Exception:
+    scan_dirs = [specs_dir]
+    archive_dir = specs_dir / "archive"
+    if archive_dir.is_dir():
+        scan_dirs.append(archive_dir)
+    for scan_dir in scan_dirs:
+        for entry in sorted(scan_dir.iterdir()):
+            if not entry.is_dir() or not _spec_dir_pattern.match(entry.name):
+                continue
+            # Don't overwrite active specs with archived copies of the same name
+            if entry.name in known_specs:
+                continue
+            tasks_path = entry / "tasks.md"
+            if tasks_path.is_file():
+                try:
+                    groups = parse_tasks(tasks_path)
+                    known_specs[entry.name] = [g.number for g in groups]
+                except Exception:
+                    known_specs[entry.name] = []
+            else:
                 known_specs[entry.name] = []
-        else:
-            known_specs[entry.name] = []
 
     # Parse task groups for the specs being linted
     parsed_groups: dict[str, list[TaskGroupDef]] = {}

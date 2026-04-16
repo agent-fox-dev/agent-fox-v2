@@ -98,4 +98,4 @@ config is needed initially — the system derives weights automatically.
 | Spec | From Group | To Group | Relationship |
 |------|-----------|----------|--------------|
 | 95_entity_graph | 4 | 2 | Uses `find_related_facts` and `traverse_neighbors` from entity_query.py; group 4 is where entity_linker and entity_query were implemented |
-| 94_cross_spec_vector_retrieval | 5 | 2 | Uses `VectorSearch.search` for the vector signal; group 5 is the wiring verification confirming VectorSearch is live |
+| 94_cross_spec_vector_retrieval | 3 | 2 | Uses `VectorSearch.search` for the vector signal; group 3 is where VectorSearch was implemented |
