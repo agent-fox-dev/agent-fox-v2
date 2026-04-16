@@ -61,10 +61,15 @@ def test_content_fidelity(tmp_path_factory, _):
 
     _ensure_agents_md(tmp_path)
 
-    written = (tmp_path / "AGENTS.md").read_bytes()
-    template = _AGENTS_MD_TEMPLATE.read_bytes()
+    written = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    template = _AGENTS_MD_TEMPLATE.read_text(encoding="utf-8")
 
-    assert written == template
+    # _ensure_agents_md() substitutes {{SPEC_ROOT}} with the configured
+    # spec root, so apply the same transformation before comparison.
+    from agent_fox.core.config import PathsConfig
+
+    expected = template.replace("{{SPEC_ROOT}}", PathsConfig().spec_root)
+    assert written == expected
 
 
 # ---------------------------------------------------------------------------

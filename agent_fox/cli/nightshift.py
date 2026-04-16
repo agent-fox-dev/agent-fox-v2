@@ -222,10 +222,11 @@ def night_shift_cmd(
 
     # Spec discovery closure (85-REQ-10.1) — tracks already-seen specs
     # across cycles so each spec is only surfaced once per daemon run.
+    from agent_fox.core.config import resolve_spec_root
     from agent_fox.engine.hot_load import discover_new_specs_gated
 
     _known_specs: set[str] = set()
-    _specs_dir = project_root / ".specs"
+    _specs_dir = resolve_spec_root(config, project_root)
     _db_conn = _knowledge_db.connection if _knowledge_db is not None else None
 
     async def _discover_fn() -> list:

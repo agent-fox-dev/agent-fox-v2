@@ -217,8 +217,10 @@ async def run_code(
     except Exception:
         orch_config = config.orchestrator
 
+    from agent_fox.core.config import resolve_spec_root
+
     agent_dir = Path(".agent-fox")
-    specs_path = Path(specs_dir) if specs_dir else Path(".specs")
+    specs_path = Path(specs_dir) if specs_dir else resolve_spec_root(config, Path.cwd())
 
     # Set up infrastructure (knowledge DB, sinks, fact cache, etc.)
     infra: dict[str, Any] | None = None

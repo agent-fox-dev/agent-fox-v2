@@ -44,13 +44,17 @@ def plan_cmd(
 
     # Determine project paths
     project_root = Path.cwd()
-    specs_dir = project_root / ".specs"
 
     # Load config for archetypes
     config_path = project_root / ".agent-fox" / "config.toml"
     config = load_config(config_path if config_path.exists() else None)
 
-    # Always rebuild the plan from .specs/ (63-REQ-1.1)
+    # Resolve spec root from config with backward compatibility
+    from agent_fox.core.config import resolve_spec_root
+
+    specs_dir = resolve_spec_root(config, project_root)
+
+    # Always rebuild the plan from specs directory (63-REQ-1.1)
     json_mode = ctx.obj.get("json", False)
     from agent_fox.ui.progress import PlanSpinner
 

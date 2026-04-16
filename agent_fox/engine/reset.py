@@ -323,6 +323,7 @@ def reset_spec(
     worktrees_dir: Path,
     repo_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
+    specs_dir: Path | None = None,
 ) -> ResetResult:
     """Reset all tasks belonging to a single spec to pending.
 
@@ -375,7 +376,10 @@ def reset_spec(
         collect_cleanup(nid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches)
 
     # Synchronize tasks.md checkboxes (50-REQ-1.5)
-    specs_dir = repo_path / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+        specs_dir = resolve_spec_root(AgentFoxConfig(), repo_path)
     reset_tasks_md_checkboxes(spec_node_ids, specs_dir)
 
     # Persist to DB (50-REQ-4.1, 50-REQ-4.2)
@@ -398,6 +402,7 @@ def _perform_hard_reset(
     repo_path: Path,
     memory_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
+    specs_dir: Path | None = None,
 ) -> HardResetResult:
     """Shared hard-reset logic: reset states, clean artifacts, compact, persist.
 
@@ -418,7 +423,10 @@ def _perform_hard_reset(
     compaction_result = compact(db_conn, memory_path) if db_conn is not None else (0, 0)
 
     # Reset artifact synchronization
-    specs_dir = repo_path / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+        specs_dir = resolve_spec_root(AgentFoxConfig(), repo_path)
     reset_tasks_md_checkboxes(affected_ids, specs_dir)
 
     # Persist resets to DB

@@ -90,11 +90,11 @@ def _parse_dep_specs_from_prd(prd_path: Path) -> list[str]:
 async def is_spec_tracked_on_develop(
     repo_root: Path,
     spec_name: str,
-    specs_dir_rel: str = ".specs",
+    specs_dir_rel: str = ".agent-fox/specs",
 ) -> bool:
     """Check if a spec folder is tracked by git on the develop branch.
 
-    Uses ``git ls-tree develop -- .specs/{spec_name}`` and returns True
+    Uses ``git ls-tree develop -- {specs_dir_rel}/{spec_name}`` and returns True
     if any entries are found.
 
     On failure, returns True (permissive fallback) and logs a warning.
@@ -269,7 +269,11 @@ async def discover_new_specs_gated(
     accepted: list[SpecInfo] = []
     for spec in candidates:
         # Gate 1: git-tracked on develop
-        tracked = await is_spec_tracked_on_develop(repo_root, spec.name)
+        try:
+            specs_rel = str(specs_dir.relative_to(repo_root))
+        except ValueError:
+            specs_rel = str(specs_dir)
+        tracked = await is_spec_tracked_on_develop(repo_root, spec.name, specs_dir_rel=specs_rel)
         if not tracked:
             logger.debug("Spec '%s' not tracked on develop, skipping", spec.name)
             continue

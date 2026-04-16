@@ -932,9 +932,32 @@ class NightShiftConfig(BaseModel):
         return v
 
 
+class PathsConfig(BaseModel):
+    """Path configuration for project directories.
+
+    Allows overriding the spec root directory location.
+    The default was changed from ``.specs`` to ``.agent-fox/specs``
+    to consolidate project artifacts under ``.agent-fox/``.
+
+    Requirements: 371-REQ-1.1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    spec_root: str = Field(
+        default=".agent-fox/specs",
+        description="Spec root directory relative to project root",
+    )
+
+
+# Default spec root for backward compatibility fallback
+_LEGACY_SPEC_ROOT = ".specs"
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    paths: PathsConfig = Field(default_factory=PathsConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
@@ -1007,3 +1030,36 @@ def load_config(path: Path | None = None) -> AgentFoxConfig:
             path=str(path),
             details=exc.errors(),
         ) from exc
+
+
+def resolve_spec_root(config: AgentFoxConfig, project_root: Path) -> Path:
+    """Resolve the spec root directory from config with backward compatibility.
+
+    When the configured path is the default (``.agent-fox/specs``) and that
+    directory does not exist but the legacy ``.specs/`` does, falls back to
+    ``.specs/`` with a deprecation warning.
+
+    Args:
+        config: Loaded AgentFoxConfig.
+        project_root: Project root directory.
+
+    Returns:
+        Resolved Path to the spec root directory.
+
+    Requirements: 371-REQ-1.2
+    """
+    spec_root = config.paths.spec_root
+    spec_path = project_root / spec_root
+
+    # Backward compatibility: fall back to .specs/ when using the new default
+    # and only the legacy directory exists.
+    if spec_root == ".agent-fox/specs" and not spec_path.is_dir():
+        legacy = project_root / _LEGACY_SPEC_ROOT
+        if legacy.is_dir():
+            logger.warning(
+                "Using legacy spec root '.specs/' — migrate to "
+                "'.agent-fox/specs/' or set [paths] spec_root in config.toml"
+            )
+            return legacy
+
+    return spec_path

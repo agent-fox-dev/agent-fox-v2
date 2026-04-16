@@ -25,7 +25,7 @@ from agent_fox.spec.validators import (
 logger = logging.getLogger(__name__)
 
 # Batch limits for AI fix dispatch
-_MAX_REWRITE_BATCH = 20   # Max criteria per rewrite_criteria() call
+_MAX_REWRITE_BATCH = 20  # Max criteria per rewrite_criteria() call
 _MAX_UNTRACED_BATCH = 20  # Max requirement IDs per generate_test_spec_entries() call
 
 
@@ -96,10 +96,10 @@ def run_lint_specs(
         # No specs found — return error finding
         no_spec_finding = Finding(
             spec_name="(none)",
-            file=".specs/",
+            file=str(specs_dir),
             rule="no-specs",
             severity="error",
-            message="No specifications found in .specs/ directory",
+            message=f"No specifications found in {specs_dir} directory",
             line=None,
         )
         return LintResult(findings=[no_spec_finding], exit_code=1)
@@ -244,10 +244,7 @@ async def _apply_ai_fixes_async(
 
         # -- 1. Criteria rewrites (vague-criterion + implementation-leak) -------
 
-        criteria_findings = [
-            f for f in spec_findings
-            if f.rule in {"vague-criterion", "implementation-leak"}
-        ]
+        criteria_findings = [f for f in spec_findings if f.rule in {"vague-criterion", "implementation-leak"}]
 
         if criteria_findings:
             # Build findings_map: criterion_id -> rule name
@@ -277,16 +274,12 @@ async def _apply_ai_fixes_async(
                         # Re-read requirements after rewrite for subsequent batches
                         req_text = req_path.read_text()
             except Exception as exc:
-                logger.warning(
-                    "AI criteria rewrite failed for spec '%s': %s", spec_name, exc
-                )
+                logger.warning("AI criteria rewrite failed for spec '%s': %s", spec_name, exc)
                 continue  # Skip remaining processing for this spec
 
         # -- 2. Test spec generation (untraced-requirement) --------------------
 
-        untraced_findings = [
-            f for f in spec_findings if f.rule == "untraced-requirement"
-        ]
+        untraced_findings = [f for f in spec_findings if f.rule == "untraced-requirement"]
 
         if untraced_findings:
             ts_path = spec_info.path / "test_spec.md"
@@ -326,9 +319,7 @@ async def _apply_ai_fixes_async(
                         # Re-read test spec after insertion for subsequent batches
                         ts_text = ts_path.read_text()
             except Exception as exc:
-                logger.warning(
-                    "AI test spec generation failed for spec '%s': %s", spec_name, exc
-                )
+                logger.warning("AI test spec generation failed for spec '%s': %s", spec_name, exc)
 
     return all_results
 
@@ -354,5 +345,3 @@ def _apply_ai_fixes(
     except Exception as exc:
         logger.warning("AI fix pipeline failed: %s", exc)
         return []
-
-
