@@ -524,7 +524,7 @@ async def push_to_remote(
     validate_ref_name(branch)
     args = ["push"]
     if force:
-        args.append("--force")
+        args.append("--force-with-lease")
     args.extend([remote, branch])
     rc, _stdout, stderr = await run_git(
         args,

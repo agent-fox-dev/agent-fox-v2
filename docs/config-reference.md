@@ -7,10 +7,10 @@ the most commonly changed settings. Add any section below manually to
 
 ## Table of Contents
 
+- [paths](#paths)
 - [orchestrator](#orchestrator)
 - [routing](#routing)
 - [models](#models)
-- [hooks](#hooks)
 - [security](#security)
 - [theme](#theme)
 - [platform](#platform)
@@ -23,6 +23,21 @@ the most commonly changed settings. Add any section below manually to
 - [blocking](#blocking)
 - [night_shift](#night_shift)
 - [caching](#caching)
+
+---
+
+## paths
+
+Controls project directory locations.
+
+| Field | Type | Default | Bounds | Description |
+|-------|------|---------|--------|-------------|
+| `spec_root` | str | `".agent-fox/specs"` | — | Spec root directory relative to project root. Legacy projects using `.specs/` are auto-detected with a deprecation warning. |
+
+```toml
+[paths]
+spec_root = ".agent-fox/specs"
+```
 
 ---
 
@@ -344,6 +359,7 @@ Each entry in `models` is a TOML inline table or sub-table with these fields:
 |-------|-----------|------------|----------------|--------------------|
 | `claude-haiku-4-5` | 1.00 | 5.00 | 0.10 | 1.25 |
 | `claude-sonnet-4-6` | 3.00 | 15.00 | 0.30 | 3.75 |
+| `claude-opus-4-5` | 5.00 | 25.00 | 0.50 | 6.25 |
 | `claude-opus-4-6` | 5.00 | 25.00 | 0.50 | 6.25 |
 
 **Example (override a single model's pricing):**

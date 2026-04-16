@@ -212,7 +212,6 @@ def reset_cmd(
     json_mode = (ctx.obj or {}).get("json", False)
     project_root = Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    plan_path = agent_dir / "plan.json"
     worktrees_dir = agent_dir / "worktrees"
     memory_path = agent_dir / "memory.jsonl"
 
@@ -242,7 +241,6 @@ def reset_cmd(
                 yes,
                 json_mode,
                 db_conn,
-                plan_path,
                 worktrees_dir,
                 project_root,
             )
@@ -253,7 +251,6 @@ def reset_cmd(
                 yes,
                 json_mode,
                 db_conn,
-                plan_path,
                 worktrees_dir,
                 project_root,
                 memory_path,
@@ -264,7 +261,6 @@ def reset_cmd(
                 task_id,
                 json_mode,
                 db_conn,
-                plan_path,
                 worktrees_dir,
                 project_root,
             )
@@ -274,7 +270,6 @@ def reset_cmd(
                 yes,
                 json_mode,
                 db_conn,
-                plan_path,
                 worktrees_dir,
                 project_root,
             )
@@ -289,7 +284,6 @@ def _handle_spec_reset(
     yes: bool,
     json_mode: bool,
     db_conn: duckdb.DuckDBPyConnection | None,
-    plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
 ) -> None:
@@ -307,7 +301,6 @@ def _handle_spec_reset(
 
     result = reset_spec(
         spec_name=spec_name,
-        plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
         db_conn=db_conn,
@@ -327,7 +320,6 @@ def _handle_hard_reset(
     yes: bool,
     json_mode: bool,
     db_conn: duckdb.DuckDBPyConnection | None,
-    plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
     memory_path: Path,
@@ -346,7 +338,6 @@ def _handle_hard_reset(
     if task_id is not None:
         result = hard_reset_task(
             task_id=task_id,
-            plan_path=plan_path,
             worktrees_dir=worktrees_dir,
             repo_path=project_root,
             memory_path=memory_path,
@@ -354,7 +345,6 @@ def _handle_hard_reset(
         )
     else:
         result = hard_reset_all(
-            plan_path=plan_path,
             worktrees_dir=worktrees_dir,
             repo_path=project_root,
             memory_path=memory_path,
@@ -374,14 +364,12 @@ def _handle_soft_task_reset(
     task_id: str,
     json_mode: bool,
     db_conn: duckdb.DuckDBPyConnection | None,
-    plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
 ) -> None:
     """Handle single-task soft reset."""
     result = reset_task(
         task_id=task_id,
-        plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
         db_conn=db_conn,
@@ -400,7 +388,6 @@ def _handle_soft_reset_all(
     yes: bool,
     json_mode: bool,
     db_conn: duckdb.DuckDBPyConnection | None,
-    plan_path: Path,
     worktrees_dir: Path,
     project_root: Path,
 ) -> None:
@@ -448,7 +435,6 @@ def _handle_soft_reset_all(
             return
 
     result = reset_all(
-        plan_path=plan_path,
         worktrees_dir=worktrees_dir,
         repo_path=project_root,
         db_conn=db_conn,

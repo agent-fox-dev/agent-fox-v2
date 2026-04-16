@@ -163,6 +163,7 @@ def persist_review_findings(
     run_id: str,
     session_handle: Any = None,
     mode: str | None = None,
+    specs_dir: Path | None = None,
 ) -> None:
     """Parse and persist structured findings from review archetypes.
 
@@ -382,7 +383,12 @@ def persist_review_findings(
                         payload={"archetype": archetype},
                     )
 
-            spec_dir = Path.cwd() / ".specs" / spec_name
+            if specs_dir is not None:
+                spec_dir = specs_dir / spec_name
+            else:
+                from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+                spec_dir = resolve_spec_root(AgentFoxConfig(), Path.cwd()) / spec_name
             persist_auditor_results(spec_dir, audit_result, attempt=attempt, project_root=Path.cwd())
 
     except Exception:

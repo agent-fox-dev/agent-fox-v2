@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import subprocess
 from pathlib import Path
 
 import click
@@ -55,6 +56,21 @@ def init_profiles(project_dir: Path) -> list[Path]:
             continue
         shutil.copy2(src_file, dest_file)
         created.append(dest_file)
+
+    if created:
+        # Stage the newly created profiles in git.  The .gitignore exception
+        # !.agent-fox/profiles/* ensures git accepts the files without --force.
+        try:
+            subprocess.run(
+                ["git", "add", *[str(p) for p in created]],
+                cwd=project_dir,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.debug("Staged %d profile(s) in git", len(created))
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            logger.warning("Could not git add profiles: %s", exc)
 
     return created
 
@@ -111,9 +127,12 @@ def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
             "status": "ok",
             "agents_md": result.agents_md,
             "steering_md": result.steering_md,
+            "night_shift_ignore": result.nightshift_ignore,
         }
         if result.skills_installed:
             result_data["skills_installed"] = result.skills_installed
+        if result.labels_ensured:
+            result_data["labels_ensured"] = result.labels_ensured
         emit(result_data)
         return
 
@@ -133,9 +152,13 @@ def init_cmd(ctx: click.Context, skills: bool, profiles: bool) -> None:
     if result.agents_md == "created":
         click.echo("Created AGENTS.md.")
     if result.steering_md == "created":
-        click.echo("Created .specs/steering.md.")
+        click.echo("Created steering.md in spec root.")
+    if result.nightshift_ignore == "created":
+        click.echo("Created .night-shift.")
     if result.skills_installed:
         click.echo(f"Installed {result.skills_installed} skills.")
+    if result.labels_ensured:
+        click.echo(f"Ensured {result.labels_ensured} required label(s) on GitHub repository.")
     if profiles:
         created_profiles = init_profiles(project_root)
         if created_profiles:

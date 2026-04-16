@@ -89,10 +89,17 @@ class TestInstallationBijection:
         assert installed == templates
         assert count == len(templates)
 
+        # _install_skills() substitutes {{SPEC_ROOT}} with the configured
+        # spec root, so apply the same transformation before comparison.
+        from agent_fox.core.config import PathsConfig
+
+        spec_root = PathsConfig().spec_root
+
         for name in templates:
-            installed_content = (skills_dir / name / "SKILL.md").read_bytes()
-            template_content = (_SKILLS_DIR / name).read_bytes()
-            assert installed_content == template_content, f"Installed {name}/SKILL.md differs from template"
+            installed_content = (skills_dir / name / "SKILL.md").read_text(encoding="utf-8")
+            template_content = (_SKILLS_DIR / name).read_text(encoding="utf-8")
+            expected = template_content.replace("{{SPEC_ROOT}}", spec_root)
+            assert installed_content == expected, f"Installed {name}/SKILL.md differs from template"
 
 
 # ---------------------------------------------------------------------------

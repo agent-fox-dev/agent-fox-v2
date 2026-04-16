@@ -8,12 +8,14 @@ Requirements: 26-REQ-4.1 through 26-REQ-4.E2,
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import duckdb
 import pytest
+
+from agent_fox.knowledge.migrations import run_migrations
 
 if TYPE_CHECKING:
     from agent_fox.spec.parser import TaskGroupDef
@@ -96,13 +98,10 @@ class TestNodeArchetypeDefaults:
 
 
 class TestPlanSerializationArchetype:
-    """Verify plan.json includes archetype and instances."""
+    """Verify plan DB includes archetype and instances."""
 
-    def test_serialization_includes_fields(
-        self,
-        tmp_path: pytest.TempPathFactory,
-    ) -> None:
-        from agent_fox.graph.persistence import save_plan
+    def test_serialization_includes_fields(self) -> None:
+        from agent_fox.graph.persistence import load_plan, save_plan
         from agent_fox.graph.types import Node, TaskGraph
 
         node = Node(
@@ -118,14 +117,17 @@ class TestPlanSerializationArchetype:
         graph = TaskGraph(
             nodes={"s:0": node},
             edges=[],
-            order=[],
+            order=["s:0"],
         )
-        plan_path = tmp_path / "plan.json"  # type: ignore[operator]
-        save_plan(graph, plan_path)
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
 
-        data = json.loads(plan_path.read_text())
-        assert data["nodes"]["s:0"]["archetype"] == "reviewer"
-        assert data["nodes"]["s:0"]["instances"] == 3
+        loaded = load_plan(conn)
+        assert loaded is not None
+        assert loaded.nodes["s:0"].archetype == "reviewer"
+        assert loaded.nodes["s:0"].instances == 3
+        conn.close()
 
 
 # -------------------------------------------------------------------
@@ -135,35 +137,35 @@ class TestPlanSerializationArchetype:
 
 
 class TestLegacyPlanDefaults:
-    """Verify legacy plan without archetype defaults to coder/1."""
+    """Verify plan node without archetype defaults to coder/1."""
 
-    def test_legacy_plan_defaults(
-        self,
-        tmp_path: pytest.TempPathFactory,
-    ) -> None:
-        from agent_fox.graph.persistence import load_plan
+    def test_legacy_plan_defaults(self) -> None:
+        from agent_fox.graph.persistence import load_plan, save_plan
+        from agent_fox.graph.types import Node, TaskGraph
 
-        plan_data = {
-            "nodes": {
-                "s:1": {
-                    "id": "s:1",
-                    "spec_name": "s",
-                    "group_number": 1,
-                    "title": "t",
-                    "optional": False,
-                    "status": "pending",
-                }
+        # Save a plan with default archetype (coder) and instances (1)
+        graph = TaskGraph(
+            nodes={
+                "s:1": Node(
+                    id="s:1",
+                    spec_name="s",
+                    group_number=1,
+                    title="t",
+                    optional=False,
+                ),
             },
-            "edges": [],
-            "order": [],
-        }
-        plan_path = tmp_path / "plan.json"  # type: ignore[operator]
-        plan_path.write_text(json.dumps(plan_data))
+            edges=[],
+            order=["s:1"],
+        )
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
 
-        graph = load_plan(plan_path)
-        assert graph is not None
-        assert graph.nodes["s:1"].archetype == "coder"
-        assert graph.nodes["s:1"].instances == 1
+        loaded = load_plan(conn)
+        assert loaded is not None
+        assert loaded.nodes["s:1"].archetype == "coder"
+        assert loaded.nodes["s:1"].instances == 1
+        conn.close()
 
 
 # -------------------------------------------------------------------
@@ -503,41 +505,42 @@ class TestPropertyInstanceClamping:
 
 
 class TestPropertyBackwardCompat:
-    """Legacy plan.json nodes default to coder/1."""
+    """Plan nodes default to coder/1."""
 
-    def test_prop_legacy_nodes_default(
-        self,
-        tmp_path: pytest.TempPathFactory,
-    ) -> None:
-        from agent_fox.graph.persistence import load_plan
+    def test_prop_legacy_nodes_default(self) -> None:
+        from agent_fox.graph.persistence import load_plan, save_plan
+        from agent_fox.graph.types import Node, NodeStatus, TaskGraph
 
-        plan_data = {
-            "nodes": {
-                "s:1": {
-                    "id": "s:1",
-                    "spec_name": "s",
-                    "group_number": 1,
-                    "title": "Legacy task",
-                    "optional": False,
-                    "status": "pending",
-                },
-                "s:2": {
-                    "id": "s:2",
-                    "spec_name": "s",
-                    "group_number": 2,
-                    "title": "Another",
-                    "optional": True,
-                    "status": "completed",
-                },
+        # Save a plan with default archetype values
+        graph = TaskGraph(
+            nodes={
+                "s:1": Node(
+                    id="s:1",
+                    spec_name="s",
+                    group_number=1,
+                    title="Legacy task",
+                    optional=False,
+                    status=NodeStatus.PENDING,
+                ),
+                "s:2": Node(
+                    id="s:2",
+                    spec_name="s",
+                    group_number=2,
+                    title="Another",
+                    optional=True,
+                    status=NodeStatus.COMPLETED,
+                ),
             },
-            "edges": [],
-            "order": ["s:1", "s:2"],
-        }
-        plan_path = tmp_path / "plan.json"  # type: ignore[operator]
-        plan_path.write_text(json.dumps(plan_data))
+            edges=[],
+            order=["s:1", "s:2"],
+        )
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
 
-        graph = load_plan(plan_path)
-        assert graph is not None
-        for node in graph.nodes.values():
+        loaded = load_plan(conn)
+        assert loaded is not None
+        for node in loaded.nodes.values():
             assert node.archetype == "coder"
             assert node.instances == 1
+        conn.close()

@@ -1,0 +1,12 @@
+# .night-shift — controls which files/folders the night-shift hunt scan skips.
+# Syntax: same as .gitignore (one pattern per line, # for comments).
+# These patterns are additive to .gitignore — both are applied.
+#
+# The following directories are always excluded by default:
+# .agent-fox/**
+# .git/**
+# node_modules/**
+# __pycache__/**
+# .claude/**
+
+tests/

@@ -36,7 +36,7 @@ class TestInitCreatesSteeringFile:
         from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
-        steering_path = tmp_path / ".specs" / "steering.md"
+        steering_path = tmp_path / ".agent-fox" / "specs" / "steering.md"
         assert steering_path.exists()
 
     def test_file_contains_sentinel(self, tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ class TestInitCreatesSteeringFile:
         from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
-        content = (tmp_path / ".specs" / "steering.md").read_text()
+        content = (tmp_path / ".agent-fox" / "specs" / "steering.md").read_text()
         assert "<!-- steering:placeholder -->" in content
 
 
@@ -61,8 +61,8 @@ class TestInitSkipsExistingSteeringFile:
         """Return value is 'skipped' when file already exists."""
         from agent_fox.workspace.init_project import _ensure_steering_md
 
-        specs_dir = tmp_path / ".specs"
-        specs_dir.mkdir()
+        specs_dir = tmp_path / ".agent-fox" / "specs"
+        specs_dir.mkdir(parents=True)
         (specs_dir / "steering.md").write_text("my directives")
 
         result = _ensure_steering_md(tmp_path)
@@ -72,8 +72,8 @@ class TestInitSkipsExistingSteeringFile:
         """Existing file content is left unchanged."""
         from agent_fox.workspace.init_project import _ensure_steering_md
 
-        specs_dir = tmp_path / ".specs"
-        specs_dir.mkdir()
+        specs_dir = tmp_path / ".agent-fox" / "specs"
+        specs_dir.mkdir(parents=True)
         steering_path = specs_dir / "steering.md"
         steering_path.write_text("my directives")
 
@@ -95,7 +95,7 @@ class TestPlaceholderContainsSentinelAndComments:
         from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
-        content = (tmp_path / ".specs" / "steering.md").read_text()
+        content = (tmp_path / ".agent-fox" / "specs" / "steering.md").read_text()
         assert "<!-- steering:placeholder -->" in content
 
     def test_placeholder_has_html_comments(self, tmp_path: Path) -> None:
@@ -103,7 +103,7 @@ class TestPlaceholderContainsSentinelAndComments:
         from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
-        content = (tmp_path / ".specs" / "steering.md").read_text()
+        content = (tmp_path / ".agent-fox" / "specs" / "steering.md").read_text()
         assert "<!--" in content
 
     def test_placeholder_treated_as_no_directives(self, tmp_path: Path) -> None:
@@ -129,16 +129,16 @@ class TestInitCreatesSpecsDirectory:
         """The .specs/ directory is created when absent."""
         from agent_fox.workspace.init_project import _ensure_steering_md
 
-        assert not (tmp_path / ".specs").exists()
+        assert not (tmp_path / ".agent-fox" / "specs").exists()
         _ensure_steering_md(tmp_path)
-        assert (tmp_path / ".specs").is_dir()
+        assert (tmp_path / ".agent-fox" / "specs").is_dir()
 
     def test_steering_md_created_inside_specs(self, tmp_path: Path) -> None:
         """steering.md is created inside the .specs/ directory."""
         from agent_fox.workspace.init_project import _ensure_steering_md
 
         _ensure_steering_md(tmp_path)
-        assert (tmp_path / ".specs" / "steering.md").exists()
+        assert (tmp_path / ".agent-fox" / "specs" / "steering.md").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +161,7 @@ class TestSkillTemplatesReferenceSteeringMd:
         missing = []
         for skill_file in skill_files:
             content = skill_file.read_text(encoding="utf-8")
-            if ".specs/steering.md" not in content:
+            if "steering.md" not in content:
                 missing.append(skill_file.name)
 
         assert not missing, f"Skill templates missing steering.md reference: {missing}"
@@ -181,18 +181,18 @@ class TestAgentsMdTemplateReferencesSteeringMd:
         agents_md_path = Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
         assert agents_md_path.exists(), f"agents_md.md not found at {agents_md_path}"
         content = agents_md_path.read_text(encoding="utf-8")
-        assert ".specs/steering.md" in content
+        assert "steering.md" in content
 
     def test_steering_reference_position_in_agents_md(self) -> None:
         """steering.md reference after README.md and before 'Explore the codebase'."""
         agents_md_path = Path(__file__).parents[3] / "agent_fox" / "_templates" / "agents_md.md"
         content = agents_md_path.read_text(encoding="utf-8")
-        assert ".specs/steering.md" in content, "steering.md not referenced in agents_md.md"
+        assert "steering.md" in content, "steering.md not referenced in agents_md.md"
         assert "README.md" in content, "README.md not in agents_md.md"
         assert "Explore the codebase" in content, "'Explore the codebase' not in agents_md.md"
 
         readme_pos = content.index("README.md")
-        steering_pos = content.index(".specs/steering.md")
+        steering_pos = content.index("steering.md")
         explore_pos = content.index("Explore the codebase")
         assert readme_pos < steering_pos < explore_pos, (
             f"Expected README.md ({readme_pos}) < steering.md ({steering_pos}) < 'Explore the codebase' ({explore_pos})"
@@ -236,7 +236,7 @@ class TestPermissionErrorCreatingSpecsDir:
         original_mkdir = Path.mkdir
 
         def failing_mkdir(self, *args, **kwargs):
-            if self == tmp_path / ".specs":
+            if self == tmp_path / ".agent-fox" / "specs":
                 raise OSError("permission denied")
             return original_mkdir(self, *args, **kwargs)
 
@@ -259,7 +259,7 @@ class TestPermissionErrorCreatingSpecsDir:
         original_mkdir = Path.mkdir
 
         def failing_mkdir(self, *args, **kwargs):
-            if self == tmp_path / ".specs":
+            if self == tmp_path / ".agent-fox" / "specs":
                 raise OSError("permission denied")
             return original_mkdir(self, *args, **kwargs)
 

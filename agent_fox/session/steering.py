@@ -1,6 +1,6 @@
 """Steering document loading.
 
-Loads project-level steering directives from .specs/steering.md and
+Loads project-level steering directives from {spec_root}/steering.md and
 detects placeholder-only content.
 
 Requirements: 64-REQ-2.1 through 64-REQ-2.E1, 64-REQ-5.1, 64-REQ-5.2
@@ -17,15 +17,20 @@ logger = logging.getLogger(__name__)
 # Sentinel string that marks placeholder-only content (64-REQ-5.1)
 STEERING_PLACEHOLDER_SENTINEL: str = "<!-- steering:placeholder -->"
 
-# Path relative to project root
-_STEERING_PATH: str = ".specs/steering.md"
+# Steering filename within the spec root
+_STEERING_FILENAME: str = "steering.md"
 
 # HTML comment pattern for placeholder detection
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
-def load_steering(project_root: Path) -> str | None:
-    """Load steering content from .specs/steering.md.
+def load_steering(project_root: Path, spec_root: Path | None = None) -> str | None:
+    """Load steering content from {spec_root}/steering.md.
+
+    Args:
+        project_root: Project root directory.
+        spec_root: Absolute path to the spec root directory.
+            If None, resolved from config with backward compatibility.
 
     Returns:
         The file content (stripped) if it contains real directives.
@@ -35,7 +40,18 @@ def load_steering(project_root: Path) -> str | None:
     Requirements: 64-REQ-2.1, 64-REQ-2.3, 64-REQ-2.4, 64-REQ-2.E1,
                   64-REQ-5.1, 64-REQ-5.2
     """
-    steering_path = project_root / _STEERING_PATH
+    if spec_root is not None:
+        steering_path = spec_root / _STEERING_FILENAME
+    else:
+        # Backward compatible fallback: try both locations
+        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+        steering_path = resolve_spec_root(AgentFoxConfig(), project_root) / _STEERING_FILENAME
+
+    # Security: reject symlinks to prevent path traversal (CWE-59)
+    if steering_path.is_symlink():
+        logger.warning("Steering file is a symlink; skipping for security")
+        return None
 
     # 64-REQ-2.3: Skip silently when file is absent
     if not steering_path.exists():

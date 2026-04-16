@@ -7,6 +7,7 @@ Requirements: 105-REQ-1.1, 105-REQ-1.2, 105-REQ-1.3, 105-REQ-1.4,
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import duckdb
@@ -64,7 +65,7 @@ CREATE TABLE IF NOT EXISTS plan_meta (
 
 
 @pytest.fixture
-def plan_conn() -> duckdb.DuckDBPyConnection:
+def plan_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
     """In-memory DuckDB with plan tables (matching v9 migration schema)."""
     conn = duckdb.connect(":memory:")
     conn.execute(_PLAN_SCHEMA_DDL)
@@ -181,9 +182,15 @@ def test_plan_saved_atomic(
     """
     save_plan(three_node_graph, plan_conn)
 
-    node_count = plan_conn.sql("SELECT count(*) FROM plan_nodes").fetchone()[0]
-    edge_count = plan_conn.sql("SELECT count(*) FROM plan_edges").fetchone()[0]
-    meta_count = plan_conn.sql("SELECT count(*) FROM plan_meta").fetchone()[0]
+    _row = plan_conn.sql("SELECT count(*) FROM plan_nodes").fetchone()
+    assert _row is not None
+    node_count = _row[0]
+    _row = plan_conn.sql("SELECT count(*) FROM plan_edges").fetchone()
+    assert _row is not None
+    edge_count = _row[0]
+    _row = plan_conn.sql("SELECT count(*) FROM plan_meta").fetchone()
+    assert _row is not None
+    meta_count = _row[0]
 
     assert node_count == 3
     assert edge_count == 2
@@ -206,7 +213,9 @@ def test_content_hash_stored(
     expected_hash = compute_plan_hash(three_node_graph)
     save_plan(three_node_graph, plan_conn)
 
-    stored_hash = plan_conn.sql("SELECT content_hash FROM plan_meta").fetchone()[0]
+    _row = plan_conn.sql("SELECT content_hash FROM plan_meta").fetchone()
+    assert _row is not None
+    stored_hash = _row[0]
     assert stored_hash == expected_hash
 
 

@@ -38,12 +38,6 @@ class TestInitCreatesStructure:
         content = config_path.read_text()
         assert isinstance(content, str)
 
-    def test_init_creates_hooks_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init creates .agent-fox/hooks/ directory."""
-        cli_runner.invoke(main, ["init"])
-
-        assert (tmp_git_repo / ".agent-fox" / "hooks").is_dir()
-
     def test_init_creates_worktrees_directory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates .agent-fox/worktrees/ directory."""
         cli_runner.invoke(main, ["init"])
@@ -123,12 +117,27 @@ class TestInitGitignore:
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/state.jsonl" not in gitignore
 
-    def test_gitignore_excludes_memory(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init adds !.agent-fox/memory.jsonl exception to .gitignore."""
+    def test_gitignore_does_not_add_memory_exception(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init does NOT add !.agent-fox/memory.jsonl exception to .gitignore.
+
+        memory.jsonl is tracked via git add --force, not a gitignore exception.
+        """
         cli_runner.invoke(main, ["init"])
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
-        assert "!.agent-fox/memory.jsonl" in gitignore
+        assert "!.agent-fox/memory.jsonl" not in gitignore
+
+    def test_gitignore_excludes_profiles_dir(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init adds both !.agent-fox/profiles/ and !.agent-fox/profiles/* to .gitignore.
+
+        Two entries are needed: one to un-ignore the directory itself and one
+        to un-ignore files within it, because .agent-fox/* ignores the directory.
+        """
+        cli_runner.invoke(main, ["init"])
+
+        gitignore = (tmp_git_repo / ".gitignore").read_text()
+        assert "!.agent-fox/profiles/" in gitignore
+        assert "!.agent-fox/profiles/*" in gitignore
 
     def test_gitignore_contains_claude_worktrees(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds .claude/worktrees/ to .gitignore."""
@@ -136,6 +145,39 @@ class TestInitGitignore:
 
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert ".claude/worktrees/" in gitignore
+
+
+class TestInitGitTracking:
+    """Init stages files in git so they are tracked from the start."""
+
+    def test_init_stages_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init force-adds .agent-fox/memory.jsonl to git index."""
+        cli_runner.invoke(main, ["init"])
+
+        result = subprocess.run(
+            ["git", "ls-files", ".agent-fox/memory.jsonl"],
+            cwd=tmp_git_repo,
+            capture_output=True,
+            text=True,
+        )
+        assert ".agent-fox/memory.jsonl" in result.stdout
+
+    def test_init_profiles_stages_profiles(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init --profiles adds copied profile files to git index."""
+        # First init to set up gitignore with !.agent-fox/profiles/*
+        cli_runner.invoke(main, ["init"])
+
+        from agent_fox.cli.init import init_profiles
+
+        init_profiles(project_dir=tmp_git_repo)
+
+        result = subprocess.run(
+            ["git", "ls-files", ".agent-fox/profiles/"],
+            cwd=tmp_git_repo,
+            capture_output=True,
+            text=True,
+        )
+        assert ".agent-fox/profiles/" in result.stdout or "coder.md" in result.stdout
 
 
 class TestInitSeedFiles:

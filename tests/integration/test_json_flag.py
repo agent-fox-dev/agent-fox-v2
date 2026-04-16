@@ -372,9 +372,9 @@ class TestCodeJsonl:
             patch("agent_fox.cli.code.run_code", side_effect=_fake_run_code),
             patch("agent_fox.ui.progress.ProgressDisplay"),
         ):
-            # Plan file is required
-            plan_path = tmp_project / ".agent-fox" / "plan.json"
-            plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
+            # DB file is required for plan existence check
+            db_path = tmp_project / ".agent-fox" / "knowledge.duckdb"
+            db_path.write_text("")
 
             result = cli_runner.invoke(main, ["--json", "code"])
             lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
@@ -575,8 +575,9 @@ class TestStreamingInterrupted:
             ),
         ):
 
-            plan_path = tmp_project / ".agent-fox" / "plan.json"
-            plan_path.write_text('{"nodes": {}, "edges": [], "metadata": {}}')
+            # DB file is required for plan existence check
+            db_path = tmp_project / ".agent-fox" / "knowledge.duckdb"
+            db_path.write_text("")
 
             result = cli_runner.invoke(main, ["--json", "code"])
             last_line = result.output.strip().splitlines()[-1]
@@ -614,7 +615,7 @@ class TestUnhandledExceptionEnvelope:
 
     def test_unhandled_exception_envelope(self, cli_runner: CliRunner, tmp_project: Path) -> None:
         """Unexpected exception produces {"error": "..."}."""
-        with patch("agent_fox.cli.status.generate_status") as mock_gen:
+        with patch("agent_fox.cli.status._reporting_generate_status") as mock_gen:
             mock_gen.side_effect = RuntimeError("unexpected boom")
             result = cli_runner.invoke(main, ["--json", "status"])
             data = json.loads(result.output)

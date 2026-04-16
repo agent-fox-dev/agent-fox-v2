@@ -23,11 +23,11 @@ class TestNightShiftConfigDefaults:
         assert cfg.issue_check_interval == 900
 
     def test_default_hunt_scan_interval(self) -> None:
-        """hunt_scan_interval defaults to 14400."""
+        """hunt_scan_interval defaults to 21600."""
         from agent_fox.nightshift.config import NightShiftConfig
 
         cfg = NightShiftConfig()
-        assert cfg.hunt_scan_interval == 14400
+        assert cfg.hunt_scan_interval == 21600
 
 
 # ---------------------------------------------------------------------------

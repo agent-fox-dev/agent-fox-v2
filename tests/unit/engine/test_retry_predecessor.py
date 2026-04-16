@@ -30,7 +30,6 @@ def _make_orchestrator_with_graph(
     config = OrchestratorConfig(max_retries=max_retries)
     orch = Orchestrator(
         config=config,
-        plan_path=MagicMock(),
         session_runner_factory=MagicMock(),
     )
 

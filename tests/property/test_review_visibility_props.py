@@ -18,7 +18,6 @@ import uuid
 from datetime import UTC, datetime
 
 import duckdb
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 

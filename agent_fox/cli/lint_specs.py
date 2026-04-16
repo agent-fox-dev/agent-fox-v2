@@ -149,9 +149,9 @@ def _create_fix_branch() -> str:
     return branch
 
 
-def _commit_fixes(fix_summary: str) -> None:
-    """Stage .specs/ changes and commit with a descriptive message."""
-    _git_run("add", ".specs/")
+def _commit_fixes(fix_summary: str, specs_dir: Path | None = None) -> None:
+    """Stage spec directory changes and commit with a descriptive message."""
+    _git_run("add", str(specs_dir) + "/" if specs_dir else ".specs/")
     _git_run(
         "commit",
         "-m",
@@ -184,7 +184,13 @@ def lint_specs_cmd(ctx: click.Context, ai: bool, fix: bool, lint_all: bool) -> N
     """Validate specification files for structural and quality problems."""
     json_mode = ctx.obj.get("json", False)
     output_format = "json" if json_mode else "table"
-    specs_dir = Path(".specs")
+
+    from agent_fox.core.config import load_config, resolve_spec_root
+
+    project_root = Path.cwd()
+    config_path = project_root / ".agent-fox" / "config.toml"
+    _config = load_config(config_path if config_path.exists() else None)
+    specs_dir = resolve_spec_root(_config, project_root)
 
     try:
         result = run_lint_specs(specs_dir, ai=ai, fix=fix, lint_all=lint_all)
@@ -201,7 +207,7 @@ def lint_specs_cmd(ctx: click.Context, ai: bool, fix: bool, lint_all: bool) -> N
         try:
             original_branch = _git_current_branch()
             branch = _create_fix_branch()
-            _commit_fixes(summary)
+            _commit_fixes(summary, specs_dir=specs_dir)
             _git_run("checkout", original_branch)
             click.echo(
                 f"Fixes committed to branch '{branch}'. "

@@ -57,8 +57,7 @@ class TestPlatformProtocolCreatePR:
 
     def test_class_with_create_pr_passes_isinstance(self) -> None:
         """Class implementing all methods including create_pull_request passes."""
-        from agent_fox.platform.protocol import IssueComment, IssueResult, PullRequestResult
-        from agent_fox.platform.protocol import PlatformProtocol
+        from agent_fox.platform.protocol import IssueComment, IssueResult, PlatformProtocol, PullRequestResult
 
         class WithPR:
             async def create_issue(self, title: str, body: str, labels: list[str] | None = None) -> IssueResult: ...  # type: ignore[empty-body]
@@ -84,6 +83,10 @@ class TestPlatformProtocolCreatePR:
             async def list_issue_comments(self, issue_number: int) -> list[IssueComment]: ...  # type: ignore[empty-body]
 
             async def get_issue(self, issue_number: int) -> IssueResult: ...  # type: ignore[empty-body]
+
+            async def update_issue(self, issue_number: int, body: str) -> None: ...
+
+            async def create_label(self, name: str, color: str, description: str = "") -> None: ...
 
         assert isinstance(WithPR(), PlatformProtocol)
 

@@ -489,7 +489,7 @@ class TestReportingMigration:
         assert report is not None
 
     def test_fallback(self, tmp_path: Path) -> None:
-        """TS-40-34: Reporting falls back to state.jsonl when DuckDB unavailable."""
+        """TS-40-34: Reporting handles unavailable DuckDB gracefully."""
         from agent_fox.reporting.status import build_status_report_from_audit
 
         # When conn is None, should not raise

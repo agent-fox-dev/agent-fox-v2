@@ -180,10 +180,14 @@ def test_upsert_idempotency(
     Property 2 from design.md; Requirements: 95-REQ-1.E1, 95-REQ-2.4, 95-REQ-3.3
     """
     ids_first = set(upsert_entities(entity_conn, entities))
-    count_first = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()[0]
+    r1 = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()
+    assert r1 is not None
+    count_first = r1[0]
 
     ids_second = set(upsert_entities(entity_conn, entities))
-    count_second = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()[0]
+    r2 = entity_conn.execute("SELECT COUNT(*) FROM entity_graph").fetchone()
+    assert r2 is not None
+    count_second = r2[0]
 
     assert ids_first == ids_second, "Same entities should produce same IDs"
     assert count_first == count_second, "Entity count should not grow on re-upsert"
@@ -391,17 +395,19 @@ def test_gc_cascade_completeness(
 
     # Verify no edges reference deleted entities
     for stale_id in stale_ids:
-        edge_count = entity_conn.execute(
+        edge_row = entity_conn.execute(
             "SELECT COUNT(*) FROM entity_edges WHERE source_id = ? OR target_id = ?",
             [stale_id, stale_id],
-        ).fetchone()[0]
-        assert edge_count == 0, f"Edge still references hard-deleted entity {stale_id}"
+        ).fetchone()
+        assert edge_row is not None
+        assert edge_row[0] == 0, f"Edge still references hard-deleted entity {stale_id}"
 
-        link_count = entity_conn.execute(
+        link_row = entity_conn.execute(
             "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?",
             [stale_id],
-        ).fetchone()[0]
-        assert link_count == 0, f"Fact link still references hard-deleted entity {stale_id}"
+        ).fetchone()
+        assert link_row is not None
+        assert link_row[0] == 0, f"Fact link still references hard-deleted entity {stale_id}"
 
         entity_row = entity_conn.execute("SELECT id FROM entity_graph WHERE id = ?", [stale_id]).fetchone()
         assert entity_row is None, f"Stale entity {stale_id} still in entity_graph after GC"

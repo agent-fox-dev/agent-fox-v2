@@ -410,7 +410,7 @@ class TestEmptySignalExcluded:
         fact_a = _make_scored_fact(FACT_AAA, content="Fact A")
         fact_b = _make_scored_fact(FACT_BBB, content="Fact B")
         # fact_a appears in both keyword and entity; fact_b only in keyword
-        signal_lists = {
+        signal_lists: dict[str, list[ScoredFact]] = {
             "keyword": [fact_a, fact_b],
             "vector": [],
             "entity": [fact_a],
@@ -437,7 +437,7 @@ class TestAllSignalsEmpty:
 
     def test_fusion_returns_empty_when_all_empty(self) -> None:
         """weighted_rrf_fusion returns [] when all signal lists are empty."""
-        signal_lists = {"keyword": [], "vector": [], "entity": [], "causal": []}
+        signal_lists: dict[str, list[ScoredFact]] = {"keyword": [], "vector": [], "entity": [], "causal": []}
         profile = IntentProfile()
         result = weighted_rrf_fusion(signal_lists, profile, k=60)
         assert result == []
@@ -516,7 +516,7 @@ class TestRrfFormula:
         fact_b = _make_scored_fact(FACT_BBB, content="Fact B")
         fact_c = _make_scored_fact(FACT_CCC, content="Fact C")
 
-        signal_lists = {
+        signal_lists: dict[str, list[ScoredFact]] = {
             "keyword": [fact_a, fact_b],  # A=rank1, B=rank2
             "entity": [fact_b, fact_c],  # B=rank1, C=rank2
             "vector": [],
@@ -541,7 +541,7 @@ class TestRrfFormula:
         fact_b = _make_scored_fact(FACT_BBB)
         fact_c = _make_scored_fact(FACT_CCC)
 
-        signal_lists = {
+        signal_lists: dict[str, list[ScoredFact]] = {
             "keyword": [fact_a, fact_b],
             "entity": [fact_b, fact_c],
             "vector": [],
@@ -578,7 +578,7 @@ class TestRrfDeduplication:
         fact_y = _make_scored_fact(FACT_Y, content="Fact Y")
         fact_z = _make_scored_fact(FACT_Z, content="Fact Z")
 
-        signal_lists = {
+        signal_lists: dict[str, list[ScoredFact]] = {
             "keyword": [fact_x, fact_y],
             "vector": [fact_z, fact_y, fact_x],  # X appears at rank 3
             "entity": [],
@@ -876,7 +876,7 @@ class TestSingleSignalScoring:
     def test_single_signal_score_formula(self) -> None:
         """Fact X in keyword signal at rank 1 with weight 1.5 → score = 1.5/61."""
         fact_x = _make_scored_fact(FACT_X)
-        signal_lists = {
+        signal_lists: dict[str, list[ScoredFact]] = {
             "keyword": [fact_x],
             "vector": [],
             "entity": [],

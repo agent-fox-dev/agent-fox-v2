@@ -28,8 +28,9 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
+from agent_fox.platform.labels import LABEL_FIXED
 from agent_fox.platform.protocol import IssueResult
-from agent_fox.ui.progress import ActivityCallback, TaskCallback, TaskEvent
+from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
 
 if TYPE_CHECKING:
@@ -78,13 +79,26 @@ class FixPipeline:
         activity_callback: ActivityCallback | None = None,
         task_callback: TaskCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
+        spinner_callback: SpinnerCallback | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
         self._activity_callback = activity_callback
         self._task_callback = task_callback
         self._sink = sink_dispatcher
+        self._spinner_callback = spinner_callback
         self._run_id: str = ""
+
+    def _update_spinner(self, text: str) -> None:
+        """Update the spinner text with a phase hint.
+
+        No-op when spinner_callback is not set.
+        """
+        if self._spinner_callback is not None:
+            try:
+                self._spinner_callback(text)
+            except Exception:
+                logger.debug("Spinner callback failed", exc_info=True)
 
     async def _run_session(
         self,
@@ -494,8 +508,8 @@ class FixPipeline:
 
         node_id = f"fix-issue-{spec.issue_number}:0:triage"
         try:
-            outcome = await self._run_session("triage", workspace, spec=spec)
-            self._emit_session_event(outcome, "triage", self._run_id, node_id=node_id)
+            outcome = await self._run_session("maintainer", workspace, spec=spec, mode="fix-triage")
+            self._emit_session_event(outcome, "maintainer", self._run_id, node_id=node_id)
         except Exception as exc:
             logger.warning(
                 "Triage session failed for issue #%d: %s",
@@ -507,10 +521,10 @@ class FixPipeline:
                 self._run_id,
                 AuditEventType.SESSION_FAIL,
                 node_id=node_id,
-                archetype="triage",
+                archetype="maintainer",
                 payload={
-                    "archetype": "triage",
-                    "model_id": self._get_model_id("triage"),
+                    "archetype": "maintainer",
+                    "model_id": self._get_model_id("maintainer"),
                     "error_message": str(exc),
                     "attempt": 1,
                 },
@@ -591,6 +605,8 @@ class FixPipeline:
             system_prompt, task_prompt = self._build_coder_prompt(spec, triage, review_feedback=review_feedback)
 
             node_id = f"fix-issue-{spec.issue_number}:0:coder"
+            attempt_suffix = f" (attempt {_attempt + 1})" if _attempt > 0 else ""
+            self._update_spinner(f"Running coder for issue #{spec.issue_number}{attempt_suffix}\u2026")
             t0 = time.monotonic()
             try:
                 coder_outcome = await self._run_coder_session(
@@ -648,6 +664,7 @@ class FixPipeline:
             reviewer_system, reviewer_task = self._build_reviewer_prompt(spec, triage)
 
             reviewer_node_id = f"fix-issue-{spec.issue_number}:0:reviewer"
+            self._update_spinner(f"Reviewing fix for issue #{spec.issue_number}\u2026")
             t0 = time.monotonic()
             try:
                 reviewer_outcome = await self._run_session(
@@ -866,6 +883,7 @@ class FixPipeline:
         spec = build_in_memory_spec(issue, issue_body)
 
         # 61-REQ-6.2: create an isolated worktree for the fix branch
+        self._update_spinner(f"Setting up workspace for issue #{issue.number}\u2026")
         workspace = await self._setup_workspace(spec)
 
         # Post progress comment
@@ -884,6 +902,7 @@ class FixPipeline:
         try:
             # 82-REQ-7.1: run triage first
             triage_node_id = f"fix-issue-{spec.issue_number}:0:triage"
+            self._update_spinner(f"Analyzing issue #{issue.number} (triage)\u2026")
             t0 = time.monotonic()
             triage = await self._run_triage(spec, workspace)
             duration = time.monotonic() - t0
@@ -895,7 +914,7 @@ class FixPipeline:
                         node_id=triage_node_id,
                         status="completed",
                         duration_s=duration,
-                        archetype="triage",
+                        archetype="maintainer",
                     )
                 )
             # Count triage session in metrics if it produced output
@@ -912,10 +931,12 @@ class FixPipeline:
             # Optionally push fix branch to upstream remote (93-REQ-3.1).
             # Must run BEFORE harvest, which changes the working tree.
             if self._config.night_shift.push_fix_branch:
+                self._update_spinner(f"Pushing fix branch for issue #{issue.number}\u2026")
                 await self._push_fix_branch_upstream(spec, workspace)
 
             # Harvest fix branch into develop and push to origin (65-REQ-3.2).
             # Must run BEFORE cleanup destroys the feature branch.
+            self._update_spinner(f"Merging fix for issue #{issue.number} into develop\u2026")
             harvest_result = await self._harvest_and_push(spec, workspace)
 
         except Exception as exc:
@@ -981,15 +1002,17 @@ class FixPipeline:
                 issue.number,
                 exc,
             )
-        # Remove the af:fix label so the issue is not re-processed (#295).
+        # Add af:fixed label for provenance and re-processing guard (#429).
+        # The af:fix label is intentionally preserved to record that the issue
+        # was submitted for automated fixing. af:fixed signals it was resolved.
         try:
-            await self._platform.remove_label(  # type: ignore[attr-defined]
+            await self._platform.assign_label(  # type: ignore[attr-defined]
                 issue.number,
-                "af:fix",
+                LABEL_FIXED,
             )
         except Exception as exc:
             logger.warning(
-                "Failed to remove af:fix label from issue #%d: %s",
+                "Failed to assign af:fixed label to issue #%d: %s",
                 issue.number,
                 exc,
             )

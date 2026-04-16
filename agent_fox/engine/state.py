@@ -8,12 +8,10 @@ Requirements: 04-REQ-4.1, 04-REQ-4.2, 04-REQ-4.3,
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -107,7 +105,7 @@ class RunRecord:
 class ExecutionState:
     """Full execution state, persisted after every session."""
 
-    plan_hash: str  # SHA-256 of plan.json
+    plan_hash: str  # SHA-256 of plan structure
     node_states: dict[str, str]  # node_id -> NodeStatus value
     session_history: list[SessionRecord] = field(default_factory=list)
     total_input_tokens: int = 0
@@ -205,51 +203,31 @@ def update_state_with_session(
     return state
 
 
-def compute_plan_hash_from_file(plan_path: Path) -> str:
-    """Compute SHA-256 hash of plan.json structural content.
-
-    Standalone replacement for ``StateManager.compute_plan_hash()``.
-    Hashes only structural fields (node IDs, edges, order), excluding
-    mutable fields like node ``status``.
-
-    Requirements: 105-REQ-5.3
-    """
-    data = json.loads(plan_path.read_text(encoding="utf-8"))
-
-    nodes = data.get("nodes", {})
-    structural_nodes = {}
-    for nid, node in sorted(nodes.items()):
-        structural_nodes[nid] = {k: v for k, v in sorted(node.items()) if k != "status"}
-
-    canonical = {
-        "nodes": structural_nodes,
-        "edges": data.get("edges", []),
-        "order": data.get("order", []),
-    }
-    from agent_fox.core.models import content_hash
-
-    content = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
-    return content_hash(content)
-
-
 def load_state_from_db(
     conn: duckdb.DuckDBPyConnection,
 ) -> ExecutionState | None:
     """Reconstruct an ExecutionState from DB tables.
 
     Loads node_states from plan_nodes, session history from
-    session_outcomes, blocked reasons, and run totals. Returns None
-    if no plan data exists in the database.
+    session_outcomes, blocked reasons, and run totals.
+
+    Returns None only when the plan_nodes table cannot be queried at all
+    (e.g. the table does not exist or the DB is corrupt). An empty
+    plan_nodes table is valid — session_outcomes and runs are populated
+    independently of the plan (e.g. nightshift execution path) and must
+    always be loaded regardless.
 
     Requirements: 105-REQ-5.3
     """
-    # Load node states from plan_nodes
+    # Load node states from plan_nodes.
+    # An empty result is normal (nightshift path); only a query failure
+    # (missing table, corrupt DB) warrants returning None.
     try:
         rows = conn.sql("SELECT id, status FROM plan_nodes").fetchall()
     except Exception:
         return None
-    if not rows:
-        return None
+    # Empty plan_nodes is valid (nightshift path or pre-migration plan):
+    # continue loading session_outcomes and runs rather than returning None.
     node_states = {row[0]: row[1] for row in rows}
 
     # Load blocked reasons

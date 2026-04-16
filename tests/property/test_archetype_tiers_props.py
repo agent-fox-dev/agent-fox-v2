@@ -221,15 +221,19 @@ class TestConfigOverridePrecedence:
         assert tier == override
 
     @pytest.mark.parametrize("name", _ALL_ARCHETYPES)
-    def test_no_override_uses_registry_default(self, name: str) -> None:
-        """Without config override, registry default is returned."""
+    def test_no_override_uses_global_or_registry_default(self, name: str) -> None:
+        """Without archetype override, global [models] config or registry default is used."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
-        from agent_fox.engine.sdk_params import resolve_model_tier
+        from agent_fox.engine.sdk_params import _ARCHETYPE_MODEL_KEYS, resolve_model_tier
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
         tier = resolve_model_tier(config, name)
-        expected = ARCHETYPE_REGISTRY[name].default_model_tier
+        model_key = _ARCHETYPE_MODEL_KEYS.get(name)
+        if model_key is not None:
+            expected = getattr(config.models, model_key)
+        else:
+            expected = ARCHETYPE_REGISTRY[name].default_model_tier
         assert tier == expected
 
     @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
@@ -243,9 +247,9 @@ class TestConfigOverridePrecedence:
     )
     @settings(max_examples=50)
     def test_prop_config_override_precedence(self, name: str, override: str | None) -> None:
-        """Property: override → returned; no override → registry default."""
+        """Property: override → returned; no override → global models or registry default."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
-        from agent_fox.engine.sdk_params import resolve_model_tier
+        from agent_fox.engine.sdk_params import _ARCHETYPE_MODEL_KEYS, resolve_model_tier
         from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
 
         models = {name: override} if override is not None else {}
@@ -255,4 +259,8 @@ class TestConfigOverridePrecedence:
         if override is not None:
             assert result == override
         else:
-            assert result == ARCHETYPE_REGISTRY[name].default_model_tier
+            model_key = _ARCHETYPE_MODEL_KEYS.get(name)
+            if model_key is not None:
+                assert result == getattr(config.models, model_key)
+            else:
+                assert result == ARCHETYPE_REGISTRY[name].default_model_tier

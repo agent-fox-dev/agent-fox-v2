@@ -9,13 +9,12 @@ end-to-end rollback behavior including git reset --hard and ancestor checks.
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
-
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from agent_fox.engine.state import ExecutionState, SessionRecord
+from tests.unit.engine.conftest import write_plan_to_db
 
 # ---------------------------------------------------------------------------
 # Git repo helpers
@@ -62,36 +61,6 @@ def _commit_file(repo: Path, filename: str, content: str, message: str) -> str:
 def _get_head(repo: Path, branch: str = "HEAD") -> str:
     """Return the current HEAD SHA for a branch."""
     return _git(repo, "rev-parse", branch)
-
-
-def _make_plan_json(nodes: dict, order: list[str] | None = None) -> str:
-    """Build minimal plan.json."""
-    full_nodes = {}
-    for nid, props in nodes.items():
-        parts = nid.split(":")
-        full_nodes[nid] = {
-            "id": nid,
-            "spec_name": parts[0],
-            "group_number": int(parts[1]),
-            "title": props.get("title", f"Task {nid}"),
-            "optional": False,
-            "status": props.get("status", "pending"),
-            "subtask_count": 0,
-            "body": "",
-        }
-    return json.dumps(
-        {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": full_nodes,
-            "edges": [],
-            "order": order or list(nodes.keys()),
-        }
-    )
 
 
 def _make_state(
@@ -202,14 +171,13 @@ class TestFullHardResetRollback:
         # Set up .agent-fox structure
         agent_dir = repo / ".agent-fox"
         agent_dir.mkdir(exist_ok=True)
-        plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}, "s:3": {"title": "T3"}}
-        plan_path.write_text(_make_plan_json(nodes))
+        db_conn = write_plan_to_db(nodes, [])
 
         history = [
             _make_session_record("s:1", commit_sha=sha1),
@@ -220,10 +188,9 @@ class TestFullHardResetRollback:
             {"s:1": "completed", "s:2": "completed", "s:3": "completed"},
             session_history=history,
         )
-        mock_conn = MagicMock()
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            result = hard_reset_all(plan_path, worktrees_dir, repo, memory_path, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = hard_reset_all(worktrees_dir, repo, memory_path, db_conn=db_conn)
 
         # Develop should be at pre_task_sha (predecessor of earliest commit)
         new_head = _get_head(repo, "develop")
@@ -262,14 +229,13 @@ class TestPartialHardResetRollback:
         # Set up .agent-fox structure
         agent_dir = repo / ".agent-fox"
         agent_dir.mkdir(exist_ok=True)
-        plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}, "s:3": {"title": "T3"}}
-        plan_path.write_text(_make_plan_json(nodes))
+        db_conn = write_plan_to_db(nodes, [])
 
         history = [
             _make_session_record("s:1", commit_sha=sha1),
@@ -280,10 +246,9 @@ class TestPartialHardResetRollback:
             {"s:1": "completed", "s:2": "completed", "s:3": "completed"},
             session_history=history,
         )
-        mock_conn = MagicMock()
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            result = hard_reset_task("s:2", plan_path, worktrees_dir, repo, memory_path, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = hard_reset_task("s:2", worktrees_dir, repo, memory_path, db_conn=db_conn)
 
         # Develop should be at sha1 (predecessor of task 2's commit)
         new_head = _get_head(repo, "develop")

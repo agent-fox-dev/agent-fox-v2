@@ -17,7 +17,7 @@ import click
 from rich.console import Console
 
 from agent_fox.cli import handle_agent_fox_errors
-from agent_fox.core.paths import AGENT_FOX_DIR, DEFAULT_DB_PATH
+from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
@@ -47,8 +47,6 @@ def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
     """Generate daily activity report."""
     json_mode = ctx.obj.get("json", False)
     project_root = Path.cwd()
-    agent_dir = project_root / AGENT_FOX_DIR
-    plan_path = agent_dir / "plan.json"
 
     db_conn = None
     try:
@@ -61,7 +59,6 @@ def standup_cmd(ctx: click.Context, hours: int, output: str | None) -> None:
 
     try:
         report = generate_standup(
-            plan_path=plan_path,
             repo_path=project_root,
             hours=hours,
             db_conn=db_conn,

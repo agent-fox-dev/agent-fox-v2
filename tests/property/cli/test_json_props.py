@@ -183,7 +183,7 @@ class TestErrorEnvelopeStructure:
         tmp_project: Path,
     ) -> None:
         """Status command failure produces error envelope."""
-        with patch("agent_fox.cli.status.generate_status") as mock_gen:
+        with patch("agent_fox.cli.status._reporting_generate_status") as mock_gen:
             mock_gen.side_effect = RuntimeError("test failure")
             result = cli_runner.invoke(main, ["--json", "status"])
             data = json.loads(result.output)

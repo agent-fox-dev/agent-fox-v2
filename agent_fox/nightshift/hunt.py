@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from agent_fox.nightshift.finding import Finding
+from agent_fox.nightshift.ignore import filter_findings, load_ignore_spec
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
@@ -113,9 +114,11 @@ class HuntScanner:
         """Execute all enabled categories in parallel, returning findings.
 
         Categories that fail are logged and skipped; remaining categories
-        still produce their findings.
+        still produce their findings. After gathering all findings, applies
+        the ignore spec loaded from the project root to filter out paths
+        that match ``.night-shift`` or ``.gitignore`` patterns.
 
-        Requirements: 61-REQ-3.4, 61-REQ-3.E1
+        Requirements: 61-REQ-3.4, 61-REQ-3.E1, 106-REQ-3.1, 106-REQ-3.E1
         """
         enabled_cats = self._registry.enabled(self._config)
         if not enabled_cats:
@@ -127,7 +130,19 @@ class HuntScanner:
         all_findings: list[Finding] = []
         for findings in results:
             all_findings.extend(findings)
-        return all_findings
+
+        # Apply ignore spec filtering (106-REQ-3.1).
+        # If loading the spec fails for any unexpected reason, log a warning
+        # and return the unfiltered findings (106-REQ-3.E1).
+        try:
+            ignore_spec = load_ignore_spec(project_root)
+            return filter_findings(all_findings, ignore_spec)
+        except Exception:
+            logger.warning(
+                "Failed to apply ignore spec; returning unfiltered findings",
+                exc_info=True,
+            )
+            return all_findings
 
     async def _run_category(
         self,

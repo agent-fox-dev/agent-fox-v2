@@ -111,24 +111,10 @@ Worktree creation includes cleanup of stale artifacts: orphaned empty
 directories from prior crashes are removed, stale branch references are pruned,
 and conflicting branches are deleted if they are no longer used by any worktree.
 
-**Context assembly.** The system builds two prompts — a system prompt and a task
-prompt — tailored to the session's archetype and task. Context assembly draws
-from several sources:
-
-- Spec documents (requirements, design, test spec, tasks) provide the
-  task-specific context.
-- Memory facts from the knowledge store provide cross-session learning — what
-  worked before, what failed, what conventions the codebase follows.
-- Steering directives from `.specs/steering.md` provide project-wide guidance.
-- Prior group findings (review findings, drift findings, verification verdicts
-  from earlier groups in the same spec) provide accumulated context.
-- For retry attempts, critical and major findings from review agents are
-  injected so the coder can address them.
-
-Memory fact selection uses keyword matching with causal enrichment: facts are
-first filtered by relevance to the current task's keywords, then augmented with
-causally linked facts from the knowledge graph. A fact cache avoids redundant
-queries when the fact set has not changed.
+**Prompt generation.** The system builds two prompts — a system prompt and a
+task prompt — tailored to the session's archetype, mode, and task. This is
+described in detail in the [Prompt Generation](#prompt-generation) section
+below.
 
 **Pre-session hooks.** User-configured shell commands run before the session
 starts. These can set up dependencies, run migrations, or perform any
@@ -164,14 +150,14 @@ those commits are integrated into `develop`. The harvest process:
 1. Acquires the merge lock (an intra-process asyncio lock combined with an
    inter-process file lock) to serialize merge operations.
 2. Checks for new commits on the feature branch relative to `develop`.
-3. Attempts a fast-forward merge. If `develop` has not diverged, this succeeds
-   cleanly.
-4. If fast-forward fails, rebases the feature branch onto `develop` and retries.
-5. If rebase fails (conflicts), attempts a regular merge commit.
-6. If the merge commit also fails (complex conflicts), spawns a merge agent —
-   a dedicated Claude session with a restricted prompt that only resolves
-   conflicts, without making any other changes.
-7. After merging, optionally pushes `develop` to the remote.
+3. Performs a squash merge (`git merge --squash`) to collapse the feature
+   branch into a single commit on `develop`, regardless of how many commits
+   the feature branch contains. This keeps the `develop` history linear and
+   readable.
+4. If the squash merge has conflicts, spawns a merge agent — a dedicated
+   Claude session with a restricted prompt that only resolves conflicts,
+   without making any other changes.
+5. After merging, optionally pushes `develop` to the remote.
 
 The merge lock prevents two sessions from merging simultaneously, which would
 risk corrupting the `develop` branch. The lock has stale detection: if a lock
@@ -183,7 +169,7 @@ is safe against TOCTOU races.
 
 After harvest, the system extracts knowledge from the session:
 
-- **Review parsing**: For review archetypes (Skeptic, Oracle, Auditor,
+- **Review parsing**: For review archetypes (Reviewer in all modes,
   Verifier), the session output is parsed for structured JSON containing
   findings, verdicts, or drift reports. The parser is tolerant of format
   variations — it handles fenced code blocks, bare JSON, wrapper objects with
@@ -201,93 +187,299 @@ in the correct JSON format. This recovers from common formatting mistakes
 
 ---
 
+## Prompt Generation
+
+Each session receives two prompts: a **system prompt** that establishes context
+and behavioral guidance, and a **task prompt** that specifies what to do. The
+system prompt is assembled from three layers; the task prompt is constructed
+from the archetype and task group.
+
+### Three-Layer System Prompt
+
+The system prompt is built by concatenating three layers, separated by section
+breaks:
+
+**Layer 1: Agent base profile.** Loaded from `agent_base.md`, this layer
+provides instructions shared by every agent regardless of archetype — project
+orientation steps, directory structure conventions, and general policies (e.g.,
+"do not read `docs/memory.md` directly"). This layer replaces the traditional
+`CLAUDE.md` file for orchestrated sessions.
+
+**Layer 2: Archetype profile.** Loaded from the archetype's profile file
+(e.g., `coder.md`, `reviewer_pre-review.md`), this layer defines the agent's
+identity, rules, focus areas, constraints, and output format. Mode-specific
+profiles are resolved before base profiles — if a session runs the reviewer
+archetype in pre-review mode, the system loads `reviewer_pre-review.md` rather
+than `reviewer.md`. For details on profile resolution and customization, see
+the [Profiles Guide](../profiles.md).
+
+**Layer 3: Task context.** Assembled from multiple sources (see Context
+Assembly below), this layer provides the spec documents, knowledge facts,
+steering directives, and prior findings that the agent needs for its specific
+task.
+
+### Profile Resolution
+
+Profiles are markdown files that define behavioral guidance. The system
+resolves profiles using a four-step priority chain where the first matching
+file wins:
+
+1. Project-level mode-specific: `.agent-fox/profiles/{archetype}_{mode}.md`
+2. Package-embedded mode-specific: `_templates/profiles/{archetype}_{mode}.md`
+3. Project-level base: `.agent-fox/profiles/{archetype}.md`
+4. Package-embedded base: `_templates/profiles/{archetype}.md`
+
+Project-level profiles always override package defaults, and mode-specific
+profiles always override base profiles. This allows projects to customize
+agent behavior without modifying the package — for example, adding
+project-specific conventions to the coder profile or tightening review focus
+areas. If no profile is found in any location, the system logs a warning and
+uses an empty profile.
+
+### Context Assembly
+
+The task context layer is assembled from the following sources, in order:
+
+1. **Spec documents.** The four core spec files — `requirements.md`,
+   `design.md`, `test_spec.md`, `tasks.md` — are read from the spec directory
+   and formatted under markdown section headers. Missing files are logged as
+   warnings but do not prevent the session from running.
+
+2. **Archetype-produced files.** If `review.md` or `verification.md` exist on
+   disk from a prior session and have not already been rendered from the
+   database, they are included as additional spec context.
+
+3. **DB-backed findings.** Review findings, drift findings, and verification
+   verdicts are queried from DuckDB and rendered as structured markdown
+   sections (grouped by severity for reviews, tabular for verifications).
+   Legacy on-disk review and verification files are migrated to the database
+   on first access.
+
+4. **Steering directives.** Project-wide guidance from `.specs/steering.md`
+   is included after spec files and before memory facts. Placeholder-only
+   steering files (containing only HTML comment sentinels) are detected and
+   skipped.
+
+5. **Knowledge facts.** Relevant facts from the knowledge store are retrieved
+   by the adaptive retrieval pipeline and injected as a bulleted list under a
+   "Memory Facts" header. See Knowledge Retrieval below for the retrieval
+   process.
+
+6. **Prior group findings.** For task groups beyond group 1, active findings
+   from earlier groups in the same spec (reviews, drift findings, verification
+   verdicts) are queried from DuckDB, sorted by timestamp, and appended as
+   accumulated context. This gives later groups visibility into issues found
+   during earlier implementation.
+
+All external content (spec files, facts, findings, error messages) is passed
+through a sanitization layer before injection. The sanitizer labels each
+content source and filters patterns that could constitute prompt injection
+attacks.
+
+The assembled sections are joined with horizontal-rule separators (`---`) to
+produce a single context string, which becomes Layer 3 of the system prompt.
+
+### Knowledge Retrieval
+
+The adaptive retriever queries four signals in parallel and fuses their results
+to select the most relevant knowledge facts for a session:
+
+- **Keyword signal.** Matches task keywords against fact keywords and spec
+  names, scored by keyword overlap count plus a recency bonus.
+- **Vector signal.** Embeds the task description and queries
+  `memory_embeddings` via cosine similarity. Requires an embedding model;
+  gracefully excluded when unavailable.
+- **Entity signal.** Traverses the entity graph from touched file paths via
+  BFS, returning facts linked to related entities.
+- **Causal signal.** Traverses the `fact_causes` graph from same-spec facts,
+  returning causally linked facts ordered by proximity (depth).
+
+Each signal produces a ranked list of scored facts. These lists are fused via
+**weighted Reciprocal Rank Fusion (RRF)**: for each fact, a fused score is
+computed as `sum(weight_i / (k + rank_i))` across all signals where it
+appears. The per-signal weights are derived from an **intent profile** — a
+lookup table keyed by `(archetype, node_status)` that adjusts signal
+importance based on what the agent is doing:
+
+| Archetype | Status | Keyword | Vector | Entity | Causal |
+|---|---|---|---|---|---|
+| coder | fresh | 1.0 | 0.8 | 1.5 | 1.0 |
+| coder | retry | 0.8 | 0.6 | 1.0 | 2.0 |
+| reviewer | * | 1.0 | 1.5 | 0.8 | 1.0 |
+| verifier | * | 0.8 | 0.6 | 1.5 | 1.5 |
+
+For example, a coder retry session heavily weights the causal signal (to
+surface facts about what went wrong and why), while a fresh coder session
+emphasizes entity relationships (to surface facts about the files it will
+touch).
+
+After fusion, the top facts are selected and formatted with **salience-based
+token budgeting**: the top 20% by score receive full detail, the next 40%
+receive one-line summaries, and the bottom 40% are included at full detail if
+space allows or omitted if the token budget is exceeded. Facts are
+topologically sorted by causal precedence (causes before effects) using
+Kahn's algorithm, with ties broken by fused score.
+
+### Task Prompt
+
+The task prompt is a short, archetype-specific instruction:
+
+- **Coder sessions** receive explicit instructions: implement task group N
+  from specification X, update checkbox states in `tasks.md`, commit with
+  conventional messages, and run quality gates before finalizing.
+- **Non-coder sessions** (reviewer, verifier) receive a concise prompt that
+  defers to the system prompt profile for detailed instructions.
+
+For coder retry attempts (attempt > 1), the previous error message is
+sanitized and appended to the task prompt with a retry notice. Additionally,
+active critical and major review findings are prepended so the coder can
+address identified issues in the retry.
+
+---
+
 ## Agent Archetypes
 
 An archetype defines the role, capabilities, and constraints of an agent
-session. Each archetype has a prompt template, a model tier, a tool allowlist,
-and behavioral rules. The system currently defines seven archetypes organized
-into two categories.
+session. Each archetype has a prompt profile, a model tier, a tool allowlist,
+and behavioral rules. The archetype registry contains four built-in entries.
+Two of them — the reviewer and the maintainer — support **modes**: named
+variants that override specific fields (injection point, tool allowlist,
+model tier) while inheriting everything else from the base entry. Modes are
+the mechanism by which a single registry entry serves multiple distinct roles.
 
-### Implementation Agents
+### The Registry
 
-**Coder** is the primary implementation agent. It receives the full spec context
-and implements one task group per session. For group 1 (by convention), it writes
-failing tests from the test spec without implementing production code.
-For subsequent groups, it implements code to make existing tests pass. The Coder
-runs quality checks, commits with conventional messages, and produces a session
-summary. It operates at the STANDARD model tier by default with adaptive
-extended thinking enabled, and has unrestricted tool access.
+| Entry | Modes | Purpose |
+|---|---|---|
+| **coder** | `fix` | Implementation — writes code, tests, commits |
+| **reviewer** | `pre-review`, `drift-review`, `audit-review`, `fix-review` | Review — examines specs and code, produces structured findings |
+| **verifier** | — | Verification — runs tests, checks requirements, produces verdicts |
+| **maintainer** | `hunt`, `fix-triage`, `extraction` | Night-shift internal — not user-facing |
 
-### Review Agents
+When a mode is specified, the system resolves the effective configuration by
+overlaying the mode's overrides onto the base entry. Fields set to `None` in
+the mode config inherit from the base. This is a dataclass merge, not
+inheritance — the result is a flat `ArchetypeEntry` with no mode reference.
 
-Review agents examine code and specs but (with limited exceptions) do not
-modify them. They produce structured JSON output that the orchestrator uses
-for blocking decisions, retry triggers, and knowledge accumulation.
+### Coder
 
-**Skeptic** reviews spec quality before implementation. It examines completeness,
-consistency, feasibility, testability, edge case coverage, and security across
-six dimensions. It produces findings with severity levels (critical, major,
-minor, observation). The Skeptic operates at the ADVANCED model tier and has
-read-only tool access.
+The primary implementation agent. Receives the full spec context and implements
+one task group per session. For group 1 (by convention), it writes failing tests
+from the test spec without implementing production code. For subsequent groups,
+it implements code to make existing tests pass. The Coder runs quality checks,
+commits with conventional messages, and produces a session summary. It operates
+at the STANDARD model tier by default with adaptive extended thinking enabled,
+and has unrestricted tool access. A `fix` mode variant is used by the
+`agent-fox fix` pipeline.
 
-**Oracle** validates spec assumptions against the actual codebase. It checks
-whether referenced files, functions, and interfaces exist at their stated
-locations and whether signatures match spec descriptions. It produces drift
-findings. The Oracle also operates at ADVANCED tier with read-only access. It
-is automatically skipped for specs that reference no existing code (there is
-nothing to detect drift against).
+### Reviewer
 
-**Verifier** performs post-implementation verification. It runs the test suite,
-checks each requirement against the acceptance criteria, and produces per-
-requirement verdicts (PASS, FAIL, PARTIAL). The Verifier operates at ADVANCED
-tier and has full tool access (it needs to run tests). It can trigger retries
-of its predecessor — if verification fails, the orchestrator may re-run the
-preceding coder session with the Verifier's findings injected as context.
+A unified review archetype that covers three conceptually distinct review
+roles through its mode system. All reviewer modes produce structured JSON
+output that the orchestrator uses for blocking decisions, retry triggers, and
+knowledge accumulation. Reviewer modes cannot modify code — their tool
+allowlists are restricted to read-only operations.
 
-**Auditor** validates test quality against test spec contracts. It examines
-coverage, assertion strength, precondition fidelity, edge case rigor, and test
-independence for each test spec entry, producing per-entry verdicts (PASS, WEAK,
-MISSING, MISALIGNED). The Auditor operates at STANDARD tier with read-only
-access plus the ability to run `uv` commands for test collection. Like the
-Verifier, it can trigger predecessor retries.
+**Pre-review mode** (injection: `auto_pre`) reviews spec quality before
+implementation begins. It examines completeness, consistency, feasibility,
+testability, edge case coverage, and security. It produces findings with
+severity levels (critical, major, minor, observation). This mode has no shell
+access at all — it works entirely from the spec documents provided in context.
 
-### Archetype Design Rationale
+**Drift-review mode** (injection: `auto_pre`) validates spec assumptions
+against the actual codebase. It checks whether referenced files, functions,
+and interfaces exist at their stated locations and whether signatures match
+spec descriptions. It produces drift findings. This mode has read-only
+filesystem access (`ls`, `cat`, `git`, `grep`, `find`, `head`, `tail`, `wc`).
+It is automatically skipped for specs that reference no existing code — there
+is nothing to detect drift against.
 
-The split between STANDARD and ADVANCED model tiers reflects a cost-quality
-tradeoff. Review agents (Skeptic, Oracle, Verifier) use the more capable
-ADVANCED tier because their task — finding problems — requires deeper reasoning
-and broader context awareness. A missed critical finding is more expensive than
-the cost difference between model tiers. Implementation agents (Coder and others) use STANDARD because their task — writing code that
-follows specifications — is more constrained and benefits less from the
-additional reasoning capability.
+**Audit-review mode** (injection: `auto_mid`) validates test quality against
+test spec contracts after tests are written. It examines coverage, assertion
+strength, precondition fidelity, edge case rigor, and test independence for
+each test spec entry, producing per-entry verdicts (PASS, WEAK, MISSING,
+MISALIGNED). This mode has read-only access plus `uv` for test collection.
+It triggers predecessor retries when tests are missing or misaligned.
 
-Read-only tool allowlists for review agents enforce a separation of concerns.
-A Skeptic that can modify code is no longer a pure reviewer — it might fix
+**Fix-review mode** is used by the `agent-fox fix` pipeline and night-shift's
+fix pipeline. It operates at the ADVANCED model tier with broader tool access
+including `make` and `uv`.
+
+Pre-review and drift-review both run at the `auto_pre` injection point. When
+both are enabled, they execute in parallel before the first coder group. If
+either produces blocking findings (critical findings exceeding the configured
+threshold), downstream coder tasks are blocked.
+
+The reviewer archetype is controlled by a single configuration toggle
+(`archetypes.reviewer`). Enabling or disabling it affects all four modes.
+Legacy configuration keys (`skeptic`, `oracle`, `auditor`) are accepted and
+mapped to the corresponding reviewer modes with deprecation warnings.
+
+### Verifier
+
+Performs post-implementation verification (injection: `auto_post`). It runs the
+test suite, checks each requirement against the acceptance criteria, and
+produces per-requirement verdicts (PASS, FAIL, PARTIAL). The Verifier has full
+tool access (it needs to run tests). It can trigger retries of its predecessor
+— if verification fails, the orchestrator may re-run the preceding coder
+session with the Verifier's findings injected as context.
+
+### Maintainer
+
+An internal archetype used exclusively by the night-shift daemon (see
+[Part 4](04-night-shift.md)). It is not user-facing and not assignable to
+task groups. Its modes cover hunt scan analysis (`hunt`), issue triage
+(`fix-triage`), and knowledge extraction (`extraction`).
+
+### Design Rationale
+
+All archetypes default to the STANDARD model tier. The adaptive routing system
+(described below) may escalate individual tasks to higher tiers based on
+complexity assessment and failure history. Operators can also override model
+tiers per archetype via configuration. The intent is to start cost-effective
+and escalate only when needed, rather than running every session at the most
+capable (and expensive) tier.
+
+Read-only tool allowlists for reviewer modes enforce a separation of concerns.
+A reviewer that can modify code is no longer a pure reviewer — it might fix
 problems it finds, conflating review and implementation. Restricting tools
-keeps each archetype's role clean and its output predictable.
+keeps each mode's role clean and its output predictable.
+
+The consolidation of three conceptual review roles (spec review, drift
+detection, test auditing) into a single reviewer archetype with modes reflects
+the observation that these roles share most of their configuration: same base
+model tier, same output format, same convergence semantics. Modes capture only
+the differences — injection point, tool allowlist, and prompt profile — without
+duplicating the shared structure.
 
 ### Multi-Instance Convergence
 
-Review archetypes can run multiple instances in parallel on the same task.
-When they do, their outputs are merged using archetype-specific convergence
-strategies:
+The reviewer and verifier archetypes can run multiple instances in parallel on
+the same task. When they do, their outputs are merged using mode-specific
+convergence strategies. A single dispatcher (`converge_reviewer`) routes to
+the correct algorithm by mode.
 
-**Skeptic convergence** uses majority-gating for critical findings. All
-findings across instances are merged and deduplicated. A critical finding
-counts toward blocking only if it appears in at least a majority of instances
-(ceiling of N/2). This prevents a single overzealous instance from blocking
-progress on a spurious finding. Non-critical findings are union-merged.
+**Pre-review and drift-review convergence** uses majority-gating for critical
+findings. All findings across instances are merged and deduplicated. A critical
+finding counts toward blocking only if it appears in at least a majority of
+instances (ceiling of N/2). This prevents a single overzealous instance from
+blocking progress on a spurious finding. Non-critical findings are
+union-merged.
+
+**Audit-review convergence** uses union semantics with worst-verdict-wins. For
+each test spec entry, the worst verdict across all instances is taken. This is
+conservative — if any instance finds a test MISSING, the entry is considered
+MISSING regardless of what other instances report.
 
 **Verifier convergence** uses majority voting per requirement. A requirement
 is considered PASS if a majority of instances report PASS. The representative
 evidence comes from the first matching verdict.
 
-**Auditor convergence** uses union semantics with worst-verdict-wins. For each
-test spec entry, the worst verdict across all instances is taken. This is
-conservative — if any instance finds a test MISSING, the entry is considered
-MISSING regardless of what other instances report.
+**Fix-review** does not support multi-instance execution. If multiple results
+are provided, convergence raises an error.
 
-For single-instance execution (the default), convergence is a no-op passthrough.
+For single-instance execution (the default), convergence is a no-op
+passthrough.
 
 ---
 
@@ -299,7 +491,7 @@ what happens next.
 ### Success
 
 The task node is marked COMPLETED in the graph. If the session was a review
-agent with blocking authority (Skeptic or Oracle), the handler evaluates
+agent with blocking authority (Reviewer in pre-review or drift-review mode), the handler evaluates
 whether the findings exceed the configured blocking threshold. If they do,
 downstream coder tasks are blocked — they will not execute until the findings
 are addressed.
@@ -397,7 +589,7 @@ At configurable intervals during execution, the orchestrator pauses dispatch
 and performs synchronization work:
 
 - **Develop sync**: Pull remote changes into `develop`, reconciling divergence
-  with the same merge strategy cascade used during harvest.
+  with the same merge strategy used during harvest.
 - **Worktree verification**: Check for orphaned worktrees and clean them up.
 - **Hot-load discovery**: Check for new specs in `.specs/` that were not present
   when the plan was built. New specs pass a three-stage gate (git-tracked,
@@ -451,14 +643,18 @@ Both reset types can target a single spec or the entire plan.
 
 ---
 
-## Quality Gate
+## Quality Checks
 
-An optional quality gate runs after each session as a shell command (typically
-`make check` or a project-specific test suite). The gate captures exit code,
-stdout, and stderr. A failing gate does not block the session from completing
-— it records the failure as a data point that influences subsequent retry and
-escalation decisions. The gate has its own timeout, separate from the session
-timeout.
+Quality enforcement happens at two levels. Within each Coder session, the
+agent's prompt instructs it to run the relevant test suite and linter before
+committing and to fix any failures. This is a prompt-level directive, not
+an orchestrator-enforced gate — the agent decides how to satisfy it.
+
+After the last coding group, the Verifier archetype performs structured
+post-implementation verification: running the test suite, checking each
+requirement against acceptance criteria, and producing per-requirement
+verdicts. A failing verification triggers a coder retry with the Verifier's
+findings injected as context.
 
 ---
 

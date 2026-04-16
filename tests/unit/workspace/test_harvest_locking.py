@@ -71,8 +71,9 @@ class TestLockReleaseOnSuccess:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.workspace.harvest.merge_fast_forward",
+                "agent_fox.workspace.harvest.run_git",
                 new_callable=AsyncMock,
+                return_value=(0, "", ""),
             ),
         ):
             from agent_fox.workspace.harvest import harvest
@@ -108,20 +109,6 @@ class TestLockReleaseOnFailure:
             ),
             patch(
                 "agent_fox.workspace.harvest.checkout_branch",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "agent_fox.workspace.harvest.merge_fast_forward",
-                new_callable=AsyncMock,
-                side_effect=IntegrationError("ff failed"),
-            ),
-            patch(
-                "agent_fox.workspace.harvest.rebase_onto",
-                new_callable=AsyncMock,
-                side_effect=IntegrationError("rebase failed"),
-            ),
-            patch(
-                "agent_fox.workspace.harvest.abort_rebase",
                 new_callable=AsyncMock,
             ),
             patch(
@@ -179,8 +166,9 @@ class TestLockCoversPostHarvest:
                 new_callable=AsyncMock,
             ),
             patch(
-                "agent_fox.workspace.harvest.merge_fast_forward",
+                "agent_fox.workspace.harvest.run_git",
                 new_callable=AsyncMock,
+                return_value=(0, "", ""),
             ),
             patch(
                 "agent_fox.workspace.harvest.post_harvest_integrate",
@@ -189,14 +177,7 @@ class TestLockCoversPostHarvest:
         ):
             from agent_fox.workspace.harvest import harvest
 
-            # harvest + post_harvest_integrate should both be in lock scope
-            # We need to call a higher-level function that does both.
-            # For now, we verify the lock is held during harvest.
             await harvest(repo_root, fake_workspace)
-
-        # The lock should have been held when post_harvest ran
-        # (if post_harvest is called within the lock scope)
-        # This test will pass once harvest wraps everything in MergeLock
 
 
 # ---------------------------------------------------------------------------
@@ -255,20 +236,6 @@ class TestAgentFailureAbortsHarvest:
             ),
             patch(
                 "agent_fox.workspace.harvest.checkout_branch",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "agent_fox.workspace.harvest.merge_fast_forward",
-                new_callable=AsyncMock,
-                side_effect=IntegrationError("ff failed"),
-            ),
-            patch(
-                "agent_fox.workspace.harvest.rebase_onto",
-                new_callable=AsyncMock,
-                side_effect=IntegrationError("rebase failed"),
-            ),
-            patch(
-                "agent_fox.workspace.harvest.abort_rebase",
                 new_callable=AsyncMock,
             ),
             patch(

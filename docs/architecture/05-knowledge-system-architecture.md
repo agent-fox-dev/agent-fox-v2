@@ -207,9 +207,9 @@ The traversal uses breadth-first search on the `fact_causes` graph, following bo
 
 The enhanced fact set — keyword-selected facts plus their causal neighbors — is what ultimately gets injected into the coding session prompt.
 
-### 6.3 The Oracle (RAG Pipeline)
+### 6.3 RAG Query Pipeline
 
-For interactive knowledge queries (the `agent-fox ask` command), the system provides a full retrieval-augmented generation pipeline:
+For interactive knowledge queries, the system provides a full retrieval-augmented generation pipeline:
 
 1. The question is embedded using the configured embedding model.
 2. Vector similarity search retrieves the top-k most relevant facts (default: 20).
@@ -251,17 +251,9 @@ This creates a feedback loop where the quality gate becomes more accurate with e
 
 ## 8. The Nightshift Daemon
 
-The nightshift is a background daemon that performs code quality analysis independent of the coding session lifecycle. It operates on its own schedule, hunting for issues that accumulate between sessions:
+The nightshift is a background daemon that performs code quality analysis independent of the coding session lifecycle. It operates on its own schedule, hunting for issues that accumulate between sessions across eight categories: linter debt, dead code, test coverage, dependency freshness, deprecated API usage, documentation drift, TODO/FIXME tracking, and quality gate failures.
 
-- **Dead code** — Unreachable or unused code paths.
-- **Dependency freshness** — Outdated or vulnerable dependencies.
-- **Deprecated API usage** — Calls to APIs that have been deprecated.
-- **Documentation drift** — Documentation that no longer matches the code.
-- **Linter debt** — Accumulated linting violations.
-- **Test coverage** — Areas lacking adequate test coverage.
-- **TODO/FIXME tracking** — Accumulated technical debt markers.
-
-The nightshift uses its own triage system to prioritize findings, a deduplication layer to avoid re-reporting known issues, and a fix pipeline that can generate specifications for automated remediation. It also performs staleness checks across the project's knowledge, identifying areas where knowledge may have drifted from reality.
+The nightshift uses its own triage system to prioritize findings, a deduplication layer to avoid re-reporting known issues, and a fix pipeline that can generate specifications for automated remediation. It also performs staleness checks across the project's knowledge, identifying areas where knowledge may have drifted from reality. For the full night-shift architecture, see [Part 4: Night-Shift Mode](04-night-shift.md).
 
 ---
 

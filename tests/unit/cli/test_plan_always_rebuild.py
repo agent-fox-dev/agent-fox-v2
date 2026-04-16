@@ -3,7 +3,7 @@
 These tests verify that:
 - Cache-related functions are removed from agent_fox.cli.plan
 - PlanMetadata no longer has specs_hash or config_hash fields
-- Old plan.json files containing those fields still load without error
+- DB-based persistence works correctly (replaces legacy plan.json tests)
 
 Test Spec: TS-63-5, TS-63-6, TS-63-E1
 Requirements: 63-REQ-3.1, 63-REQ-3.2, 63-REQ-3.E1
@@ -12,12 +12,13 @@ Requirements: 63-REQ-3.1, 63-REQ-3.2, 63-REQ-3.E1
 from __future__ import annotations
 
 import dataclasses
-import json
-from pathlib import Path
+
+import duckdb
 
 import agent_fox.cli.plan as plan_mod
-from agent_fox.graph.persistence import load_plan
-from agent_fox.graph.types import PlanMetadata
+from agent_fox.graph.persistence import load_plan, save_plan
+from agent_fox.graph.types import Node, PlanMetadata, TaskGraph
+from agent_fox.knowledge.migrations import run_migrations
 
 
 class TestDeadFunctionsRemoved:
@@ -56,72 +57,74 @@ class TestPlanMetadataFieldsRemoved:
         assert "config_hash" not in field_names, "config_hash is still a field on PlanMetadata — remove it (63-REQ-3.2)"
 
 
-def _write_old_plan_json(plan_path: Path, *, specs_hash: str, config_hash: str) -> None:
-    """Write a plan.json in the legacy format that includes hash fields in metadata."""
-    data = {
-        "nodes": {
-            "old_spec:1": {
-                "id": "old_spec:1",
-                "spec_name": "old_spec",
-                "group_number": 1,
-                "title": "Old task group",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 1,
-                "body": "",
-                "archetype": "coder",
-                "instances": 1,
-            }
+def _save_old_plan_to_db(conn: duckdb.DuckDBPyConnection) -> None:
+    """Save a plan to DuckDB that mimics what the old plan.json format contained."""
+    graph = TaskGraph(
+        nodes={
+            "old_spec:1": Node(
+                id="old_spec:1",
+                spec_name="old_spec",
+                group_number=1,
+                title="Old task group",
+                optional=False,
+                subtask_count=1,
+                body="",
+                archetype="coder",
+                instances=1,
+            )
         },
-        "edges": [],
-        "order": ["old_spec:1"],
-        "metadata": {
-            "created_at": "2025-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.0.1",
-            "specs_hash": specs_hash,
-            "config_hash": config_hash,
-        },
-    }
-    plan_path.parent.mkdir(parents=True, exist_ok=True)
-    plan_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        edges=[],
+        order=["old_spec:1"],
+        metadata=PlanMetadata(
+            created_at="2025-01-01T00:00:00",
+            fast_mode=False,
+            filtered_spec=None,
+            version="0.0.1",
+        ),
+    )
+    save_plan(graph, conn)
 
 
-class TestOldPlanJsonBackwardCompatibility:
-    """TS-63-E1: Old plan.json with legacy hash fields loads without error."""
+class TestDBPlanPersistence:
+    """TS-63-E1: DB-based plan persistence works correctly (replaces legacy plan.json tests)."""
 
-    def test_old_plan_loads_without_error(self, tmp_path: Path) -> None:
-        """load_plan() succeeds on plan.json that contains legacy hash fields."""
-        plan_path = tmp_path / "plan.json"
-        _write_old_plan_json(plan_path, specs_hash="abc123", config_hash="def456")
+    def test_plan_loads_from_db(self) -> None:
+        """load_plan() succeeds on a plan saved to DuckDB."""
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        _save_old_plan_to_db(conn)
 
-        graph = load_plan(plan_path)
+        graph = load_plan(conn)
 
         assert graph is not None
+        conn.close()
 
-    def test_loaded_metadata_has_no_specs_hash_attribute(self, tmp_path: Path) -> None:
+    def test_loaded_metadata_has_no_specs_hash_attribute(self) -> None:
         """Loaded PlanMetadata does not expose specs_hash attribute (63-REQ-3.2)."""
-        plan_path = tmp_path / "plan.json"
-        _write_old_plan_json(plan_path, specs_hash="abc123", config_hash="def456")
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        _save_old_plan_to_db(conn)
 
-        graph = load_plan(plan_path)
+        graph = load_plan(conn)
 
         assert graph is not None
         assert not hasattr(graph.metadata, "specs_hash"), (
             "specs_hash attribute still present on loaded PlanMetadata — "
             "remove the field from PlanMetadata (63-REQ-3.2)"
         )
+        conn.close()
 
-    def test_loaded_metadata_has_no_config_hash_attribute(self, tmp_path: Path) -> None:
+    def test_loaded_metadata_has_no_config_hash_attribute(self) -> None:
         """Loaded PlanMetadata does not expose config_hash attribute (63-REQ-3.2)."""
-        plan_path = tmp_path / "plan.json"
-        _write_old_plan_json(plan_path, specs_hash="abc123", config_hash="def456")
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        _save_old_plan_to_db(conn)
 
-        graph = load_plan(plan_path)
+        graph = load_plan(conn)
 
         assert graph is not None
         assert not hasattr(graph.metadata, "config_hash"), (
             "config_hash attribute still present on loaded PlanMetadata — "
             "remove the field from PlanMetadata (63-REQ-3.2)"
         )
+        conn.close()

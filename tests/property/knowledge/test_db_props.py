@@ -40,6 +40,9 @@ EXPECTED_TABLES = {
     "plan_edges",
     "plan_meta",
     "runs",
+    # Added by migration v13 (issue #449: blocking history)
+    "blocking_history",
+    "learned_thresholds",
 }
 
 
@@ -74,10 +77,12 @@ class TestSchemaInitializationIdempotency:
 
             version_count = db.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
             assert version_count is not None
-            # v1..v11 (review, routing, drift, confidence, audit, security category,
+            # v1..v13 (review, routing, drift, confidence, audit, security category,
             #          entity graph, multi-language entity graph, keywords,
-            #          plan_nodes/edges/meta/runs added by v11)
-            assert version_count[0] == 11
+            #          plan_nodes/edges/meta/runs added by v11,
+            #          drop stale UNIQUE from plan_nodes in v12,
+            #          blocking_history and learned_thresholds in v13)
+            assert version_count[0] == 13
 
             tables = {r[0] for r in db.connection.execute("SHOW TABLES").fetchall()}
             assert tables == EXPECTED_TABLES

@@ -174,3 +174,51 @@ class TestCliUsesDaemonRunner:
             mock_engine.run.assert_not_awaited()
             # runner.run() should have been called
             mock_runner.run.assert_awaited_once()
+
+
+class TestCliSpinnerCallbackWiring:
+    """Verify CLI wires spinner_callback=progress.update_spinner_text to NightShiftEngine."""
+
+    def test_spinner_callback_wired_to_engine(self) -> None:
+        """CLI passes progress.update_spinner_text as spinner_callback to NightShiftEngine."""
+        from agent_fox.nightshift.daemon import DaemonState
+
+        mock_state = DaemonState()
+
+        with (
+            patch(_PATCHES["validate"]),
+            patch(_PATCHES["create_platform"], return_value=MagicMock()),
+            patch(_PATCHES["progress_cls"]) as mock_progress_cls,
+            patch(_PATCHES["create_theme"]),
+            patch(_PATCHES["daemon_runner"]) as mock_runner_cls,
+            patch(_PATCHES["build_streams"], return_value=[MagicMock()]),
+            patch(_PATCHES["engine_cls"]) as mock_engine_cls,
+            patch(_PATCHES["shared_budget"]),
+        ):
+            mock_progress = MagicMock()
+            mock_progress_cls.return_value = mock_progress
+
+            mock_runner = MagicMock()
+            mock_runner.run = AsyncMock(return_value=mock_state)
+            mock_runner_cls.return_value = mock_runner
+
+            mock_engine = MagicMock()
+            mock_engine.state = MagicMock()
+            mock_engine.state.issues_fixed = 0
+            mock_engine.state.hunt_scans_completed = 0
+            mock_engine_cls.return_value = mock_engine
+
+            runner = CliRunner()
+            runner.invoke(
+                night_shift_cmd,
+                [],
+                obj={"config": _make_config(), "quiet": False},
+                catch_exceptions=False,
+            )
+
+            # Verify NightShiftEngine was created with spinner_callback set
+            call_kwargs = mock_engine_cls.call_args.kwargs
+            assert "spinner_callback" in call_kwargs, (
+                "NightShiftEngine should be constructed with spinner_callback"
+            )
+            assert call_kwargs["spinner_callback"] is mock_progress.update_spinner_text

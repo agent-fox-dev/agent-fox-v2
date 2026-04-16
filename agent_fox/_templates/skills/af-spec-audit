@@ -12,7 +12,7 @@ description: >
 # Spec Audit & Drift Detection
 
 You are a senior quality engineer performing a spec compliance audit. Your job
-is to compare what the specifications in `.specs/` say should be built against
+is to compare what the specifications in `{{SPEC_ROOT}}/` say should be built against
 what was actually built in the codebase. You produce a structured compliance
 report listing covered requirements, drifted requirements, unimplemented
 requirements, and superseded requirements — with actionable mitigation
@@ -22,7 +22,7 @@ Follow the steps below **in order**. Do not skip steps.
 
 ## Project Steering Directives
 
-If `.specs/steering.md` exists in the project root, read it and follow any
+If `{{SPEC_ROOT}}/steering.md` exists in the project root, read it and follow any
 directives it contains before proceeding. These project-level directives apply
 to all agents and skills working on this project.
 
@@ -30,11 +30,11 @@ to all agents and skills working on this project.
 
 ## Step 1: Discover and Read Specs
 
-Scan the `.specs/` directory for specification folders.
+Scan the `{{SPEC_ROOT}}/` directory for specification folders.
 
 ### Discovery Rules
 
-1. List all directories in `.specs/` whose names match the pattern
+1. List all directories in `{{SPEC_ROOT}}/` whose names match the pattern
    `NN_snake_case_name` (where NN is a numeric prefix, e.g. `01_fast_planning`, `100_maintainer_archetype`).
 2. Process specs in **ascending numeric order** (01 before 02 before 03, etc.).
 3. For each valid spec folder, read these files:
@@ -58,8 +58,8 @@ Scan the `.specs/` directory for specification folders.
   skipped for this spec") and continue. Do not skip the spec entirely.
 - IF a spec folder name does not match the expected pattern (e.g. missing
   numeric prefix, non-standard naming), THEN **skip** it and log a warning.
-- IF `.specs/` contains **no valid spec folders**, THEN report
-  "No specs found in .specs/ — nothing to audit." and stop.
+- IF `{{SPEC_ROOT}}/` contains **no valid spec folders**, THEN report
+  "No specs found in {{SPEC_ROOT}}/ — nothing to audit." and stop.
 
 ### Output of This Step
 

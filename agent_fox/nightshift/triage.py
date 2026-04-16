@@ -20,6 +20,7 @@ from agent_fox.nightshift.dep_graph import DependencyEdge
 from agent_fox.platform.protocol import IssueResult
 
 if TYPE_CHECKING:
+    from agent_fox.core.config import AgentFoxConfig
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ def _parse_triage_response(
 async def _run_ai_triage(
     issues: list[IssueResult],
     explicit_edges: list[DependencyEdge],
-    config: object,
+    config: AgentFoxConfig,
     *,
     sink: SinkDispatcher | None = None,
     run_id: str = "",
@@ -186,7 +187,7 @@ async def _run_ai_triage(
 async def run_batch_triage(
     issues: list[IssueResult],
     explicit_edges: list[DependencyEdge],
-    config: object,
+    config: AgentFoxConfig,
     *,
     sink: SinkDispatcher | None = None,
     run_id: str = "",

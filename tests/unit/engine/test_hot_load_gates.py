@@ -1,10 +1,11 @@
-"""Hot-load gate pipeline tests: git-tracked, completeness, lint gates.
+"""Hot-load gate pipeline tests: git-tracked, completeness, lint, tasks-complete gates.
 
-Test Spec: TS-51-12 through TS-51-22
+Test Spec: TS-51-12 through TS-51-22, TS-444-1 through TS-444-5
 Requirements: 51-REQ-4.1, 51-REQ-4.2, 51-REQ-4.E1,
               51-REQ-5.1, 51-REQ-5.2, 51-REQ-5.E1,
               51-REQ-6.1, 51-REQ-6.2, 51-REQ-6.3, 51-REQ-6.E1,
-              51-REQ-7.1, 51-REQ-7.2, 51-REQ-7.3
+              51-REQ-7.1, 51-REQ-7.2, 51-REQ-7.3,
+              444-AC-1, 444-AC-2, 444-AC-3, 444-AC-4
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from unittest.mock import patch
 import pytest
 
 from agent_fox.engine.hot_load import (
+    _are_all_plan_nodes_done,
+    are_all_tasks_done,
     discover_new_specs_gated,
     is_spec_complete,
     is_spec_tracked_on_develop,
@@ -491,3 +494,361 @@ class TestSkippedSpecReEvaluation:
             result_2 = await discover_new_specs_gated(specs_dir, known_specs=set(), repo_root=tmp_path)
             assert len(result_2) == 1
             assert result_2[0].name == "42_feature"
+
+
+# ---------------------------------------------------------------------------
+# TS-444-1: are_all_tasks_done
+# ---------------------------------------------------------------------------
+
+_COMPLETED_TASKS_MD = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+  - [x] 1.2 Subtask two
+- [x] 2. Second task group
+  - [x] 2.1 Subtask one
+"""
+
+_INCOMPLETE_TASKS_MD = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+- [ ] 2. Second task group
+  - [ ] 2.1 Subtask one
+"""
+
+_ALL_INCOMPLETE_TASKS_MD = """\
+# Tasks
+
+- [ ] 1. First task group
+  - [ ] 1.1 Subtask one
+- [ ] 2. Second task group
+  - [ ] 2.1 Subtask one
+"""
+
+
+class TestAreAllTasksDone:
+    """TS-444-1: tasks.md checkbox gate for completed specs.
+
+    Requirements: 444-AC-1
+    """
+
+    def test_all_groups_completed(self, tmp_path: Path) -> None:
+        """Returns True when all task groups are marked [x]."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        assert are_all_tasks_done(spec_path) is True
+
+    def test_some_groups_incomplete(self, tmp_path: Path) -> None:
+        """Returns False when some groups are not completed."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_INCOMPLETE_TASKS_MD)
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_no_groups_found(self, tmp_path: Path) -> None:
+        """Returns False when tasks.md has no parseable groups."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text("# Tasks\n\nNo task groups here.\n")
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_tasks_md_missing(self, tmp_path: Path) -> None:
+        """Returns False when tasks.md does not exist."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+
+        assert are_all_tasks_done(spec_path) is False
+
+    def test_parse_error(self, tmp_path: Path) -> None:
+        """Returns False when parse_tasks raises an exception."""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        with patch(
+            "agent_fox.engine.hot_load.parse_tasks",
+            side_effect=RuntimeError("parse error"),
+        ):
+            assert are_all_tasks_done(spec_path) is False
+
+    def test_new_unchecked_tasks_added(self, tmp_path: Path) -> None:
+        """Returns False when previously complete spec has new unchecked tasks.
+
+        Acceptance criterion: 444-AC-4
+        """
+        tasks_with_new = """\
+# Tasks
+
+- [x] 1. First task group
+  - [x] 1.1 Subtask one
+- [x] 2. Second task group
+  - [x] 2.1 Subtask one
+- [ ] 3. New task group added later
+  - [ ] 3.1 New subtask
+"""
+        spec_path = tmp_path / "42_feature"
+        spec_path.mkdir()
+        (spec_path / "tasks.md").write_text(tasks_with_new)
+
+        assert are_all_tasks_done(spec_path) is False
+
+
+# ---------------------------------------------------------------------------
+# TS-444-2: _are_all_plan_nodes_done
+# ---------------------------------------------------------------------------
+
+
+class TestAreAllPlanNodesDone:
+    """TS-444-2: plan node state gate for completed specs (queries plan_nodes DB table).
+
+    Requirements: 444-AC-2
+    """
+
+    def test_all_nodes_completed(self) -> None:
+        """Returns True when all nodes for spec have 'completed' status."""
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:0', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
+
+        assert _are_all_plan_nodes_done("42_feature", conn) is True
+        conn.close()
+
+    def test_some_nodes_not_completed(self) -> None:
+        """Returns False when some nodes are pending."""
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:0', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'pending')")
+
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
+
+    def test_no_nodes_for_spec(self) -> None:
+        """Returns False when plan has no nodes for this spec."""
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('99_other:0', '99_other', 'completed')")
+
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
+
+    def test_conn_is_none(self) -> None:
+        """Returns False when no DB connection is available."""
+        assert _are_all_plan_nodes_done("42_feature", None) is False
+
+    def test_missing_table(self) -> None:
+        """Returns False when plan_nodes table does not exist."""
+        import duckdb
+
+        conn = duckdb.connect(":memory:")
+        assert _are_all_plan_nodes_done("42_feature", conn) is False
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# TS-444-3: Gate 4 integration in discover_new_specs_gated pipeline
+# ---------------------------------------------------------------------------
+
+
+class TestTasksCompleteGatePipeline:
+    """TS-444-3: Tasks-complete gate filters fully implemented specs.
+
+    Requirements: 444-AC-1, 444-AC-2, 444-AC-3, 444-AC-4
+    """
+
+    @pytest.mark.asyncio
+    async def test_both_signals_done_skips_spec(self, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+        """Spec skipped when tasks.md all [x] AND plan nodes all completed in DB."""
+        import duckdb
+
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        # Create in-memory DuckDB with completed plan nodes
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:2', '42_feature', 'completed')")
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+            caplog.at_level(logging.INFO, logger="agent_fox.engine.hot_load"),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
+            )
+
+        assert result == []
+        assert any("fully implemented" in r.message for r in caplog.records)
+        conn.close()
+
+    @pytest.mark.asyncio
+    async def test_tasks_done_but_nodes_not_done(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when tasks.md all [x] but plan nodes are pending."""
+        import duckdb
+
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'pending')")
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
+            )
+
+        assert len(result) == 1
+        assert result[0].name == "42_feature"
+        conn.close()
+
+    @pytest.mark.asyncio
+    async def test_nodes_done_but_tasks_not_done(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when plan nodes completed but tasks.md has unchecked boxes."""
+        import duckdb
+
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_INCOMPLETE_TASKS_MD)
+
+        conn = duckdb.connect(":memory:")
+        conn.execute(
+            "CREATE TABLE plan_nodes (id VARCHAR PRIMARY KEY, spec_name VARCHAR, status VARCHAR)"
+        )
+        conn.execute("INSERT INTO plan_nodes VALUES ('42_feature:1', '42_feature', 'completed')")
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path, db_conn=conn
+            )
+
+        assert len(result) == 1
+        conn.close()
+
+    @pytest.mark.asyncio
+    async def test_no_db_conn_does_not_skip(self, tmp_path: Path) -> None:
+        """Spec NOT skipped when db_conn is None (even if tasks all done)."""
+        from agent_fox.spec.discovery import SpecInfo
+
+        specs_dir = tmp_path / ".specs"
+        spec_path = specs_dir / "42_feature"
+        _create_spec_files(spec_path)
+        (spec_path / "tasks.md").write_text(_COMPLETED_TASKS_MD)
+
+        mock_spec = SpecInfo(
+            name="42_feature",
+            prefix=42,
+            path=spec_path,
+            has_tasks=True,
+            has_prd=True,
+        )
+
+        async def mock_is_tracked(repo_root: Path, spec_name: str, **kwargs: object) -> bool:
+            return True
+
+        def mock_lint_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
+            return (True, [])
+
+        with (
+            patch("agent_fox.engine.hot_load.discover_new_specs", return_value=[mock_spec]),
+            patch("agent_fox.engine.hot_load.is_spec_tracked_on_develop", side_effect=mock_is_tracked),
+            patch("agent_fox.engine.hot_load.is_spec_complete", return_value=(True, [])),
+            patch("agent_fox.engine.hot_load.lint_spec_gate", side_effect=mock_lint_gate),
+        ):
+            # No db_conn argument — backward compatible
+            result = await discover_new_specs_gated(
+                specs_dir, known_specs=set(), repo_root=tmp_path
+            )
+
+        assert len(result) == 1

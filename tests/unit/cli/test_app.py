@@ -125,6 +125,79 @@ class TestVersionFlagSkipsBanner:
         assert "/\\_/\\" not in result.output, f"Fox art should not appear with --version, got:\n{result.output!r}"
 
 
+class TestTraceFlagWiring:
+    """--trace flag wires through to setup_logging() and ctx.obj (issue #410)."""
+
+    def test_trace_flag_accepted(self, cli_runner: CliRunner) -> None:
+        """--trace is a valid CLI flag and exits with code 0."""
+        result = cli_runner.invoke(main, ["--trace", "--quiet"])
+        assert result.exit_code == 0, f"--trace should be accepted, got: {result.output!r}"
+
+    def test_trace_calls_setup_logging_with_trace_true(self, cli_runner: CliRunner) -> None:
+        """--trace passes trace=True to setup_logging()."""
+        with patch("agent_fox.cli.app.setup_logging") as mock_setup:
+            cli_runner.invoke(main, ["--trace", "--quiet"])
+
+        mock_setup.assert_called_once()
+        call_kwargs = mock_setup.call_args.kwargs
+        assert call_kwargs.get("trace") is True, (
+            f"Expected trace=True in setup_logging call, got: {call_kwargs}"
+        )
+
+    def test_no_trace_calls_setup_logging_with_trace_false(self, cli_runner: CliRunner) -> None:
+        """Without --trace, setup_logging() receives trace=False."""
+        with patch("agent_fox.cli.app.setup_logging") as mock_setup:
+            cli_runner.invoke(main, ["--quiet"])
+
+        mock_setup.assert_called_once()
+        call_kwargs = mock_setup.call_args.kwargs
+        assert call_kwargs.get("trace") is False, (
+            f"Expected trace=False in setup_logging call, got: {call_kwargs}"
+        )
+
+    def test_trace_stored_in_ctx_obj(self, cli_runner: CliRunner) -> None:
+        """--trace is stored as ctx.obj['trace'] = True for subcommands."""
+        captured: dict = {}
+
+        import click
+
+        @click.command("probe")
+        @click.pass_context
+        def probe(ctx: click.Context) -> None:
+            captured.update(ctx.obj)
+
+        main.add_command(probe, name="probe")
+        try:
+            cli_runner.invoke(main, ["--trace", "probe"])
+        finally:
+            main.commands.pop("probe", None)
+
+        assert captured.get("trace") is True, (
+            f"Expected ctx.obj['trace']=True, got: {captured}"
+        )
+
+    def test_trace_sets_log_level_to_trace(self, cli_runner: CliRunner) -> None:
+        """--trace sets the agent_fox logger to TRACE level."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--trace", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == TRACE
+
+    def test_verbose_alone_does_not_set_trace(self, cli_runner: CliRunner) -> None:
+        """--verbose alone does not enable TRACE-level output."""
+        import logging
+
+        from agent_fox.core.logging import TRACE
+
+        cli_runner.invoke(main, ["--verbose", "--quiet"])
+        agent_logger = logging.getLogger("agent_fox")
+        assert agent_logger.level == logging.DEBUG
+        assert agent_logger.level != TRACE
+
+
 class TestConfigAutoDiscovery:
     """01-REQ-2.1: CLI auto-discovers .agent-fox/config.toml.
 

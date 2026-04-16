@@ -143,10 +143,11 @@ class User:
 
         analyze_codebase(tmp_path, entity_conn)
 
-        contains_edges = entity_conn.execute(
+        contains_row = entity_conn.execute(
             "SELECT COUNT(*) FROM entity_edges WHERE relationship = 'contains'"
-        ).fetchone()[0]
-        assert contains_edges > 0, "Contains edges should be created"
+        ).fetchone()
+        assert contains_row is not None
+        assert contains_row[0] > 0, "Contains edges should be created"
 
 
 # ---------------------------------------------------------------------------
@@ -194,8 +195,9 @@ class TestFactEntityLinkingSmoke:
 
         assert result.links_created == 2, f"Expected 2 links, got {result.links_created}"
 
-        rows = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()[0]
-        assert rows == 2, f"Expected 2 fact_entities rows, got {rows}"
+        rows_row = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE fact_id = ?", [fact_id]).fetchone()
+        assert rows_row is not None
+        assert rows_row[0] == 2, f"Expected 2 fact_entities rows, got {rows_row[0]}"
 
 
 # ---------------------------------------------------------------------------
@@ -311,14 +313,16 @@ class TestGarbageCollectionSmoke:
         assert e2_row is not None, "E2 (active) should not be removed by GC"
 
         # Edge referencing E1 should be gone
-        edge_count = entity_conn.execute(
+        edge_row = entity_conn.execute(
             "SELECT COUNT(*) FROM entity_edges WHERE source_id = ? OR target_id = ?",
             [e1_id, e1_id],
-        ).fetchone()[0]
-        assert edge_count == 0, "Edges referencing removed E1 should be cascade-deleted"
+        ).fetchone()
+        assert edge_row is not None
+        assert edge_row[0] == 0, "Edges referencing removed E1 should be cascade-deleted"
 
         # Fact link referencing E1 should be gone
-        link_count = entity_conn.execute("SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [e1_id]).fetchone()[
-            0
-        ]
-        assert link_count == 0, "Fact links referencing removed E1 should be cascade-deleted"
+        link_row = entity_conn.execute(
+            "SELECT COUNT(*) FROM fact_entities WHERE entity_id = ?", [e1_id]
+        ).fetchone()
+        assert link_row is not None
+        assert link_row[0] == 0, "Fact links referencing removed E1 should be cascade-deleted"

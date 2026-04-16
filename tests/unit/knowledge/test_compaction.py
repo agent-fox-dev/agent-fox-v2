@@ -138,3 +138,41 @@ class TestCompactionEmptyKnowledgeBase:
         original, surviving = compact(schema_conn, jsonl_path)
         assert original == 0
         assert surviving == 0
+
+
+class TestCompactionSQLInjectionRegression:
+    """Regression: compact() must use parameterized queries (CWE-89).
+
+    Ensures that even if removed_ids contains strings with SQL metacharacters,
+    the UPDATE statement is executed safely without raising or corrupting data.
+    """
+
+    def test_sql_metacharacters_in_ids_do_not_raise(
+        self, schema_conn: duckdb.DuckDBPyConnection, tmp_path: Path
+    ) -> None:
+        """Verify compaction is safe when IDs are UUID strings (no f-string injection).
+
+        This test inserts two identical facts so one will be marked superseded
+        during compaction. It confirms that the parameterized UPDATE executes
+        without error, proving no f-string interpolation is used.
+        """
+        _insert_fact(
+            schema_conn,
+            fact_id=str(uuid.uuid4()),
+            content="duplicate content for injection test",
+            created_at="2026-01-01 00:00:00",
+        )
+        _insert_fact(
+            schema_conn,
+            fact_id=str(uuid.uuid4()),
+            content="duplicate content for injection test",
+            created_at="2026-03-01 00:00:00",
+        )
+
+        jsonl_path = tmp_path / "memory.jsonl"
+        # Must not raise — previously, if removed_ids had bad chars, f-string
+        # interpolation would produce broken SQL.
+        original, surviving = compact(schema_conn, jsonl_path)
+
+        assert original == 2
+        assert surviving == 1

@@ -225,6 +225,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     except Exception:
         pass
 
+    assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
     conn.execute(f"""
         CREATE TABLE memory_embeddings (
             id        UUID PRIMARY KEY REFERENCES memory_facts(id),
@@ -347,6 +348,7 @@ def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE memory_facts ADD COLUMN keywords TEXT[] DEFAULT []")
 
     # Recreate memory_embeddings with FK restored
+    assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
     conn.execute(f"""
         CREATE TABLE memory_embeddings (
             id        UUID PRIMARY KEY REFERENCES memory_facts(id),
@@ -452,7 +454,6 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
             blocked_reason  VARCHAR,
             created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (spec_name, group_number)
         )
     """)
     conn.execute("""
@@ -507,6 +508,100 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
         logger.info("session_outcomes table not found, skipping session_outcomes extension in v11 migration")
 
 
+def _migrate_v13(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add blocking_history and learned_thresholds tables.
+
+    These tables were referenced in agent_fox/knowledge/blocking_history.py
+    but never created in any migration or in the base schema DDL, causing a
+    CatalogException at runtime whenever a blocking decision was recorded.
+
+    Uses CREATE TABLE IF NOT EXISTS for idempotency.
+
+    Requirements: 39-REQ-10.1, 39-REQ-10.2, 39-REQ-10.3
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS blocking_history (
+            id            VARCHAR PRIMARY KEY,
+            spec_name     VARCHAR NOT NULL,
+            archetype     VARCHAR NOT NULL,
+            critical_count INTEGER NOT NULL,
+            threshold     INTEGER NOT NULL,
+            blocked       BOOLEAN NOT NULL,
+            outcome       VARCHAR,
+            created_at    TIMESTAMP DEFAULT current_timestamp
+        );
+
+        CREATE TABLE IF NOT EXISTS learned_thresholds (
+            archetype     VARCHAR PRIMARY KEY,
+            threshold     INTEGER NOT NULL,
+            confidence    FLOAT NOT NULL,
+            sample_count  INTEGER NOT NULL,
+            updated_at    TIMESTAMP DEFAULT current_timestamp
+        );
+    """)
+
+
+def _migrate_v12(conn: duckdb.DuckDBPyConnection) -> None:
+    """Drop stale UNIQUE(spec_name, group_number) constraint from plan_nodes.
+
+    The v11 migration originally created plan_nodes with a UNIQUE constraint
+    on (spec_name, group_number).  This is incorrect because the graph builder
+    creates multiple nodes with the same (spec_name, group_number) pair — e.g.
+    a coder node ``spec:1`` and a reviewer node ``spec:1:reviewer:audit-review``
+    both share group_number 1.  The constraint was removed from the DDL source
+    but never dropped from existing databases.
+
+    DuckDB does not support ALTER TABLE DROP CONSTRAINT, so we recreate the
+    table with the correct schema and copy the data across.
+    """
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
+    }
+    if "plan_nodes" not in tables:
+        return
+
+    # Check whether the stale UNIQUE constraint exists.
+    has_unique = conn.execute(
+        "SELECT 1 FROM duckdb_constraints() WHERE table_name = 'plan_nodes' AND constraint_type = 'UNIQUE'"
+    ).fetchone()
+    if not has_unique:
+        logger.info("plan_nodes has no UNIQUE constraint, nothing to migrate")
+        return
+
+    logger.info("Recreating plan_nodes to drop stale UNIQUE(spec_name, group_number)")
+    conn.execute("""
+        CREATE TABLE plan_nodes_v12 (
+            id              VARCHAR PRIMARY KEY,
+            spec_name       VARCHAR NOT NULL,
+            group_number    INTEGER NOT NULL,
+            title           VARCHAR NOT NULL,
+            body            TEXT NOT NULL DEFAULT '',
+            archetype       VARCHAR NOT NULL DEFAULT 'coder',
+            mode            VARCHAR,
+            model_tier      VARCHAR,
+            status          VARCHAR NOT NULL DEFAULT 'pending',
+            subtask_count   INTEGER NOT NULL DEFAULT 0,
+            optional        BOOLEAN NOT NULL DEFAULT FALSE,
+            instances       INTEGER NOT NULL DEFAULT 1,
+            sort_position   INTEGER NOT NULL DEFAULT 0,
+            blocked_reason  VARCHAR,
+            created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        INSERT INTO plan_nodes_v12
+        SELECT id, spec_name, group_number, title, body,
+               archetype, mode, model_tier, status,
+               subtask_count, optional, instances, sort_position,
+               blocked_reason, created_at, updated_at
+        FROM plan_nodes
+    """)
+    conn.execute("DROP TABLE plan_nodes")
+    conn.execute("ALTER TABLE plan_nodes_v12 RENAME TO plan_nodes")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -558,6 +653,16 @@ MIGRATIONS: list[Migration] = [
         version=11,
         description="add plan_nodes, plan_edges, plan_meta, runs tables and extend session_outcomes",
         apply=_migrate_v11,
+    ),
+    Migration(
+        version=12,
+        description="drop stale UNIQUE(spec_name, group_number) from plan_nodes",
+        apply=_migrate_v12,
+    ),
+    Migration(
+        version=13,
+        description="add blocking_history and learned_thresholds tables",
+        apply=_migrate_v13,
     ),
 ]
 
@@ -628,8 +733,7 @@ CREATE TABLE IF NOT EXISTS plan_nodes (
     sort_position   INTEGER NOT NULL DEFAULT 0,
     blocked_reason  VARCHAR,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (spec_name, group_number)
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS plan_edges (
@@ -680,6 +784,25 @@ CREATE TABLE IF NOT EXISTS tool_errors (
     node_id    TEXT,
     tool_name  TEXT,
     failed_at  TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS blocking_history (
+    id            VARCHAR PRIMARY KEY,
+    spec_name     VARCHAR NOT NULL,
+    archetype     VARCHAR NOT NULL,
+    critical_count INTEGER NOT NULL,
+    threshold     INTEGER NOT NULL,
+    blocked       BOOLEAN NOT NULL,
+    outcome       VARCHAR,
+    created_at    TIMESTAMP DEFAULT current_timestamp
+);
+
+CREATE TABLE IF NOT EXISTS learned_thresholds (
+    archetype     VARCHAR PRIMARY KEY,
+    threshold     INTEGER NOT NULL,
+    confidence    FLOAT NOT NULL,
+    sample_count  INTEGER NOT NULL,
+    updated_at    TIMESTAMP DEFAULT current_timestamp
 );
 
 INSERT INTO schema_version (version, description)

@@ -121,6 +121,47 @@ class TestCollectDocFiles:
         files = _collect_doc_files(tmp_path)
         assert files == []
 
+    def test_excludes_symlink_escaping_docs_boundary(self, tmp_path: Path) -> None:
+        """Symlink inside docs/ that points outside the directory is excluded (CWE-59)."""
+        # Create a target file outside docs/
+        sensitive = tmp_path / "sensitive.txt"
+        sensitive.write_text("secret")
+
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        symlink = docs / "evil.md"
+        symlink.symlink_to(sensitive)
+
+        files = _collect_doc_files(tmp_path)
+        assert symlink not in files
+
+    def test_excludes_symlink_outside_from_root_level_candidates(self, tmp_path: Path) -> None:
+        """Root-level README.md symlink pointing outside project is excluded (CWE-59)."""
+        target = tmp_path / "outside_dir"
+        target.mkdir()
+        sensitive = target / "secret.md"
+        sensitive.write_text("secret content")
+
+        project = tmp_path / "project"
+        project.mkdir()
+        readme_link = project / "README.md"
+        readme_link.symlink_to(sensitive)
+
+        files = _collect_doc_files(project)
+        assert readme_link not in files
+
+    def test_allows_symlink_within_docs_boundary(self, tmp_path: Path) -> None:
+        """Symlink inside docs/ that resolves within docs/ is allowed."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        real_file = docs / "real.md"
+        real_file.write_text("real content")
+        symlink = docs / "link.md"
+        symlink.symlink_to(real_file)
+
+        files = _collect_doc_files(tmp_path)
+        assert symlink in files
+
 
 class TestMineDocsWithLLM:
     """TS-101-25: mine_docs_with_llm creates facts from LLM output.

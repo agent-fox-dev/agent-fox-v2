@@ -18,6 +18,7 @@ from agent_fox.core.llm_validation import (
     truncate_field,
     validate_keywords,
 )
+from agent_fox.core.logging import TRACE
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.knowledge.facts import Category, Fact, parse_confidence
 
@@ -86,7 +87,7 @@ async def extract_facts(
         facts = _parse_extraction_response(raw_text, spec_name, session_id)
     except ValueError:
         logger.warning("Extraction returned invalid JSON, skipping fact extraction")
-        logger.debug("Raw extraction response was: %s", raw_text[:500])
+        logger.log(TRACE, "Raw extraction response was: %s", raw_text[:500])
         return []
 
     if not facts:

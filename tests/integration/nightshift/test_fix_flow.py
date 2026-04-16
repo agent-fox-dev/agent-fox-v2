@@ -95,7 +95,7 @@ class TestArchetypePipeline:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -107,7 +107,7 @@ class TestArchetypePipeline:
             issue = _make_issue()
             await pipeline.process_issue(issue, issue_body="Remove unused imports in engine/")  # type: ignore[arg-type]
 
-        assert "triage" in archetypes_used
+        assert "maintainer" in archetypes_used
         assert "coder" in archetypes_used
         assert "reviewer" in archetypes_used
 

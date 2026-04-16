@@ -79,13 +79,22 @@ class TestResolveModelTierModeFallback:
         result = resolve_model_tier(config, "reviewer", mode="pre-review")
         assert result == "ADVANCED"
 
-    def test_falls_back_to_registry_when_no_config_override(self) -> None:
-        """Falls back to registry default when no config override for archetype."""
+    def test_falls_back_to_global_models_config_when_no_archetype_override(self) -> None:
+        """Falls back to global [models] config when no archetype override exists."""
         from agent_fox.engine.sdk_params import resolve_model_tier
 
         config = AgentFoxConfig()
-        # coder registry default is STANDARD
+        # coder maps to config.models.coding which defaults to "ADVANCED"
         result = resolve_model_tier(config, "coder", mode="some-mode")
+        assert result == "ADVANCED"
+
+    def test_falls_back_to_registry_when_no_global_model_key(self) -> None:
+        """Falls back to registry default for archetypes without a global model key."""
+        from agent_fox.engine.sdk_params import resolve_model_tier
+
+        config = AgentFoxConfig()
+        # reviewer has no mapping in _ARCHETYPE_MODEL_KEYS, falls to registry
+        result = resolve_model_tier(config, "reviewer", mode="some-mode")
         assert result == "STANDARD"
 
     def test_mode_with_no_model_tier_field_falls_back(self) -> None:

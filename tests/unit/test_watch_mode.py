@@ -6,7 +6,6 @@ Requirements: 70-REQ-1.1 through 70-REQ-5.3
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -48,98 +47,43 @@ class _CapturingSink:
         pass
 
 
-def _write_empty_plan(plan_dir: Path) -> Path:
-    """Write a plan.json with no tasks and return its path."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {},
-        "edges": [],
-        "order": [],
-    }
-    plan_path.write_text(json.dumps(plan, indent=2))
-    return plan_path
+def _write_empty_plan_db():
+    """Write an empty plan to DB and return the connection."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    return write_plan_to_db(nodes={}, edges=[])
 
 
-def _write_single_node_plan(plan_dir: Path) -> Path:
-    """Write a plan.json with a single node."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {
-            "spec:1": {
-                "id": "spec:1",
-                "spec_name": "spec",
-                "group_number": 1,
-                "title": "Task 1",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": "coder",
-            }
-        },
-        "edges": [],
-        "order": ["spec:1"],
-    }
-    plan_path.write_text(json.dumps(plan, indent=2))
-    return plan_path
+def _write_single_node_plan_db():
+    """Write a plan with a single node to DB and return the connection."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    return write_plan_to_db(
+        nodes={"spec:1": {"title": "Task 1"}},
+        edges=[],
+    )
 
 
-def _write_stalled_plan(plan_dir: Path) -> Path:
-    """Write a plan.json where the node is blocked (stalled state)."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {
-            "spec:1": {
-                "id": "spec:1",
-                "spec_name": "spec",
-                "group_number": 1,
-                "title": "Task 1",
-                "optional": False,
-                "status": "blocked",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": "coder",
-            }
-        },
-        "edges": [],
-        "order": ["spec:1"],
-    }
-    plan_path.write_text(json.dumps(plan, indent=2))
-    return plan_path
+def _write_stalled_plan_db():
+    """Write a plan with a blocked node to DB and return the connection."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    return write_plan_to_db(
+        nodes={"spec:1": {"title": "Task 1", "status": "blocked"}},
+        edges=[],
+    )
 
 
 def _make_orchestrator(
     tmp_path: Path,
     *,
     config: OrchestratorConfig | None = None,
-    plan_path: Path | None = None,
+    db_conn: Any | None = None,
     capturing_sink: _CapturingSink | None = None,
 ) -> tuple[Orchestrator, _CapturingSink]:
     """Create an Orchestrator with a capturing sink for event assertions."""
-    plan_dir = tmp_path / ".agent-fox"
-    if plan_path is None:
-        plan_path = _write_empty_plan(plan_dir)
+    if db_conn is None:
+        db_conn = _write_empty_plan_db()
 
     sink = capturing_sink or _CapturingSink()
     sink_dispatcher = SinkDispatcher()
@@ -162,9 +106,9 @@ def _make_orchestrator(
 
     orch = Orchestrator(
         config=config,
-        plan_path=plan_path,
         session_runner_factory=lambda nid, **kw: MagicMock(execute=AsyncMock(return_value=mock_outcome)),
         sink_dispatcher=sink_dispatcher,
+        knowledge_db_conn=db_conn,
     )
     return orch, sink
 
@@ -508,9 +452,8 @@ class TestTermination:
     @pytest.mark.asyncio
     async def test_stall_terminates_without_watch_poll(self, tmp_path: Path) -> None:
         """TS-70-13: Stalled graph terminates with STALLED, no WATCH_POLL."""
-        plan_dir = tmp_path / ".agent-fox"
-        plan_path = _write_stalled_plan(plan_dir)
-        orch, sink = _make_orchestrator(tmp_path, plan_path=plan_path)
+        stalled_db = _write_stalled_plan_db()
+        orch, sink = _make_orchestrator(tmp_path, db_conn=stalled_db)
         orch._watch = True  # type: ignore[attr-defined]
 
         with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -657,17 +600,16 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_missing_plan_file_errors_normally_with_watch(self, tmp_path: Path) -> None:
-        """TS-70-E1: Missing plan file raises PlanError even with watch=True."""
+        """TS-70-E1: Missing plan raises PlanError even with watch=True."""
         from agent_fox.core.errors import PlanError
+        from tests.unit.engine.conftest import _create_db_with_schema
 
-        plan_dir = tmp_path / ".agent-fox"
-        plan_dir.mkdir(parents=True, exist_ok=True)
-        nonexistent_plan = plan_dir / "plan.json"  # Does not exist
+        empty_db = _create_db_with_schema()
 
         orch = Orchestrator(
             config=OrchestratorConfig(parallel=1, inter_session_delay=0),
-            plan_path=nonexistent_plan,
             session_runner_factory=lambda nid, **kw: MagicMock(),
+            knowledge_db_conn=empty_db,
         )
         orch._watch = True  # type: ignore[attr-defined]
 
@@ -780,9 +722,8 @@ class TestEdgeCases:
             hot_load=True,
             max_cost=0.01,
         )
-        plan_dir = tmp_path / ".agent-fox"
-        plan_path = _write_single_node_plan(plan_dir)
-        orch, sink = _make_orchestrator(tmp_path, config=config, plan_path=plan_path)
+        single_db = _write_single_node_plan_db()
+        orch, sink = _make_orchestrator(tmp_path, config=config, db_conn=single_db)
         orch._watch = True  # type: ignore[attr-defined]
 
         # Mock _load_or_init_state to return state with cost at the limit

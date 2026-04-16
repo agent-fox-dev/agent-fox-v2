@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from agent_fox.reporting.standup import (
     HumanCommit,
@@ -24,7 +23,7 @@ from .conftest import (
     make_execution_state,
     make_session_record,
     mock_state,
-    write_plan_file,
+    write_plan_to_db,
 )
 
 # ---------------------------------------------------------------------------
@@ -38,7 +37,6 @@ class TestStandupAgentActivity:
 
     def test_sessions_filtered_by_window(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Only sessions within the time window are counted."""
@@ -47,7 +45,7 @@ class TestStandupAgentActivity:
             "spec_a:2": {"title": "Task 2"},
             "spec_a:3": {"title": "Task 3"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         sessions = [
             # 2 hours ago -- within 24h window
@@ -89,10 +87,9 @@ class TestStandupAgentActivity:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=24,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         assert report.agent.sessions_run == 2
@@ -410,7 +407,6 @@ class TestStandupQueueSummary:
 
     def test_queue_counts_match_task_states(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Queue summary reflects current task statuses."""
@@ -428,7 +424,7 @@ class TestStandupQueueSummary:
             "s:9": {"title": "T9"},
             "s:10": {"title": "T10"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -447,10 +443,9 @@ class TestStandupQueueSummary:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=24,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         assert report.queue.completed == 3
@@ -469,7 +464,6 @@ class TestStandupCostBreakdown:
 
     def test_cost_grouped_by_model(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Cost breakdown groups by model tier correctly."""
@@ -478,7 +472,7 @@ class TestStandupCostBreakdown:
             "s:2": {"title": "T2"},
             "s:3": {"title": "T3"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         # Note: SessionRecord does not have a model field natively.
         # The implementation must track model information alongside sessions
@@ -512,10 +506,9 @@ class TestStandupCostBreakdown:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=24,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         # The report must have a cost breakdown with at least one entry
@@ -538,12 +531,11 @@ class TestStandupNoAgentActivity:
 
     def test_zero_activity_when_outside_window(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Reports zero agent activity when all sessions are outside window."""
         nodes = {"s:1": {"title": "T1"}, "s:2": {"title": "T2"}}
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         # All sessions are older than the 1-hour window
         sessions = [
@@ -560,10 +552,9 @@ class TestStandupNoAgentActivity:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=1,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         assert report.agent.sessions_run == 0

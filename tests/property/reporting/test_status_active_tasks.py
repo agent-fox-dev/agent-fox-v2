@@ -7,14 +7,16 @@ Requirements: 72-REQ-1.1, 72-REQ-1.2, 72-REQ-2.1, 72-REQ-2.5
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from unittest.mock import patch
 
-import pytest
+import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.engine.state import ExecutionState
+from agent_fox.graph.persistence import save_plan
+from agent_fox.graph.types import Node, NodeStatus, PlanMetadata, TaskGraph
+from agent_fox.knowledge.migrations import run_migrations
 from agent_fox.reporting.formatters import TableFormatter
 from agent_fox.reporting.standup import TaskActivity
 from agent_fox.reporting.status import StatusReport, generate_status
@@ -78,39 +80,42 @@ def in_progress_tasks_strategy(draw: st.DrawFn) -> list[TaskActivity]:
 # ---------------------------------------------------------------------------
 
 
-def _write_plan_and_state(
-    tmp_path: Path,
+def _write_plan_and_state_to_db(
     node_states: dict[str, str],
-) -> tuple[ExecutionState, Path]:
-    """Write plan.json and create state; return (state, plan_path)."""
-    agent_dir = tmp_path / ".agent-fox"
-    agent_dir.mkdir(parents=True, exist_ok=True)
+) -> tuple[ExecutionState, duckdb.DuckDBPyConnection]:
+    """Write plan to an in-memory DuckDB and create state; return (state, conn)."""
+    conn = duckdb.connect(":memory:")
+    run_migrations(conn)
 
-    plan_data = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {
-            nid: {
-                "id": nid,
-                "spec_name": nid.split(":")[0],
-                "group_number": 1,
-                "title": f"Task {nid}",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 0,
-                "body": "",
-            }
-            for nid in node_states
-        },
-        "edges": [],
-        "order": list(node_states.keys()),
-    }
-    plan_path = agent_dir / "plan.json"
-    plan_path.write_text(json.dumps(plan_data, indent=2))
+    node_objs: dict[str, Node] = {}
+    for nid in node_states:
+        parts = nid.split(":")
+        spec_name = parts[0]
+        group_number = 1
+        node_objs[nid] = Node(
+            id=nid,
+            spec_name=spec_name,
+            group_number=group_number,
+            title=f"Task {nid}",
+            optional=False,
+            status=NodeStatus.PENDING,
+            subtask_count=0,
+            body="",
+            archetype="coder",
+        )
+
+    graph = TaskGraph(
+        nodes=node_objs,
+        edges=[],
+        order=list(node_states.keys()),
+        metadata=PlanMetadata(
+            created_at="2026-01-01T00:00:00",
+            fast_mode=False,
+            filtered_spec=None,
+            version="0.1.0",
+        ),
+    )
+    save_plan(graph, conn)
 
     state = ExecutionState(
         plan_hash="abc123",
@@ -119,7 +124,7 @@ def _write_plan_and_state(
         updated_at="2026-03-01T10:00:00Z",
     )
 
-    return state, plan_path
+    return state, conn
 
 
 def _make_report_with_tasks(tasks: list[TaskActivity]) -> StatusReport:
@@ -151,34 +156,21 @@ class TestInProgressFilterInvariant:
     def test_filter_matches_inprogress_count(
         self,
         node_states: dict[str, str],
-        tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """For any node state configuration, in_progress_tasks length equals
         the count of nodes with in_progress status.
 
         Requirements: 72-REQ-1.1, 72-REQ-1.2
         """
-        from unittest.mock import MagicMock, patch
-
-        tmp_path = tmp_path_factory.mktemp("active_tasks")
-        state, plan_path = _write_plan_and_state(tmp_path, node_states)
-        mock_conn = MagicMock()
-
-        # Make DB plan loading fail so it falls back to file
-        original_load_plan = __import__("agent_fox.graph.persistence", fromlist=["load_plan"]).load_plan
-
-        def _file_only_load_plan(src):
-            if isinstance(src, Path):
-                return original_load_plan(src)
-            return None
+        state, conn = _write_plan_and_state_to_db(node_states)
 
         with (
             patch("agent_fox.reporting.status.load_state_from_db", return_value=state),
             patch("agent_fox.reporting.status.build_status_report_from_audit", return_value=None),
-            patch("agent_fox.graph.persistence.load_plan", side_effect=_file_only_load_plan),
         ):
-            report = generate_status(plan_path=plan_path, db_conn=mock_conn)
+            report = generate_status(db_conn=conn)
 
+        conn.close()
         expected_count = sum(1 for s in node_states.values() if s == "in_progress")
         assert len(report.in_progress_tasks) == expected_count
         assert all(ta.current_status == "in_progress" for ta in report.in_progress_tasks)

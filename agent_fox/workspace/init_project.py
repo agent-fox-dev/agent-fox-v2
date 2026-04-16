@@ -29,7 +29,9 @@ _GITIGNORE_ENTRIES = [
     "# agent-fox",
     ".agent-fox/*",
     "!.agent-fox/config.toml",
-    "!.agent-fox/memory.jsonl",
+    "!.agent-fox/specs/",
+    "!.agent-fox/profiles/",
+    "!.agent-fox/profiles/*",
     ".claude/worktrees/",
 ]
 
@@ -130,7 +132,8 @@ def _install_skills(project_root: Path) -> int:
 
     Discovers all non-hidden files in _SKILLS_DIR, creates
     {project_root}/.claude/skills/{name}/SKILL.md for each.
-    Overwrites existing files.
+    Overwrites existing files.  Template variables (``{{SPEC_ROOT}}``)
+    are substituted with the project's configured spec root.
 
     Args:
         project_root: The project root directory.
@@ -139,7 +142,7 @@ def _install_skills(project_root: Path) -> int:
         Number of skills installed.
 
     Requirements: 47-REQ-2.1, 47-REQ-2.3, 47-REQ-2.4, 47-REQ-1.E1,
-                  47-REQ-2.E1, 47-REQ-2.E2
+                  47-REQ-2.E1, 47-REQ-2.E2, 371-REQ-3.1
     """
     # 47-REQ-2.E1: empty or missing templates dir
     if not _SKILLS_DIR.exists() or not _SKILLS_DIR.is_dir():
@@ -160,14 +163,23 @@ def _install_skills(project_root: Path) -> int:
         logger.error("Cannot create skills directory %s: %s", skills_target, exc)
         return 0
 
+    # 371-REQ-3.1: Resolve spec root for template variable substitution
+    from agent_fox.core.config import load_config
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    _config = load_config(config_path if config_path.exists() else None)
+    spec_root = _config.paths.spec_root
+
     count = 0
     for template_path in templates:
         name = template_path.name
         skill_dir = skills_target / name
         try:
             skill_dir.mkdir(parents=True, exist_ok=True)
-            content = template_path.read_bytes()
-            (skill_dir / "SKILL.md").write_bytes(content)
+            content = template_path.read_text(encoding="utf-8")
+            # 371-REQ-3.1: Replace template variables
+            content = content.replace("{{SPEC_ROOT}}", spec_root)
+            (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
             count += 1
         except OSError as exc:
             # 47-REQ-1.E1: skip unreadable templates
@@ -284,14 +296,31 @@ def _ensure_seed_files(project_root: Path) -> None:
 
     Creates .agent-fox/memory.jsonl and docs/memory.md if they do not
     already exist. Idempotent — existing files are never overwritten.
+
+    memory.jsonl is added to git with ``--force`` because ``.agent-fox/*``
+    in .gitignore would otherwise exclude it.  The operation is best-effort:
+    failures are logged as warnings so that init still succeeds in
+    environments where git is unavailable.
     """
     agent_fox_dir = project_root / ".agent-fox"
 
-    for name in ("memory.jsonl",):
-        path = agent_fox_dir / name
-        if not path.exists():
-            path.touch()
-            logger.debug("Created seed file %s", path)
+    memory_jsonl = agent_fox_dir / "memory.jsonl"
+    if not memory_jsonl.exists():
+        memory_jsonl.touch()
+        logger.debug("Created seed file %s", memory_jsonl)
+
+    # Force-add memory.jsonl so it is tracked even though .agent-fox/* ignores it.
+    try:
+        subprocess.run(
+            ["git", "add", "--force", str(memory_jsonl)],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        logger.debug("Staged %s in git", memory_jsonl)
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        logger.warning("Could not git add %s: %s", memory_jsonl, exc)
 
     docs_dir = project_root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
@@ -321,13 +350,19 @@ def _ensure_agents_md(project_root: Path) -> str:
 
     # This raises FileNotFoundError if the template is missing (44-REQ-1.E1)
     content = _AGENTS_MD_TEMPLATE.read_text(encoding="utf-8")
+    # 371-REQ-3.1: Replace template variables with configured spec root
+    from agent_fox.core.config import load_config
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    _config = load_config(config_path if config_path.exists() else None)
+    content = content.replace("{{SPEC_ROOT}}", _config.paths.spec_root)
     agents_md.write_text(content, encoding="utf-8")
     logger.debug("Created AGENTS.md from template")
     return "created"
 
 
-def _ensure_steering_md(project_root: Path) -> str:
-    """Create .specs/steering.md placeholder if it does not exist.
+def _ensure_steering_md(project_root: Path, specs_dir: Path | None = None) -> str:
+    """Create {spec_root}/steering.md placeholder if it does not exist.
 
     Returns:
         "created" if the file was written, "skipped" if it already existed
@@ -336,20 +371,23 @@ def _ensure_steering_md(project_root: Path) -> str:
     Requirements: 64-REQ-1.1, 64-REQ-1.2, 64-REQ-1.3, 64-REQ-1.4,
                   64-REQ-1.E1
     """
-    specs_dir = project_root / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig
+
+        specs_dir = project_root / AgentFoxConfig().paths.spec_root
     steering_path = specs_dir / "steering.md"
 
     # 64-REQ-1.2: Skip if already exists
     if steering_path.exists():
         return "skipped"
 
-    # 64-REQ-1.4: Create .specs/ if needed
+    # 64-REQ-1.4: Create spec root directory if needed
     try:
         specs_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         # 64-REQ-1.E1: Permission error — log warning and continue
         logger.warning(
-            "Cannot create .specs/ directory at %s: %s — skipping steering.md",
+            "Cannot create spec root directory at %s: %s — skipping steering.md",
             specs_dir,
             exc,
         )
@@ -357,7 +395,7 @@ def _ensure_steering_md(project_root: Path) -> str:
 
     # 64-REQ-1.1, 64-REQ-1.3: Write placeholder with sentinel
     steering_path.write_text(_STEERING_PLACEHOLDER, encoding="utf-8")
-    logger.debug("Created .specs/steering.md placeholder")
+    logger.debug("Created %s/steering.md placeholder", specs_dir)
     return "created"
 
 
@@ -404,6 +442,96 @@ class InitResult:
     agents_md: str  # "created" | "skipped"
     steering_md: str = "skipped"
     skills_installed: int = 0
+    nightshift_ignore: str = "skipped"  # "created" | "skipped"
+    labels_ensured: int = 0  # number of required labels created/verified
+
+
+async def _ensure_platform_labels_async(project_root: Path) -> int:
+    """Create required platform labels if the platform is configured.
+
+    Attempts to create the labels defined in ``REQUIRED_LABELS`` via the
+    configured platform.  Returns silently if no platform is configured or
+    if ``GITHUB_PAT`` is absent (fail-open: local-only init still succeeds).
+
+    Returns:
+        Number of labels successfully created or already existing.
+
+    Requirements: 358-REQ-3, 358-REQ-4, 358-REQ-5
+    """
+    from agent_fox.core.config import load_config
+    from agent_fox.nightshift.platform_factory import create_platform_safe
+    from agent_fox.platform.labels import REQUIRED_LABELS
+
+    config_path = project_root / ".agent-fox" / "config.toml"
+    try:
+        config = load_config(config_path)
+    except Exception:
+        logger.debug("Could not load config for label creation; skipping")
+        return 0
+
+    platform = create_platform_safe(config, project_root)
+    if platform is None:
+        logger.debug("Platform not configured; skipping required label creation")
+        return 0
+
+    count = 0
+    for spec in REQUIRED_LABELS:
+        try:
+            await platform.create_label(spec.name, spec.color, spec.description)
+            count += 1
+        except Exception:
+            logger.warning(
+                "Could not ensure label %r on platform; skipping",
+                spec.name,
+                exc_info=True,
+            )
+
+    return count
+
+
+def _ensure_platform_labels(project_root: Path) -> int:
+    """Synchronous wrapper for :func:`_ensure_platform_labels_async`.
+
+    Uses :func:`asyncio.run` following the same pattern as
+    :func:`_ensure_develop_branch`.  Returns 0 silently on any error so that
+    a platform misconfiguration does not block local ``af init``.
+
+    Requirements: 358-REQ-3, 358-REQ-4, 358-REQ-5
+    """
+    import asyncio
+
+    try:
+        return asyncio.run(_ensure_platform_labels_async(project_root))
+    except Exception as exc:
+        logger.warning("Failed to ensure platform labels: %s", exc)
+        return 0
+
+
+def _ensure_nightshift_ignore(project_root: Path) -> str:
+    """Create the .night-shift seed file if it does not already exist.
+
+    Returns ``"created"`` if the file was written, ``"skipped"`` if it already
+    existed or if the file could not be created (permission error).
+
+    Requirements: 106-REQ-4.1, 106-REQ-4.2, 106-REQ-4.E1, 106-REQ-4.E2
+    """
+    from agent_fox.nightshift.ignore import NIGHTSHIFT_IGNORE_FILENAME, NIGHTSHIFT_IGNORE_SEED
+
+    night_shift_path = project_root / NIGHTSHIFT_IGNORE_FILENAME
+    if night_shift_path.exists():
+        return "skipped"
+
+    try:
+        night_shift_path.write_text(NIGHTSHIFT_IGNORE_SEED, encoding="utf-8")
+        return "created"
+    except Exception:
+        logger.warning(
+            "Could not create %s in %s; skipping",
+            NIGHTSHIFT_IGNORE_FILENAME,
+            project_root,
+            exc_info=True,
+        )
+        return "skipped"
 
 
 def init_project(
@@ -443,7 +571,6 @@ def init_project(
             config_path.write_text(merged_content, encoding="utf-8")
 
         # Ensure structure is complete
-        (agent_fox_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (agent_fox_dir / "worktrees").mkdir(parents=True, exist_ok=True)
         _ensure_seed_files(path)
         _update_gitignore(path)
@@ -456,16 +583,20 @@ def init_project(
         if skills:
             skills_count = _install_skills(path)
 
+        nightshift_status = _ensure_nightshift_ignore(path)
+        labels_count = _ensure_platform_labels(path)
+
         return InitResult(
             status="already_initialized",
             agents_md=agents_md_status,
             steering_md=steering_status,
             skills_installed=skills_count,
+            nightshift_ignore=nightshift_status,
+            labels_ensured=labels_count,
         )
 
     # Fresh initialization
     _secure_mkdir(agent_fox_dir)
-    (agent_fox_dir / "hooks").mkdir(exist_ok=True)
     (agent_fox_dir / "worktrees").mkdir(exist_ok=True)
 
     from agent_fox.core.config_gen import generate_default_config
@@ -483,9 +614,14 @@ def init_project(
     if skills:
         skills_count = _install_skills(path)
 
+    nightshift_status = _ensure_nightshift_ignore(path)
+    labels_count = _ensure_platform_labels(path)
+
     return InitResult(
         status="ok",
         agents_md=agents_md_status,
         steering_md=steering_status,
         skills_installed=skills_count,
+        nightshift_ignore=nightshift_status,
+        labels_ensured=labels_count,
     )

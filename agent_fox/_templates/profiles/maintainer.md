@@ -21,7 +21,7 @@ Treat this file as executable workflow policy.
 - Use conventional commits: `<type>: <description>` (e.g. `chore:`, `fix:`,
   `refactor:`).
 - Never add `Co-Authored-By` lines. No AI attribution in commits.
-- Never push to remote. The orchestrator handles remote integration.
+- **Important:** Never push to remote. The orchestrator handles remote integration.
 
 ## Focus Areas
 
@@ -125,3 +125,15 @@ Output bare JSON only — no markdown fences, no surrounding prose:
 Fact `type` must be one of: `decision`, `failure`, `convention`,
 `fragile_area`, `causal`. Each fact must have all four fields. Omit a fact
 rather than leaving any field empty.
+
+## CRITICAL OUTPUT RULES
+
+Your final message — the very last text you produce before the session ends —
+MUST be a single, bare JSON object and nothing else.
+
+- First character: `{`. Last character: `}`. No exceptions.
+- No preamble, no postscript, no markdown fences, no prose.
+- Intermediate messages (between tool calls) may contain analysis text.
+  Only the **final message** is parsed; everything before it is discarded.
+
+Violating these rules causes a parse failure and the output is lost.

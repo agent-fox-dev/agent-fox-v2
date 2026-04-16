@@ -37,6 +37,7 @@ class ModeConfig:
     Requirements: 97-REQ-1.1
     """
 
+    templates: list[str] | None = None
     injection: str | None = None
     allowlist: list[str] | None = None
     model_tier: str | None = None
@@ -51,6 +52,7 @@ class ArchetypeEntry:
     """Configuration bundle for a single archetype."""
 
     name: str
+    templates: list[str] = field(default_factory=list)  # 97-REQ-1.3 (reserved; profiles used in practice)
     default_model_tier: str = "STANDARD"
     injection: str | None = None  # "auto_pre" | "auto_post" | "manual" | None
     task_assignable: bool = True
@@ -127,6 +129,10 @@ ARCHETYPE_REGISTRY: dict[str, ArchetypeEntry] = {
                 # Read-only analysis allowlist (100-REQ-1.2)
                 allowlist=["ls", "cat", "git", "wc", "head", "tail"],
             ),
+            "fix-triage": ModeConfig(
+                # Read-only analysis for single-issue triage (fixes #383)
+                allowlist=["ls", "cat", "git", "wc", "head", "tail"],
+            ),
             "extraction": ModeConfig(
                 # No shell access for extraction mode (100-REQ-1.3)
                 allowlist=[],
@@ -170,8 +176,9 @@ def resolve_effective_config(
         )
         return entry
 
-    # Build override kwargs: only apply non-None ModeConfig fields.
+    # Apply non-None ModeConfig fields onto the base entry.
     # ModeConfig field names map to ArchetypeEntry field names as follows:
+    #   templates       -> templates        (direct 1:1)
     #   model_tier      -> default_model_tier
     #   max_turns       -> default_max_turns
     #   thinking_mode   -> default_thinking_mode
@@ -179,23 +186,23 @@ def resolve_effective_config(
     #   allowlist       -> default_allowlist
     #   injection       -> injection
     #   retry_predecessor -> retry_predecessor
-    overrides: dict[str, object] = {}
-    if mode_cfg.injection is not None:
-        overrides["injection"] = mode_cfg.injection
-    if mode_cfg.allowlist is not None:
-        overrides["default_allowlist"] = mode_cfg.allowlist
-    if mode_cfg.model_tier is not None:
-        overrides["default_model_tier"] = mode_cfg.model_tier
-    if mode_cfg.max_turns is not None:
-        overrides["default_max_turns"] = mode_cfg.max_turns
-    if mode_cfg.thinking_mode is not None:
-        overrides["default_thinking_mode"] = mode_cfg.thinking_mode
-    if mode_cfg.thinking_budget is not None:
-        overrides["default_thinking_budget"] = mode_cfg.thinking_budget
-    if mode_cfg.retry_predecessor is not None:
-        overrides["retry_predecessor"] = mode_cfg.retry_predecessor
-
-    return dataclasses.replace(entry, **overrides)
+    return dataclasses.replace(
+        entry,
+        templates=(mode_cfg.templates if mode_cfg.templates is not None else entry.templates),
+        injection=(mode_cfg.injection if mode_cfg.injection is not None else entry.injection),
+        default_allowlist=(mode_cfg.allowlist if mode_cfg.allowlist is not None else entry.default_allowlist),
+        default_model_tier=(mode_cfg.model_tier if mode_cfg.model_tier is not None else entry.default_model_tier),
+        default_max_turns=(mode_cfg.max_turns if mode_cfg.max_turns is not None else entry.default_max_turns),
+        default_thinking_mode=(
+            mode_cfg.thinking_mode if mode_cfg.thinking_mode is not None else entry.default_thinking_mode
+        ),
+        default_thinking_budget=(
+            mode_cfg.thinking_budget if mode_cfg.thinking_budget is not None else entry.default_thinking_budget
+        ),
+        retry_predecessor=(
+            mode_cfg.retry_predecessor if mode_cfg.retry_predecessor is not None else entry.retry_predecessor
+        ),
+    )
 
 
 def _resolve_custom_preset(

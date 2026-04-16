@@ -363,11 +363,10 @@ class StandupReport:
     task_activities: list[TaskActivity] = field(
         default_factory=list,
     )  # per-task breakdown
-    total_cost: float = 0.0  # all-time total from ExecutionState
+    total_cost: float | None = None  # all-time total; None when no session data available
 
 
 def generate_standup(
-    plan_path: Path | None = None,
     repo_path: Path | None = None,
     hours: int = 24,
     agent_author: str = "agent-fox",
@@ -378,7 +377,6 @@ def generate_standup(
     Uses DuckDB for execution state and audit events.
 
     Args:
-        plan_path: Path to .agent-fox/plan.json.
         repo_path: Path to the git repository root.
         hours: Reporting window in hours (default 24).
         agent_author: Git author name used by agent-fox for filtering.
@@ -394,14 +392,12 @@ def generate_standup(
     window_start = now - timedelta(hours=hours)
     window_end = now
 
-    # Resolve default paths if not provided
-    if plan_path is None:
-        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
+    # Resolve default path if not provided
     if repo_path is None:
         repo_path = Path.cwd()
 
-    # Load plan (needed for queue summary)
-    graph = load_plan(plan_path)
+    # Load plan from DB (needed for queue summary)
+    graph = load_plan(db_conn) if db_conn is not None else None
 
     # Load execution state from DB
     state = load_state_from_db(db_conn) if db_conn is not None else None
@@ -448,11 +444,15 @@ def generate_standup(
     # Build queue summary from current task statuses
     queue = _build_queue_summary(graph, state)
 
-    # All-time total cost: prefer DuckDB audit data, fall back to state
+    # All-time total cost: prefer DuckDB audit data, fall back to state.
+    # Use None (not 0.0) when no session data is available so the display
+    # layer can distinguish "no data" from "ran but cost nothing".
     if audit_standup is not None and audit_standup.total_cost > 0:
-        all_time_cost = audit_standup.total_cost
+        all_time_cost: float | None = audit_standup.total_cost
+    elif state is not None:
+        all_time_cost = state.total_cost
     else:
-        all_time_cost = state.total_cost if state is not None else 0.0
+        all_time_cost = None
 
     return StandupReport(
         window_hours=hours,

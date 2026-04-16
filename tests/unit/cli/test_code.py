@@ -67,13 +67,13 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def mock_plan_file(tmp_path: Path) -> Path:
-    """Create a temporary plan.json file."""
+def mock_db_file(tmp_path: Path) -> Path:
+    """Create a temporary knowledge.duckdb file."""
     plan_dir = tmp_path / ".agent-fox"
     plan_dir.mkdir(parents=True)
-    plan_file = plan_dir / "plan.json"
-    plan_file.write_text('{"nodes": {"a": {}}, "edges": []}')
-    return plan_file
+    db_file = plan_dir / "knowledge.duckdb"
+    db_file.write_text("")  # just needs to exist for the check
+    return db_file
 
 
 def _mock_run_code(state: ExecutionState | None = None) -> AsyncMock:
@@ -108,9 +108,9 @@ class TestSuccessfulExecution:
         state = _make_execution_state(run_status="completed")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0
@@ -120,9 +120,9 @@ class TestSuccessfulExecution:
         state = _make_execution_state(run_status="completed")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "3/3 done" in result.output
@@ -132,9 +132,9 @@ class TestSuccessfulExecution:
         state = _make_execution_state(run_status="completed", total_cost=2.50)
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "$2.50" in result.output
@@ -144,9 +144,9 @@ class TestSuccessfulExecution:
         state = _make_execution_state(run_status="completed")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "completed" in result.output
@@ -165,9 +165,9 @@ class TestParallelOverride:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--parallel", "4"])
 
         mock_rc.assert_called_once()
@@ -198,9 +198,9 @@ class TestStalledExitCode:
         )
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 2
@@ -213,9 +213,9 @@ class TestStalledExitCode:
         )
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "stalled" in result.output
@@ -232,9 +232,9 @@ class TestCostLimitExitCode:
         state = _make_execution_state(run_status="cost_limit")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 3
@@ -253,32 +253,32 @@ class TestInterruptedExitCode:
         mock_rc = AsyncMock(return_value=InterruptedResult())
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 130
 
 
 class TestMissingPlanFile:
-    """TS-16-E1: Missing plan file.
+    """TS-16-E1: Missing plan database.
 
     Requirement: 16-REQ-1.E1
     """
 
     def test_missing_plan_exits_code_1(self, cli_runner: CliRunner) -> None:
         """The command exits with code 1 when no plan exists."""
-        with patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path:
-            mock_plan_path.exists.return_value = False
+        with patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path:
+            mock_db_path.exists.return_value = False
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
 
     def test_missing_plan_mentions_plan(self, cli_runner: CliRunner) -> None:
         """Error message mentions the plan."""
-        with patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path:
-            mock_plan_path.exists.return_value = False
+        with patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path:
+            mock_db_path.exists.return_value = False
             result = cli_runner.invoke(main, ["code"])
 
         assert "plan" in result.output.lower()
@@ -296,9 +296,9 @@ class TestUnexpectedException:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
@@ -309,9 +309,9 @@ class TestUnexpectedException:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "error" in result.output.lower()
@@ -332,9 +332,9 @@ class TestEmptyPlan:
         )
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0
@@ -348,9 +348,9 @@ class TestEmptyPlan:
         )
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert "No tasks to execute" in result.output
@@ -370,9 +370,9 @@ class TestUnknownRunStatus:
         )
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 1
@@ -396,9 +396,9 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--debug"])
 
         mock_rc.assert_called_once()
@@ -411,9 +411,9 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             cli_runner.invoke(main, ["code"])
 
         mock_rc.assert_called_once()
@@ -426,9 +426,9 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             cli_runner.invoke(main, ["code", "--debug"])
 
         assert mock_rc.call_args.kwargs["debug"] is True
@@ -440,9 +440,9 @@ class TestDebugFlag:
 
         with (
             patch("agent_fox.cli.code.run_code", mock_rc),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             cli_runner.invoke(main, ["code"])
 
         assert mock_rc.call_args.kwargs["debug"] is False
@@ -619,9 +619,9 @@ class TestFinallyBlockCleanup:
         state = _make_execution_state(run_status="completed")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0
@@ -631,9 +631,9 @@ class TestFinallyBlockCleanup:
         state = _make_execution_state(run_status="completed")
         with (
             patch("agent_fox.cli.code.run_code", _mock_run_code(state)),
-            patch("agent_fox.cli.code.PLAN_PATH") as mock_plan_path,
+            patch("agent_fox.core.paths.DEFAULT_DB_PATH") as mock_db_path,
         ):
-            mock_plan_path.exists.return_value = True
+            mock_db_path.exists.return_value = True
             result = cli_runner.invoke(main, ["code"])
 
         assert result.exit_code == 0

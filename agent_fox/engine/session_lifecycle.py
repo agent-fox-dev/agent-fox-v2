@@ -244,7 +244,9 @@ class NodeSessionRunner:
 
         Requirements: 05-REQ-4.1, 05-REQ-4.2, 104-REQ-5.1
         """
-        spec_dir = repo_root / ".specs" / self._spec_name
+        from agent_fox.core.config import resolve_spec_root
+
+        spec_dir = resolve_spec_root(self._config, repo_root) / self._spec_name
 
         # 104-REQ-5.1: Use AdaptiveRetriever for knowledge context
         knowledge_context: str = ""
@@ -755,6 +757,8 @@ class NodeSessionRunner:
                 exc_info=True,
             )
             return
+        from agent_fox.core.config import resolve_spec_root
+
         persist_review_findings(
             transcript,
             node_id,
@@ -766,6 +770,7 @@ class NodeSessionRunner:
             sink=self._sink,
             run_id=self._run_id,
             mode=self._mode,
+            specs_dir=resolve_spec_root(self._config, Path.cwd()),
         )
 
     def _build_retry_context(self, spec_name: str) -> str:

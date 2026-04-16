@@ -62,3 +62,53 @@ def create_platform(config: object, project_root: Path) -> GitHubPlatform:
 
     url = getattr(platform_cfg, "url", "") or "github.com"
     return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)
+
+
+def create_platform_safe(config: object, project_root: Path) -> GitHubPlatform | None:
+    """Create a platform instance, returning None if not configured.
+
+    Unlike create_platform(), does not call sys.exit() on missing config
+    or credentials. Returns None silently when:
+    - platform type is "none" or unsupported
+    - GITHUB_PAT environment variable is absent
+
+    Requirements: 108-REQ-5.3
+    """
+    platform_cfg = getattr(config, "platform", None)
+    platform_type = getattr(platform_cfg, "type", "none")
+
+    if platform_type == "none":
+        return None
+
+    if platform_type not in _SUPPORTED_PLATFORMS:
+        logger.debug(
+            "create_platform_safe: unsupported platform type '%s'; returning None",
+            platform_type,
+        )
+        return None
+
+    token = os.environ.get("GITHUB_PAT", "")
+    if not token:
+        logger.debug("create_platform_safe: GITHUB_PAT not set; returning None")
+        return None
+
+    # Try to detect owner/repo from git remote
+    owner, repo = "owner", "repo"
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            cwd=str(project_root),
+        )
+        if result.returncode == 0:
+            parsed = parse_github_remote(result.stdout.strip())
+            if parsed:
+                owner, repo = parsed
+    except Exception:
+        pass
+
+    url = getattr(platform_cfg, "url", "") or "github.com"
+    return GitHubPlatform(owner=owner, repo=repo, token=token, url=url)

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import duckdb
+from anthropic.types import TextBlock
 
 from agent_fox.knowledge.entities import AnalysisResult, LinkResult
 from agent_fox.knowledge.entity_linker import link_facts
@@ -267,7 +268,10 @@ async def _call_llm_json(model: str, prompt: str, context: dict) -> dict:
         messages=[{"role": "user", "content": full_prompt}],
     )
 
-    text = response.content[0].text.strip()
+    block = response.content[0]
+    if not isinstance(block, TextBlock):
+        raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
+    text = block.text.strip()
     # Strip markdown code fences if present
     if text.startswith("```"):
         lines = text.splitlines()

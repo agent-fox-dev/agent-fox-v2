@@ -807,7 +807,7 @@ class NightShiftConfig(BaseModel):
         description="Seconds between issue checks (minimum 60)",
     )
     hunt_scan_interval: int = Field(
-        default=14400,
+        default=21600,
         description="Seconds between hunt scans (minimum 60)",
     )
     categories: NightShiftCategoryConfig = Field(
@@ -822,7 +822,7 @@ class NightShiftConfig(BaseModel):
     # --- New fields for daemon framework (spec 85) ---
 
     spec_interval: int = Field(
-        default=60,
+        default=300,
         description="Seconds between spec executor cycles (minimum 10)",
     )
     enabled_streams: list[str] = Field(
@@ -840,6 +840,38 @@ class NightShiftConfig(BaseModel):
         default=False,
         description="Push fix branches to origin before harvest",
     )
+
+    # --- Embedding-based duplicate detection (spec 110) ---
+
+    similarity_threshold: float = Field(
+        default=0.85,
+        description=(
+            "Cosine similarity threshold for duplicate/ignore detection (0.0 to 1.0). "
+            "Higher values = stricter matching (fewer suppressed findings). "
+            "Lower values = looser matching (more aggressive dedup)."
+        ),
+    )
+
+    @field_validator("similarity_threshold")
+    @classmethod
+    def clamp_similarity_threshold(cls, v: float) -> float:
+        """Clamp similarity_threshold to [0.0, 1.0].
+
+        Requirements: 110-REQ-7.1
+        """
+        if v < 0.0:
+            logger.warning(
+                "Config field 'similarity_threshold' value %f below minimum, clamped to 0.0",
+                v,
+            )
+            return 0.0
+        if v > 1.0:
+            logger.warning(
+                "Config field 'similarity_threshold' value %f above maximum, clamped to 1.0",
+                v,
+            )
+            return 1.0
+        return v
 
     @field_validator("spec_interval")
     @classmethod
@@ -900,9 +932,32 @@ class NightShiftConfig(BaseModel):
         return v
 
 
+class PathsConfig(BaseModel):
+    """Path configuration for project directories.
+
+    Allows overriding the spec root directory location.
+    The default was changed from ``.specs`` to ``.agent-fox/specs``
+    to consolidate project artifacts under ``.agent-fox/``.
+
+    Requirements: 371-REQ-1.1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    spec_root: str = Field(
+        default=".agent-fox/specs",
+        description="Spec root directory relative to project root",
+    )
+
+
+# Default spec root for backward compatibility fallback
+_LEGACY_SPEC_ROOT = ".specs"
+
+
 class AgentFoxConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
+    paths: PathsConfig = Field(default_factory=PathsConfig)
     orchestrator: OrchestratorConfig = Field(default_factory=OrchestratorConfig)
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
     models: ModelConfig = Field(default_factory=ModelConfig)
@@ -934,6 +989,11 @@ def load_config(path: Path | None = None) -> AgentFoxConfig:
     """
     # 01-REQ-2.E1: missing file returns defaults without error
     if path is None or not path.exists():
+        return AgentFoxConfig()
+
+    # Security: reject symlinks to prevent path traversal (CWE-59)
+    if path.is_symlink():
+        logger.warning("Config file is a symlink; skipping for security")
         return AgentFoxConfig()
 
     # Read and parse TOML
@@ -970,3 +1030,36 @@ def load_config(path: Path | None = None) -> AgentFoxConfig:
             path=str(path),
             details=exc.errors(),
         ) from exc
+
+
+def resolve_spec_root(config: AgentFoxConfig, project_root: Path) -> Path:
+    """Resolve the spec root directory from config with backward compatibility.
+
+    When the configured path is the default (``.agent-fox/specs``) and that
+    directory does not exist but the legacy ``.specs/`` does, falls back to
+    ``.specs/`` with a deprecation warning.
+
+    Args:
+        config: Loaded AgentFoxConfig.
+        project_root: Project root directory.
+
+    Returns:
+        Resolved Path to the spec root directory.
+
+    Requirements: 371-REQ-1.2
+    """
+    spec_root = config.paths.spec_root
+    spec_path = project_root / spec_root
+
+    # Backward compatibility: fall back to .specs/ when using the new default
+    # and only the legacy directory exists.
+    if spec_root == ".agent-fox/specs" and not spec_path.is_dir():
+        legacy = project_root / _LEGACY_SPEC_ROOT
+        if legacy.is_dir():
+            logger.warning(
+                "Using legacy spec root '.specs/' — migrate to "
+                "'.agent-fox/specs/' or set [paths] spec_root in config.toml"
+            )
+            return legacy
+
+    return spec_path

@@ -146,6 +146,14 @@ async def create_worktree(
         # Clean up stale feature branch if it exists (03-REQ-1.E2)
         await delete_branch(repo_root, branch_name, force=True)
 
+        # Also delete the remote tracking branch to prevent divergent
+        # histories when the branch is recreated from a newer base.
+        await run_git(
+            ["push", "origin", "--delete", branch_name],
+            cwd=repo_root,
+            check=False,
+        )
+
     # Create the feature branch from the base branch tip
     await create_branch(repo_root, branch_name, base_branch)
 

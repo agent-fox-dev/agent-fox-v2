@@ -431,6 +431,74 @@ class TestShellOperatorsBypassBlocked:
         assert allowed is True
 
 
+class TestShellVariableExpansionBlocked:
+    """Regression tests for issue #345: $VAR / ${VAR} bypasses operator filter.
+
+    Shell variable expansion must be treated as a shell operator because it
+    can leak secrets from the environment (e.g. $ANTHROPIC_API_KEY, ${PATH}).
+    """
+
+    def test_simple_var_expansion_blocked(self) -> None:
+        """$VAR expansion is detected and blocked."""
+        result = check_shell_operators("echo $HOME")
+        assert result is not None
+        assert "shell operator" in result.lower()
+
+    def test_braced_var_expansion_blocked(self) -> None:
+        """${VAR} braced expansion is detected and blocked."""
+        result = check_shell_operators("echo ${PATH}")
+        assert result is not None
+        assert "shell operator" in result.lower()
+
+    def test_api_key_leak_blocked(self) -> None:
+        """echo $ANTHROPIC_API_KEY is blocked (secret exfiltration)."""
+        result = check_shell_operators("echo $ANTHROPIC_API_KEY")
+        assert result is not None
+
+    def test_curl_secret_url_blocked(self) -> None:
+        """curl $SECRET_URL is blocked (secret in variable)."""
+        result = check_shell_operators("curl $SECRET_URL")
+        assert result is not None
+
+    def test_braced_api_key_leak_blocked(self) -> None:
+        """echo ${ANTHROPIC_API_KEY} (braced form) is blocked."""
+        result = check_shell_operators("echo ${ANTHROPIC_API_KEY}")
+        assert result is not None
+
+    def test_underscore_var_blocked(self) -> None:
+        """$_VAR (underscore-prefixed variable) is blocked."""
+        result = check_shell_operators("echo $_MY_SECRET")
+        assert result is not None
+
+    def test_var_expansion_end_to_end_blocked(self) -> None:
+        """End-to-end: echo $ANTHROPIC_API_KEY is blocked by check_command_allowed."""
+        allowed, msg = check_command_allowed("echo $ANTHROPIC_API_KEY", DEFAULT_ALLOWLIST)
+        assert allowed is False
+        assert "shell operator" in msg.lower()
+
+    def test_braced_var_end_to_end_blocked(self) -> None:
+        """End-to-end: curl ${SECRET_URL} is blocked by check_command_allowed."""
+        allowed, msg = check_command_allowed("curl ${SECRET_URL}", DEFAULT_ALLOWLIST)
+        assert allowed is False
+
+    def test_simple_command_without_dollar_still_allowed(self) -> None:
+        """Commands without $ are unaffected by the new pattern."""
+        assert check_shell_operators("echo hello") is None
+
+    def test_git_log_format_still_allowed(self) -> None:
+        """git log --format=%H (percent, not dollar) is still allowed."""
+        assert check_shell_operators("git log --format=%H") is None
+
+    def test_hook_blocks_var_expansion(self) -> None:
+        """Pre-tool-use hook blocks $VAR expansion in Bash tool."""
+        hook = make_pre_tool_use_hook(SecurityConfig())
+        result = hook(
+            tool_name="Bash",
+            tool_input={"command": "echo $ANTHROPIC_API_KEY"},
+        )
+        assert result["decision"] == "block"
+
+
 class TestPreToolUseHookShellOperators:
     """Verify the pre-tool-use hook blocks shell operator bypass attempts."""
 

@@ -17,12 +17,13 @@ import click
 from rich.console import Console
 
 from agent_fox.cli import handle_agent_fox_errors
-from agent_fox.core.paths import AGENT_FOX_DIR, DEFAULT_DB_PATH
+from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.reporting.formatters import (
     OutputFormat,
     get_formatter,
     write_output,
 )
+from agent_fox.reporting.status import StatusReport
 from agent_fox.reporting.status import generate_status as _reporting_generate_status
 
 logger = logging.getLogger(__name__)
@@ -30,19 +31,29 @@ logger = logging.getLogger(__name__)
 
 def generate_status(
     db_path: Path | None = None,
-) -> None:
-    """Graceful existence check for the DuckDB status file (TS-105-E6).
+) -> StatusReport | None:
+    """Generate a status report from a DuckDB database file (TS-105-E6).
 
-    Returns ``None`` when ``db_path`` is absent so ``af status`` can display
-    "No plan found" instead of raising an exception.  The full status report
-    is rendered by ``_reporting_generate_status`` inside ``status_cmd``, which
-    accepts an optional DuckDB connection for plan_nodes queries.
+    Returns ``None`` when ``db_path`` is absent or does not exist, so the
+    caller can display "No plan found" instead of raising an exception.  When
+    the database file is present, opens a read-only connection and delegates
+    to the reporting layer to produce a full ``StatusReport``.
 
     Requirements: 105-REQ-6.E1
     """
     if db_path is None or not Path(db_path).exists():
         return None
-    return None
+    try:
+        import duckdb as _duckdb
+
+        conn = _duckdb.connect(str(db_path), read_only=True)
+        try:
+            return _reporting_generate_status(db_conn=conn)
+        finally:
+            conn.close()
+    except Exception:
+        logger.debug("Failed to generate status from DB at %s", db_path, exc_info=True)
+        return None
 
 
 def _get_readonly_conn():
@@ -64,11 +75,11 @@ def _get_readonly_conn():
         return None
 
 
-def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
+def _display_critical_path(json_mode: bool) -> None:
     """Compute and display critical path from the task graph.
 
-    Loads the plan, extracts graph structure and duration hints,
-    then computes and displays the critical path.
+    Loads the plan from DuckDB, extracts graph structure and duration
+    hints, then computes and displays the critical path.
 
     Requirement: 43-REQ-2.2
     """
@@ -79,9 +90,16 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
         )
         from agent_fox.graph.persistence import load_plan
 
-        graph = load_plan(plan_path)
+        db_conn = _get_readonly_conn()
+        if db_conn is None:
+            logger.info("No database found; skipping critical path output")
+            return
+        try:
+            graph = load_plan(db_conn)
+        finally:
+            db_conn.close()
         if graph is None:
-            logger.info("No plan file found; skipping critical path output")
+            logger.info("No plan found in database; skipping critical path output")
             return
 
         # Build node status dict, edges (predecessors), and duration hints
@@ -120,13 +138,10 @@ def _display_critical_path(plan_path: Path, json_mode: bool) -> None:
 def status_cmd(ctx: click.Context, model: bool) -> None:
     """Show execution progress dashboard."""
     json_mode = ctx.obj.get("json", False)
-    project_root = Path.cwd()
-    agent_dir = project_root / AGENT_FOX_DIR
-    plan_path = agent_dir / "plan.json"
 
     db_conn = _get_readonly_conn()
     try:
-        report = _reporting_generate_status(plan_path=plan_path, db_conn=db_conn)
+        report = _reporting_generate_status(db_conn=db_conn)
     finally:
         if db_conn is not None:
             db_conn.close()
@@ -167,4 +182,4 @@ def status_cmd(ctx: click.Context, model: bool) -> None:
             logger.info("No DuckDB database found; skipping project model output")
 
         # Critical path computation from task graph
-        _display_critical_path(plan_path, json_mode)
+        _display_critical_path(json_mode)

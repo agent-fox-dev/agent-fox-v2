@@ -138,4 +138,41 @@ class PlatformProtocol(Protocol):
         """
         ...
 
+    async def update_issue(
+        self,
+        issue_number: int,
+        body: str,
+    ) -> None:
+        """Update the body of an existing issue.
+
+        Used by the ignore ingestion pipeline to append the
+        ``<!-- af:knowledge-ingested -->`` marker to af:ignore issue bodies
+        after they have been ingested into the knowledge store.
+
+        Requirements: 110-REQ-5.3
+        """
+        ...
+
+    async def create_label(
+        self,
+        name: str,
+        color: str,
+        description: str = "",
+    ) -> None:
+        """Create a label on the repository, succeeding silently if it exists.
+
+        Uses POST /repos/{owner}/{repo}/labels.  Treats a 422
+        "already_exists" response as success so this method is safe to
+        call on every ``af init`` run.
+
+        Args:
+            name: Label name (e.g. ``"af:fix"``).
+            color: Six-character hex color without leading ``#``
+                   (e.g. ``"12ec39"``).
+            description: Optional human-readable description.
+
+        Requirements: 358-REQ-1, 358-REQ-2
+        """
+        ...
+
     async def close(self) -> None: ...

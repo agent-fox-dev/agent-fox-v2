@@ -88,6 +88,10 @@ def _collect_doc_files(project_root: Path) -> list[Path]:
     # Root-level docs: README.md, CONTRIBUTING.md, CHANGELOG.md
     for name in ("README.md", "CONTRIBUTING.md", "CHANGELOG.md"):
         candidate = project_root / name
+        # Security: reject symlinks to prevent path traversal (CWE-59)
+        if candidate.is_symlink():
+            logger.warning("Skipping root-level symlink for security: %s", candidate)
+            continue
         if candidate.is_file():
             files.append(candidate)
 
@@ -96,7 +100,15 @@ def _collect_doc_files(project_root: Path) -> list[Path]:
     if docs_dir.is_dir():
         adr_dir = docs_dir / "adr"
         errata_dir = docs_dir / "errata"
+        resolved_docs_dir = docs_dir.resolve()
         for md_file in sorted(docs_dir.rglob("*.md")):
+            # Security: reject symlinks that escape the docs/ boundary (CWE-59)
+            if md_file.is_symlink():
+                try:
+                    md_file.resolve().relative_to(resolved_docs_dir)
+                except ValueError:
+                    logger.warning("Skipping symlink pointing outside docs/: %s", md_file)
+                    continue
             # Skip files inside excluded subdirectories
             try:
                 md_file.relative_to(adr_dir)

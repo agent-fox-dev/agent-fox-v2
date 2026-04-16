@@ -12,21 +12,20 @@ Requirements: 04-REQ-1.1 through 04-REQ-1.4, 04-REQ-1.E1, 04-REQ-1.E2,
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from agent_fox.core.config import OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.engine import Orchestrator
-from agent_fox.engine.state import ExecutionState, compute_plan_hash_from_file
+from agent_fox.engine.state import ExecutionState
 
 from .conftest import (
     MockSessionOutcome,
     MockSessionRunner,
-    write_plan_file,
+    write_plan_to_db,
 )
 
 # -- Helpers ------------------------------------------------------------------
@@ -34,10 +33,9 @@ from .conftest import (
 
 
 
-def _linear_chain_plan(plan_dir: Path) -> Path:
-    """Create a 3-task linear chain plan: A -> B -> C."""
-    return write_plan_file(
-        plan_dir,
+def _linear_chain_db():
+    """Create a 3-task linear chain plan in DB: A -> B -> C."""
+    return write_plan_to_db(
         nodes={
             "spec:1": {"title": "Task A"},
             "spec:2": {"title": "Task B"},
@@ -64,19 +62,16 @@ class TestExecutionLoopLinearChain:
     @pytest.mark.asyncio
     async def test_sessions_dispatched_in_order(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sessions dispatched in dependency order: A, then B, then C."""
-        plan_path = _linear_chain_plan(tmp_plan_dir)
+        db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         await orchestrator.run()
@@ -88,19 +83,16 @@ class TestExecutionLoopLinearChain:
     @pytest.mark.asyncio
     async def test_all_nodes_completed(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """All nodes end in completed status."""
-        plan_path = _linear_chain_plan(tmp_plan_dir)
+        db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -112,19 +104,16 @@ class TestExecutionLoopLinearChain:
     @pytest.mark.asyncio
     async def test_total_sessions_count(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Total sessions count equals number of tasks."""
-        plan_path = _linear_chain_plan(tmp_plan_dir)
+        db_conn = _linear_chain_db()
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -142,12 +131,9 @@ class TestRetryWithError:
     @pytest.mark.asyncio
     async def test_retries_with_error_context(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Second attempt receives previous_error from first failure."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={"spec:1": {"title": "Task A"}},
             edges=[],
         )
@@ -173,12 +159,13 @@ class TestRetryWithError:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -199,12 +186,9 @@ class TestBlockedAfterRetries:
     @pytest.mark.asyncio
     async def test_blocked_after_max_retries(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Task blocked after 3 failed attempts (1 initial + 2 retries)."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={"spec:1": {"title": "Task A"}},
             edges=[],
         )
@@ -235,12 +219,13 @@ class TestBlockedAfterRetries:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -258,12 +243,9 @@ class TestGracefulShutdown:
     @pytest.mark.asyncio
     async def test_state_saved_on_interrupt(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
-        """state.jsonl exists after interruption with completed tasks."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        """DB state persists after interruption with completed tasks."""
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -304,12 +286,13 @@ class TestGracefulShutdown:
         config = OrchestratorConfig(
             parallel=1,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         # Simulate interrupt: set _interrupted flag after 2 sessions
@@ -333,12 +316,9 @@ class TestStalledExecution:
     @pytest.mark.asyncio
     async def test_stalled_run_status(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run status is 'stalled' when all tasks end up blocked."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -365,12 +345,13 @@ class TestStalledExecution:
             parallel=1,
             max_retries=0,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -390,11 +371,9 @@ class TestResumeWithInProgressTask:
     @pytest.mark.asyncio
     async def test_in_progress_treated_as_failed(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """In-progress task from prior run is reset and re-dispatched."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -406,9 +385,8 @@ class TestResumeWithInProgressTask:
         )
 
         # Pre-populate state via mock: A completed, B in_progress (interrupted)
-        plan_hash = compute_plan_hash_from_file(plan_path)
         prior_state = ExecutionState(
-            plan_hash=plan_hash,
+            plan_hash="test",
             node_states={"spec:1": "completed", "spec:2": "in_progress"},
             session_history=[],
             total_input_tokens=0,
@@ -425,6 +403,7 @@ class TestResumeWithInProgressTask:
             parallel=1,
             max_retries=2,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with patch(
@@ -433,8 +412,8 @@ class TestResumeWithInProgressTask:
         ):
             orchestrator = Orchestrator(
                 config=config,
-                plan_path=plan_path,
                 session_runner_factory=lambda nid, **kw: mock,
+                knowledge_db_conn=db_conn,
             )
 
             state = await orchestrator.run()
@@ -450,20 +429,20 @@ class TestResumeWithInProgressTask:
 
 
 class TestResumeAfterStatusSync:
-    """Plan hash stability after _sync_plan_statuses writes to plan.json.
+    """Plan hash stability after DB status sync.
 
-    Verify that updating node statuses in plan.json does not invalidate
+    Verify that updating node statuses in the DB does not invalidate
     the plan hash, allowing the orchestrator to resume correctly.
     """
 
     @pytest.mark.asyncio
     async def test_resume_after_status_sync_skips_completed(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
-        """After plan.json status sync, resume skips completed tasks."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        """After DB status sync, resume skips completed tasks."""
+        from agent_fox.graph.persistence import compute_plan_hash, load_plan
+
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -474,21 +453,25 @@ class TestResumeAfterStatusSync:
             order=["spec:1", "spec:2"],
         )
 
-        # Compute hash, then mutate plan.json status (simulates shutdown sync)
-        plan_hash = compute_plan_hash_from_file(plan_path)
-        plan_data = json.loads(plan_path.read_text())
-        plan_data["nodes"]["spec:1"]["status"] = "completed"
-        plan_path.write_text(json.dumps(plan_data, indent=2))
+        # Compute hash from graph
+        graph = load_plan(db_conn)
+        plan_hash = compute_plan_hash(graph)
 
-        # Hash should still match despite status change
-        assert compute_plan_hash_from_file(plan_path) == plan_hash
+        # Mutate status in DB (simulates shutdown sync)
+        db_conn.execute(
+            "UPDATE plan_nodes SET status = 'completed' WHERE id = 'spec:1'"
+        )
+
+        # Hash should still match despite status change (hash ignores status)
+        graph2 = load_plan(db_conn)
+        assert compute_plan_hash(graph2) == plan_hash
 
         mock = MockSessionRunner()
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -502,22 +485,19 @@ class TestResumeAfterStatusSync:
 
 
 class TestFreshStartWithCompletedNodes:
-    """Fresh start seeds node states from plan.json statuses.
+    """Fresh start seeds node states from DB plan statuses.
 
-    When no state.jsonl exists, the orchestrator should read node
-    statuses from plan.json (which reflect tasks.md [x] markers)
+    When no prior DB state exists, the orchestrator should read node
+    statuses from the plan in DB (which reflect tasks.md [x] markers)
     rather than hardcoding everything to pending.
     """
 
     @pytest.mark.asyncio
     async def test_completed_nodes_in_plan_are_skipped(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
-        """Nodes marked completed in plan.json are skipped on fresh start."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        """Nodes marked completed in DB are skipped on fresh start."""
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A", "status": "completed"},
                 "spec:2": {"title": "Task B"},
@@ -528,14 +508,13 @@ class TestFreshStartWithCompletedNodes:
             order=["spec:1", "spec:2"],
         )
 
-        # No state.jsonl — fresh start
+        # No prior DB state — fresh start
         mock = MockSessionRunner()
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -557,12 +536,9 @@ class TestCostLimitStopsOrchestrator:
     @pytest.mark.asyncio
     async def test_cost_limit_stops_dispatching(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """C is NOT dispatched when cost limit exceeded after A + B."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -608,12 +584,13 @@ class TestCostLimitStopsOrchestrator:
             parallel=1,
             max_cost=0.50,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -626,12 +603,9 @@ class TestCostLimitStopsOrchestrator:
     @pytest.mark.asyncio
     async def test_cost_limit_run_status(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Run status indicates cost_limit when limit is reached."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={"spec:1": {"title": "Task A"}},
             edges=[],
         )
@@ -652,12 +626,13 @@ class TestCostLimitStopsOrchestrator:
             parallel=1,
             max_cost=0.50,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -677,12 +652,9 @@ class TestSessionLimitStopsOrchestrator:
     @pytest.mark.asyncio
     async def test_session_limit_stops_dispatching(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Exactly 3 sessions dispatched with max_sessions=3."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
                 "spec:2": {"title": "Task 2"},
@@ -698,12 +670,13 @@ class TestSessionLimitStopsOrchestrator:
             parallel=1,
             max_sessions=3,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -716,12 +689,9 @@ class TestSessionLimitStopsOrchestrator:
     @pytest.mark.asyncio
     async def test_session_limit_remaining_pending(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """2 nodes remain pending after session limit is reached."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
                 "spec:2": {"title": "Task 2"},
@@ -737,12 +707,13 @@ class TestSessionLimitStopsOrchestrator:
             parallel=1,
             max_sessions=3,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -752,27 +723,27 @@ class TestSessionLimitStopsOrchestrator:
 
 
 class TestMissingPlanFile:
-    """TS-04-E1: Missing plan file.
+    """TS-04-E1: Missing plan (no plan in DB).
 
-    Verify orchestrator raises PlanError when plan.json is missing.
+    Verify orchestrator raises PlanError when no plan exists in DB.
     """
 
     @pytest.mark.asyncio
     async def test_raises_plan_error(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
-        """PlanError raised when plan.json does not exist."""
-        plan_path = tmp_plan_dir / "plan.json"  # Not created
+        """PlanError raised when no plan exists in DB."""
+        from tests.unit.engine.conftest import _create_db_with_schema
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        # DB with schema but no plan data
+        empty_db = _create_db_with_schema()
+
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=empty_db,
         )
 
         with pytest.raises(PlanError) as exc_info:
@@ -783,19 +754,18 @@ class TestMissingPlanFile:
     @pytest.mark.asyncio
     async def test_no_sessions_dispatched(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No sessions are dispatched when plan is missing."""
-        plan_path = tmp_plan_dir / "plan.json"
+        from tests.unit.engine.conftest import _create_db_with_schema
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        empty_db = _create_db_with_schema()
+
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=empty_db,
         )
 
         with pytest.raises(PlanError):
@@ -813,23 +783,19 @@ class TestEmptyPlan:
     @pytest.mark.asyncio
     async def test_empty_plan_completes_immediately(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Empty plan returns completed status with zero sessions."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={},
             edges=[],
         )
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -840,23 +806,19 @@ class TestEmptyPlan:
     @pytest.mark.asyncio
     async def test_no_sessions_dispatched_for_empty_plan(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No sessions dispatched for an empty plan."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={},
             edges=[],
         )
 
-        config = OrchestratorConfig(parallel=1, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         await orchestrator.run()
@@ -875,14 +837,12 @@ class TestSyncBarrierTriggering:
     @pytest.mark.asyncio
     async def test_sync_barrier_fires_at_interval(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
+        tmp_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sync barrier fires after sync_interval completions."""
         # 5 tasks, sync_interval=5 => barrier fires once (at task 5)
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
                 "spec:2": {"title": "Task 2"},
@@ -910,13 +870,14 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
-                plan_path=plan_path,
-    
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                specs_dir=tmp_plan_dir.parent / ".specs",
+                knowledge_db_conn=db_conn,
+                specs_dir=tmp_path / ".specs",
             )
 
             state = await orchestrator.run()
@@ -928,16 +889,14 @@ class TestSyncBarrierTriggering:
     @pytest.mark.asyncio
     async def test_sync_barrier_fires_multiple_times(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
+        tmp_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Sync barrier fires at each interval crossing."""
         # 6 tasks, sync_interval=3 => barrier fires at task 3 and 6
         nodes = {f"spec:{i}": {"title": f"Task {i}"} for i in range(1, 7)}
         edges = [{"source": f"spec:{i}", "target": f"spec:{i + 1}", "kind": "intra_spec"} for i in range(1, 6)]
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes=nodes,
             edges=edges,
             order=[f"spec:{i}" for i in range(1, 7)],
@@ -954,13 +913,14 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
-                plan_path=plan_path,
-    
                 session_runner_factory=lambda nid, **kw: mock_runner,
-                specs_dir=tmp_plan_dir.parent / ".specs",
+                knowledge_db_conn=db_conn,
+                specs_dir=tmp_path / ".specs",
             )
 
             state = await orchestrator.run()
@@ -972,13 +932,10 @@ class TestSyncBarrierTriggering:
     @pytest.mark.asyncio
     async def test_sync_barrier_disabled_when_interval_zero(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """No barrier fires when sync_interval=0 (disabled)."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
                 "spec:2": {"title": "Task 2"},
@@ -995,6 +952,7 @@ class TestSyncBarrierTriggering:
             parallel=1,
             sync_interval=0,
             inter_session_delay=0,
+            hot_load=False,
         )
 
         with (
@@ -1004,9 +962,8 @@ class TestSyncBarrierTriggering:
         ):
             orchestrator = Orchestrator(
                 config=config,
-                plan_path=plan_path,
-    
                 session_runner_factory=lambda nid, **kw: mock_runner,
+                knowledge_db_conn=db_conn,
             )
 
             state = await orchestrator.run()
@@ -1018,13 +975,10 @@ class TestSyncBarrierTriggering:
     @pytest.mark.asyncio
     async def test_sync_barrier_without_specs_dir(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Barrier still renders summary when no specs_dir provided."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task 1"},
                 "spec:2": {"title": "Task 2"},
@@ -1048,12 +1002,13 @@ class TestSyncBarrierTriggering:
             patch(
                 "agent_fox.knowledge.rendering.render_summary",
             ) as mock_render,
+            patch("agent_fox.engine.barrier.sync_develop_bidirectional", new_callable=AsyncMock),
+            patch("agent_fox.engine.barrier.verify_worktrees", return_value=[]),
         ):
             orchestrator = Orchestrator(
                 config=config,
-                plan_path=plan_path,
-    
                 session_runner_factory=lambda nid, **kw: mock_runner,
+                knowledge_db_conn=db_conn,
             )
 
             await orchestrator.run()
@@ -1075,13 +1030,10 @@ class TestParallelDispatchWithDependencies:
     @pytest.mark.asyncio
     async def test_dependent_task_runs_after_prerequisite(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """In parallel mode, B waits for A; C waits for B."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -1094,12 +1046,11 @@ class TestParallelDispatchWithDependencies:
             order=["spec:1", "spec:2", "spec:3"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -1111,14 +1062,11 @@ class TestParallelDispatchWithDependencies:
     @pytest.mark.asyncio
     async def test_independent_tasks_dispatched_together(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Independent tasks are dispatched in the same pool cycle."""
         # A -> C, B -> C  (A and B are independent, C depends on both)
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec_a:1": {"title": "Task A"},
                 "spec_b:1": {"title": "Task B"},
@@ -1131,12 +1079,11 @@ class TestParallelDispatchWithDependencies:
             order=["spec_a:1", "spec_b:1", "spec_c:1"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -1150,12 +1097,9 @@ class TestParallelDispatchWithDependencies:
     @pytest.mark.asyncio
     async def test_cascade_block_prevents_dependent_dispatch(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """When A fails, B (which depends on A) is not dispatched."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec:1": {"title": "Task A"},
                 "spec:2": {"title": "Task B"},
@@ -1182,12 +1126,13 @@ class TestParallelDispatchWithDependencies:
             parallel=4,
             max_retries=0,
             inter_session_delay=0,
+            sync_interval=0,
+            hot_load=False,
         )
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -1200,8 +1145,6 @@ class TestParallelDispatchWithDependencies:
     @pytest.mark.asyncio
     async def test_streaming_pool_dispatches_unblocked_tasks(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
         mock_runner: MockSessionRunner,
     ) -> None:
         """Streaming pool dispatches newly-ready tasks without waiting
@@ -1211,8 +1154,7 @@ class TestParallelDispatchWithDependencies:
         ready and should be dispatched even if B is still running.
         All three should complete.
         """
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec_a:1": {"title": "Task A"},
                 "spec_b:1": {"title": "Task B"},
@@ -1224,12 +1166,11 @@ class TestParallelDispatchWithDependencies:
             order=["spec_a:1", "spec_b:1", "spec_c:1"],
         )
 
-        config = OrchestratorConfig(parallel=4, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=4, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()
@@ -1240,16 +1181,13 @@ class TestParallelDispatchWithDependencies:
     @pytest.mark.asyncio
     async def test_pool_bounded_by_max_parallelism(
         self,
-        tmp_plan_dir: Path,
-        tmp_state_path: Path,
     ) -> None:
         """Only max_parallelism tasks are in_progress at any given time.
 
         With 6 independent tasks and parallelism=2, at most 2 tasks
         should be in_progress simultaneously.
         """
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={f"spec:{i}": {"title": f"Task {i}"} for i in range(1, 7)},
             edges=[],
         )
@@ -1272,12 +1210,11 @@ class TestParallelDispatchWithDependencies:
                 return result
 
         mock = ConcurrencyTracker()
-        config = OrchestratorConfig(parallel=2, inter_session_delay=0)
+        config = OrchestratorConfig(parallel=2, inter_session_delay=0, sync_interval=0, hot_load=False)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
-
             session_runner_factory=lambda nid, **kw: mock,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orchestrator.run()

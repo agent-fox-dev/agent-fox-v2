@@ -318,7 +318,7 @@ class TestSuccessfulFixHarvestsAndCloses:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -384,7 +384,7 @@ class TestSuccessfulFixHarvestsAndCloses:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -454,7 +454,7 @@ class TestSuccessfulFixHarvestsAndCloses:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 outcome.response = review_response
@@ -789,7 +789,7 @@ class TestReviewerRetryOnParseFailure:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 call_count += 1
@@ -854,7 +854,7 @@ class TestReviewerRetryOnParseFailure:
                 cache_read_input_tokens=0,
                 cache_creation_input_tokens=0,
             )
-            if archetype == "triage":
+            if archetype == "maintainer":
                 outcome.response = triage_response
             elif archetype == "reviewer":
                 # Always unparseable

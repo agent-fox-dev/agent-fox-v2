@@ -7,7 +7,6 @@ Requirements: 15-REQ-1.* through 15-REQ-8.*
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -32,7 +31,7 @@ from .conftest import (
     make_execution_state,
     make_session_record,
     mock_state,
-    write_plan_file,
+    write_plan_to_db,
 )
 
 # -- Helpers ------------------------------------------------------------------
@@ -94,7 +93,7 @@ def _make_sample_report(
     if file_overlaps is None:
         file_overlaps = [
             FileOverlap(
-                path=".agent-fox/state.jsonl",
+                path="agent_fox/engine/state.py",
                 agent_task_ids=["07_ops:3", "10_plat:2"],
                 human_commits=[
                     "7510417abcdef1234567890abcdef1234567890ab",
@@ -311,7 +310,7 @@ class TestFileOverlapsSection:
         """Overlap line shows path, truncated SHAs, display task IDs."""
         report = _make_sample_report()
         output = TableFormatter().format_standup(report)
-        expected = "  .agent-fox/state.jsonl — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
+        expected = "  agent_fox/engine/state.py — commits: 7510417, 77156b5 | agents: 07_ops/3, 10_plat/2"
         assert expected in output
 
 
@@ -398,7 +397,6 @@ class TestPerTaskActivityGeneration:
 
     def test_per_task_breakdown_from_sessions(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Task activities computed from windowed session records."""
@@ -406,7 +404,7 @@ class TestPerTaskActivityGeneration:
             "s:1": {"title": "T1"},
             "s:2": {"title": "T2"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         sessions = [
             make_session_record(
@@ -444,10 +442,9 @@ class TestPerTaskActivityGeneration:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=24,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         assert len(report.task_activities) == 2
@@ -478,7 +475,6 @@ class TestEnrichedQueueSummary:
 
     def test_queue_enriched_fields(
         self,
-        tmp_plan_dir: Path,
         tmp_path: Path,
     ) -> None:
         """Queue summary includes total, in_progress, ready_task_ids."""
@@ -489,7 +485,7 @@ class TestEnrichedQueueSummary:
             "s:4": {"title": "T4"},
             "s:5": {"title": "T5"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -503,10 +499,9 @@ class TestEnrichedQueueSummary:
 
         with mock_state(state):
             report = generate_standup(
-                plan_path=plan_path,
                 repo_path=tmp_path,
                 hours=24,
-                db_conn=MagicMock(),
+                db_conn=conn,
             )
 
         assert report.queue.total == 5

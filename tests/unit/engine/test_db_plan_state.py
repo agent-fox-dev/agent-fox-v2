@@ -150,11 +150,14 @@ def test_status_persisted(
 
     Requirements: 105-REQ-2.1, 105-REQ-2.4
     """
-    original_updated_at = plan_with_node.sql("SELECT updated_at FROM plan_nodes WHERE id = 'spec_a:1'").fetchone()[0]
+    ts_row = plan_with_node.sql("SELECT updated_at FROM plan_nodes WHERE id = 'spec_a:1'").fetchone()
+    assert ts_row is not None
+    original_updated_at = ts_row[0]
 
     persist_node_status(plan_with_node, "spec_a:1", "in_progress")
 
     row = plan_with_node.sql("SELECT status, updated_at FROM plan_nodes WHERE id = 'spec_a:1'").fetchone()
+    assert row is not None
     assert row[0] == "in_progress"
     # updated_at must change (or at minimum not be earlier)
     assert row[1] >= original_updated_at
@@ -214,8 +217,9 @@ def test_blocked_reason(plan_with_node: duckdb.DuckDBPyConnection) -> None:
         blocked_reason="upstream failed",
     )
 
-    reason = plan_with_node.sql("SELECT blocked_reason FROM plan_nodes WHERE id = 'spec_a:1'").fetchone()[0]
-    assert reason == "upstream failed"
+    reason_row = plan_with_node.sql("SELECT blocked_reason FROM plan_nodes WHERE id = 'spec_a:1'").fetchone()
+    assert reason_row is not None
+    assert reason_row[0] == "upstream failed"
 
 
 # -- Tests: TS-105-7 Session record with extended fields ----------------------
@@ -447,9 +451,10 @@ def test_null_error_message(db_conn: duckdb.DuckDBPyConnection) -> None:
     )
     record_session(db_conn, record)
 
-    val = db_conn.sql("SELECT error_message FROM session_outcomes WHERE id = 's_success'").fetchone()[0]
+    val_row = db_conn.sql("SELECT error_message FROM session_outcomes WHERE id = 's_success'").fetchone()
+    assert val_row is not None
     # Must be SQL NULL, not empty string
-    assert val is None
+    assert val_row[0] is None
 
 
 # -- Edge case tests: TS-105-E5 Incomplete run detected on resume --------------
@@ -469,25 +474,133 @@ def test_incomplete_run_resume(db_conn: duckdb.DuckDBPyConnection) -> None:
     assert run.status == "running"
 
     # Only one run row should exist
-    count = db_conn.sql("SELECT count(*) FROM runs").fetchone()[0]
-    assert count == 1
+    count_row = db_conn.sql("SELECT count(*) FROM runs").fetchone()
+    assert count_row is not None
+    assert count_row[0] == 1
+
+
+# -- Regression tests: issue #379 — empty plan_nodes must not block session/run loading ---
+
+
+def test_load_state_from_db_empty_plan_nodes_loads_sessions(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Regression #379: load_state_from_db returns session history even when plan_nodes is empty.
+
+    The nightshift path can populate session_outcomes without ever writing to
+    plan_nodes.  The old code returned None immediately when plan_nodes was
+    empty, silently discarding all session data.
+    """
+    from agent_fox.engine.state import SessionOutcomeRecord, load_state_from_db, record_session
+
+    # plan_nodes intentionally left empty (nightshift scenario)
+    pn_row = db_conn.sql("SELECT count(*) FROM plan_nodes").fetchone()
+    assert pn_row is not None
+    assert pn_row[0] == 0
+
+    # Insert a session outcome directly (as the engine result-handler would)
+    record_session(
+        db_conn,
+        SessionOutcomeRecord(
+            id="s_nightshift",
+            spec_name="spec_a",
+            task_group="1",
+            node_id="spec_a:1",
+            touched_path="foo.py",
+            status="completed",
+            input_tokens=12_000,
+            output_tokens=3_000,
+            duration_ms=8_000,
+            created_at="2026-01-01T12:00:00",
+            run_id="run_ns",
+            attempt=1,
+            cost=0.42,
+            model="claude-sonnet-4-6",
+            archetype="coder",
+            commit_sha="deadbeef",
+            error_message=None,
+            is_transport_error=False,
+        ),
+    )
+
+    state = load_state_from_db(db_conn)
+
+    # Must NOT return None — plan_nodes being empty is not an error
+    assert state is not None
+    assert state.node_states == {}
+
+    # Session history must be populated
+    assert len(state.session_history) == 1
+    session = state.session_history[0]
+    assert session.node_id == "spec_a:1"
+    assert session.input_tokens == 12_000
+    assert abs(session.cost - 0.42) < 1e-9
+
+
+def test_load_state_from_db_empty_plan_nodes_loads_run_totals(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Regression #379: load_state_from_db returns run totals even when plan_nodes is empty."""
+    from agent_fox.engine.state import create_run, load_state_from_db, update_run_totals
+
+    # plan_nodes intentionally left empty
+    pn_row = db_conn.sql("SELECT count(*) FROM plan_nodes").fetchone()
+    assert pn_row is not None
+    assert pn_row[0] == 0
+
+    create_run(db_conn, "run_ns", "hash_nightshift")
+    # update_run_totals accumulates — call three times to represent 3 sessions
+    update_run_totals(db_conn, "run_ns", input_tokens=20_000, output_tokens=4_000, cost=0.70)
+    update_run_totals(db_conn, "run_ns", input_tokens=15_000, output_tokens=3_000, cost=0.55)
+    update_run_totals(db_conn, "run_ns", input_tokens=15_000, output_tokens=3_000, cost=0.50)
+
+    state = load_state_from_db(db_conn)
+
+    assert state is not None
+    assert state.total_input_tokens == 50_000
+    assert state.total_output_tokens == 10_000
+    assert abs(state.total_cost - 1.75) < 1e-9
+    assert state.total_sessions == 3
 
 
 # -- Edge case tests: TS-105-E6 DB missing for af status ----------------------
 
 
 def test_missing_db_status(tmp_path) -> None:
-    """TS-105-E6: af status displays 'No plan found' when DB does not exist.
+    """TS-105-E6: generate_status returns None when DB does not exist.
 
     Requirements: 105-REQ-6.E1
     """
     nonexistent_db = tmp_path / "nonexistent.duckdb"
     assert not nonexistent_db.exists()
 
-    # The status command or generate_status function must handle missing DB
-    # gracefully (no crash, shows "No plan found" or empty dashboard).
-    from agent_fox.cli.status import generate_status  # noqa: F401
+    from agent_fox.cli.status import generate_status
 
     result = generate_status(db_path=nonexistent_db)
-    # Either result contains "No plan found" or is a falsy/empty value
-    assert result is None or "No plan found" in str(result) or result == {}
+    # Must be exactly None — not a falsy-but-meaningful value
+    assert result is None
+
+
+def test_existing_db_status(tmp_path) -> None:
+    """TS-105-E6 (existing DB): generate_status returns a StatusReport when DB exists.
+
+    Regression guard: ensures generate_status does not always return None,
+    which would make test_missing_db_status trivially pass and hide the bug.
+
+    Requirements: 105-REQ-6.E1
+    """
+    import duckdb as _duckdb
+
+    from agent_fox.cli.status import generate_status
+    from agent_fox.reporting.status import StatusReport
+
+    db_path = tmp_path / "test_status.duckdb"
+    conn = _duckdb.connect(str(db_path))
+    conn.execute(_FULL_SCHEMA_DDL)
+    conn.close()
+    assert db_path.exists()
+
+    result = generate_status(db_path=db_path)
+    # Must return a StatusReport, not None, when the DB file is present
+    assert result is not None
+    assert isinstance(result, StatusReport)

@@ -11,12 +11,12 @@ Before making any changes, orient yourself:
 2. **Read `docs/memory.md`** — accumulated knowledge from prior automated
    sessions: gotchas, patterns, decisions, conventions, fragile areas. Skipping
    this file means repeating mistakes that were already discovered.
-3. **Read `.specs/steering.md`** if it exists — project-level directives that
+3. **Read `{{SPEC_ROOT}}/steering.md`** if it exists — project-level directives that
    apply to all agents and skills. Follow any instructions found there.
-4. **Read relevant specs** in `.specs/` for the area you're working on.
+4. **Read relevant specs** in `{{SPEC_ROOT}}/` for the area you're working on.
 5. **Read ADRs** in `docs/adr/` for architectural context.
 6. **Explore the codebase:** `<main_package>/` is the main package, `<test_directory>/` has
-   unit, property, and integration tests.
+   unit, property, and integration tests. Their location is language dependent.
 7. **Check git state:** `git log --oneline -20`, `git status --short --branch`.
 8. **Run `make check`** to confirm the baseline is green. If tests fail, fix
    them before starting new work.
@@ -34,14 +34,14 @@ Do not implement anything before completing these steps.
 <main_package>/         # Main package
 <test_directory>/       # Tests directory
 docs/                   # Documentation
-.specs/                 # Specs to be implemented
-.specs/archive/         # Old specs. Ignore for coding tasks, except for reference
+{{SPEC_ROOT}}/                 # Specs to be implemented
+{{SPEC_ROOT}}/archive/         # Old specs. Ignore for coding tasks, except for reference
 ```
 
 ## Spec-Driven Workflow
 
 This project uses spec-driven development. Specifications live in
-`.specs/NN_name/` (numbered by creation order) and contain five artifacts:
+`{{SPEC_ROOT}}/NN_name/` (numbered by creation order) and contain five artifacts:
 
 - `prd.md` — product requirements document (source of truth)
 - `requirements.md` — EARS-syntax acceptance criteria

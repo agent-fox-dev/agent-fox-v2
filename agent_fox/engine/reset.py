@@ -114,9 +114,13 @@ def _load_state_or_raise(
     return state
 
 
-def _load_plan_or_raise(plan_path: Path) -> TaskGraph:
-    """Load the task graph from plan.json, raising on failure."""
-    return load_plan_or_raise(plan_path)
+def _load_plan_or_raise(db_conn: duckdb.DuckDBPyConnection | None) -> TaskGraph:
+    """Load the task graph from DuckDB, raising on failure."""
+    if db_conn is None:
+        raise AgentFoxError(
+            "No database connection available. Run `agent-fox plan` first.",
+        )
+    return load_plan_or_raise(db_conn)
 
 
 def _find_sole_blocker_dependents(
@@ -166,7 +170,6 @@ def _find_sole_blocker_dependents(
 
 
 def reset_all(
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
@@ -177,7 +180,6 @@ def reset_all(
     Cleans up worktree directories and feature branches.
 
     Args:
-        plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to .agent-fox/worktrees/.
         repo_path: Path to the git repository root.
         db_conn: DuckDB connection for state persistence.
@@ -186,10 +188,10 @@ def reset_all(
         ResetResult summarizing what was reset.
 
     Raises:
-        AgentFoxError: If state or plan files are missing.
+        AgentFoxError: If state or plan is missing.
     """
     state = _load_state_or_raise(db_conn)
-    _load_plan_or_raise(plan_path)
+    _load_plan_or_raise(db_conn)
 
     # Find all resettable tasks
     reset_tasks: list[str] = []
@@ -225,7 +227,6 @@ def reset_all(
 
 def reset_task(
     task_id: str,
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
@@ -237,7 +238,6 @@ def reset_task(
 
     Args:
         task_id: The task identifier to reset.
-        plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to .agent-fox/worktrees/.
         repo_path: Path to the git repository root.
         db_conn: DuckDB connection for state persistence.
@@ -250,7 +250,7 @@ def reset_task(
         AgentFoxError: If the task is already completed.
     """
     state = _load_state_or_raise(db_conn)
-    plan = _load_plan_or_raise(plan_path)
+    plan = _load_plan_or_raise(db_conn)
 
     # Validate task ID exists in the plan
     if task_id not in plan.nodes:
@@ -320,10 +320,10 @@ def reset_task(
 
 def reset_spec(
     spec_name: str,
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
+    specs_dir: Path | None = None,
 ) -> ResetResult:
     """Reset all tasks belonging to a single spec to pending.
 
@@ -335,7 +335,6 @@ def reset_spec(
 
     Args:
         spec_name: The spec folder name to reset.
-        plan_path: Path to .agent-fox/plan.json.
         worktrees_dir: Path to worktrees directory.
         repo_path: Path to the git repository root.
         db_conn: DuckDB connection for state persistence.
@@ -349,7 +348,7 @@ def reset_spec(
     Requirements: 50-REQ-1.1 .. 50-REQ-1.8, 50-REQ-4.1, 50-REQ-4.2
     """
     state = _load_state_or_raise(db_conn)
-    plan = _load_plan_or_raise(plan_path)
+    plan = _load_plan_or_raise(db_conn)
 
     # Collect all node IDs belonging to the target spec
     spec_node_ids = [nid for nid, node in plan.nodes.items() if node.spec_name == spec_name]
@@ -377,7 +376,10 @@ def reset_spec(
         collect_cleanup(nid, worktrees_dir, repo_path, cleaned_worktrees, cleaned_branches)
 
     # Synchronize tasks.md checkboxes (50-REQ-1.5)
-    specs_dir = repo_path / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+        specs_dir = resolve_spec_root(AgentFoxConfig(), repo_path)
     reset_tasks_md_checkboxes(spec_node_ids, specs_dir)
 
     # Persist to DB (50-REQ-4.1, 50-REQ-4.2)
@@ -396,11 +398,11 @@ def _perform_hard_reset(
     state: ExecutionState,
     affected_ids: list[str],
     rollback_sha: str | None,
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     memory_path: Path,
     db_conn: duckdb.DuckDBPyConnection | None = None,
+    specs_dir: Path | None = None,
 ) -> HardResetResult:
     """Shared hard-reset logic: reset states, clean artifacts, compact, persist.
 
@@ -421,7 +423,10 @@ def _perform_hard_reset(
     compaction_result = compact(db_conn, memory_path) if db_conn is not None else (0, 0)
 
     # Reset artifact synchronization
-    specs_dir = repo_path / ".specs"
+    if specs_dir is None:
+        from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
+
+        specs_dir = resolve_spec_root(AgentFoxConfig(), repo_path)
     reset_tasks_md_checkboxes(affected_ids, specs_dir)
 
     # Persist resets to DB
@@ -437,7 +442,6 @@ def _perform_hard_reset(
 
 
 def hard_reset_all(
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     memory_path: Path,
@@ -448,7 +452,7 @@ def hard_reset_all(
     Requirements: 35-REQ-3.1 .. 35-REQ-3.7, 35-REQ-3.E1, 35-REQ-3.E2
     """
     state = _load_state_or_raise(db_conn)
-    _load_plan_or_raise(plan_path)
+    _load_plan_or_raise(db_conn)
 
     # Determine rollback target
     rollback_sha: str | None = None
@@ -464,7 +468,6 @@ def hard_reset_all(
         state,
         list(state.node_states.keys()),
         rollback_sha,
-        plan_path,
         worktrees_dir,
         repo_path,
         memory_path,
@@ -474,7 +477,6 @@ def hard_reset_all(
 
 def hard_reset_task(
     task_id: str,
-    plan_path: Path,
     worktrees_dir: Path,
     repo_path: Path,
     memory_path: Path,
@@ -485,7 +487,7 @@ def hard_reset_task(
     Requirements: 35-REQ-4.1 .. 35-REQ-4.5, 35-REQ-4.E1, 35-REQ-4.E2
     """
     state = _load_state_or_raise(db_conn)
-    plan = _load_plan_or_raise(plan_path)
+    plan = _load_plan_or_raise(db_conn)
 
     # Validate task_id
     if task_id not in plan.nodes:
@@ -522,7 +524,6 @@ def hard_reset_task(
         state,
         affected_ids,
         rollback_sha,
-        plan_path,
         worktrees_dir,
         repo_path,
         memory_path,
@@ -537,7 +538,6 @@ def run_reset(
     soft: bool = True,
     hard: bool = False,
     spec: str | None = None,
-    plan_path: Path | None = None,
     worktrees_dir: Path | None = None,
     repo_path: Path | None = None,
     memory_path: Path | None = None,
@@ -555,7 +555,6 @@ def run_reset(
         soft: Perform a soft reset (default).
         hard: Perform a hard reset (overrides soft).
         spec: Reset all tasks for a single spec.
-        plan_path: Path to plan.json.
         worktrees_dir: Path to worktrees directory.
         repo_path: Project root directory.
         memory_path: Path to memory.jsonl (needed for hard reset).
@@ -571,14 +570,12 @@ def run_reset(
 
     project_root = repo_path or Path.cwd()
     agent_dir = project_root / AGENT_FOX_DIR
-    resolved_plan = plan_path or agent_dir / "plan.json"
     resolved_worktrees = worktrees_dir or agent_dir / "worktrees"
     resolved_memory = memory_path or agent_dir / "memory.jsonl"
 
     if spec is not None:
         return reset_spec(
             spec_name=spec,
-            plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
             db_conn=db_conn,
@@ -588,14 +585,12 @@ def run_reset(
         if target is not None:
             return hard_reset_task(
                 task_id=target,
-                plan_path=resolved_plan,
                 worktrees_dir=resolved_worktrees,
                 repo_path=project_root,
                 memory_path=resolved_memory,
                 db_conn=db_conn,
             )
         return hard_reset_all(
-            plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
             memory_path=resolved_memory,
@@ -605,14 +600,12 @@ def run_reset(
     if target is not None:
         return reset_task(
             task_id=target,
-            plan_path=resolved_plan,
             worktrees_dir=resolved_worktrees,
             repo_path=project_root,
             db_conn=db_conn,
         )
 
     return reset_all(
-        plan_path=resolved_plan,
         worktrees_dir=resolved_worktrees,
         repo_path=project_root,
         db_conn=db_conn,

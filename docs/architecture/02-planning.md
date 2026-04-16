@@ -72,22 +72,22 @@ The planner injects non-coder agent nodes at three positions in each spec's
 chain, based on the archetype configuration:
 
 **Pre-execution agents** (injection point: `auto_pre`) are added at group 0,
-before the first coder group. Currently this includes the Skeptic (spec quality
-review) and the Oracle (design-to-code drift detection). These agents examine
-the spec and existing codebase before any implementation begins, providing early
-warning of problems.
+before the first coder group. Currently this includes the Reviewer in
+pre-review mode (spec quality review) and drift-review mode (design-to-code
+drift detection). These agents examine the spec and existing codebase before
+any implementation begins, providing early warning of problems.
 
-The Oracle has a gating rule: if the spec references no files that currently
-exist in the repository (determined by scanning `design.md` for file paths and
-checking the filesystem), the Oracle node is skipped. There is nothing to
+The drift-review node has a gating rule: if the spec references no files that
+currently exist in the repository (determined by scanning `design.md` for file
+paths and checking the filesystem), the node is skipped. There is nothing to
 validate drift against if the code does not yet exist.
 
 **Mid-execution agents** (injection point: `auto_mid`) are added after
-test-writing groups. Currently this is the Auditor, which validates that the
-tests written in earlier groups actually cover the test spec contracts. The
-Auditor is only injected if the spec's `test_spec.md` contains at least a
-configurable minimum number of test entries — below that threshold, auditing
-has insufficient material to work with.
+test-writing groups. Currently this is the Reviewer in audit-review mode, which
+validates that the tests written in earlier groups actually cover the test spec
+contracts. The audit-review node is only injected if the spec's `test_spec.md`
+contains at least a configurable minimum number of test entries — below that
+threshold, auditing has insufficient material to work with.
 
 **Post-execution agents** (injection point: `auto_post`) are added after the
 last coder group. Currently this is the Verifier, which runs the test suite and
@@ -211,16 +211,16 @@ execution time based on historical data, feature heuristics, or preset defaults
 
 ## Graph Persistence
 
-The task graph is serialized as JSON and written to `.agent-fox/plan.json`.
-The format includes all nodes (with their attributes), all edges (source and
-target node IDs, edge kind), the computed execution order, and metadata
-(creation timestamp, version, fast mode flag, filtered spec if applicable).
+The task graph is persisted in the DuckDB knowledge store across three tables:
+`plan_nodes` (node attributes), `plan_edges` (source/target pairs with edge
+kind), and `plan_meta` (content hash, version, fast mode flag, filtered spec).
+The plan is rebuilt from `.specs/` on every `agent-fox plan` invocation and
+written atomically.
 
-Persistence is designed for forward compatibility. Unknown fields are silently
-ignored during deserialization. Missing fields receive sensible defaults — for
-example, `archetype` defaults to "coder" and `instances` defaults to 1. This
-allows older plan files to be loaded by newer versions of agent-fox without
-error.
+Persistence is designed for forward compatibility. Missing fields receive
+sensible defaults — for example, `archetype` defaults to "coder" and
+`instances` defaults to 1. This allows plans built by older versions to be
+loaded by newer versions without error.
 
 The engine loads the plan at startup, potentially injecting missing archetype
 nodes if the archetype configuration has changed since the plan was built. This
@@ -235,7 +235,7 @@ The plan is not entirely static. The engine can modify the graph at runtime in
 two ways:
 
 **Archetype injection patching**: If the loaded plan was built with a different
-archetype configuration than the current one (for example, the Auditor was
+archetype configuration than the current one (for example, audit-review was
 disabled when the plan was built but is now enabled), the engine injects the
 missing archetype nodes into the live graph, adds the appropriate edges, and
 updates the execution order. This is transparent to the operator — the plan
@@ -243,18 +243,20 @@ file on disk is not modified, only the in-memory graph.
 
 **Hot-load discovery**: During sync barriers (periodic pauses in execution),
 the engine checks for new specs that have appeared in `.specs/` since the plan
-was built. If a new spec passes a three-stage gate — it is git-tracked, it
-contains all five core artifacts, and it passes lint validation — its task groups
-are added to the live graph. This enables long-running sessions to pick up new
-work without a manual replan.
+was built. A new spec must pass four gates before admission: it is git-tracked
+on develop, it contains all five core artifacts (non-empty), it passes lint
+validation with no error-severity findings, and it is not already fully
+implemented (all task groups complete). Specs that pass are added to the live
+graph. This enables long-running sessions to pick up new work without a manual
+replan.
 
 ---
 
 ## Review-Only Plans
 
 For situations where the operator wants to run review agents without any coding,
-the planner can build a review-only graph. This graph contains only Skeptic,
-Oracle, and Verifier nodes — no coder nodes. It scans the specs directory,
+the planner can build a review-only graph. This graph contains only Reviewer
+and Verifier nodes — no coder nodes. It scans the specs directory,
 creates review nodes for specs that have existing source files or requirements,
 and produces a minimal graph suitable for a read-only analysis pass.
 

@@ -42,7 +42,6 @@ def _make_auditor_orchestrator(
     config = OrchestratorConfig(max_retries=max_retries)
     orch = Orchestrator(
         config=config,
-        plan_path=MagicMock(),
         session_runner_factory=MagicMock(),
     )
 

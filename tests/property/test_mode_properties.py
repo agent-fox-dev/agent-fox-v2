@@ -37,6 +37,7 @@ def _mode_config_strategy():  # type: ignore[return]
 
     return st.fixed_dictionaries(
         {
+            "templates": st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=20), max_size=3)),
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "allowlist": st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=10), max_size=5)),
             "model_tier": st.one_of(st.none(), st.sampled_from(_VALID_TIERS)),
@@ -54,7 +55,8 @@ def _archetype_entry_strategy():  # type: ignore[return]
 
     return st.fixed_dictionaries(
         {
-            "name": st.text(alphabet=st.characters(whitelist_categories=("L",)), min_size=1, max_size=20),
+            "name": st.text(alphabet=st.characters(categories=("L",)), min_size=1, max_size=20),
+            "templates": st.lists(st.text(min_size=1, max_size=20), max_size=3),
             "default_model_tier": st.sampled_from(_VALID_TIERS),
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "task_assignable": st.booleans(),
@@ -69,6 +71,7 @@ def _archetype_entry_strategy():  # type: ignore[return]
 
 # Mapping from ModeConfig field names to ArchetypeEntry field names
 _MODE_TO_ENTRY_FIELD_MAP = {
+    "templates": "templates",
     "injection": "injection",
     "allowlist": "default_allowlist",
     "model_tier": "default_model_tier",
@@ -160,6 +163,7 @@ class TestNullModeIdentity:
         # All non-modes fields should equal the base entry
         for entry_field in [
             "name",
+            "templates",
             "default_model_tier",
             "injection",
             "task_assignable",
@@ -196,12 +200,12 @@ class TestResolutionPriorityChain:
         config_arch_tier: str | None,
         registry_mode_tier: str | None,
     ) -> None:
-        """Model tier resolution follows 4-tier priority chain."""
+        """Model tier resolution follows 5-tier priority chain."""
 
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig, PerArchetypeConfig
         from agent_fox.engine.sdk_params import resolve_model_tier
 
-        registry_base_tier = "STANDARD"  # coder's default
+        global_models_coding = "ADVANCED"  # ModelConfig default
         arch_name = "coder"
         mode_name = "test-mode"
 
@@ -221,14 +225,19 @@ class TestResolutionPriorityChain:
 
         config = AgentFoxConfig(archetypes=ArchetypesConfig(overrides=arch_overrides))
 
-        # Determine expected result
+        # Determine expected result (5-level priority):
+        # 1. config mode-level override
+        # 2. config archetype-level override
+        # 3. legacy archetypes.models dict (not set here)
+        # 4. global [models] config (config.models.coding for coder)
+        # 5. archetype registry default
         mode_in_arch = arch_name in arch_overrides and mode_name in arch_overrides[arch_name].modes
         if config_mode_tier is not None and mode_in_arch:
             expected = config_mode_tier
         elif config_arch_tier is not None:
             expected = config_arch_tier
         else:
-            expected = registry_base_tier
+            expected = global_models_coding
 
         result = resolve_model_tier(config, arch_name, mode=mode_name)
         assert result == expected, (
@@ -249,7 +258,7 @@ class TestEmptyAllowlistBlocksAll:
 
     @given(
         cmd=st.text(
-            alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="- _/"),
+            alphabet=st.characters(categories=("L", "N"), include_characters="- _/"),
             min_size=1,
             max_size=30,
         )
@@ -278,13 +287,13 @@ class TestEmptyAllowlistBlocksAll:
 
 @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 class TestSerializationRoundTrip:
-    """TS-97-P6: Node mode survives serialization round-trip."""
+    """TS-97-P6: Node mode survives DB serialization round-trip."""
 
     @given(
         mode=st.one_of(
             st.none(),
             st.text(
-                alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="-_"),
+                alphabet=st.characters(categories=("L", "N"), include_characters="-_"),
                 min_size=1,
                 max_size=30,
             ),
@@ -292,9 +301,12 @@ class TestSerializationRoundTrip:
     )
     @settings(max_examples=50)
     def test_mode_survives_roundtrip(self, mode: str | None) -> None:
-        """For any mode (None or string), serialize then deserialize preserves mode."""
-        from agent_fox.graph.persistence import _node_from_dict, _serialize
-        from agent_fox.graph.types import Node
+        """For any mode (None or string), save then load preserves mode."""
+        import duckdb
+
+        from agent_fox.graph.persistence import load_plan, save_plan
+        from agent_fox.graph.types import Node, PlanMetadata, TaskGraph
+        from agent_fox.knowledge.migrations import run_migrations
 
         node = Node(
             id="s:0",
@@ -304,6 +316,18 @@ class TestSerializationRoundTrip:
             optional=False,
             mode=mode,
         )
-        serialized = _serialize(node)
-        deserialized = _node_from_dict(serialized)
-        assert deserialized.mode == mode, f"Round-trip failed: expected mode {mode!r}, got {deserialized.mode!r}"
+        graph = TaskGraph(
+            nodes={"s:0": node},
+            edges=[],
+            order=["s:0"],
+            metadata=PlanMetadata(created_at="2026-01-01T00:00:00"),
+        )
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
+        conn.close()
+        assert loaded is not None
+        assert loaded.nodes["s:0"].mode == mode, (
+            f"Round-trip failed: expected mode {mode!r}, got {loaded.nodes['s:0'].mode!r}"
+        )

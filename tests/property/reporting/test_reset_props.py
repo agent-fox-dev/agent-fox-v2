@@ -7,9 +7,6 @@ Requirements: 07-REQ-4.1, 07-REQ-5.2
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -26,6 +23,7 @@ from agent_fox.graph.types import (
     PlanMetadata,
     TaskGraph,
 )
+from tests.unit.engine.conftest import write_plan_to_db
 
 # -- Hypothesis strategies ---------------------------------------------------
 
@@ -137,16 +135,6 @@ def task_graphs_with_blocker(
 # -- Helpers -----------------------------------------------------------------
 
 
-def _write_plan_from_graph(plan_dir: Path, graph: TaskGraph) -> Path:
-    """Serialize a TaskGraph to plan.json for testing."""
-    from agent_fox.graph.persistence import save_plan
-
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    save_plan(graph, plan_path)
-    return plan_path
-
-
 def _make_state(node_states: dict[str, str]) -> ExecutionState:
     """Create a minimal ExecutionState for test mocking."""
     return ExecutionState(
@@ -175,7 +163,7 @@ class TestResetPreservesCompleted:
         tmp_path_factory: pytest.TempPathFactory,
     ) -> None:
         """For any state, completed tasks are absent from reset_tasks."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         tmp_path = tmp_path_factory.mktemp("reset")
         plan_dir = tmp_path / ".agent-fox"
@@ -183,39 +171,22 @@ class TestResetPreservesCompleted:
         worktrees_dir.mkdir(parents=True, exist_ok=True)
         repo_path = tmp_path
 
-        plan_dir.mkdir(parents=True, exist_ok=True)
-        plan_path = plan_dir / "plan.json"
-        plan_data = {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": {
-                nid: {
-                    "id": nid,
-                    "spec_name": nid.split(":")[0],
-                    "group_number": int(nid.split(":")[1]),
-                    "title": f"Task {nid}",
-                    "optional": False,
-                    "status": "pending",
-                    "subtask_count": 0,
-                    "body": "",
-                }
-                for nid in node_states
-            },
-            "edges": [],
-            "order": list(node_states.keys()),
+        # Build plan nodes for DB
+        nodes = {
+            nid: {
+                "spec_name": nid.split(":")[0],
+                "group_number": int(nid.split(":")[1]),
+                "title": f"Task {nid}",
+            }
+            for nid in node_states
         }
-        plan_path.write_text(json.dumps(plan_data, indent=2))
+        db_conn = write_plan_to_db(nodes, [])
 
         state = _make_state(node_states)
-        mock_conn = MagicMock()
         completed_ids = {nid for nid, s in node_states.items() if s == "completed"}
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            result = reset_all(plan_path, worktrees_dir, repo_path, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            result = reset_all(worktrees_dir, repo_path, db_conn=db_conn)
 
         assert completed_ids.isdisjoint(set(result.reset_tasks))
 

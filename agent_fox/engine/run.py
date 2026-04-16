@@ -77,7 +77,6 @@ def _setup_infrastructure(
     config: AgentFoxConfig,
     *,
     debug: bool = False,
-    plan_path: Path | None = None,
     activity_callback: ActivityCallback | None = None,
 ) -> dict[str, Any]:
     """Set up knowledge DB, sinks, and other infrastructure.
@@ -85,11 +84,14 @@ def _setup_infrastructure(
     Returns a dict of infrastructure components needed by the orchestrator.
     This is separated from run_code so the orchestrator construction can
     be tested independently.
+
+    Requirements: 108-REQ-5.1
     """
     from agent_fox.core.paths import AUDIT_DIR
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
+    from agent_fox.nightshift.platform_factory import create_platform_safe
 
     # Create DuckDB sink for session outcome recording
     sink_dispatcher = SinkDispatcher()
@@ -152,11 +154,19 @@ def _setup_infrastructure(
             embedder=embedder,
         )
 
+    # 108-REQ-5.1: Create platform instance (None if not configured)
+    platform = None
+    try:
+        platform = create_platform_safe(config, Path.cwd())
+    except Exception:
+        logger.debug("create_platform_safe failed; proceeding without platform", exc_info=True)
+
     return {
         "sink_dispatcher": sink_dispatcher,
         "knowledge_db": knowledge_db,
         "session_runner_factory": session_runner_factory,
         "audit_dir": AUDIT_DIR,
+        "platform": platform,
     }
 
 
@@ -207,8 +217,10 @@ async def run_code(
     except Exception:
         orch_config = config.orchestrator
 
-    plan_path = Path(".agent-fox/plan.json")
-    specs_path = Path(specs_dir) if specs_dir else Path(".specs")
+    from agent_fox.core.config import resolve_spec_root
+
+    agent_dir = Path(".agent-fox")
+    specs_path = Path(specs_dir) if specs_dir else resolve_spec_root(config, Path.cwd())
 
     # Set up infrastructure (knowledge DB, sinks, fact cache, etc.)
     infra: dict[str, Any] | None = None
@@ -216,7 +228,6 @@ async def run_code(
         infra = _setup_infrastructure(
             config,
             debug=debug,
-            plan_path=plan_path,
             activity_callback=activity_callback,
         )
     except Exception:
@@ -229,7 +240,7 @@ async def run_code(
     try:
         # Build orchestrator kwargs — use infra if available
         orch_kwargs: dict[str, Any] = {
-            "plan_path": plan_path,
+            "agent_dir": agent_dir,
             "specs_dir": specs_path,
             "watch": watch,
             "task_callback": task_callback,
@@ -249,6 +260,7 @@ async def run_code(
                     "audit_dir": infra["audit_dir"],
                     "audit_db_conn": infra["knowledge_db"].connection,
                     "knowledge_db_conn": infra["knowledge_db"].connection,
+                    "platform": infra.get("platform"),
                 }
             )
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from agent_fox.core.errors import PlanError
 from agent_fox.graph.resolver import resolve_order
@@ -21,6 +22,9 @@ from agent_fox.spec.discovery import SpecInfo, discover_specs  # noqa: F401
 from agent_fox.spec.parser import parse_cross_deps, parse_tasks
 from agent_fox.spec.validators import EXPECTED_FILES, Finding, validate_specs
 from agent_fox.workspace.git import run_git
+
+if TYPE_CHECKING:
+    import duckdb
 
 logger = logging.getLogger("agent_fox.engine.hot_load")
 
@@ -86,11 +90,11 @@ def _parse_dep_specs_from_prd(prd_path: Path) -> list[str]:
 async def is_spec_tracked_on_develop(
     repo_root: Path,
     spec_name: str,
-    specs_dir_rel: str = ".specs",
+    specs_dir_rel: str = ".agent-fox/specs",
 ) -> bool:
     """Check if a spec folder is tracked by git on the develop branch.
 
-    Uses ``git ls-tree develop -- .specs/{spec_name}`` and returns True
+    Uses ``git ls-tree develop -- {specs_dir_rel}/{spec_name}`` and returns True
     if any entries are found.
 
     On failure, returns True (permissive fallback) and logs a warning.
@@ -164,21 +168,96 @@ def lint_spec_gate(spec_name: str, spec_path: Path) -> tuple[bool, list[str]]:
         return (False, [f"Validator error: {exc}"])
 
 
+def are_all_tasks_done(spec_path: Path) -> bool:
+    """Check if all task groups in tasks.md are marked complete.
+
+    Returns True only when tasks.md exists, contains at least one group,
+    and every group has ``completed=True``.
+
+    Args:
+        spec_path: Path to the spec folder (e.g., ``.specs/42_feature``).
+
+    Returns:
+        True if all task groups are completed, False otherwise.
+    """
+    tasks_path = spec_path / "tasks.md"
+    if not tasks_path.is_file():
+        return False
+    try:
+        groups = parse_tasks(tasks_path)
+    except Exception:
+        return False
+    if not groups:
+        return False
+    return all(g.completed for g in groups)
+
+
+def _are_all_plan_nodes_done(
+    spec_name: str,
+    conn: duckdb.DuckDBPyConnection | None,
+) -> bool:
+    """Check if all plan_nodes for a spec in the DB are completed.
+
+    Queries the ``plan_nodes`` table directly rather than loading the
+    full plan graph.  Returns True only when the DB is available,
+    contains nodes for this spec, and every one has status
+    ``'completed'``.
+
+    Args:
+        spec_name: The spec name to check (e.g., ``"42_feature"``).
+        conn: DuckDB connection, or None if unavailable.
+
+    Returns:
+        True if all nodes for the spec are completed, False otherwise.
+    """
+    if conn is None:
+        return False
+    try:
+        row = conn.execute(
+            """
+            SELECT
+                count(*) AS total,
+                count(*) FILTER (WHERE status = 'completed') AS done
+            FROM plan_nodes
+            WHERE spec_name = ?
+            """,
+            [spec_name],
+        ).fetchone()
+    except Exception:
+        return False
+    if row is None:
+        return False
+    total, done = row[0], row[1]
+    return total > 0 and total == done
+
+
 async def discover_new_specs_gated(
     specs_dir: Path,
     known_specs: set[str],
     repo_root: Path,
+    *,
+    db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> list[SpecInfo]:
-    """Discover new specs that pass all three gates.
+    """Discover new specs that pass all four gates.
 
     Pipeline:
     1. Filesystem discovery (existing ``discover_new_specs``).
     2. Gate 1: git-tracked on develop.
     3. Gate 2: all 5 required files present and non-empty.
     4. Gate 3: no lint errors from validator.
+    5. Gate 4: not already fully implemented (tasks.md + plan state).
 
     Returns only specs that pass all gates.  Skipped specs are
     re-evaluated at the next barrier with a clean slate (51-REQ-7.2).
+
+    Args:
+        specs_dir: Path to the .specs/ directory.
+        known_specs: Set of spec names already in the current plan.
+        repo_root: Path to the repository root (for git checks).
+        db_conn: Optional DuckDB connection for querying plan_nodes
+            (tasks-complete gate).  When None, the plan node check is
+            skipped (gate degrades gracefully — specs are never skipped
+            based on plan state alone).
 
     Requirements: 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1, 51-REQ-7.1,
                   51-REQ-7.2, 51-REQ-7.3
@@ -190,7 +269,11 @@ async def discover_new_specs_gated(
     accepted: list[SpecInfo] = []
     for spec in candidates:
         # Gate 1: git-tracked on develop
-        tracked = await is_spec_tracked_on_develop(repo_root, spec.name)
+        try:
+            specs_rel = str(specs_dir.relative_to(repo_root))
+        except ValueError:
+            specs_rel = str(specs_dir)
+        tracked = await is_spec_tracked_on_develop(repo_root, spec.name, specs_dir_rel=specs_rel)
         if not tracked:
             logger.debug("Spec '%s' not tracked on develop, skipping", spec.name)
             continue
@@ -212,6 +295,15 @@ async def discover_new_specs_gated(
                 "Spec '%s' has lint errors: %s, skipping",
                 spec.name,
                 "; ".join(errors),
+            )
+            continue
+
+        # Gate 4: tasks-complete — skip specs that are fully implemented.
+        # Both tasks.md AND plan node state must agree the spec is done.
+        if are_all_tasks_done(spec.path) and _are_all_plan_nodes_done(spec.name, db_conn):
+            logger.info(
+                "Spec '%s' is fully implemented (all tasks complete, all plan nodes done), skipping",
+                spec.name,
             )
             continue
 

@@ -19,6 +19,7 @@ import duckdb
 
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
+from agent_fox.knowledge.migrations import _ALLOWED_EMBEDDING_DIMS
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.sink import SinkDispatcher
@@ -58,13 +59,13 @@ class KnowledgeIngestor:
 
         Returns True on success, False on failure (logged as warning).
         """
+        dim = self._embedder.embedding_dimensions
+        assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
         try:
             embedding = self._embedder.embed_text(text)
             if embedding is not None:
                 self._conn.execute(
-                    "INSERT INTO memory_embeddings (id, embedding) "
-                    "VALUES (?::UUID, ?::FLOAT"
-                    f"[{self._embedder.embedding_dimensions}])",
+                    f"INSERT INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
                     [fact_id, embedding],
                 )
                 return True

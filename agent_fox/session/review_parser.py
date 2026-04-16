@@ -15,11 +15,13 @@ Requirements: 27-REQ-3.1, 27-REQ-3.2, 27-REQ-3.3, 27-REQ-3.E1, 27-REQ-3.E2
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import re
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -347,28 +349,62 @@ def _resolve_wrapper_key(data: dict, canonical_key: str) -> str | None:
     return None
 
 
-# Match fenced JSON code blocks or bare JSON objects/arrays
-_JSON_BLOCK_RE = re.compile(
-    r"```(?:json)?\s*\n(.*?)\n\s*```"  # fenced code blocks
-    r"|(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})"  # bare JSON objects
-    r"|(\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])",  # bare JSON arrays
-    re.DOTALL,
-)
+# Regex for markdown code fences (```json ... ``` or ``` ... ```)
+_FENCE_RE = re.compile(r"```(?:json)?\s*\n(.*?)\n\s*```", re.DOTALL)
 
 
 def _extract_json_blocks(text: str) -> list[str]:
     """Extract JSON blocks from mixed prose/JSON agent output.
 
-    Handles fenced code blocks (```json ... ```) and bare JSON objects/arrays.
+    Handles fenced code blocks (``\u0060\u0060\u0060json ... \u0060\u0060\u0060``) and bare JSON
+    objects/arrays embedded in prose.  Uses ``json.JSONDecoder.raw_decode()``
+    for correct handling of braces and brackets inside JSON string values
+    (e.g. ``/repos/{owner}/{repo}/labels``).
 
     Requirements: 27-REQ-3.1, 27-REQ-3.2
     """
     blocks: list[str] = []
-    for match in _JSON_BLOCK_RE.finditer(text):
-        # match groups: (1) fenced content, (2) bare object, (3) bare array
-        content = match.group(1) or match.group(2) or match.group(3)
+
+    # Pass 1: fenced code blocks — common LLM output despite bare-JSON prompts.
+    # Record their spans so pass 2 can skip over them.
+    fenced_spans: list[tuple[int, int]] = []
+    for match in _FENCE_RE.finditer(text):
+        fenced_spans.append((match.start(), match.end()))
+        content = match.group(1).strip()
         if content:
-            blocks.append(content.strip())
+            blocks.append(content)
+
+    # Pass 2: scan for bare JSON objects/arrays using raw_decode.
+    # Unlike the old regex, raw_decode correctly handles braces inside
+    # JSON string values, nested structures of arbitrary depth, etc.
+    # Skip positions inside fenced code blocks to avoid duplicates.
+    decoder = json.JSONDecoder()
+    pos = 0
+    text_len = len(text)
+    while pos < text_len:
+        # Skip over fenced code block regions.
+        in_fence = False
+        for fence_start, fence_end in fenced_spans:
+            if fence_start <= pos < fence_end:
+                pos = fence_end
+                in_fence = True
+                break
+        if in_fence:
+            continue
+        if pos >= text_len:
+            break
+
+        ch = text[pos]
+        if ch in ("{", "["):
+            try:
+                _, end_idx = decoder.raw_decode(text, pos)
+                blocks.append(text[pos:end_idx])
+                pos = end_idx
+                continue
+            except (json.JSONDecodeError, ValueError):
+                pass
+        pos += 1
+
     return blocks
 
 
@@ -686,6 +722,28 @@ def parse_legacy_verification_md(
 _TRIAGE_REQUIRED_KEYS = ("id", "description", "preconditions", "expected", "assertion")
 
 
+def _dump_parse_failure(response: str, session_id: str, parser_type: str) -> None:
+    """Write raw agent response to .agent-fox/ for debugging.
+
+    Only call this when verbose mode is active (DEBUG logging enabled).
+    Best-effort: I/O errors are logged at DEBUG level and swallowed so the
+    caller is never interrupted by file-system issues.
+
+    The file is named ``parse_failure_{parser_type}_{safe_session_id}_{ts}.txt``
+    and written into the ``.agent-fox/`` directory in the current working tree.
+    """
+    safe_id = re.sub(r"[:/\\]", "_", session_id)
+    ts = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S")
+    filename = f"parse_failure_{parser_type}_{safe_id}_{ts}.txt"
+    path = Path(".agent-fox") / filename
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(response, encoding="utf-8")
+        logger.debug("Raw agent response written to %s", path)
+    except OSError:
+        logger.debug("Failed to write parse failure dump to %s", path, exc_info=True)
+
+
 def parse_triage_output(
     response: str,
     spec_name: str,
@@ -727,6 +785,8 @@ def parse_triage_output(
             spec_name,
             session_id,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            _dump_parse_failure(response, session_id, "triage")
         return TriageResult()
 
     summary = data.get("summary", "")
@@ -810,6 +870,8 @@ def parse_fix_review_output(
             spec_name,
             session_id,
         )
+        if logger.isEnabledFor(logging.DEBUG):
+            _dump_parse_failure(response, session_id, "fix_review")
         return FixReviewResult(is_parse_failure=True)
 
     # Extract verdicts using fuzzy wrapper key

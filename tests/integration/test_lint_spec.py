@@ -388,6 +388,44 @@ class TestAllFlagDefaultSkipsImplemented:
         finally:
             os.chdir(original_dir)
 
+    def test_archived_dep_not_flagged_as_broken(self, cli_runner: CliRunner, tmp_path: Path) -> None:
+        """Dependency on an archived spec does not produce broken-dependency."""
+        agent_fox_dir = tmp_path / ".agent-fox"
+        agent_fox_dir.mkdir(exist_ok=True)
+        (agent_fox_dir / "config.toml").write_text("")
+        specs_dir = tmp_path / ".specs"
+        specs_dir.mkdir(exist_ok=True)
+
+        # Create an archived spec with tasks
+        archive_dir = specs_dir / "archive"
+        archive_dir.mkdir()
+        archived = archive_dir / "01_archived_dep"
+        archived.mkdir()
+        for f in ["prd.md", "requirements.md", "design.md", "test_spec.md"]:
+            (archived / f).write_text(f"# {f}\n")
+        (archived / "tasks.md").write_text(
+            "# Tasks\n\n- [x] 1. Task\n  - [x] 1.1 Sub\n  - [x] 1.V Verify\n"
+        )
+
+        # Create an active spec that depends on the archived one
+        _create_spec_with_tasks(specs_dir, "02_active_spec", all_completed=False)
+        (specs_dir / "02_active_spec" / "prd.md").write_text(
+            "# PRD\n\n## Dependencies\n\n"
+            "| This Spec | Depends On | What It Uses |\n"
+            "|-----------|-----------|---------------|\n"
+            "| 02_active_spec | 01_archived_dep | Archived types |\n"
+        )
+
+        original_dir = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            result = cli_runner.invoke(main, ["--json", "lint-specs"])
+            data = json.loads(result.output)
+            broken = [f for f in data["findings"] if f["rule"] == "broken-dependency"]
+            assert len(broken) == 0, f"Unexpected broken-dependency findings: {broken}"
+        finally:
+            os.chdir(original_dir)
+
     def test_spec_without_tasks_md_is_linted(self, cli_runner: CliRunner, tmp_path: Path) -> None:
         """A spec without tasks.md is considered not implemented and is linted."""
         agent_fox_dir = tmp_path / ".agent-fox"

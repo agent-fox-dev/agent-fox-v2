@@ -6,7 +6,6 @@ Requirements: 70-REQ-1.3, 70-REQ-3.3
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -19,7 +18,7 @@ from agent_fox.cli.app import main
 
 
 def _setup_minimal_project(project_dir: Path) -> None:
-    """Create a minimal project structure with a plan.json for CLI tests."""
+    """Create a minimal project structure for CLI tests."""
     agent_fox_dir = project_dir / ".agent-fox"
     agent_fox_dir.mkdir(exist_ok=True)
 
@@ -28,19 +27,9 @@ def _setup_minimal_project(project_dir: Path) -> None:
     # call asyncio.sleep and hang the CliRunner).
     (agent_fox_dir / "config.toml").write_text("[orchestrator]\nhot_load = false\n")
 
-    # Minimal empty plan.json
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {},
-        "edges": [],
-        "order": [],
-    }
-    (agent_fox_dir / "plan.json").write_text(json.dumps(plan, indent=2))
+    # Create a stub DuckDB file so the CLI plan existence check passes
+    # (the CLI checks DEFAULT_DB_PATH instead of plan.json).
+    (agent_fox_dir / "knowledge.duckdb").write_bytes(b"")
 
 
 # ---------------------------------------------------------------------------

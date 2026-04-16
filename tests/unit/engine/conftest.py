@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 
 from agent_fox.core.config import OrchestratorConfig
@@ -150,14 +151,6 @@ def write_plan_file(
 
 
 @pytest.fixture
-def tmp_state_path(tmp_path: Path) -> Path:
-    """Return a path to a temporary state.jsonl file (not yet created)."""
-    state_dir = tmp_path / ".agent-fox"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    return state_dir / "state.jsonl"
-
-
-@pytest.fixture
 def tmp_plan_dir(tmp_path: Path) -> Path:
     """Return a path to a temporary .agent-fox directory for plan.json."""
     plan_dir = tmp_path / ".agent-fox"
@@ -193,3 +186,74 @@ def parallel_config() -> OrchestratorConfig:
 def no_retry_config() -> OrchestratorConfig:
     """Orchestrator config with no retries."""
     return OrchestratorConfig(max_retries=0, inter_session_delay=0)
+
+
+# -- DuckDB helpers for plan persistence (post-issue-446) ------------------
+
+
+def _create_db_with_schema() -> duckdb.DuckDBPyConnection:
+    """Create an in-memory DuckDB connection with plan tables."""
+    conn = duckdb.connect(":memory:")
+    from agent_fox.knowledge.migrations import run_migrations
+
+    run_migrations(conn)
+    return conn
+
+
+def write_plan_to_db(
+    nodes: dict[str, dict[str, Any]],
+    edges: list[dict[str, str]],
+    order: list[str] | None = None,
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> duckdb.DuckDBPyConnection:
+    """Write a plan to an in-memory DuckDB and return the connection.
+
+    This replaces ``write_plan_file`` for tests that need plan persistence.
+    """
+    from agent_fox.graph.persistence import save_plan
+    from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGraph
+
+    if conn is None:
+        conn = _create_db_with_schema()
+
+    node_objs: dict[str, Node] = {}
+    for nid, props in nodes.items():
+        parts = nid.split(":")
+        spec_name = parts[0] if len(parts) > 1 else "test_spec"
+        group_number = int(parts[-1]) if parts[-1].isdigit() else 1
+        node_objs[nid] = Node(
+            id=nid,
+            spec_name=props.get("spec_name", spec_name),
+            group_number=props.get("group_number", group_number),
+            title=props.get("title", f"Task {nid}"),
+            optional=props.get("optional", False),
+            status=NodeStatus(props.get("status", "pending")),
+            subtask_count=props.get("subtask_count", 0),
+            body=props.get("body", ""),
+            archetype=props.get("archetype", "coder"),
+            mode=props.get("mode"),
+            instances=props.get("instances", 1),
+        )
+
+    edge_objs = [Edge(source=e["source"], target=e["target"], kind=e.get("kind", "dependency")) for e in edges]
+    graph = TaskGraph(
+        nodes=node_objs,
+        edges=edge_objs,
+        order=order if order is not None else list(nodes.keys()),
+        metadata=PlanMetadata(
+            created_at="2026-01-01T00:00:00",
+            fast_mode=False,
+            filtered_spec=None,
+            version="0.1.0",
+        ),
+    )
+    save_plan(graph, conn)
+    return conn
+
+
+@pytest.fixture
+def db_conn_with_schema() -> duckdb.DuckDBPyConnection:
+    """Provide a fresh in-memory DuckDB with plan tables."""
+    conn = _create_db_with_schema()
+    yield conn
+    conn.close()

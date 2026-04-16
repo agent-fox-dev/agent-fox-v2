@@ -7,13 +7,13 @@ Requirements: 35-REQ-3.1, 35-REQ-3.6, 35-REQ-3.E1, 35-REQ-4.E1,
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from agent_fox.engine.state import ExecutionState, SessionRecord
+from tests.unit.engine.conftest import write_plan_to_db
 
 # ---------------------------------------------------------------------------
 # Hypothesis strategies
@@ -68,36 +68,20 @@ def execution_state_strategy(
     )
 
 
-def _make_plan_json_from_state(state: ExecutionState) -> str:
-    """Build a plan.json string from an ExecutionState's node_states."""
+def _write_plan_from_state(state: ExecutionState):
+    """Build a DuckDB connection with plan data derived from an ExecutionState."""
     nodes = {}
     for nid in state.node_states:
         parts = nid.split(":")
         spec_name = parts[0] if len(parts) > 1 else "test_spec"
         group_number = int(parts[-1]) if parts[-1].isdigit() else 1
         nodes[nid] = {
-            "id": nid,
             "spec_name": spec_name,
             "group_number": group_number,
             "title": f"Task {nid}",
-            "optional": False,
             "status": state.node_states[nid],
-            "subtask_count": 0,
-            "body": "",
         }
-    return json.dumps(
-        {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": nodes,
-            "edges": [],
-            "order": list(state.node_states.keys()),
-        }
-    )
+    return write_plan_to_db(nodes, [])
 
 
 def _mock_git_subprocess(*args, **kwargs):
@@ -138,13 +122,12 @@ class TestTotalTaskResetProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        plan_path.write_text(_make_plan_json_from_state(state))
+        db_conn = _write_plan_from_state(state)
 
         with (
             patch(
@@ -160,7 +143,7 @@ class TestTotalTaskResetProperty:
                 return_value=state,
             ),
         ):
-            hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
+            hard_reset_all(worktrees_dir, tmp_path, memory_path, db_conn=db_conn)
 
         for task_id in state.node_states:
             assert state.node_states[task_id] == "pending"
@@ -199,13 +182,12 @@ class TestCounterPreservationProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        plan_path.write_text(_make_plan_json_from_state(state))
+        db_conn = _write_plan_from_state(state)
 
         with (
             patch(
@@ -221,7 +203,7 @@ class TestCounterPreservationProperty:
                 return_value=state,
             ),
         ):
-            hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
+            hard_reset_all(worktrees_dir, tmp_path, memory_path, db_conn=db_conn)
 
         assert state.total_cost == original_cost
         assert state.total_input_tokens == original_input
@@ -262,13 +244,12 @@ class TestGracefulDegradationProperty:
         agent_dir = tmp_path / ".agent-fox"
         agent_dir.mkdir(parents=True, exist_ok=True)
 
-        plan_path = agent_dir / "plan.json"
         worktrees_dir = agent_dir / "worktrees"
         worktrees_dir.mkdir(exist_ok=True)
         memory_path = agent_dir / "memory.jsonl"
         memory_path.write_text("")
 
-        plan_path.write_text(_make_plan_json_from_state(state))
+        db_conn = _write_plan_from_state(state)
 
         with (
             patch(
@@ -284,7 +265,7 @@ class TestGracefulDegradationProperty:
                 return_value=state,
             ),
         ):
-            result = hard_reset_all(plan_path, worktrees_dir, tmp_path, memory_path)
+            result = hard_reset_all(worktrees_dir, tmp_path, memory_path, db_conn=db_conn)
 
         assert result.rollback_sha is None
 

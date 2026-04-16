@@ -14,8 +14,9 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | `agent-fox fix` | Detect and auto-fix quality check failures |
 | `agent-fox night-shift` | Run autonomous maintenance daemon (hunt scans + issue fixes) |
 | `agent-fox reset` | Reset failed/blocked tasks for retry |
-| `agent-fox export` | Export knowledge store data (memory summary or full DB dump) |
 | `agent-fox lint-specs` | Validate specification files |
+| `agent-fox findings` | Query review findings from the knowledge database |
+| `agent-fox onboard` | Populate the knowledge store for an existing codebase |
 
 ## Global Options
 
@@ -74,40 +75,6 @@ echo 'not json' | agent-fox --json status
 
 ## Commands
 
-### export
-
-Export knowledge store data as Markdown or JSON.
-
-```
-agent-fox export [OPTIONS]
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--memory` | flag | off | Export memory summary to `docs/memory.md` (or `.json` with `--json`) |
-| `--db` | flag | off | Export full database dump to `.agent-fox/knowledge_dump.md` (or `.json` with `--json`) |
-
-Exactly one of `--memory` or `--db` must be provided. The two flags are
-mutually exclusive.
-
-**`--memory` mode:** Reads all active facts from the knowledge store and
-writes them to `docs/memory.md` grouped by category. With the global `--json`
-flag, writes `docs/memory.json` instead, containing a `facts` array and a
-`generated` ISO-8601 timestamp.
-
-**`--db` mode:** Discovers all tables in the knowledge store and writes each
-table's contents to `.agent-fox/knowledge_dump.md` as Markdown tables. Cell
-values longer than 120 characters are truncated. With `--json`, writes
-`.agent-fox/knowledge_dump.json` with a `tables` dict keyed by table name.
-
-The command opens the knowledge store in read-only mode, so it is safe to run
-while an orchestrator session is active.
-
-**Exit codes:** `0` success, `1` error (missing DB, no flags, both flags, no
-tables).
-
----
-
 ### init
 
 Initialize the current project for agent-fox.
@@ -119,6 +86,7 @@ agent-fox init [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--skills` | flag | off | Install bundled Claude Code skills into `.claude/skills/` |
+| `--profiles` | flag | off | Copy default archetype profiles into `.agent-fox/profiles/` |
 
 Creates the `.agent-fox/` directory structure with a default configuration file,
 sets up the `develop` branch, updates `.gitignore`, creates
@@ -153,6 +121,12 @@ contains. If the file contains only the initial placeholder text (no real
 directives), it is silently skipped during prompt assembly so agents are not
 distracted by empty templates.
 
+**Profiles installation (`--profiles`):** When `--profiles` is provided, copies
+all built-in archetype profiles (coder, reviewer, verifier, maintainer and
+their mode variants) into `.agent-fox/profiles/`. Existing profile files are
+preserved — only missing profiles are created. This enables project-level
+customization of agent behavior. See [Profiles](profiles.md) for details.
+
 **Skills installation (`--skills`):** When `--skills` is provided, copies
 bundled skill templates from the agent-fox package into
 `.claude/skills/{name}/SKILL.md`. Each skill becomes available as a slash
@@ -180,8 +154,8 @@ agent-fox plan [OPTIONS]
 | `--analyze` | flag | off | Show parallelism analysis |
 
 Scans `.specs/` for specification folders, parses task groups, builds a
-dependency graph, resolves topological ordering, and persists the plan to
-`.agent-fox/plan.json`. The plan is always rebuilt from `.specs/` on every
+dependency graph, resolves topological ordering, and persists the plan to the
+DuckDB knowledge store. The plan is always rebuilt from `.specs/` on every
 invocation.
 
 **Exit codes:** `0` success, `1` plan error.
@@ -210,7 +184,7 @@ each ready task in the plan. Sessions execute in isolated git worktrees with
 feature branches. After each session, results are harvested (merged) and state
 is persisted to the DuckDB knowledge store.
 
-Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
+Requires a persisted plan in the knowledge store (run `agent-fox plan` first).
 
 #### Watch Mode (`--watch`)
 
@@ -387,8 +361,8 @@ Night Shift is a continuously-running maintenance daemon that:
    files, and a suggested fix.
 3. **Fixes `af:fix`-labelled issues** — polls GitHub for open issues with the
    `af:fix` label at the configured `issue_check_interval`, then runs each
-   through the full skeptic → coder → verifier archetype pipeline and opens a
-   pull request.
+   through a coder → reviewer (fix-review mode) pipeline and opens a pull
+   request.
 
 **Requirements:**
 
@@ -430,7 +404,7 @@ second time to abort immediately; exit code is 130.
 | `1` | Startup failure (platform not configured, missing token) |
 | `130` | Immediate abort (second SIGINT) |
 
-**Configuration:** See `[night_shift]` in [configuration.md](configuration.md).
+**Configuration:** See `[night_shift]` in [config-reference.md](config-reference.md).
 
 ---
 
@@ -472,6 +446,77 @@ the original criteria are left unchanged.
 
 ---
 
+### findings
+
+Query review findings from the knowledge database.
+
+```
+agent-fox findings [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--spec NAME` | string | all | Filter by spec name |
+| `--severity LEVEL` | string | all | Minimum severity level (`critical`, `major`, `minor`, `observation`) |
+| `--archetype NAME` | string | all | Filter by source: `skeptic` (pre-review), `oracle` (drift-review), `verifier` |
+| `--run ID` | string | all | Filter by run ID |
+| `--json` | flag | off | Output as JSON array |
+
+Displays active (non-superseded) review findings from the knowledge store.
+Findings are produced by Reviewer (pre-review, drift-review, audit-review
+modes) and Verifier archetypes during `agent-fox code` sessions.
+
+**Exit codes:** `0` success.
+
+---
+
+### onboard
+
+Populate the knowledge store for an existing codebase.
+
+```
+agent-fox onboard [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--path DIR` | path | cwd | Project root directory |
+| `--skip-entities` | flag | off | Skip entity graph analysis phase |
+| `--skip-ingestion` | flag | off | Skip ADR/errata/git commit ingestion phase |
+| `--skip-mining` | flag | off | Skip git pattern mining phase |
+| `--skip-code-analysis` | flag | off | Skip LLM code analysis phase |
+| `--skip-doc-mining` | flag | off | Skip LLM documentation mining phase |
+| `--skip-embeddings` | flag | off | Skip embedding generation phase |
+| `--model TIER` | string | `STANDARD` | Model tier for LLM phases |
+| `--mining-days N` | int | 365 | Days of git history to analyze |
+| `--fragile-threshold N` | int | 20 | Min commits to flag a file as a fragile area |
+| `--cochange-threshold N` | int | 5 | Min co-occurrences for a co-change pattern |
+| `--max-files N` | int | 0 (all) | Max source files for code analysis |
+
+Runs a six-phase pipeline to bootstrap the knowledge store from an existing
+codebase:
+
+1. **Entity graph analysis** — builds a structural map of code entities and
+   their relationships.
+2. **Bootstrap ingestion** — ingests ADRs, errata, and significant git commits
+   as knowledge facts.
+3. **Git pattern mining** — analyzes commit history to identify fragile areas
+   (frequently changed files) and co-change patterns (files that change
+   together).
+4. **LLM code analysis** — uses an LLM to extract patterns, conventions, and
+   architectural decisions from source files.
+5. **LLM documentation mining** — uses an LLM to extract knowledge from
+   project documentation.
+6. **Embedding generation** — generates vector embeddings for all facts to
+   enable similarity search.
+
+Use `--skip-*` flags to skip individual phases (useful for re-running after a
+partial failure or to avoid LLM costs during testing).
+
+**Exit codes:** `0` success.
+
+---
+
 ## Configuration
 
-For the complete configuration reference, see [configuration.md](configuration.md).
+For the complete configuration reference, see [config-reference.md](config-reference.md).

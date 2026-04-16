@@ -167,7 +167,7 @@ async def test_smoke_fix_session_costs_in_status_report() -> None:
     assert report.total_cost > 0, f"StatusReport.total_cost must be > 0 after fix session, got {report.total_cost}"
 
     # FAILS until cost_by_archetype includes fix session archetypes
-    night_shift_archetypes = {"triage", "fix_coder", "fix_reviewer"}
+    night_shift_archetypes = {"maintainer", "fix_coder", "fix_reviewer"}
     matched = night_shift_archetypes & set(report.cost_by_archetype.keys())
     assert matched, (
         f"cost_by_archetype must include at least one of {night_shift_archetypes}, "

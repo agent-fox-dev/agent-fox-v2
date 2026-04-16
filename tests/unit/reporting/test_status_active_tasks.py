@@ -10,8 +10,6 @@ Requirements: 72-REQ-1.1, 72-REQ-1.2, 72-REQ-1.3,
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock
 
 from agent_fox.reporting.formatters import JsonFormatter, TableFormatter
 from agent_fox.reporting.standup import TaskActivity
@@ -21,7 +19,7 @@ from .conftest import (
     make_execution_state,
     make_session_record,
     mock_state,
-    write_plan_file,
+    write_plan_to_db,
 )
 
 # ---------------------------------------------------------------------------
@@ -78,18 +76,17 @@ class TestReportGeneration:
 
     def test_single_inprogress_task_included(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """TS-72-1: generate_status populates in_progress_tasks for in-progress nodes.
 
         Requirements: 72-REQ-1.1
         """
         nodes = {
-            "spec/0:completed_task": {"title": "Done task"},
-            "spec/0:coder": {"title": "Active coder"},
-            "spec/0:pending_task": {"title": "Pending task"},
+            "spec/0:completed_task": {"title": "Done task", "group_number": 1},
+            "spec/0:coder": {"title": "Active coder", "group_number": 2},
+            "spec/0:pending_task": {"title": "Pending task", "group_number": 3},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        db_conn = write_plan_to_db(nodes=nodes)
 
         sessions = [
             make_session_record(node_id="spec/0:coder", status="completed"),
@@ -104,24 +101,23 @@ class TestReportGeneration:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=db_conn)
 
         assert len(report.in_progress_tasks) == 1
         assert report.in_progress_tasks[0].task_id == "spec/0:coder"
 
     def test_coder_and_verifier_inprogress_included(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """TS-72-2: Both coder and non-coder in-progress nodes are included.
 
         Requirements: 72-REQ-1.2
         """
         nodes = {
-            "spec/0:coder": {"title": "Coder task"},
-            "spec/0:verifier": {"title": "Verifier task"},
+            "spec/0:coder": {"title": "Coder task", "group_number": 1},
+            "spec/0:verifier": {"title": "Verifier task", "group_number": 2},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        db_conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -131,7 +127,7 @@ class TestReportGeneration:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=db_conn)
 
         assert len(report.in_progress_tasks) == 2
         task_ids = {ta.task_id for ta in report.in_progress_tasks}
@@ -140,7 +136,6 @@ class TestReportGeneration:
 
     def test_session_metrics_computed_correctly(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """TS-72-3: Session counts and token totals match session history.
 
@@ -149,7 +144,7 @@ class TestReportGeneration:
         nodes = {
             "spec/0:coder": {"title": "Active coder"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        db_conn = write_plan_to_db(nodes=nodes)
 
         sessions = [
             make_session_record(
@@ -180,7 +175,7 @@ class TestReportGeneration:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=db_conn)
 
         assert len(report.in_progress_tasks) == 1
         ta = report.in_progress_tasks[0]
@@ -340,33 +335,31 @@ class TestEdgeCases:
 
     def test_no_state_file_gives_empty_in_progress_tasks(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """TS-72-E1: When no state exists, in_progress_tasks is empty.
 
         Requirements: 72-REQ-1.E2
         """
         nodes = {"spec/0:coder": {"title": "Coder"}}
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        db_conn = write_plan_to_db(nodes=nodes)
 
-        report = generate_status(plan_path=plan_path)
+        report = generate_status(db_conn=db_conn)
 
         assert report.in_progress_tasks == []
 
     def test_no_inprogress_nodes_gives_empty_list(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """TS-72-E2: When no nodes have in_progress status, list is empty.
 
         Requirements: 72-REQ-1.E1
         """
         nodes = {
-            "spec/0:coder": {"title": "Coder A"},
-            "spec/0:verifier": {"title": "Verifier"},
-            "spec/0:skeptic": {"title": "Skeptic"},
+            "spec/0:coder": {"title": "Coder A", "group_number": 1},
+            "spec/0:verifier": {"title": "Verifier", "group_number": 2},
+            "spec/0:skeptic": {"title": "Skeptic", "group_number": 3},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        db_conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -377,7 +370,7 @@ class TestEdgeCases:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=db_conn)
 
         assert report.in_progress_tasks == []
 

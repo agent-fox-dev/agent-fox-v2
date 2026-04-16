@@ -11,7 +11,6 @@ import uuid
 from pathlib import Path
 
 import duckdb
-import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 

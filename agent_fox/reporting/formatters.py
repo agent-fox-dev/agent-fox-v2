@@ -87,17 +87,13 @@ class TableFormatter:
             task_parts.append(f"agents running: {agent_names}")
         lines.append(" | ".join(task_parts))
 
-        # Memory line
-        if report.memory_total > 0:
-            cat_parts = ", ".join(f"{count} {cat}" for cat, count in sorted(report.memory_by_category.items()))
-            lines.append(f"Memory: {report.memory_total} facts ({cat_parts})")
+        # Tokens line — show "no session data" when the DB returned nothing
+        if report.input_tokens is None or report.estimated_cost is None:
+            lines.append("Tokens: no session data")
         else:
-            lines.append("Memory: 0 facts")
-
-        # Tokens line
-        in_tok = format_tokens(report.input_tokens)
-        out_tok = format_tokens(report.output_tokens)
-        lines.append(f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}")
+            in_tok = format_tokens(report.input_tokens)
+            out_tok = format_tokens(report.output_tokens)
+            lines.append(f"Tokens: {in_tok} in / {out_tok} out | ${report.estimated_cost:.2f}")
 
         # Active Tasks section (72-REQ-2.1 through 72-REQ-2.5)
         if report.in_progress_tasks:
@@ -239,7 +235,10 @@ class TableFormatter:
             lines.append("")
 
         # Total Cost line (15-REQ-6.1, 15-REQ-6.E1)
-        lines.append(f"Total Cost: ${report.total_cost:.2f}")
+        if report.total_cost is None:
+            lines.append("Total Cost: no session data")
+        else:
+            lines.append(f"Total Cost: ${report.total_cost:.2f}")
 
         return "\n".join(lines)
 

@@ -176,12 +176,21 @@ def run_plan(
     Requirements: 59-REQ-5.1, 59-REQ-5.2, 59-REQ-5.3
     """
     from agent_fox.graph.persistence import save_plan
+    from agent_fox.knowledge.db import open_knowledge_store
 
-    resolved_specs_dir = specs_dir or Path(".specs")
-    plan_path = Path(".agent-fox") / "plan.json"
+    if specs_dir is not None:
+        resolved_specs_dir = specs_dir
+    else:
+        from agent_fox.core.config import resolve_spec_root
+
+        resolved_specs_dir = resolve_spec_root(config, Path.cwd())
 
     # Always rebuild — caching was removed by spec 63
     graph = build_plan(resolved_specs_dir, filter_spec, fast, config)
-    save_plan(graph, plan_path)
+    knowledge_db = open_knowledge_store(config.knowledge)
+    try:
+        save_plan(graph, knowledge_db.connection)
+    finally:
+        knowledge_db.close()
 
     return graph

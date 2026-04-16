@@ -44,14 +44,17 @@ def plan_cmd(
 
     # Determine project paths
     project_root = Path.cwd()
-    specs_dir = project_root / ".specs"
-    plan_path = project_root / ".agent-fox" / "plan.json"
 
     # Load config for archetypes
     config_path = project_root / ".agent-fox" / "config.toml"
     config = load_config(config_path if config_path.exists() else None)
 
-    # Always rebuild the plan from .specs/ (63-REQ-1.1)
+    # Resolve spec root from config with backward compatibility
+    from agent_fox.core.config import resolve_spec_root
+
+    specs_dir = resolve_spec_root(config, project_root)
+
+    # Always rebuild the plan from specs directory (63-REQ-1.1)
     json_mode = ctx.obj.get("json", False)
     from agent_fox.ui.progress import PlanSpinner
 
@@ -74,23 +77,14 @@ def plan_cmd(
     finally:
         spinner.stop()
 
-    # Persist the plan (02-REQ-6.1, 02-REQ-6.2, 63-REQ-1.2, 105-REQ-5.2)
-    # Prefer DB persistence when available; fall back to file-based save.
-    _db_save_succeeded = False
+    # Persist the plan to DuckDB (105-REQ-5.2)
+    from agent_fox.knowledge.db import open_knowledge_store
+
+    _knowledge_db = open_knowledge_store(config.knowledge)
     try:
-        from agent_fox.knowledge.db import open_knowledge_store
-
-        _knowledge_db = open_knowledge_store(config.knowledge)
-        try:
-            save_plan(graph, _knowledge_db.connection)
-            _db_save_succeeded = True
-        finally:
-            _knowledge_db.close()
-    except Exception:
-        pass  # Fall through to file-based save
-
-    if not _db_save_succeeded:
-        save_plan(graph, plan_path)
+        save_plan(graph, _knowledge_db.connection)
+    finally:
+        _knowledge_db.close()
 
     # Re-discover specs for summary display
     try:

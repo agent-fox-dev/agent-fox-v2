@@ -54,10 +54,8 @@ class _SpecBatchRunner:
         from agent_fox.graph.builder import build_graph
         from agent_fox.graph.persistence import save_plan
         from agent_fox.graph.resolver import resolve_order
+        from agent_fox.knowledge.db import open_knowledge_store
         from agent_fox.spec.parser import parse_cross_deps, parse_tasks
-
-        # Local path constants (no longer imported from core.paths — 105-REQ-5.1)
-        _plan_path = Path(".agent-fox/plan.json")
 
         # Build plan from the discovered specs
         task_groups: dict[str, list] = {}
@@ -82,7 +80,11 @@ class _SpecBatchRunner:
             archetypes_config=self._config.archetypes,
         )
         graph.order = resolve_order(graph)
-        save_plan(graph, _plan_path)
+        _knowledge_db = open_knowledge_store(self._config.knowledge)
+        try:
+            save_plan(graph, _knowledge_db.connection)
+        finally:
+            _knowledge_db.close()
 
         return await run_code(
             self._config,
@@ -182,6 +184,22 @@ def night_shift_cmd(
     progress.start()
     # -----------------------------------------------------------------------
 
+    # Create EmbeddingGenerator for similarity-based dedup and ignore filter
+    # (110-REQ-2.1, 110-REQ-3.3, 110-REQ-4.3). Falls back to None on failure,
+    # which causes both filter functions to skip embedding-based matching
+    # (fingerprint-only dedup).
+    _embedder = None
+    try:
+        from agent_fox.knowledge.embeddings import EmbeddingGenerator
+
+        _embedder = EmbeddingGenerator(config.knowledge)
+    except Exception:
+        logger.warning(
+            "Failed to create EmbeddingGenerator for night-shift; "
+            "similarity-based dedup and ignore filtering will be disabled",
+            exc_info=True,
+        )
+
     # Create the engine for business logic (fix pipeline, hunt scan).
     # Streams delegate to engine methods; the engine is NOT the lifecycle
     # manager.  DaemonRunner handles lifecycle, scheduling, and budget.
@@ -192,7 +210,10 @@ def night_shift_cmd(
         activity_callback=progress.activity_callback,
         task_callback=progress.task_callback,
         status_callback=progress.print_status,
+        spinner_callback=progress.update_spinner_text,
         sink_dispatcher=_sink_dispatcher,
+        conn=(_knowledge_db.connection if _knowledge_db is not None else None),
+        embedder=_embedder,
     )
 
     # Shared cost budget (85-REQ-5.1, 85-REQ-5.2)
@@ -201,13 +222,15 @@ def night_shift_cmd(
 
     # Spec discovery closure (85-REQ-10.1) — tracks already-seen specs
     # across cycles so each spec is only surfaced once per daemon run.
+    from agent_fox.core.config import resolve_spec_root
     from agent_fox.engine.hot_load import discover_new_specs_gated
 
     _known_specs: set[str] = set()
-    _specs_dir = project_root / ".specs"
+    _specs_dir = resolve_spec_root(config, project_root)
+    _db_conn = _knowledge_db.connection if _knowledge_db is not None else None
 
     async def _discover_fn() -> list:
-        found = await discover_new_specs_gated(_specs_dir, _known_specs, project_root)
+        found = await discover_new_specs_gated(_specs_dir, _known_specs, project_root, db_conn=_db_conn)
         for spec in found:
             _known_specs.add(spec.name)
         return found

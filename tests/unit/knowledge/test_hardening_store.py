@@ -9,12 +9,13 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 from typing import get_type_hints
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import duckdb
 import pytest
 
 from agent_fox.knowledge.facts import Fact
+from agent_fox.knowledge.ingest import KnowledgeIngestor
 from agent_fox.knowledge.store import MemoryStore
 
 
@@ -87,3 +88,56 @@ class TestMemoryStorePropagation:
 
         with pytest.raises(duckdb.Error, match="DuckDB update failed"):
             store.mark_superseded("old-id", "new-id")
+
+
+class TestEmbeddingDimAllowlist:
+    """Verify embedding dimension interpolation is guarded by allowlist assertions.
+
+    Regression tests for issue #346 (SQL injection via f-string dim interpolation).
+    """
+
+    def test_write_embedding_raises_for_invalid_dim(self) -> None:
+        """Invalid embedding dimensions must be rejected before SQL interpolation."""
+        invalid_embedder = MagicMock()
+        invalid_embedder.embedding_dimensions = 999  # not in allowlist
+
+        mock_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
+        store = MemoryStore(Path("/dev/null"), db_conn=mock_conn, embedder=invalid_embedder)
+
+        with pytest.raises(AssertionError, match="Invalid embedding dimension: 999"):
+            store._write_embedding(str(uuid.uuid4()), [0.0] * 999)
+
+        # The DB must NOT have been called — assertion fires before execute()
+        mock_conn.execute.assert_not_called()
+
+    @pytest.mark.parametrize("dim", [384, 768, 1536])
+    def test_write_embedding_allows_valid_dims(self, dim: int) -> None:
+        """Allowed embedding dimensions (384, 768, 1536) must not raise."""
+        valid_embedder = MagicMock()
+        valid_embedder.embedding_dimensions = dim
+
+        mock_conn = MagicMock(spec=duckdb.DuckDBPyConnection)
+        store = MemoryStore(Path("/dev/null"), db_conn=mock_conn, embedder=valid_embedder)
+
+        fact_id = str(uuid.uuid4())
+        embedding = [0.1] * dim
+        # Should not raise
+        store._write_embedding(fact_id, embedding)
+        mock_conn.execute.assert_called_once()
+
+    def test_ingest_store_embedding_raises_for_invalid_dim(
+        self, tmp_path: Path, schema_conn: duckdb.DuckDBPyConnection
+    ) -> None:
+        """KnowledgeIngestor._store_embedding rejects dimensions not in allowlist."""
+        invalid_embedder = MagicMock()
+        invalid_embedder.embedding_dimensions = 42  # not in allowlist
+        invalid_embedder.embed_text.return_value = [0.0] * 42
+
+        ingestor = KnowledgeIngestor(
+            conn=schema_conn,
+            embedder=invalid_embedder,
+            project_root=tmp_path,
+        )
+
+        with pytest.raises(AssertionError, match="Invalid embedding dimension: 42"):
+            ingestor._store_embedding(str(uuid.uuid4()), "test text", "label")
