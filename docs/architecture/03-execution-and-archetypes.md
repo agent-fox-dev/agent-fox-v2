@@ -169,7 +169,7 @@ is safe against TOCTOU races.
 
 After harvest, the system extracts knowledge from the session:
 
-- **Review parsing**: For review archetypes (Skeptic, Oracle, Auditor,
+- **Review parsing**: For review archetypes (Reviewer in all modes,
   Verifier), the session output is parsed for structured JSON containing
   findings, verdicts, or drift reports. The parser is tolerant of format
   variations — it handles fenced code blocks, bare JSON, wrapper objects with
@@ -491,7 +491,7 @@ what happens next.
 ### Success
 
 The task node is marked COMPLETED in the graph. If the session was a review
-agent with blocking authority (Skeptic or Oracle), the handler evaluates
+agent with blocking authority (Reviewer in pre-review or drift-review mode), the handler evaluates
 whether the findings exceed the configured blocking threshold. If they do,
 downstream coder tasks are blocked — they will not execute until the findings
 are addressed.

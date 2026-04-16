@@ -207,9 +207,9 @@ The traversal uses breadth-first search on the `fact_causes` graph, following bo
 
 The enhanced fact set — keyword-selected facts plus their causal neighbors — is what ultimately gets injected into the coding session prompt.
 
-### 6.3 The Oracle (RAG Pipeline)
+### 6.3 RAG Query Pipeline
 
-For interactive knowledge queries (the `agent-fox ask` command), the system provides a full retrieval-augmented generation pipeline:
+For interactive knowledge queries, the system provides a full retrieval-augmented generation pipeline:
 
 1. The question is embedded using the configured embedding model.
 2. Vector similarity search retrieves the top-k most relevant facts (default: 20).

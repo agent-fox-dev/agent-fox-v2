@@ -86,6 +86,7 @@ agent-fox init [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--skills` | flag | off | Install bundled Claude Code skills into `.claude/skills/` |
+| `--profiles` | flag | off | Copy default archetype profiles into `.agent-fox/profiles/` |
 
 Creates the `.agent-fox/` directory structure with a default configuration file,
 sets up the `develop` branch, updates `.gitignore`, creates
@@ -120,6 +121,12 @@ contains. If the file contains only the initial placeholder text (no real
 directives), it is silently skipped during prompt assembly so agents are not
 distracted by empty templates.
 
+**Profiles installation (`--profiles`):** When `--profiles` is provided, copies
+all built-in archetype profiles (coder, reviewer, verifier, maintainer and
+their mode variants) into `.agent-fox/profiles/`. Existing profile files are
+preserved — only missing profiles are created. This enables project-level
+customization of agent behavior. See [Profiles](profiles.md) for details.
+
 **Skills installation (`--skills`):** When `--skills` is provided, copies
 bundled skill templates from the agent-fox package into
 `.claude/skills/{name}/SKILL.md`. Each skill becomes available as a slash
@@ -147,8 +154,8 @@ agent-fox plan [OPTIONS]
 | `--analyze` | flag | off | Show parallelism analysis |
 
 Scans `.specs/` for specification folders, parses task groups, builds a
-dependency graph, resolves topological ordering, and persists the plan to
-`.agent-fox/plan.json`. The plan is always rebuilt from `.specs/` on every
+dependency graph, resolves topological ordering, and persists the plan to the
+DuckDB knowledge store. The plan is always rebuilt from `.specs/` on every
 invocation.
 
 **Exit codes:** `0` success, `1` plan error.
@@ -177,7 +184,7 @@ each ready task in the plan. Sessions execute in isolated git worktrees with
 feature branches. After each session, results are harvested (merged) and state
 is persisted to the DuckDB knowledge store.
 
-Requires `.agent-fox/plan.json` to exist (run `agent-fox plan` first).
+Requires a persisted plan in the knowledge store (run `agent-fox plan` first).
 
 #### Watch Mode (`--watch`)
 
@@ -354,8 +361,8 @@ Night Shift is a continuously-running maintenance daemon that:
    files, and a suggested fix.
 3. **Fixes `af:fix`-labelled issues** — polls GitHub for open issues with the
    `af:fix` label at the configured `issue_check_interval`, then runs each
-   through the full skeptic → coder → verifier archetype pipeline and opens a
-   pull request.
+   through a coder → reviewer (fix-review mode) pipeline and opens a pull
+   request.
 
 **Requirements:**
 
@@ -451,13 +458,13 @@ agent-fox findings [OPTIONS]
 |--------|------|---------|-------------|
 | `--spec NAME` | string | all | Filter by spec name |
 | `--severity LEVEL` | string | all | Minimum severity level (`critical`, `major`, `minor`, `observation`) |
-| `--archetype NAME` | string | all | Filter by archetype (`skeptic`, `verifier`, `oracle`) |
+| `--archetype NAME` | string | all | Filter by source: `skeptic` (pre-review), `oracle` (drift-review), `verifier` |
 | `--run ID` | string | all | Filter by run ID |
 | `--json` | flag | off | Output as JSON array |
 
 Displays active (non-superseded) review findings from the knowledge store.
-Findings are produced by the Skeptic, Oracle, and Verifier archetypes during
-`agent-fox code` sessions.
+Findings are produced by Reviewer (pre-review, drift-review, audit-review
+modes) and Verifier archetypes during `agent-fox code` sessions.
 
 **Exit codes:** `0` success.
 

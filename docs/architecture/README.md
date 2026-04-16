@@ -77,7 +77,7 @@ and reset.
 How the system maintains itself. Covers the hunt-and-fix daemon, eight
 hunt categories, the LLM critic for finding consolidation, fingerprint-based
 deduplication, batch triage with dependency and supersession detection, the
-three-agent fix pipeline, in-memory spec construction, cost limits, and
+two-agent fix pipeline, in-memory spec construction, cost limits, and
 staleness detection.
 
 ### [Part 5: Knowledge System Architecture](05-knowledge-system-architecture.md)

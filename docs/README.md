@@ -92,7 +92,7 @@ categories — linter debt, dead code, test coverage gaps, dependency freshness,
 deprecated API usage, documentation drift, TODO/FIXME resolution, and quality
 gate failures — then groups findings by root cause and files GitHub issues.
 Issues labelled `af:fix` are automatically picked up and repaired through a
-three-agent pipeline (Reviewer, Coder, Verifier). Use `--auto` to label every
+two-agent pipeline (Coder, Reviewer in fix-review mode). Use `--auto` to label every
 discovered issue for hands-off repair.
 
 ### Knowledge System

@@ -28,8 +28,8 @@ Night-shift operates as a two-phase loop:
    issues, and create GitHub issues for novel findings.
 
 2. **Fix**: Pick up issues labelled for automatic repair, determine a safe
-   processing order using dependency analysis, and execute a three-agent
-   pipeline (Skeptic → Coder → Verifier) for each issue.
+   processing order using dependency analysis, and execute a two-agent
+   pipeline (Coder → Reviewer in fix-review mode) for each issue.
 
 These two phases run on independent timers. The hunt scan runs less frequently
 (default: every six hours) because it is expensive — it executes static
@@ -170,22 +170,20 @@ creation-date order.
 
 ### The Fix Pipeline
 
-Each issue passes through a three-stage pipeline:
+Each issue passes through a two-stage pipeline:
 
-1. **Skeptic review.** A Skeptic agent reads the issue body and assesses
-   whether the fix is feasible, whether there are hidden risks, and whether
-   the scope is well-defined.
-
-2. **Coder implementation.** A Coder agent implements the fix on an isolated
+1. **Coder implementation.** A Coder agent implements the fix on an isolated
    branch. The branch name includes the issue number and a sanitized slug
    derived from the title (`fix/{issue-number}-{slug}`). The system prompt
    contains the full issue body; the task prompt directs the agent to fix
    the described problem.
 
-3. **Verifier validation.** A Verifier agent confirms that the fix resolves
-   the issue without introducing regressions.
+2. **Reviewer validation.** A Reviewer agent in fix-review mode reviews the
+   patch for correctness and quality. If the review identifies issues, the
+   pipeline loops back to the Coder with review feedback, up to the
+   configured retry limit.
 
-All three sessions share the same fix branch, which is created from the
+Both sessions share the same fix branch, which is created from the
 current `develop` HEAD. After the pipeline completes successfully, the fix
 branch is harvested into `develop` using the same squash-merge strategy as
 the spec-driven pipeline (squash merge, with merge agent on conflict).

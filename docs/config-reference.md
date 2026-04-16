@@ -11,7 +11,6 @@ the most commonly changed settings. Add any section below manually to
 - [orchestrator](#orchestrator)
 - [routing](#routing)
 - [models](#models)
-- [hooks](#hooks)
 - [security](#security)
 - [theme](#theme)
 - [platform](#platform)
@@ -360,6 +359,7 @@ Each entry in `models` is a TOML inline table or sub-table with these fields:
 |-------|-----------|------------|----------------|--------------------|
 | `claude-haiku-4-5` | 1.00 | 5.00 | 0.10 | 1.25 |
 | `claude-sonnet-4-6` | 3.00 | 15.00 | 0.30 | 3.75 |
+| `claude-opus-4-5` | 5.00 | 25.00 | 0.50 | 6.25 |
 | `claude-opus-4-6` | 5.00 | 25.00 | 0.50 | 6.25 |
 
 **Example (override a single model's pricing):**

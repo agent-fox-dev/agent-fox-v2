@@ -72,22 +72,22 @@ The planner injects non-coder agent nodes at three positions in each spec's
 chain, based on the archetype configuration:
 
 **Pre-execution agents** (injection point: `auto_pre`) are added at group 0,
-before the first coder group. Currently this includes the Skeptic (spec quality
-review) and the Oracle (design-to-code drift detection). These agents examine
-the spec and existing codebase before any implementation begins, providing early
-warning of problems.
+before the first coder group. Currently this includes the Reviewer in
+pre-review mode (spec quality review) and drift-review mode (design-to-code
+drift detection). These agents examine the spec and existing codebase before
+any implementation begins, providing early warning of problems.
 
-The Oracle has a gating rule: if the spec references no files that currently
-exist in the repository (determined by scanning `design.md` for file paths and
-checking the filesystem), the Oracle node is skipped. There is nothing to
+The drift-review node has a gating rule: if the spec references no files that
+currently exist in the repository (determined by scanning `design.md` for file
+paths and checking the filesystem), the node is skipped. There is nothing to
 validate drift against if the code does not yet exist.
 
 **Mid-execution agents** (injection point: `auto_mid`) are added after
-test-writing groups. Currently this is the Auditor, which validates that the
-tests written in earlier groups actually cover the test spec contracts. The
-Auditor is only injected if the spec's `test_spec.md` contains at least a
-configurable minimum number of test entries — below that threshold, auditing
-has insufficient material to work with.
+test-writing groups. Currently this is the Reviewer in audit-review mode, which
+validates that the tests written in earlier groups actually cover the test spec
+contracts. The audit-review node is only injected if the spec's `test_spec.md`
+contains at least a configurable minimum number of test entries — below that
+threshold, auditing has insufficient material to work with.
 
 **Post-execution agents** (injection point: `auto_post`) are added after the
 last coder group. Currently this is the Verifier, which runs the test suite and
@@ -235,7 +235,7 @@ The plan is not entirely static. The engine can modify the graph at runtime in
 two ways:
 
 **Archetype injection patching**: If the loaded plan was built with a different
-archetype configuration than the current one (for example, the Auditor was
+archetype configuration than the current one (for example, audit-review was
 disabled when the plan was built but is now enabled), the engine injects the
 missing archetype nodes into the live graph, adds the appropriate edges, and
 updates the execution order. This is transparent to the operator — the plan
@@ -255,8 +255,8 @@ replan.
 ## Review-Only Plans
 
 For situations where the operator wants to run review agents without any coding,
-the planner can build a review-only graph. This graph contains only Skeptic,
-Oracle, and Verifier nodes — no coder nodes. It scans the specs directory,
+the planner can build a review-only graph. This graph contains only Reviewer
+and Verifier nodes — no coder nodes. It scans the specs directory,
 creates review nodes for specs that have existing source files or requirements,
 and produces a minimal graph suitable for a read-only analysis pass.
 

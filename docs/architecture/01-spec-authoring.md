@@ -31,7 +31,7 @@ Each spec directory contains exactly five artifacts:
 | `prd.md` | Product requirements document. Defines what the feature is, why it exists, and what cross-spec dependencies it has. This is the human-facing narrative. |
 | `requirements.md` | Acceptance criteria in EARS-syntax. Each criterion has a structured identifier and a testable "SHALL" statement. This is what the Verifier checks against. |
 | `design.md` | Architecture and interface design. Describes components, data models, correctness properties, error handling strategy, and definition of done. |
-| `test_spec.md` | Language-agnostic test contracts. Each entry describes what must be tested, not how. The Coder writes actual tests from these contracts; the Auditor verifies alignment. |
+| `test_spec.md` | Language-agnostic test contracts. Each entry describes what must be tested, not how. The Coder writes actual tests from these contracts; the Reviewer (audit-review mode) verifies alignment. |
 | `tasks.md` | Implementation plan as a dependency-ordered list of task groups with subtasks. This is what the planner parses into the task graph. |
 
 These five artifacts form a closed traceability chain: requirements define what
