@@ -1,6 +1,6 @@
 """Prompt building: system prompt assembly and task prompt construction.
 
-Assembles a 3-layer system prompt from project context (CLAUDE.md),
+Assembles a 3-layer system prompt from agent base profile,
 archetype profile, and task context.
 
 Requirements: 15-REQ-2.2, 15-REQ-5.1 through 15-REQ-5.E1,
@@ -47,8 +47,8 @@ def build_system_prompt(
     """Build the system prompt using 3-layer assembly.
 
     Assembles a prompt from:
-      - Layer 1: Project context from ``CLAUDE.md`` (omitted if missing or
-        *project_dir* is ``None``).
+      - Layer 1: Agent base profile from ``agent_base.md`` (loaded via
+        :func:`load_profile`; omits if not found).
       - Layer 2: Archetype profile loaded via :func:`load_profile`, with
         mode-aware resolution.
       - Layer 3: Task context (the *context* argument).
@@ -62,7 +62,7 @@ def build_system_prompt(
         mode: Optional archetype mode variant for mode-specific profile
             resolution (e.g. ``"fix"`` loads ``coder_fix.md``).
         project_dir: Root of the project directory.  When provided, enables
-            Layer 1 (CLAUDE.md) and project-level profile overrides.
+            project-level profile overrides for both Layer 1 and Layer 2.
 
     Returns:
         Complete system prompt string.
@@ -73,11 +73,10 @@ def build_system_prompt(
 
     layers: list[str] = []
 
-    # Layer 1: project context (CLAUDE.md) — omit if missing (99-REQ-1.E1)
-    if project_dir is not None:
-        claude_md = project_dir / "CLAUDE.md"
-        if claude_md.exists():
-            layers.append(claude_md.read_text(encoding="utf-8"))
+    # Layer 1: agent base profile (replaces CLAUDE.md)
+    base_profile = load_profile("agent_base", project_dir=project_dir)
+    if base_profile:
+        layers.append(base_profile)
 
     # Layer 2: archetype profile — empty string if not found (99-REQ-1.E2)
     profile = load_profile(resolved, project_dir=project_dir, mode=mode)

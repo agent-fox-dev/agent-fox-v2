@@ -18,7 +18,7 @@ BUILTIN_ARCHETYPES = ["coder", "reviewer", "verifier", "maintainer"]
 @given(st.sampled_from(BUILTIN_ARCHETYPES))
 @settings(max_examples=4)
 def test_layer_order(archetype: str) -> None:
-    """TS-99-P1: Project context always precedes profile precedes task context.
+    """TS-99-P1: Agent base always precedes profile precedes task context.
 
     Property: For any archetype, the three prompt layers appear in order.
     Requirement: 99-REQ-1.1
@@ -27,9 +27,9 @@ def test_layer_order(archetype: str) -> None:
 
     tmp_dir = Path(tempfile.mkdtemp())
     try:
-        (tmp_dir / "CLAUDE.md").write_text("PROJECT_CONTEXT_CONTENT")
         profiles_dir = tmp_dir / ".agent-fox" / "profiles"
         profiles_dir.mkdir(parents=True)
+        (profiles_dir / "agent_base.md").write_text("BASE_CONTEXT_CONTENT")
         marker = f"PROFILE_{archetype.upper()}_CONTENT"
         (profiles_dir / f"{archetype}.md").write_text(marker)
 
@@ -39,14 +39,14 @@ def test_layer_order(archetype: str) -> None:
             project_dir=tmp_dir,
         )
 
-        assert "PROJECT_CONTEXT_CONTENT" in prompt
+        assert "BASE_CONTEXT_CONTENT" in prompt
         assert marker in prompt
         assert "TASK_CONTEXT_MARKER" in prompt
 
-        idx_claude = prompt.index("PROJECT_CONTEXT_CONTENT")
+        idx_base = prompt.index("BASE_CONTEXT_CONTENT")
         idx_profile = prompt.index(marker)
         idx_task = prompt.index("TASK_CONTEXT_MARKER")
-        assert idx_claude < idx_profile < idx_task
+        assert idx_base < idx_profile < idx_task
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
