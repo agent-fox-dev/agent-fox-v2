@@ -2608,3 +2608,719 @@ class TestGrammarNotInstalled107:
         lang_names = {a.language_name for a in registry.all_analyzers()}
         assert "csharp" not in lang_names, "csharp must be skipped when grammar is missing"
         assert "python" in lang_names, "python must remain registered"
+
+
+# ---------------------------------------------------------------------------
+# TS-426-1: Bash analyzer properties and entity extraction
+# ---------------------------------------------------------------------------
+
+
+class TestBashAnalyzerProperties:
+    """TS-426-1: BashAnalyzer reports correct language_name and file_extensions."""
+
+    def test_bash_language_name(self) -> None:
+        """BashAnalyzer.language_name is 'bash'."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        analyzer = BashAnalyzer()
+        assert analyzer.language_name == "bash"
+
+    def test_bash_file_extensions(self) -> None:
+        """BashAnalyzer.file_extensions includes '.sh' and '.bash'."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        analyzer = BashAnalyzer()
+        assert ".sh" in analyzer.file_extensions
+        assert ".bash" in analyzer.file_extensions
+
+    def test_bash_make_parser_returns_parser(self) -> None:
+        """BashAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+
+class TestBashEntitiesAndEdges:
+    """TS-426-2: BashAnalyzer extracts function entities and source edges."""
+
+    _BASH_SOURCE = """\
+#!/bin/bash
+
+function setup() {
+  echo "setting up"
+}
+
+teardown() {
+  echo "tearing down"
+}
+
+source ./helpers.sh
+. ./config.sh
+"""
+
+    def test_bash_extract_file_entity(self, tmp_path: Path) -> None:
+        """BashAnalyzer extracts a FILE entity."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        sh_file = tmp_path / "script.sh"
+        sh_file.write_text(self._BASH_SOURCE)
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(sh_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "script.sh")
+        types = {e.entity_name: e.entity_type for e in entities}
+
+        assert "script.sh" in types
+        assert types["script.sh"] == EntityType.FILE
+
+    def test_bash_extract_function_entities(self, tmp_path: Path) -> None:
+        """BashAnalyzer extracts FUNCTION entities for both function styles."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        sh_file = tmp_path / "script.sh"
+        sh_file.write_text(self._BASH_SOURCE)
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(sh_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "script.sh")
+        types = {e.entity_name: e.entity_type for e in entities}
+
+        assert "setup" in types
+        assert types["setup"] == EntityType.FUNCTION
+        assert "teardown" in types
+        assert types["teardown"] == EntityType.FUNCTION
+
+    def test_bash_extract_contains_edges(self, tmp_path: Path) -> None:
+        """BashAnalyzer extracts CONTAINS edges from file to functions."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        sh_file = tmp_path / "script.sh"
+        sh_file.write_text(self._BASH_SOURCE)
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(sh_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "script.sh")
+        edges = analyzer.extract_edges(tree, "script.sh", entities, {})
+        relationships = {e.relationship for e in edges}
+
+        assert EdgeType.CONTAINS in relationships
+
+    def test_bash_source_command_produces_imports_edge(self, tmp_path: Path) -> None:
+        """BashAnalyzer produces IMPORTS edges for resolved source commands."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        helpers = tmp_path / "helpers.sh"
+        helpers.write_text("# helpers\n")
+        sh_file = tmp_path / "script.sh"
+        sh_file.write_text("source ./helpers.sh\n")
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(sh_file, parser)
+        assert tree is not None
+
+        module_map = analyzer.build_module_map(tmp_path, [helpers])
+        entities = analyzer.extract_entities(tree, "script.sh")
+        edges = analyzer.extract_edges(tree, "script.sh", entities, module_map)
+        imports_edges = [e for e in edges if e.relationship == EdgeType.IMPORTS]
+
+        assert len(imports_edges) >= 1, "source command must produce IMPORTS edge"
+
+    def test_bash_unresolvable_source_no_imports_edge(self, tmp_path: Path) -> None:
+        """Unresolvable source path produces no IMPORTS edge."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        sh_file = tmp_path / "script.sh"
+        sh_file.write_text("source /absolute/external.sh\n")
+        analyzer = BashAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(sh_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "script.sh")
+        edges = analyzer.extract_edges(tree, "script.sh", entities, {})
+        imports_edges = [e for e in edges if e.relationship == EdgeType.IMPORTS]
+
+        assert len(imports_edges) == 0, "Unresolvable source must not produce IMPORTS edge"
+
+    def test_bash_module_map_maps_file_names(self, tmp_path: Path) -> None:
+        """BashAnalyzer.build_module_map maps both filename and repo-relative path."""
+        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
+
+        lib_dir = tmp_path / "lib"
+        lib_dir.mkdir()
+        utils = lib_dir / "utils.sh"
+        utils.write_text("")
+
+        analyzer = BashAnalyzer()
+        mm = analyzer.build_module_map(tmp_path, [utils])
+
+        assert "utils.sh" in mm, "bare filename must be in module map"
+        assert "lib/utils.sh" in mm, "repo-relative path must be in module map"
+
+
+# ---------------------------------------------------------------------------
+# TS-426-3: HTML analyzer
+# ---------------------------------------------------------------------------
+
+
+class TestHtmlAnalyzerProperties:
+    """TS-426-3: HtmlAnalyzer reports correct language_name and file_extensions."""
+
+    def test_html_language_name(self) -> None:
+        """HtmlAnalyzer.language_name is 'html'."""
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        analyzer = HtmlAnalyzer()
+        assert analyzer.language_name == "html"
+
+    def test_html_file_extensions(self) -> None:
+        """HtmlAnalyzer.file_extensions includes '.html' and '.htm'."""
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        analyzer = HtmlAnalyzer()
+        assert ".html" in analyzer.file_extensions
+        assert ".htm" in analyzer.file_extensions
+
+    def test_html_make_parser_returns_parser(self) -> None:
+        """HtmlAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        analyzer = HtmlAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+    def test_html_extract_file_entity_only(self, tmp_path: Path) -> None:
+        """HtmlAnalyzer extracts only a FILE entity — no class or function entities."""
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        html_file = tmp_path / "index.html"
+        html_file.write_text("<html><body><h1>Hello</h1></body></html>\n")
+        analyzer = HtmlAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(html_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "index.html")
+        assert len(entities) == 1
+        assert entities[0].entity_type == EntityType.FILE
+        assert entities[0].entity_name == "index.html"
+
+    def test_html_no_edges(self, tmp_path: Path) -> None:
+        """HtmlAnalyzer.extract_edges() returns an empty list."""
+        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
+
+        html_file = tmp_path / "index.html"
+        html_file.write_text("<html><body></body></html>\n")
+        analyzer = HtmlAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(html_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "index.html")
+        edges = analyzer.extract_edges(tree, "index.html", entities, {})
+        assert len(edges) == 0
+
+
+# ---------------------------------------------------------------------------
+# TS-426-4: JSON analyzer
+# ---------------------------------------------------------------------------
+
+
+class TestJsonAnalyzerProperties:
+    """TS-426-4: JsonAnalyzer reports correct language_name and file_extensions."""
+
+    def test_json_language_name(self) -> None:
+        """JsonAnalyzer.language_name is 'json'."""
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        analyzer = JsonAnalyzer()
+        assert analyzer.language_name == "json"
+
+    def test_json_file_extensions(self) -> None:
+        """JsonAnalyzer.file_extensions includes '.json'."""
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        analyzer = JsonAnalyzer()
+        assert ".json" in analyzer.file_extensions
+
+    def test_json_make_parser_returns_parser(self) -> None:
+        """JsonAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        analyzer = JsonAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+    def test_json_extract_file_entity_only(self, tmp_path: Path) -> None:
+        """JsonAnalyzer extracts only a FILE entity."""
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        json_file = tmp_path / "config.json"
+        json_file.write_text('{"name": "test", "version": "1.0"}\n')
+        analyzer = JsonAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(json_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "config.json")
+        assert len(entities) == 1
+        assert entities[0].entity_type == EntityType.FILE
+        assert entities[0].entity_name == "config.json"
+
+    def test_json_no_edges(self, tmp_path: Path) -> None:
+        """JsonAnalyzer.extract_edges() returns an empty list."""
+        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
+
+        json_file = tmp_path / "config.json"
+        json_file.write_text('{"key": "value"}\n')
+        analyzer = JsonAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(json_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "config.json")
+        edges = analyzer.extract_edges(tree, "config.json", entities, {})
+        assert len(edges) == 0
+
+
+# ---------------------------------------------------------------------------
+# TS-426-5: CSS analyzer
+# ---------------------------------------------------------------------------
+
+
+class TestCssAnalyzerProperties:
+    """TS-426-5: CssAnalyzer reports correct language_name and file_extensions."""
+
+    def test_css_language_name(self) -> None:
+        """CssAnalyzer.language_name is 'css'."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        analyzer = CssAnalyzer()
+        assert analyzer.language_name == "css"
+
+    def test_css_file_extensions(self) -> None:
+        """CssAnalyzer.file_extensions includes '.css'."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        analyzer = CssAnalyzer()
+        assert ".css" in analyzer.file_extensions
+
+    def test_css_make_parser_returns_parser(self) -> None:
+        """CssAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        analyzer = CssAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+    def test_css_extract_file_entity_only(self, tmp_path: Path) -> None:
+        """CssAnalyzer extracts only a FILE entity (no class/function constructs)."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        css_file = tmp_path / "styles.css"
+        css_file.write_text("body { color: red; }\n")
+        analyzer = CssAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(css_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "styles.css")
+        assert len(entities) == 1
+        assert entities[0].entity_type == EntityType.FILE
+        assert entities[0].entity_name == "styles.css"
+
+    def test_css_at_import_produces_imports_edge(self, tmp_path: Path) -> None:
+        """CssAnalyzer produces IMPORTS edges for resolved @import statements."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        base = tmp_path / "base.css"
+        base.write_text("body { margin: 0; }\n")
+        css_file = tmp_path / "styles.css"
+        css_file.write_text('@import "base.css";\n\nbody { color: red; }\n')
+        analyzer = CssAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(css_file, parser)
+        assert tree is not None
+
+        module_map = analyzer.build_module_map(tmp_path, [base])
+        entities = analyzer.extract_entities(tree, "styles.css")
+        edges = analyzer.extract_edges(tree, "styles.css", entities, module_map)
+        imports_edges = [e for e in edges if e.relationship == EdgeType.IMPORTS]
+
+        assert len(imports_edges) >= 1, "@import must produce IMPORTS edge when file is resolvable"
+
+    def test_css_external_import_no_edge(self, tmp_path: Path) -> None:
+        """CssAnalyzer does not produce IMPORTS edges for external URLs."""
+        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
+
+        css_file = tmp_path / "styles.css"
+        css_file.write_text('@import "https://fonts.googleapis.com/css2?family=Roboto";\nbody {}\n')
+        analyzer = CssAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(css_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "styles.css")
+        edges = analyzer.extract_edges(tree, "styles.css", entities, {})
+        imports_edges = [e for e in edges if e.relationship == EdgeType.IMPORTS]
+
+        assert len(imports_edges) == 0, "External URL @import must not produce IMPORTS edge"
+
+
+# ---------------------------------------------------------------------------
+# TS-426-6: Regex analyzer
+# ---------------------------------------------------------------------------
+
+
+class TestRegexAnalyzerProperties:
+    """TS-426-6: RegexAnalyzer reports correct language_name and file_extensions."""
+
+    def test_regex_language_name(self) -> None:
+        """RegexAnalyzer.language_name is 'regex'."""
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        analyzer = RegexAnalyzer()
+        assert analyzer.language_name == "regex"
+
+    def test_regex_file_extensions(self) -> None:
+        """RegexAnalyzer.file_extensions includes '.regex'."""
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        analyzer = RegexAnalyzer()
+        assert ".regex" in analyzer.file_extensions
+
+    def test_regex_make_parser_returns_parser(self) -> None:
+        """RegexAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        analyzer = RegexAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+    def test_regex_extract_file_entity_only(self, tmp_path: Path) -> None:
+        """RegexAnalyzer extracts only a FILE entity."""
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        regex_file = tmp_path / "pattern.regex"
+        regex_file.write_text(r"^\d+$")
+        analyzer = RegexAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(regex_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "pattern.regex")
+        assert len(entities) == 1
+        assert entities[0].entity_type == EntityType.FILE
+        assert entities[0].entity_name == "pattern.regex"
+
+    def test_regex_no_edges(self, tmp_path: Path) -> None:
+        """RegexAnalyzer.extract_edges() returns an empty list."""
+        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
+
+        regex_file = tmp_path / "pattern.regex"
+        regex_file.write_text(r"[a-z]+")
+        analyzer = RegexAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(regex_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "pattern.regex")
+        edges = analyzer.extract_edges(tree, "pattern.regex", entities, {})
+        assert len(edges) == 0
+
+
+# ---------------------------------------------------------------------------
+# TS-426-7: Swift analyzer properties
+# ---------------------------------------------------------------------------
+
+
+class TestSwiftAnalyzerProperties:
+    """TS-426-7: SwiftAnalyzer reports correct language_name and file_extensions."""
+
+    def test_swift_language_name(self) -> None:
+        """SwiftAnalyzer.language_name is 'swift'."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        analyzer = SwiftAnalyzer()
+        assert analyzer.language_name == "swift"
+
+    def test_swift_file_extensions(self) -> None:
+        """SwiftAnalyzer.file_extensions includes '.swift'."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        analyzer = SwiftAnalyzer()
+        assert ".swift" in analyzer.file_extensions
+
+    def test_swift_make_parser_returns_parser(self) -> None:
+        """SwiftAnalyzer.make_parser() returns a configured tree-sitter Parser."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        assert parser is not None
+
+
+# ---------------------------------------------------------------------------
+# TS-426-8 and TS-426-9: Swift entity and edge extraction
+# ---------------------------------------------------------------------------
+
+
+class TestSwiftEntitiesAndEdges:
+    """TS-426-8 and TS-426-9: SwiftAnalyzer extracts entities and edges."""
+
+    _SWIFT_SOURCE_BASIC = """\
+import Foundation
+
+class Animal {
+    var name: String = ""
+    func speak() {}
+}
+
+struct Point {
+    var x: Float = 0
+    var y: Float = 0
+}
+
+protocol Flyable {
+    func fly()
+}
+
+enum Direction {
+    case north
+    case south
+}
+
+func topLevel() {}
+"""
+
+    _SWIFT_SOURCE_EXTENDS = """\
+import UIKit
+
+class Dog: Animal {
+    override func speak() {}
+}
+"""
+
+    def test_swift_extract_file_entity(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer extracts a FILE entity."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "models.swift"
+        swift_file.write_text(self._SWIFT_SOURCE_BASIC)
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "models.swift")
+        types = {e.entity_name: e.entity_type for e in entities}
+
+        assert "models.swift" in types
+        assert types["models.swift"] == EntityType.FILE
+
+    def test_swift_extract_class_entities(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer extracts CLASS entities for class, struct, enum, protocol."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "models.swift"
+        swift_file.write_text(self._SWIFT_SOURCE_BASIC)
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "models.swift")
+        types = {e.entity_name: e.entity_type for e in entities}
+
+        assert "Animal" in types
+        assert types["Animal"] == EntityType.CLASS
+        assert "Point" in types
+        assert types["Point"] == EntityType.CLASS
+        assert "Flyable" in types
+        assert types["Flyable"] == EntityType.CLASS
+        assert "Direction" in types
+        assert types["Direction"] == EntityType.CLASS
+
+    def test_swift_extract_function_entities(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer extracts FUNCTION entities for methods (qualified) and top-level functions."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "models.swift"
+        swift_file.write_text(self._SWIFT_SOURCE_BASIC)
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "models.swift")
+        types = {e.entity_name: e.entity_type for e in entities}
+
+        assert "Animal.speak" in types
+        assert types["Animal.speak"] == EntityType.FUNCTION
+        assert "topLevel" in types
+        assert types["topLevel"] == EntityType.FUNCTION
+
+    def test_swift_extract_contains_edges(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer extracts CONTAINS edges (file→class, class→method)."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "models.swift"
+        swift_file.write_text(self._SWIFT_SOURCE_BASIC)
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "models.swift")
+        edges = analyzer.extract_edges(tree, "models.swift", entities, {})
+        contains = [e for e in edges if e.relationship == EdgeType.CONTAINS]
+
+        assert len(contains) >= 2  # file→class, class→method, file→function
+
+    def test_swift_extract_extends_edge(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer extracts EXTENDS edges from inheritance clauses."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "dog.swift"
+        swift_file.write_text(self._SWIFT_SOURCE_EXTENDS)
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "dog.swift")
+        edges = analyzer.extract_edges(tree, "dog.swift", entities, {})
+        extends = [e for e in edges if e.relationship == EdgeType.EXTENDS]
+
+        assert len(extends) >= 1  # Dog → Animal
+
+    def test_swift_extends_sentinel_for_external_type(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer emits a sentinel EXTENDS edge for types not in the entity map."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "dog.swift"
+        swift_file.write_text("class Dog: Animal {\n    func speak() {}\n}\n")
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "dog.swift")
+        edges = analyzer.extract_edges(tree, "dog.swift", entities, {})
+        extends = [e for e in edges if e.relationship == EdgeType.EXTENDS]
+
+        assert len(extends) >= 1
+        # Target should be a sentinel id since Animal is not in entities
+        sentinel_targets = [e for e in extends if e.target_id.startswith("class:")]
+        assert len(sentinel_targets) >= 1, "External type must produce a sentinel EXTENDS edge"
+
+    def test_swift_no_extends_for_struct(self, tmp_path: Path) -> None:
+        """SwiftAnalyzer does not produce EXTENDS edges for standalone structs."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "point.swift"
+        swift_file.write_text("struct Point { var x: Float = 0 }\n")
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "point.swift")
+        edges = analyzer.extract_edges(tree, "point.swift", entities, {})
+        extends = [e for e in edges if e.relationship == EdgeType.EXTENDS]
+
+        assert len(extends) == 0, "Standalone struct must not produce EXTENDS edges"
+
+    def test_swift_qualified_method_name(self, tmp_path: Path) -> None:
+        """Swift class methods are qualified as 'ClassName.methodName'."""
+        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
+
+        swift_file = tmp_path / "animal.swift"
+        swift_file.write_text("class Animal {\n    func speak() {}\n}\n")
+        analyzer = SwiftAnalyzer()
+        parser = analyzer.make_parser()
+        tree = _parse_file(swift_file, parser)
+        assert tree is not None
+
+        entities = analyzer.extract_entities(tree, "animal.swift")
+        names = {e.entity_name for e in entities}
+
+        assert "Animal.speak" in names
+
+
+# ---------------------------------------------------------------------------
+# TS-426-10: Registry integration for new languages
+# ---------------------------------------------------------------------------
+
+
+class TestRegistryIntegration426:
+    """TS-426-10: All six new analyzers are registered without extension conflicts."""
+
+    def test_new_analyzers_in_registry(self) -> None:
+        """Default registry contains analyzers for bash, html, json, css, regex, swift."""
+        from agent_fox.knowledge.lang.registry import _build_default_registry
+
+        registry = _build_default_registry()
+        lang_names = {a.language_name for a in registry.all_analyzers()}
+
+        assert "bash" in lang_names, "bash analyzer must be in registry"
+        assert "html" in lang_names, "html analyzer must be in registry"
+        assert "json" in lang_names, "json analyzer must be in registry"
+        assert "css" in lang_names, "css analyzer must be in registry"
+        assert "regex" in lang_names, "regex analyzer must be in registry"
+        assert "swift" in lang_names, "swift analyzer must be in registry"
+
+    def test_new_extensions_resolvable(self) -> None:
+        """Registry resolves .sh, .html, .json, .css, .regex, .swift extensions."""
+        from agent_fox.knowledge.lang.registry import _build_default_registry
+
+        registry = _build_default_registry()
+
+        assert registry.get_analyzer(".sh") is not None
+        assert registry.get_analyzer(".bash") is not None
+        assert registry.get_analyzer(".html") is not None
+        assert registry.get_analyzer(".htm") is not None
+        assert registry.get_analyzer(".json") is not None
+        assert registry.get_analyzer(".css") is not None
+        assert registry.get_analyzer(".regex") is not None
+        assert registry.get_analyzer(".swift") is not None
+
+    def test_no_extension_conflicts_with_new_languages(self) -> None:
+        """No extension conflicts introduced by the six new analyzers."""
+        from agent_fox.knowledge.lang.registry import _build_default_registry
+
+        registry = _build_default_registry()
+        all_exts: list[str] = []
+        for analyzer in registry.all_analyzers():
+            for ext in analyzer.file_extensions:
+                assert ext not in all_exts, f"Extension {ext!r} is registered by multiple analyzers"
+                all_exts.append(ext)
+
+    def test_detect_new_languages(self, tmp_path: Path) -> None:
+        """detect_languages discovers all six new languages when matching files exist."""
+        from agent_fox.knowledge.lang.registry import detect_languages
+
+        (tmp_path / "script.sh").write_text("#!/bin/bash\necho hello\n")
+        (tmp_path / "index.html").write_text("<html></html>\n")
+        (tmp_path / "config.json").write_text('{"key": "value"}\n')
+        (tmp_path / "styles.css").write_text("body { color: red; }\n")
+        (tmp_path / "pattern.regex").write_text(r"^\d+$")
+        (tmp_path / "model.swift").write_text("class Model {}\n")
+
+        analyzers = detect_languages(tmp_path)
+        detected = {a.language_name for a in analyzers}
+
+        assert "bash" in detected, "bash must be detected"
+        assert "html" in detected, "html must be detected"
+        assert "json" in detected, "json must be detected"
+        assert "css" in detected, "css must be detected"
+        assert "regex" in detected, "regex must be detected"
+        assert "swift" in detected, "swift must be detected"

@@ -210,7 +210,7 @@ class TestLanguageDetection:
         from agent_fox.knowledge.lang.registry import detect_languages
 
         (tmp_path / "README.md").write_text("# Docs\n")
-        (tmp_path / "data.json").write_text("{}")
+        (tmp_path / "notes.txt").write_text("some notes")
 
         detected = detect_languages(tmp_path)
         assert detected == [], f"Expected empty list, got: {detected}"

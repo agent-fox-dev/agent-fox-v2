@@ -398,10 +398,10 @@ class TestEmptyRepository:
     Requirement: 95-REQ-4.E3
     """
 
-    def test_no_python_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
-        """AnalysisResult is all zeros when no .py files exist."""
+    def test_no_recognized_files_returns_zero_counts(self, tmp_path: Path, entity_conn: duckdb.DuckDBPyConnection) -> None:
+        """AnalysisResult is all zeros when no recognized source files exist."""
         (tmp_path / "README.md").write_text("# Docs\n")
-        (tmp_path / "data.json").write_text("{}")
+        (tmp_path / "notes.txt").write_text("some notes")
 
         result = analyze_codebase(tmp_path, entity_conn)
 
