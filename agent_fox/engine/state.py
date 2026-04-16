@@ -203,7 +203,6 @@ def update_state_with_session(
     return state
 
 
-
 def load_state_from_db(
     conn: duckdb.DuckDBPyConnection,
 ) -> ExecutionState | None:

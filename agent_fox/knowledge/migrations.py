@@ -225,6 +225,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     except Exception:
         pass
 
+    assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
     conn.execute(f"""
         CREATE TABLE memory_embeddings (
             id        UUID PRIMARY KEY REFERENCES memory_facts(id),
@@ -347,6 +348,7 @@ def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE memory_facts ADD COLUMN keywords TEXT[] DEFAULT []")
 
     # Recreate memory_embeddings with FK restored
+    assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
     conn.execute(f"""
         CREATE TABLE memory_embeddings (
             id        UUID PRIMARY KEY REFERENCES memory_facts(id),

@@ -22,6 +22,7 @@ import duckdb
 from agent_fox.core.models import ensure_iso
 from agent_fox.core.paths import DEFAULT_DB_PATH
 from agent_fox.knowledge.facts import Fact, parse_confidence
+from agent_fox.knowledge.migrations import _ALLOWED_EMBEDDING_DIMS
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
@@ -302,6 +303,7 @@ class MemoryStore:
     def _write_embedding(self, fact_id: str, embedding: list[float]) -> None:
         """Insert an embedding into the DuckDB ``memory_embeddings`` table."""
         dim = self._embedder.embedding_dimensions if self._embedder is not None else len(embedding)
+        assert dim in _ALLOWED_EMBEDDING_DIMS, f"Invalid embedding dimension: {dim}"
         self._db_conn.execute(
             f"INSERT INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
             [fact_id, embedding],
