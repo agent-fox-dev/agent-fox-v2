@@ -114,7 +114,7 @@ builder.
     - [x] Property tests P1, P2, P5, P6 pass: `uv run pytest -q tests/property/knowledge/test_entity_graph_props.py -k "normalization or idempotency or integrity or cascade"`
     - [x] All existing tests still pass: `uv run pytest -q`
     - [x] No linter warnings introduced: `make lint`
-    - [ ] Requirements 95-REQ-1.*, 95-REQ-2.*, 95-REQ-3.*, 95-REQ-7.* acceptance criteria met
+    - [x] Requirements 95-REQ-1.*, 95-REQ-2.*, 95-REQ-3.*, 95-REQ-7.* acceptance criteria met
 
 - [x] 3. Tree-sitter static analysis
   - [x] 3.1 Create `agent_fox/knowledge/static_analysis.py`
