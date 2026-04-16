@@ -200,12 +200,12 @@ class TestResolutionPriorityChain:
         config_arch_tier: str | None,
         registry_mode_tier: str | None,
     ) -> None:
-        """Model tier resolution follows 4-tier priority chain."""
+        """Model tier resolution follows 5-tier priority chain."""
 
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig, PerArchetypeConfig
         from agent_fox.engine.sdk_params import resolve_model_tier
 
-        registry_base_tier = "STANDARD"  # coder's default
+        global_models_coding = "ADVANCED"  # ModelConfig default
         arch_name = "coder"
         mode_name = "test-mode"
 
@@ -225,14 +225,19 @@ class TestResolutionPriorityChain:
 
         config = AgentFoxConfig(archetypes=ArchetypesConfig(overrides=arch_overrides))
 
-        # Determine expected result
+        # Determine expected result (5-level priority):
+        # 1. config mode-level override
+        # 2. config archetype-level override
+        # 3. legacy archetypes.models dict (not set here)
+        # 4. global [models] config (config.models.coding for coder)
+        # 5. archetype registry default
         mode_in_arch = arch_name in arch_overrides and mode_name in arch_overrides[arch_name].modes
         if config_mode_tier is not None and mode_in_arch:
             expected = config_mode_tier
         elif config_arch_tier is not None:
             expected = config_arch_tier
         else:
-            expected = registry_base_tier
+            expected = global_models_coding
 
         result = resolve_model_tier(config, arch_name, mode=mode_name)
         assert result == expected, (

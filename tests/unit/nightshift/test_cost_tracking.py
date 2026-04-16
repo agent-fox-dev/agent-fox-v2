@@ -41,6 +41,7 @@ def _make_config() -> MagicMock:
     config.archetypes.allowlists = {}
     config.models = MagicMock()
     config.models.fallback_model = ""
+    config.models.coding = "STANDARD"
     config.pricing = MagicMock()
     config.pricing.models = {}
     config.theme = None

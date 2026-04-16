@@ -184,6 +184,9 @@ def clamp_instances(archetype: str, instances: int, *, mode: str | None = None) 
     return instances
 
 
+_ARCHETYPE_MODEL_KEYS: dict[str, str] = {"coder": "coding"}
+
+
 def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | None = None) -> str:
     """Resolve model tier for the given archetype.
 
@@ -191,7 +194,8 @@ def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | No
       1. archetypes.overrides.<name>.modes.<mode>.model_tier (mode-level override)
       2. archetypes.overrides.<name>.model_tier (unified table)
       3. archetypes.models.<name> (legacy dict)
-      4. Archetype registry default (via resolve_effective_config for mode)
+      4. models.<key> global config (e.g. models.coding for coder archetype)
+      5. Archetype registry default (via resolve_effective_config for mode)
 
     Requirements: 26-REQ-4.4, 26-REQ-6.3, 207-REQ-2, 97-REQ-4.1, 97-REQ-3.3
     """
@@ -214,7 +218,14 @@ def resolve_model_tier(config: AgentFoxConfig, archetype: str, *, mode: str | No
     if config_override:
         return config_override
 
-    # 4. Fall back to archetype registry default (via mode-resolved effective config)
+    # 4. Global [models] config section
+    model_key = _ARCHETYPE_MODEL_KEYS.get(archetype)
+    if model_key is not None:
+        global_tier = getattr(config.models, model_key, None)
+        if global_tier:
+            return global_tier
+
+    # 5. Fall back to archetype registry default (via mode-resolved effective config)
     entry = get_archetype(archetype)
     effective = resolve_effective_config(entry, mode)
     return effective.default_model_tier
