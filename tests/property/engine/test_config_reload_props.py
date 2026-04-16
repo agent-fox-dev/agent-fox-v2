@@ -23,7 +23,7 @@ from agent_fox.core.config import (
 )
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.knowledge.audit import AuditEventType
-from tests.unit.engine.conftest import MockSessionRunner, make_plan_json
+from tests.unit.engine.conftest import MockSessionRunner
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,13 +40,14 @@ def _make_orch(
     config: OrchestratorConfig | None = None,
 ) -> Orchestrator:
     """Create a minimal Orchestrator for property testing."""
-    plan_path = tmp_path / "plan.json"
-    plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    db_conn = write_plan_to_db({"spec:1": {}}, [], ["spec:1"])
     runner = MockSessionRunner()
     return Orchestrator(
         config=config or OrchestratorConfig(parallel=1, inter_session_delay=0),
-        plan_path=plan_path,
         session_runner_factory=lambda *a, **kw: runner,
+        knowledge_db_conn=db_conn,
     )
 
 

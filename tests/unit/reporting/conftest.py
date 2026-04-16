@@ -1,18 +1,17 @@
 """Fixtures for reporting and reset engine tests.
 
-Provides helpers to create sample plan.json files and DB-backed execution
-states with various task states, session records, and dependency structures.
+Provides helpers to create DuckDB-backed plans and execution states with
+various task states, session records, and dependency structures.
 """
 
 from __future__ import annotations
 
-import json
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import duckdb
 import pytest
 
 from agent_fox.engine.state import ExecutionState, SessionRecord
@@ -87,91 +86,83 @@ def make_execution_state(
 
 @contextmanager
 def mock_state(state: ExecutionState):
-    """Context manager to mock load_state_from_db to return the given state.
-
-    Also patches DB-based plan loading to return None so that
-    generate_status falls through to file-based plan loading.
-    """
+    """Context manager to mock load_state_from_db to return the given state."""
     with patch("agent_fox.reporting.status.load_state_from_db", return_value=state), \
-         patch("agent_fox.reporting.standup.load_state_from_db", return_value=state), \
-         patch("agent_fox.graph.persistence._load_plan_from_db", return_value=None):
+         patch("agent_fox.reporting.standup.load_state_from_db", return_value=state):
         yield
 
 
-# -- Plan file helpers --------------------------------------------------------
+# -- Plan DB helpers ----------------------------------------------------------
 
 
-def make_plan_json(
+def write_plan_to_db(
     nodes: dict[str, dict[str, Any]],
     edges: list[dict[str, str]] | None = None,
     order: list[str] | None = None,
-) -> str:
-    """Build a plan.json string from node/edge definitions.
+    conn: duckdb.DuckDBPyConnection | None = None,
+) -> duckdb.DuckDBPyConnection:
+    """Write a plan to an in-memory DuckDB and return the connection.
 
-    Args:
-        nodes: Dict of node_id -> node properties.
-        edges: List of edge dicts. Defaults to empty.
-        order: Topological order. Defaults to node keys order.
-
-    Returns:
-        JSON string suitable for writing to plan.json.
+    Mirrors the engine conftest helper but is self-contained for
+    reporting tests.
     """
+    from agent_fox.graph.persistence import save_plan
+    from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGraph
+    from agent_fox.knowledge.migrations import run_migrations
+
     if edges is None:
         edges = []
 
-    full_nodes: dict[str, Any] = {}
+    if conn is None:
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+
+    node_objs: dict[str, Node] = {}
     for nid, props in nodes.items():
         parts = nid.split(":")
         spec_name = parts[0] if len(parts) > 1 else "test_spec"
         group_number = int(parts[-1]) if parts[-1].isdigit() else 1
-        full_nodes[nid] = {
-            "id": nid,
-            "spec_name": props.get("spec_name", spec_name),
-            "group_number": props.get("group_number", group_number),
-            "title": props.get("title", f"Task {nid}"),
-            "optional": props.get("optional", False),
-            "status": props.get("status", "pending"),
-            "subtask_count": props.get("subtask_count", 0),
-            "body": props.get("body", ""),
-            "archetype": props.get("archetype", "coder"),
-        }
+        node_objs[nid] = Node(
+            id=nid,
+            spec_name=props.get("spec_name", spec_name),
+            group_number=props.get("group_number", group_number),
+            title=props.get("title", f"Task {nid}"),
+            optional=props.get("optional", False),
+            status=NodeStatus(props.get("status", "pending")),
+            subtask_count=props.get("subtask_count", 0),
+            body=props.get("body", ""),
+            archetype=props.get("archetype", "coder"),
+            mode=props.get("mode"),
+            instances=props.get("instances", 1),
+        )
 
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": full_nodes,
-        "edges": edges,
-        "order": order if order is not None else list(nodes.keys()),
-    }
-    return json.dumps(plan, indent=2)
-
-
-def write_plan_file(plan_dir: Path, **kwargs: Any) -> Path:
-    """Write a plan.json file and return its path."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan_path.write_text(make_plan_json(**kwargs))
-    return plan_path
+    edge_objs = [
+        Edge(source=e["source"], target=e["target"], kind=e.get("kind", "dependency"))
+        for e in edges
+    ]
+    graph = TaskGraph(
+        nodes=node_objs,
+        edges=edge_objs,
+        order=order if order is not None else list(nodes.keys()),
+        metadata=PlanMetadata(
+            created_at="2026-01-01T00:00:00",
+            fast_mode=False,
+            filtered_spec=None,
+            version="0.1.0",
+        ),
+    )
+    save_plan(graph, conn)
+    return conn
 
 
 # -- Shared fixtures ----------------------------------------------------------
 
 
 @pytest.fixture
-def tmp_plan_dir(tmp_path: Path) -> Path:
-    """Return a path to a temporary .agent-fox directory for plan.json."""
-    plan_dir = tmp_path / ".agent-fox"
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    return plan_dir
-
-
-@pytest.fixture
-def tmp_worktrees_dir(tmp_path: Path) -> Path:
+def tmp_worktrees_dir(tmp_path) -> "Path":
     """Return a path to a temporary worktrees directory."""
+    from pathlib import Path
+
     wtdir = tmp_path / ".agent-fox" / "worktrees"
     wtdir.mkdir(parents=True, exist_ok=True)
     return wtdir

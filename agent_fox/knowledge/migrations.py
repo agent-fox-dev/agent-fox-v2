@@ -452,7 +452,6 @@ def _migrate_v11(conn: duckdb.DuckDBPyConnection) -> None:
             blocked_reason  VARCHAR,
             created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (spec_name, group_number)
         )
     """)
     conn.execute("""
@@ -628,8 +627,7 @@ CREATE TABLE IF NOT EXISTS plan_nodes (
     sort_position   INTEGER NOT NULL DEFAULT 0,
     blocked_reason  VARCHAR,
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (spec_name, group_number)
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS plan_edges (

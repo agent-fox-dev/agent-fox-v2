@@ -1,7 +1,7 @@
 """Plan command integration tests.
 
 Test Spec: TS-02-10 (plan persist/load), TS-02-11 (CLI end-to-end),
-           TS-02-E6 (corrupted plan.json)
+           TS-02-E6 (corrupted plan.json / empty DB)
 Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4, 02-REQ-6.E1,
               02-REQ-7.1, 02-REQ-7.2, 02-REQ-7.3, 02-REQ-7.4
 """
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import duckdb
 from click.testing import CliRunner
 
 from agent_fox.cli.app import main
@@ -20,6 +21,7 @@ from agent_fox.graph.types import (
     PlanMetadata,
     TaskGraph,
 )
+from agent_fox.knowledge.migrations import run_migrations
 
 # -- Helpers -----------------------------------------------------------------
 
@@ -84,80 +86,94 @@ def _setup_project(project_dir: Path) -> None:
 class TestPlanPersistAndLoad:
     """TS-02-10: Plan persisted and loaded."""
 
-    def test_save_and_load_roundtrip(self, tmp_path: Path) -> None:
+    def test_save_and_load_roundtrip(self) -> None:
         """Saving and loading a plan produces equivalent graph."""
-        plan_path = tmp_path / "plan.json"
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
         graph = _make_sample_graph()
 
-        save_plan(graph, plan_path)
-        loaded = load_plan(plan_path)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
 
         assert loaded is not None
         assert loaded.nodes.keys() == graph.nodes.keys()
+        conn.close()
 
-    def test_loaded_edges_count(self, tmp_path: Path) -> None:
+    def test_loaded_edges_count(self) -> None:
         """Loaded graph has same number of edges."""
-        plan_path = tmp_path / "plan.json"
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
         graph = _make_sample_graph()
 
-        save_plan(graph, plan_path)
-        loaded = load_plan(plan_path)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
 
         assert loaded is not None
         assert len(loaded.edges) == len(graph.edges)
+        conn.close()
 
-    def test_loaded_order_preserved(self, tmp_path: Path) -> None:
+    def test_loaded_order_preserved(self) -> None:
         """Loaded graph has same execution order."""
-        plan_path = tmp_path / "plan.json"
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
         graph = _make_sample_graph()
 
-        save_plan(graph, plan_path)
-        loaded = load_plan(plan_path)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
 
         assert loaded is not None
         assert loaded.order == graph.order
+        conn.close()
 
-    def test_loaded_metadata(self, tmp_path: Path) -> None:
+    def test_loaded_metadata(self) -> None:
         """Loaded graph metadata contains created_at and version."""
-        plan_path = tmp_path / "plan.json"
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
         graph = _make_sample_graph()
 
-        save_plan(graph, plan_path)
-        loaded = load_plan(plan_path)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
 
         assert loaded is not None
         assert loaded.metadata.created_at != ""
         assert loaded.metadata.version == "0.1.0"
+        conn.close()
 
-    def test_plan_file_created(self, tmp_path: Path) -> None:
-        """save_plan creates the plan.json file on disk."""
-        plan_path = tmp_path / "plan.json"
+    def test_plan_stored_in_db(self) -> None:
+        """save_plan stores plan data in the database."""
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
         graph = _make_sample_graph()
 
-        save_plan(graph, plan_path)
+        save_plan(graph, conn)
 
-        assert plan_path.exists()
+        row = conn.execute("SELECT count(*) FROM plan_nodes").fetchone()
+        assert row is not None and row[0] > 0
+        conn.close()
 
 
-class TestCorruptedPlanJson:
-    """TS-02-E6: Corrupted plan.json triggers rebuild."""
+class TestEmptyDatabase:
+    """TS-02-E6: Empty database returns None (replaces corrupted plan.json test)."""
 
-    def test_corrupted_returns_none(self, tmp_path: Path) -> None:
-        """Invalid JSON in plan.json returns None."""
-        plan_path = tmp_path / "plan.json"
-        plan_path.write_text("{invalid json")
+    def test_empty_db_returns_none(self) -> None:
+        """Empty database with no plan data returns None."""
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
 
-        result = load_plan(plan_path)
-
-        assert result is None
-
-    def test_missing_plan_returns_none(self, tmp_path: Path) -> None:
-        """Non-existent plan.json returns None."""
-        plan_path = tmp_path / "nonexistent.json"
-
-        result = load_plan(plan_path)
+        result = load_plan(conn)
 
         assert result is None
+        conn.close()
+
+    def test_fresh_db_returns_none(self) -> None:
+        """Freshly migrated database returns None."""
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+
+        result = load_plan(conn)
+
+        assert result is None
+        conn.close()
 
 
 class TestPlanCLIEndToEnd:
@@ -179,14 +195,14 @@ class TestPlanCLIEndToEnd:
 
         assert "01_test" in result.output
 
-    def test_plan_creates_json(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """plan command creates .agent-fox/plan.json."""
+    def test_plan_creates_db(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """plan command creates .agent-fox/knowledge.duckdb."""
         _setup_project(tmp_git_repo)
 
         cli_runner.invoke(main, ["plan"])
 
-        plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
-        assert plan_path.exists()
+        db_path = tmp_git_repo / ".agent-fox" / "knowledge.duckdb"
+        assert db_path.exists()
 
     def test_plan_with_fast_flag(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """plan --fast is accepted."""
@@ -206,8 +222,10 @@ class TestPlanCLIEndToEnd:
         second = cli_runner.invoke(main, ["plan", "--fast"])
         assert second.exit_code == 0
 
-        plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
-        loaded = load_plan(plan_path)
+        db_path = tmp_git_repo / ".agent-fox" / "knowledge.duckdb"
+        conn = duckdb.connect(str(db_path), read_only=True)
+        loaded = load_plan(conn)
+        conn.close()
         assert loaded is not None
         assert loaded.metadata.fast_mode is True
 
@@ -233,8 +251,10 @@ class TestPlanCLIEndToEnd:
         second = cli_runner.invoke(main, ["plan", "--spec", "01_test"])
         assert second.exit_code == 0
 
-        plan_path = tmp_git_repo / ".agent-fox" / "plan.json"
-        loaded = load_plan(plan_path)
+        db_path = tmp_git_repo / ".agent-fox" / "knowledge.duckdb"
+        conn = duckdb.connect(str(db_path), read_only=True)
+        loaded = load_plan(conn)
+        conn.close()
         assert loaded is not None
         assert loaded.metadata.filtered_spec == "01_test"
         assert loaded.nodes

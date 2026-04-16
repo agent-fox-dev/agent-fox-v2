@@ -1,7 +1,6 @@
-"""Plan persistence: serialize/deserialize TaskGraph to/from JSON or DuckDB.
+"""Plan persistence: serialize/deserialize TaskGraph to/from DuckDB.
 
-Requirements: 02-REQ-6.1, 02-REQ-6.2, 02-REQ-6.3, 02-REQ-6.4, 02-REQ-6.E1,
-              105-REQ-1.1, 105-REQ-1.2, 105-REQ-1.3, 105-REQ-1.4,
+Requirements: 105-REQ-1.1, 105-REQ-1.2, 105-REQ-1.3, 105-REQ-1.4,
               105-REQ-1.E1, 105-REQ-1.E2, 105-REQ-5.E1
 """
 
@@ -10,10 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import asdict
 from dataclasses import fields as dc_fields
 from enum import Enum
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from agent_fox.graph.types import Edge, Node, NodeStatus, PlanMetadata, TaskGraph
@@ -222,159 +219,55 @@ def _load_plan_from_db(conn: duckdb.DuckDBPyConnection) -> TaskGraph | None:
 
 
 # ---------------------------------------------------------------------------
-# File-based persistence (legacy API — accepts Path)
+# Public API — DuckDB only (plan.json removed per issue #446)
 # ---------------------------------------------------------------------------
 
 
-def _serialize(obj: object) -> dict[str, Any]:
-    """Convert a dataclass to a JSON-safe dict (stringifies enums)."""
-    raw = asdict(obj)  # type: ignore[call-overload]
-
-    def _fixup(value: object) -> object:
-        if isinstance(value, Enum):
-            return str(value)
-        if isinstance(value, dict):
-            return {k: _fixup(v) for k, v in value.items()}
-        if isinstance(value, list):
-            return [_fixup(v) for v in value]
-        return value
-
-    return _fixup(raw)  # type: ignore[return-value]
-
-
-def _node_from_dict(data: dict[str, Any]) -> Node:
-    """Deserialize a Node from a dictionary (handles defaults for older plans)."""
-    return Node(
-        id=data["id"],
-        spec_name=data["spec_name"],
-        group_number=data["group_number"],
-        title=data["title"],
-        optional=data["optional"],
-        status=NodeStatus(data["status"]),
-        subtask_count=data.get("subtask_count", 0),
-        body=data.get("body", ""),
-        archetype=data.get("archetype", "coder"),
-        mode=data.get("mode", None),
-        instances=data.get("instances", 1),
-    )
-
-
-def _metadata_from_dict(data: dict[str, Any]) -> PlanMetadata:
-    """Deserialize PlanMetadata from a dictionary (handles defaults for older plans).
-
-    Old plan.json files may contain legacy fields (specs_hash, config_hash) which
-    are silently ignored for backward compatibility (63-REQ-3.E1).
-    """
-    return PlanMetadata(
-        created_at=data.get("created_at", ""),
-        fast_mode=data.get("fast_mode", False),
-        filtered_spec=data.get("filtered_spec"),
-        version=data.get("version", ""),
-    )
-
-
-def _save_plan_to_file(graph: TaskGraph, plan_path: Path) -> None:
-    """Serialize a TaskGraph to JSON and write to disk."""
-    data = _serialize(graph)
-    plan_path.parent.mkdir(parents=True, exist_ok=True)
-    plan_path.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-
-
-def _load_plan_from_file(plan_path: Path) -> TaskGraph | None:
-    """Load a TaskGraph from a JSON plan file."""
-    if not plan_path.exists():
-        logger.warning("Plan file not found: %s", plan_path)
-        return None
-
-    try:
-        raw = plan_path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-    except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Corrupted plan file %s: %s", plan_path, exc)
-        return None
-
-    try:
-        metadata = _metadata_from_dict(data.get("metadata", {}))
-        nodes = {nid: _node_from_dict(node_data) for nid, node_data in data.get("nodes", {}).items()}
-        edges = [Edge(**e) for e in data.get("edges", [])]
-        order = data.get("order", [])
-
-        return TaskGraph(
-            nodes=nodes,
-            edges=edges,
-            order=order,
-            metadata=metadata,
-        )
-    except (KeyError, TypeError, ValueError) as exc:
-        logger.warning("Invalid plan file structure %s: %s", plan_path, exc)
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Public API — dispatches on argument type
-# ---------------------------------------------------------------------------
-
-
-def save_plan(graph: TaskGraph, dest: Path | duckdb.DuckDBPyConnection) -> None:
-    """Persist a TaskGraph to either DuckDB tables or a JSON file.
+def save_plan(graph: TaskGraph, conn: duckdb.DuckDBPyConnection) -> None:
+    """Persist a TaskGraph to DuckDB tables.
 
     Args:
         graph: The task graph to persist.
-        dest: Either a ``duckdb.DuckDBPyConnection`` (writes to DB tables) or
-              a ``Path`` (writes to ``plan.json``). The DB path is the new
-              default; the file path is kept for backward compatibility.
+        conn: A DuckDB connection.
 
-    Requirements: 105-REQ-1.1 (DB path), 02-REQ-6.1 (file path)
+    Requirements: 105-REQ-1.1
     """
-    if isinstance(dest, Path):
-        _save_plan_to_file(graph, dest)
-    else:
-        # Assume DuckDB connection
-        _save_plan_to_db(graph, dest)
+    _save_plan_to_db(graph, conn)
 
 
 def load_plan(
-    src: Path | duckdb.DuckDBPyConnection,
+    conn: duckdb.DuckDBPyConnection,
 ) -> TaskGraph | None:
-    """Load a TaskGraph from DuckDB tables or a JSON plan file.
+    """Load a TaskGraph from DuckDB tables.
 
     Args:
-        src: Either a ``duckdb.DuckDBPyConnection`` (reads from DB tables) or
-             a ``Path`` (reads from ``plan.json``).
+        conn: A DuckDB connection.
 
     Returns:
-        The deserialized TaskGraph, or None if no plan exists / corrupted.
+        The deserialized TaskGraph, or None if no plan exists.
 
-    Requirements: 105-REQ-1.2, 105-REQ-1.E1, 105-REQ-5.E1 (DB path),
-                  02-REQ-6.2 (file path)
+    Requirements: 105-REQ-1.2, 105-REQ-1.E1, 105-REQ-5.E1
     """
-    if isinstance(src, Path):
-        return _load_plan_from_file(src)
-    else:
-        return _load_plan_from_db(src)
+    return _load_plan_from_db(conn)
 
 
-def load_plan_or_raise(plan_path: Path) -> TaskGraph:
-    """Load the task graph from plan.json, raising on failure.
+def load_plan_or_raise(conn: duckdb.DuckDBPyConnection) -> TaskGraph:
+    """Load the task graph from DuckDB, raising on failure.
 
     Convenience wrapper around :func:`load_plan` that raises
     :class:`AgentFoxError` instead of returning ``None``.
 
     Args:
-        plan_path: Path to .agent-fox/plan.json.
+        conn: A DuckDB connection.
 
     Raises:
-        AgentFoxError: If the plan file cannot be read.
+        AgentFoxError: If no plan exists in the database.
     """
     from agent_fox.core.errors import AgentFoxError
 
-    graph = load_plan(plan_path)
+    graph = load_plan(conn)
     if graph is None:
         raise AgentFoxError(
-            "No plan file found. Run `agent-fox plan` first.",
-            path=str(plan_path),
+            "No plan found. Run `agent-fox plan` first.",
         )
     return graph

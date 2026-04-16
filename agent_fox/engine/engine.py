@@ -51,7 +51,6 @@ from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
     SessionRecord,
-    compute_plan_hash_from_file,
     invoke_runner,
     load_state_from_db,
 )
@@ -169,7 +168,7 @@ class _SignalHandler:
 class Orchestrator:
     """Deterministic execution engine. Zero LLM calls.
 
-    Reads the task graph from plan.json, dispatches sessions in dependency
+    Reads the task graph from DuckDB, dispatches sessions in dependency
     order (serial or parallel), manages retries with error feedback,
     cascade-blocks failed tasks, persists state, and handles graceful
     interruption via SIGINT.
@@ -178,9 +177,9 @@ class Orchestrator:
     def __init__(
         self,
         config: OrchestratorConfig,
-        plan_path: Path,
         session_runner_factory: Callable[..., Any],
         *,
+        agent_dir: Path | None = None,
         watch: bool = False,
         specs_dir: Path | None = None,
         task_callback: TaskCallback | None = None,
@@ -199,7 +198,7 @@ class Orchestrator:
         self._config = config
         # 70-REQ-1.1: Watch mode flag — keep running after all tasks complete
         self._watch = watch
-        self._plan_path = plan_path
+        self._agent_dir = agent_dir or Path(".agent-fox")
         self._circuit = CircuitBreaker(config)
         self._graph_sync: GraphSync | None = None
         self._signal = _SignalHandler()
@@ -392,14 +391,15 @@ class Orchestrator:
         # have nodes in the plan even if the plan was built before they
         # were enabled.
         if ensure_graph_archetypes(graph, self._archetypes_config, self._specs_dir):
-            try:
-                save_plan(graph, self._plan_path)
-                logger.info("Persisted plan with injected archetype nodes")
-            except OSError:
-                logger.warning(
-                    "Failed to persist plan after archetype injection",
-                    exc_info=True,
-                )
+            if self._knowledge_db_conn is not None:
+                try:
+                    save_plan(graph, self._knowledge_db_conn)
+                    logger.info("Persisted plan with injected archetype nodes")
+                except Exception:
+                    logger.warning(
+                        "Failed to persist plan after archetype injection",
+                        exc_info=True,
+                    )
 
         # 04-REQ-1.E2: Empty plan — return early unless watch mode is
         # active (70-REQ-1.E2: empty plan + watch should enter watch loop).
@@ -467,15 +467,15 @@ class Orchestrator:
     async def run(self) -> ExecutionState:
         """Execute the full orchestration loop.
 
-        1. Load plan from plan.json
+        1. Load plan from DuckDB
         2. Load or initialize execution state
         3. Register SIGINT handler
         4. Loop: pick ready tasks, dispatch, update state
-        5. Update plan.json with final node statuses
+        5. Persist final node statuses to DuckDB
         6. Return final execution state
 
         Raises:
-            PlanError: if plan.json is missing or corrupted
+            PlanError: if no plan is found in the database
         """
         run_start_time = datetime.now(UTC)
         # 70-REQ-5.2: Run-scoped poll counter for WATCH_POLL audit events.
@@ -595,8 +595,8 @@ class Orchestrator:
 
         finally:
             self._signal.restore()
-            # Update plan.json with current node statuses so the file
-            # reflects actual progress, not just the original pending state.
+            # Persist current node statuses to DB so they reflect actual
+            # progress, not just the original pending state.
             self._sync_plan_statuses(state)
             # Delete audit reports for fully-completed specs (92-REQ-4.1).
             try:
@@ -620,7 +620,7 @@ class Orchestrator:
                     if remaining:
                         eor_result = await _run_consolidation(
                             self._knowledge_db_conn,
-                            self._plan_path.parent,
+                            self._agent_dir,
                             remaining,
                             model=TIER_DEFAULTS[ModelTier.SIMPLE],
                             sink_dispatcher=self._sink,
@@ -823,40 +823,24 @@ class Orchestrator:
         return {}
 
     def _load_graph(self) -> TaskGraph:
-        """Load plan as a typed TaskGraph.
-
-        Tries DB first when a knowledge DB connection is available (105-REQ-5.2).
-        Falls back to file-based load.
+        """Load plan as a typed TaskGraph from DuckDB.
 
         Raises:
-            PlanError: if no plan is found in DB or file
+            PlanError: if no plan is found in the database
         """
-        # 105-REQ-5.2: Try DB-based load first
-        if self._knowledge_db_conn is not None:
-            try:
-                graph = load_plan(self._knowledge_db_conn)
-                if graph is not None:
-                    return graph
-            except Exception:
-                logger.debug("DB plan load failed, falling back to file", exc_info=True)
-
-        # Fall back to file-based load
-        graph = load_plan(self._plan_path)
-        if graph is None:
-            if not self._plan_path.exists():
-                raise PlanError(
-                    f"Plan file not found: {self._plan_path}. Run `agent-fox plan` first to generate a plan.",
-                    path=str(self._plan_path),
-                )
+        if self._knowledge_db_conn is None:
             raise PlanError(
-                f"Corrupted plan file {self._plan_path}. Run `agent-fox plan` to regenerate.",
-                path=str(self._plan_path),
+                "No database connection available. Run `agent-fox plan` first.",
+            )
+        graph = load_plan(self._knowledge_db_conn)
+        if graph is None:
+            raise PlanError(
+                "No plan found in database. Run `agent-fox plan` first to generate a plan.",
             )
         return graph
 
     def _compute_plan_hash(self) -> str:
-        """Compute plan hash from in-memory graph when available, else from file."""
-        # 105-REQ-1.4: Use graph-based hash when graph is loaded
+        """Compute plan hash from the in-memory graph."""
         if self._graph is not None:
             try:
                 from agent_fox.graph.persistence import compute_plan_hash
@@ -864,8 +848,6 @@ class Orchestrator:
                 return compute_plan_hash(self._graph)
             except Exception:
                 pass
-        if self._plan_path.exists():
-            return compute_plan_hash_from_file(self._plan_path)
         return ""
 
     def _check_launch(
@@ -1223,7 +1205,7 @@ class Orchestrator:
         await run_sync_barrier_sequence(
             state=state,
             sync_interval=self._config.sync_interval,
-            repo_root=self._plan_path.parent,
+            repo_root=self._agent_dir,
             emit_audit=self._emit_audit,
             specs_dir=self._specs_dir,
             hot_load_enabled=self._config.hot_load,
@@ -1263,7 +1245,7 @@ class Orchestrator:
             await run_sync_barrier_sequence(
                 state=state,
                 sync_interval=self._config.sync_interval,
-                repo_root=self._plan_path.parent,
+                repo_root=self._agent_dir,
                 emit_audit=self._emit_audit,
                 specs_dir=self._specs_dir,
                 hot_load_enabled=self._config.hot_load,
@@ -1301,7 +1283,7 @@ class Orchestrator:
             node.status = NodeStatus(state.node_states.get(nid, "pending"))
 
         # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
-        repo_root = self._plan_path.parent
+        repo_root = self._agent_dir
         known_specs = {n.spec_name for n in self._graph.nodes.values()}
         gated_specs = await discover_new_specs_gated(
             self._specs_dir, known_specs, repo_root, db_conn=self._knowledge_db_conn

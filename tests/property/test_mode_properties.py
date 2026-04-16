@@ -282,7 +282,7 @@ class TestEmptyAllowlistBlocksAll:
 
 @pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 class TestSerializationRoundTrip:
-    """TS-97-P6: Node mode survives serialization round-trip."""
+    """TS-97-P6: Node mode survives DB serialization round-trip."""
 
     @given(
         mode=st.one_of(
@@ -296,9 +296,12 @@ class TestSerializationRoundTrip:
     )
     @settings(max_examples=50)
     def test_mode_survives_roundtrip(self, mode: str | None) -> None:
-        """For any mode (None or string), serialize then deserialize preserves mode."""
-        from agent_fox.graph.persistence import _node_from_dict, _serialize
-        from agent_fox.graph.types import Node
+        """For any mode (None or string), save then load preserves mode."""
+        import duckdb
+
+        from agent_fox.graph.persistence import load_plan, save_plan
+        from agent_fox.graph.types import Node, PlanMetadata, TaskGraph
+        from agent_fox.knowledge.migrations import run_migrations
 
         node = Node(
             id="s:0",
@@ -308,6 +311,18 @@ class TestSerializationRoundTrip:
             optional=False,
             mode=mode,
         )
-        serialized = _serialize(node)
-        deserialized = _node_from_dict(serialized)
-        assert deserialized.mode == mode, f"Round-trip failed: expected mode {mode!r}, got {deserialized.mode!r}"
+        graph = TaskGraph(
+            nodes={"s:0": node},
+            edges=[],
+            order=["s:0"],
+            metadata=PlanMetadata(created_at="2026-01-01T00:00:00"),
+        )
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
+        conn.close()
+        assert loaded is not None
+        assert loaded.nodes["s:0"].mode == mode, (
+            f"Round-trip failed: expected mode {mode!r}, got {loaded.nodes['s:0'].mode!r}"
+        )

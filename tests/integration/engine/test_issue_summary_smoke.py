@@ -6,45 +6,56 @@ Requirements: 108-REQ-4.1, 108-REQ-4.2, 108-REQ-5.1, 108-REQ-5.E1
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import duckdb
 import pytest
 
 from agent_fox.core.config import OrchestratorConfig
+from agent_fox.graph.persistence import save_plan
+from agent_fox.graph.types import Node, NodeStatus, PlanMetadata, TaskGraph
+from agent_fox.knowledge.migrations import run_migrations
 
 # ---------------------------------------------------------------------------
-# Helper: build a minimal plan JSON where all nodes are already "completed"
+# Helper: build a TaskGraph where all nodes are already "completed"
 # ---------------------------------------------------------------------------
 
 
-def _make_completed_plan(spec_name: str) -> dict:
-    """Build a plan dict with one completed node for the given spec."""
+def _make_completed_plan(spec_name: str) -> TaskGraph:
+    """Build a TaskGraph with one completed node for the given spec."""
     node_id = f"{spec_name}:1"
-    return {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
+    return TaskGraph(
+        nodes={
+            node_id: Node(
+                id=node_id,
+                spec_name=spec_name,
+                group_number=1,
+                title="Task group 1",
+                optional=False,
+                status=NodeStatus.COMPLETED,
+                subtask_count=0,
+                body="",
+                archetype="coder",
+            ),
         },
-        "nodes": {
-            node_id: {
-                "id": node_id,
-                "spec_name": spec_name,
-                "group_number": 1,
-                "title": "Task group 1",
-                "optional": False,
-                "status": "completed",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": "coder",
-            }
-        },
-        "edges": [],
-        "order": [node_id],
-    }
+        edges=[],
+        order=[node_id],
+        metadata=PlanMetadata(
+            created_at="2026-01-01T00:00:00",
+            fast_mode=False,
+            filtered_spec=None,
+            version="0.1.0",
+        ),
+    )
+
+
+def _save_plan_to_db(graph: TaskGraph) -> duckdb.DuckDBPyConnection:
+    """Save a plan to an in-memory DuckDB and return the connection."""
+    conn = duckdb.connect(":memory:")
+    run_migrations(conn)
+    save_plan(graph, conn)
+    return conn
 
 
 def _make_spec_dir(base: Path, spec_name: str, github_url: str) -> None:
@@ -80,10 +91,8 @@ class TestOrchestratorSkipsWhenNoPlatform:
         specs_dir = tmp_path / ".specs"
         _make_spec_dir(specs_dir, spec_name, "https://github.com/owner/repo/issues/1")
 
-        plan_dir = tmp_path / ".agent-fox"
-        plan_dir.mkdir()
-        plan_path = plan_dir / "plan.json"
-        plan_path.write_text(json.dumps(_make_completed_plan(spec_name)))
+        graph = _make_completed_plan(spec_name)
+        conn = _save_plan_to_db(graph)
 
         mock_runner = MagicMock()
         mock_runner.execute = AsyncMock(
@@ -105,10 +114,10 @@ class TestOrchestratorSkipsWhenNoPlatform:
         # platform=None: Orchestrator must NOT require platform, must skip summaries
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
             specs_dir=specs_dir,
             session_runner_factory=lambda nid, **kw: mock_runner,
             platform=None,
+            knowledge_db_conn=conn,
         )
 
         import logging
@@ -121,6 +130,7 @@ class TestOrchestratorSkipsWhenNoPlatform:
             r for r in caplog.records if "issue summar" in r.getMessage().lower() and r.levelno >= logging.WARNING
         ]
         assert len(issue_summary_warnings) == 0
+        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -145,10 +155,8 @@ class TestEndToEndIssueSummary:
         specs_dir = tmp_path / ".specs"
         _make_spec_dir(specs_dir, spec_name, "https://github.com/owner/repo/issues/1")
 
-        plan_dir = tmp_path / ".agent-fox"
-        plan_dir.mkdir()
-        plan_path = plan_dir / "plan.json"
-        plan_path.write_text(json.dumps(_make_completed_plan(spec_name)))
+        graph = _make_completed_plan(spec_name)
+        conn = _save_plan_to_db(graph)
 
         mock_runner = MagicMock()
         mock_runner.execute = AsyncMock(
@@ -179,10 +187,10 @@ class TestEndToEndIssueSummary:
         config = OrchestratorConfig(parallel=1, inter_session_delay=0)
         orchestrator = Orchestrator(
             config=config,
-            plan_path=plan_path,
             specs_dir=specs_dir,
             session_runner_factory=lambda nid, **kw: mock_runner,
             platform=platform,
+            knowledge_db_conn=conn,
         )
 
         with patch("subprocess.run", return_value=mock_git):
@@ -199,3 +207,4 @@ class TestEndToEndIssueSummary:
         # SHA is either the real one or "unknown" if git call is intercepted differently
         assert "deadbeef1234" in body or "unknown" in body, "Body must contain a commit SHA"
         assert "*Auto-generated by agent-fox.*" in body, "Body must contain footer"
+        conn.close()

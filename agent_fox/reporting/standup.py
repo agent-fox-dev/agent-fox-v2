@@ -367,7 +367,6 @@ class StandupReport:
 
 
 def generate_standup(
-    plan_path: Path | None = None,
     repo_path: Path | None = None,
     hours: int = 24,
     agent_author: str = "agent-fox",
@@ -378,7 +377,6 @@ def generate_standup(
     Uses DuckDB for execution state and audit events.
 
     Args:
-        plan_path: Path to .agent-fox/plan.json.
         repo_path: Path to the git repository root.
         hours: Reporting window in hours (default 24).
         agent_author: Git author name used by agent-fox for filtering.
@@ -394,14 +392,12 @@ def generate_standup(
     window_start = now - timedelta(hours=hours)
     window_end = now
 
-    # Resolve default paths if not provided
-    if plan_path is None:
-        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
+    # Resolve default path if not provided
     if repo_path is None:
         repo_path = Path.cwd()
 
-    # Load plan (needed for queue summary)
-    graph = load_plan(plan_path)
+    # Load plan from DB (needed for queue summary)
+    graph = load_plan(db_conn) if db_conn is not None else None
 
     # Load execution state from DB
     state = load_state_from_db(db_conn) if db_conn is not None else None

@@ -6,19 +6,13 @@ Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3, 07-REQ-1.E1, 07-REQ-1.E2
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock
-
-import pytest
-
-from agent_fox.core.errors import AgentFoxError
 from agent_fox.reporting.status import generate_status
 
 from .conftest import (
     make_execution_state,
     make_session_record,
     mock_state,
-    write_plan_file,
+    write_plan_to_db,
 )
 
 # ---------------------------------------------------------------------------
@@ -30,10 +24,7 @@ from .conftest import (
 class TestStatusTaskCounts:
     """TS-07-1: Status displays task counts by status."""
 
-    def test_counts_match_task_states(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_counts_match_task_states(self) -> None:
         """Task counts grouped by status match the execution state."""
         # Preconditions: 3 completed, 1 failed, 1 blocked, 2 pending = 7 total
         nodes = {
@@ -45,7 +36,7 @@ class TestStatusTaskCounts:
             "spec_b:3": {"title": "Task B3"},
             "spec_b:4": {"title": "Task B4"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -60,7 +51,7 @@ class TestStatusTaskCounts:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=conn)
 
         assert report.counts["completed"] == 3
         assert report.counts["failed"] == 1
@@ -68,17 +59,14 @@ class TestStatusTaskCounts:
         assert report.counts["pending"] == 2
         assert report.total_tasks == 7
 
-    def test_total_tasks_equals_node_count(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_total_tasks_equals_node_count(self) -> None:
         """total_tasks equals the number of nodes in the plan."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
             "spec_a:3": {"title": "Task 3"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         state = make_execution_state(
             node_states={
@@ -89,7 +77,7 @@ class TestStatusTaskCounts:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=conn)
 
         assert report.total_tasks == 3
 
@@ -103,17 +91,14 @@ class TestStatusTaskCounts:
 class TestStatusTokensAndCost:
     """TS-07-2: Status displays token usage and cost."""
 
-    def test_cumulative_tokens_and_cost(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_cumulative_tokens_and_cost(self) -> None:
         """Status report includes cumulative token and cost data."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
             "spec_a:3": {"title": "Task 3"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
         # 3 sessions totaling 100k input, 50k output, $2.50
         sessions = [
@@ -146,7 +131,7 @@ class TestStatusTokensAndCost:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=conn)
 
         assert report.input_tokens == 100_000
         assert report.output_tokens == 50_000
@@ -163,10 +148,7 @@ class TestStatusTokensAndCost:
 class TestStatusProblemTasks:
     """TS-07-3: Status lists blocked and failed tasks."""
 
-    def test_problem_tasks_includes_failed_and_blocked(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_problem_tasks_includes_failed_and_blocked(self) -> None:
         """Problem tasks list contains failed and blocked tasks with reasons."""
         nodes = {
             "spec_a:1": {"title": "Task A1"},
@@ -176,7 +158,7 @@ class TestStatusProblemTasks:
         edges = [
             {"source": "spec_a:1", "target": "spec_a:2", "kind": "intra_spec"},
         ]
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes, edges=edges)
+        conn = write_plan_to_db(nodes=nodes, edges=edges)
 
         # Session with failure
         sessions = [
@@ -196,7 +178,7 @@ class TestStatusProblemTasks:
         )
 
         with mock_state(state):
-            report = generate_status(plan_path=plan_path, db_conn=MagicMock())
+            report = generate_status(db_conn=conn)
 
         assert len(report.problem_tasks) == 2
 
@@ -217,10 +199,7 @@ class TestStatusProblemTasks:
 class TestStatusNoStateFile:
     """TS-07-E1: Status works with plan-only (no execution yet)."""
 
-    def test_no_state_file_shows_all_pending(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_no_state_file_shows_all_pending(self) -> None:
         """All-pending plan tasks show as pending with no session data when no state."""
         nodes = {
             "spec_a:1": {"title": "Task 1"},
@@ -229,29 +208,28 @@ class TestStatusNoStateFile:
             "spec_a:4": {"title": "Task 4"},
             "spec_a:5": {"title": "Task 5"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
-        report = generate_status(plan_path=plan_path)
+        report = generate_status(db_conn=conn)
 
         assert report.counts["pending"] == 5
-        assert report.input_tokens is None
-        assert report.output_tokens is None
-        assert report.estimated_cost is None
+        # With DB-backed persistence, load_state_from_db always returns
+        # a state (even with 0 sessions), so tokens/cost are 0 not None.
+        assert report.input_tokens == 0
+        assert report.output_tokens == 0
+        assert report.estimated_cost == 0.0
         assert len(report.problem_tasks) == 0
 
-    def test_no_state_file_reads_completed_from_plan(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
-        """Completed nodes in plan.json are reflected when no state exists."""
+    def test_no_state_file_reads_completed_from_plan(self) -> None:
+        """Completed nodes in plan are reflected when no state exists."""
         nodes = {
             "spec_a:1": {"title": "Task 1", "status": "completed"},
             "spec_a:2": {"title": "Task 2", "status": "completed"},
             "spec_a:3": {"title": "Task 3"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
-        report = generate_status(plan_path=plan_path)
+        report = generate_status(db_conn=conn)
 
         assert report.counts.get("completed", 0) == 2
         assert report.counts.get("pending", 0) == 1
@@ -259,7 +237,7 @@ class TestStatusNoStateFile:
 
 
 # ---------------------------------------------------------------------------
-# TS-07-E2: Status with no plan file
+# TS-07-E2: Status with no plan
 # Requirement: 07-REQ-1.E2
 # ---------------------------------------------------------------------------
 
@@ -267,14 +245,12 @@ class TestStatusNoStateFile:
 class TestStatusNoPlanFile:
     """TS-07-E2: Status fails gracefully when no plan exists."""
 
-    def test_no_plan_file_raises_error(self) -> None:
-        """AgentFoxError raised when plan file does not exist."""
-        bad_plan = Path("/nonexistent/plan.json")
+    def test_no_plan_returns_empty_report(self) -> None:
+        """Empty report returned when no plan exists in DB."""
+        report = generate_status()
 
-        with pytest.raises(AgentFoxError) as exc_info:
-            generate_status(plan_path=bad_plan)
-
-        assert "plan" in str(exc_info.value).lower()
+        assert report.total_tasks == 0
+        assert report.counts == {}
 
 
 # ---------------------------------------------------------------------------
@@ -286,17 +262,16 @@ class TestStatusNoPlanFile:
 class TestStatusEmptyPlanNodes:
     """Regression #379: token counts/costs must not be gated on plan_nodes."""
 
-    def test_correct_cost_when_plan_nodes_empty(
-        self,
-        tmp_plan_dir: Path,
-    ) -> None:
+    def test_correct_cost_when_plan_nodes_empty(self) -> None:
         """generate_status shows real cost/tokens from DB even when plan_nodes is empty.
 
-        Preconditions: plan.json exists, DB has session_outcomes/runs data but
-        plan_nodes table is empty (nightshift execution path).
+        Preconditions: DB has session_outcomes/runs data but plan_nodes table
+        is empty (nightshift execution path).
         Expected: StatusReport reflects actual token counts and cost from DB.
         Assertion: report.input_tokens > 0 and report.estimated_cost > 0.
         """
+        import uuid
+
         import duckdb
 
         from agent_fox.engine.state import (
@@ -310,67 +285,18 @@ class TestStatusEmptyPlanNodes:
             "spec_a:1": {"title": "Task 1"},
             "spec_a:2": {"title": "Task 2"},
         }
-        plan_path = write_plan_file(tmp_plan_dir, nodes=nodes)
+        conn = write_plan_to_db(nodes=nodes)
 
-        # Build a real in-memory DB with session data but empty plan_nodes
-        conn = duckdb.connect(":memory:")
-        conn.execute(
-            """
-            CREATE TABLE plan_nodes (
-                id VARCHAR PRIMARY KEY, spec_name VARCHAR NOT NULL,
-                group_number INTEGER NOT NULL, title VARCHAR NOT NULL,
-                body TEXT NOT NULL DEFAULT '', archetype VARCHAR NOT NULL DEFAULT 'coder',
-                mode VARCHAR, model_tier VARCHAR,
-                status VARCHAR NOT NULL DEFAULT 'pending',
-                subtask_count INTEGER NOT NULL DEFAULT 0,
-                optional BOOLEAN NOT NULL DEFAULT FALSE,
-                instances INTEGER NOT NULL DEFAULT 1,
-                sort_position INTEGER NOT NULL DEFAULT 0,
-                blocked_reason VARCHAR,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE plan_meta (
-                id INTEGER PRIMARY KEY, content_hash VARCHAR NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                fast_mode BOOLEAN NOT NULL DEFAULT FALSE,
-                filtered_spec VARCHAR, version VARCHAR NOT NULL DEFAULT ''
-            );
-            CREATE TABLE runs (
-                id VARCHAR PRIMARY KEY, plan_content_hash VARCHAR NOT NULL,
-                started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                status VARCHAR NOT NULL DEFAULT 'running',
-                total_input_tokens BIGINT NOT NULL DEFAULT 0,
-                total_output_tokens BIGINT NOT NULL DEFAULT 0,
-                total_cost DOUBLE NOT NULL DEFAULT 0.0,
-                total_sessions INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE session_outcomes (
-                id VARCHAR PRIMARY KEY, spec_name VARCHAR, task_group VARCHAR,
-                node_id VARCHAR, touched_path VARCHAR, status VARCHAR,
-                input_tokens INTEGER, output_tokens INTEGER, duration_ms INTEGER,
-                created_at TIMESTAMP, run_id VARCHAR, attempt INTEGER DEFAULT 1,
-                cost DOUBLE DEFAULT 0.0, model VARCHAR, archetype VARCHAR,
-                commit_sha VARCHAR, error_message TEXT,
-                is_transport_error BOOLEAN DEFAULT FALSE
-            );
-            CREATE TABLE IF NOT EXISTS audit_events (
-                id VARCHAR PRIMARY KEY,
-                event_type VARCHAR,
-                payload VARCHAR,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """
-        )
-        # plan_nodes is empty — the nightshift case
+        # Clear plan_nodes to simulate the nightshift case where
+        # plan_nodes is empty but session data exists
+        conn.execute("DELETE FROM plan_nodes")
 
         # Insert session data
         create_run(conn, "run_1", "hash_abc")
         record_session(
             conn,
             SessionOutcomeRecord(
-                id="s1",
+                id=str(uuid.uuid4()),
                 spec_name="spec_a",
                 task_group="1",
                 node_id="spec_a:1",
@@ -392,7 +318,7 @@ class TestStatusEmptyPlanNodes:
         )
         update_run_totals(conn, "run_1", input_tokens=8000, output_tokens=3000, cost=1.20)
 
-        report = generate_status(plan_path=plan_path, db_conn=conn)
+        report = generate_status(db_conn=conn)
         conn.close()
 
         assert report.input_tokens == 8000, (

@@ -9,16 +9,17 @@ Requirements: 50-REQ-1.1, 50-REQ-1.2, 50-REQ-1.3, 50-REQ-1.5,
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
+import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from agent_fox.engine.reset import reset_spec
 from agent_fox.engine.state import ExecutionState, SessionRecord
+from tests.unit.engine.conftest import write_plan_to_db
 
 # -- Strategies ------------------------------------------------------------
 
@@ -61,42 +62,6 @@ def plan_with_multiple_specs(
     return nodes, node_states, target_spec
 
 
-def _make_plan_json(nodes: dict[str, dict[str, Any]]) -> str:
-    """Build a plan.json string from node definitions."""
-    full_nodes: dict[str, Any] = {}
-    for nid, props in nodes.items():
-        parts = nid.split(":")
-        spec_name = props.get("spec_name", parts[0])
-        last = parts[1] if len(parts) > 1 else "1"
-        group_number = int(last) if last.isdigit() else 0
-        full_nodes[nid] = {
-            "id": nid,
-            "spec_name": spec_name,
-            "group_number": props.get("group_number", group_number),
-            "title": f"Task {nid}",
-            "optional": False,
-            "status": "pending",
-            "subtask_count": 0,
-            "body": "",
-            "archetype": props.get("archetype", "coder"),
-        }
-
-    return json.dumps(
-        {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": full_nodes,
-            "edges": [],
-            "order": list(nodes.keys()),
-        },
-        indent=2,
-    )
-
-
 def _setup_for_property(
     tmp_path: Path,
     nodes: dict[str, dict[str, Any]],
@@ -105,14 +70,13 @@ def _setup_for_property(
     session_history: list[SessionRecord] | None = None,
     total_cost: float = 0.0,
     total_sessions: int = 0,
-) -> tuple[ExecutionState, Path, Path, Path]:
-    """Set up plan, state, worktrees dir and return (state, plan_path, wt_dir, repo)."""
+) -> tuple[ExecutionState, duckdb.DuckDBPyConnection, Path, Path]:
+    """Set up plan in DB, state, worktrees dir and return (state, db_conn, wt_dir, repo)."""
     agent_dir = tmp_path / ".agent-fox"
     wt_dir = agent_dir / "worktrees"
     wt_dir.mkdir(parents=True, exist_ok=True)
 
-    plan_path = agent_dir / "plan.json"
-    plan_path.write_text(_make_plan_json(nodes))
+    db_conn = write_plan_to_db(nodes, [])
 
     state = ExecutionState(
         plan_hash="abc123",
@@ -146,7 +110,7 @@ def _setup_for_property(
                 lines.append(f"- {status} {g}. Task group {g}")
             (spec_dir / "tasks.md").write_text("\n".join(lines) + "\n")
 
-    return state, plan_path, wt_dir, tmp_path
+    return state, db_conn, wt_dir, tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +135,10 @@ class TestSpecIsolation:
         tmp_path = tmp_path_factory.mktemp("iso")
 
         original_states = dict(node_states)
-        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
-        mock_conn = MagicMock()
+        state, db_conn, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            reset_spec(target_spec, wt_dir, repo, db_conn=db_conn)
 
         for nid, orig_status in original_states.items():
             spec = nodes[nid].get("spec_name", nid.split(":")[0])
@@ -206,11 +169,10 @@ class TestCompleteSpecCoverage:
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("cov")
 
-        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
-        mock_conn = MagicMock()
+        state, db_conn, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            reset_spec(target_spec, wt_dir, repo, db_conn=db_conn)
 
         for nid, props in nodes.items():
             spec = props.get("spec_name", nid.split(":")[0])
@@ -262,7 +224,7 @@ class TestPreservation:
             for i in range(num_sessions)
         ]
 
-        state, plan_path, wt_dir, repo = _setup_for_property(
+        state, db_conn, wt_dir, repo = _setup_for_property(
             tmp_path,
             nodes,
             node_states,
@@ -270,10 +232,9 @@ class TestPreservation:
             total_cost=cost,
             total_sessions=num_sessions,
         )
-        mock_conn = MagicMock()
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            reset_spec(target_spec, wt_dir, repo, db_conn=db_conn)
 
         assert len(state.session_history) == num_sessions
         assert state.total_cost == cost
@@ -282,13 +243,15 @@ class TestPreservation:
 
 # ---------------------------------------------------------------------------
 # TS-50-P4: Artifact Synchronization
-# Property 5: tasks.md and plan.json are consistent with state after reset.
+# Property 5: tasks.md checkboxes are consistent with state after reset.
 # Validates: 50-REQ-1.5, 50-REQ-1.6
+# NOTE: Plan node statuses are now persisted to DuckDB, not plan.json.
+#       This test verifies tasks.md checkboxes and in-memory state only.
 # ---------------------------------------------------------------------------
 
 
 class TestArtifactSynchronization:
-    """TS-50-P4: tasks.md and plan.json are consistent after reset."""
+    """TS-50-P4: tasks.md and state are consistent after reset."""
 
     @given(data=plan_with_multiple_specs())
     @settings(max_examples=20, deadline=None)
@@ -297,22 +260,20 @@ class TestArtifactSynchronization:
         data: tuple[dict[str, dict[str, Any]], dict[str, str], str],
         tmp_path_factory: Any,
     ) -> None:
-        """After reset, tasks.md has [ ] and plan.json has pending for spec."""
+        """After reset, tasks.md has [ ] and state has pending for spec."""
         nodes, node_states, target_spec = data
         tmp_path = tmp_path_factory.mktemp("sync")
 
-        state, plan_path, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
-        mock_conn = MagicMock()
+        state, db_conn, wt_dir, repo = _setup_for_property(tmp_path, nodes, node_states)
 
-        with patch("agent_fox.engine.reset.load_state_from_db", return_value=state):
-            reset_spec(target_spec, plan_path, wt_dir, repo, db_conn=mock_conn)
+        with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
+            reset_spec(target_spec, wt_dir, repo, db_conn=db_conn)
 
-        # Check plan.json
-        plan_data = json.loads(plan_path.read_text())
+        # Check in-memory state
         for nid, props in nodes.items():
             spec = props.get("spec_name", nid.split(":")[0])
-            if spec == target_spec and nid in plan_data["nodes"]:
-                assert plan_data["nodes"][nid]["status"] == "pending", f"Plan node {nid} should be pending"
+            if spec == target_spec:
+                assert state.node_states[nid] == "pending", f"State node {nid} should be pending"
 
         # Check tasks.md - no [x] or [-] for reset spec
         tasks_md = tmp_path / ".specs" / target_spec / "tasks.md"

@@ -7,7 +7,6 @@ Requirements: 70-REQ-3.2, 70-REQ-3.E1, 70-REQ-5.2, 70-REQ-1.2, 70-REQ-4.1
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -51,54 +50,21 @@ def _watch_poll_events(sink: _CapturingSink) -> list[AuditEvent]:
     return [e for e in sink.events if e.event_type == AuditEventType.WATCH_POLL]
 
 
-def _write_empty_plan(plan_dir: Path) -> Path:
-    """Write an empty plan.json and return its path."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {},
-        "edges": [],
-        "order": [],
-    }
-    plan_path.write_text(json.dumps(plan, indent=2))
-    return plan_path
+def _write_empty_plan_db():
+    """Write an empty plan to DB and return the connection."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    return write_plan_to_db(nodes={}, edges=[])
 
 
-def _write_stalled_plan(plan_dir: Path) -> Path:
-    """Write a plan with a blocked node (creates stalled state)."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {
-            "spec:1": {
-                "id": "spec:1",
-                "spec_name": "spec",
-                "group_number": 1,
-                "title": "Task 1",
-                "optional": False,
-                "status": "blocked",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": "coder",
-            }
-        },
-        "edges": [],
-        "order": ["spec:1"],
-    }
-    plan_path.write_text(json.dumps(plan, indent=2))
-    return plan_path
+def _write_stalled_plan_db():
+    """Write a plan with a blocked node to DB and return the connection."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    return write_plan_to_db(
+        nodes={"spec:1": {"title": "Task 1", "status": "blocked"}},
+        edges=[],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -155,8 +121,7 @@ class TestPollNumberMonotonicity:
 
         from agent_fox.engine.engine import Orchestrator
 
-        plan_dir = tmp_path / f"run_{n}" / ".agent-fox"
-        plan_path = _write_empty_plan(plan_dir)
+        db_conn = _write_empty_plan_db()
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -171,9 +136,9 @@ class TestPollNumberMonotonicity:
 
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
+            knowledge_db_conn=db_conn,
         )
         orch._watch = True  # type: ignore[attr-defined]
 
@@ -223,8 +188,7 @@ class TestHotLoadGate:
 
         from agent_fox.engine.engine import Orchestrator
 
-        plan_dir = tmp_path / f"hl_{watch_interval}" / ".agent-fox"
-        plan_path = _write_empty_plan(plan_dir)
+        db_conn = _write_empty_plan_db()
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -239,9 +203,9 @@ class TestHotLoadGate:
 
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
+            knowledge_db_conn=db_conn,
         )
         orch._watch = True  # type: ignore[attr-defined]
 
@@ -278,8 +242,7 @@ class TestStallOverridesWatch:
 
         from agent_fox.engine.engine import Orchestrator
 
-        plan_dir = tmp_path / f"stall_{watch}" / ".agent-fox"
-        plan_path = _write_stalled_plan(plan_dir)
+        db_conn = _write_stalled_plan_db()
 
         sink = _CapturingSink()
         sink_dispatcher = SinkDispatcher()
@@ -293,9 +256,9 @@ class TestStallOverridesWatch:
 
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: MagicMock(),
             sink_dispatcher=sink_dispatcher,
+            knowledge_db_conn=db_conn,
         )
         if watch:
             orch._watch = True  # type: ignore[attr-defined]

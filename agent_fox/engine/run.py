@@ -77,7 +77,6 @@ def _setup_infrastructure(
     config: AgentFoxConfig,
     *,
     debug: bool = False,
-    plan_path: Path | None = None,
     activity_callback: ActivityCallback | None = None,
 ) -> dict[str, Any]:
     """Set up knowledge DB, sinks, and other infrastructure.
@@ -218,7 +217,7 @@ async def run_code(
     except Exception:
         orch_config = config.orchestrator
 
-    plan_path = Path(".agent-fox/plan.json")
+    agent_dir = Path(".agent-fox")
     specs_path = Path(specs_dir) if specs_dir else Path(".specs")
 
     # Set up infrastructure (knowledge DB, sinks, fact cache, etc.)
@@ -227,7 +226,6 @@ async def run_code(
         infra = _setup_infrastructure(
             config,
             debug=debug,
-            plan_path=plan_path,
             activity_callback=activity_callback,
         )
     except Exception:
@@ -240,7 +238,7 @@ async def run_code(
     try:
         # Build orchestrator kwargs — use infra if available
         orch_kwargs: dict[str, Any] = {
-            "plan_path": plan_path,
+            "agent_dir": agent_dir,
             "specs_dir": specs_path,
             "watch": watch,
             "task_callback": task_callback,

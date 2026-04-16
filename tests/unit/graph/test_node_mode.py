@@ -6,7 +6,9 @@ Requirements: 97-REQ-2.1, 97-REQ-2.2, 97-REQ-2.3, 97-REQ-2.E1
 
 from __future__ import annotations
 
-import json
+import duckdb
+
+from agent_fox.knowledge.migrations import run_migrations
 
 # ---------------------------------------------------------------------------
 # TS-97-5: Node Mode Field
@@ -68,38 +70,29 @@ class TestNodeModeField:
 
 
 class TestNodeSerializationRoundTrip:
-    """Verify mode persists through JSON serialization."""
+    """Verify mode persists through DB serialization."""
 
-    def _serialize_node(self, node: object) -> dict:  # type: ignore[type-arg]
-        """Serialize a Node to a dict using the persistence module."""
-        from agent_fox.graph.persistence import _serialize
+    def _save_and_load_node(self, node):  # type: ignore[no-untyped-def]
+        """Save a node via TaskGraph and load it back from DuckDB."""
+        from agent_fox.graph.persistence import load_plan, save_plan
+        from agent_fox.graph.types import PlanMetadata, TaskGraph
 
-        return _serialize(node)  # type: ignore[arg-type]
-
-    def _deserialize_node(self, data: dict) -> object:  # type: ignore[type-arg]
-        """Deserialize a Node from a dict using the persistence module."""
-        from agent_fox.graph.persistence import _node_from_dict
-
-        return _node_from_dict(data)
-
-    def test_mode_in_serialized_dict(self) -> None:
-        """TS-97-6: Serialized node dict includes mode field."""
-        from agent_fox.graph.types import Node
-
-        node = Node(
-            id="s:0",
-            spec_name="s",
-            group_number=0,
-            title="t",
-            optional=False,
-            mode="pre-review",
+        graph = TaskGraph(
+            nodes={node.id: node},
+            edges=[],
+            order=[node.id],
+            metadata=PlanMetadata(created_at="2026-01-01T00:00:00"),
         )
-        serialized = self._serialize_node(node)
-        assert "mode" in serialized
-        assert serialized["mode"] == "pre-review"
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
+        conn.close()
+        assert loaded is not None
+        return loaded.nodes[node.id]
 
     def test_mode_string_preserved_after_roundtrip(self) -> None:
-        """TS-97-6: mode string is preserved after serialize/deserialize."""
+        """TS-97-6: mode string is preserved after save/load."""
         from agent_fox.graph.types import Node
 
         node = Node(
@@ -110,12 +103,11 @@ class TestNodeSerializationRoundTrip:
             optional=False,
             mode="pre-review",
         )
-        serialized = self._serialize_node(node)
-        deserialized = self._deserialize_node(serialized)
-        assert deserialized.mode == "pre-review"  # type: ignore[attr-defined]
+        loaded_node = self._save_and_load_node(node)
+        assert loaded_node.mode == "pre-review"
 
     def test_none_mode_preserved_after_roundtrip(self) -> None:
-        """mode=None is preserved after serialize/deserialize."""
+        """mode=None is preserved after save/load."""
         from agent_fox.graph.types import Node
 
         node = Node(
@@ -126,13 +118,12 @@ class TestNodeSerializationRoundTrip:
             optional=False,
             mode=None,
         )
-        serialized = self._serialize_node(node)
-        deserialized = self._deserialize_node(serialized)
-        assert deserialized.mode is None  # type: ignore[attr-defined]
+        loaded_node = self._save_and_load_node(node)
+        assert loaded_node.mode is None
 
     def test_mode_in_task_graph_roundtrip(self) -> None:
-        """TS-97-SMOKE-3: Mode survives full TaskGraph serialization/deserialization."""
-        from agent_fox.graph.persistence import _serialize
+        """TS-97-SMOKE-3: Mode survives full TaskGraph save/load."""
+        from agent_fox.graph.persistence import load_plan, save_plan
         from agent_fox.graph.types import Node, PlanMetadata, TaskGraph
 
         graph = TaskGraph(
@@ -144,13 +135,17 @@ class TestNodeSerializationRoundTrip:
             order=["s:0", "s:1"],
             metadata=PlanMetadata(created_at="2026-01-01T00:00:00"),
         )
-        serialized = _serialize(graph)
-        # Check nodes dict is in serialized form
-        assert serialized["nodes"]["s:0"]["mode"] == "pre-review"
-        assert serialized["nodes"]["s:1"]["mode"] is None
+        conn = duckdb.connect(":memory:")
+        run_migrations(conn)
+        save_plan(graph, conn)
+        loaded = load_plan(conn)
+        conn.close()
+        assert loaded is not None
+        assert loaded.nodes["s:0"].mode == "pre-review"
+        assert loaded.nodes["s:1"].mode is None
 
-    def test_json_roundtrip_preserves_mode(self) -> None:
-        """Mode survives JSON-to-string-and-back serialization."""
+    def test_drift_review_mode_preserved(self) -> None:
+        """Mode survives DB round-trip for drift-review."""
         from agent_fox.graph.types import Node
 
         node = Node(
@@ -161,11 +156,8 @@ class TestNodeSerializationRoundTrip:
             optional=False,
             mode="drift-review",
         )
-        serialized = self._serialize_node(node)
-        json_str = json.dumps(serialized)
-        data = json.loads(json_str)
-        deserialized = self._deserialize_node(data)
-        assert deserialized.mode == "drift-review"  # type: ignore[attr-defined]
+        loaded_node = self._save_and_load_node(node)
+        assert loaded_node.mode == "drift-review"
 
 
 # ---------------------------------------------------------------------------

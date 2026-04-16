@@ -26,7 +26,7 @@ from agent_fox.engine.hot_load import should_trigger_barrier
 from agent_fox.engine.state import ExecutionState
 from agent_fox.knowledge.audit import AuditEventType
 
-from .conftest import MockSessionRunner, make_plan_json
+from .conftest import MockSessionRunner
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,14 +42,15 @@ def _make_orch(
     tmp_path: Path,
     config: OrchestratorConfig | None = None,
 ) -> Orchestrator:
-    """Create a minimal Orchestrator for testing (no new params yet)."""
-    plan_path = tmp_path / "plan.json"
-    plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
+    """Create a minimal Orchestrator for testing."""
+    from tests.unit.engine.conftest import write_plan_to_db
+
+    db_conn = write_plan_to_db({"spec:1": {}}, [], ["spec:1"])
     runner = MockSessionRunner()
     return Orchestrator(
         config=config or OrchestratorConfig(parallel=1, inter_session_delay=0),
-        plan_path=plan_path,
         session_runner_factory=lambda *a, **kw: runner,
+        knowledge_db_conn=db_conn,
     )
 
 
@@ -436,18 +437,18 @@ class TestConfigPathStored:
 
     def test_config_path_stored(self, tmp_path: Path) -> None:
         """Orchestrator stores config_path from constructor parameter."""
-        plan_path = tmp_path / "plan.json"
-        plan_path.write_text(make_plan_json({"spec:1": {}}, [], ["spec:1"]))
+        from tests.unit.engine.conftest import write_plan_to_db
+
+        db_conn = write_plan_to_db({"spec:1": {}}, [], ["spec:1"])
         runner = MockSessionRunner()
         config_path = Path(".agent-fox/config.toml")
 
-        # This will fail with TypeError until config_path param is added
         orch = Orchestrator(
             config=OrchestratorConfig(parallel=1, inter_session_delay=0),
-            plan_path=plan_path,
             session_runner_factory=lambda *a, **kw: runner,
-            config_path=config_path,  # NEW param — will fail until implemented
-            full_config=AgentFoxConfig(),  # NEW param — will fail until implemented
+            knowledge_db_conn=db_conn,
+            config_path=config_path,
+            full_config=AgentFoxConfig(),
         )
 
         assert orch._config_path == config_path  # type: ignore[attr-defined]

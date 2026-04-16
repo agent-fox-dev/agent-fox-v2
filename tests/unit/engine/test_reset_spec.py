@@ -6,69 +6,18 @@ Requirements: 50-REQ-1.1 through 50-REQ-1.8, 50-REQ-4.1, 50-REQ-4.2
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import duckdb
 import pytest
 
 from agent_fox.core.errors import AgentFoxError
 from agent_fox.engine.reset import reset_spec
 from agent_fox.engine.state import ExecutionState, SessionRecord
-
-# -- Helpers ---------------------------------------------------------------
-
-
-def _make_plan_json(
-    nodes: dict[str, dict[str, Any]],
-    edges: list[dict[str, str]] | None = None,
-    order: list[str] | None = None,
-) -> str:
-    """Build a plan.json string from node/edge definitions."""
-    if edges is None:
-        edges = []
-
-    full_nodes: dict[str, Any] = {}
-    for nid, props in nodes.items():
-        parts = nid.split(":")
-        spec_name = parts[0] if len(parts) > 1 else "test_spec"
-        # group_number: try to parse the last part as int
-        last = parts[-1] if len(parts) > 1 else "1"
-        group_number = int(last) if last.isdigit() else 0
-        full_nodes[nid] = {
-            "id": nid,
-            "spec_name": props.get("spec_name", spec_name),
-            "group_number": props.get("group_number", group_number),
-            "title": props.get("title", f"Task {nid}"),
-            "optional": props.get("optional", False),
-            "status": props.get("status", "pending"),
-            "subtask_count": props.get("subtask_count", 0),
-            "body": props.get("body", ""),
-            "archetype": props.get("archetype", "coder"),
-        }
-
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": full_nodes,
-        "edges": edges,
-        "order": order if order is not None else list(nodes.keys()),
-    }
-    return json.dumps(plan, indent=2)
-
-
-def _write_plan(plan_dir: Path, **kwargs: Any) -> Path:
-    """Write a plan.json file and return its path."""
-    plan_dir.mkdir(parents=True, exist_ok=True)
-    plan_path = plan_dir / "plan.json"
-    plan_path.write_text(_make_plan_json(**kwargs))
-    return plan_path
+from tests.unit.engine.conftest import _create_db_with_schema, write_plan_to_db
 
 
 def _make_state(
@@ -104,16 +53,16 @@ def _setup(
     total_sessions: int = 0,
     total_input_tokens: int = 0,
     total_output_tokens: int = 0,
-) -> tuple[ExecutionState, Path, Path, Path]:
-    """Set up plan, state, worktrees dir and return paths.
+) -> tuple[ExecutionState, duckdb.DuckDBPyConnection, Path, Path]:
+    """Set up plan in DB, state, worktrees dir and return paths.
 
-    Returns (state, plan_path, worktrees_dir, repo_path).
+    Returns (state, db_conn, worktrees_dir, repo_path).
     """
     agent_dir = tmp_path / ".agent-fox"
     worktrees_dir = agent_dir / "worktrees"
     worktrees_dir.mkdir(parents=True, exist_ok=True)
 
-    plan_path = _write_plan(agent_dir, nodes=nodes, edges=edges)
+    db_conn = write_plan_to_db(nodes, edges or [])
     state = _make_state(
         node_states,
         session_history=session_history,
@@ -122,7 +71,7 @@ def _setup(
         total_input_tokens=total_input_tokens,
         total_output_tokens=total_output_tokens,
     )
-    return state, plan_path, worktrees_dir, tmp_path
+    return state, db_conn, worktrees_dir, tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -150,10 +99,10 @@ class TestResetSetsAllSpecNodesToPending:
             "beta:1": "completed",
             "beta:2": "completed",
         }
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            result = reset_spec("alpha", plan_path, wt_dir, repo)
+            result = reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         # All alpha nodes should be in reset_tasks
         assert "alpha:1" in result.reset_tasks
@@ -194,10 +143,10 @@ class TestResetIncludesArchetypeNodes:
             "alpha:2": "completed",
             "alpha:3": "completed",
         }
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            result = reset_spec("alpha", plan_path, wt_dir, repo)
+            result = reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         expected_ids = {"alpha:0", "alpha:1", "alpha:1:auditor", "alpha:2", "alpha:3"}
         assert set(result.reset_tasks) == expected_ids
@@ -222,10 +171,10 @@ class TestOtherSpecsUnchanged:
             "alpha:1": "completed",
             "beta:1": "completed",
         }
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            reset_spec("alpha", plan_path, wt_dir, repo)
+            reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         assert state.node_states["beta:1"] == "completed"
 
@@ -243,7 +192,7 @@ class TestWorktreesAndBranchesCleaned:
         """Worktree directory for a reset node is removed."""
         nodes = {"alpha:1": {"spec_name": "alpha"}}
         node_states = {"alpha:1": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         # Create worktree directory
         wt_path = wt_dir / "alpha" / "1"
@@ -251,7 +200,7 @@ class TestWorktreesAndBranchesCleaned:
         (wt_path / "somefile.py").write_text("content")
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            result = reset_spec("alpha", plan_path, wt_dir, repo)
+            result = reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         assert len(result.cleaned_worktrees) >= 1
         assert not wt_path.exists()
@@ -260,7 +209,7 @@ class TestWorktreesAndBranchesCleaned:
         """Git branch for a reset node is deleted."""
         nodes = {"alpha:1": {"spec_name": "alpha"}}
         node_states = {"alpha:1": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         # Mock git branch -D to simulate branch deletion
         with (
@@ -268,7 +217,7 @@ class TestWorktreesAndBranchesCleaned:
             patch("agent_fox.engine.reset.subprocess.run") as mock_run,
         ):
             mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            result = reset_spec("alpha", plan_path, wt_dir, repo)
+            result = reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         assert len(result.cleaned_branches) >= 1
 
@@ -289,7 +238,7 @@ class TestTasksMdCheckboxesReset:
             "alpha:2": {"spec_name": "alpha", "group_number": 2},
         }
         node_states = {"alpha:1": "completed", "alpha:2": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         # Create tasks.md with checked boxes
         specs_dir = repo / ".specs"
@@ -301,7 +250,7 @@ class TestTasksMdCheckboxesReset:
         )
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            reset_spec("alpha", plan_path, wt_dir, repo)
+            reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         content = tasks_md.read_text()
         assert "- [ ] 1. Task One" in content
@@ -332,10 +281,10 @@ class TestPlanJsonStatusesReset:
             "beta:1": {"spec_name": "beta", "status": "completed"},
         }
         node_states = {"alpha:1": "completed", "beta:1": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            reset_spec("alpha", plan_path, wt_dir, repo)
+            reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         # In-memory state is updated
         assert state.node_states["alpha:1"] == "pending"
@@ -356,7 +305,7 @@ class TestNoGitRollback:
         """Develop branch SHA is unchanged after spec reset."""
         nodes = {"alpha:1": {"spec_name": "alpha"}}
         node_states = {"alpha:1": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         # Initialize a git repo to check develop SHA
         subprocess.run(
@@ -391,7 +340,7 @@ class TestNoGitRollback:
         ).stdout.strip()
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            reset_spec("alpha", plan_path, wt_dir, repo)
+            reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         sha_after = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -432,7 +381,7 @@ class TestSessionHistoryPreserved:
             for i in range(5)
         ]
 
-        state, plan_path, wt_dir, repo = _setup(
+        state, db_conn, wt_dir, repo = _setup(
             tmp_path,
             nodes,
             node_states,
@@ -444,7 +393,7 @@ class TestSessionHistoryPreserved:
         )
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            reset_spec("alpha", plan_path, wt_dir, repo)
+            reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         assert len(state.session_history) == 5
         assert state.total_cost == 10.0
@@ -469,11 +418,11 @@ class TestUnknownSpecName:
             "beta:1": {"spec_name": "beta"},
         }
         node_states = {"alpha:1": "completed", "beta:1": "completed"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with pytest.raises(AgentFoxError) as exc_info:
             with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-                reset_spec("nonexistent", plan_path, wt_dir, repo)
+                reset_spec("nonexistent", wt_dir, repo, db_conn=db_conn)
 
         error_msg = str(exc_info.value)
         assert "alpha" in error_msg
@@ -487,7 +436,7 @@ class TestUnknownSpecName:
 
 
 class TestMissingPlanFile:
-    """TS-50-E2: Error when plan.json does not exist."""
+    """TS-50-E2: Error when plan does not exist in DB."""
 
     def test_raises_error_for_missing_plan(self, tmp_path: Path) -> None:
         """AgentFoxError raised mentioning plan."""
@@ -497,12 +446,12 @@ class TestMissingPlanFile:
 
         state = _make_state({"alpha:1": "completed"})
 
-        missing_plan = agent_dir / "plan.json"
-        # Don't create plan file
+        # Create empty DB with schema but no plan data
+        db_conn = _create_db_with_schema()
 
         with pytest.raises(AgentFoxError) as exc_info:
             with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-                reset_spec("alpha", missing_plan, wt_dir, tmp_path)
+                reset_spec("alpha", wt_dir, tmp_path, db_conn=db_conn)
 
         assert "plan" in str(exc_info.value).lower()
 
@@ -522,11 +471,8 @@ class TestMissingStateFile:
         wt_dir = agent_dir / "worktrees"
         wt_dir.mkdir(parents=True, exist_ok=True)
 
-        nodes = {"alpha:1": {"spec_name": "alpha"}}
-        plan_path = _write_plan(agent_dir, nodes=nodes)
-
         with pytest.raises(AgentFoxError):
-            reset_spec("alpha", plan_path, wt_dir, tmp_path, db_conn=None)
+            reset_spec("alpha", wt_dir, tmp_path, db_conn=None)
 
 
 # ---------------------------------------------------------------------------
@@ -545,9 +491,9 @@ class TestAllNodesAlreadyPending:
             "alpha:2": {"spec_name": "alpha"},
         }
         node_states = {"alpha:1": "pending", "alpha:2": "pending"}
-        state, plan_path, wt_dir, repo = _setup(tmp_path, nodes, node_states)
+        state, db_conn, wt_dir, repo = _setup(tmp_path, nodes, node_states)
 
         with patch("agent_fox.engine.reset._load_state_or_raise", return_value=state):
-            result = reset_spec("alpha", plan_path, wt_dir, repo)
+            result = reset_spec("alpha", wt_dir, repo, db_conn=db_conn)
 
         assert result.reset_tasks == []

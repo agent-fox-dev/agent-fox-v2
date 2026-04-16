@@ -14,37 +14,7 @@ from click.testing import CliRunner
 
 from agent_fox.cli.reset import reset_cmd
 from agent_fox.engine.state import ExecutionState
-
-
-def _make_plan_json(nodes: dict[str, dict[str, str]]) -> str:
-    """Build a minimal plan.json string."""
-    full_nodes = {}
-    for nid, props in nodes.items():
-        parts = nid.split(":")
-        full_nodes[nid] = {
-            "id": nid,
-            "spec_name": props.get("spec_name", parts[0] if len(parts) > 1 else "test_spec"),
-            "group_number": int(parts[-1]) if parts[-1].isdigit() else 0,
-            "title": props.get("title", f"Task {nid}"),
-            "optional": False,
-            "status": props.get("status", "pending"),
-            "subtask_count": 0,
-            "body": "",
-            "archetype": props.get("archetype", "coder"),
-        }
-    return json.dumps(
-        {
-            "metadata": {
-                "created_at": "2026-01-01T00:00:00",
-                "fast_mode": False,
-                "filtered_spec": None,
-                "version": "0.1.0",
-            },
-            "nodes": full_nodes,
-            "edges": [],
-            "order": list(nodes.keys()),
-        }
-    )
+from tests.unit.engine.conftest import write_plan_to_db
 
 
 def _setup_project(
@@ -52,14 +22,10 @@ def _setup_project(
     node_states: dict[str, str],
     nodes: dict[str, dict[str, str]] | None = None,
 ) -> None:
-    """Create .agent-fox directory with plan file (state loaded from DB mock)."""
+    """Create .agent-fox directory structure (state loaded from DB mock)."""
     agent_dir = tmp_path / ".agent-fox"
     agent_dir.mkdir(parents=True, exist_ok=True)
     (agent_dir / "worktrees").mkdir()
-
-    if nodes is None:
-        nodes = {tid: {"title": f"Task {tid}"} for tid in node_states}
-    (agent_dir / "plan.json").write_text(_make_plan_json(nodes))
 
 
 def _make_state(node_states: dict[str, str]) -> ExecutionState:
@@ -167,18 +133,21 @@ class TestJsonOutput:
     def test_json_output_keys(self, tmp_path: Path) -> None:
         """Valid JSON with required keys."""
         node_states = {"alpha:1": "completed"}
-        _setup_project(tmp_path, node_states)
+        nodes = {"alpha:1": {"title": "Task alpha:1", "spec_name": "alpha"}}
+        _setup_project(tmp_path, node_states, nodes=nodes)
 
         # Create specs dir for tasks.md checkbox reset
         specs_dir = tmp_path / ".specs" / "alpha"
         specs_dir.mkdir(parents=True)
         (specs_dir / "tasks.md").write_text("- [x] 1. Task\n")
 
+        db_conn = write_plan_to_db(nodes, [])
+
         runner = CliRunner()
         with (
             patch("agent_fox.cli.reset.Path.cwd", return_value=tmp_path),
-            patch("agent_fox.cli.reset._get_db_conn", return_value=MagicMock()),
-            patch("agent_fox.engine.reset.load_state_from_db", return_value=_make_state(node_states)),
+            patch("agent_fox.cli.reset._get_db_conn", return_value=db_conn),
+            patch("agent_fox.engine.reset._load_state_or_raise", return_value=_make_state(node_states)),
             patch(
                 "agent_fox.engine.reset._cleanup_task",
                 return_value=(None, None),

@@ -54,10 +54,8 @@ class _SpecBatchRunner:
         from agent_fox.graph.builder import build_graph
         from agent_fox.graph.persistence import save_plan
         from agent_fox.graph.resolver import resolve_order
+        from agent_fox.knowledge.db import open_knowledge_store
         from agent_fox.spec.parser import parse_cross_deps, parse_tasks
-
-        # Local path constants (no longer imported from core.paths — 105-REQ-5.1)
-        _plan_path = Path(".agent-fox/plan.json")
 
         # Build plan from the discovered specs
         task_groups: dict[str, list] = {}
@@ -82,7 +80,11 @@ class _SpecBatchRunner:
             archetypes_config=self._config.archetypes,
         )
         graph.order = resolve_order(graph)
-        save_plan(graph, _plan_path)
+        _knowledge_db = open_knowledge_store(self._config.knowledge)
+        try:
+            save_plan(graph, _knowledge_db.connection)
+        finally:
+            _knowledge_db.close()
 
         return await run_code(
             self._config,

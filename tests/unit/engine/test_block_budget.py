@@ -10,9 +10,9 @@ Covers:
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import duckdb
 import pytest
 
 from agent_fox.core.config import (
@@ -26,32 +26,24 @@ from agent_fox.engine.state import RunStatus
 from .conftest import (
     MockSessionOutcome,
     MockSessionRunner,
-    write_plan_file,
-)
-
-# Patch target: prevents MagicMock knowledge_db_conn from being treated as a
-# real DuckDB connection during plan loading (105-REQ-5.2 DB-first path).
-_PATCH_DB_PLAN = patch(
-    "agent_fox.graph.persistence._load_plan_from_db",
-    return_value=None,
+    write_plan_to_db,
 )
 
 
-def _wide_plan(plan_dir: Path, n: int = 5) -> Path:
+def _wide_plan(n: int = 5) -> duckdb.DuckDBPyConnection:
     """Create a plan with n independent tasks (no dependencies)."""
     nodes = {f"spec_{i}:1": {"title": f"Task {i}"} for i in range(n)}
-    return write_plan_file(plan_dir, nodes=nodes, edges=[])
+    return write_plan_to_db(nodes=nodes, edges=[])
 
 
-def _chain_with_reviewer(plan_dir: Path) -> Path:
+def _chain_with_reviewer() -> duckdb.DuckDBPyConnection:
     """Create a plan: reviewer:pre-review -> coder -> verifier.
 
     reviewer node: spec_a:0:reviewer:pre-review
     coder node: spec_a:1
     verifier node: spec_a:1:verifier
     """
-    return write_plan_file(
-        plan_dir,
+    return write_plan_to_db(
         nodes={
             "spec_a:0:reviewer:pre-review": {
                 "title": "Reviewer (pre-review)",
@@ -98,10 +90,9 @@ class TestBlockBudget:
     @pytest.mark.asyncio
     async def test_block_budget_disabled_by_default(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """With default config (None), blocking never triggers budget."""
-        plan_path = _wide_plan(tmp_plan_dir, n=5)
+        db_conn = _wide_plan(n=5)
 
         runner = MockSessionRunner()
         # All tasks fail
@@ -118,8 +109,8 @@ class TestBlockBudget:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orch.run()
@@ -130,10 +121,9 @@ class TestBlockBudget:
     @pytest.mark.asyncio
     async def test_block_budget_triggers_early_stop(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """Run stops with BLOCK_LIMIT when blocked fraction exceeds budget."""
-        plan_path = _wide_plan(tmp_plan_dir, n=4)
+        db_conn = _wide_plan(n=4)
 
         runner = MockSessionRunner()
         # First two tasks fail (and block), last two succeed
@@ -155,8 +145,8 @@ class TestBlockBudget:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orch.run()
@@ -169,10 +159,9 @@ class TestBlockBudget:
     @pytest.mark.asyncio
     async def test_block_budget_not_triggered_below_threshold(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """Run continues when blocked fraction is below budget."""
-        plan_path = _wide_plan(tmp_plan_dir, n=5)
+        db_conn = _wide_plan(n=5)
 
         runner = MockSessionRunner()
         # Only one task fails
@@ -189,8 +178,8 @@ class TestBlockBudget:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
+            knowledge_db_conn=db_conn,
         )
 
         state = await orch.run()
@@ -208,10 +197,9 @@ class TestSkepticBlocking:
     @pytest.mark.asyncio
     async def test_reviewer_blocks_coder_on_critical_findings(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """When reviewer:pre-review finds criticals above threshold, coder is blocked."""
-        plan_path = _chain_with_reviewer(tmp_plan_dir)
+        db_conn = _chain_with_reviewer()
 
         runner = MockSessionRunner()
         runner.configure(
@@ -233,8 +221,6 @@ class TestSkepticBlocking:
             finding.description = f"Critical issue {i}"
             mock_findings.append(finding)
 
-        mock_conn = MagicMock()
-
         archetypes_config = ArchetypesConfig(
             reviewer_config=ReviewerConfig(pre_review_block_threshold=3),
         )
@@ -245,18 +231,14 @@ class TestSkepticBlocking:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
-            knowledge_db_conn=mock_conn,
+            knowledge_db_conn=db_conn,
         )
 
-        with (
-            _PATCH_DB_PLAN,
-            patch(
-                "agent_fox.knowledge.review_store.query_findings_by_session",
-                return_value=mock_findings,
-            ),
+        with patch(
+            "agent_fox.knowledge.review_store.query_findings_by_session",
+            return_value=mock_findings,
         ):
             state = await orch.run()
 
@@ -270,10 +252,9 @@ class TestSkepticBlocking:
     @pytest.mark.asyncio
     async def test_reviewer_does_not_block_below_threshold(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """When critical count <= threshold, coder proceeds normally."""
-        plan_path = _chain_with_reviewer(tmp_plan_dir)
+        db_conn = _chain_with_reviewer()
 
         runner = MockSessionRunner()
         runner.configure(
@@ -303,7 +284,6 @@ class TestSkepticBlocking:
             finding.severity = "critical"
             mock_findings.append(finding)
 
-        mock_conn = MagicMock()
         archetypes_config = ArchetypesConfig(
             reviewer_config=ReviewerConfig(pre_review_block_threshold=3),
         )
@@ -314,18 +294,14 @@ class TestSkepticBlocking:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
-            knowledge_db_conn=mock_conn,
+            knowledge_db_conn=db_conn,
         )
 
-        with (
-            _PATCH_DB_PLAN,
-            patch(
-                "agent_fox.knowledge.review_store.query_findings_by_session",
-                return_value=mock_findings,
-            ),
+        with patch(
+            "agent_fox.knowledge.review_store.query_findings_by_session",
+            return_value=mock_findings,
         ):
             state = await orch.run()
 
@@ -335,11 +311,9 @@ class TestSkepticBlocking:
     @pytest.mark.asyncio
     async def test_drift_review_advisory_mode_does_not_block(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """Drift-review with block_threshold=None is advisory-only."""
-        plan_path = write_plan_file(
-            tmp_plan_dir,
+        db_conn = write_plan_to_db(
             nodes={
                 "spec_a:0:reviewer:drift-review": {
                     "title": "Reviewer (drift-review)",
@@ -383,7 +357,6 @@ class TestSkepticBlocking:
 
         # Many criticals but drift-review is advisory (threshold=None)
         mock_findings = [MagicMock(severity="critical") for _ in range(10)]
-        mock_conn = MagicMock()
         archetypes_config = ArchetypesConfig(
             reviewer_config=ReviewerConfig(drift_review_block_threshold=None),
         )
@@ -394,18 +367,14 @@ class TestSkepticBlocking:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
             archetypes_config=archetypes_config,
-            knowledge_db_conn=mock_conn,
+            knowledge_db_conn=db_conn,
         )
 
-        with (
-            _PATCH_DB_PLAN,
-            patch(
-                "agent_fox.knowledge.review_store.query_findings_by_session",
-                return_value=mock_findings,
-            ),
+        with patch(
+            "agent_fox.knowledge.review_store.query_findings_by_session",
+            return_value=mock_findings,
         ):
             state = await orch.run()
 
@@ -415,10 +384,9 @@ class TestSkepticBlocking:
     @pytest.mark.asyncio
     async def test_no_blocking_without_knowledge_db(
         self,
-        tmp_plan_dir: Path,
     ) -> None:
         """Without a knowledge DB connection, reviewer blocking is skipped."""
-        plan_path = _chain_with_reviewer(tmp_plan_dir)
+        db_conn = _chain_with_reviewer()
 
         runner = MockSessionRunner()
         runner.configure(
@@ -446,9 +414,8 @@ class TestSkepticBlocking:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=plan_path,
             session_runner_factory=lambda nid, **kw: runner,
-            # No knowledge_db_conn
+            knowledge_db_conn=db_conn,
         )
 
         state = await orch.run()

@@ -9,14 +9,12 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 
 from agent_fox.core.node_id import spec_name_of
 from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
-from agent_fox.graph.persistence import load_plan_or_raise
 from agent_fox.graph.types import TaskGraph
 from agent_fox.knowledge.store import read_all_facts
 from agent_fox.reporting import parse_audit_payload
@@ -249,34 +247,22 @@ def _compute_per_spec(
 
 
 def generate_status(
-    plan_path: Path | None = None,
     db_conn: duckdb.DuckDBPyConnection | None = None,
 ) -> StatusReport:
     """Generate a status report from execution state and plan.
 
-    Loads execution state from DuckDB. Uses DuckDB audit_events for
-    session metrics (tokens, cost) when available.
+    Loads the plan and execution state from DuckDB. Uses DuckDB
+    audit_events for session metrics (tokens, cost) when available.
 
     Args:
-        plan_path: Path to .agent-fox/plan.json. If None, defaults to the
-            standard location. When the plan file does not exist, returns
-            an empty report.
         db_conn: DuckDB connection for state, audit events, and fact loading.
 
     Returns:
         StatusReport with task counts, token usage, cost, and problem tasks.
 
-    Raises:
-        AgentFoxError: If neither state nor plan file can be read.
-
-    Requirements: 40-REQ-14.1, 40-REQ-14.3, 59-REQ-5.1, 105-REQ-5.3
+    Requirements: 40-REQ-14.1, 40-REQ-14.3, 105-REQ-5.3
     """
-    # Resolve plan_path if not provided
-    _plan_path_was_none = plan_path is None
-    if plan_path is None:
-        plan_path = Path(".agent-fox/plan.json")  # local default (105-REQ-5.1)
-
-    # Try loading plan from DB when connection is available (105-REQ-6.1)
+    # Load plan from DB (105-REQ-6.1)
     graph = None
     if db_conn is not None:
         try:
@@ -284,25 +270,18 @@ def generate_status(
 
             graph = _load_plan_db(db_conn)
         except Exception:
-            logger.debug("Failed to load plan from DB, falling back to file", exc_info=True)
+            logger.debug("Failed to load plan from DB", exc_info=True)
 
-    # Fall back to file-based plan loading
     if graph is None:
-        try:
-            graph = load_plan_or_raise(plan_path)
-        except Exception:
-            if not _plan_path_was_none:
-                raise
-            # Return empty report when plan_path was not explicitly given
-            return StatusReport(
-                counts={},
-                total_tasks=0,
-                input_tokens=None,
-                output_tokens=None,
-                estimated_cost=None,
-                problem_tasks=[],
-                per_spec={},
-            )
+        return StatusReport(
+            counts={},
+            total_tasks=0,
+            input_tokens=None,
+            output_tokens=None,
+            estimated_cost=None,
+            problem_tasks=[],
+            per_spec={},
+        )
 
     # Load execution state from DB (optional - may not exist yet)
     state: ExecutionState | None = None

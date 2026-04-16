@@ -98,7 +98,6 @@ class TestHotLoadGateRespected:
         config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=False)
         orch = Orchestrator(
             config=config,
-            plan_path=MagicMock(),
             session_runner_factory=MagicMock(),
         )
 
@@ -150,7 +149,6 @@ class TestFullBarrierEquivalence:
         )
         orch = Orchestrator(
             config=config,
-            plan_path=MagicMock(),
             session_runner_factory=MagicMock(),
         )
 
@@ -236,7 +234,6 @@ class TestGracefulFailure:
         config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=True)
         orch = Orchestrator(
             config=config,
-            plan_path=MagicMock(),
             session_runner_factory=MagicMock(),
         )
 
@@ -282,7 +279,6 @@ class TestLoopContinuation:
         config = OrchestratorConfig(parallel=1, inter_session_delay=0, hot_load=True)
         orch = Orchestrator(
             config=config,
-            plan_path=MagicMock(),
             session_runner_factory=MagicMock(),
         )
 

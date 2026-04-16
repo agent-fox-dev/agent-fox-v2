@@ -23,9 +23,6 @@ from agent_fox.reporting.formatters import format_tokens
 
 logger = logging.getLogger(__name__)
 
-# Local path constant (no longer imported from core.paths — 105-REQ-5.1)
-PLAN_PATH = Path(".agent-fox/plan.json")
-
 # Exit code mapping: run_status -> shell exit code
 # 16-REQ-4.1 through 16-REQ-4.5, 16-REQ-4.E1
 _EXIT_CODES: dict[str, int] = {
@@ -156,16 +153,15 @@ def code_cmd(
         if parallel is None and "parallel" in stdin_data:
             parallel = int(stdin_data["parallel"])
 
-    # 16-REQ-1.E1: check plan file exists
-    plan_path = PLAN_PATH
-    if not plan_path.exists():
+    # 16-REQ-1.E1: check plan exists in DB
+    from agent_fox.core.paths import DEFAULT_DB_PATH
+
+    if not DEFAULT_DB_PATH.exists():
+        _err_msg = "No plan found. Run `agent-fox plan` first to generate a plan."
         if json_mode:
-            json_io.emit_error("Plan file not found. Run `agent-fox plan` first to generate a plan.")
+            json_io.emit_error(_err_msg)
             sys.exit(1)
-        click.echo(
-            "Error: Plan file not found. Run `agent-fox plan` first to generate a plan.",
-            err=True,
-        )
+        click.echo(f"Error: {_err_msg}", err=True)
         sys.exit(1)
 
     # 18-REQ-5.1: Create progress display (suppressed in JSON mode)

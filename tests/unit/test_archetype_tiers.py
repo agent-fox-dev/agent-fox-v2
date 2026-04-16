@@ -11,7 +11,6 @@ Updated for spec 98 (reviewer consolidation):
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -103,36 +102,6 @@ class TestRemainingArchetypesStandard:
 # Note: Tests using a Skeptic node. Currently Skeptic has STANDARD tier so
 # the ceiling would be STANDARD before the fix.
 # ---------------------------------------------------------------------------
-
-
-def _write_plan(tmp_path: Path, archetype: str = "coder") -> Path:
-    """Write a minimal plan.json for orchestrator tests."""
-    plan = {
-        "metadata": {
-            "created_at": "2026-01-01T00:00:00",
-            "fast_mode": False,
-            "filtered_spec": None,
-            "version": "0.1.0",
-        },
-        "nodes": {
-            "spec:1": {
-                "id": "spec:1",
-                "spec_name": "spec",
-                "group_number": 1,
-                "title": "Task 1",
-                "optional": False,
-                "status": "pending",
-                "subtask_count": 0,
-                "body": "",
-                "archetype": archetype,
-            }
-        },
-        "edges": [],
-        "order": ["spec:1"],
-    }
-    plan_path = tmp_path / "plan.json"
-    plan_path.write_text(json.dumps(plan))
-    return plan_path
 
 
 class TestCeilingAlwaysAdvanced:
