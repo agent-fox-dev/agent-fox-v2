@@ -37,6 +37,7 @@ def _mode_config_strategy():  # type: ignore[return]
 
     return st.fixed_dictionaries(
         {
+            "templates": st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=20), max_size=3)),
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "allowlist": st.one_of(st.none(), st.lists(st.text(min_size=1, max_size=10), max_size=5)),
             "model_tier": st.one_of(st.none(), st.sampled_from(_VALID_TIERS)),
@@ -55,6 +56,7 @@ def _archetype_entry_strategy():  # type: ignore[return]
     return st.fixed_dictionaries(
         {
             "name": st.text(alphabet=st.characters(categories=("L",)), min_size=1, max_size=20),
+            "templates": st.lists(st.text(min_size=1, max_size=20), max_size=3),
             "default_model_tier": st.sampled_from(_VALID_TIERS),
             "injection": st.one_of(st.none(), st.sampled_from([v for v in _VALID_INJECTIONS if v is not None])),
             "task_assignable": st.booleans(),
@@ -69,6 +71,7 @@ def _archetype_entry_strategy():  # type: ignore[return]
 
 # Mapping from ModeConfig field names to ArchetypeEntry field names
 _MODE_TO_ENTRY_FIELD_MAP = {
+    "templates": "templates",
     "injection": "injection",
     "allowlist": "default_allowlist",
     "model_tier": "default_model_tier",
@@ -160,6 +163,7 @@ class TestNullModeIdentity:
         # All non-modes fields should equal the base entry
         for entry_field in [
             "name",
+            "templates",
             "default_model_tier",
             "injection",
             "task_assignable",

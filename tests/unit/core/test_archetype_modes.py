@@ -23,6 +23,7 @@ class TestModeConfigDefaults:
         from agent_fox.archetypes import ModeConfig
 
         mc = ModeConfig()
+        assert mc.templates is None
         assert mc.injection is None
         assert mc.allowlist is None
         assert mc.model_tier is None
@@ -50,6 +51,7 @@ class TestModeConfigDefaults:
         from agent_fox.archetypes import ModeConfig
 
         mc = ModeConfig(
+            templates=["mode_profile.md"],
             injection="auto_pre",
             allowlist=["ls", "cat"],
             model_tier="SIMPLE",
@@ -58,6 +60,7 @@ class TestModeConfigDefaults:
             thinking_budget=8000,
             retry_predecessor=True,
         )
+        assert mc.templates == ["mode_profile.md"]
         assert mc.injection == "auto_pre"
         assert mc.allowlist == ["ls", "cat"]
         assert mc.model_tier == "SIMPLE"
@@ -187,12 +190,37 @@ class TestResolveEffectiveConfigValidMode:
         result = resolve_effective_config(entry, "retry")
         assert result.retry_predecessor is True
 
+    def test_mode_overrides_templates(self) -> None:
+        """Overriding templates replaces the base templates list."""
+        from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
+
+        entry = ArchetypeEntry(
+            name="test",
+            templates=["base.md"],
+            modes={"custom": ModeConfig(templates=["mode.md"])},
+        )
+        result = resolve_effective_config(entry, "custom")
+        assert result.templates == ["mode.md"]
+
+    def test_partial_override_inherits_templates(self) -> None:
+        """When templates not overridden, inherited from base."""
+        from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
+
+        entry = ArchetypeEntry(
+            name="test",
+            templates=["base.md"],
+            modes={"partial": ModeConfig(model_tier="SIMPLE")},
+        )
+        result = resolve_effective_config(entry, "partial")
+        assert result.templates == ["base.md"]
+
     def test_partial_override_inherits_rest(self) -> None:
         """When only some fields are overridden, others come from the base."""
         from agent_fox.archetypes import ArchetypeEntry, ModeConfig, resolve_effective_config
 
         entry = ArchetypeEntry(
             name="test",
+            templates=["base.md"],
             default_model_tier="STANDARD",
             default_max_turns=200,
             default_thinking_mode="disabled",
@@ -204,6 +232,7 @@ class TestResolveEffectiveConfigValidMode:
         # Override applied
         assert result.default_model_tier == "SIMPLE"
         # Everything else inherited
+        assert result.templates == ["base.md"]
         assert result.default_max_turns == 200
         assert result.default_thinking_mode == "disabled"
         assert result.injection == "auto_post"

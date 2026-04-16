@@ -37,6 +37,7 @@ class ModeConfig:
     Requirements: 97-REQ-1.1
     """
 
+    templates: list[str] | None = None
     injection: str | None = None
     allowlist: list[str] | None = None
     model_tier: str | None = None
@@ -51,6 +52,7 @@ class ArchetypeEntry:
     """Configuration bundle for a single archetype."""
 
     name: str
+    templates: list[str] = field(default_factory=list)  # 97-REQ-1.3 (reserved; profiles used in practice)
     default_model_tier: str = "STANDARD"
     injection: str | None = None  # "auto_pre" | "auto_post" | "manual" | None
     task_assignable: bool = True
@@ -176,6 +178,7 @@ def resolve_effective_config(
 
     # Apply non-None ModeConfig fields onto the base entry.
     # ModeConfig field names map to ArchetypeEntry field names as follows:
+    #   templates       -> templates        (direct 1:1)
     #   model_tier      -> default_model_tier
     #   max_turns       -> default_max_turns
     #   thinking_mode   -> default_thinking_mode
@@ -185,6 +188,7 @@ def resolve_effective_config(
     #   retry_predecessor -> retry_predecessor
     return dataclasses.replace(
         entry,
+        templates=(mode_cfg.templates if mode_cfg.templates is not None else entry.templates),
         injection=(mode_cfg.injection if mode_cfg.injection is not None else entry.injection),
         default_allowlist=(mode_cfg.allowlist if mode_cfg.allowlist is not None else entry.default_allowlist),
         default_model_tier=(mode_cfg.model_tier if mode_cfg.model_tier is not None else entry.default_model_tier),
