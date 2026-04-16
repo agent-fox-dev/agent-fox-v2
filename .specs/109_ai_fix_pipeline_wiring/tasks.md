@@ -62,12 +62,12 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/unit/spec/test_ai_fix_wiring.py tests/property/spec/test_ai_fix_wiring_props.py tests/integration/test_ai_fix_wiring.py`
 
-- [ ] 2. Implement AI fix dispatch and wiring
-  - [ ] 2.1 Add batch limit constants to `agent_fox/spec/lint.py`
+- [x] 2. Implement AI fix dispatch and wiring
+  - [x] 2.1 Add batch limit constants to `agent_fox/spec/lint.py`
     - Add `_MAX_REWRITE_BATCH = 20` and `_MAX_UNTRACED_BATCH = 20`
     - _Requirements: 109-REQ-2.3, 109-REQ-3.2_
 
-  - [ ] 2.2 Implement `_apply_ai_fixes_async()` in `agent_fox/spec/lint.py`
+  - [x] 2.2 Implement `_apply_ai_fixes_async()` in `agent_fox/spec/lint.py`
     - Filter findings to `AI_FIXABLE_RULES`
     - Group by spec name
     - For each spec: dispatch criteria rewrites (with batch splitting), then
@@ -81,13 +81,13 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
       109-REQ-3.2, 109-REQ-4.1, 109-REQ-2.E1, 109-REQ-2.E2, 109-REQ-3.E1,
       109-REQ-3.E2, 109-REQ-3.E3_
 
-  - [ ] 2.3 Implement `_apply_ai_fixes()` sync wrapper in `agent_fox/spec/lint.py`
+  - [x] 2.3 Implement `_apply_ai_fixes()` sync wrapper in `agent_fox/spec/lint.py`
     - Resolve STANDARD model via `resolve_model("STANDARD")`
     - Call `asyncio.run(_apply_ai_fixes_async(...))`
     - Catch top-level exceptions, log warning, return empty list
     - _Requirements: 109-REQ-3.3, 109-REQ-1.E1_
 
-  - [ ] 2.4 Wire `_apply_ai_fixes()` into `run_lint_specs()`
+  - [x] 2.4 Wire `_apply_ai_fixes()` into `run_lint_specs()`
     - Insert call between AI analysis and mechanical fixes:
       `if ai: ai_fix_results = _apply_ai_fixes(...)`
     - Extend `all_fix_results` with AI fix results
@@ -96,11 +96,11 @@ Three task groups: (1) write failing tests, (2) implement the wiring in
     - _Requirements: 109-REQ-1.1, 109-REQ-1.2, 109-REQ-1.3, 109-REQ-4.2,
       109-REQ-5.1, 109-REQ-5.2, 109-REQ-5.E1_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] All spec tests pass: `uv run pytest tests/unit/spec/test_ai_fix_wiring.py tests/property/spec/test_ai_fix_wiring_props.py tests/integration/test_ai_fix_wiring.py -q`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/spec/lint.py`
-    - [ ] Requirements 109-REQ-1.*, 109-REQ-2.*, 109-REQ-3.*, 109-REQ-4.*, 109-REQ-5.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] All spec tests pass: `uv run pytest tests/unit/spec/test_ai_fix_wiring.py tests/property/spec/test_ai_fix_wiring_props.py tests/integration/test_ai_fix_wiring.py -q`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/spec/lint.py`
+    - [x] Requirements 109-REQ-1.*, 109-REQ-2.*, 109-REQ-3.*, 109-REQ-4.*, 109-REQ-5.* acceptance criteria met
 
 - [ ] 3. Wiring verification
 
