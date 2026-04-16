@@ -115,12 +115,12 @@ class TestSortStability:
         facts = [
             _make_fact(
                 fact_id=str(uuid.uuid4()),
-                content=f"Fact conf={conf:.4f} days={days}",
+                content=f"Fact {i} conf={conf:.4f} days={days}",
                 category="gotcha",
                 confidence=conf,
                 created_at=(base_date - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S"),
             )
-            for conf, days in fact_data
+            for i, (conf, days) in enumerate(fact_data)
         ]
 
         with tempfile.TemporaryDirectory() as tmpdir:

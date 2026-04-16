@@ -224,8 +224,8 @@ def _truncate(text: str, limit: int) -> str:
 
 def _render_fact(
     fact: Fact,
-    enrichments: Enrichments,
-    now: datetime,
+    enrichments: Enrichments | None = None,
+    now: datetime | None = None,
 ) -> str:
     """Render a single fact as markdown with optional enrichment sub-bullets.
 
@@ -239,6 +239,11 @@ def _render_fact(
     Requirements: 111-REQ-2.3, 111-REQ-4.1, 111-REQ-4.2, 111-REQ-5.1,
                   111-REQ-5.2, 111-REQ-6.1
     """
+    if enrichments is None:
+        enrichments = Enrichments()
+    if now is None:
+        now = datetime.now(UTC)
+
     conf = f"{fact.confidence:.2f}"
     age = _format_relative_age(fact.created_at, now)
 
