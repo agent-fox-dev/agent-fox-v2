@@ -32,11 +32,11 @@ LLM inference, no probabilistic decisions. Given the same specs and
 configuration, it produces the same graph every time. This means the human can
 inspect the plan, predict what will happen, and trust the execution order.
 
-**Agents have roles, not just prompts.** Five agent archetypes (Coder, Skeptic,
-Oracle, Auditor, Verifier) define distinct roles with
-different model tiers, tool allowlists, and output contracts. Review agents
-cannot modify code. Implementation agents cannot skip quality checks. The
-separation of concerns is enforced by the system, not by prompt suggestions.
+**Agents have roles, not just prompts.** Five conceptual agent roles (Coder,
+Skeptic, Oracle, Auditor, Verifier) define distinct responsibilities with
+different tool allowlists and output contracts. Review agents cannot modify
+code. Implementation agents cannot skip quality checks. The separation of
+concerns is enforced by the system, not by prompt suggestions.
 
 **Parallel execution with isolation.** Each task runs in its own git worktree
 on its own feature branch. Multiple agents work simultaneously without stepping
@@ -94,14 +94,14 @@ runtime patching and hot-load discovery.
 ### [Part 3: Execution, Session Lifecycle, and Agent Archetypes](03-execution-and-archetypes.md)
 
 Covers the runtime engine — the orchestrator's dispatch loop, how individual
-sessions are prepared, executed, harvested, and assessed, and how the seven
+sessions are prepared, executed, harvested, and assessed, and how the five
 agent archetypes divide labor. Also covers parallel execution, the circuit
 breaker, retry and escalation logic, model routing, workspace isolation, merge
 integration, sync barriers, and reset.
 
 Key concepts: streaming pool dispatch, session lifecycle (prepare, execute,
 harvest, assess), context assembly (spec docs, memory facts, steering, prior
-findings), archetype profiles and design rationale, multi-instance convergence,
+findings), archetype profiles and mode system, multi-instance convergence,
 escalation ladder, merge lock, quality gate.
 
 ### [Part 4: Night-Shift Mode](04-night-shift.md)

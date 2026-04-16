@@ -205,8 +205,8 @@ in the correct JSON format. This recovers from common formatting mistakes
 
 An archetype defines the role, capabilities, and constraints of an agent
 session. Each archetype has a prompt template, a model tier, a tool allowlist,
-and behavioral rules. The system currently defines seven archetypes organized
-into two categories.
+and behavioral rules. The system defines five user-facing archetypes organized
+into two categories, plus an internal maintainer archetype used by night-shift.
 
 ### Implementation Agents
 
@@ -227,39 +227,37 @@ for blocking decisions, retry triggers, and knowledge accumulation.
 **Skeptic** reviews spec quality before implementation. It examines completeness,
 consistency, feasibility, testability, edge case coverage, and security across
 six dimensions. It produces findings with severity levels (critical, major,
-minor, observation). The Skeptic operates at the ADVANCED model tier and has
-read-only tool access.
+minor, observation). The Skeptic has read-only tool access.
 
 **Oracle** validates spec assumptions against the actual codebase. It checks
 whether referenced files, functions, and interfaces exist at their stated
 locations and whether signatures match spec descriptions. It produces drift
-findings. The Oracle also operates at ADVANCED tier with read-only access. It
-is automatically skipped for specs that reference no existing code (there is
-nothing to detect drift against).
+findings. The Oracle has read-only access plus basic filesystem navigation
+commands. It is automatically skipped for specs that reference no existing
+code (there is nothing to detect drift against).
 
 **Verifier** performs post-implementation verification. It runs the test suite,
 checks each requirement against the acceptance criteria, and produces per-
-requirement verdicts (PASS, FAIL, PARTIAL). The Verifier operates at ADVANCED
-tier and has full tool access (it needs to run tests). It can trigger retries
-of its predecessor — if verification fails, the orchestrator may re-run the
-preceding coder session with the Verifier's findings injected as context.
+requirement verdicts (PASS, FAIL, PARTIAL). The Verifier has full tool access
+(it needs to run tests). It can trigger retries of its predecessor — if
+verification fails, the orchestrator may re-run the preceding coder session
+with the Verifier's findings injected as context.
 
 **Auditor** validates test quality against test spec contracts. It examines
 coverage, assertion strength, precondition fidelity, edge case rigor, and test
 independence for each test spec entry, producing per-entry verdicts (PASS, WEAK,
-MISSING, MISALIGNED). The Auditor operates at STANDARD tier with read-only
-access plus the ability to run `uv` commands for test collection. Like the
-Verifier, it can trigger predecessor retries.
+MISSING, MISALIGNED). The Auditor has read-only access plus the ability to run
+`uv` commands for test collection. Like the Verifier, it can trigger
+predecessor retries.
 
 ### Archetype Design Rationale
 
-The split between STANDARD and ADVANCED model tiers reflects a cost-quality
-tradeoff. Review agents (Skeptic, Oracle, Verifier) use the more capable
-ADVANCED tier because their task — finding problems — requires deeper reasoning
-and broader context awareness. A missed critical finding is more expensive than
-the cost difference between model tiers. Implementation agents (Coder and others) use STANDARD because their task — writing code that
-follows specifications — is more constrained and benefits less from the
-additional reasoning capability.
+All archetypes default to the STANDARD model tier. The adaptive routing system
+(described below) may escalate individual tasks to higher tiers based on
+complexity assessment and failure history. Operators can also override model
+tiers per archetype via configuration. The intent is to start cost-effective
+and escalate only when needed, rather than running every session at the most
+capable (and expensive) tier.
 
 Read-only tool allowlists for review agents enforce a separation of concerns.
 A Skeptic that can modify code is no longer a pure reviewer — it might fix

@@ -284,3 +284,4 @@ discovered issues, `af:fix` for approved repairs) distinguishing the two.
 ---
 
 *Previous: [Execution and Archetypes](03-execution-and-archetypes.md)*
+*Next: [Knowledge System Architecture](05-knowledge-system-architecture.md)*

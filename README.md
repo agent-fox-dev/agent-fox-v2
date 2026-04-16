@@ -117,18 +117,29 @@ Full documentation lives in [`docs/`](docs/README.md):
 - [Archetypes](docs/archetypes.md) — agent roles (Coder, Skeptic, Oracle, Auditor, Verifier, …)
 - [Skills](docs/skills.md) — bundled Claude Code slash commands (`/af-spec`, `/af-fix`, …)
 
-TBD: Include a short paragraph about the architecture documents in `docs/architecture` and link to them.
+For a deeper understanding of the system's internals — how specs become task
+graphs, how agents are dispatched in parallel, how the knowledge store works,
+and how night-shift discovers and fixes technical debt — see the
+[Architecture Guide](docs/architecture/README.md).
 
 ## References
 
-TBD: Include references to academic papers that are relevant to agent-fox or that agent-fox is conceptually or architecturally grounded in.
+agent-fox draws on ideas from the following research:
 
-### MAGMA: A Multi-Graph based Agentic Memory Architecture for AI Agents
-https://arxiv.org/abs/2601.03236
+- **MAGMA** — A multi-graph memory architecture for AI agents. agent-fox's
+  knowledge system uses a similar approach: typed facts with causal links,
+  embedding-based retrieval, and lifecycle management (deduplication,
+  contradiction detection, decay).
+  [arXiv:2601.03236](https://arxiv.org/abs/2601.03236)
 
-### Sleep-time Compute: Beyond Inference Scaling at Test-time
-https://arxiv.org/html/2504.13171v1
+- **Sleep-time Compute** — Explores how pre-computation outside of inference
+  time can improve agent performance. Night-shift's autonomous maintenance
+  model applies this principle: the system does useful work while the
+  developer is away, so the codebase is healthier when they return.
+  [arXiv:2504.13171](https://arxiv.org/html/2504.13171v1)
 
-### Memory in the Age of AI Agents: A Survey
-https://github.com/Shichun-Liu/Agent-Memory-Paper-List
+- **Memory in the Age of AI Agents: A Survey** — A comprehensive survey of
+  memory architectures for AI agents. Provides context for agent-fox's
+  design choices around fact extraction, supersession, and retrieval.
+  [GitHub](https://github.com/Shichun-Liu/Agent-Memory-Paper-List)
 

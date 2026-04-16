@@ -44,11 +44,11 @@ code.
 **Purpose:** Critically review specifications for completeness, consistency,
 and feasibility **before** implementation begins.
 
-- **Model tier:** ADVANCED (default)
+- **Model tier:** STANDARD (default)
 - **Injection:** `auto_pre` — runs automatically before the first coder group
 - **Default:** Enabled
 - **Instances:** Configurable (1–5, default 1)
-- **Allowlist:** `ls`, `cat`, `git`, `wc`, `head`, `tail`
+- **Allowlist:** read-only (no shell access)
 
 The skeptic reads all specification documents and produces structured JSON
 findings categorized by severity (critical, major, minor, observation). It
@@ -90,7 +90,7 @@ block_threshold = 3   # block if > 3 majority-agreed critical findings
 **Purpose:** Validate specification assumptions against the current codebase
 state — detect drift between what specs expect and what actually exists.
 
-- **Model tier:** ADVANCED (default)
+- **Model tier:** STANDARD (default)
 - **Injection:** `auto_pre` — runs before the first coder group
 - **Default:** Disabled
 - **Allowlist:** `ls`, `cat`, `git`, `grep`, `find`, `head`, `tail`, `wc`
@@ -124,7 +124,8 @@ oracle = "STANDARD"   # override to Sonnet (default: ADVANCED)
 oracle = ["ls", "cat", "git", "grep", "find", "head", "tail", "wc"]
 ```
 
-See the [Oracle ADR](adr/oracle-archetype.md) for design rationale.
+See the [blocking decisions ADR](adr/04-block-coding-sessions-on-critical-review-findings.md)
+for design rationale on review blocking behavior.
 
 ---
 
@@ -186,7 +187,7 @@ auditor = 1
 **Purpose:** Verify that the coder's implementation matches specification
 requirements and quality standards — a post-coding quality gate.
 
-- **Model tier:** ADVANCED (default)
+- **Model tier:** STANDARD (default)
 - **Injection:** `auto_post` — runs after the last coder group
 - **Default:** Enabled
 - **Instances:** Configurable (1–5, default 1)
@@ -223,16 +224,16 @@ runs the session:
 
 | Archetype | Default Tier | Model |
 |-----------|-------------|-------|
-| **Skeptic** | ADVANCED | Claude Opus |
-| **Oracle** | ADVANCED | Claude Opus |
-| **Verifier** | ADVANCED | Claude Opus |
 | **Coder** | STANDARD | Claude Sonnet |
+| **Skeptic** | STANDARD | Claude Sonnet |
+| **Oracle** | STANDARD | Claude Sonnet |
 | **Auditor** | STANDARD | Claude Sonnet |
-| **Coordinator** | STANDARD | Claude Sonnet |
+| **Verifier** | STANDARD | Claude Sonnet |
 
-Review-oriented archetypes (Skeptic, Oracle, Verifier) default to ADVANCED
-(Opus) for thorough analysis. Execution-oriented archetypes (Coder and others)
-default to STANDARD (Sonnet) for cost-effective implementation.
+All archetypes default to STANDARD (Sonnet). The adaptive routing system may
+escalate individual tasks to ADVANCED (Opus) based on complexity assessment
+and failure history. Operators can override model tiers per archetype via
+configuration (see below).
 
 ### Overriding Model Tiers via config.toml
 
@@ -310,7 +311,7 @@ SIMPLE — can escalate to Opus when retries are exhausted.
 ## Configuration Summary
 
 All archetype configuration lives under `[archetypes]` in `config.toml`.
-See the [configuration reference](configuration.md#archetypes) for the
+See the [configuration reference](config-reference.md#archetypes) for the
 complete field listing.
 
 ```toml
@@ -346,5 +347,5 @@ max_turns = 75
 # skeptic = "STANDARD"
 ```
 
-See the [archetypes ADR](adr/agent-archetypes.md) for the overall design
-rationale.
+See the [ADR directory](adr/) for architectural decision records related to
+the archetype system.
