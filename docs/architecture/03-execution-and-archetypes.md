@@ -164,14 +164,14 @@ those commits are integrated into `develop`. The harvest process:
 1. Acquires the merge lock (an intra-process asyncio lock combined with an
    inter-process file lock) to serialize merge operations.
 2. Checks for new commits on the feature branch relative to `develop`.
-3. Attempts a fast-forward merge. If `develop` has not diverged, this succeeds
-   cleanly.
-4. If fast-forward fails, rebases the feature branch onto `develop` and retries.
-5. If rebase fails (conflicts), attempts a regular merge commit.
-6. If the merge commit also fails (complex conflicts), spawns a merge agent —
-   a dedicated Claude session with a restricted prompt that only resolves
-   conflicts, without making any other changes.
-7. After merging, optionally pushes `develop` to the remote.
+3. Performs a squash merge (`git merge --squash`) to collapse the feature
+   branch into a single commit on `develop`, regardless of how many commits
+   the feature branch contains. This keeps the `develop` history linear and
+   readable.
+4. If the squash merge has conflicts, spawns a merge agent — a dedicated
+   Claude session with a restricted prompt that only resolves conflicts,
+   without making any other changes.
+5. After merging, optionally pushes `develop` to the remote.
 
 The merge lock prevents two sessions from merging simultaneously, which would
 risk corrupting the `develop` branch. The lock has stale detection: if a lock
@@ -395,7 +395,7 @@ At configurable intervals during execution, the orchestrator pauses dispatch
 and performs synchronization work:
 
 - **Develop sync**: Pull remote changes into `develop`, reconciling divergence
-  with the same merge strategy cascade used during harvest.
+  with the same merge strategy used during harvest.
 - **Worktree verification**: Check for orphaned worktrees and clean them up.
 - **Hot-load discovery**: Check for new specs in `.specs/` that were not present
   when the plan was built. New specs pass a three-stage gate (git-tracked,
@@ -449,14 +449,18 @@ Both reset types can target a single spec or the entire plan.
 
 ---
 
-## Quality Gate
+## Quality Checks
 
-An optional quality gate runs after each session as a shell command (typically
-`make check` or a project-specific test suite). The gate captures exit code,
-stdout, and stderr. A failing gate does not block the session from completing
-— it records the failure as a data point that influences subsequent retry and
-escalation decisions. The gate has its own timeout, separate from the session
-timeout.
+Quality enforcement happens at two levels. Within each Coder session, the
+agent's prompt instructs it to run the relevant test suite and linter before
+committing and to fix any failures. This is a prompt-level directive, not
+an orchestrator-enforced gate — the agent decides how to satisfy it.
+
+After the last coding group, the Verifier archetype performs structured
+post-implementation verification: running the test suite, checking each
+requirement against acceptance criteria, and producing per-requirement
+verdicts. A failing verification triggers a coder retry with the Verifier's
+findings injected as context.
 
 ---
 

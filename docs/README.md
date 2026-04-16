@@ -35,8 +35,8 @@ The typical workflow has four stages:
    Review agents (Skeptic, Oracle) check specs before coding starts;
    verification agents (Auditor, Verifier) check the result after. Failed
    tasks are retried with escalation to stronger models. Completed work is
-   merged into `develop` under a serializing lock using a cascade strategy
-   (fast-forward, rebase, merge commit, or AI-assisted conflict resolution).
+   merged into `develop` under a serializing lock via squash merge (with
+   AI-assisted conflict resolution when needed).
 
 4. **Monitor.** Run `agent-fox status` for a progress dashboard — task counts
    by state, token usage, estimated cost, cost breakdown by archetype and

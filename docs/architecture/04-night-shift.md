@@ -32,7 +32,7 @@ Night-shift operates as a two-phase loop:
    pipeline (Skeptic → Coder → Verifier) for each issue.
 
 These two phases run on independent timers. The hunt scan runs less frequently
-(default: every four hours) because it is expensive — it executes static
+(default: every six hours) because it is expensive — it executes static
 analysis tools and calls an LLM for consolidation. The issue check runs more
 frequently (default: every fifteen minutes) because it is cheap — it queries
 GitHub for labelled issues and dispatches fix pipelines.
@@ -177,17 +177,18 @@ Each issue passes through a three-stage pipeline:
    the scope is well-defined.
 
 2. **Coder implementation.** A Coder agent implements the fix on an isolated
-   branch. The branch name is derived from the issue title
-   (`fix/{sanitized-slug}`). The system prompt contains the full issue body;
-   the task prompt directs the agent to fix the described problem.
+   branch. The branch name includes the issue number and a sanitized slug
+   derived from the title (`fix/{issue-number}-{slug}`). The system prompt
+   contains the full issue body; the task prompt directs the agent to fix
+   the described problem.
 
 3. **Verifier validation.** A Verifier agent confirms that the fix resolves
    the issue without introducing regressions.
 
 All three sessions share the same fix branch, which is created from the
 current `develop` HEAD. After the pipeline completes successfully, the fix
-branch is harvested into `develop` using the same merge cascade as the
-spec-driven pipeline (fast-forward, rebase, merge commit, merge agent).
+branch is harvested into `develop` using the same squash-merge strategy as
+the spec-driven pipeline (squash merge, with merge agent on conflict).
 The originating issue is then closed with a comment pointing to the fix branch.
 
 If any stage fails, the issue receives a failure comment with the branch name
@@ -215,11 +216,12 @@ maintenance cycle happens without waiting for the timer interval.
 
 ### Event Loop
 
-The engine runs a one-second tick loop. On each tick, it accumulates elapsed
+The engine runs a 50-millisecond tick loop. On each tick, it checks elapsed
 time for both the hunt timer and the issue-check timer. When a timer exceeds
 its configured interval, the corresponding phase fires and the timer resets.
-This is simpler and more predictable than a scheduler-based approach — the
-engine always knows exactly when the next phase will fire.
+The short tick keeps shutdown responsive without busy-looping. This is simpler
+and more predictable than a scheduler-based approach — the engine always knows
+exactly when the next phase will fire.
 
 ### Cost and Session Limits
 

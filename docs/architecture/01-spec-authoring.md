@@ -183,7 +183,7 @@ an LLM for semantic analysis).
 
 ### Static Validation
 
-Static validation runs approximately twenty rules organized into phases:
+Static validation runs nearly thirty rules organized into phases:
 
 **Structural checks** verify that all five core artifacts exist. Missing files
 are errors — they prevent planning.

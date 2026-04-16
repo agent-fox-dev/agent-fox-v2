@@ -211,16 +211,16 @@ execution time based on historical data, feature heuristics, or preset defaults
 
 ## Graph Persistence
 
-The task graph is serialized as JSON and written to `.agent-fox/plan.json`.
-The format includes all nodes (with their attributes), all edges (source and
-target node IDs, edge kind), the computed execution order, and metadata
-(creation timestamp, version, fast mode flag, filtered spec if applicable).
+The task graph is persisted in the DuckDB knowledge store across three tables:
+`plan_nodes` (node attributes), `plan_edges` (source/target pairs with edge
+kind), and `plan_meta` (content hash, version, fast mode flag, filtered spec).
+The plan is rebuilt from `.specs/` on every `agent-fox plan` invocation and
+written atomically.
 
-Persistence is designed for forward compatibility. Unknown fields are silently
-ignored during deserialization. Missing fields receive sensible defaults — for
-example, `archetype` defaults to "coder" and `instances` defaults to 1. This
-allows older plan files to be loaded by newer versions of agent-fox without
-error.
+Persistence is designed for forward compatibility. Missing fields receive
+sensible defaults — for example, `archetype` defaults to "coder" and
+`instances` defaults to 1. This allows plans built by older versions to be
+loaded by newer versions without error.
 
 The engine loads the plan at startup, potentially injecting missing archetype
 nodes if the archetype configuration has changed since the plan was built. This
@@ -243,10 +243,12 @@ file on disk is not modified, only the in-memory graph.
 
 **Hot-load discovery**: During sync barriers (periodic pauses in execution),
 the engine checks for new specs that have appeared in `.specs/` since the plan
-was built. If a new spec passes a three-stage gate — it is git-tracked, it
-contains all five core artifacts, and it passes lint validation — its task groups
-are added to the live graph. This enables long-running sessions to pick up new
-work without a manual replan.
+was built. A new spec must pass four gates before admission: it is git-tracked
+on develop, it contains all five core artifacts (non-empty), it passes lint
+validation with no error-severity findings, and it is not already fully
+implemented (all task groups complete). Specs that pass are added to the live
+graph. This enables long-running sessions to pick up new work without a manual
+replan.
 
 ---
 
