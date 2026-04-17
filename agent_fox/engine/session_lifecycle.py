@@ -11,7 +11,6 @@ Requirements: 16-REQ-5.1, 16-REQ-5.E1, 06-REQ-1.1, 06-REQ-2.1,
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 from datetime import UTC, datetime
@@ -24,10 +23,7 @@ from agent_fox.core.node_id import parse_node_id
 from agent_fox.core.prompt_safety import sanitize_prompt_content
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.knowledge_harvest import extract_and_store_knowledge
-from agent_fox.engine.review_persistence import (
-    persist_review_findings,
-    record_session_to_sink,
-)
+from agent_fox.engine.review_persistence import persist_review_findings
 from agent_fox.engine.sdk_params import (
     clamp_instances,
     resolve_fallback_model,
@@ -635,23 +631,6 @@ class NodeSessionRunner:
         if touched_files and status == "completed":
             commit_sha = await _capture_develop_head(repo_root)
 
-        # Record and emit audit events
-        sink_outcome = outcome
-        if status != outcome.status or error_message != outcome.error_message:
-            sink_outcome = dataclasses.replace(
-                sink_outcome,
-                status=status,
-                error_message=error_message,
-            )
-        if touched_files:
-            sink_outcome = dataclasses.replace(
-                sink_outcome,
-                touched_paths=touched_files,
-            )
-
-        # 11-REQ-4.2: Record session outcome to sinks (always, best-effort)
-        self._record_session_to_sink(sink_outcome, node_id)
-
         # 40-REQ-7.2, 40-REQ-7.3: Emit session.complete or session.fail
         if status == "completed":
             emit_audit_event(
@@ -730,14 +709,6 @@ class NodeSessionRunner:
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
         )
-
-    def _record_session_to_sink(
-        self,
-        outcome: SessionOutcome,
-        node_id: str,
-    ) -> None:
-        """Record a session outcome to the sink dispatcher (best-effort)."""
-        record_session_to_sink(self._sink, outcome, node_id)
 
     def _persist_review_findings(
         self,
