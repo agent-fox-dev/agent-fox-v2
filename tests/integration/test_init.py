@@ -299,7 +299,7 @@ class TestInitConfigGeneration:
         """Fresh config.toml contains section headers for all visible sections.
 
         The simplified template includes only visible sections. Hidden sections
-        (routing, hooks, theme, platform, knowledge) are omitted.
+        (routing, hooks, theme, security, knowledge) are omitted.
         """
         cli_runner.invoke(main, ["init"])
 
@@ -307,12 +307,12 @@ class TestInitConfigGeneration:
         content = config_path.read_text()
 
         # Visible sections must appear
-        for section in ["orchestrator", "models", "security", "archetypes"]:
+        for section in ["orchestrator", "models", "platform", "archetypes"]:
             # Sections may be active [section] or commented # [section]
             assert f"[{section}]" in content, f"Missing section header: {section}"
 
         # Hidden sections must NOT appear
-        for section in ["routing", "hooks", "theme", "platform", "knowledge"]:
+        for section in ["routing", "hooks", "theme", "security", "knowledge"]:
             assert f"[{section}]" not in content, f"Hidden section [{section}] should not appear in simplified template"
 
     def test_reinit_merges_new_fields(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:

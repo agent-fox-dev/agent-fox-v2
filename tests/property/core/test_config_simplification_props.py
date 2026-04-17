@@ -24,7 +24,7 @@ _EXPECTED_VISIBLE_SECTIONS = frozenset(
         "models",
         "archetypes",
         "archetypes.instances",
-        "security",
+        "platform",
     }
 )
 
@@ -32,7 +32,7 @@ _EXPECTED_HIDDEN_SECTIONS = frozenset(
     {
         "routing",
         "theme",
-        "platform",
+        "security",
         "knowledge",
         "pricing",
         "planning",
@@ -135,7 +135,7 @@ class TestPropNoHiddenInjection:
         include_orchestrator=st.booleans(),
         include_models=st.booleans(),
         include_archetypes=st.booleans(),
-        include_security=st.booleans(),
+        include_platform=st.booleans(),
     )
     @settings(max_examples=20)
     def test_no_hidden_section_injection(
@@ -143,7 +143,7 @@ class TestPropNoHiddenInjection:
         include_orchestrator,
         include_models,
         include_archetypes,
-        include_security,
+        include_platform,
     ):
         """Merging a visible-only config never adds hidden sections."""
         lines: list[str] = []
@@ -155,8 +155,9 @@ class TestPropNoHiddenInjection:
         if include_archetypes:
             lines.append("[archetypes]")
             lines.append("reviewer = true")
-        if include_security:
-            lines.append("[security]")
+        if include_platform:
+            lines.append("[platform]")
+            lines.append('type = "none"')
 
         existing = "\n".join(lines) + "\n" if lines else ""
         result = merge_existing_config(existing)
