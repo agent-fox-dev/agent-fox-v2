@@ -1188,7 +1188,6 @@ class TestFixPipelineDbTelemetry:
     @pytest.mark.asyncio
     async def test_engine_passes_conn_to_fix_pipeline(self) -> None:
         """NightShiftEngine passes self._conn to FixPipeline."""
-        import json
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.engine import NightShiftEngine
