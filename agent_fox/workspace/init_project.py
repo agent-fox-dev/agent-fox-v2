@@ -294,34 +294,9 @@ def _ensure_claude_settings(project_root: Path) -> None:
 def _ensure_seed_files(project_root: Path) -> None:
     """Create empty seed files so they are tracked in git from the start.
 
-    Creates .agent-fox/memory.jsonl and docs/memory.md if they do not
-    already exist. Idempotent — existing files are never overwritten.
-
-    memory.jsonl is added to git with ``--force`` because ``.agent-fox/*``
-    in .gitignore would otherwise exclude it.  The operation is best-effort:
-    failures are logged as warnings so that init still succeeds in
-    environments where git is unavailable.
+    Creates docs/memory.md if it does not already exist.
+    Idempotent — existing files are never overwritten.
     """
-    agent_fox_dir = project_root / ".agent-fox"
-
-    memory_jsonl = agent_fox_dir / "memory.jsonl"
-    if not memory_jsonl.exists():
-        memory_jsonl.touch()
-        logger.debug("Created seed file %s", memory_jsonl)
-
-    # Force-add memory.jsonl so it is tracked even though .agent-fox/* ignores it.
-    try:
-        subprocess.run(
-            ["git", "add", "--force", str(memory_jsonl)],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        logger.debug("Staged %s in git", memory_jsonl)
-    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-        logger.warning("Could not git add %s: %s", memory_jsonl, exc)
-
     docs_dir = project_root / "docs"
     docs_dir.mkdir(parents=True, exist_ok=True)
     docs_memory = docs_dir / "memory.md"

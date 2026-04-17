@@ -117,16 +117,6 @@ class TestInitGitignore:
         gitignore = (tmp_git_repo / ".gitignore").read_text()
         assert "!.agent-fox/state.jsonl" not in gitignore
 
-    def test_gitignore_does_not_add_memory_exception(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init does NOT add !.agent-fox/memory.jsonl exception to .gitignore.
-
-        memory.jsonl is tracked via git add --force, not a gitignore exception.
-        """
-        cli_runner.invoke(main, ["init"])
-
-        gitignore = (tmp_git_repo / ".gitignore").read_text()
-        assert "!.agent-fox/memory.jsonl" not in gitignore
-
     def test_gitignore_excludes_profiles_dir(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init adds both !.agent-fox/profiles/ and !.agent-fox/profiles/* to .gitignore.
 
@@ -150,8 +140,12 @@ class TestInitGitignore:
 class TestInitGitTracking:
     """Init stages files in git so they are tracked from the start."""
 
-    def test_init_stages_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init force-adds .agent-fox/memory.jsonl to git index."""
+    def test_init_does_not_stage_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init does NOT add .agent-fox/memory.jsonl to git index.
+
+        DuckDB is the sole fact store since Spec 104; memory.jsonl has no write
+        path and should not be created or tracked.
+        """
         cli_runner.invoke(main, ["init"])
 
         result = subprocess.run(
@@ -160,7 +154,7 @@ class TestInitGitTracking:
             capture_output=True,
             text=True,
         )
-        assert ".agent-fox/memory.jsonl" in result.stdout
+        assert result.stdout.strip() == ""
 
     def test_init_profiles_stages_profiles(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init --profiles adds copied profile files to git index."""
@@ -183,13 +177,16 @@ class TestInitGitTracking:
 class TestInitSeedFiles:
     """Init creates seed files so they are tracked in git from the start."""
 
-    def test_init_creates_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
-        """init creates an empty .agent-fox/memory.jsonl."""
+    def test_init_does_not_create_memory_jsonl(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
+        """init does NOT create .agent-fox/memory.jsonl.
+
+        DuckDB is the sole fact store since Spec 104; memory.jsonl has no write
+        path and must not be created during init.
+        """
         cli_runner.invoke(main, ["init"])
 
         path = tmp_git_repo / ".agent-fox" / "memory.jsonl"
-        assert path.exists()
-        assert path.read_text() == ""
+        assert not path.exists()
 
     def test_init_creates_docs_memory_md(self, cli_runner: CliRunner, tmp_git_repo: Path) -> None:
         """init creates docs/memory.md with placeholder content."""
@@ -204,10 +201,6 @@ class TestInitSeedFiles:
         """Re-running init does not overwrite existing seed files."""
         cli_runner.invoke(main, ["init"])
 
-        # Write content to memory.jsonl
-        memory_path = tmp_git_repo / ".agent-fox" / "memory.jsonl"
-        memory_path.write_text('{"fact": "test"}\n')
-
         # Write content to docs/memory.md
         docs_memory = tmp_git_repo / "docs" / "memory.md"
         docs_memory.write_text("# Custom content\n")
@@ -215,7 +208,6 @@ class TestInitSeedFiles:
         # Re-init
         cli_runner.invoke(main, ["init"])
 
-        assert memory_path.read_text() == '{"fact": "test"}\n'
         assert docs_memory.read_text() == "# Custom content\n"
 
 
