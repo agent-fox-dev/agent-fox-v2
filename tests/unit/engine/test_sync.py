@@ -154,6 +154,59 @@ class TestCascadeBlockingLinear:
         assert sync.node_states["D"] == "blocked"
         assert "D" in cascade_blocked
 
+    def test_cascade_continues_through_in_progress_to_block_pending_dependents(
+        self,
+    ) -> None:
+        """Cascade blocking must reach pending nodes beyond an in_progress intermediate.
+
+        Regression test for issue #481: when a node is blocked, the BFS cascade
+        must continue through any in_progress dependents so that their pending
+        dependents are blocked.  Without this fix, those pending nodes remain
+        unblocked and are dispatched when the in_progress node completes —
+        defeating the quality gate entirely.
+
+        Scenario (mirrors 02_data_broker blocking):
+          coder:1 is blocked (reviewer found critical findings).
+          audit-review is in_progress (already executing, cannot be stopped).
+          coder:2 through coder:N are pending (not yet dispatched).
+          After the fix, coder:2..N are blocked at cascade time, not dispatched
+          when audit-review completes.
+        """
+        # Graph: coder:1 -> audit-review (in_progress) -> coder:2 -> verifier (pending)
+        node_states = {
+            "coder:1": "pending",
+            "audit-review": "in_progress",
+            "coder:2": "pending",
+            "verifier": "pending",
+        }
+        edges = {
+            "audit-review": ["coder:1"],
+            "coder:2": ["audit-review"],
+            "verifier": ["coder:2"],
+        }
+
+        sync = GraphSync(node_states, edges)
+        cascade_blocked = sync.mark_blocked("coder:1", "reviewer: 5 critical findings")
+
+        # coder:1 itself is blocked
+        assert sync.node_states["coder:1"] == "blocked"
+
+        # audit-review is in_progress and must NOT be forcibly blocked —
+        # it is already executing and will complete normally.
+        assert sync.node_states["audit-review"] == "in_progress"
+        assert "audit-review" not in cascade_blocked
+
+        # coder:2 and verifier are pending dependents downstream of the
+        # in_progress node.  They MUST be blocked so they are never dispatched.
+        assert sync.node_states["coder:2"] == "blocked", (
+            "coder:2 should be blocked via cascade through in_progress audit-review"
+        )
+        assert "coder:2" in cascade_blocked
+        assert sync.node_states["verifier"] == "blocked", (
+            "verifier should be blocked via cascade through in_progress audit-review"
+        )
+        assert "verifier" in cascade_blocked
+
 
 class TestCascadeBlockingDiamond:
     """TS-04-7: Cascade blocking with diamond dependency.

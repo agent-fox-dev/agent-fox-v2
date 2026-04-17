@@ -1105,6 +1105,14 @@ class Orchestrator:
             if self._signal.interrupted:
                 break
 
+            # Defense-in-depth: skip any candidate whose status changed to
+            # "blocked" between ready_tasks() evaluation and this dispatch
+            # point (issue #481).  The primary fix is in graph_sync.mark_blocked
+            # which now cascades through in-progress nodes to pre-block their
+            # pending dependents; this guard is a last-resort safety net.
+            if self._graph_sync.node_states.get(node_id) == "blocked":
+                continue
+
             launch = await self._prepare_launch(
                 node_id,
                 state,

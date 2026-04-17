@@ -196,15 +196,21 @@ class GraphSync:
             for dependent in self._dependents.get(current, []):
                 if dependent in visited:
                     continue
-                # Skip completed nodes (work is done) and in_progress
-                # nodes (actively executing; their result will be
-                # processed when they finish).
-                if self.node_states.get(dependent) in (
-                    "completed",
-                    "in_progress",
-                ):
+                # Skip completed nodes — their work is done and cannot be
+                # reversed.
+                if self.node_states.get(dependent) == "completed":
                     continue
                 visited.add(dependent)
+                # In-progress nodes are actively executing and cannot be
+                # forcibly terminated.  We do NOT mark them "blocked" here,
+                # but we MUST continue the BFS through them so that their
+                # pending dependents are blocked.  Without this traversal,
+                # those dependents would appear in ready_tasks() when the
+                # in-progress node completes and be dispatched despite the
+                # quality gate (issue #481).
+                if self.node_states.get(dependent) == "in_progress":
+                    queue.append(dependent)
+                    continue
                 self.node_states[dependent] = "blocked"
                 cascade_blocked.append(dependent)
                 queue.append(dependent)
