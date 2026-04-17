@@ -170,6 +170,7 @@ class NightShiftEngine:
             return
 
         if not issues:
+            self.state.hunt_scans_completed += 1
             return
 
         # Local sort fallback: ensure ascending issue number order
@@ -320,6 +321,8 @@ class NightShiftEngine:
                             issue_num,
                             exc_info=True,
                         )
+
+        self.state.hunt_scans_completed += 1
 
     async def _run_hunt_scan_inner(
         self,

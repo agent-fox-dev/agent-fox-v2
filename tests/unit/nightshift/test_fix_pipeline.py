@@ -552,9 +552,7 @@ class TestEmptyIssueBody:
             f"Expected run_id {run_id!r} in empty-body comment, got: {comments}"
         )
         # AC-5: run_id format must match YYYYMMDD_HHMMSS_<6hex>
-        assert re.fullmatch(r"\d{8}_\d{6}_[0-9a-f]{6}", run_id), (
-            f"run_id {run_id!r} does not match expected format"
-        )
+        assert re.fullmatch(r"\d{8}_\d{6}_[0-9a-f]{6}", run_id), f"run_id {run_id!r} does not match expected format"
 
 
 # ---------------------------------------------------------------------------
@@ -981,8 +979,7 @@ class TestFixPipelineDbTelemetry:
 
         # record_session called for triage (maintainer), coder, reviewer
         assert mock_record_session.call_count >= 3, (
-            f"Expected at least 3 record_session calls (triage+coder+reviewer), "
-            f"got {mock_record_session.call_count}"
+            f"Expected at least 3 record_session calls (triage+coder+reviewer), got {mock_record_session.call_count}"
         )
 
         # update_run_totals called after each session
@@ -1212,9 +1209,7 @@ class TestFixPipelineDbTelemetry:
 
         captured_pipelines: list[object] = []
 
-        original_fix_pipeline = __import__(
-            "agent_fox.nightshift.fix_pipeline", fromlist=["FixPipeline"]
-        ).FixPipeline
+        original_fix_pipeline = __import__("agent_fox.nightshift.fix_pipeline", fromlist=["FixPipeline"]).FixPipeline
 
         class CapturingFixPipeline(original_fix_pipeline):  # type: ignore[misc]
             def __init__(self, *args: object, **kwargs: object) -> None:
@@ -1234,3 +1229,111 @@ class TestFixPipelineDbTelemetry:
         assert captured_pipelines[0] is mock_conn, (
             f"Expected conn={mock_conn!r} to be passed, got {captured_pipelines[0]!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Scan counter increments in _run_issue_check (fixes #469)
+# ---------------------------------------------------------------------------
+
+
+class TestScanCounterIncrement:
+    """Verify hunt_scans_completed is incremented by _run_issue_check.
+
+    Without this, the shutdown summary always reports 'Scans completed: 0'
+    when only the fix-pipeline stream ran (no hunt scans).
+    """
+
+    @pytest.mark.asyncio
+    async def test_scan_counter_incremented_when_no_issues(self) -> None:
+        """Scan counter increments even when no af:fix issues are found."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(return_value=[])
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        assert engine.state.hunt_scans_completed == 0
+
+        await engine._run_issue_check()
+
+        assert engine.state.hunt_scans_completed == 1
+
+    @pytest.mark.asyncio
+    async def test_scan_counter_incremented_when_issues_processed(self) -> None:
+        """Scan counter increments after a full issue-check cycle with issues."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(
+            return_value=[
+                IssueResult(number=1, title="Issue 1", html_url="", body="body"),
+            ]
+        )
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        engine._process_fix = AsyncMock()  # type: ignore[assignment]
+        assert engine.state.hunt_scans_completed == 0
+
+        with patch(
+            "agent_fox.nightshift.engine.fetch_github_relationships",
+            AsyncMock(return_value=[]),
+        ):
+            await engine._run_issue_check()
+
+        assert engine.state.hunt_scans_completed == 1
+
+    @pytest.mark.asyncio
+    async def test_scan_counter_not_incremented_on_api_error(self) -> None:
+        """Scan counter is NOT incremented when the platform API call fails."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(side_effect=RuntimeError("API down"))
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+        assert engine.state.hunt_scans_completed == 0
+
+        await engine._run_issue_check()
+
+        # Platform error path returns early without counting the scan
+        assert engine.state.hunt_scans_completed == 0
+
+    @pytest.mark.asyncio
+    async def test_scan_counter_accumulates_across_calls(self) -> None:
+        """Repeated _run_issue_check calls accumulate the scan count."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(return_value=[])
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+
+        for _ in range(3):
+            await engine._run_issue_check()
+
+        assert engine.state.hunt_scans_completed == 3
