@@ -195,7 +195,7 @@ class TestDrainIssuesFiltersProcessed:
 
         run_issue_check_calls = 0
 
-        async def fake_run_issue_check() -> None:
+        async def fake_run_issue_check(_seen: set[int] | None = None) -> None:
             nonlocal run_issue_check_calls
             run_issue_check_calls += 1
 

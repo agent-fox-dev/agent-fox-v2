@@ -1,5 +1,7 @@
 # agent-fox
 
+Built exclusively for Claude.
+
 ## Before agent-fox
 
 You write a spec, then sit in front of your terminal babysitting an AI agent

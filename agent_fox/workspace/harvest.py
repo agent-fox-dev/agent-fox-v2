@@ -244,7 +244,9 @@ async def _harvest_under_lock(
         )
         if diff_rc != 0:
             msg = await _build_squash_message(
-                repo_root, workspace.branch, dev_branch,
+                repo_root,
+                workspace.branch,
+                dev_branch,
             )
             await run_git(["commit", "-m", msg], cwd=repo_root)
 

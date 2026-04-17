@@ -167,8 +167,7 @@ async def filter_known_duplicates(
         )
     except Exception:
         logger.warning(
-            "Failed to fetch existing af:hunt issues for dedup check; "
-            "proceeding without filtering (fail-open)",
+            "Failed to fetch existing af:hunt issues for dedup check; proceeding without filtering (fail-open)",
             exc_info=True,
         )
         return list(groups)
@@ -212,8 +211,7 @@ async def filter_known_duplicates(
         all_embeddings = embedder.embed_batch(all_texts)
     except Exception:
         logger.warning(
-            "Embedding computation failed during dedup; "
-            "falling back to fingerprint-only matching (fail-open)",
+            "Embedding computation failed during dedup; falling back to fingerprint-only matching (fail-open)",
             exc_info=True,
         )
         return fp_novel
