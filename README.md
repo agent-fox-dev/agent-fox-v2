@@ -17,7 +17,7 @@ extracts learnings into structured memory, and merges clean commits to
 
 You come back to a finished feature branch and a standup report.
 
-## Quick Start
+### Quick Start
 
 ```bash
 # Initialize your project (use --skills to install Claude Code skills)
