@@ -51,7 +51,7 @@ __all__ = ["extract_json_array"]
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Security keyword detection for automatic category classification
+# Multi-category keyword classification for automatic category detection
 # ---------------------------------------------------------------------------
 
 _SECURITY_KEYWORDS: frozenset[str] = frozenset(
@@ -80,18 +80,114 @@ _SECURITY_KEYWORDS: frozenset[str] = frozenset(
     }
 )
 
+_CORRECTNESS_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "wrong behavior",
+        "wrong behaviour",
+        "incorrect behavior",
+        "incorrect behaviour",
+        "missing functionality",
+        "missing feature",
+        "wrong output",
+        "incorrect output",
+        "wrong result",
+        "incorrect result",
+        "not implemented",
+        "undefined behavior",
+        "undefined behaviour",
+        "logic error",
+        "wrong logic",
+        "incorrect logic",
+        "regression",
+        "spec compliance",
+    }
+)
 
-def _detect_security_category(description: str) -> str | None:
-    """Return 'security' if the description contains security-related keywords.
+_COMPATIBILITY_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "api mismatch",
+        "proto field",
+        "protobuf",
+        "field disagreement",
+        "api disagreement",
+        "interface mismatch",
+        "type mismatch",
+        "schema mismatch",
+        "incompatible",
+        "backward compatibility",
+        "breaking change",
+        "contract violation",
+        "interface violation",
+    }
+)
 
-    Case-insensitive substring match against a known set of security keywords.
-    Returns None if no security keywords are found.
+_TESTING_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "missing test",
+        "no test",
+        "test coverage",
+        "untested",
+        "test infrastructure",
+        "test suite",
+        "test case",
+        "lacks test",
+        "not tested",
+        "needs test",
+        "add test",
+        "unit test",
+        "integration test",
+        "regression test",
+    }
+)
+
+_CONFIGURATION_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "wrong port",
+        "missing config",
+        "misconfigured",
+        "misconfiguration",
+        "config error",
+        "wrong url",
+        "wrong endpoint",
+        "wrong address",
+        "deployment config",
+        "environment variable",
+        "env var",
+    }
+)
+
+# Ordered list of (category, keywords) — security is first because it is the
+# highest-priority category; a finding that matches both security and
+# correctness keywords is a security finding.
+_CATEGORY_RULES: tuple[tuple[str, frozenset[str]], ...] = (
+    ("security", _SECURITY_KEYWORDS),
+    ("correctness", _CORRECTNESS_KEYWORDS),
+    ("compatibility", _COMPATIBILITY_KEYWORDS),
+    ("testing", _TESTING_KEYWORDS),
+    ("configuration", _CONFIGURATION_KEYWORDS),
+)
+
+
+def _classify_category(description: str) -> str | None:
+    """Return the category for *description* based on keyword matching.
+
+    Checks each category's keywords in priority order (security first, then
+    correctness, compatibility, testing, configuration).  Returns the first
+    matching category name, or ``None`` if no keywords match.
+
+    Case-insensitive substring match.
     """
     lower = description.lower()
-    for keyword in _SECURITY_KEYWORDS:
-        if keyword in lower:
-            return "security"
+    for category, keywords in _CATEGORY_RULES:
+        for keyword in keywords:
+            if keyword in lower:
+                return category
     return None
+
+
+# Backward-compatibility alias — callers that imported _detect_security_category
+# directly continue to work unchanged.
+_detect_security_category = _classify_category
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +248,7 @@ def parse_review_findings(
         req_ref = obj.get("requirement_ref")
         if isinstance(req_ref, str):
             req_ref = truncate_field(req_ref, max_length=MAX_REF_LENGTH, field_name="finding.requirement_ref")
-        category = _detect_security_category(description)
+        category = _classify_category(description)
         results.append(
             ReviewFinding(
                 id=str(uuid.uuid4()),
