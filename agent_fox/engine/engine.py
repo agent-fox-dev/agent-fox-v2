@@ -245,6 +245,18 @@ class Orchestrator:
                 inter_session_delay=float(config.inter_session_delay),
             )
 
+    @property
+    def _repo_root(self) -> Path:
+        """Return the repository root (parent of the .agent-fox directory).
+
+        ``_agent_dir`` points to the ``.agent-fox`` subdirectory, but functions
+        such as ``MergeLock``, ``verify_worktrees``, and ``run_consolidation``
+        expect the *project root* (the parent) and append ``.agent-fox``
+        themselves.  Using ``_agent_dir`` directly as ``repo_root`` produced a
+        double-nested path (``.agent-fox/.agent-fox/merge.lock``).
+        """
+        return self._agent_dir.parent
+
     # Compatibility properties: tests set these directly on the Orchestrator.
     # Delegate to the ConfigReloader collaborator.
     @property
@@ -631,7 +643,7 @@ class Orchestrator:
                     if remaining:
                         eor_result = await _run_consolidation(
                             self._knowledge_db_conn,
-                            self._agent_dir,
+                            self._repo_root,
                             remaining,
                             model=TIER_DEFAULTS[ModelTier.SIMPLE],
                             sink_dispatcher=self._sink,
@@ -1221,7 +1233,7 @@ class Orchestrator:
         await run_sync_barrier_sequence(
             state=state,
             sync_interval=self._config.sync_interval,
-            repo_root=self._agent_dir,
+            repo_root=self._repo_root,
             emit_audit=self._emit_audit,
             specs_dir=self._specs_dir,
             hot_load_enabled=self._config.hot_load,
@@ -1261,7 +1273,7 @@ class Orchestrator:
             await run_sync_barrier_sequence(
                 state=state,
                 sync_interval=self._config.sync_interval,
-                repo_root=self._agent_dir,
+                repo_root=self._repo_root,
                 emit_audit=self._emit_audit,
                 specs_dir=self._specs_dir,
                 hot_load_enabled=self._config.hot_load,
@@ -1299,7 +1311,7 @@ class Orchestrator:
             node.status = NodeStatus(state.node_states.get(nid, "pending"))
 
         # 51-REQ-4.1, 51-REQ-5.1, 51-REQ-6.1: Gated discovery — single pass
-        repo_root = self._agent_dir
+        repo_root = self._repo_root
         known_specs = {n.spec_name for n in self._graph.nodes.values()}
         gated_specs = await discover_new_specs_gated(
             self._specs_dir, known_specs, repo_root, db_conn=self._knowledge_db_conn

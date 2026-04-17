@@ -1,6 +1,6 @@
 """Unit tests for end-of-run spec discovery.
 
-Test Spec: TC-60-01 through TC-60-14
+Test Spec: TC-60-01 through TC-60-14, TC-60-15
 Requirements: 60-REQ-1.1 through 60-REQ-1.4, 60-REQ-1.E1, 60-REQ-1.E2,
               60-REQ-2.1 through 60-REQ-2.4,
               60-REQ-3.1, 60-REQ-3.2, 60-REQ-3.3
@@ -8,6 +8,7 @@ Requirements: 60-REQ-1.1 through 60-REQ-1.4, 60-REQ-1.E1, 60-REQ-1.E2,
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -611,3 +612,59 @@ class TestAuditEventEmitted:
         mock_barrier.assert_called()
         call_kwargs = mock_barrier.call_args.kwargs
         assert call_kwargs["emit_audit"] == orch._emit_audit
+
+
+# ---------------------------------------------------------------------------
+# TC-60-15: repo_root passed to barrier is the project root, not .agent-fox
+# Regression: issue #454 — double-nested merge.lock path
+# ---------------------------------------------------------------------------
+
+
+class TestRepoRootIsProjectRoot:
+    """TC-60-15: repo_root passed to barrier is the parent of _agent_dir.
+
+    Regression test for issue #454 where _agent_dir (.agent-fox) was passed
+    directly as repo_root, causing MergeLock and verify_worktrees to construct
+    double-nested paths like .agent-fox/.agent-fox/merge.lock.
+    """
+
+    @pytest.mark.asyncio
+    async def test_repo_root_is_parent_of_agent_dir(
+        self,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """repo_root passed to run_sync_barrier_sequence is _agent_dir.parent.
+
+        When agent_dir is Path('.agent-fox'), repo_root must be Path('.')
+        so that MergeLock(repo_root) constructs .agent-fox/merge.lock,
+        not .agent-fox/.agent-fox/merge.lock.
+        """
+        mock_runner.configure(
+            "spec:1",
+            [MockSessionOutcome(node_id="spec:1", status="completed")],
+        )
+        agent_dir = Path(".agent-fox")
+        orch = _make_orchestrator(mock_runner)
+        orch._agent_dir = agent_dir
+
+        with patch(
+            "agent_fox.engine.engine.run_sync_barrier_sequence",
+            new_callable=AsyncMock,
+        ) as mock_barrier:
+            await orch.run()
+
+        mock_barrier.assert_called()
+        call_kwargs = mock_barrier.call_args.kwargs
+        repo_root = call_kwargs["repo_root"]
+        # repo_root must be the parent of agent_dir (the project root),
+        # not agent_dir itself.
+        assert repo_root == agent_dir.parent, (
+            f"repo_root should be {agent_dir.parent!r} (project root), "
+            f"got {repo_root!r}. This causes double-nested paths like "
+            f"{agent_dir / '.agent-fox' / 'merge.lock'} instead of "
+            f"{agent_dir.parent / '.agent-fox' / 'merge.lock'}."
+        )
+        # Verify the lock path would be correct (not double-nested)
+        expected_lock = repo_root / ".agent-fox" / "merge.lock"
+        bad_lock = agent_dir / ".agent-fox" / "merge.lock"
+        assert expected_lock != bad_lock, "Test invariant: paths must differ"
