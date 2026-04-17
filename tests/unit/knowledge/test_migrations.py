@@ -7,6 +7,7 @@ Requirements: 11-REQ-3.1, 11-REQ-3.2, 11-REQ-3.3, 11-REQ-3.E1
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import patch
 
 import duckdb
@@ -118,6 +119,113 @@ class TestMigrationFailureRaisesKnowledgeStoreError:
         # Error should mention the version number
         error_msg = str(exc_info.value)
         assert "2" in error_msg or "version" in error_msg.lower()
+        conn.close()
+
+
+# -- Migration log message tests ---------------------------------------------
+
+
+class TestMigrationLogMessages:
+    """Verify log messages distinguish applied vs skipped schema changes.
+
+    Issue #470: migrations v5 and v10 logged contradictory messages —
+    "skipping" followed by "Applied" — when the schema change was already
+    present. The fix is to return False from migration functions that skip
+    the schema change, and log a distinct "already up to date" message.
+    """
+
+    def test_applied_log_emitted_when_migration_runs(self, caplog: pytest.LogCaptureFixture) -> None:
+        """When a migration actually performs schema changes, 'Applied migration' is logged."""
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)
+
+        ran = Migration(
+            version=2,
+            description="add test_col to session_outcomes",
+            apply=lambda c: c.execute("ALTER TABLE session_outcomes ADD COLUMN test_col2 TEXT"),  # type: ignore[arg-type]
+        )
+
+        with patch("agent_fox.knowledge.migrations.MIGRATIONS", [ran]):
+            with caplog.at_level(logging.INFO, logger="agent_fox.knowledge.migrations"):
+                apply_pending_migrations(conn)
+
+        messages = [r.message for r in caplog.records]
+        assert any("Applied migration v2" in m for m in messages), messages
+        assert not any("already up to date" in m for m in messages), messages
+        conn.close()
+
+    def test_already_applied_log_emitted_when_schema_skipped(self, caplog: pytest.LogCaptureFixture) -> None:
+        """When migration returns False (schema skipped), a distinct log is emitted."""
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)
+
+        skipped = Migration(
+            version=2,
+            description="noop skipped migration",
+            apply=lambda c: False,  # type: ignore[arg-type, return-value]
+        )
+
+        with patch("agent_fox.knowledge.migrations.MIGRATIONS", [skipped]):
+            with caplog.at_level(logging.INFO, logger="agent_fox.knowledge.migrations"):
+                apply_pending_migrations(conn)
+
+        messages = [r.message for r in caplog.records]
+        assert any("already up to date" in m for m in messages), messages
+        assert not any(m.startswith("Applied migration v2") for m in messages), messages
+        conn.close()
+
+    def test_no_contradictory_messages_for_v5_on_already_numeric_db(self, caplog: pytest.LogCaptureFixture) -> None:
+        """v5 must not log 'Applied' after logging 'skipping' on a numeric-confidence db.
+
+        Regression test for issue #470: the schema already has DOUBLE confidence,
+        so v5 should skip the schema change and log only the 'already up to date'
+        message, never 'Applied migration v5'.
+        """
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)  # schema already has DOUBLE confidence
+
+        from agent_fox.knowledge.migrations import MIGRATIONS
+
+        v5 = next(m for m in MIGRATIONS if m.version == 5)
+
+        with patch("agent_fox.knowledge.migrations.MIGRATIONS", [v5]):
+            with caplog.at_level(logging.INFO, logger="agent_fox.knowledge.migrations"):
+                apply_pending_migrations(conn)
+
+        messages = [r.message for r in caplog.records]
+        assert not any("Applied migration v5" in m for m in messages), (
+            f"'Applied migration v5' should not appear when schema was skipped; got: {messages}"
+        )
+        assert any("already up to date" in m for m in messages), (
+            f"Expected 'already up to date' in messages; got: {messages}"
+        )
+        conn.close()
+
+    def test_no_contradictory_messages_for_v10_on_existing_keywords_db(self, caplog: pytest.LogCaptureFixture) -> None:
+        """v10 must not log 'Applied' after logging 'skipping' when keywords column exists.
+
+        Regression test for issue #470: the schema already has the keywords column,
+        so v10 should skip the schema change and log only the 'already up to date'
+        message, never 'Applied migration v10'.
+        """
+        conn = duckdb.connect(":memory:")
+        create_schema(conn)  # schema already has keywords column
+
+        from agent_fox.knowledge.migrations import MIGRATIONS
+
+        v10 = next(m for m in MIGRATIONS if m.version == 10)
+
+        with patch("agent_fox.knowledge.migrations.MIGRATIONS", [v10]):
+            with caplog.at_level(logging.INFO, logger="agent_fox.knowledge.migrations"):
+                apply_pending_migrations(conn)
+
+        messages = [r.message for r in caplog.records]
+        assert not any("Applied migration v10" in m for m in messages), (
+            f"'Applied migration v10' should not appear when schema was skipped; got: {messages}"
+        )
+        assert any("already up to date" in m for m in messages), (
+            f"Expected 'already up to date' in messages; got: {messages}"
+        )
         conn.close()
 
 

@@ -25,7 +25,7 @@ def _sanitize_embedding_dim(dim: int) -> int:
     return dim if dim in _ALLOWED_EMBEDDING_DIMS else _DEFAULT_EMBEDDING_DIM
 
 
-MigrationFn = Callable[[duckdb.DuckDBPyConnection], None]
+MigrationFn = Callable[[duckdb.DuckDBPyConnection], "bool | None"]
 
 
 @dataclass(frozen=True)
@@ -125,7 +125,7 @@ def _migrate_v4(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
-def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
+def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> bool | None:
     """Convert memory_facts.confidence from TEXT to FLOAT.
 
     Uses the canonical mapping: high -> 0.9, medium -> 0.6, low -> 0.3.
@@ -144,7 +144,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     }
     if "memory_facts" not in tables:
         logger.info("memory_facts table not found, skipping v5 migration")
-        return
+        return False
 
     # Check if confidence column is already numeric (idempotency)
     col_info = conn.execute(
@@ -153,7 +153,7 @@ def _migrate_v5(conn: duckdb.DuckDBPyConnection) -> None:
     ).fetchone()
     if col_info and col_info[0].upper() in ("FLOAT", "DOUBLE"):
         logger.info("memory_facts.confidence already numeric, skipping v5 migration")
-        return
+        return False
 
     # Step 1: Create a temp table with the new DOUBLE column
     conn.execute("""
@@ -278,7 +278,7 @@ def _migrate_v7(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE review_findings ADD COLUMN IF NOT EXISTS category TEXT")
 
 
-def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
+def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> bool | None:
     """Add keywords column to memory_facts table.
 
     Enables fingerprint-based deduplication for git pattern mining,
@@ -303,7 +303,7 @@ def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
     }
     if "memory_facts" not in tables:
         logger.info("memory_facts table not found, skipping v10 migration")
-        return
+        return False
 
     # Idempotency check — skip if column already exists
     col_info = conn.execute(
@@ -312,7 +312,7 @@ def _migrate_v10(conn: duckdb.DuckDBPyConnection) -> None:
     ).fetchone()
     if col_info is not None:
         logger.info("memory_facts.keywords already exists, skipping v10 migration")
-        return
+        return False
 
     # Detect current embedding dimension from memory_embeddings
     dim = _DEFAULT_EMBEDDING_DIM
@@ -864,13 +864,20 @@ def apply_pending_migrations(conn: duckdb.DuckDBPyConnection) -> None:
         if migration.version <= current:
             continue
         try:
-            migration.apply(conn)
+            schema_changed = migration.apply(conn)
             record_version(conn, migration.version, migration.description)
-            logger.info(
-                "Applied migration v%d: %s",
-                migration.version,
-                migration.description,
-            )
+            if schema_changed is False:
+                logger.info(
+                    "Marked migration v%d as applied (schema already up to date): %s",
+                    migration.version,
+                    migration.description,
+                )
+            else:
+                logger.info(
+                    "Applied migration v%d: %s",
+                    migration.version,
+                    migration.description,
+                )
         except KnowledgeStoreError:
             raise
         except Exception as exc:
