@@ -364,3 +364,138 @@ class TestRunIdInFailureComment:
         assert any(
             "Branch:" in c and run_id_pattern.search(c) for c in comments
         ), "Failure comment must contain Branch and run_id"
+
+
+# ---------------------------------------------------------------------------
+# TS-82-SMOKE-6: run_id appears in triage report comment (AC-1 triage)
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdInTriageComment:
+    """Triage report comment must include the run_id for traceability."""
+
+    @pytest.mark.asyncio
+    async def test_triage_comment_includes_run_id(self) -> None:
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        mock_platform = AsyncMock()
+        mock_platform.add_issue_comment = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            if archetype == "maintainer":
+                return _make_outcome(_triage_json(2))
+            if archetype == "reviewer":
+                return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
+            return _make_outcome()
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        await pipeline.process_issue(_make_issue(), issue_body="bug description")
+
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-1 (triage): triage comment must contain run_id
+        assert any(
+            "Triage Report" in c and run_id_pattern.search(c) for c in comments
+        ), "Triage report comment must contain run_id"
+
+
+# ---------------------------------------------------------------------------
+# TS-82-SMOKE-7: run_id appears in fix review report comment (AC-2 triage)
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdInReviewComment:
+    """Fix review report comment must include the run_id for traceability."""
+
+    @pytest.mark.asyncio
+    async def test_review_comment_includes_run_id(self) -> None:
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        mock_platform = AsyncMock()
+        mock_platform.add_issue_comment = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="merged")  # type: ignore[method-assign]
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            if archetype == "maintainer":
+                return _make_outcome(_triage_json(2))
+            if archetype == "reviewer":
+                return _make_outcome(_review_json("PASS", ["AC-1", "AC-2"]))
+            return _make_outcome()
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        await pipeline.process_issue(_make_issue(), issue_body="bug description")
+
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-2 (triage): review comment must contain run_id
+        assert any(
+            "Fix Review Report" in c and run_id_pattern.search(c) for c in comments
+        ), "Fix review report comment must contain run_id"
+
+
+# ---------------------------------------------------------------------------
+# TS-82-SMOKE-8: run_id appears in merge-failure comment (AC-3 triage)
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdInMergeFailureComment:
+    """Merge-failure comment must include the run_id for traceability."""
+
+    @pytest.mark.asyncio
+    async def test_merge_failure_comment_includes_run_id(self) -> None:
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        mock_platform = AsyncMock()
+        mock_platform.add_issue_comment = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+        pipeline._harvest_and_push = AsyncMock(return_value="error")  # type: ignore[method-assign]
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            if archetype == "maintainer":
+                return _make_outcome(_triage_json(1))
+            if archetype == "reviewer":
+                return _make_outcome(_review_json("PASS", ["AC-1"]))
+            return _make_outcome()
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        await pipeline.process_issue(_make_issue(), issue_body="merge failure scenario")
+
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-3 (triage): merge-failure comment must contain run_id
+        assert any(
+            "could not be merged" in c and run_id_pattern.search(c) for c in comments
+        ), "Merge-failure comment must contain run_id"

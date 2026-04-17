@@ -523,7 +523,8 @@ class TestEmptyIssueBody:
 
     @pytest.mark.asyncio
     async def test_empty_body_posts_comment(self) -> None:
-        """When issue body is empty, a comment requesting detail is posted."""
+        """When issue body is empty, a comment requesting detail is posted with run_id."""
+        import re
         from unittest.mock import AsyncMock, MagicMock
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
@@ -545,6 +546,15 @@ class TestEmptyIssueBody:
 
         comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
         assert any("detail" in c.lower() or "insufficient" in c.lower() for c in comments)
+        # AC-4: empty body comment must also include run_id
+        run_id = pipeline._run_id
+        assert any(f"(run: `{run_id}`)" in c for c in comments), (
+            f"Expected run_id {run_id!r} in empty-body comment, got: {comments}"
+        )
+        # AC-5: run_id format must match YYYYMMDD_HHMMSS_<6hex>
+        assert re.fullmatch(r"\d{8}_\d{6}_[0-9a-f]{6}", run_id), (
+            f"run_id {run_id!r} does not match expected format"
+        )
 
 
 # ---------------------------------------------------------------------------

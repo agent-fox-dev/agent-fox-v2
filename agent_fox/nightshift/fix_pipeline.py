@@ -540,7 +540,7 @@ class FixPipeline:
 
         # Post triage comment if we have results
         if triage.criteria or triage.summary:
-            comment = self._format_triage_comment(triage)
+            comment = self._format_triage_comment(triage) + f"\n(run: `{self._run_id}`)"
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, comment
@@ -805,7 +805,7 @@ class FixPipeline:
                     )
 
             # Post review comment
-            review_comment = self._format_review_comment(review_result)
+            review_comment = self._format_review_comment(review_result) + f"\n(run: `{self._run_id}`)"
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, review_comment
@@ -876,7 +876,8 @@ class FixPipeline:
             await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
                 "Insufficient detail in issue body to build a fix. "
-                "Please add more detail describing the problem and expected behavior.",
+                "Please add more detail describing the problem and expected behavior. "
+                f"(run: `{self._run_id}`)",
             )
             return metrics
 
@@ -967,7 +968,7 @@ class FixPipeline:
                     issue.number,
                     f"Fix sessions completed but changes from branch "
                     f"`{spec.branch_name}` could not be merged into `develop`. "
-                    "Manual investigation is required.",
+                    f"Manual investigation is required. (run: `{self._run_id}`)",
                 )
             except Exception as exc:
                 logger.warning(
