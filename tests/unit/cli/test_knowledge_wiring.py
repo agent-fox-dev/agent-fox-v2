@@ -96,6 +96,51 @@ class TestFactExtractionAfterSession:
         assert call_args.kwargs["spec_name"] == "test_spec"
 
     @pytest.mark.asyncio
+    async def test_embedder_passed_to_extract(self, tmp_path: Path) -> None:
+        """Regression: embedder must be forwarded to extract_and_store_knowledge (fixes #453)."""
+        workspace = _make_workspace(tmp_path)
+        outcome = _make_outcome(status="completed")
+
+        summary = {"summary": "Implemented feature X.", "tests_added_or_modified": []}
+        (tmp_path / ".agent-fox").mkdir(exist_ok=True)
+        (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
+
+        spec_dir = Path.cwd() / ".specs" / "test_spec"
+        spec_dir.mkdir(parents=True, exist_ok=True)
+
+        config = AgentFoxConfig()
+        mock_embedder = MagicMock()
+        runner = NodeSessionRunner("test_spec:1", config, knowledge_db=_MOCK_KB, embedder=mock_embedder)
+
+        mock_extract = AsyncMock()
+
+        with (
+            patch(
+                "agent_fox.engine.session_lifecycle.run_session",
+                new_callable=AsyncMock,
+                return_value=outcome,
+            ),
+            patch("agent_fox.engine.session_lifecycle.harvest", new_callable=AsyncMock),
+            patch(
+                "agent_fox.engine.session_lifecycle.create_worktree",
+                new_callable=AsyncMock,
+                return_value=workspace,
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle.destroy_worktree",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+                mock_extract,
+            ),
+        ):
+            await runner.execute("test_spec:1", 1)
+
+        mock_extract.assert_called_once()
+        assert mock_extract.call_args.kwargs["embedder"] is mock_embedder
+
+    @pytest.mark.asyncio
     async def test_extract_not_called_on_failed_session(self, tmp_path: Path) -> None:
         """extract_and_store_knowledge is NOT invoked when the session fails."""
         workspace = _make_workspace(tmp_path)
@@ -177,5 +222,3 @@ class TestFactExtractionAfterSession:
 
         # Session is still completed despite extraction failure
         assert record.status == "completed"
-
-
