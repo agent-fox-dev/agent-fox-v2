@@ -886,3 +886,352 @@ class TestReviewerRetryOnParseFailure:
 
         # Issue should NOT be closed (max_retries=0 exhausted)
         mock_platform.close_issue.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Issue #467: fix pipeline must populate session_outcomes and runs tables
+# ---------------------------------------------------------------------------
+
+
+class TestFixPipelineDbTelemetry:
+    """Fix pipeline writes to session_outcomes and runs tables (issue #467).
+
+    The fix pipeline previously only wrote to audit_events.  After the fix,
+    every session must produce a row in session_outcomes and the runs table
+    must be created/completed for each pipeline invocation.
+    """
+
+    @pytest.mark.asyncio
+    async def test_session_outcomes_written_for_each_session(self) -> None:
+        """record_session is called for triage, coder, and reviewer sessions."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+        mock_platform = AsyncMock()
+
+        # Provide a mock DuckDB connection
+        mock_conn = MagicMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform, conn=mock_conn)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            outcome = MagicMock()
+            outcome.status = "completed"
+            outcome.input_tokens = 10
+            outcome.output_tokens = 5
+            outcome.cache_read_input_tokens = 0
+            outcome.cache_creation_input_tokens = 0
+            outcome.duration_ms = 1000
+            outcome.error_message = None
+            outcome.is_transport_error = False
+            if archetype == "maintainer":
+                outcome.response = triage_response
+            elif archetype == "reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=467,
+            title="Fix broken telemetry",
+            html_url="https://github.com/test/repo/issues/467",
+        )
+
+        with (
+            patch("agent_fox.engine.state.record_session") as mock_record_session,
+            patch("agent_fox.engine.state.update_run_totals") as mock_update_run_totals,
+            patch("agent_fox.engine.state.create_run") as mock_create_run,
+            patch("agent_fox.engine.state.complete_run") as mock_complete_run,
+            patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")),
+        ):
+            await pipeline.process_issue(issue, issue_body="The telemetry is broken.")
+
+        # create_run called once at the start
+        mock_create_run.assert_called_once()
+        run_id_arg = mock_create_run.call_args[0][1]
+        assert run_id_arg == pipeline._run_id
+
+        # record_session called for triage (maintainer), coder, reviewer
+        assert mock_record_session.call_count >= 3, (
+            f"Expected at least 3 record_session calls (triage+coder+reviewer), "
+            f"got {mock_record_session.call_count}"
+        )
+
+        # update_run_totals called after each session
+        assert mock_update_run_totals.call_count >= 3
+
+        # complete_run called exactly once at the end
+        mock_complete_run.assert_called_once()
+        completed_run_id = mock_complete_run.call_args[0][1]
+        assert completed_run_id == pipeline._run_id
+
+    @pytest.mark.asyncio
+    async def test_runs_row_created_even_on_empty_body(self) -> None:
+        """create_run is called even when the issue body is empty."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        mock_platform = AsyncMock()
+        mock_conn = MagicMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform, conn=mock_conn)
+
+        issue = IssueResult(
+            number=467,
+            title="Fix something",
+            html_url="https://github.com/test/repo/issues/467",
+        )
+
+        with (
+            patch("agent_fox.engine.state.create_run") as mock_create_run,
+            patch("agent_fox.engine.state.complete_run") as mock_complete_run,
+        ):
+            await pipeline.process_issue(issue, issue_body="")
+
+        mock_create_run.assert_called_once()
+        mock_complete_run.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_session_outcome_has_run_id_and_archetype(self) -> None:
+        """SessionOutcomeRecord written with correct run_id and archetype."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.engine.state import SessionOutcomeRecord
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+        mock_platform = AsyncMock()
+        mock_conn = MagicMock()
+
+        pipeline = FixPipeline(config=config, platform=mock_platform, conn=mock_conn)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            outcome = MagicMock()
+            outcome.status = "completed"
+            outcome.input_tokens = 10
+            outcome.output_tokens = 5
+            outcome.cache_read_input_tokens = 0
+            outcome.cache_creation_input_tokens = 0
+            outcome.duration_ms = 500
+            outcome.error_message = None
+            outcome.is_transport_error = False
+            if archetype == "maintainer":
+                outcome.response = triage_response
+            elif archetype == "reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=467,
+            title="Fix telemetry",
+            html_url="https://github.com/test/repo/issues/467",
+        )
+
+        recorded: list[SessionOutcomeRecord] = []
+
+        def capture_record_session(conn: object, record: SessionOutcomeRecord) -> None:
+            recorded.append(record)
+
+        with (
+            patch("agent_fox.engine.state.record_session", side_effect=capture_record_session),
+            patch("agent_fox.engine.state.update_run_totals"),
+            patch("agent_fox.engine.state.create_run"),
+            patch("agent_fox.engine.state.complete_run"),
+            patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")),
+        ):
+            await pipeline.process_issue(issue, issue_body="Telemetry is broken.")
+
+        # All records must have the same run_id as the pipeline
+        expected_run_id = pipeline._run_id
+        for rec in recorded:
+            assert rec.run_id == expected_run_id, f"Record run_id mismatch: {rec.run_id!r} != {expected_run_id!r}"
+
+        # Archetypes must include maintainer (triage), coder, reviewer
+        archetypes_recorded = {rec.archetype for rec in recorded}
+        assert "maintainer" in archetypes_recorded, f"triage (maintainer) not in {archetypes_recorded}"
+        assert "coder" in archetypes_recorded, f"coder not in {archetypes_recorded}"
+        assert "reviewer" in archetypes_recorded, f"reviewer not in {archetypes_recorded}"
+
+    @pytest.mark.asyncio
+    async def test_no_db_writes_when_conn_is_none(self) -> None:
+        """When conn=None, no DB functions are called (no-op path)."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+        mock_platform = AsyncMock()
+
+        # conn=None (default)
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        review_response = json.dumps(
+            {
+                "verdicts": [{"criterion_id": "AC-1", "verdict": "PASS", "evidence": "ok"}],
+                "overall_verdict": "PASS",
+                "summary": "ok",
+            }
+        )
+        triage_response = json.dumps(
+            {
+                "summary": "s",
+                "affected_files": [],
+                "acceptance_criteria": [
+                    {"id": "AC-1", "description": "d", "preconditions": "p", "expected": "e", "assertion": "a"},
+                ],
+            }
+        )
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            outcome = MagicMock()
+            outcome.status = "completed"
+            outcome.input_tokens = 10
+            outcome.output_tokens = 5
+            outcome.cache_read_input_tokens = 0
+            outcome.cache_creation_input_tokens = 0
+            outcome.duration_ms = 500
+            outcome.error_message = None
+            outcome.is_transport_error = False
+            if archetype == "maintainer":
+                outcome.response = triage_response
+            elif archetype == "reviewer":
+                outcome.response = review_response
+            else:
+                outcome.response = ""
+            return outcome
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        issue = IssueResult(
+            number=467,
+            title="Fix telemetry",
+            html_url="https://github.com/test/repo/issues/467",
+        )
+
+        with (
+            patch("agent_fox.engine.state.record_session") as mock_record_session,
+            patch("agent_fox.engine.state.create_run") as mock_create_run,
+            patch("agent_fox.engine.state.complete_run") as mock_complete_run,
+            patch.object(pipeline, "_harvest_and_push", AsyncMock(return_value="merged")),
+        ):
+            await pipeline.process_issue(issue, issue_body="Telemetry is broken.")
+
+        # None of the DB functions should have been called
+        mock_record_session.assert_not_called()
+        mock_create_run.assert_not_called()
+        mock_complete_run.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_engine_passes_conn_to_fix_pipeline(self) -> None:
+        """NightShiftEngine passes self._conn to FixPipeline."""
+        import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+        config.night_shift.push_fix_branch = False
+
+        mock_platform = AsyncMock()
+        mock_conn = MagicMock()
+
+        engine = NightShiftEngine(config=config, platform=mock_platform, conn=mock_conn)
+
+        issue = IssueResult(
+            number=467,
+            title="Fix something",
+            html_url="https://github.com/test/repo/issues/467",
+            body="The issue body",
+        )
+
+        captured_pipelines: list[object] = []
+
+        original_fix_pipeline = __import__(
+            "agent_fox.nightshift.fix_pipeline", fromlist=["FixPipeline"]
+        ).FixPipeline
+
+        class CapturingFixPipeline(original_fix_pipeline):  # type: ignore[misc]
+            def __init__(self, *args: object, **kwargs: object) -> None:
+                captured_pipelines.append(kwargs.get("conn"))
+                super().__init__(*args, **kwargs)
+
+            async def process_issue(self, *args: object, **kwargs: object) -> object:  # type: ignore[override]
+                return MagicMock(sessions_run=0)
+
+        with patch(
+            "agent_fox.nightshift.engine.FixPipeline",
+            CapturingFixPipeline,
+        ):
+            await engine._process_fix(issue)
+
+        assert len(captured_pipelines) == 1
+        assert captured_pipelines[0] is mock_conn, (
+            f"Expected conn={mock_conn!r} to be passed, got {captured_pipelines[0]!r}"
+        )
