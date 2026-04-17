@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from uuid import uuid4
 
 import duckdb  # noqa: F401
 
@@ -37,35 +36,36 @@ class DuckDBSink:
         self._debug = debug  # retained for API compatibility
 
     def record_session_outcome(self, outcome: SessionOutcome) -> None:
-        """Insert a row into session_outcomes for each touched path.
+        """Insert a single row into session_outcomes.
 
-        If touched_paths is empty, inserts one row with NULL touched_path.
+        Multiple touched paths are stored as a comma-delimited string in the
+        touched_path column so that each session produces exactly one row
+        (fixes #457 — per-file row explosion).  If touched_paths is empty,
+        touched_path is stored as NULL.
         DuckDB errors propagate to the caller (38-REQ-3.1).
         """
-        paths: list[str | None] = list(outcome.touched_paths) if outcome.touched_paths else [None]
-        for i, path in enumerate(paths):
-            row_id = outcome.id if i == 0 else uuid4()
-            self._conn.execute(
-                """
-                INSERT INTO session_outcomes
-                    (id, spec_name, task_group, node_id, touched_path,
-                     status, input_tokens, output_tokens, duration_ms,
-                     created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    str(row_id),
-                    outcome.spec_name,
-                    outcome.task_group,
-                    outcome.node_id,
-                    path,
-                    outcome.status,
-                    outcome.input_tokens,
-                    outcome.output_tokens,
-                    outcome.duration_ms,
-                    outcome.created_at,
-                ],
-            )
+        touched_path: str | None = ",".join(outcome.touched_paths) if outcome.touched_paths else None
+        self._conn.execute(
+            """
+            INSERT INTO session_outcomes
+                (id, spec_name, task_group, node_id, touched_path,
+                 status, input_tokens, output_tokens, duration_ms,
+                 created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                str(outcome.id),
+                outcome.spec_name,
+                outcome.task_group,
+                outcome.node_id,
+                touched_path,
+                outcome.status,
+                outcome.input_tokens,
+                outcome.output_tokens,
+                outcome.duration_ms,
+                outcome.created_at,
+            ],
+        )
 
     def record_tool_call(self, call: ToolCall) -> None:
         """Insert a row into tool_calls (always-on).
