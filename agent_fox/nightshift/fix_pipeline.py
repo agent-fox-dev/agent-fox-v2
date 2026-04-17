@@ -979,14 +979,25 @@ class FixPipeline:
 
         Returns FixMetrics with aggregated token counts from all sessions.
 
+        Args:
+            issue: The issue to process.
+            issue_body: The issue body text.
+            run_id: Optional run ID to use for all audit events.  When
+                provided (e.g. from NightShiftEngine), the same run_id is
+                shared with the parent lifecycle events so that all events
+                for a single fix pipeline can be retrieved with a single
+                ``SELECT … WHERE run_id = ?`` query.  When omitted a fresh
+                ID is generated (91-REQ-2.1).
+
         Requirements: 61-REQ-6.1, 61-REQ-6.E2, 82-REQ-7.1
         """
         metrics = FixMetrics()
 
-        # Use the caller-supplied run_id (to share it with FIX_START/FIX_COMPLETE
-        # lifecycle events) or generate a fresh one for standalone invocations.
-        # (91-REQ-2.1)
-        self._run_id = run_id if run_id is not None else generate_run_id()
+        # Use the caller-supplied run_id when available so that lifecycle
+        # events (fix_start / fix_complete) and session events all share the
+        # same identifier.  Fall back to generating a fresh one when called
+        # standalone (91-REQ-2.1).
+        self._run_id = run_id if run_id else generate_run_id()
 
         # Create a run row in the runs table (best-effort).
         if self._conn is not None:

@@ -779,6 +779,61 @@ class TestSpinnerCallbackEngineConstructor:
 
 
 # ---------------------------------------------------------------------------
+# Run-ID propagation: engine passes fix_run_id to process_issue
+# ---------------------------------------------------------------------------
+
+
+class TestEnginePassesRunIdToProcessIssue:
+    """Verify engine shares its fix_run_id with FixPipeline.process_issue."""
+
+    @pytest.mark.asyncio
+    async def test_process_fix_passes_run_id_to_process_issue(self) -> None:
+        """_process_fix passes the same run_id to process_issue that it uses
+        for the FIX_START / FIX_COMPLETE lifecycle audit events."""
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = _make_config()
+        platform = AsyncMock()
+
+        engine = NightShiftEngine(config=config, platform=platform)
+
+        issue = IssueResult(number=99, title="Test issue", html_url="http://example.com/99")
+
+        mock_metrics = MagicMock(
+            sessions_run=1,
+            input_tokens=100,
+            output_tokens=50,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        )
+
+        captured_run_ids: list[str] = []
+
+        async def _capture_process_issue(iss: object, *, issue_body: str = "", run_id: str | None = None) -> object:
+            captured_run_ids.append(run_id or "")
+            return mock_metrics
+
+        with patch("agent_fox.nightshift.engine.FixPipeline") as MockPipeline:
+            mock_pipeline_instance = AsyncMock()
+            mock_pipeline_instance.process_issue = _capture_process_issue
+            MockPipeline.return_value = mock_pipeline_instance
+
+            # Also capture the run_id used for the lifecycle audit events
+            emitted_run_ids: list[str] = []
+            with patch(
+                "agent_fox.nightshift.engine._emit_audit_event",
+                side_effect=lambda sink, run_id, *args, **kwargs: emitted_run_ids.append(run_id),
+            ):
+                await engine._process_fix(issue, issue_body="fix something")
+
+        assert len(captured_run_ids) == 1, "process_issue should be called once"
+        assert len(emitted_run_ids) >= 1, "_emit_audit_event should be called for lifecycle events"
+        assert captured_run_ids[0] == emitted_run_ids[0], (
+            f"process_issue run_id {captured_run_ids[0]!r} must match lifecycle run_id {emitted_run_ids[0]!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Spinner callback: FixPipeline emits phase hints
 # ---------------------------------------------------------------------------
 

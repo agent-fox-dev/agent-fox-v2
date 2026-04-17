@@ -350,8 +350,7 @@ class NightShiftEngine:
             return []
         try:
             rows = self._conn.execute(
-                "SELECT content FROM memory_facts "
-                "WHERE category = 'anti_pattern' AND spec_name = 'nightshift:ignore'",
+                "SELECT content FROM memory_facts WHERE category = 'anti_pattern' AND spec_name = 'nightshift:ignore'",
             ).fetchall()
             return [row[0] for row in rows]
         except Exception:
@@ -392,8 +391,7 @@ class NightShiftEngine:
                 logger.info("Ingested %d new af:ignore signal(s) into knowledge store", ingested)
         except Exception:
             logger.warning(
-                "af:ignore ingestion pre-phase failed; "
-                "continuing without ingestion (fail-open)",
+                "af:ignore ingestion pre-phase failed; continuing without ingestion (fail-open)",
                 exc_info=True,
             )
 
