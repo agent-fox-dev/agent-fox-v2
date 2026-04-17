@@ -287,7 +287,7 @@ def _render_fact(
 # ---------------------------------------------------------------------------
 
 
-def _sort_key(fact: Fact) -> tuple[float, str]:
+def _sort_key(fact: Fact) -> tuple[float, float]:
     """Sort key: confidence descending, then created_at descending (newest first)."""
     # Negate confidence for descending sort.
     # For created_at, we negate by using the string in reversed byte order trick:
