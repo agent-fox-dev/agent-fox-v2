@@ -112,21 +112,20 @@ class TestMigrationIdempotency:
         for _ in range(n_runs):
             apply_pending_migrations(conn)
 
-        # Version should be 13 (latest migration: v13 blocking_history tables)
+        # Version should be 14 (latest migration: v14 drop dead tables)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 13
+        assert version[0] == 14
 
-        # Tables should exist (v2 + v3 + v4 migrations)
+        # Tables should exist (v2 + v4 migrations; v3 tables dropped by v14)
         tables = conn.execute(
             "SELECT table_name FROM information_schema.tables "
             "WHERE table_name IN ("
             "  'review_findings', 'verification_results',"
-            "  'complexity_assessments', 'execution_outcomes',"
             "  'drift_findings'"
             ") "
             "ORDER BY table_name"
         ).fetchall()
-        assert len(tables) == 5
+        assert len(tables) == 3
 
         conn.close()

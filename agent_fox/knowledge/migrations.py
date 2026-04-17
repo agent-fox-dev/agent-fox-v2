@@ -602,6 +602,20 @@ def _migrate_v12(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE plan_nodes_v12 RENAME TO plan_nodes")
 
 
+def _migrate_v14(conn: duckdb.DuckDBPyConnection) -> None:
+    """Drop dead tables: complexity_assessments, execution_outcomes, learned_thresholds.
+
+    These tables were created by migrations v3 and v13 but no production code
+    ever inserted rows.  They carried schema maintenance cost for zero value.
+
+    execution_outcomes is dropped first because it has a FK reference to
+    complexity_assessments.
+    """
+    conn.execute("DROP TABLE IF EXISTS execution_outcomes")
+    conn.execute("DROP TABLE IF EXISTS complexity_assessments")
+    conn.execute("DROP TABLE IF EXISTS learned_thresholds")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -663,6 +677,11 @@ MIGRATIONS: list[Migration] = [
         version=13,
         description="add blocking_history and learned_thresholds tables",
         apply=_migrate_v13,
+    ),
+    Migration(
+        version=14,
+        description="drop dead tables: complexity_assessments, execution_outcomes, learned_thresholds",
+        apply=_migrate_v14,
     ),
 ]
 
@@ -795,14 +814,6 @@ CREATE TABLE IF NOT EXISTS blocking_history (
     blocked       BOOLEAN NOT NULL,
     outcome       VARCHAR,
     created_at    TIMESTAMP DEFAULT current_timestamp
-);
-
-CREATE TABLE IF NOT EXISTS learned_thresholds (
-    archetype     VARCHAR PRIMARY KEY,
-    threshold     INTEGER NOT NULL,
-    confidence    FLOAT NOT NULL,
-    sample_count  INTEGER NOT NULL,
-    updated_at    TIMESTAMP DEFAULT current_timestamp
 );
 
 INSERT INTO schema_version (version, description)
