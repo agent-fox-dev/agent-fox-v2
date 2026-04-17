@@ -58,6 +58,12 @@ from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 
 logger = logging.getLogger(__name__)
 
+# Archetypes whose outputs are captured as structured findings via
+# _persist_review_findings rather than free-form factual knowledge.
+# Skipping LLM extraction for these avoids ~18k-token overhead per session
+# when the extraction reliably returns zero facts.
+_REVIEW_ARCHETYPES: frozenset[str] = frozenset({"reviewer", "skeptic", "verifier", "oracle", "auditor"})
+
 
 def extract_subtask_descriptions(spec_dir: Path, task_group: int) -> list[str]:
     """Extract the first non-metadata bullet from each subtask in a task group.
@@ -569,24 +575,34 @@ class NodeSessionRunner:
         if not transcript:
             return
 
-        try:
-            await extract_and_store_knowledge(
-                transcript=transcript,
-                spec_name=self._spec_name,
-                node_id=node_id,
-                memory_extraction_model=self._config.models.memory_extraction,
-                knowledge_db=self._knowledge_db,
-                sink_dispatcher=self._sink,
-                run_id=self._run_id,
-                embedder=self._embedder,
-                causal_context_limit=self._config.orchestrator.causal_context_limit,
-            )
-        except Exception:
-            logger.warning(
-                "Knowledge extraction failed for %s, continuing",
+        # Short-circuit: reviewer archetypes produce structured findings that are
+        # persisted by _persist_review_findings below. They do not yield factual
+        # knowledge entries worth indexing, so skip the expensive LLM call.
+        if self._archetype in _REVIEW_ARCHETYPES:
+            logger.debug(
+                "Skipping LLM knowledge extraction for reviewer archetype %s (node %s)",
+                self._archetype,
                 node_id,
-                exc_info=True,
             )
+        else:
+            try:
+                await extract_and_store_knowledge(
+                    transcript=transcript,
+                    spec_name=self._spec_name,
+                    node_id=node_id,
+                    memory_extraction_model=self._config.models.memory_extraction,
+                    knowledge_db=self._knowledge_db,
+                    sink_dispatcher=self._sink,
+                    run_id=self._run_id,
+                    embedder=self._embedder,
+                    causal_context_limit=self._config.orchestrator.causal_context_limit,
+                )
+            except Exception:
+                logger.warning(
+                    "Knowledge extraction failed for %s, continuing",
+                    node_id,
+                    exc_info=True,
+                )
 
         # 27-REQ-3.1: Parse and persist structured findings from
         # review archetypes (skeptic, verifier, oracle).

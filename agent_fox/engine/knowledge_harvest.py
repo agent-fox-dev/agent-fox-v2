@@ -30,6 +30,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Minimum transcript length to justify an LLM extraction call.
+# Transcripts shorter than this threshold (~500 tokens) are unlikely to
+# contain actionable learnings, and the per-call LLM overhead — typically
+# ~18k input tokens — far exceeds the expected value.
+_MIN_TRANSCRIPT_CHARS: int = 2000
+
 
 async def extract_and_store_knowledge(
     transcript: str,
@@ -62,6 +68,17 @@ async def extract_and_store_knowledge(
                   52-REQ-4.E1, 52-REQ-5.1, 52-REQ-5.2,
                   90-REQ-5.1, 90-REQ-5.2, 90-REQ-5.3, 90-REQ-5.4
     """
+    # Short-circuit: skip extraction for very short transcripts.
+    # Below the threshold the transcript is unlikely to contain actionable
+    # learnings, and the per-call LLM overhead far exceeds the expected value.
+    if len(transcript) < _MIN_TRANSCRIPT_CHARS:
+        logger.debug(
+            "Skipping knowledge extraction: transcript too short (%d chars, minimum %d)",
+            len(transcript),
+            _MIN_TRANSCRIPT_CHARS,
+        )
+        return
+
     facts = await extract_facts(transcript, spec_name, memory_extraction_model, session_id=node_id)
 
     causal_link_count = 0

@@ -68,13 +68,17 @@ class TestExtractionFromSummary:
         transcript and insert resulting facts into DuckDB."""
         fact = _make_fact()
 
+        # Use a transcript that exceeds _MIN_TRANSCRIPT_CHARS (2000 chars) so
+        # the length guard does not short-circuit before extraction runs.
+        transcript = "The API retry logic needs exponential backoff. " * 50  # ~2350 chars
+
         with patch(
             "agent_fox.engine.knowledge_harvest.extract_facts",
             new_callable=AsyncMock,
             return_value=[fact],
         ) as mock_extract:
             await extract_and_store_knowledge(
-                transcript="The API retry logic needs exponential backoff.",
+                transcript=transcript,
                 spec_name="test_spec",
                 node_id="coder_test_1",
                 memory_extraction_model="SIMPLE",
@@ -83,7 +87,7 @@ class TestExtractionFromSummary:
 
             mock_extract.assert_called_once()
             call_args = mock_extract.call_args
-            assert call_args[0][0] == "The API retry logic needs exponential backoff."
+            assert call_args[0][0] == transcript
 
         # Verify fact was stored
         rows = knowledge_db.connection.execute(
@@ -152,6 +156,9 @@ class TestExtractionErrorIsolation:
         """extract_and_store_knowledge should propagate errors (the caller
         in session_lifecycle catches them). But the session_lifecycle caller
         wraps calls in try/except to prevent session failure."""
+        # Use a long transcript so the length guard does not short-circuit first.
+        long_transcript = "some text about the implementation. " * 60  # ~2160 chars
+
         with patch(
             "agent_fox.engine.knowledge_harvest.extract_facts",
             new_callable=AsyncMock,
@@ -159,7 +166,7 @@ class TestExtractionErrorIsolation:
         ):
             with pytest.raises(RuntimeError, match="LLM timeout"):
                 await extract_and_store_knowledge(
-                    transcript="some text",
+                    transcript=long_transcript,
                     spec_name="test_spec",
                     node_id="coder_test_1",
                     memory_extraction_model="SIMPLE",
@@ -246,3 +253,203 @@ class TestNonCompletedSkips:
                     knowledge_db=MagicMock(),
                 )
             mock_extract.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TS-475-1: Short transcript skips LLM extraction
+# ---------------------------------------------------------------------------
+
+
+class TestShortTranscriptSkip:
+    """TS-475-1: Verify that extract_and_store_knowledge skips the LLM call
+    when the transcript is below the minimum length threshold.
+
+    Issue: #475 — extraction burns ~18k tokens even on very short transcripts
+    that cannot yield meaningful facts.
+    """
+
+    @pytest.mark.asyncio
+    async def test_short_transcript_skips_extract_facts(self, knowledge_db: KnowledgeDB) -> None:
+        """extract_facts must NOT be called when the transcript is shorter
+        than _MIN_TRANSCRIPT_CHARS (2000 chars)."""
+        short_transcript = "Session completed with no changes." * 5  # ~175 chars
+
+        with patch(
+            "agent_fox.engine.knowledge_harvest.extract_facts",
+            new_callable=AsyncMock,
+        ) as mock_extract:
+            await extract_and_store_knowledge(
+                transcript=short_transcript,
+                spec_name="test_spec",
+                node_id="coder_test_short",
+                memory_extraction_model="SIMPLE",
+                knowledge_db=knowledge_db,
+            )
+            mock_extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_transcript_at_threshold_calls_extract_facts(self, knowledge_db: KnowledgeDB) -> None:
+        """extract_facts IS called when the transcript meets the minimum length."""
+        from agent_fox.engine.knowledge_harvest import _MIN_TRANSCRIPT_CHARS
+
+        long_transcript = "x" * _MIN_TRANSCRIPT_CHARS  # exactly at threshold
+
+        with patch(
+            "agent_fox.engine.knowledge_harvest.extract_facts",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_extract:
+            await extract_and_store_knowledge(
+                transcript=long_transcript,
+                spec_name="test_spec",
+                node_id="coder_test_long",
+                memory_extraction_model="SIMPLE",
+                knowledge_db=knowledge_db,
+            )
+            mock_extract.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_one_char_below_threshold_skips(self, knowledge_db: KnowledgeDB) -> None:
+        """A transcript one char below the threshold must not trigger extraction."""
+        from agent_fox.engine.knowledge_harvest import _MIN_TRANSCRIPT_CHARS
+
+        just_short = "x" * (_MIN_TRANSCRIPT_CHARS - 1)
+
+        with patch(
+            "agent_fox.engine.knowledge_harvest.extract_facts",
+            new_callable=AsyncMock,
+        ) as mock_extract:
+            await extract_and_store_knowledge(
+                transcript=just_short,
+                spec_name="test_spec",
+                node_id="coder_test_boundary",
+                memory_extraction_model="SIMPLE",
+                knowledge_db=knowledge_db,
+            )
+            mock_extract.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TS-475-2: Reviewer archetypes skip LLM extraction in session lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestReviewerArchetypeSkip:
+    """TS-475-2: Verify that _extract_knowledge_and_findings skips the LLM
+    extraction call for reviewer-family archetypes.
+
+    Reviewer sessions produce structured findings (persisted by
+    _persist_review_findings). Running LLM extraction on them burns
+    ~18k tokens per session for reliably zero facts.
+
+    Issue: #475
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("archetype", ["reviewer", "skeptic", "verifier", "oracle", "auditor"])
+    async def test_reviewer_archetype_skips_extract_and_store_knowledge(
+        self, archetype: str
+    ) -> None:
+        """extract_and_store_knowledge must NOT be called for reviewer archetypes."""
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_kb = MagicMock(spec=KnowledgeDB)
+        runner = NodeSessionRunner(
+            "spec:1",
+            AgentFoxConfig(),
+            archetype=archetype,
+            knowledge_db=mock_kb,
+        )
+
+        # Build a transcript longer than the minimum threshold so the only skip
+        # reason is the archetype guard, not the length guard.
+        long_transcript = "A " * 1500  # 3000 chars > _MIN_TRANSCRIPT_CHARS
+
+        mock_workspace = MagicMock()
+        mock_workspace.path = Path("/tmp/nonexistent")
+
+        # Inject a pre-built summary so _read_session_artifacts returns it
+        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
+        runner._persist_review_findings = MagicMock()
+
+        with patch(
+            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+            new_callable=AsyncMock,
+        ) as mock_extract:
+            await runner._extract_knowledge_and_findings(
+                node_id=f"{archetype}_spec_1",
+                attempt=1,
+                workspace=mock_workspace,
+                outcome_response="{}",
+            )
+            mock_extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_coder_archetype_calls_extract_and_store_knowledge(self) -> None:
+        """extract_and_store_knowledge IS called for non-reviewer archetypes."""
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_kb = MagicMock(spec=KnowledgeDB)
+        runner = NodeSessionRunner(
+            "spec:1",
+            AgentFoxConfig(),
+            archetype="coder",
+            knowledge_db=mock_kb,
+        )
+
+        long_transcript = "A " * 1500  # 3000 chars > _MIN_TRANSCRIPT_CHARS
+
+        mock_workspace = MagicMock()
+        mock_workspace.path = Path("/tmp/nonexistent")
+
+        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
+        runner._persist_review_findings = MagicMock()
+
+        with patch(
+            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+            new_callable=AsyncMock,
+        ) as mock_extract:
+            await runner._extract_knowledge_and_findings(
+                node_id="coder_spec_1",
+                attempt=1,
+                workspace=mock_workspace,
+                outcome_response="",
+            )
+            mock_extract.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reviewer_archetype_still_persists_review_findings(self) -> None:
+        """Even when LLM extraction is skipped, _persist_review_findings must run."""
+        from agent_fox.core.config import AgentFoxConfig
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_kb = MagicMock(spec=KnowledgeDB)
+        runner = NodeSessionRunner(
+            "spec:1",
+            AgentFoxConfig(),
+            archetype="reviewer",
+            knowledge_db=mock_kb,
+        )
+
+        long_transcript = "A " * 1500
+
+        mock_workspace = MagicMock()
+        mock_workspace.path = Path("/tmp/nonexistent")
+
+        runner._read_session_artifacts = MagicMock(return_value={"summary": long_transcript})
+        runner._persist_review_findings = MagicMock()
+
+        with patch(
+            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
+            new_callable=AsyncMock,
+        ):
+            await runner._extract_knowledge_and_findings(
+                node_id="reviewer_spec_1",
+                attempt=1,
+                workspace=mock_workspace,
+                outcome_response='{"issues": []}',
+            )
+
+        runner._persist_review_findings.assert_called_once()

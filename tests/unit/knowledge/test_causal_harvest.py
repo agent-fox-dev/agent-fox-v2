@@ -23,6 +23,11 @@ from agent_fox.knowledge.audit import AuditEvent, AuditEventType
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.knowledge.facts import Fact
 
+# Transcripts used in tests must exceed _MIN_TRANSCRIPT_CHARS (2000 chars) so
+# the length guard in extract_and_store_knowledge does not short-circuit before
+# the mocked extract_facts is reached.
+_LONG_TRANSCRIPT = "Session log: implemented the retry logic with exponential backoff. " * 35  # ~2380 chars
+
 
 def _make_fact(
     *,
@@ -124,7 +129,7 @@ class TestEmbeddingFailureIsolation:
             return_value=[fact],
         ):
             await extract_and_store_knowledge(
-                transcript="some text",
+                transcript=_LONG_TRANSCRIPT,
                 spec_name="test_spec",
                 node_id="coder_test_1",
                 memory_extraction_model="SIMPLE",
@@ -180,7 +185,7 @@ class TestHarvestCompleteEvent:
             return_value=facts,
         ):
             await extract_and_store_knowledge(
-                transcript="some text",
+                transcript=_LONG_TRANSCRIPT,
                 spec_name="test_spec",
                 node_id="coder_test_1",
                 memory_extraction_model="SIMPLE",
@@ -227,7 +232,7 @@ class TestHarvestEmptyEvent:
             return_value=[],
         ):
             await extract_and_store_knowledge(
-                transcript="Some session content",
+                transcript=_LONG_TRANSCRIPT,
                 spec_name="test_spec",
                 node_id="coder_test_1",
                 memory_extraction_model="SIMPLE",
@@ -344,7 +349,7 @@ class TestCausalTriggerThreshold:
             ) as mock_causal,
         ):
             await extract_and_store_knowledge(
-                transcript="some text",
+                transcript=_LONG_TRANSCRIPT,
                 spec_name="test_spec",
                 node_id="coder_test_1",
                 memory_extraction_model="SIMPLE",
