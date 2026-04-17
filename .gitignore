@@ -1,8 +1,3 @@
-# agent-fox
-.agent-fox/*
-!.agent-fox/config.toml
-.claude/worktrees/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -24,4 +19,4 @@ hack/**
 # other
 **/.env
 MagicMock/**
-!.agent-fox/memory.jsonl
+

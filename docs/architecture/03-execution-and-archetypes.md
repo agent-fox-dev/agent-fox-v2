@@ -591,7 +591,7 @@ and performs synchronization work:
 - **Develop sync**: Pull remote changes into `develop`, reconciling divergence
   with the same merge strategy used during harvest.
 - **Worktree verification**: Check for orphaned worktrees and clean them up.
-- **Hot-load discovery**: Check for new specs in `.specs/` that were not present
+- **Hot-load discovery**: Check for new specs in `.agent-fox/specs/` that were not present
   when the plan was built. New specs pass a three-stage gate (git-tracked,
   complete artifacts, passes lint) before being added to the live graph.
 - **Knowledge ingestion**: Ingest accumulated facts into the knowledge store.

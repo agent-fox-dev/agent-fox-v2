@@ -123,7 +123,7 @@ A report at `docs/audits/audit-report-{YYYY-MM-DD}.md` with:
 
 ### Workflow
 
-1. **Discover specs** -- scans `.specs/` for `NN_name` folders, reads all spec
+1. **Discover specs** -- scans `.agent-fox/specs/` for `NN_name` folders, reads all spec
    files in order.
 2. **Build supersession chain** -- checks for explicit (`## Supersedes`) and
    implicit supersession between specs.

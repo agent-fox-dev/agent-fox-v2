@@ -13,7 +13,7 @@ extracts learnings into structured memory, and merges clean commits to
 The typical workflow has four stages:
 
 1. **Write specs.** Describe your feature as a structured specification
-   package under `.specs/` — a PRD, acceptance criteria (EARS syntax), design
+   package under `.agent-fox/specs/` — a PRD, acceptance criteria (EARS syntax), design
    document, test contracts, and a task list. Each spec maps to one coherent
    feature or change. Use the `/af-spec` skill in Claude Code to generate the
    full five-file package from a PRD, a GitHub issue URL, or a plain-English

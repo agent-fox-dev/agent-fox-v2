@@ -19,7 +19,7 @@ executable task graphs, see [Part 2: Planning](02-planning.md).
 ## The Spec as a Unit of Work
 
 A specification maps to a single coherent feature, capability, or change. It
-lives in a numbered directory under `.specs/` — for example,
+lives in a numbered directory under `.agent-fox/specs/` — for example,
 `.specs/03_session_and_workspace/`. The numeric prefix establishes creation
 order and provides a stable namespace for cross-spec references. The name after
 the prefix is a snake_case descriptor chosen by the author.
@@ -159,7 +159,7 @@ correct identifier.
 ## Spec Discovery
 
 Discovery is the entry point for both planning and linting. The system scans
-`.specs/` for subdirectories matching the `NN_name` pattern (numeric prefix,
+`.agent-fox/specs/` for subdirectories matching the `NN_name` pattern (numeric prefix,
 underscore, descriptive name). Each matching directory becomes a `SpecInfo`
 record carrying the spec's name, numeric prefix, path, and which of the five
 core artifacts are present.
@@ -168,7 +168,7 @@ Discovery is deterministic: specs are sorted by numeric prefix, producing a
 stable ordering across runs. An optional filter can restrict operations to a
 single spec by name.
 
-The system requires at least one discoverable spec. If the `.specs/` directory
+The system requires at least one discoverable spec. If the `.agent-fox/specs/` directory
 is empty or contains no matching subdirectories, a hard error is raised. Specs
 without a `tasks.md` file are discovered but cannot be planned — they may exist
 as reference material or work-in-progress.
@@ -308,7 +308,7 @@ has since evolved. The `--all` flag overrides this for auditing purposes.
 
 The typical authoring workflow is:
 
-1. Create a numbered directory under `.specs/` with the five artifact files.
+1. Create a numbered directory under `.agent-fox/specs/` with the five artifact files.
    The `/af-spec` skill can generate these from a PRD, a GitHub issue URL, or
    a plain-English description.
 2. Run `agent-fox lint-specs` to validate. Fix errors manually or with

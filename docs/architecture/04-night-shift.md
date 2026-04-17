@@ -198,7 +198,7 @@ failure is not discarded.
 The fix pipeline generates a lightweight in-memory spec from the issue rather
 than writing spec files to disk. This spec contains a task prompt (assembled
 from the issue title and body), system context (the full issue body for
-reference), and the fix branch name. This avoids polluting `.specs/` with
+reference), and the fix branch name. This avoids polluting `.agent-fox/specs/` with
 ephemeral repair specifications that do not represent lasting feature work.
 
 ---
