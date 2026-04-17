@@ -199,7 +199,7 @@ from the archetype and task group.
 The system prompt is built by concatenating three layers, separated by section
 breaks:
 
-**Layer 1: Agent base profile.** Loaded from `agent_base.md`, this layer
+**Layer 1: Agent base profile.** Loaded from `agent.md`, this layer
 provides instructions shared by every agent regardless of archetype — project
 orientation steps, directory structure conventions, and general policies (e.g.,
 "do not read `docs/memory.md` directly"). This layer replaces the traditional

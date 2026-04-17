@@ -36,13 +36,13 @@ class TestPromptWithProjectProfile:
         """
         from agent_fox.session.prompt import build_system_prompt
 
-        # Setup: project agent_base and custom coder profile
+        # Setup: project agent profile and custom coder profile
         base_content = "PROJECT RULES FOR SMOKE TEST"
         profile_content = "CUSTOM CODER IDENTITY FOR SMOKE TEST"
 
         profiles_dir = tmp_path / ".agent-fox" / "profiles"
         profiles_dir.mkdir(parents=True)
-        (profiles_dir / "agent_base.md").write_text(base_content, encoding="utf-8")
+        (profiles_dir / "agent.md").write_text(base_content, encoding="utf-8")
         (profiles_dir / "coder.md").write_text(profile_content, encoding="utf-8")
 
         task_context = "TASK CONTEXT MARKER"
@@ -55,25 +55,25 @@ class TestPromptWithProjectProfile:
         )
 
         # Expected: all three layers present in order
-        assert base_content in prompt, "Layer 1 (agent_base) missing from prompt"
+        assert base_content in prompt, "Layer 1 (agent) missing from prompt"
         assert profile_content in prompt, "Layer 2 (profile) missing from prompt"
         assert task_context in prompt, "Layer 3 (task context) missing from prompt"
 
-        # Verify order: agent_base < profile < task context
+        # Verify order: agent < profile < task context
         idx_base = prompt.index(base_content)
         idx_profile = prompt.index(profile_content)
         idx_task = prompt.index(task_context)
-        assert idx_base < idx_profile, "agent_base must appear before profile"
+        assert idx_base < idx_profile, "agent profile must appear before archetype profile"
         assert idx_profile < idx_task, "Profile must appear before task context"
 
-    def test_default_agent_base_always_loads(self, tmp_path: Path) -> None:
-        """TS-99-SMOKE-1 edge: Package-default agent_base loads when no project override.
+    def test_default_agent_profile_always_loads(self, tmp_path: Path) -> None:
+        """TS-99-SMOKE-1 edge: Package-default agent profile loads when no project override.
 
         Requirement: 99-REQ-1.E1
         """
         from agent_fox.session.prompt import build_system_prompt
 
-        # No project-level agent_base — package default should load
+        # No project-level agent profile — package default should load
         profile_content = "CODER IDENTITY CUSTOM"
         profiles_dir = tmp_path / ".agent-fox" / "profiles"
         profiles_dir.mkdir(parents=True)
@@ -87,7 +87,7 @@ class TestPromptWithProjectProfile:
 
         assert len(prompt) > 0
         assert profile_content in prompt
-        # Package-default agent_base content should be present
+        # Package-default agent profile content should be present
         assert "agent-fox session agent" in prompt
 
 
