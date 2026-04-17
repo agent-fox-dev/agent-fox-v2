@@ -139,7 +139,7 @@ class NightShiftEngine:
             except Exception:
                 logger.debug("Status callback failed", exc_info=True)
 
-    async def _run_issue_check(self) -> None:
+    async def _run_issue_check(self, _seen: set[int] | None = None) -> None:
         """Poll platform for af:fix issues and process them.
 
         Issues are fetched sorted by creation date ascending (oldest first).
@@ -152,9 +152,19 @@ class NightShiftEngine:
         Staleness phase: after each successful fix, evaluates remaining
         issues for obsolescence (71-REQ-5.1).
 
+        Args:
+            _seen: Optional set of issue numbers already processed in this
+                   drain session.  Issues present in this set are skipped so
+                   that a recently closed issue cannot be re-processed due to
+                   platform API propagation delays between drain iterations
+                   (fixes #465).
+
         Requirements: 61-REQ-2.1, 71-REQ-1.1, 71-REQ-1.2, 71-REQ-1.E1,
                       71-REQ-3.1, 71-REQ-3.5, 71-REQ-5.1, 71-REQ-5.E3
         """
+        # Use the caller-supplied set so processed issues are remembered
+        # across drain iterations; fall back to a local set for direct calls.
+        seen: set[int] = _seen if _seen is not None else set()
         self._emit_status("Checking for af:fix issues\u2026")
         try:
             issues = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
@@ -176,6 +186,14 @@ class NightShiftEngine:
         # Local sort fallback: ensure ascending issue number order
         # even if the platform does not honour the sort parameters (71-REQ-1.E1).
         issues = sorted(issues, key=lambda i: i.number)
+
+        # Skip issues already processed in this drain session.  The platform
+        # may return a recently-closed issue due to propagation delay; the
+        # ``seen`` set prevents re-processing it in a subsequent iteration.
+        issues = [i for i in issues if i.number not in seen]
+        if not issues:
+            self.state.hunt_scans_completed += 1
+            return
 
         # Build dependency graph from explicit references and GitHub metadata
         explicit_edges = parse_text_references(issues)
@@ -223,6 +241,7 @@ class NightShiftEngine:
                     f"Superseded by #{_keep} (AI triage).",
                 )
                 closed.add(obsolete)
+                seen.add(obsolete)
                 _emit_audit_event(
                     self._sink,
                     issue_check_run_id,
@@ -273,6 +292,9 @@ class NightShiftEngine:
 
             # Post-fix staleness check (71-REQ-5.1, 71-REQ-5.E3)
             if fix_succeeded:
+                # Record this issue as processed so subsequent drain iterations
+                # do not re-process it if the platform still returns it.
+                seen.add(issue_num)
                 remaining = [issue_map[n] for n in processing_order if n != issue_num and n not in closed]
                 if remaining:
                     try:
@@ -294,6 +316,7 @@ class NightShiftEngine:
                                 f"Resolved by fix for #{issue_num}",
                             )
                             closed.add(obsolete_num)
+                            seen.add(obsolete_num)
                             _emit_audit_event(
                                 self._sink,
                                 issue_check_run_id,
@@ -582,11 +605,17 @@ class NightShiftEngine:
         session limits between iterations, and enforces a safety-valve
         maximum iteration count to prevent infinite loops.
 
+        A ``seen`` set is threaded through all iterations so that issues
+        already processed (fixed, superseded, or staleness-closed) are never
+        re-processed even if the platform still returns them due to API
+        propagation delays (fixes #465).
+
         Returns True when no ``af:fix`` issues remain (drain succeeded),
         False when issues may still exist (limit hit, shutdown, or error).
 
         Requirements: 81-REQ-1.1, 81-REQ-1.4
         """
+        seen: set[int] = set()
         for _ in range(self._MAX_DRAIN_ITERATIONS):
             if self.state.is_shutting_down:
                 return False
@@ -597,7 +626,7 @@ class NightShiftEngine:
                 logger.info("Session limit reached during issue drain")
                 return False
 
-            await self._run_issue_check()
+            await self._run_issue_check(seen)
 
             # Re-poll to see if any af:fix issues remain
             try:
@@ -614,6 +643,10 @@ class NightShiftEngine:
                 # Fail-open: if we can't check, assume clear (81-REQ-1.E1)
                 return True
 
+            # Filter out issues already handled this session so that a
+            # recently-closed issue returned by a stale platform response
+            # does not trigger another fix iteration.
+            remaining = [r for r in remaining if r.number not in seen]
             if not remaining:
                 return True
 
