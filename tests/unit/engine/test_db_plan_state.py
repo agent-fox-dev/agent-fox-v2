@@ -14,6 +14,7 @@ import pytest
 from agent_fox.engine.state import (  # noqa: F401
     RunRecord,
     SessionOutcomeRecord,
+    cleanup_stale_runs,
     complete_run,
     create_run,
     load_execution_state,
@@ -604,3 +605,97 @@ def test_existing_db_status(tmp_path) -> None:
     # Must return a StatusReport, not None, when the DB file is present
     assert result is not None
     assert isinstance(result, StatusReport)
+
+
+# -- Tests for cleanup_stale_runs (issue #456) ---------------------------------
+
+
+def test_cleanup_stale_runs_marks_stale_as_interrupted(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """AC-1: cleanup_stale_runs marks stale running rows as interrupted.
+
+    Two stale 'running' rows and one current row: after cleanup the two stale
+    rows must have status='interrupted' and a non-null completed_at; the
+    current row must be untouched.
+    """
+    create_run(db_conn, "stale_1", "hash_s1")
+    create_run(db_conn, "stale_2", "hash_s2")
+    create_run(db_conn, "current", "hash_cur")
+
+    cleanup_stale_runs(db_conn, "current")
+
+    for stale_id in ("stale_1", "stale_2"):
+        row = db_conn.execute(
+            "SELECT status, completed_at FROM runs WHERE id = ?", [stale_id]
+        ).fetchone()
+        assert row is not None, f"Row for {stale_id} not found"
+        assert row[0] == "interrupted", f"{stale_id}: expected interrupted, got {row[0]}"
+        assert row[1] is not None, f"{stale_id}: completed_at should be non-null"
+
+    cur_row = db_conn.execute(
+        "SELECT status, completed_at FROM runs WHERE id = 'current'"
+    ).fetchone()
+    assert cur_row is not None
+    assert cur_row[0] == "running", "Current run must remain 'running'"
+    assert cur_row[1] is None, "Current run completed_at must remain NULL"
+
+
+def test_cleanup_stale_runs_returns_count(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """AC-2: cleanup_stale_runs returns the count of rows it updated.
+
+    0 stale rows → returns 0; 2 stale rows → returns 2.
+    """
+    # No stale rows — only the current run
+    create_run(db_conn, "only_current", "hash_oc")
+    count = cleanup_stale_runs(db_conn, "only_current")
+    assert count == 0
+
+    # Add two stale rows
+    create_run(db_conn, "stale_a", "hash_a")
+    create_run(db_conn, "stale_b", "hash_b")
+    count = cleanup_stale_runs(db_conn, "only_current")
+    assert count == 2
+
+
+def test_cleanup_stale_runs_ignores_terminal_statuses(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """AC-4: Completed/terminal runs are not touched by cleanup.
+
+    Rows already in a terminal status (completed, interrupted, cost_limit,
+    session_limit, stalled, block_limit) must remain unchanged after cleanup.
+    """
+    terminal_statuses = [
+        "completed",
+        "interrupted",
+        "cost_limit",
+        "session_limit",
+        "stalled",
+        "block_limit",
+    ]
+    for status in terminal_statuses:
+        run_id = f"run_{status}"
+        create_run(db_conn, run_id, f"hash_{status}")
+        # Manually set terminal status + completed_at (as complete_run would)
+        db_conn.execute(
+            "UPDATE runs SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            [status, run_id],
+        )
+
+    create_run(db_conn, "current_run", "hash_current")
+    count = cleanup_stale_runs(db_conn, "current_run")
+
+    # Only stale running rows (none here) should be touched
+    assert count == 0
+
+    # Verify all terminal rows are unchanged
+    for status in terminal_statuses:
+        run_id = f"run_{status}"
+        row = db_conn.execute(
+            "SELECT status FROM runs WHERE id = ?", [run_id]
+        ).fetchone()
+        assert row is not None
+        assert row[0] == status, f"{run_id}: expected {status}, got {row[0]}"

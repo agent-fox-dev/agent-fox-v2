@@ -431,6 +431,17 @@ class Orchestrator:
                 if node.status.value == "blocked":
                     state.node_states[node_id] = "blocked"
 
+        # 456: Clean up stale running runs from prior aborted starts
+        if self._knowledge_db_conn is not None:
+            try:
+                from agent_fox.engine.state import cleanup_stale_runs as _cleanup_stale_runs
+
+                cleaned = _cleanup_stale_runs(self._knowledge_db_conn, self._run_id)
+                if cleaned:
+                    logger.info("Marked %d stale running run(s) as interrupted", cleaned)
+            except Exception:
+                logger.warning("Failed to clean up stale running runs", exc_info=True)
+
         # 105-REQ-4.2: Create a run record in DB when connection is available
         if self._knowledge_db_conn is not None:
             try:
