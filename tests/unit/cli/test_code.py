@@ -516,66 +516,6 @@ class TestNodeSessionRunnerHarvestError:
         assert record.output_tokens == 200
 
     @pytest.mark.asyncio
-    async def test_harvest_error_records_failed_status_to_sink(
-        self,
-    ) -> None:
-        """Sink receives failed status when harvest fails after completed session."""
-        from agent_fox.core.errors import IntegrationError
-        from agent_fox.engine.session_lifecycle import NodeSessionRunner
-        from agent_fox.knowledge.sink import SessionOutcome
-
-        config = AgentFoxConfig()
-        sink = MagicMock()
-        runner = NodeSessionRunner("test_spec:1", config, sink_dispatcher=sink, knowledge_db=_MOCK_KB)
-
-        mock_outcome = SessionOutcome(
-            spec_name="test_spec",
-            task_group="1",
-            node_id="test_spec:1",
-            status="completed",
-            input_tokens=100,
-            output_tokens=200,
-            duration_ms=5000,
-        )
-
-        with (
-            patch(
-                "agent_fox.engine.session_lifecycle.run_session",
-                new_callable=AsyncMock,
-                return_value=mock_outcome,
-            ),
-            patch(
-                "agent_fox.engine.session_lifecycle.harvest",
-                new_callable=AsyncMock,
-                side_effect=IntegrationError(
-                    "Merge conflict in foo.py",
-                ),
-            ),
-        ):
-            from agent_fox.workspace import WorkspaceInfo
-
-            workspace = WorkspaceInfo(
-                path=Path("/tmp/fake-worktree"),
-                spec_name="test_spec",
-                task_group=1,
-                branch="feature/test_spec/1",
-            )
-            await runner._run_and_harvest(
-                "test_spec:1",
-                1,
-                workspace,
-                "system prompt",
-                "task prompt",
-                Path("/tmp/fake-repo"),
-            )
-
-        sink.record_session_outcome.assert_called_once()
-        recorded = sink.record_session_outcome.call_args.args[0]
-        assert recorded.status == "failed"
-        assert recorded.error_message is not None
-        assert "harvest failed" in recorded.error_message.lower()
-
-    @pytest.mark.asyncio
     async def test_session_summary_read_before_cleanup(
         self,
         tmp_path: Path,

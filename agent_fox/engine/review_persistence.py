@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from agent_fox.core.json_extraction import extract_json_array
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.knowledge.audit import AuditEventType, AuditSeverity
-from agent_fox.knowledge.sink import SessionOutcome, SessionSink, SinkDispatcher
+from agent_fox.knowledge.sink import SessionSink, SinkDispatcher
 
 if TYPE_CHECKING:
     from agent_fox.knowledge.review_store import ReviewFinding
@@ -127,24 +127,6 @@ def _emit_persistence_event(
         logger.warning(
             "Failed to emit persistence audit event for %s %s",
             archetype,
-            node_id,
-            exc_info=True,
-        )
-
-
-def record_session_to_sink(
-    sink: SinkDispatcher | SessionSink | None,
-    outcome: SessionOutcome,
-    node_id: str,
-) -> None:
-    """Record a session outcome to the sink dispatcher (best-effort)."""
-    if sink is None:
-        return
-    try:
-        sink.record_session_outcome(outcome)
-    except Exception:
-        logger.warning(
-            "Failed to record session outcome to sink for %s",
             node_id,
             exc_info=True,
         )
