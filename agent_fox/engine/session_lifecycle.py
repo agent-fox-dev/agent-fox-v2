@@ -52,6 +52,7 @@ from agent_fox.workspace import (
     create_worktree,
     destroy_worktree,
     ensure_develop,
+    run_git,
 )
 from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 
@@ -485,6 +486,13 @@ class NodeSessionRunner:
             touched_files = await harvest(repo_root, workspace)
             # 40-REQ-11.1: Emit git.merge after successful harvest
             if touched_files:
+                # Capture the resulting commit SHA for traceability
+                _, sha_out, _ = await run_git(
+                    ["rev-parse", "HEAD"],
+                    cwd=repo_root,
+                    check=False,
+                )
+                commit_sha = sha_out.strip()
                 emit_audit_event(
                     self._sink,
                     self._run_id,
@@ -493,7 +501,7 @@ class NodeSessionRunner:
                     archetype=self._archetype,
                     payload={
                         "branch": workspace.branch,
-                        "commit_sha": "",
+                        "commit_sha": commit_sha,
                         "files_touched": touched_files,
                     },
                 )
