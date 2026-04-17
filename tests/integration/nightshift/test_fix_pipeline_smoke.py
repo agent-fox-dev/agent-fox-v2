@@ -7,6 +7,7 @@ Requirements: 82-REQ-7.1, 82-REQ-8.2, 82-REQ-8.3, 82-REQ-7.E1
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -134,8 +135,19 @@ class TestFullPipelineHappyPath:
         # Verify review comment contains PASS
         assert any("PASS" in c for c in comments)
 
+        # AC-1: Starting comment includes run_id in prescribed format
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        assert any(
+            "Starting fix session" in c and run_id_pattern.search(c) for c in comments
+        ), "Starting comment must contain branch name and run_id"
+
         # Issue is closed
         mock_platform.close_issue.assert_awaited_once()
+
+        # AC-4: close_issue message includes run_id
+        close_call = mock_platform.close_issue.call_args
+        close_msg = str(close_call)
+        assert run_id_pattern.search(close_msg), "close_issue message must contain run_id"
 
         # 3 sessions: triage + coder + reviewer
         assert metrics.sessions_run == 3
@@ -266,3 +278,89 @@ class TestTriageFailureFallback:
 
         # Issue is closed
         mock_platform.close_issue.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# TS-82-SMOKE-4: run_id appears in exhaustion comment (AC-2)
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdInExhaustionComment:
+    """Exhaustion comment must include the run_id for traceability."""
+
+    @pytest.mark.asyncio
+    async def test_exhaustion_comment_includes_run_id(self) -> None:
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        mock_platform = AsyncMock()
+        mock_platform.add_issue_comment = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 1
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            if archetype == "maintainer":
+                return _make_outcome(_triage_json(1))
+            if archetype == "reviewer":
+                return _make_outcome(_review_json("FAIL", ["AC-1"]))
+            return _make_outcome()
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        await pipeline.process_issue(_make_issue(), issue_body="unfixable bug")
+
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-2: exhaustion comment must contain run_id
+        assert any(
+            "exhausted" in c and run_id_pattern.search(c) for c in comments
+        ), "Exhaustion comment must contain run_id"
+
+
+# ---------------------------------------------------------------------------
+# TS-82-SMOKE-5: run_id appears in failure/exception comment (AC-3)
+# ---------------------------------------------------------------------------
+
+
+class TestRunIdInFailureComment:
+    """Exception failure comment must include the run_id for traceability."""
+
+    @pytest.mark.asyncio
+    async def test_failure_comment_includes_run_id(self) -> None:
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+
+        mock_platform = AsyncMock()
+        mock_platform.add_issue_comment = AsyncMock()
+        mock_platform.close_issue = AsyncMock()
+
+        config = MagicMock()
+        config.orchestrator.retries_before_escalation = 1
+        config.orchestrator.max_retries = 3
+
+        pipeline = FixPipeline(config=config, platform=mock_platform)
+        pipeline._setup_workspace = AsyncMock(return_value=_mock_workspace())  # type: ignore[method-assign]
+        pipeline._cleanup_workspace = AsyncMock()  # type: ignore[method-assign]
+
+        async def mock_run_session(archetype: str, workspace: object = None, **kwargs: object) -> MagicMock:
+            if archetype == "maintainer":
+                return _make_outcome(_triage_json(1))
+            raise RuntimeError("unexpected failure during coder session")
+
+        pipeline._run_session = mock_run_session  # type: ignore[assignment]
+
+        await pipeline.process_issue(_make_issue(), issue_body="broken code")
+
+        run_id_pattern = re.compile(r"\d{8}_\d{6}_[0-9a-f]{6}")
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+
+        # AC-3: failure comment must contain Branch and run_id
+        assert any(
+            "Branch:" in c and run_id_pattern.search(c) for c in comments
+        ), "Failure comment must contain Branch and run_id"

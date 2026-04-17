@@ -831,7 +831,7 @@ class FixPipeline:
                         spec.issue_number,
                         "Fix pipeline exhausted all retries. "
                         "The issue could not be resolved automatically. "
-                        "Manual intervention is required.",
+                        f"Manual intervention is required. (run: `{self._run_id}`)",
                     )
                 except Exception as exc:
                     logger.warning(
@@ -890,7 +890,7 @@ class FixPipeline:
         try:
             await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
-                f"Starting fix session on branch `{spec.branch_name}`...",
+                f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
             )
         except Exception as exc:
             logger.warning(
@@ -944,7 +944,7 @@ class FixPipeline:
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
-                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}`",
+                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
                 )
             except Exception as comment_exc:
                 logger.warning(
@@ -984,12 +984,14 @@ class FixPipeline:
             close_msg = (
                 f"Fix verified on branch `{spec.branch_name}`. "
                 "No new commits were needed — the fix is already present on `develop`."
+                f" (run: `{self._run_id}`)"
             )
         else:
             close_msg = (
                 f"Fix complete on branch `{spec.branch_name}`. "
                 "Changes have been merged into `develop`. "
                 "Create a PR from that branch to land them on `main`."
+                f" (run: `{self._run_id}`)"
             )
         try:
             await self._platform.close_issue(  # type: ignore[attr-defined]
