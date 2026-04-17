@@ -22,6 +22,9 @@ LABEL_FIX: str = "af:fix"
 #: Applied to issues resolved by the fix pipeline (provenance + re-process guard).
 LABEL_FIXED: str = "af:fixed"
 
+#: Applied when the coder produced no commits — needs human review.
+LABEL_NO_CHANGE: str = "af:no-change"
+
 #: Applied to issues created by hunt scans (dedup fingerprint label).
 LABEL_HUNT: str = "af:hunt"
 
@@ -57,6 +60,11 @@ REQUIRED_LABELS: list[LabelSpec] = [
         name=LABEL_FIXED,
         color="2ea44f",
         description="Issues resolved by the agent-fox fix pipeline",
+    ),
+    LabelSpec(
+        name=LABEL_NO_CHANGE,
+        color="e4e669",
+        description="Fix attempt produced no commits — needs human review",
     ),
     LabelSpec(
         name=LABEL_HUNT,

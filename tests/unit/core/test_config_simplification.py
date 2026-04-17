@@ -28,14 +28,14 @@ _EXPECTED_VISIBLE_SECTIONS = {
     "models",
     "archetypes",
     "archetypes.instances",
-    "security",
+    "platform",
 }
 
 # Sections that must be completely absent from the simplified template.
 _EXPECTED_HIDDEN_SECTIONS = {
     "routing",
     "theme",
-    "platform",
+    "security",
     "knowledge",
     "pricing",
     "planning",
@@ -51,6 +51,7 @@ _EXPECTED_PROMOTED_FIELDS = [
     ("orchestrator", "max_budget_usd"),
     ("orchestrator", "quality_gate"),
     ("models", "coding"),
+    ("platform", "type"),
     ("archetypes", "coder"),
     ("archetypes", "reviewer"),
     ("archetypes", "verifier"),
@@ -132,11 +133,11 @@ class TestTemplateFooter:
         count = template.count("docs/config-reference.md")
         assert count == 1, f"Expected exactly 1 occurrence of 'docs/config-reference.md', got {count}"
 
-    def test_footer_near_end_of_template(self):
-        """Footer appears among the last non-empty lines."""
+    def test_footer_in_header_of_template(self):
+        """Footer URL appears in the header (first 8 non-empty lines) of the template."""
         template = generate_default_config()
-        non_empty_lines = [ln for ln in template.rstrip().split("\n") if ln.strip()]
-        assert _FOOTER in non_empty_lines[-5:], "Footer not in the last 5 non-empty lines of template"
+        non_empty_lines = [ln for ln in template.split("\n") if ln.strip()]
+        assert _FOOTER in non_empty_lines[:8], "Footer URL not in the header area of the template"
 
 
 # ---------------------------------------------------------------------------

@@ -126,14 +126,15 @@ class TestTemplateGeneration:
         template = generate_default_config()
 
         # Sections with promoted fields have active headers
-        for section in ["orchestrator", "archetypes", "models"]:
+        for section in ["orchestrator", "archetypes", "models", "platform"]:
             assert f"[{section}]" in template, f"Missing active section header for [{section}]"
 
-        # Security has no promoted fields — appears as commented header
-        assert "# [security]" in template
+        # Security is hidden — must not appear even as a commented header
+        assert "# [security]" not in template
+        assert "[security]" not in template
 
         # Hidden sections must not appear (even commented)
-        for section in ["routing", "theme", "platform", "knowledge"]:
+        for section in ["routing", "theme", "security", "knowledge"]:
             assert f"[{section}]" not in template, (
                 f"Hidden section [{section}] should not appear in simplified template"
             )

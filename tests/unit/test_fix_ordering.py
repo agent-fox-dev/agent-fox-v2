@@ -947,3 +947,78 @@ class TestEdgeCases:
         await engine._run_issue_check()
 
         assert processed == [10, 20, 30]
+
+
+# ---------------------------------------------------------------------------
+# Regression test for #465: night-shift re-processes closed issues
+# ---------------------------------------------------------------------------
+
+
+class TestDrainSeenDedup:
+    """_drain_issues must not re-process issues already handled this session.
+
+    Regression test for #465: after a fix the platform may still return the
+    closed issue due to API propagation delay.  The ``seen`` set threaded
+    through drain iterations must prevent a second fix attempt.
+    """
+
+    @pytest.mark.asyncio
+    async def test_closed_issue_not_reprocessed_across_drain_iterations(self) -> None:
+        """Issue fixed in iteration N is skipped in iteration N+1 even if the
+        platform still returns it in the re-poll."""
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        issue_100 = _make_issue(100)
+        # The platform always returns issue #100 (simulates propagation delay
+        # where the closed issue keeps appearing in the label query).
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(return_value=[issue_100])
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+
+        fix_calls: list[int] = []
+
+        async def track_fix(issue: IssueResult) -> None:
+            fix_calls.append(issue.number)
+
+        engine._process_fix = track_fix  # type: ignore[assignment]
+
+        await engine._drain_issues()
+
+        # Despite the platform returning #100 on every poll, it must only be
+        # fixed exactly once.
+        assert fix_calls.count(100) == 1, f"Issue #100 was processed {fix_calls.count(100)} time(s); expected exactly 1"
+
+    @pytest.mark.asyncio
+    async def test_seen_set_shared_across_run_issue_check_calls(self) -> None:
+        """_run_issue_check skips issues present in the caller-supplied ``_seen`` set."""
+        from agent_fox.nightshift.engine import NightShiftEngine
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+
+        issue_7 = _make_issue(7)
+        mock_platform = AsyncMock()
+        mock_platform.list_issues_by_label = AsyncMock(return_value=[issue_7])
+
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+
+        fix_calls: list[int] = []
+
+        async def track_fix(issue: IssueResult) -> None:
+            fix_calls.append(issue.number)
+
+        engine._process_fix = track_fix  # type: ignore[assignment]
+
+        # First call: issue #7 not seen yet → should be fixed.
+        already_seen: set[int] = set()
+        await engine._run_issue_check(already_seen)
+        assert 7 in already_seen
+        assert fix_calls == [7]
+
+        # Second call with same set: issue #7 already in seen → must be skipped.
+        await engine._run_issue_check(already_seen)
+        assert fix_calls == [7], "Issue #7 was processed a second time"

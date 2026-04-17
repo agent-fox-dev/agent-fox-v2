@@ -214,7 +214,7 @@ execution time based on historical data, feature heuristics, or preset defaults
 The task graph is persisted in the DuckDB knowledge store across three tables:
 `plan_nodes` (node attributes), `plan_edges` (source/target pairs with edge
 kind), and `plan_meta` (content hash, version, fast mode flag, filtered spec).
-The plan is rebuilt from `.specs/` on every `agent-fox plan` invocation and
+The plan is rebuilt from `.agent-fox/specs/` on every `agent-fox plan` invocation and
 written atomically.
 
 Persistence is designed for forward compatibility. Missing fields receive
@@ -242,7 +242,7 @@ updates the execution order. This is transparent to the operator — the plan
 file on disk is not modified, only the in-memory graph.
 
 **Hot-load discovery**: During sync barriers (periodic pauses in execution),
-the engine checks for new specs that have appeared in `.specs/` since the plan
+the engine checks for new specs that have appeared in `.agent-fox/specs/` since the plan
 was built. A new spec must pass four gates before admission: it is git-tracked
 on develop, it contains all five core artifacts (non-empty), it passes lint
 validation with no error-severity findings, and it is not already fully

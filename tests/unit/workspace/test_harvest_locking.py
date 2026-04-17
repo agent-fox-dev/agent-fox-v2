@@ -186,18 +186,55 @@ class TestLockCoversPostHarvest:
 
 
 class TestDevelopSyncUsesLock:
-    """TS-45-8: _sync_develop_with_remote acquires the merge lock."""
+    """TS-45-8: _sync_develop_with_remote acquires the merge lock when sync is needed.
+
+    Issue #458: rev-list checks are lockless; the lock is only acquired
+    when remote_ahead > 0.
+    """
 
     @pytest.mark.asyncio
-    async def test_sync_acquires_lock(self, repo_root: Path) -> None:
-        """_sync_develop_with_remote acquires and releases the merge lock."""
+    async def test_sync_acquires_lock_when_behind(self, repo_root: Path) -> None:
+        """_sync_develop_with_remote acquires the lock when local is behind remote.
+
+        The lock must be held during actual sync operations (not during the
+        read-only rev-list divergence checks).
+        """
         lock_file = repo_root / ".agent-fox" / "merge.lock"
         lock_was_held: list[bool] = []
 
         async def tracking_run_git(args, cwd, check=True):  # type: ignore[no-untyped-def]
-            # Track whether lock is held during git operations
-            if "rev-list" in args:
+            key = " ".join(args)
+            # Rev-list: remote is 2 commits ahead (triggers lock acquisition)
+            if "rev-list" in key and "develop..origin/develop" in key:
+                return (0, "2\n", "")
+            if "rev-list" in key and "origin/develop..develop" in key:
+                return (0, "0\n", "")
+            # Track whether lock is held during actual sync operations
+            if "merge" in key or ("branch" in key and "-f" in key):
                 lock_was_held.append(lock_file.exists())
+            return (0, "", "")
+
+        with patch(
+            "agent_fox.workspace.develop.run_git",
+            side_effect=tracking_run_git,
+        ):
+            from agent_fox.workspace import _sync_develop_with_remote
+
+            await _sync_develop_with_remote(repo_root)
+
+        # Lock must have been held during sync operations (not just rev-list reads)
+        assert any(lock_was_held), "Lock was not held during sync operations"
+
+    @pytest.mark.asyncio
+    async def test_sync_no_lock_when_in_sync(self, repo_root: Path) -> None:
+        """_sync_develop_with_remote does NOT acquire the lock when already in sync.
+
+        Issue #458 fix: lockless readiness check avoids chatty acquire/release.
+        """
+        lock_file = repo_root / ".agent-fox" / "merge.lock"
+
+        async def tracking_run_git(args, cwd, check=True):  # type: ignore[no-untyped-def]
+            # Remote is not ahead — no sync needed
             return (0, "0\n", "")
 
         with patch(
@@ -208,8 +245,8 @@ class TestDevelopSyncUsesLock:
 
             await _sync_develop_with_remote(repo_root)
 
-        # Lock should have been held during git operations
-        assert any(lock_was_held), "Lock was not held during _sync_develop_with_remote"
+        # Lock file must NOT have been created (no lock acquisition)
+        assert not lock_file.exists(), "Lock was acquired unnecessarily when in sync"
 
 
 # ---------------------------------------------------------------------------

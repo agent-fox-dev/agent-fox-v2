@@ -85,23 +85,14 @@ async def _sync_develop_with_remote(repo_root: Path) -> None:
     Checks commit counts to determine if local is behind, ahead,
     or diverged from remote. Fast-forwards if behind only.
 
-    All operations are wrapped in the merge lock to serialize access
-    to the develop branch (45-REQ-3.2).
+    Read-only divergence checks are performed without the lock.
+    The merge lock is only acquired when actual changes are needed
+    (45-REQ-3.2).
 
     Requirements: 19-REQ-1.6, 19-REQ-1.E1, 19-REQ-1.E4,
                   45-REQ-3.2, 45-REQ-5.1, 45-REQ-5.2, 45-REQ-5.E1, 45-REQ-6.2
     """
-    lock = MergeLock(repo_root)
-    async with lock:
-        await _sync_develop_under_lock(repo_root)
-
-
-async def _sync_develop_under_lock(repo_root: Path) -> None:
-    """Execute the develop sync strategies under the merge lock.
-
-    Called from _sync_develop_with_remote() after the lock is acquired.
-    """
-    # Commits on remote not on local (remote is ahead)
+    # Read-only divergence checks — no lock needed
     _rc, remote_ahead_str, _stderr = await run_git(
         ["rev-list", "--count", "develop..origin/develop"],
         cwd=repo_root,
@@ -109,7 +100,6 @@ async def _sync_develop_under_lock(repo_root: Path) -> None:
     )
     remote_ahead = int(remote_ahead_str.strip()) if remote_ahead_str.strip() else 0
 
-    # Commits on local not on remote (local is ahead)
     _rc, local_ahead_str, _stderr = await run_git(
         ["rev-list", "--count", "origin/develop..develop"],
         cwd=repo_root,
@@ -118,8 +108,21 @@ async def _sync_develop_under_lock(repo_root: Path) -> None:
     local_ahead = int(local_ahead_str.strip()) if local_ahead_str.strip() else 0
 
     if remote_ahead == 0:
-        # Local is up-to-date or ahead — no-op (19-REQ-1.E1)
+        # Local is up-to-date or ahead — nothing to do (19-REQ-1.E1)
         return
+
+    # Remote has new commits — acquire lock before making changes (45-REQ-3.2)
+    lock = MergeLock(repo_root)
+    async with lock:
+        await _sync_develop_under_lock(repo_root, remote_ahead, local_ahead)
+
+
+async def _sync_develop_under_lock(repo_root: Path, remote_ahead: int, local_ahead: int) -> None:
+    """Execute the develop sync strategies under the merge lock.
+
+    Called from _sync_develop_with_remote() after the lock is acquired.
+    The commit counts are pre-computed outside the lock.
+    """
 
     if local_ahead > 0 and remote_ahead > 0:
         # Diverged — attempt rebase to reconcile

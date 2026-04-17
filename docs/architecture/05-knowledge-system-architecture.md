@@ -37,8 +37,7 @@ Knowledge flows through five phases: **Extraction → Ingestion → Lifecycle Ma
   │                                                      │
   │   review_findings ── drift_findings                  │
   │   verification_results ── blocking_decisions          │
-  │   session_outcomes ── execution_outcomes              │
-  │   complexity_assessments ── audit_events              │
+  │   session_outcomes ── audit_events                    │
   └──────────────────────┬───────────────────────────────┘
                          │
               ┌──────────▼──────────┐
@@ -120,8 +119,6 @@ The schema is versioned through a forward-only migration system. The core tables
 
 **Execution History:**
 - `session_outcomes` — Cost, duration, status, and touched paths for every coding session.
-- `execution_outcomes` — Aggregated outcomes per spec (joined with complexity assessments).
-- `complexity_assessments` — Pre-session complexity estimates for task groups.
 - `tool_calls` / `tool_errors` — Tool usage tracking per session.
 
 **Quality Assurance:**
@@ -283,7 +280,7 @@ Audit events are stored both in DuckDB (for querying) and in JSONL sink files (f
 
 When the orchestrator prepares a coding session, context assembly follows this sequence:
 
-1. **Load specification** — The task group's spec files from `.specs/` are read.
+1. **Load specification** — The task group's spec files from `.agent-fox/specs/` are read.
 2. **Select memory facts** — Relevant facts are loaded via confidence filtering → keyword/spec matching → recency-weighted ranking → budget enforcement (Section 6.1).
 3. **Enhance with causal context** — Selected facts are enriched with causally-linked facts from the causal graph (Section 6.2).
 4. **Inject review findings** — For retry attempts, active critical/major review findings from prior sessions on the same spec are injected so the coder can address identified issues.

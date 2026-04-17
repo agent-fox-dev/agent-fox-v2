@@ -28,12 +28,14 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
-from agent_fox.platform.labels import LABEL_FIXED
+from agent_fox.platform.labels import LABEL_FIXED, LABEL_NO_CHANGE
 from agent_fox.platform.protocol import IssueResult
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
 
 if TYPE_CHECKING:
+    import duckdb
+
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
@@ -80,6 +82,7 @@ class FixPipeline:
         task_callback: TaskCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
         spinner_callback: SpinnerCallback | None = None,
+        conn: duckdb.DuckDBPyConnection | None = None,
     ) -> None:
         self._config = config
         self._platform = platform
@@ -87,6 +90,7 @@ class FixPipeline:
         self._task_callback = task_callback
         self._sink = sink_dispatcher
         self._spinner_callback = spinner_callback
+        self._conn = conn
         self._run_id: str = ""
 
     def _update_spinner(self, text: str) -> None:
@@ -232,6 +236,98 @@ class FixPipeline:
         except Exception:
             return "claude-sonnet-4-6"
 
+    def _try_complete_run(self, status: str) -> None:
+        """Mark the runs row as finished (best-effort).
+
+        No-op when conn is not set.  The *status* value should be a
+        ``RunStatus`` string (e.g. ``"completed"`` or ``"interrupted"``).
+        """
+        if self._conn is None:
+            return
+        try:
+            from agent_fox.engine.state import complete_run
+
+            complete_run(self._conn, self._run_id, status)
+        except Exception:
+            logger.debug("Failed to complete run record for run %s", self._run_id, exc_info=True)
+
+    def _record_session_to_db(
+        self,
+        outcome: object,
+        archetype: str,
+        run_id: str,
+        *,
+        node_id: str = "",
+        attempt: int = 1,
+        cost: float = 0.0,
+    ) -> None:
+        """Write a session outcome row to session_outcomes and update runs totals.
+
+        Best-effort: exceptions are logged and swallowed so the pipeline is
+        never interrupted by a telemetry failure.
+        """
+        if self._conn is None:
+            return
+
+        import uuid as _uuid
+        from datetime import UTC, datetime
+
+        from agent_fox.engine.state import (
+            SessionOutcomeRecord,
+            record_session,
+            update_run_totals,
+        )
+
+        try:
+            input_tokens = getattr(outcome, "input_tokens", 0)
+            output_tokens = getattr(outcome, "output_tokens", 0)
+            duration_ms = getattr(outcome, "duration_ms", 0)
+            status = getattr(outcome, "status", "completed")
+            error_message = getattr(outcome, "error_message", None)
+            is_transport_error = getattr(outcome, "is_transport_error", False)
+
+            # Parse spec_name and task_group from node_id (format: spec:group:archetype)
+            parts = node_id.split(":", 2)
+            spec_name = parts[0] if parts else ""
+            task_group = parts[1] if len(parts) > 1 else "0"
+
+            model_id = self._get_model_id(archetype)
+
+            record = SessionOutcomeRecord(
+                id=str(_uuid.uuid4()),
+                spec_name=spec_name,
+                task_group=task_group,
+                node_id=node_id,
+                touched_path="",
+                status=status,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                duration_ms=duration_ms,
+                created_at=datetime.now(UTC).isoformat(),
+                run_id=run_id,
+                attempt=attempt,
+                cost=cost,
+                model=model_id,
+                archetype=archetype,
+                commit_sha="",
+                error_message=error_message,
+                is_transport_error=is_transport_error,
+            )
+            record_session(self._conn, record)
+            update_run_totals(
+                self._conn,
+                run_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost=cost,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to record session to DB for %s",
+                node_id,
+                exc_info=True,
+            )
+
     def _emit_session_event(
         self,
         outcome: object,
@@ -242,6 +338,9 @@ class FixPipeline:
         attempt: int = 1,
     ) -> None:
         """Emit session.complete or session.fail based on outcome status.
+
+        Also writes a row to session_outcomes and updates the runs totals via
+        _record_session_to_db (best-effort).
 
         Best-effort: exceptions from audit infrastructure are logged and
         swallowed so the fix pipeline is never interrupted.
@@ -289,6 +388,7 @@ class FixPipeline:
                 },
             )
         else:
+            cost = 0.0
             emit_audit_event(
                 self._sink,
                 run_id,
@@ -302,6 +402,16 @@ class FixPipeline:
                     "attempt": attempt,
                 },
             )
+
+        # Write to session_outcomes table and update runs totals (best-effort).
+        self._record_session_to_db(
+            outcome,
+            archetype,
+            run_id,
+            node_id=node_id,
+            attempt=attempt,
+            cost=cost,
+        )
 
     # ------------------------------------------------------------------
     # Comment formatting (82-REQ-3.1, 82-REQ-6.1)
@@ -540,7 +650,7 @@ class FixPipeline:
 
         # Post triage comment if we have results
         if triage.criteria or triage.summary:
-            comment = self._format_triage_comment(triage)
+            comment = self._format_triage_comment(triage) + f"\n(run: `{self._run_id}`)"
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, comment
@@ -805,7 +915,7 @@ class FixPipeline:
                     )
 
             # Post review comment
-            review_comment = self._format_review_comment(review_result)
+            review_comment = self._format_review_comment(review_result) + f"\n(run: `{self._run_id}`)"
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     spec.issue_number, review_comment
@@ -831,7 +941,7 @@ class FixPipeline:
                         spec.issue_number,
                         "Fix pipeline exhausted all retries. "
                         "The issue could not be resolved automatically. "
-                        "Manual intervention is required.",
+                        f"Manual intervention is required. (run: `{self._run_id}`)",
                     )
                 except Exception as exc:
                     logger.warning(
@@ -855,29 +965,62 @@ class FixPipeline:
         self,
         issue: IssueResult,
         issue_body: str = "",
+        run_id: str | None = None,
     ) -> FixMetrics:
         """Process an af:fix issue through the full pipeline.
 
         Runs triage -> coder -> reviewer with retry/escalation loop
         inside an isolated git worktree.
 
+        When ``run_id`` is provided (e.g. by the engine that already emitted
+        a ``FIX_START`` lifecycle event), that same id is reused so all audit
+        events share one ``run_id``.  When omitted a fresh id is generated,
+        preserving backward-compatibility for standalone callers.
+
         Returns FixMetrics with aggregated token counts from all sessions.
+
+        Args:
+            issue: The issue to process.
+            issue_body: The issue body text.
+            run_id: Optional run ID to use for all audit events.  When
+                provided (e.g. from NightShiftEngine), the same run_id is
+                shared with the parent lifecycle events so that all events
+                for a single fix pipeline can be retrieved with a single
+                ``SELECT … WHERE run_id = ?`` query.  When omitted a fresh
+                ID is generated (91-REQ-2.1).
 
         Requirements: 61-REQ-6.1, 61-REQ-6.E2, 82-REQ-7.1
         """
         metrics = FixMetrics()
 
-        # Generate a unique run_id for all audit events in this fix invocation
-        # (91-REQ-2.1)
-        self._run_id = generate_run_id()
+        # Use the caller-supplied run_id when available so that lifecycle
+        # events (fix_start / fix_complete) and session events all share the
+        # same identifier.  Fall back to generating a fresh one when called
+        # standalone (91-REQ-2.1).
+        self._run_id = run_id if run_id else generate_run_id()
+
+        # Create a run row in the runs table (best-effort).
+        if self._conn is not None:
+            try:
+                from agent_fox.engine.state import create_run
+
+                create_run(self._conn, self._run_id, f"fix-issue-{issue.number}")
+            except Exception:
+                logger.debug(
+                    "Failed to create run record for issue #%d",
+                    issue.number,
+                    exc_info=True,
+                )
 
         # 61-REQ-6.E2: reject empty issue body
         if not issue_body or not issue_body.strip():
             await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
                 "Insufficient detail in issue body to build a fix. "
-                "Please add more detail describing the problem and expected behavior.",
+                "Please add more detail describing the problem and expected behavior. "
+                f"(run: `{self._run_id}`)",
             )
+            self._try_complete_run("completed")
             return metrics
 
         spec = build_in_memory_spec(issue, issue_body)
@@ -890,7 +1033,7 @@ class FixPipeline:
         try:
             await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                 issue.number,
-                f"Starting fix session on branch `{spec.branch_name}`...",
+                f"Starting fix session on branch `{spec.branch_name}`... (run: `{self._run_id}`)",
             )
         except Exception as exc:
             logger.warning(
@@ -926,6 +1069,7 @@ class FixPipeline:
 
             if not success:
                 # Ladder exhausted — do NOT close issue
+                self._try_complete_run("completed")
                 return metrics
 
             # Optionally push fix branch to upstream remote (93-REQ-3.1).
@@ -944,7 +1088,7 @@ class FixPipeline:
             try:
                 await self._platform.add_issue_comment(  # type: ignore[attr-defined]
                     issue.number,
-                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}`",
+                    f"Fix session failed: {exc}\n\nBranch: `{spec.branch_name}` (run: `{self._run_id}`)",
                 )
             except Exception as comment_exc:
                 logger.warning(
@@ -957,6 +1101,7 @@ class FixPipeline:
                 issue.number,
                 exc,
             )
+            self._try_complete_run("interrupted")
             return metrics
         finally:
             await self._cleanup_workspace(workspace)
@@ -967,7 +1112,7 @@ class FixPipeline:
                     issue.number,
                     f"Fix sessions completed but changes from branch "
                     f"`{spec.branch_name}` could not be merged into `develop`. "
-                    "Manual investigation is required.",
+                    f"Manual investigation is required. (run: `{self._run_id}`)",
                 )
             except Exception as exc:
                 logger.warning(
@@ -975,22 +1120,51 @@ class FixPipeline:
                     issue.number,
                     exc,
                 )
+            self._try_complete_run("completed")
             return metrics
 
-        # Close the originating issue with a comment pointing to the branch.
-        # When harvest_result is "no_changes", the reviewer confirmed PASS
-        # but there are no new commits — the fix is already on develop.
         if harvest_result == "no_changes":
-            close_msg = (
-                f"Fix verified on branch `{spec.branch_name}`. "
-                "No new commits were needed — the fix is already present on `develop`."
+            # Coder produced no commits — leave the issue open for human review.
+            logger.warning(
+                "No changes produced for issue #%d on branch %s — leaving issue open",
+                issue.number,
+                spec.branch_name,
             )
-        else:
-            close_msg = (
-                f"Fix complete on branch `{spec.branch_name}`. "
-                "Changes have been merged into `develop`. "
-                "Create a PR from that branch to land them on `main`."
-            )
+            try:
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
+                    issue.number,
+                    f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
+                    "The issue has been left open for human review. "
+                    f"(run: `{self._run_id}`)",
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to post no-change comment for issue #%d: %s",
+                    issue.number,
+                    exc,
+                )
+            try:
+                await self._platform.assign_label(  # type: ignore[attr-defined]
+                    issue.number,
+                    LABEL_NO_CHANGE,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to assign af:no-change label to issue #%d: %s",
+                    issue.number,
+                    exc,
+                )
+            self._try_complete_run("completed")
+            return metrics
+
+        # harvest_result == "merged": close the originating issue with a comment
+        # pointing to the branch.
+        close_msg = (
+            f"Fix complete on branch `{spec.branch_name}`. "
+            "Changes have been merged into `develop`. "
+            "Create a PR from that branch to land them on `main`."
+            f" (run: `{self._run_id}`)"
+        )
         try:
             await self._platform.close_issue(  # type: ignore[attr-defined]
                 issue.number,
@@ -1021,6 +1195,7 @@ class FixPipeline:
             issue.number,
             spec.branch_name,
         )
+        self._try_complete_run("completed")
         return metrics
 
     async def _push_fix_branch_upstream(

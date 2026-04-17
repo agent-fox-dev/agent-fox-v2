@@ -67,6 +67,101 @@ class TestHarvesterSquashMerge:
         assert int(result.stdout.strip()) == 1, "Squash merge should produce exactly one commit"
 
 
+class TestSquashCommitMessage:
+    """Squash merge uses the feature branch tip commit's message, not SQUASH_MSG."""
+
+    @pytest.mark.asyncio
+    async def test_squash_uses_tip_commit_message(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """The squash commit title should be the feature branch tip's subject,
+        not 'Squashed commit of the following:'."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(
+            ws.path, "new_file.py", "print('hello')\n",
+            message="feat: add greeting module",
+        )
+
+        await harvest(tmp_worktree_repo, ws)
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%s", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        subject = result.stdout.strip()
+        assert subject == "feat: add greeting module"
+        assert "Squashed commit" not in subject
+
+    @pytest.mark.asyncio
+    async def test_squash_multi_commit_uses_tip_subject(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Multi-commit branch uses the tip commit's subject as the title
+        and includes earlier commit subjects in the body."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(
+            ws.path, "file_a.py", "a\n",
+            message="feat: add module A",
+        )
+        add_commit_to_branch(
+            ws.path, "file_b.py", "b\n",
+            message="feat: add module B",
+        )
+
+        await harvest(tmp_worktree_repo, ws)
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%s", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        subject = result.stdout.strip()
+        assert subject == "feat: add module B"
+        assert "Squashed commit" not in subject
+
+        body_result = subprocess.run(
+            ["git", "log", "-1", "--format=%b", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        body = body_result.stdout.strip()
+        assert "- feat: add module A" in body
+
+    @pytest.mark.asyncio
+    async def test_squash_no_author_date_lines(
+        self,
+        tmp_worktree_repo: Path,
+    ) -> None:
+        """Squash commit message must not contain Author: or Date: metadata."""
+        ws = await create_worktree(tmp_worktree_repo, "test_spec", 1)
+        add_commit_to_branch(
+            ws.path, "new_file.py", "content\n",
+            message="fix: resolve edge case",
+        )
+
+        await harvest(tmp_worktree_repo, ws)
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%B", "develop"],
+            cwd=tmp_worktree_repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        full_msg = result.stdout
+        assert "Author:" not in full_msg
+        assert "Date:" not in full_msg
+
+
 class TestHarvesterDivergedSquashMerge:
     """TS-03-11: Harvester squash-merges diverged branches."""
 

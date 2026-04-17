@@ -1221,3 +1221,78 @@ class TestParallelDispatchWithDependencies:
 
         assert state.total_sessions == 6
         assert max_concurrent <= 2
+
+
+# -- Stale run cleanup tests (issue #456) -------------------------------------
+
+
+class TestStaleRunCleanup:
+    """AC-3, AC-5: Stale 'running' runs are cleaned up during _init_run.
+
+    On orchestrator startup, any prior run with status='running' and no
+    completed_at (other than the current run) should be marked as
+    'interrupted'. A failure in cleanup must not abort startup.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stale_runs_marked_interrupted_on_startup(
+        self,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """AC-3: Stale running rows are marked interrupted before the new run is created."""
+        db_conn = _linear_chain_db()
+
+        # Insert two stale 'running' rows directly (simulating prior aborted starts)
+        db_conn.execute(
+            "INSERT INTO runs (id, plan_content_hash, status) VALUES (?, ?, 'running')",
+            ["stale_run_1", "hash_stale"],
+        )
+        db_conn.execute(
+            "INSERT INTO runs (id, plan_content_hash, status) VALUES (?, ?, 'running')",
+            ["stale_run_2", "hash_stale"],
+        )
+
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
+        orchestrator = Orchestrator(
+            config=config,
+            session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
+        )
+
+        await orchestrator.run()
+
+        # Both stale rows must be interrupted
+        for stale_id in ("stale_run_1", "stale_run_2"):
+            row = db_conn.execute(
+                "SELECT status, completed_at FROM runs WHERE id = ?", [stale_id]
+            ).fetchone()
+            assert row is not None, f"Row for {stale_id} not found"
+            assert row[0] == "interrupted", f"{stale_id}: expected interrupted, got {row[0]}"
+            assert row[1] is not None, f"{stale_id}: completed_at should be non-null"
+
+    @pytest.mark.asyncio
+    async def test_cleanup_failure_does_not_abort_startup(
+        self,
+        mock_runner: MockSessionRunner,
+    ) -> None:
+        """AC-5: Exception in cleanup_stale_runs is swallowed; orchestrator starts normally."""
+        db_conn = _linear_chain_db()
+
+        config = OrchestratorConfig(parallel=1, inter_session_delay=0, sync_interval=0, hot_load=False)
+        orchestrator = Orchestrator(
+            config=config,
+            session_runner_factory=lambda nid, **kw: mock_runner,
+            knowledge_db_conn=db_conn,
+        )
+
+        with patch(
+            "agent_fox.engine.state.cleanup_stale_runs",
+            side_effect=RuntimeError("DB exploded"),
+        ):
+            # Must not raise — cleanup failure is only a warning
+            state = await orchestrator.run()
+
+        assert state is not None
+        # All tasks still completed normally
+        for node_id in ("spec:1", "spec:2", "spec:3"):
+            assert state.node_states[node_id] == "completed"

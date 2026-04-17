@@ -106,10 +106,11 @@ class TestDuckDBSinkMultipleTouchedPaths:
     """TS-11-9: DuckDB sink handles multiple touched paths.
 
     Requirement: 11-REQ-5.2
+    Updated: fixes #457 — multiple paths must produce exactly one row (not N rows).
     """
 
-    def test_creates_one_row_per_path(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
-        """Verify 3 touched paths produce 3 rows with same id."""
+    def test_creates_one_row_for_multiple_paths(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify 3 touched paths produce exactly 1 row with comma-delimited touched_path (AC-1, AC-2)."""
         sink = DuckDBSink(knowledge_conn, debug=False)
 
         outcome = SessionOutcome(
@@ -119,9 +120,47 @@ class TestDuckDBSinkMultipleTouchedPaths:
         )
         sink.record_session_outcome(outcome)
 
-        rows = knowledge_conn.execute("SELECT touched_path FROM session_outcomes ORDER BY touched_path").fetchall()
-        assert len(rows) == 3
-        assert [r[0] for r in rows] == ["a.py", "b.py", "c.py"]
+        rows = knowledge_conn.execute("SELECT touched_path FROM session_outcomes").fetchall()
+        assert len(rows) == 1
+        assert rows[0][0] == "a.py,b.py,c.py"
+
+    def test_no_metric_duplication_for_multiple_paths(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify duration/token sums are not inflated when multiple files are touched (AC-4)."""
+        sink = DuckDBSink(knowledge_conn, debug=False)
+
+        outcome = SessionOutcome(
+            spec_name="metrics",
+            touched_paths=["x.py", "y.py"],
+            status="completed",
+            duration_ms=5000,
+            input_tokens=100,
+            output_tokens=200,
+        )
+        sink.record_session_outcome(outcome)
+
+        row = knowledge_conn.execute(
+            "SELECT SUM(duration_ms), SUM(input_tokens), SUM(output_tokens) FROM session_outcomes"
+        ).fetchone()
+        assert row == (5000, 100, 200)
+
+    def test_original_uuid_preserved(self, knowledge_conn: duckdb.DuckDBPyConnection) -> None:
+        """Verify the session UUID is preserved on the single inserted row (AC-5)."""
+        import uuid
+
+        some_uuid = uuid.uuid4()
+        sink = DuckDBSink(knowledge_conn, debug=False)
+
+        outcome = SessionOutcome(
+            id=some_uuid,
+            spec_name="uuid_check",
+            touched_paths=["p.py", "q.py", "r.py"],
+            status="completed",
+        )
+        sink.record_session_outcome(outcome)
+
+        result = knowledge_conn.execute("SELECT id FROM session_outcomes").fetchall()
+        assert len(result) == 1
+        assert str(result[0][0]) == str(some_uuid)
 
 
 # -- Edge Case Tests ---------------------------------------------------------

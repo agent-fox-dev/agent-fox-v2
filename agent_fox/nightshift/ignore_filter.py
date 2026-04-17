@@ -61,8 +61,7 @@ async def filter_ignored(
         )
     except Exception:
         logger.warning(
-            "Failed to fetch af:ignore issues; "
-            "returning all groups unfiltered (fail-open)",
+            "Failed to fetch af:ignore issues; returning all groups unfiltered (fail-open)",
             exc_info=True,
         )
         return list(groups)
@@ -84,8 +83,7 @@ async def filter_ignored(
         all_embeddings = embedder.embed_batch(all_texts)
     except Exception:
         logger.warning(
-            "Embedding computation failed during ignore filtering; "
-            "returning all groups unfiltered (fail-open)",
+            "Embedding computation failed during ignore filtering; returning all groups unfiltered (fail-open)",
             exc_info=True,
         )
         return list(groups)

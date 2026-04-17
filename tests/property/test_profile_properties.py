@@ -29,7 +29,7 @@ def test_layer_order(archetype: str) -> None:
     try:
         profiles_dir = tmp_dir / ".agent-fox" / "profiles"
         profiles_dir.mkdir(parents=True)
-        (profiles_dir / "agent_base.md").write_text("BASE_CONTEXT_CONTENT")
+        (profiles_dir / "agent.md").write_text("BASE_CONTEXT_CONTENT")
         marker = f"PROFILE_{archetype.upper()}_CONTENT"
         (profiles_dir / f"{archetype}.md").write_text(marker)
 

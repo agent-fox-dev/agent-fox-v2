@@ -18,7 +18,7 @@ agent-fox ships with profiles for all four archetypes and their modes:
 
 | Profile file | Archetype | Mode | Purpose |
 |---|---|---|---|
-| `agent_base.md` | (all) | — | Base instructions shared by every agent: project orientation, exploration steps, structure |
+| `agent.md` | (all) | — | Base instructions shared by every agent: project orientation, exploration steps, structure |
 | `coder.md` | coder | — | Implementation agent: test-first workflow, commit discipline, input triage |
 | `coder_fix.md` | coder | fix | Fix-mode variant for `agent-fox fix` pipeline |
 | `reviewer.md` | reviewer | — | Base reviewer (fallback when no mode-specific profile exists) |
@@ -129,7 +129,7 @@ in the Architecture Guide.
 
 The three layers are:
 
-1. **Agent base profile** (`agent_base.md`) — shared instructions for all agents
+1. **Agent base profile** (`agent.md`) — shared instructions for all agents
 2. **Archetype profile** (e.g., `coder.md`) — role-specific behavioral guidance
 3. **Task context** — spec documents, knowledge facts, steering directives,
    prior findings

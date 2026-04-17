@@ -47,7 +47,7 @@ def build_system_prompt(
     """Build the system prompt using 3-layer assembly.
 
     Assembles a prompt from:
-      - Layer 1: Agent base profile from ``agent_base.md`` (loaded via
+      - Layer 1: Agent base profile from ``agent.md`` (loaded via
         :func:`load_profile`; omits if not found).
       - Layer 2: Archetype profile loaded via :func:`load_profile`, with
         mode-aware resolution.
@@ -74,7 +74,7 @@ def build_system_prompt(
     layers: list[str] = []
 
     # Layer 1: agent base profile (replaces CLAUDE.md)
-    base_profile = load_profile("agent_base", project_dir=project_dir)
+    base_profile = load_profile("agent", project_dir=project_dir)
     if base_profile:
         layers.append(base_profile)
 

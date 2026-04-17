@@ -1,11 +1,11 @@
-"""Tests for learned blocking thresholds.
+"""Tests for blocking history and threshold computation.
 
-Test Spec: TS-39-29, TS-39-30, TS-39-31,
-           TS-43-11, TS-43-12, TS-43-13, TS-43-14, TS-43-15,
+Test Spec: TS-39-29, TS-39-30,
+           TS-43-11, TS-43-12, TS-43-13,
            TS-43-E7, TS-43-E8
-Requirements: 39-REQ-10.1, 39-REQ-10.2, 39-REQ-10.3,
-              43-REQ-4.1, 43-REQ-4.2, 43-REQ-4.3, 43-REQ-4.5,
-              43-REQ-4.6, 43-REQ-4.7, 43-REQ-4.E1, 43-REQ-4.E2
+Requirements: 39-REQ-10.1, 39-REQ-10.2,
+              43-REQ-4.1, 43-REQ-4.2, 43-REQ-4.3,
+              43-REQ-4.E1, 43-REQ-4.E2
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from tests.unit.knowledge.conftest import create_schema
 
 
 def _create_blocking_schema(conn: duckdb.DuckDBPyConnection) -> None:
-    """Create blocking history and learned thresholds tables."""
+    """Create blocking history table."""
     create_schema(conn)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS blocking_history (
@@ -33,14 +33,6 @@ def _create_blocking_schema(conn: duckdb.DuckDBPyConnection) -> None:
             blocked BOOLEAN NOT NULL,
             outcome VARCHAR,
             created_at TIMESTAMP DEFAULT current_timestamp
-        );
-
-        CREATE TABLE IF NOT EXISTS learned_thresholds (
-            archetype VARCHAR PRIMARY KEY,
-            threshold INTEGER NOT NULL,
-            confidence FLOAT NOT NULL,
-            sample_count INTEGER NOT NULL,
-            updated_at TIMESTAMP DEFAULT current_timestamp
         );
     """)
 
@@ -137,19 +129,6 @@ class TestBlockingHistory:
         optimal = compute_optimal_threshold(blocking_db, "skeptic", min_decisions=20)
         assert optimal is None
 
-    def test_stored_thresholds(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
-        """TS-39-31: Learned thresholds stored in DuckDB.
-
-        Requirement: 39-REQ-10.3
-        """
-        blocking_db.execute(
-            """INSERT INTO learned_thresholds
-               VALUES ('skeptic', 3, 0.85, 25, current_timestamp)"""
-        )
-        rows = blocking_db.execute("SELECT * FROM learned_thresholds WHERE archetype='skeptic'").fetchall()
-        assert len(rows) == 1
-        # threshold is at index 1
-        assert rows[0][1] == 3
 
 
 # ---------------------------------------------------------------------------
@@ -255,50 +234,6 @@ class TestComputeOptimalThreshold:
         assert threshold is None
 
 
-class TestStoreAndRetrieveThreshold:
-    """TS-43-14: Store and retrieve learned threshold.
-
-    Requirements: 43-REQ-4.5, 43-REQ-4.6
-    """
-
-    def test_store_and_get(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
-        """TS-43-14: Store threshold 3, then retrieve it.
-
-        Requirements: 43-REQ-4.5, 43-REQ-4.6
-        """
-        from agent_fox.knowledge.blocking_history import (
-            get_learned_threshold,
-            store_learned_threshold,
-        )
-
-        store_learned_threshold(blocking_db, "skeptic", 3, 0.85, 25)
-        result = get_learned_threshold(blocking_db, "skeptic")
-        assert result == 3
-
-
-class TestFormatThresholds:
-    """TS-43-15: Format learned thresholds.
-
-    Requirement: 43-REQ-4.7
-    """
-
-    def test_format_output(self, blocking_db: duckdb.DuckDBPyConnection) -> None:
-        """TS-43-15: Format output for learned thresholds.
-
-        Requirement: 43-REQ-4.7
-        """
-        from agent_fox.knowledge.blocking_history import (
-            format_learned_thresholds,
-            store_learned_threshold,
-        )
-
-        store_learned_threshold(blocking_db, "skeptic", 3, 0.85, 25)
-        output = format_learned_thresholds(blocking_db)
-        assert "== Learned Blocking Thresholds ==" in output
-        assert "skeptic" in output
-        assert "threshold=3" in output
-
-
 class TestBlockingEdgeCases:
     """TS-43-E7, TS-43-E8: Blocking edge cases.
 
@@ -349,12 +284,11 @@ class TestBlockingEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-class TestMigrationV13CreatesBlockingTables:
+class TestMigrationCreatesBlockingHistory:
     """Regression for issue #449: blocking_history table missing in production.
 
-    Verifies that run_migrations() creates blocking_history and
-    learned_thresholds so that record_blocking_decision() does not raise
-    CatalogException after review completion.
+    Verifies that run_migrations() creates blocking_history so that
+    record_blocking_decision() does not raise CatalogException.
     """
 
     def test_run_migrations_creates_blocking_history(self) -> None:
@@ -370,7 +304,6 @@ class TestMigrationV13CreatesBlockingTables:
         conn = ddb.connect(":memory:")
         run_migrations(conn)
 
-        # Must not raise CatalogException
         decision = BlockingDecision(
             spec_name="regression_449",
             archetype="skeptic",
@@ -384,39 +317,3 @@ class TestMigrationV13CreatesBlockingTables:
         rows = conn.execute("SELECT spec_name FROM blocking_history").fetchall()
         assert len(rows) == 1
         assert rows[0][0] == "regression_449"
-
-    def test_run_migrations_creates_learned_thresholds(self) -> None:
-        """Regression #449: run_migrations creates learned_thresholds table."""
-        import duckdb as ddb
-
-        from agent_fox.knowledge.blocking_history import (
-            get_learned_threshold,
-            store_learned_threshold,
-        )
-        from agent_fox.knowledge.migrations import run_migrations
-
-        conn = ddb.connect(":memory:")
-        run_migrations(conn)
-
-        # Must not raise CatalogException
-        store_learned_threshold(conn, "skeptic", 4, 0.9, 30)
-        result = get_learned_threshold(conn, "skeptic")
-        assert result == 4
-
-    def test_tables_present_in_table_list(self) -> None:
-        """Regression #449: both tables appear in information_schema after migration."""
-        import duckdb as ddb
-
-        from agent_fox.knowledge.migrations import run_migrations
-
-        conn = ddb.connect(":memory:")
-        run_migrations(conn)
-
-        tables = {
-            r[0]
-            for r in conn.execute(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
-            ).fetchall()
-        }
-        assert "blocking_history" in tables, "blocking_history table missing after run_migrations()"
-        assert "learned_thresholds" in tables, "learned_thresholds table missing after run_migrations()"

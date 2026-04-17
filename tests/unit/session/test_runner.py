@@ -910,7 +910,7 @@ class TestSessionRunnerRecordsToolErrors:
 
 
 class TestSessionRunnerTelemetrySinkFailure:
-    """AC-5: Sink failure in record_tool_call does not crash the session."""
+    """AC-5: Sink failures in telemetry methods do not crash the session."""
 
     @pytest.mark.asyncio
     async def test_record_tool_call_failure_does_not_crash_session(
@@ -948,3 +948,40 @@ class TestSessionRunnerTelemetrySinkFailure:
 
         # Session must complete successfully despite sink failure
         assert outcome.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_record_tool_error_failure_does_not_crash_session(
+        self,
+        workspace_info: WorkspaceInfo,
+        default_config: AgentFoxConfig,
+    ) -> None:
+        """AC-5: If record_tool_error raises, the session returns a result without crashing."""
+        sink = MagicMock()
+        sink.record_tool_call = MagicMock()
+        sink.record_tool_error.side_effect = RuntimeError("DB connection lost")
+        sink.record_session_outcome = MagicMock()
+        sink.emit_audit_event = MagicMock()
+        sink.close = MagicMock()
+
+        dispatcher = SinkDispatcher([sink])
+
+        backend = MockBackend(
+            [
+                ToolUseMessage(tool_name="Bash", tool_input={"command": "make"}),
+                _make_result(is_error=True, error_message="build failed"),
+            ]
+        )
+
+        outcome = await run_session(
+            workspace_info,
+            "test:1",
+            "sys",
+            "task",
+            default_config,
+            backend=backend,  # type: ignore[arg-type]
+            sink_dispatcher=dispatcher,
+            run_id="run-err-sink-fail",
+        )
+
+        # Session must return a result without raising, even though the sink failed
+        assert outcome is not None

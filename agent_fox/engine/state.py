@@ -496,6 +496,47 @@ def complete_run(
     )
 
 
+def cleanup_stale_runs(
+    conn: duckdb.DuckDBPyConnection,
+    current_run_id: str,
+) -> int:
+    """Mark stale running runs as interrupted.
+
+    Any run with status='running' and completed_at IS NULL whose id differs
+    from *current_run_id* is considered an orphan left by a prior aborted
+    start. They are updated to status='interrupted' with the current
+    timestamp so they no longer pollute reports.
+
+    Returns the number of rows updated.
+    """
+    count_row = conn.execute(
+        """
+        SELECT count(*)
+        FROM runs
+        WHERE status = 'running'
+          AND completed_at IS NULL
+          AND id != ?
+        """,
+        [current_run_id],
+    ).fetchone()
+    count = count_row[0] if count_row else 0
+
+    if count:
+        conn.execute(
+            """
+            UPDATE runs
+            SET status = 'interrupted',
+                completed_at = CURRENT_TIMESTAMP
+            WHERE status = 'running'
+              AND completed_at IS NULL
+              AND id != ?
+            """,
+            [current_run_id],
+        )
+
+    return count
+
+
 def load_run(
     conn: duckdb.DuckDBPyConnection,
     run_id: str | None = None,

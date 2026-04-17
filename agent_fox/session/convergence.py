@@ -267,33 +267,20 @@ def resolve_block_threshold(
 ) -> int:
     """Resolve the effective blocking threshold.
 
-    When learned thresholds are enabled and available, uses the learned
-    threshold instead of the configured one. Falls back to the configured
-    threshold when learning is disabled or insufficient data exists.
+    Returns the statically configured threshold.  The learned-threshold
+    infrastructure (learned_thresholds table) was never wired into production
+    and has been removed.  The signature is preserved for backward
+    compatibility with callers.
 
     Args:
         configured_threshold: The statically configured threshold.
         archetype: The archetype type ("skeptic" or "oracle").
-        conn: Optional DuckDB connection for querying learned thresholds.
-        learn_thresholds: Whether threshold learning is enabled.
+        conn: Unused, kept for call-site compatibility.
+        learn_thresholds: Unused, kept for call-site compatibility.
 
     Returns:
-        The effective blocking threshold to use.
-
-    Requirements: 39-REQ-10.2, 39-REQ-10.3
+        The configured blocking threshold.
     """
-    if not learn_thresholds or conn is None:
-        return configured_threshold
-
-    try:
-        from agent_fox.knowledge.blocking_history import get_learned_threshold
-
-        learned = get_learned_threshold(conn, archetype)
-        if learned is not None:
-            return learned
-    except Exception:
-        pass
-
     return configured_threshold
 
 

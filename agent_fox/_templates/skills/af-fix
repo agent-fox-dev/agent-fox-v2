@@ -588,7 +588,10 @@ If PR creation fails for any reason, print a warning and continue:
 ```bash
 git checkout develop
 git pull origin develop
-git merge --squash {branch_name} && git commit --no-edit
+git merge --squash {branch_name}
+# Use the feature branch tip commit's message — never use --no-edit
+# (it produces "Squashed commit of the following:" noise)
+git log -1 --format=%B {branch_name} | git commit -F -
 ```
 
 If the merge produces conflicts:

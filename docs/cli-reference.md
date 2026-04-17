@@ -7,7 +7,7 @@ Complete reference for all `agent-fox` commands, options, and configuration.
 | Command | Description |
 |---------|-------------|
 | `agent-fox init` | Initialize project (creates `.agent-fox/`, develop branch, `.gitignore`, `AGENTS.md`) |
-| `agent-fox plan` | Build execution plan from `.specs/` |
+| `agent-fox plan` | Build execution plan from `.agent-fox/specs/` |
 | `agent-fox code` | Execute the task plan via orchestrator |
 | `agent-fox status` | Show execution progress dashboard |
 | `agent-fox standup` | Generate daily activity report |
@@ -153,9 +153,9 @@ agent-fox plan [OPTIONS]
 | `--spec NAME` | string | all | Plan a single spec |
 | `--analyze` | flag | off | Show parallelism analysis |
 
-Scans `.specs/` for specification folders, parses task groups, builds a
+Scans `.agent-fox/specs/` for specification folders, parses task groups, builds a
 dependency graph, resolves topological ordering, and persists the plan to the
-DuckDB knowledge store. The plan is always rebuilt from `.specs/` on every
+DuckDB knowledge store. The plan is always rebuilt from `.agent-fox/specs/` on every
 invocation.
 
 **Exit codes:** `0` success, `1` plan error.
@@ -190,7 +190,7 @@ Requires a persisted plan in the knowledge store (run `agent-fox plan` first).
 
 When `--watch` is set, the orchestrator does not exit after all tasks complete.
 Instead it enters a sleep-poll loop, re-running the sync barrier every
-`--watch-interval` seconds to discover new specs added to `.specs/`. When new
+`--watch-interval` seconds to discover new specs added to `.agent-fox/specs/`. When new
 ready tasks are found, normal dispatch resumes. This turns a single `code`
 invocation into a long-lived process that picks up new work as it appears.
 
@@ -424,7 +424,7 @@ agent-fox lint-specs [OPTIONS]
 
 Use `agent-fox --json lint-specs` for structured JSON output.
 
-Runs structural validation rules against specs in `.specs/`: missing files,
+Runs structural validation rules against specs in `.agent-fox/specs/`: missing files,
 oversized task groups, missing verification subtasks, missing acceptance
 criteria, broken cross-spec dependencies, and untraced requirements.
 

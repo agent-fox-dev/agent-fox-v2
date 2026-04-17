@@ -32,14 +32,10 @@ logger = logging.getLogger(__name__)
 _KNOWLEDGE_INGESTED_MARKER: str = "<!-- af:knowledge-ingested -->"
 
 # Regex to detect the ingestion marker in an issue body.
-_INGESTED_RE: re.Pattern[str] = re.compile(
-    re.escape(_KNOWLEDGE_INGESTED_MARKER)
-)
+_INGESTED_RE: re.Pattern[str] = re.compile(re.escape(_KNOWLEDGE_INGESTED_MARKER))
 
 # Regex to extract the hunt category from the **Category:** field.
-_CATEGORY_RE: re.Pattern[str] = re.compile(
-    r"\*\*Category:\*\*\s*(\S+)"
-)
+_CATEGORY_RE: re.Pattern[str] = re.compile(r"\*\*Category:\*\*\s*(\S+)")
 
 # Minimum word length for keyword extraction.
 _MIN_KEYWORD_LEN: int = 3
@@ -83,11 +79,7 @@ def _extract_keywords(title: str) -> list[str]:
 
     Requirements: 110-REQ-5.2
     """
-    return [
-        word.lower()
-        for word in re.split(r"\W+", title)
-        if len(word) >= _MIN_KEYWORD_LEN
-    ]
+    return [word.lower() for word in re.split(r"\W+", title) if len(word) >= _MIN_KEYWORD_LEN]
 
 
 def _build_fact_from_issue(issue: IssueResult) -> Fact:
@@ -98,11 +90,7 @@ def _build_fact_from_issue(issue: IssueResult) -> Fact:
     category = extract_category_from_body(issue.body)
     keywords = _extract_keywords(issue.title)
 
-    content = (
-        f"Hunt false positive: {issue.title}. "
-        f"Category: {category}. "
-        f"User marked as af:ignore."
-    )
+    content = f"Hunt false positive: {issue.title}. Category: {category}. User marked as af:ignore."
 
     return Fact(
         id=str(uuid.uuid4()),
@@ -160,10 +148,7 @@ async def ingest_ignore_signals(
     """
     # 110-REQ-5.E3: knowledge store unavailable → skip ingestion entirely.
     if conn is None:
-        logger.warning(
-            "Knowledge store unavailable (conn=None); "
-            "skipping af:ignore ingestion"
-        )
+        logger.warning("Knowledge store unavailable (conn=None); skipping af:ignore ingestion")
         return 0
 
     # Fetch all af:ignore issues (open AND closed) in a single API call.
@@ -174,8 +159,7 @@ async def ingest_ignore_signals(
         )
     except Exception:
         logger.warning(
-            "Failed to fetch af:ignore issues from platform; "
-            "skipping ingestion",
+            "Failed to fetch af:ignore issues from platform; skipping ingestion",
             exc_info=True,
         )
         return 0
@@ -190,8 +174,7 @@ async def ingest_ignore_signals(
         fact = _build_fact_from_issue(issue)
         _write_fact(conn, fact)
         logger.info(
-            "Ingested af:ignore issue #%d '%s' as anti_pattern fact "
-            "(spec_name='nightshift:ignore', confidence=0.9)",
+            "Ingested af:ignore issue #%d '%s' as anti_pattern fact (spec_name='nightshift:ignore', confidence=0.9)",
             issue.number,
             issue.title,
         )
@@ -204,8 +187,7 @@ async def ingest_ignore_signals(
         except Exception:
             # 110-REQ-5.E2: marker update failure is non-fatal.
             logger.warning(
-                "Failed to append ingestion marker to issue #%d; "
-                "continuing (re-ingestion possible on next scan)",
+                "Failed to append ingestion marker to issue #%d; continuing (re-ingestion possible on next scan)",
                 issue.number,
                 exc_info=True,
             )

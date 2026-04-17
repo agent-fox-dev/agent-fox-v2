@@ -32,7 +32,7 @@ Controls project directory locations.
 
 | Field | Type | Default | Bounds | Description |
 |-------|------|---------|--------|-------------|
-| `spec_root` | str | `".agent-fox/specs"` | — | Spec root directory relative to project root. Legacy projects using `.specs/` are auto-detected with a deprecation warning. |
+| `spec_root` | str | `".agent-fox/specs"` | — | Spec root directory relative to project root. Legacy projects using `.agent-fox/specs/` are auto-detected with a deprecation warning. |
 
 ```toml
 [paths]
