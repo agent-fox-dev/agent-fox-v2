@@ -28,7 +28,7 @@ from agent_fox.nightshift.fix_types import (
     TriageResult,
 )
 from agent_fox.nightshift.spec_builder import InMemorySpec, build_in_memory_spec
-from agent_fox.platform.labels import LABEL_FIXED
+from agent_fox.platform.labels import LABEL_FIXED, LABEL_NO_CHANGE
 from agent_fox.platform.protocol import IssueResult
 from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallback, TaskEvent
 from agent_fox.workspace import WorkspaceInfo
@@ -1123,22 +1123,48 @@ class FixPipeline:
             self._try_complete_run("completed")
             return metrics
 
-        # Close the originating issue with a comment pointing to the branch.
-        # When harvest_result is "no_changes", the reviewer confirmed PASS
-        # but there are no new commits — the fix is already on develop.
         if harvest_result == "no_changes":
-            close_msg = (
-                f"Fix verified on branch `{spec.branch_name}`. "
-                "No new commits were needed — the fix is already present on `develop`."
-                f" (run: `{self._run_id}`)"
+            # Coder produced no commits — leave the issue open for human review.
+            logger.warning(
+                "No changes produced for issue #%d on branch %s — leaving issue open",
+                issue.number,
+                spec.branch_name,
             )
-        else:
-            close_msg = (
-                f"Fix complete on branch `{spec.branch_name}`. "
-                "Changes have been merged into `develop`. "
-                "Create a PR from that branch to land them on `main`."
-                f" (run: `{self._run_id}`)"
-            )
+            try:
+                await self._platform.add_issue_comment(  # type: ignore[attr-defined]
+                    issue.number,
+                    f"Fix attempt on branch `{spec.branch_name}` produced no new commits. "
+                    "The issue has been left open for human review. "
+                    f"(run: `{self._run_id}`)",
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to post no-change comment for issue #%d: %s",
+                    issue.number,
+                    exc,
+                )
+            try:
+                await self._platform.assign_label(  # type: ignore[attr-defined]
+                    issue.number,
+                    LABEL_NO_CHANGE,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to assign af:no-change label to issue #%d: %s",
+                    issue.number,
+                    exc,
+                )
+            self._try_complete_run("completed")
+            return metrics
+
+        # harvest_result == "merged": close the originating issue with a comment
+        # pointing to the branch.
+        close_msg = (
+            f"Fix complete on branch `{spec.branch_name}`. "
+            "Changes have been merged into `develop`. "
+            "Create a PR from that branch to land them on `main`."
+            f" (run: `{self._run_id}`)"
+        )
         try:
             await self._platform.close_issue(  # type: ignore[attr-defined]
                 issue.number,

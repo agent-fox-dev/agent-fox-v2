@@ -409,16 +409,20 @@ class TestSuccessfulFixHarvestsAndCloses:
         assert any("manual" in c.lower() or "merge" in c.lower() for c in comments)
 
     @pytest.mark.asyncio
-    async def test_issue_closed_when_harvest_returns_empty_and_review_passed(self) -> None:
-        """When reviewer PASS but harvest has no new commits, issue IS closed.
+    async def test_issue_not_closed_when_harvest_returns_no_changes(self) -> None:
+        """When reviewer PASS but harvest has no new commits, issue is NOT closed.
 
-        The fix is already present on develop — the issue should be closed
-        to prevent the night-shift from endlessly re-processing it.
+        The coder produced no commits — leave the issue open and add a comment
+        explaining that no changes were made. Assign af:no-change label.
+
+        Requirements: AC-1, AC-2, AC-3 (issue #466)
         """
         import json
+        import re
         from unittest.mock import AsyncMock, MagicMock, patch
 
         from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.labels import LABEL_FIXED, LABEL_NO_CHANGE
         from agent_fox.platform.protocol import IssueResult
 
         config = MagicMock()
@@ -470,18 +474,30 @@ class TestSuccessfulFixHarvestsAndCloses:
             html_url="https://github.com/test/repo/issues/11",
         )
 
-        # harvest() returns [] (no new commits), post_harvest_integrate succeeds
+        # harvest() returns [] (no new commits)
         with (
             patch("agent_fox.workspace.harvest.harvest", AsyncMock(return_value=[])),
             patch("agent_fox.workspace.harvest.post_harvest_integrate", AsyncMock()),
         ):
             await pipeline.process_issue(issue, issue_body="Something is broken.")
 
-        # Issue IS closed — reviewer confirmed PASS and fix is already on develop
-        mock_platform.close_issue.assert_awaited_once()
-        # Close message should mention fix already present
-        close_msg = str(mock_platform.close_issue.call_args)
-        assert "already present" in close_msg.lower()
+        # AC-1: Issue must NOT be closed and af:fixed must NOT be assigned
+        mock_platform.close_issue.assert_not_awaited()
+        assigned_labels = [call.args[1] for call in mock_platform.assign_label.call_args_list]
+        assert LABEL_FIXED not in assigned_labels, (
+            f"af:fixed must not be assigned when no changes produced, got labels: {assigned_labels}"
+        )
+
+        # AC-2: A comment mentioning no changes must be posted
+        comments = [str(call) for call in mock_platform.add_issue_comment.call_args_list]
+        assert any(
+            re.search(r"no changes|no commits|no new commits", c, re.IGNORECASE) for c in comments
+        ), f"Expected 'no changes'/'no commits' comment, got: {comments}"
+
+        # AC-3: af:no-change label must be assigned
+        assert LABEL_NO_CHANGE in assigned_labels, (
+            f"af:no-change must be assigned when no changes produced, got labels: {assigned_labels}"
+        )
 
     @pytest.mark.asyncio
     async def test_issue_not_closed_on_session_failure(self) -> None:
