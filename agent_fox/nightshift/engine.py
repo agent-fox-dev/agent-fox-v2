@@ -97,6 +97,10 @@ class NightShiftEngine:
         self._embedder = embedder
         self.state = NightShiftState()
         self._hunt_scan_in_progress = False
+        # Track issue numbers processed in this run to guard against
+        # re-processing issues that were closed/fixed but still returned
+        # by the platform API due to eventual consistency (issue #465).
+        self._processed_issues: set[int] = set()
 
     def _check_cost_limit(self) -> bool:
         """Check whether the cost limit has been reached.
@@ -187,10 +191,12 @@ class NightShiftEngine:
         # even if the platform does not honour the sort parameters (71-REQ-1.E1).
         issues = sorted(issues, key=lambda i: i.number)
 
-        # Skip issues already processed in this drain session.  The platform
-        # may return a recently-closed issue due to propagation delay; the
-        # ``seen`` set prevents re-processing it in a subsequent iteration.
-        issues = [i for i in issues if i.number not in seen]
+        # Skip issues already processed in this drain session or prior runs.
+        # The platform API may return recently-closed issues due to eventual
+        # consistency (issue #465).  The ``seen`` set covers superseded and
+        # staleness-closed issues within the current drain; the instance-level
+        # ``_processed_issues`` set covers issues handled in earlier runs.
+        issues = [i for i in issues if i.number not in seen and i.number not in self._processed_issues]
         if not issues:
             self.state.hunt_scans_completed += 1
             return
@@ -289,6 +295,10 @@ class NightShiftEngine:
                     issue_num,
                     exc_info=True,
                 )
+            finally:
+                # Mark issue as processed regardless of outcome so it is
+                # not picked up again in subsequent scan cycles (issue #465).
+                self._processed_issues.add(issue_num)
 
             # Post-fix staleness check (71-REQ-5.1, 71-REQ-5.E3)
             if fix_succeeded:
@@ -628,7 +638,11 @@ class NightShiftEngine:
 
             await self._run_issue_check(seen)
 
-            # Re-poll to see if any af:fix issues remain
+            # Re-poll to see if any af:fix issues remain.
+            # Filter already-processed issues from the re-poll result so that
+            # recently-closed issues returned by the platform due to eventual
+            # consistency do not cause spurious additional drain iterations
+            # (issue #465).
             try:
                 remaining = await self._platform.list_issues_by_label(  # type: ignore[attr-defined]
                     LABEL_FIX,
@@ -646,7 +660,7 @@ class NightShiftEngine:
             # Filter out issues already handled this session so that a
             # recently-closed issue returned by a stale platform response
             # does not trigger another fix iteration.
-            remaining = [r for r in remaining if r.number not in seen]
+            remaining = [r for r in remaining if r.number not in seen and r.number not in self._processed_issues]
             if not remaining:
                 return True
 
