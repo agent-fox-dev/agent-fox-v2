@@ -533,7 +533,7 @@ class NightShiftEngine:
 
         effective_body = issue_body if issue_body else getattr(issue, "body", "")
         try:
-            metrics = await pipeline.process_issue(issue, issue_body=effective_body)
+            metrics = await pipeline.process_issue(issue, issue_body=effective_body, run_id=fix_run_id)
             self.state.total_sessions += getattr(metrics, "sessions_run", 0)
             self.state.total_cost += self._calculate_fix_cost(metrics)
             self.state.issues_fixed += 1

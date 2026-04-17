@@ -965,11 +965,17 @@ class FixPipeline:
         self,
         issue: IssueResult,
         issue_body: str = "",
+        run_id: str | None = None,
     ) -> FixMetrics:
         """Process an af:fix issue through the full pipeline.
 
         Runs triage -> coder -> reviewer with retry/escalation loop
         inside an isolated git worktree.
+
+        When ``run_id`` is provided (e.g. by the engine that already emitted
+        a ``FIX_START`` lifecycle event), that same id is reused so all audit
+        events share one ``run_id``.  When omitted a fresh id is generated,
+        preserving backward-compatibility for standalone callers.
 
         Returns FixMetrics with aggregated token counts from all sessions.
 
@@ -977,9 +983,10 @@ class FixPipeline:
         """
         metrics = FixMetrics()
 
-        # Generate a unique run_id for all audit events in this fix invocation
+        # Use the caller-supplied run_id (to share it with FIX_START/FIX_COMPLETE
+        # lifecycle events) or generate a fresh one for standalone invocations.
         # (91-REQ-2.1)
-        self._run_id = generate_run_id()
+        self._run_id = run_id if run_id is not None else generate_run_id()
 
         # Create a run row in the runs table (best-effort).
         if self._conn is not None:

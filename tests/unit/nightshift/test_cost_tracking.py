@@ -287,6 +287,112 @@ class TestProcessIssueGeneratesRunId:
         )
         assert len(set(captured_ids)) == 2, "Each process_issue call must generate a distinct run_id"
 
+    @pytest.mark.asyncio
+    async def test_process_issue_accepts_caller_run_id(self) -> None:
+        """When run_id is supplied, process_issue uses it without generating a new one."""
+        from agent_fox.nightshift.fix_pipeline import FixPipeline
+        from agent_fox.platform.protocol import IssueResult
+
+        config = _make_config()
+        mock_platform = AsyncMock()
+        pipeline = FixPipeline(config, mock_platform)
+
+        caller_run_id = "20260417_081238_edb1db"
+        issue = IssueResult(number=99, title="Test issue", html_url="http://example.com/99")
+
+        generate_called: list[int] = []
+
+        with (
+            patch.object(pipeline, "_setup_workspace", AsyncMock(return_value=_mock_workspace())),
+            patch.object(pipeline, "_cleanup_workspace", AsyncMock()),
+            patch.object(pipeline, "_run_triage", AsyncMock(return_value=MagicMock(criteria=[], summary=""))),
+            patch.object(pipeline, "_coder_review_loop", AsyncMock(return_value=False)),
+            patch(
+                "agent_fox.nightshift.fix_pipeline.generate_run_id",
+                side_effect=lambda: generate_called.append(1) or "should-not-be-used",
+            ),
+        ):
+            await pipeline.process_issue(issue, issue_body="fix bug", run_id=caller_run_id)
+
+        assert pipeline._run_id == caller_run_id, (  # type: ignore[attr-defined]
+            "process_issue must use the provided run_id, not generate a new one"
+        )
+        assert len(generate_called) == 0, (
+            "generate_run_id must NOT be called when a run_id is already provided"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TS-91-5b: engine propagates fix_run_id to FixPipeline.process_issue
+# Requirement: 91-REQ-2.1
+# ---------------------------------------------------------------------------
+
+
+class TestEnginePropagatessRunId:
+    """Engine passes its fix_run_id to pipeline so all events share one run_id."""
+
+    @pytest.mark.asyncio
+    async def test_engine_passes_fix_run_id_to_process_issue(self) -> None:
+        """_process_fix generates one run_id and forwards it to process_issue."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from agent_fox.nightshift.engine import NightShiftEngine
+        from agent_fox.platform.protocol import IssueResult
+
+        config = MagicMock()
+        config.orchestrator.max_cost = None
+        config.orchestrator.max_sessions = None
+        config.night_shift.push_fix_branch = False
+
+        mock_platform = AsyncMock()
+        engine = NightShiftEngine(config=config, platform=mock_platform)
+
+        issue = IssueResult(number=7, title="A bug", html_url="http://example.com/7")
+        generated_ids: list[str] = []
+
+        from agent_fox.knowledge.audit import generate_run_id as real_generate_run_id
+
+        def _track_generate() -> str:
+            rid = real_generate_run_id()
+            generated_ids.append(rid)
+            return rid
+
+        mock_metrics = MagicMock()
+        mock_metrics.sessions_run = 0
+        mock_metrics.input_tokens = 0
+        mock_metrics.output_tokens = 0
+        mock_metrics.cache_read_input_tokens = 0
+        mock_metrics.cache_creation_input_tokens = 0
+
+        received_run_ids: list[str | None] = []
+
+        async def _fake_process_issue(
+            issue: object,
+            issue_body: str = "",
+            run_id: str | None = None,
+        ) -> object:
+            received_run_ids.append(run_id)
+            return mock_metrics
+
+        with (
+            patch("agent_fox.nightshift.engine.generate_run_id", side_effect=_track_generate),
+            patch("agent_fox.nightshift.engine.FixPipeline") as mock_cls,
+        ):
+            mock_pipeline = MagicMock()
+            mock_pipeline.process_issue = _fake_process_issue
+            mock_cls.return_value = mock_pipeline
+
+            await engine._process_fix(issue, issue_body="details")
+
+        # Engine should have generated exactly one run_id
+        assert len(generated_ids) == 1, f"Expected one generate_run_id call, got {len(generated_ids)}"
+        fix_run_id = generated_ids[0]
+
+        # That same id must have been forwarded to process_issue
+        assert received_run_ids == [fix_run_id], (
+            f"process_issue received run_id={received_run_ids!r} but engine generated {fix_run_id!r}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # TS-91-6: _run_session passes sink and run_id to run_session
