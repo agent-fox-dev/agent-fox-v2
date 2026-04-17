@@ -677,22 +677,10 @@ class NodeSessionRunner:
                 },
             )
 
-        # 40-REQ-11.3: Emit harvest.complete on successful harvest
-        if touched_files and status == "completed":
-            emit_audit_event(
-                self._sink,
-                self._run_id,
-                AuditEventType.HARVEST_COMPLETE,
-                node_id=node_id,
-                archetype=self._archetype,
-                payload={
-                    "commit_sha": commit_sha,
-                    "facts_extracted": 0,
-                    "findings_persisted": 0,
-                },
-            )
-
         # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
+        # NOTE: harvest.complete is emitted by extract_and_store_knowledge
+        # (knowledge_harvest.py) with real fact metadata. Do NOT emit it here
+        # — the stale direct emission caused duplicate events (issue #482).
         if status == "completed":
             await self._extract_knowledge_and_findings(
                 node_id,
