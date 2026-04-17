@@ -37,8 +37,7 @@ Knowledge flows through five phases: **Extraction → Ingestion → Lifecycle Ma
   │                                                      │
   │   review_findings ── drift_findings                  │
   │   verification_results ── blocking_decisions          │
-  │   session_outcomes ── execution_outcomes              │
-  │   complexity_assessments ── audit_events              │
+  │   session_outcomes ── audit_events                    │
   └──────────────────────┬───────────────────────────────┘
                          │
               ┌──────────▼──────────┐
@@ -120,8 +119,6 @@ The schema is versioned through a forward-only migration system. The core tables
 
 **Execution History:**
 - `session_outcomes` — Cost, duration, status, and touched paths for every coding session.
-- `execution_outcomes` — Aggregated outcomes per spec (joined with complexity assessments).
-- `complexity_assessments` — Pre-session complexity estimates for task groups.
 - `tool_calls` / `tool_errors` — Tool usage tracking per session.
 
 **Quality Assurance:**

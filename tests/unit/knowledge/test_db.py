@@ -30,8 +30,6 @@ EXPECTED_TABLES = {
     "tool_errors",
     "review_findings",
     "verification_results",
-    "complexity_assessments",
-    "execution_outcomes",
     "drift_findings",
     "audit_events",
     # Added by migration v8 (spec 95: entity graph)
@@ -45,7 +43,6 @@ EXPECTED_TABLES = {
     "runs",
     # Added by migration v13 (issue #449: blocking history)
     "blocking_history",
-    "learned_thresholds",
 }
 
 
@@ -85,25 +82,12 @@ class TestSchemaVersionRecordedOnCreation:
         rows = db.connection.execute(
             "SELECT version, applied_at, description FROM schema_version ORDER BY version"
         ).fetchall()
-        # v1..v13 (review, routing, drift, confidence, audit, security category,
-        #          entity graph, multi-language entity graph, keywords, plan state,
-        #          drop stale UNIQUE from plan_nodes, blocking_history tables)
-        assert len(rows) == 13
+        assert len(rows) == 14
         assert rows[0][0] == 1
         assert rows[0][1] is not None  # applied_at is a valid timestamp
         assert len(rows[0][2]) > 0  # description is non-empty
-        assert rows[1][0] == 2
-        assert rows[2][0] == 3
-        assert rows[3][0] == 4
-        assert rows[4][0] == 5
-        assert rows[5][0] == 6
-        assert rows[6][0] == 7
-        assert rows[7][0] == 8
-        assert rows[8][0] == 9
-        assert rows[9][0] == 10
-        assert rows[10][0] == 11
-        assert rows[11][0] == 12
-        assert rows[12][0] == 13
+        for i, expected_version in enumerate(range(1, 15)):
+            assert rows[i][0] == expected_version
         db.close()
 
 
@@ -159,10 +143,7 @@ class TestSchemaInitializationIdempotent:
         db2.open()
         count = db2.connection.execute("SELECT COUNT(*) FROM schema_version").fetchone()
         assert count is not None
-        # v1..v13 (review, routing, drift, confidence, audit, security category,
-        #          entity graph, multi-language entity graph, keywords, plan state,
-        #          drop stale UNIQUE from plan_nodes, blocking_history tables)
-        assert count[0] == 13
+        assert count[0] == 14
         db2.close()
 
 
