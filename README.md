@@ -1,7 +1,3 @@
-# agent-fox
-
-Built exclusively for Claude.
-
 ## Before agent-fox
 
 You write a spec, then sit in front of your terminal babysitting an AI agent
@@ -129,3 +125,5 @@ agent-fox draws on ideas from the following research:
   design choices around fact extraction, supersession, and retrieval.
   [GitHub](https://github.com/Shichun-Liu/Agent-Memory-Paper-List)
 
+---
+Built exclusively for Claude.
