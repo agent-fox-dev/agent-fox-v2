@@ -5,6 +5,10 @@ Test Spec: TS-36-3, TS-36-8, TS-36-9, TS-36-E1, TS-36-E2, TS-36-E3,
 Requirements: 36-REQ-1.1 through 36-REQ-1.3, 36-REQ-1.E1, 36-REQ-2.E1,
               36-REQ-2.E2, 36-REQ-3.1, 36-REQ-3.2,
               45-REQ-5.1, 45-REQ-6.2
+
+Issue #458: Lockless readiness check — merge lock must NOT be acquired
+when no sync is needed (AC-1), and must be acquired exactly once when
+sync is needed (AC-2, AC-3).
 """
 
 from __future__ import annotations
@@ -500,3 +504,86 @@ class TestNoOpIdempotency:
         assert not any("merge" in cmd for cmd in all_cmds)
         assert not any("rebase" in cmd for cmd in all_cmds)
         assert not any("branch -f" in cmd for cmd in all_cmds)
+
+
+# ---------------------------------------------------------------------------
+# Issue #458: Lockless Readiness Check
+# ---------------------------------------------------------------------------
+
+
+class TestLocklessReadinessCheck:
+    """Issue #458: The merge lock must NOT be acquired when no sync work is
+    needed (branches already in sync). The lock must be acquired exactly once
+    when sync work is required.
+
+    AC-1: In-sync → MergeLock never acquired.
+    AC-2: Behind (fast-forward) → MergeLock acquired exactly once.
+    AC-3: Diverged → MergeLock acquired exactly once.
+    """
+
+    @pytest.mark.asyncio
+    async def test_ac1_in_sync_no_lock_acquired(self, tmp_path: Path) -> None:
+        """AC-1: When local develop is in sync, MergeLock.acquire is never called."""
+        mock_run_git, _ = _make_synced_mock(local_ahead=0, remote_ahead=0)
+
+        with (
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.MergeLock") as mock_lock_cls,
+        ):
+            await _sync_develop_with_remote(tmp_path)
+
+        # MergeLock should never have been instantiated when in sync
+        mock_lock_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ac1_local_ahead_no_lock_acquired(self, tmp_path: Path) -> None:
+        """AC-1 (local ahead variant): Local ahead, remote not ahead → no lock."""
+        mock_run_git, _ = _make_synced_mock(local_ahead=3, remote_ahead=0)
+
+        with (
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.MergeLock") as mock_lock_cls,
+        ):
+            await _sync_develop_with_remote(tmp_path)
+
+        mock_lock_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ac2_behind_lock_acquired_exactly_once(self, tmp_path: Path) -> None:
+        """AC-2: When local is behind (fast-forward case), lock acquired exactly once."""
+        mock_run_git, _ = _make_synced_mock(local_ahead=0, remote_ahead=2)
+
+        mock_lock_instance = AsyncMock()
+        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
+        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.MergeLock", return_value=mock_lock_instance) as mock_lock_cls,
+        ):
+            await _sync_develop_with_remote(tmp_path)
+
+        mock_lock_cls.assert_called_once_with(tmp_path)
+        mock_lock_instance.__aenter__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_ac3_diverged_lock_acquired_exactly_once(self, tmp_path: Path) -> None:
+        """AC-3: When diverged, lock acquired exactly once and reconciliation runs."""
+        mock_run_git, calls = _make_diverged_mock(rebase_fails=False)
+
+        mock_lock_instance = AsyncMock()
+        mock_lock_instance.__aenter__ = AsyncMock(return_value=mock_lock_instance)
+        mock_lock_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("agent_fox.workspace.develop.run_git", side_effect=mock_run_git),
+            patch("agent_fox.workspace.develop.MergeLock", return_value=mock_lock_instance) as mock_lock_cls,
+        ):
+            await _sync_develop_with_remote(tmp_path)
+
+        mock_lock_cls.assert_called_once_with(tmp_path)
+        mock_lock_instance.__aenter__.assert_awaited_once()
+
+        # Reconciliation (rebase) must have run inside the lock context
+        all_cmds = [" ".join(c) for c in calls]
+        assert any("rebase" in cmd and "origin/develop" in cmd for cmd in all_cmds)
