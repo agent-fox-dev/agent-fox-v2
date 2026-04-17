@@ -126,6 +126,47 @@ async def _clean_conflicting_untracked(
             logger.debug("Could not remove untracked file %s", full)
 
 
+async def _build_squash_message(
+    repo_root: Path,
+    feature_branch: str,
+    dev_branch: str,
+) -> str:
+    """Build a clean commit message for a squash merge.
+
+    Uses the tip commit's full message as the commit message.  For
+    multi-commit branches, appends the earlier commit subjects as a
+    bullet list so they are not lost.
+    """
+    _, tip_msg, _ = await run_git(
+        ["log", "-1", "--format=%B", feature_branch],
+        cwd=repo_root,
+        check=False,
+    )
+    msg = tip_msg.strip() if tip_msg else ""
+    if not msg:
+        return f"Squash merge {feature_branch}"
+
+    _, count_str, _ = await run_git(
+        ["rev-list", "--count", f"{dev_branch}..{feature_branch}"],
+        cwd=repo_root,
+        check=False,
+    )
+    count = int(count_str.strip()) if count_str and count_str.strip().isdigit() else 1
+
+    if count > 1:
+        _, all_subjects, _ = await run_git(
+            ["log", "--format=- %s", f"{dev_branch}..{feature_branch}"],
+            cwd=repo_root,
+            check=False,
+        )
+        if all_subjects:
+            other_lines = all_subjects.strip().splitlines()[1:]
+            if other_lines:
+                msg += "\n\n" + "\n".join(other_lines)
+
+    return msg
+
+
 async def _harvest_under_lock(
     repo_root: Path,
     workspace: WorkspaceInfo,
@@ -202,8 +243,10 @@ async def _harvest_under_lock(
             check=False,
         )
         if diff_rc != 0:
-            # Staged changes exist — commit using the SQUASH_MSG
-            await run_git(["commit", "--no-edit"], cwd=repo_root)
+            msg = await _build_squash_message(
+                repo_root, workspace.branch, dev_branch,
+            )
+            await run_git(["commit", "-m", msg], cwd=repo_root)
 
     logger.info(
         "Squash merge of '%s' into '%s' succeeded",
