@@ -140,11 +140,20 @@ def enrich_extraction_with_causal(
     return base_prompt + addendum
 
 
+def _is_valid_uuid(s: str) -> bool:
+    """Return True if *s* is a well-formed UUID string."""
+    try:
+        uuid.UUID(s)
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
 def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
     """Parse causal link pairs from the extraction model's response.
 
-    Returns a list of (cause_id, effect_id) tuples. Silently skips
-    malformed entries.
+    Returns a list of (cause_id, effect_id) tuples. Skips entries where
+    either ID is missing, not a string, or not a valid UUID.
     """
     data = extract_json_array(extraction_response, repair_truncated=True)
     if data is None:
@@ -164,10 +173,17 @@ def parse_causal_links(extraction_response: str) -> list[tuple[str, str]]:
             continue
         cause_id = item.get("cause_id")
         effect_id = item.get("effect_id")
-        if isinstance(cause_id, str) and isinstance(effect_id, str):
-            links.append((cause_id, effect_id))
-        else:
+        if not isinstance(cause_id, str) or not isinstance(effect_id, str):
             logger.debug("Skipping malformed causal link entry: %s", item)
+            continue
+        if not _is_valid_uuid(cause_id) or not _is_valid_uuid(effect_id):
+            logger.warning(
+                "Skipping causal link with malformed UUID: cause_id=%s, effect_id=%s",
+                cause_id,
+                effect_id,
+            )
+            continue
+        links.append((cause_id, effect_id))
     return links
 
 

@@ -20,6 +20,8 @@ from agent_fox.engine.session_lifecycle import NodeSessionRunner
 from agent_fox.knowledge.db import KnowledgeDB
 from agent_fox.workspace import WorkspaceInfo
 
+from agent_fox.knowledge.sink import SessionOutcome
+
 _MOCK_KB = MagicMock(spec=KnowledgeDB)
 
 # ---------------------------------------------------------------------------
@@ -238,3 +240,82 @@ class TestExecuteErrorHandling:
 
         assert "type error in foo" in captured_prompts["task"]
         assert "retry attempt 2" in captured_prompts["task"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Regression: no duplicate session_outcomes rows (fixes #473)
+# ---------------------------------------------------------------------------
+
+
+class TestNoDuplicateSessionOutcomeWrite:
+    """Verify _run_and_harvest does not write session outcomes to the sink.
+
+    Session outcomes are written exclusively by SessionResultHandler.process()
+    via state.record_session(). The old sink-based path caused duplicate rows
+    in the session_outcomes table (issue #473).
+    """
+
+    @pytest.mark.asyncio
+    async def test_run_and_harvest_does_not_call_sink_record_session_outcome(self) -> None:
+        """_run_and_harvest must not dispatch record_session_outcome to sinks."""
+        config = AgentFoxConfig()
+        sink = MagicMock()
+        sink.record_session_outcome = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec:1",
+            config,
+            knowledge_db=_MOCK_KB,
+            sink_dispatcher=sink,
+        )
+
+        workspace = WorkspaceInfo(
+            path=Path("/tmp/ws"),
+            spec_name="spec",
+            task_group=1,
+            branch="feature/spec/1",
+        )
+
+        fake_outcome = SessionOutcome(
+            spec_name="spec",
+            task_group="1",
+            node_id="spec:1",
+            status="completed",
+            input_tokens=100,
+            output_tokens=200,
+            duration_ms=5000,
+        )
+
+        with (
+            patch.object(
+                runner,
+                "_execute_session",
+                new_callable=AsyncMock,
+                return_value=fake_outcome,
+            ),
+            patch.object(
+                runner,
+                "_harvest_and_integrate",
+                new_callable=AsyncMock,
+                return_value=("completed", None, []),
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle._capture_develop_head",
+                new_callable=AsyncMock,
+                return_value="abc123",
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle.emit_audit_event",
+            ),
+            patch.object(
+                runner,
+                "_extract_knowledge_and_findings",
+                new_callable=AsyncMock,
+            ),
+        ):
+            record = await runner._run_and_harvest(
+                "spec:1", 1, workspace, "sys", "task", Path("/tmp"),
+            )
+
+        assert record.status == "completed"
+        sink.record_session_outcome.assert_not_called()
