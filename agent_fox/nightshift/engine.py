@@ -528,6 +528,7 @@ class NightShiftEngine:
             task_callback=self._task_callback,
             sink_dispatcher=self._sink,
             spinner_callback=self._spinner_callback,
+            conn=self._conn,
         )
 
         effective_body = issue_body if issue_body else getattr(issue, "body", "")
