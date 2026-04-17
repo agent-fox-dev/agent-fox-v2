@@ -23,7 +23,7 @@ def test_3_layer_order(tmp_path: Path) -> None:
     profiles_dir.mkdir(parents=True)
 
     # Layer 1: agent base profile
-    (profiles_dir / "agent_base.md").write_text("PROJECT_CONTEXT_CONTENT")
+    (profiles_dir / "agent.md").write_text("PROJECT_CONTEXT_CONTENT")
 
     # Layer 2: custom archetype profile
     (profiles_dir / "coder.md").write_text("PROFILE_CONTENT_MARKER")
@@ -44,10 +44,10 @@ def test_3_layer_order(tmp_path: Path) -> None:
     assert idx_base < idx_profile < idx_task
 
 
-def test_missing_agent_base(tmp_path: Path) -> None:
-    """TS-99-E1: Prompt assembly works without project-level agent_base.
+def test_missing_agent_profile(tmp_path: Path) -> None:
+    """TS-99-E1: Prompt assembly works without project-level agent profile.
 
-    The package-default agent_base.md is always available, so Layer 1
+    The package-default agent.md is always available, so Layer 1
     is populated from the built-in template.
 
     Requirement: 99-REQ-1.E1
