@@ -29,6 +29,7 @@ from agent_fox.knowledge.embeddings import EmbeddingGenerator
 from agent_fox.knowledge.git_mining import mine_git_patterns
 from agent_fox.knowledge.ingest import KnowledgeIngestor
 from agent_fox.knowledge.static_analysis import analyze_codebase
+from agent_fox.ui.progress import SpinnerCallback
 
 logger = logging.getLogger("agent_fox.knowledge.onboard")
 
@@ -151,6 +152,7 @@ async def run_onboard(
     fragile_threshold: int = 20,
     cochange_threshold: int = 5,
     max_files: int = 0,
+    spinner_callback: SpinnerCallback | None = None,
 ) -> OnboardResult:
     """Run the onboarding pipeline and return aggregated results.
 
@@ -182,6 +184,9 @@ async def run_onboard(
         fragile_threshold: Min commits to flag as fragile (default: 20).
         cochange_threshold: Min co-occurrences for a pattern (default: 5).
         max_files: Max source files for code analysis (0 = all).
+        spinner_callback: Optional callable invoked before each phase with a
+            short descriptive string (e.g. ``"Phase 1: entity graph…"``).
+            Pass ``None`` (default) to suppress spinner updates.
 
     Returns:
         OnboardResult with per-phase counts and timing.
@@ -211,6 +216,8 @@ async def run_onboard(
         result.phases_skipped.append("entities")
         logger.info("Skipping entity graph phase (--skip-entities)")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 1: entity graph analysis…")
         logger.info("Phase 1: entity graph analysis")
         try:
             analysis = analyze_codebase(project_root, conn)
@@ -234,6 +241,8 @@ async def run_onboard(
         result.phases_skipped.append("ingestion")
         logger.info("Skipping ingestion phase (--skip-ingestion)")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 2: bootstrap ingestion…")
         logger.info("Phase 2: bootstrap ingestion")
         embedder = EmbeddingGenerator(config.knowledge)
         ingestor = KnowledgeIngestor(conn, embedder, project_root)
@@ -279,6 +288,8 @@ async def run_onboard(
         # 101-REQ-4.E1: skip mining for non-git repositories
         logger.warning("Skipping git pattern mining: not a git repository")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 3: git pattern mining…")
         logger.info("Phase 3: git pattern mining")
         try:
             mining = mine_git_patterns(
@@ -309,6 +320,8 @@ async def run_onboard(
         result.phases_skipped.append("code_analysis")
         logger.info("Skipping code analysis phase (--skip-code-analysis)")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 4: LLM code analysis…")
         logger.info("Phase 4: LLM code analysis")
         try:
             code_result = await analyze_code_with_llm(
@@ -337,6 +350,8 @@ async def run_onboard(
         result.phases_skipped.append("doc_mining")
         logger.info("Skipping doc mining phase (--skip-doc-mining)")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 5: LLM documentation mining…")
         logger.info("Phase 5: LLM documentation mining")
         try:
             doc_result = await mine_docs_with_llm(
@@ -364,6 +379,8 @@ async def run_onboard(
         result.phases_skipped.append("embeddings")
         logger.info("Skipping embedding phase (--skip-embeddings)")
     else:
+        if spinner_callback:
+            spinner_callback("Phase 6: embedding generation…")
         logger.info("Phase 6: embedding generation")
         try:
             embedder = EmbeddingGenerator(config.knowledge)

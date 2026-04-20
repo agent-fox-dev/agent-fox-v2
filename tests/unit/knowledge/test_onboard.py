@@ -781,3 +781,151 @@ class TestRunOnboardEdgeCases:
         assert result.adrs_ingested == 3
         assert result.errata_ingested == 1
         assert result.git_commits_ingested == 0
+
+
+class TestSpinnerCallback:
+    """AC-2, AC-5: spinner_callback is called per phase and defaults to None."""
+
+    @pytest.mark.asyncio
+    async def test_spinner_callback_called_per_active_phase(
+        self, tmp_path: Path, agent_config: AgentFoxConfig, mock_db: MagicMock
+    ) -> None:
+        """AC-2: spinner_callback is invoked at least once per non-skipped phase."""
+        # Create a .git directory so Phase 3 (git pattern mining) is not skipped
+        (tmp_path / ".git").mkdir()
+        mock_ingestor = _make_mock_ingestor()
+        calls: list[str] = []
+
+        with (
+            patch(
+                "agent_fox.knowledge.onboard.analyze_codebase",
+                return_value=AnalysisResult(0, 0, 0),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.KnowledgeIngestor",
+                return_value=mock_ingestor,
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_git_patterns",
+                return_value=MiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.analyze_code_with_llm",
+                new_callable=AsyncMock,
+                return_value=CodeAnalysisResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_docs_with_llm",
+                new_callable=AsyncMock,
+                return_value=DocMiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard._generate_missing_embeddings",
+                return_value=(0, 0),
+            ),
+        ):
+            await run_onboard(
+                tmp_path,
+                agent_config,
+                mock_db,
+                spinner_callback=calls.append,
+            )
+
+        # Should have been called once for each of the six phases
+        assert len(calls) == 6
+        # Each call must have a non-empty string mentioning the phase number
+        for i, text in enumerate(calls, start=1):
+            assert isinstance(text, str) and text.strip(), f"Call {i} was empty"
+            assert str(i) in text, f"Phase {i} not mentioned in spinner text: {text!r}"
+
+    @pytest.mark.asyncio
+    async def test_spinner_callback_not_called_for_skipped_phases(
+        self, tmp_path: Path, agent_config: AgentFoxConfig, mock_db: MagicMock
+    ) -> None:
+        """AC-2: spinner_callback is NOT called for skipped phases."""
+        # Create a .git directory so Phase 3 is eligible (but we skip phases 1 and 6)
+        (tmp_path / ".git").mkdir()
+        mock_ingestor = _make_mock_ingestor()
+        calls: list[str] = []
+
+        with (
+            patch(
+                "agent_fox.knowledge.onboard.analyze_codebase",
+                return_value=AnalysisResult(0, 0, 0),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.KnowledgeIngestor",
+                return_value=mock_ingestor,
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_git_patterns",
+                return_value=MiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.analyze_code_with_llm",
+                new_callable=AsyncMock,
+                return_value=CodeAnalysisResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_docs_with_llm",
+                new_callable=AsyncMock,
+                return_value=DocMiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard._generate_missing_embeddings",
+                return_value=(0, 0),
+            ),
+        ):
+            await run_onboard(
+                tmp_path,
+                agent_config,
+                mock_db,
+                skip_entities=True,
+                skip_embeddings=True,
+                spinner_callback=calls.append,
+            )
+
+        # Only 4 active phases (phases 2-5); phases 1 and 6 were skipped
+        assert len(calls) == 4
+        for text in calls:
+            assert "Phase 1" not in text
+            assert "Phase 6" not in text
+
+    @pytest.mark.asyncio
+    async def test_no_spinner_callback_runs_without_error(
+        self, tmp_path: Path, agent_config: AgentFoxConfig, mock_db: MagicMock
+    ) -> None:
+        """AC-5: run_onboard works fine when spinner_callback is None (default)."""
+        mock_ingestor = _make_mock_ingestor()
+        with (
+            patch(
+                "agent_fox.knowledge.onboard.analyze_codebase",
+                return_value=AnalysisResult(0, 0, 0),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.KnowledgeIngestor",
+                return_value=mock_ingestor,
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_git_patterns",
+                return_value=MiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.analyze_code_with_llm",
+                new_callable=AsyncMock,
+                return_value=CodeAnalysisResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard.mine_docs_with_llm",
+                new_callable=AsyncMock,
+                return_value=DocMiningResult(),
+            ),
+            patch(
+                "agent_fox.knowledge.onboard._generate_missing_embeddings",
+                return_value=(0, 0),
+            ),
+        ):
+            # No spinner_callback argument — should use default None
+            result = await run_onboard(tmp_path, agent_config, mock_db)
+
+        assert isinstance(result, OnboardResult)

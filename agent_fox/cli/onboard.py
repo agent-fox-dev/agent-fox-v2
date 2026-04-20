@@ -21,6 +21,8 @@ import click
 from agent_fox.core.config import load_config
 from agent_fox.knowledge.db import open_knowledge_store
 from agent_fox.knowledge.onboard import OnboardResult, run_onboard
+from agent_fox.ui.display import create_theme
+from agent_fox.ui.progress import ProgressDisplay
 
 logger = logging.getLogger(__name__)
 
@@ -178,26 +180,35 @@ def onboard_cmd(
     config_path = project_root / ".agent-fox" / "config.toml"
     config = load_config(config_path)
 
+    # Set up progress spinner (suppressed in JSON mode).
+    theme = create_theme(config.theme)
+    progress = ProgressDisplay(theme, quiet=json_mode)
+    progress.start()
+
     # Open knowledge store and run the pipeline.
-    with open_knowledge_store(config.knowledge) as db:
-        result = asyncio.run(
-            run_onboard(
-                project_root,
-                config,
-                db,
-                skip_entities=skip_entities,
-                skip_ingestion=skip_ingestion,
-                skip_mining=skip_mining,
-                skip_code_analysis=skip_code_analysis,
-                skip_doc_mining=skip_doc_mining,
-                skip_embeddings=skip_embeddings,
-                model=model,
-                mining_days=mining_days,
-                fragile_threshold=fragile_threshold,
-                cochange_threshold=cochange_threshold,
-                max_files=max_files,
+    try:
+        with open_knowledge_store(config.knowledge) as db:
+            result = asyncio.run(
+                run_onboard(
+                    project_root,
+                    config,
+                    db,
+                    skip_entities=skip_entities,
+                    skip_ingestion=skip_ingestion,
+                    skip_mining=skip_mining,
+                    skip_code_analysis=skip_code_analysis,
+                    skip_doc_mining=skip_doc_mining,
+                    skip_embeddings=skip_embeddings,
+                    model=model,
+                    mining_days=mining_days,
+                    fragile_threshold=fragile_threshold,
+                    cochange_threshold=cochange_threshold,
+                    max_files=max_files,
+                    spinner_callback=progress.update_spinner_text,
+                )
             )
-        )
+    finally:
+        progress.stop()
 
     # Output results.
     # Requirements: 101-REQ-1.4, 101-REQ-1.5
