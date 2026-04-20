@@ -493,3 +493,142 @@ class TestEdgeCases:
 
         config = NightShiftConfig(quality_gate_timeout=10)
         assert config.quality_gate_timeout == 60
+
+
+# ---------------------------------------------------------------------------
+# TS-493-1: Test-file error annotation
+# Issue: #493
+# ---------------------------------------------------------------------------
+
+
+class TestTestFileAnnotation:
+    """Regression tests for test-file error annotation in quality gate output.
+
+    Issue #493: mypy import-not-found errors in test files (negative tests)
+    were misinterpreted as real missing modules.
+    """
+
+    def test_annotate_test_file_errors_tags_test_paths(self) -> None:
+        """Errors in tests/ paths get the [TEST FILE] annotation."""
+        from agent_fox.nightshift.categories.quality_gate import (
+            _annotate_test_file_errors,
+        )
+
+        output = (
+            "tests/unit/security/test_relocation.py:58: error: Cannot find "
+            'implementation or library stub for module named "agent_fox.hooks.security"'
+            "  [import-not-found]\n"
+            "agent_fox/engine/session_lifecycle.py:42: error: Incompatible return "
+            "value type  [return-value]\n"
+        )
+        result = _annotate_test_file_errors(output)
+
+        assert "[TEST FILE — may be intentional]" in result
+        # Only the test file line should be annotated
+        lines = result.strip().splitlines()
+        assert "[TEST FILE" in lines[0]
+        assert "[TEST FILE" not in lines[1]
+
+    def test_annotate_preserves_non_test_errors(self) -> None:
+        """Errors in non-test paths are not modified."""
+        from agent_fox.nightshift.categories.quality_gate import (
+            _annotate_test_file_errors,
+        )
+
+        output = "agent_fox/core/client.py:10: error: Missing return  [return-value]\n"
+        result = _annotate_test_file_errors(output)
+        assert result == output
+
+    def test_annotate_handles_empty_output(self) -> None:
+        """Empty output is returned unchanged."""
+        from agent_fox.nightshift.categories.quality_gate import (
+            _annotate_test_file_errors,
+        )
+
+        assert _annotate_test_file_errors("") == ""
+
+    def test_format_failures_annotates_type_check_output(self) -> None:
+        """_format_failures annotates test-file errors for TYPE checks."""
+        from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+        from agent_fox.nightshift.categories.quality_gate import _format_failures
+
+        mypy_check = CheckDescriptor(name="mypy", command=["mypy"], category=CheckCategory.TYPE)
+        output = "tests/unit/foo.py:10: error: Missing type  [type-arg]\nSome other line\n"
+        result = _format_failures([(mypy_check, output, 1)])
+
+        assert "[TEST FILE — may be intentional]" in result
+
+    def test_format_failures_annotates_lint_check_output(self) -> None:
+        """_format_failures annotates test-file errors for LINT checks."""
+        from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+        from agent_fox.nightshift.categories.quality_gate import _format_failures
+
+        ruff_check = CheckDescriptor(name="ruff", command=["ruff"], category=CheckCategory.LINT)
+        output = "tests/prop/test_x.py:5: warning: unused import  [F401]\n"
+        result = _format_failures([(ruff_check, output, 1)])
+
+        assert "[TEST FILE — may be intentional]" in result
+
+    def test_format_failures_skips_annotation_for_test_checks(self) -> None:
+        """_format_failures does NOT annotate TEST-category check output."""
+        from agent_fox.fix.checks import CheckCategory, CheckDescriptor
+        from agent_fox.nightshift.categories.quality_gate import _format_failures
+
+        pytest_check = CheckDescriptor(name="pytest", command=["pytest"], category=CheckCategory.TEST)
+        output = "tests/unit/foo.py:10: error: assert False  [assertion]\n"
+        result = _format_failures([(pytest_check, output, 1)])
+
+        assert "[TEST FILE — may be intentional]" not in result
+
+
+# ---------------------------------------------------------------------------
+# TS-493-2: Prompt contains negative-test guidance
+# Issue: #493
+# ---------------------------------------------------------------------------
+
+
+class TestPromptGuidance:
+    """Verify the quality gate prompt includes negative test guidance."""
+
+    def test_prompt_mentions_pytest_raises(self) -> None:
+        """QUALITY_GATE_PROMPT must mention pytest.raises pattern."""
+        from agent_fox.nightshift.categories.quality_gate import QUALITY_GATE_PROMPT
+
+        assert "pytest.raises" in QUALITY_GATE_PROMPT
+
+    def test_prompt_mentions_test_file_annotation(self) -> None:
+        """QUALITY_GATE_PROMPT must reference the [TEST FILE] tag."""
+        from agent_fox.nightshift.categories.quality_gate import QUALITY_GATE_PROMPT
+
+        assert "TEST FILE" in QUALITY_GATE_PROMPT
+
+
+# ---------------------------------------------------------------------------
+# TS-493-3: Critic prompt contains structural false-positive rules
+# Issue: #493
+# ---------------------------------------------------------------------------
+
+
+class TestCriticFalsePositiveRules:
+    """Verify the critic system prompt includes structural FP patterns."""
+
+    def test_critic_prompt_mentions_import_errors_in_tests(self) -> None:
+        """Critic prompt must warn about import errors in test files."""
+        from agent_fox.nightshift.critic import _CRITIC_SYSTEM_PROMPT
+
+        assert "import-not-found" in _CRITIC_SYSTEM_PROMPT.lower() or (
+            "import error" in _CRITIC_SYSTEM_PROMPT.lower()
+            and "test file" in _CRITIC_SYSTEM_PROMPT.lower()
+        )
+
+    def test_critic_prompt_mentions_pytest_raises(self) -> None:
+        """Critic prompt must reference the pytest.raises pattern."""
+        from agent_fox.nightshift.critic import _CRITIC_SYSTEM_PROMPT
+
+        assert "pytest.raises" in _CRITIC_SYSTEM_PROMPT
+
+    def test_critic_prompt_mentions_generated_files(self) -> None:
+        """Critic prompt must warn about generated/vendored file FPs."""
+        from agent_fox.nightshift.critic import _CRITIC_SYSTEM_PROMPT
+
+        assert "generated" in _CRITIC_SYSTEM_PROMPT.lower() or "vendored" in _CRITIC_SYSTEM_PROMPT.lower()
