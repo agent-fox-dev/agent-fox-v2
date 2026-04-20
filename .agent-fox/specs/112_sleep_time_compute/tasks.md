@@ -141,7 +141,7 @@ reference `SleepConfig`.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 112-REQ-4.* met
 
-- [ ] 5. Checkpoint - Sleep tasks complete
+- [x] 5. Checkpoint - Sleep tasks complete
   - Ensure all task-level tests pass.
   - Run `uv run pytest -q tests/unit/knowledge/test_sleep_compute.py tests/unit/knowledge/test_context_rewriter.py tests/unit/knowledge/test_bundle_builder.py`
 

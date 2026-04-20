@@ -15,9 +15,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
-from agent_fox.knowledge.sleep_compute import (  # noqa: F401
-    SleepContext,
-)
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -42,6 +39,9 @@ from agent_fox.knowledge.retrieval import (  # noqa: F401
     _keyword_signal,
     _load_cached_bundle,
     _load_context_preamble,
+)
+from agent_fox.knowledge.sleep_compute import (  # noqa: F401
+    SleepContext,
 )
 from agent_fox.nightshift.daemon import SharedBudget
 from agent_fox.nightshift.streams import SleepComputeStream  # noqa: F401

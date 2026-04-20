@@ -15,12 +15,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import duckdb
-from agent_fox.knowledge.sleep_compute import (  # noqa: F401
-    SleepContext,
-    SleepTaskResult,
-    upsert_artifact,
-)
-from agent_fox.knowledge.sleep_tasks.bundle_builder import BundleBuilder  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Imports from non-existent modules — will trigger ImportError at collection
@@ -32,6 +26,12 @@ from agent_fox.core.config import SleepConfig  # noqa: F401
 # ---------------------------------------------------------------------------
 from agent_fox.knowledge.migrations import run_migrations
 from agent_fox.knowledge.retrieval import _keyword_signal
+from agent_fox.knowledge.sleep_compute import (  # noqa: F401
+    SleepContext,
+    SleepTaskResult,
+    upsert_artifact,
+)
+from agent_fox.knowledge.sleep_tasks.bundle_builder import BundleBuilder  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Sleep artifacts DDL

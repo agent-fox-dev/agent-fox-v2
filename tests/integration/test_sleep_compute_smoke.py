@@ -13,12 +13,6 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
-from agent_fox.knowledge.sleep_compute import (  # noqa: F401
-    SleepComputer,
-    SleepComputeResult,
-    SleepContext,
-    SleepTaskResult,
-)
 
 # ---------------------------------------------------------------------------
 # Imports from non-existent modules — will trigger ImportError at collection
@@ -34,6 +28,12 @@ from agent_fox.core.config import (
 from agent_fox.engine.barrier import run_sync_barrier_sequence
 from agent_fox.knowledge.migrations import run_migrations
 from agent_fox.knowledge.retrieval import AdaptiveRetriever
+from agent_fox.knowledge.sleep_compute import (  # noqa: F401
+    SleepComputer,
+    SleepComputeResult,
+    SleepContext,
+    SleepTaskResult,
+)
 from agent_fox.nightshift.daemon import SharedBudget
 from agent_fox.nightshift.streams import SleepComputeStream  # noqa: F401
 

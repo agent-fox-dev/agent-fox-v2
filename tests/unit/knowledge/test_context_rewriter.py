@@ -16,12 +16,6 @@ from unittest.mock import AsyncMock, patch
 
 import duckdb
 import pytest
-from agent_fox.knowledge.sleep_compute import (  # noqa: F401
-    SleepContext,
-    SleepTaskResult,
-    upsert_artifact,
-)
-from agent_fox.knowledge.sleep_tasks.context_rewriter import ContextRewriter  # noqa: F401
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -34,6 +28,12 @@ from agent_fox.core.config import SleepConfig  # noqa: F401
 # Existing imports
 # ---------------------------------------------------------------------------
 from agent_fox.knowledge.migrations import run_migrations
+from agent_fox.knowledge.sleep_compute import (  # noqa: F401
+    SleepContext,
+    SleepTaskResult,
+    upsert_artifact,
+)
+from agent_fox.knowledge.sleep_tasks.context_rewriter import ContextRewriter  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Sleep artifacts DDL
