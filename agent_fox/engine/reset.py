@@ -36,6 +36,51 @@ logger = logging.getLogger(__name__)
 _RESETTABLE_STATUSES = frozenset({"failed", "blocked", "in_progress"})
 
 
+_SESSION_TABLES_ALL = (
+    "runs",
+    "session_outcomes",
+    "review_findings",
+    "verification_results",
+    "drift_findings",
+    "blocking_history",
+)
+
+
+def _clear_session_tables(
+    db_conn: duckdb.DuckDBPyConnection | None,
+    *,
+    spec_names: set[str] | None = None,
+) -> None:
+    """Delete stale session-scoped data so the next run starts clean.
+
+    When *spec_names* is ``None``, all rows are deleted (used by full resets).
+    When *spec_names* is provided, only rows matching those specs are removed
+    from tables that have a ``spec_name`` column; tables without one (``runs``)
+    are always fully cleared because a stale terminal ``run_status`` causes a
+    death-loop regardless of which spec triggered it.
+    """
+    if db_conn is None:
+        return
+    try:
+        db_conn.execute("DELETE FROM runs")
+        if spec_names is None:
+            for table in _SESSION_TABLES_ALL:
+                if table == "runs":
+                    continue
+                db_conn.execute(f"DELETE FROM {table}")  # noqa: S608
+        else:
+            specs = list(spec_names)
+            for table in _SESSION_TABLES_ALL:
+                if table == "runs":
+                    continue
+                db_conn.execute(
+                    f"DELETE FROM {table} WHERE spec_name = ANY(?)",  # noqa: S608
+                    [specs],
+                )
+    except Exception:
+        logger.debug("Failed to clear session tables", exc_info=True)
+
+
 def _persist_resets(
     db_conn: duckdb.DuckDBPyConnection | None,
     task_ids: list[str],
@@ -217,6 +262,8 @@ def reset_all(
             state.blocked_reasons.pop(task_id, None)
         _persist_resets(db_conn, reset_tasks)
 
+    _clear_session_tables(db_conn)
+
     return ResetResult(
         reset_tasks=reset_tasks,
         unblocked_tasks=[],  # Full reset has no cascade concept
@@ -310,6 +357,10 @@ def reset_task(
     # Persist updated state to DB
     _persist_resets(db_conn, reset_tasks + unblocked_tasks)
 
+    all_ids = reset_tasks + unblocked_tasks
+    spec_names = {parse_node_id(tid).spec_name for tid in all_ids}
+    _clear_session_tables(db_conn, spec_names=spec_names)
+
     return ResetResult(
         reset_tasks=reset_tasks,
         unblocked_tasks=unblocked_tasks,
@@ -386,6 +437,8 @@ def reset_spec(
     if non_pending:
         _persist_resets(db_conn, spec_node_ids)
 
+    _clear_session_tables(db_conn, spec_names={spec_name})
+
     return ResetResult(
         reset_tasks=non_pending,
         unblocked_tasks=[],
@@ -431,6 +484,9 @@ def _perform_hard_reset(
 
     # Persist resets to DB
     _persist_resets(db_conn, affected_ids)
+
+    # Clear session-scoped tables so the next run starts clean (issue #501)
+    _clear_session_tables(db_conn)
 
     return HardResetResult(
         reset_tasks=affected_ids,
