@@ -58,8 +58,8 @@ class TestFactExtractionAfterSession:
         (tmp_path / ".agent-fox").mkdir(exist_ok=True)
         (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
 
-        # Create spec dir so assemble_context doesn't fail
-        spec_dir = Path.cwd() / ".specs" / "test_spec"
+        # Create spec dir under tmp_path so assemble_context doesn't fail
+        spec_dir = tmp_path / ".agent-fox" / "specs" / "test_spec"
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
@@ -105,7 +105,7 @@ class TestFactExtractionAfterSession:
         (tmp_path / ".agent-fox").mkdir(exist_ok=True)
         (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
 
-        spec_dir = Path.cwd() / ".specs" / "test_spec"
+        spec_dir = tmp_path / ".agent-fox" / "specs" / "test_spec"
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
@@ -146,7 +146,7 @@ class TestFactExtractionAfterSession:
         workspace = _make_workspace(tmp_path)
         outcome = _make_outcome(status="failed")
 
-        spec_dir = Path.cwd() / ".specs" / "test_spec"
+        spec_dir = tmp_path / ".agent-fox" / "specs" / "test_spec"
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
@@ -189,7 +189,7 @@ class TestFactExtractionAfterSession:
         (tmp_path / ".agent-fox").mkdir(exist_ok=True)
         (tmp_path / ".agent-fox" / "session-summary.json").write_text(json.dumps(summary))
 
-        spec_dir = Path.cwd() / ".specs" / "test_spec"
+        spec_dir = tmp_path / ".agent-fox" / "specs" / "test_spec"
         spec_dir.mkdir(parents=True, exist_ok=True)
 
         config = AgentFoxConfig()
