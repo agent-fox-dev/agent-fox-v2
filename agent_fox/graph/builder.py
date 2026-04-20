@@ -235,9 +235,16 @@ def _add_cross_spec_edges(
 
         # Propagate to direct intra-spec predecessors that are review nodes.
         # This covers auto_pre nodes (skeptic/oracle) that gate the target.
+        #
+        # Exception: reviewer:pre-review nodes are exempt — they validate
+        # spec content (requirements, design), not upstream implementation,
+        # so they can run before upstream specs complete.  Running them
+        # early surfaces blockers before coder work begins (fixes #476).
         for pred_id in intra_preds.get(target_id, []):
             pred_node = nodes.get(pred_id)
             if pred_node is not None and pred_node.archetype != "coder":
+                if pred_node.archetype == "reviewer" and pred_node.mode == "pre-review":
+                    continue
                 edges.append(Edge(source=source_id, target=pred_id, kind="cross_spec"))
 
     return edges

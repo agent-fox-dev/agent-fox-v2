@@ -34,59 +34,109 @@ def _spec_number(spec_name: str) -> tuple[int, str]:
         return (float("inf"), spec_name)  # type: ignore[return-value]
 
 
-def _interleave_by_spec(
-    ready: list[str],
-    duration_hints: dict[str, int] | None = None,
-) -> list[str]:
-    """Order ready tasks with spec-fair round-robin interleaving.
+def _is_auto_pre(node_id: str) -> bool:
+    """Check if a node is an auto_pre archetype (group 0).
 
-    1. Group tasks by spec name (everything before first ':' in node ID).
-    2. Sort spec groups by spec number ascending (numeric prefix).
-    3. Within each group, sort by duration descending (if hints), else
-       alphabetically. Hinted tasks come before unhinted tasks.
-    4. Interleave across groups: take one from each spec per round.
+    Group 0 is reserved for auto_pre archetype nodes (pre-review,
+    drift-review, skeptic, etc.).  Coder groups start at 1.
+
+    Requirements: 69-REQ-1.1
+    """
+    parts = node_id.split(":")
+    return len(parts) >= 2 and parts[1] == "0"
+
+
+def _spec_round_robin(
+    tasks: list[str],
+    duration_hints: dict[str, int] | None = None,
+    fan_out_weights: dict[str, int] | None = None,
+) -> list[str]:
+    """Group by spec, sort within groups, and round-robin interleave.
 
     Args:
-        ready: List of ready node IDs.
-        duration_hints: Optional mapping of node_id -> predicted duration ms.
-
-    Returns:
-        Spec-fair-ordered list of node IDs.
-
-    Requirements: 69-REQ-1.1, 69-REQ-1.3, 69-REQ-2.1, 69-REQ-2.2, 69-REQ-2.3
+        tasks: List of node IDs to interleave.
+        duration_hints: Optional per-node duration hints.
+        fan_out_weights: Optional per-spec fan-out weights.  When
+            provided, specs are sorted by fan-out descending (highest
+            impact first) with ties broken by spec number ascending.
     """
-    if not ready:
+    if not tasks:
         return []
 
-    # Group tasks by spec name
     groups: dict[str, list[str]] = {}
-    for node_id in ready:
+    for node_id in tasks:
         spec = _spec_name(node_id)
         groups.setdefault(spec, []).append(node_id)
 
-    # Sort spec groups by spec number ascending
-    sorted_specs = sorted(groups.keys(), key=_spec_number)
+    if fan_out_weights:
+        sorted_specs = sorted(
+            groups.keys(),
+            key=lambda s: (-fan_out_weights.get(s, 0), *_spec_number(s)),
+        )
+    else:
+        sorted_specs = sorted(groups.keys(), key=_spec_number)
 
-    # Sort within each group
     sorted_groups: list[list[str]] = []
     for spec in sorted_specs:
-        tasks = groups[spec]
+        spec_tasks = groups[spec]
         if duration_hints:
-            hinted = [(t, duration_hints[t]) for t in tasks if t in duration_hints]
-            unhinted = [t for t in tasks if t not in duration_hints]
+            hinted = [(t, duration_hints[t]) for t in spec_tasks if t in duration_hints]
+            unhinted = [t for t in spec_tasks if t not in duration_hints]
             hinted.sort(key=lambda x: x[1], reverse=True)
             unhinted.sort()
             sorted_groups.append([t for t, _ in hinted] + unhinted)
         else:
-            sorted_groups.append(sorted(tasks))
+            sorted_groups.append(sorted(spec_tasks))
 
-    # Round-robin interleave across groups
     result: list[str] = []
     queues = [list(g) for g in sorted_groups]
     while any(queues):
         for q in queues:
             if q:
                 result.append(q.pop(0))
+
+    return result
+
+
+def _interleave_by_spec(
+    ready: list[str],
+    duration_hints: dict[str, int] | None = None,
+    fan_out_weights: dict[str, int] | None = None,
+) -> list[str]:
+    """Order ready tasks with pre-review priority and spec-fair interleaving.
+
+    Partitions ready tasks into two tiers:
+
+    1. **Pre-review tier** (auto_pre nodes at group 0): sorted by spec
+       fan-out descending so critical-path specs surface blockers first.
+    2. **Regular tier** (coder and post-review nodes): sorted by spec
+       number ascending with spec-fair round-robin interleaving.
+
+    Within each tier, tasks are interleaved round-robin across spec
+    groups.
+
+    Args:
+        ready: List of ready node IDs.
+        duration_hints: Optional mapping of node_id -> predicted duration ms.
+        fan_out_weights: Optional mapping of spec_name -> fan-out weight
+            (count of distinct downstream specs).
+
+    Returns:
+        Pre-review-prioritized, spec-fair-ordered list of node IDs.
+
+    Requirements: 69-REQ-1.1, 69-REQ-1.3, 69-REQ-2.1, 69-REQ-2.2, 69-REQ-2.3
+    """
+    if not ready:
+        return []
+
+    pre = [n for n in ready if _is_auto_pre(n)]
+    regular = [n for n in ready if not _is_auto_pre(n)]
+
+    result: list[str] = []
+    if pre:
+        result.extend(_spec_round_robin(pre, duration_hints, fan_out_weights))
+    if regular:
+        result.extend(_spec_round_robin(regular, duration_hints))
 
     return result
 
@@ -137,6 +187,10 @@ class GraphSync:
         - Its status is ``pending``
         - All of its dependencies have status ``completed``
 
+        Pre-review nodes (auto_pre at group 0) are prioritized ahead of
+        coder nodes, with high-fan-out specs ordered first so that
+        critical-path blockers surface early.
+
         Args:
             duration_hints: Optional mapping of node_id to predicted
                 duration in milliseconds. When provided, ready tasks are
@@ -145,10 +199,8 @@ class GraphSync:
                 of duration hints.
 
         Returns:
-            List of ready node_ids in spec-fair round-robin order.
-            Spec groups are ordered by numeric prefix ascending; within
-            each spec group tasks are sorted alphabetically or by
-            duration descending when hints are provided.
+            List of ready node_ids in pre-review-prioritized,
+            spec-fair round-robin order.
 
         Requirements: 39-REQ-1.1, 39-REQ-1.3, 69-REQ-1.1, 69-REQ-2.2
         """
@@ -160,7 +212,23 @@ class GraphSync:
             if all(self.node_states.get(d) == "completed" for d in deps):
                 ready.append(node_id)
 
-        return _interleave_by_spec(ready, duration_hints)
+        fan_out = self._compute_spec_fan_out()
+        return _interleave_by_spec(ready, duration_hints, fan_out)
+
+    def _compute_spec_fan_out(self) -> dict[str, int]:
+        """Count distinct cross-spec dependent specs.
+
+        For each spec, count how many OTHER specs have at least one
+        node that depends on a node in this spec.
+        """
+        spec_dependents: dict[str, set[str]] = {}
+        for node_id, dependents in self._dependents.items():
+            src_spec = _spec_name(node_id)
+            for dep_id in dependents:
+                dep_spec = _spec_name(dep_id)
+                if dep_spec != src_spec:
+                    spec_dependents.setdefault(src_spec, set()).add(dep_spec)
+        return {spec: len(deps) for spec, deps in spec_dependents.items()}
 
     def predecessors(self, node_id: str) -> list[str]:
         """Return predecessor node IDs for *node_id*."""
