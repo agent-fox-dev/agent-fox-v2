@@ -38,7 +38,7 @@ from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
-from agent_fox.engine.graph_sync import GraphSync
+from agent_fox.engine.graph_sync import GraphSync, _is_auto_pre
 from agent_fox.engine.hot_load import (
     _build_nodes_and_edges,
     _validate_and_parse_specs,
@@ -47,6 +47,7 @@ from agent_fox.engine.hot_load import (
 )
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.result_handler import SessionResultHandler
+from agent_fox.engine.session_lifecycle import _REVIEW_ARCHETYPES
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
@@ -1094,11 +1095,29 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> None:
-        """Launch candidates into the parallel pool up to max_parallelism."""
+        """Launch candidates into the parallel pool up to max_parallelism.
+
+        Review archetype sessions (excluding auto_pre group-0 nodes) are
+        capped at ``max(1, max_pool * max_review_fraction)`` concurrent
+        slots to prevent slot starvation when many review nodes become
+        ready simultaneously after a sync barrier.
+        """
         assert self._graph_sync is not None  # noqa: S101
         assert self._parallel_runner is not None  # noqa: S101
 
         max_pool = self._parallel_runner.max_parallelism
+        max_review = max(1, int(max_pool * self._config.max_review_fraction))
+
+        review_in_pool = 0
+        for t in pool:
+            name = t.get_name()
+            if name.startswith("parallel-"):
+                pool_node_id = name[len("parallel-") :]
+                if not _is_auto_pre(pool_node_id):
+                    pool_archetype = self._get_node_archetype(pool_node_id)
+                    if pool_archetype in _REVIEW_ARCHETYPES:
+                        review_in_pool += 1
+
         for node_id in candidates:
             if len(pool) >= max_pool:
                 break
@@ -1123,6 +1142,13 @@ class Orchestrator:
                 continue
 
             _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
+
+            # Review concurrency cap: skip non-pre review candidates when
+            # the review slot budget is exhausted.  Skipped candidates stay
+            # pending and are picked up on the next pool refill cycle.
+            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id) and review_in_pool >= max_review:
+                continue
+
             self._graph_sync.mark_in_progress(node_id)
 
             # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
@@ -1149,6 +1175,9 @@ class Orchestrator:
                 name=f"parallel-{node_id}",
             )
             pool.add(task)
+
+            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id):
+                review_in_pool += 1
 
     def _process_completed_parallel(
         self,

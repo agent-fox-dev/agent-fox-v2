@@ -228,3 +228,316 @@ class TestSIGINTDuringDrain:
         done, _ = await asyncio.wait(pool)
         for t in done:
             assert t.cancelled()
+
+
+# ---------------------------------------------------------------------------
+# TS-489-1: Review concurrency cap configuration
+# Issue: #489
+# ---------------------------------------------------------------------------
+
+
+class TestReviewConcurrencyCapConfig:
+    """Verify max_review_fraction config field on OrchestratorConfig."""
+
+    def test_default_max_review_fraction(self) -> None:
+        """Default max_review_fraction is 0.34 (~1/3)."""
+        from agent_fox.core.config import OrchestratorConfig
+
+        config = OrchestratorConfig()
+        assert config.max_review_fraction == pytest.approx(0.34)
+
+    def test_custom_max_review_fraction(self) -> None:
+        """max_review_fraction can be set to a custom value."""
+        from agent_fox.core.config import OrchestratorConfig
+
+        config = OrchestratorConfig(max_review_fraction=0.5)
+        assert config.max_review_fraction == pytest.approx(0.5)
+
+    def test_max_review_fraction_floor_at_zero(self) -> None:
+        """max_review_fraction=0.0 is valid (effectively disables reviews)."""
+        from agent_fox.core.config import OrchestratorConfig
+
+        config = OrchestratorConfig(max_review_fraction=0.0)
+        assert config.max_review_fraction == 0.0
+
+    def test_max_review_cap_calculation(self) -> None:
+        """max(1, int(max_pool * fraction)) gives at least 1 review slot."""
+        from agent_fox.core.config import OrchestratorConfig
+
+        config = OrchestratorConfig(parallel=3, max_review_fraction=0.34)
+        max_review = max(1, int(config.parallel * config.max_review_fraction))
+        assert max_review == 1
+
+    def test_max_review_cap_scales_with_pool(self) -> None:
+        """With parallel=6 and fraction=0.34, cap is 2."""
+        from agent_fox.core.config import OrchestratorConfig
+
+        config = OrchestratorConfig(parallel=6, max_review_fraction=0.34)
+        max_review = max(1, int(config.parallel * config.max_review_fraction))
+        assert max_review == 2
+
+
+# ---------------------------------------------------------------------------
+# TS-489-2: Review archetype detection from task names
+# Issue: #489
+# ---------------------------------------------------------------------------
+
+
+class TestReviewArchetypeDetection:
+    """Verify review archetype detection used by the pool cap."""
+
+    def test_review_archetypes_include_all_review_types(self) -> None:
+        """_REVIEW_ARCHETYPES includes reviewer, skeptic, verifier, oracle, auditor."""
+        from agent_fox.engine.session_lifecycle import _REVIEW_ARCHETYPES
+
+        assert "reviewer" in _REVIEW_ARCHETYPES
+        assert "skeptic" in _REVIEW_ARCHETYPES
+        assert "verifier" in _REVIEW_ARCHETYPES
+        assert "oracle" in _REVIEW_ARCHETYPES
+        assert "auditor" in _REVIEW_ARCHETYPES
+
+    def test_coder_not_in_review_archetypes(self) -> None:
+        """Coder archetype is not a review archetype."""
+        from agent_fox.engine.session_lifecycle import _REVIEW_ARCHETYPES
+
+        assert "coder" not in _REVIEW_ARCHETYPES
+
+    def test_auto_pre_detection(self) -> None:
+        """Group-0 nodes are detected as auto_pre."""
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("spec_a:0")
+        assert not _is_auto_pre("spec_a:1")
+        assert not _is_auto_pre("spec_a:2")
+
+
+# ---------------------------------------------------------------------------
+# TS-489-3: Review concurrency cap in _fill_parallel_pool
+# Issue: #489
+# ---------------------------------------------------------------------------
+
+
+class TestReviewConcurrencyCapPool:
+    """Verify the review concurrency cap logic in _fill_parallel_pool.
+
+    Tests exercise the cap by constructing a mock orchestrator with a
+    controlled graph and verifying that review candidates are skipped
+    when the review slot budget is exhausted.
+    """
+
+    @pytest.mark.asyncio
+    async def test_review_cap_skips_excess_reviews(self) -> None:
+        """With parallel=3 and default fraction, at most 1 non-pre review runs."""
+        from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+
+        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.types import Node, NodeStatus
+
+        config = MagicMock()
+        config.parallel = 3
+        config.max_review_fraction = 0.34
+
+        nodes = {
+            "spec_a:1": Node(
+                id="spec_a:1", spec_name="spec_a", group_number=1,
+                title="review A", optional=False, archetype="reviewer",
+            ),
+            "spec_b:1": Node(
+                id="spec_b:1", spec_name="spec_b", group_number=1,
+                title="review B", optional=False, archetype="skeptic",
+            ),
+            "spec_c:1": Node(
+                id="spec_c:1", spec_name="spec_c", group_number=1,
+                title="code C", optional=False, archetype="coder",
+            ),
+        }
+
+        orch = object.__new__(Orchestrator)
+        orch._config = config
+        orch._graph = MagicMock()
+        orch._graph.nodes = nodes
+        orch._graph_sync = MagicMock()
+        orch._graph_sync.node_states = {}
+        orch._graph_sync.mark_in_progress = MagicMock()
+        orch._signal = MagicMock()
+        orch._signal.interrupted = False
+        orch._result_handler = None
+        orch._run_id = "test"
+        orch._routing = MagicMock()
+
+        runner = MagicMock()
+        type(runner).max_parallelism = PropertyMock(return_value=3)
+        runner.execute_one = AsyncMock(return_value=_make_record("x"))
+        orch._parallel_runner = runner
+
+        async def mock_prepare_launch(node_id, state, at, et):
+            arch = nodes[node_id].archetype
+            return ("allowed", 1, None, arch, 1, None, None)
+
+        orch._prepare_launch = mock_prepare_launch
+
+        pool: set[asyncio.Task[SessionRecord]] = set()
+        candidates = ["spec_a:1", "spec_b:1", "spec_c:1"]
+
+        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+
+        launched = [t.get_name().replace("parallel-", "") for t in pool]
+
+        # max_review = max(1, int(3 * 0.34)) = 1
+        # spec_a:1 (reviewer) should launch (first review), spec_b:1 (skeptic) should be
+        # skipped (cap reached), spec_c:1 (coder) should launch
+        assert "spec_a:1" in launched
+        assert "spec_c:1" in launched
+        assert "spec_b:1" not in launched
+        assert len(pool) == 2
+
+        for t in pool:
+            t.cancel()
+        await asyncio.gather(*pool, return_exceptions=True)
+
+    @pytest.mark.asyncio
+    async def test_auto_pre_exempt_from_cap(self) -> None:
+        """Group-0 review nodes (auto_pre) are exempt from the cap."""
+        from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+
+        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.types import Node, NodeStatus
+
+        config = MagicMock()
+        config.parallel = 3
+        config.max_review_fraction = 0.34
+
+        nodes = {
+            "spec_a:0": Node(
+                id="spec_a:0", spec_name="spec_a", group_number=0,
+                title="pre-review A", optional=False, archetype="reviewer",
+            ),
+            "spec_b:0": Node(
+                id="spec_b:0", spec_name="spec_b", group_number=0,
+                title="pre-review B", optional=False, archetype="skeptic",
+            ),
+            "spec_c:1": Node(
+                id="spec_c:1", spec_name="spec_c", group_number=1,
+                title="code C", optional=False, archetype="coder",
+            ),
+        }
+
+        orch = object.__new__(Orchestrator)
+        orch._config = config
+        orch._graph = MagicMock()
+        orch._graph.nodes = nodes
+        orch._graph_sync = MagicMock()
+        orch._graph_sync.node_states = {}
+        orch._graph_sync.mark_in_progress = MagicMock()
+        orch._signal = MagicMock()
+        orch._signal.interrupted = False
+        orch._result_handler = None
+        orch._run_id = "test"
+        orch._routing = MagicMock()
+
+        runner = MagicMock()
+        type(runner).max_parallelism = PropertyMock(return_value=3)
+        runner.execute_one = AsyncMock(return_value=_make_record("x"))
+        orch._parallel_runner = runner
+
+        async def mock_prepare_launch(node_id, state, at, et):
+            arch = nodes[node_id].archetype
+            return ("allowed", 1, None, arch, 1, None, None)
+
+        orch._prepare_launch = mock_prepare_launch
+
+        pool: set[asyncio.Task[SessionRecord]] = set()
+        candidates = ["spec_a:0", "spec_b:0", "spec_c:1"]
+
+        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+
+        launched = [t.get_name().replace("parallel-", "") for t in pool]
+
+        # Both auto_pre nodes should launch (exempt from cap),
+        # plus the coder — all 3 slots filled.
+        assert "spec_a:0" in launched
+        assert "spec_b:0" in launched
+        assert "spec_c:1" in launched
+        assert len(pool) == 3
+
+        for t in pool:
+            t.cancel()
+        await asyncio.gather(*pool, return_exceptions=True)
+
+    @pytest.mark.asyncio
+    async def test_coders_always_preferred_over_capped_reviews(self) -> None:
+        """When review cap is reached, remaining slots go to coder candidates."""
+        from unittest.mock import AsyncMock, MagicMock, PropertyMock
+
+        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.types import Node
+
+        config = MagicMock()
+        config.parallel = 3
+        config.max_review_fraction = 0.34
+
+        nodes = {
+            "spec_a:2": Node(
+                id="spec_a:2", spec_name="spec_a", group_number=2,
+                title="review", optional=False, archetype="reviewer",
+            ),
+            "spec_b:2": Node(
+                id="spec_b:2", spec_name="spec_b", group_number=2,
+                title="review", optional=False, archetype="verifier",
+            ),
+            "spec_c:2": Node(
+                id="spec_c:2", spec_name="spec_c", group_number=2,
+                title="review", optional=False, archetype="oracle",
+            ),
+            "spec_d:1": Node(
+                id="spec_d:1", spec_name="spec_d", group_number=1,
+                title="coder", optional=False, archetype="coder",
+            ),
+            "spec_e:1": Node(
+                id="spec_e:1", spec_name="spec_e", group_number=1,
+                title="coder", optional=False, archetype="coder",
+            ),
+        }
+
+        orch = object.__new__(Orchestrator)
+        orch._config = config
+        orch._graph = MagicMock()
+        orch._graph.nodes = nodes
+        orch._graph_sync = MagicMock()
+        orch._graph_sync.node_states = {}
+        orch._graph_sync.mark_in_progress = MagicMock()
+        orch._signal = MagicMock()
+        orch._signal.interrupted = False
+        orch._result_handler = None
+        orch._run_id = "test"
+        orch._routing = MagicMock()
+
+        runner = MagicMock()
+        type(runner).max_parallelism = PropertyMock(return_value=3)
+        runner.execute_one = AsyncMock(return_value=_make_record("x"))
+        orch._parallel_runner = runner
+
+        async def mock_prepare_launch(node_id, state, at, et):
+            arch = nodes[node_id].archetype
+            return ("allowed", 1, None, arch, 1, None, None)
+
+        orch._prepare_launch = mock_prepare_launch
+
+        pool: set[asyncio.Task[SessionRecord]] = set()
+        # Reviews first, then coders — cap should let 1 review + 2 coders
+        candidates = ["spec_a:2", "spec_b:2", "spec_c:2", "spec_d:1", "spec_e:1"]
+
+        await orch._fill_parallel_pool(pool, candidates, MagicMock(), {}, {})
+
+        launched = [t.get_name().replace("parallel-", "") for t in pool]
+
+        review_launched = [n for n in launched if nodes[n].archetype != "coder"]
+        coder_launched = [n for n in launched if nodes[n].archetype == "coder"]
+
+        assert len(review_launched) == 1
+        assert len(coder_launched) == 2
+        assert len(pool) == 3
+
+        for t in pool:
+            t.cancel()
+        await asyncio.gather(*pool, return_exceptions=True)
