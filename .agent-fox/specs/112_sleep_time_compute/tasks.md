@@ -99,12 +99,12 @@ reference `SleepConfig`.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 112-REQ-1.*, 112-REQ-2.*, 112-REQ-7.*, 112-REQ-8.* met
 
-- [ ] 3. Context re-representation task
-  - [ ] 3.1 Create sleep_tasks package
+- [x] 3. Context re-representation task
+  - [x] 3.1 Create sleep_tasks package
     - Create `agent_fox/knowledge/sleep_tasks/__init__.py`
     - _Requirements: (structural)_
 
-  - [ ] 3.2 Implement ContextRewriter
+  - [x] 3.2 Implement ContextRewriter
     - Create `agent_fox/knowledge/sleep_tasks/context_rewriter.py`
     - Implement directory-based clustering via `fact_entities` table joins
     - Implement content hash computation (SHA-256 of sorted fact IDs +
@@ -113,14 +113,15 @@ reference `SleepConfig`.
     - Implement 2000-char truncation at last complete sentence
     - Store artifacts with metadata (directory, fact_count, fact_ids)
     - Implement `stale_scopes()` by comparing stored vs. current content hashes
+    - Exposed `_call_llm()` method for test patchability (Skeptic finding addressed)
     - _Requirements: 112-REQ-3.1 through 112-REQ-3.6, 112-REQ-3.E1,
       112-REQ-3.E2, 112-REQ-3.E3_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_context_rewriter.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 112-REQ-3.* met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_context_rewriter.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 112-REQ-3.* met
 
 - [ ] 4. Retrieval bundle task
   - [ ] 4.1 Implement BundleBuilder

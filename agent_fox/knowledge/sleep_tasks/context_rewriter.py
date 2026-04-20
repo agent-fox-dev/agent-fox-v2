@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from collections import defaultdict
 
 import duckdb
@@ -65,13 +66,14 @@ def _truncate_to_sentence(text: str, max_len: int) -> str:
 
     # Find the last sentence-ending punctuation within the limit
     truncated = text[:max_len]
+    last_pos = -1
     for punct in (".", "!", "?"):
         pos = truncated.rfind(punct)
-        if pos > 0:
-            # Return up to and including the punctuation
-            candidate = truncated[: pos + 1]
-            if candidate:
-                return candidate
+        if pos > last_pos:
+            last_pos = pos
+
+    if last_pos > 0:
+        return truncated[: last_pos + 1]
 
     # No sentence boundary found — hard truncate
     return truncated
@@ -142,7 +144,7 @@ class ContextRewriter:
 
             # Generate narrative via LLM
             try:
-                content = await self._synthesize(directory, facts, ctx)
+                content = await self._call_llm(directory, facts, ctx)
             except Exception as exc:
                 logger.warning(
                     "Context rewriter: LLM call failed for directory %r: %s",
@@ -189,6 +191,33 @@ class ContextRewriter:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    async def _call_llm(
+        self, directory: str, facts: list[dict], ctx: SleepContext
+    ) -> str:
+        """Call the LLM to synthesize a narrative summary for the cluster.
+
+        This method is the primary LLM call site and can be patched in tests.
+
+        Requirements: 112-REQ-3.3
+        """
+        from agent_fox.core.client import ai_call
+
+        fact_list = "\n".join(
+            f"{i + 1}. {f['content']}" for i, f in enumerate(facts)
+        )
+        prompt = _PROMPT_TEMPLATE.format(
+            directory_path=directory,
+            fact_list=fact_list,
+        )
+
+        text, _response = await ai_call(
+            model_tier="STANDARD",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+            context="context_rewriter",
+        )
+        return text or ""
+
     def _build_clusters(
         self, conn: duckdb.DuckDBPyConnection
     ) -> dict[str, list[dict]]:
@@ -217,14 +246,14 @@ class ContextRewriter:
             return {}
 
         # Get file paths for entity IDs
-        entity_ids = list({row[3] for row in rows})
+        entity_ids = list({str(row[3]) for row in rows})
         if not entity_ids:
             return {}
 
         try:
             placeholders = ", ".join("?" * len(entity_ids))
             entity_rows = conn.execute(
-                f"SELECT id, name FROM entity_graph WHERE id IN ({placeholders})",
+                f"SELECT id, entity_path FROM entity_graph WHERE id IN ({placeholders})",
                 entity_ids,
             ).fetchall()
         except duckdb.CatalogException:
@@ -245,7 +274,6 @@ class ContextRewriter:
             path = entity_to_path.get(str(entity_id), "")
             if path:
                 # Parent directory of the file
-                import os
                 directory = os.path.dirname(path) or "."
                 fact_map[str(fact_id)]["directories"].add(directory)
 
@@ -281,22 +309,3 @@ class ContextRewriter:
         except duckdb.CatalogException:
             return None
         return row[0] if row else None
-
-    async def _synthesize(
-        self, directory: str, facts: list[dict], ctx: SleepContext
-    ) -> str:
-        """Call the LLM to synthesize a narrative summary for the cluster.
-
-        Requirements: 112-REQ-3.3
-        """
-        from agent_fox.knowledge.model_tier import call_model
-
-        fact_list = "\n".join(
-            f"{i + 1}. {f['content']}" for i, f in enumerate(facts)
-        )
-        prompt = _PROMPT_TEMPLATE.format(
-            directory_path=directory,
-            fact_list=fact_list,
-        )
-        response = await call_model(ctx.model, prompt)
-        return response
