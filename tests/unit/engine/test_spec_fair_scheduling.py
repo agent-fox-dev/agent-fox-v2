@@ -156,6 +156,252 @@ class TestReadyTasksIntegration:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Pre-review priority scheduling (fixes #476)
+# ---------------------------------------------------------------------------
+
+
+class TestPreReviewPriority:
+    """Tests for pre-review prioritization in _interleave_by_spec.
+
+    Pre-review nodes (auto_pre at group 0) are placed before coder nodes
+    in the ready queue so that blockers surface early.
+    """
+
+    def test_pre_reviews_before_coder_nodes(self) -> None:
+        """Auto_pre review nodes appear before coder nodes."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "65_foo:1",
+            "65_foo:0:reviewer:pre-review",
+            "67_bar:1",
+            "67_bar:0:reviewer:pre-review",
+        ]
+        result = _interleave_by_spec(ready)
+        pre_reviews = [n for n in result if ":0:" in n]
+        coders = [n for n in result if ":0:" not in n]
+        assert result == pre_reviews + coders
+
+    def test_pre_review_fan_out_ordering(self) -> None:
+        """High-fan-out specs' pre-reviews come first."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:0:reviewer:pre-review",
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+        fan_out = {"02_broker": 4, "01_setup": 1, "03_api": 2}
+        result = _interleave_by_spec(ready, fan_out_weights=fan_out)
+        assert result[0] == "02_broker:0:reviewer:pre-review"
+        assert result[1] == "03_api:0:reviewer:pre-review"
+        assert result[2] == "01_setup:0:reviewer:pre-review"
+
+    def test_fan_out_tie_breaks_by_spec_number(self) -> None:
+        """Equal fan-out ties are broken by spec number ascending."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "03_api:0:reviewer:pre-review",
+            "01_setup:0:reviewer:pre-review",
+        ]
+        fan_out = {"01_setup": 2, "03_api": 2}
+        result = _interleave_by_spec(ready, fan_out_weights=fan_out)
+        assert result == [
+            "01_setup:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+
+    def test_mixed_pre_review_and_coder_ordering(self) -> None:
+        """Pre-reviews from all specs come before any coder node."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:1",
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+            "01_setup:2",
+        ]
+        result = _interleave_by_spec(ready)
+        # Pre-reviews first (round-robin: 02, 03)
+        assert result[:2] == [
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+        # Then coder nodes (round-robin: 01:1, 01:2)
+        assert result[2:] == ["01_setup:1", "01_setup:2"]
+
+    def test_drift_review_also_prioritized(self) -> None:
+        """Drift-review (also auto_pre at group 0) is prioritized with pre-reviews."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:1",
+            "02_broker:0:reviewer:drift-review",
+            "02_broker:0:reviewer:pre-review",
+        ]
+        result = _interleave_by_spec(ready)
+        assert result[0].startswith("02_broker:0:")
+        assert result[1].startswith("02_broker:0:")
+        assert result[2] == "01_setup:1"
+
+    def test_single_auto_pre_node_id_format(self) -> None:
+        """Single auto_pre with 'spec:0' format is also prioritized."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_setup:1", "02_broker:0", "03_api:1"]
+        result = _interleave_by_spec(ready)
+        assert result[0] == "02_broker:0"
+
+
+class TestIsAutoPre:
+    """Tests for the _is_auto_pre() helper."""
+
+    def test_suffixed_pre_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0:reviewer:pre-review") is True
+
+    def test_suffixed_drift_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0:reviewer:drift-review") is True
+
+    def test_single_auto_pre(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0") is True
+
+    def test_coder_group(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:1") is False
+
+    def test_audit_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:3:reviewer:audit-review") is False
+
+    def test_no_colon(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("orphan_node") is False
+
+
+class TestSpecFanOut:
+    """Tests for GraphSync._compute_spec_fan_out()."""
+
+    def test_fan_out_with_cross_spec_edges(self) -> None:
+        """Specs with cross-spec dependents have non-zero fan-out."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:1": "pending",
+            "01_setup:2": "pending",
+            "02_broker:1": "pending",
+            "03_api:1": "pending",
+        }
+        edges = {
+            "01_setup:1": [],
+            "01_setup:2": ["01_setup:1"],
+            "02_broker:1": ["01_setup:2"],
+            "03_api:1": ["01_setup:2"],
+        }
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out["01_setup"] == 2  # 02_broker and 03_api depend on it
+
+    def test_fan_out_no_cross_spec(self) -> None:
+        """No cross-spec edges means empty fan-out."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {"01_a:1": "pending", "01_a:2": "pending"}
+        edges = {"01_a:1": [], "01_a:2": ["01_a:1"]}
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out == {}
+
+    def test_fan_out_counts_distinct_specs(self) -> None:
+        """Multiple edges to same spec count as 1."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_a:1": "pending",
+            "01_a:2": "pending",
+            "02_b:1": "pending",
+            "02_b:2": "pending",
+        }
+        edges = {
+            "01_a:1": [],
+            "01_a:2": ["01_a:1"],
+            "02_b:1": ["01_a:1"],
+            "02_b:2": ["01_a:2"],
+        }
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out["01_a"] == 1  # only 02_b, counted once
+
+
+class TestReadyTasksPreReviewIntegration:
+    """Integration tests for ready_tasks() with pre-review priority."""
+
+    def test_pre_reviews_ordered_first(self) -> None:
+        """Pre-review nodes appear before coder nodes in ready_tasks()."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:0:reviewer:pre-review": "pending",
+            "01_setup:1": "pending",
+            "02_broker:0:reviewer:pre-review": "pending",
+            "02_broker:1": "pending",
+        }
+        edges = {
+            "01_setup:0:reviewer:pre-review": [],
+            "01_setup:1": ["01_setup:0:reviewer:pre-review"],
+            "02_broker:0:reviewer:pre-review": [],
+            "02_broker:1": ["02_broker:0:reviewer:pre-review"],
+        }
+        gs = GraphSync(states, edges)
+        result = gs.ready_tasks()
+        # Only pre-reviews are ready (coders depend on them)
+        assert result == [
+            "01_setup:0:reviewer:pre-review",
+            "02_broker:0:reviewer:pre-review",
+        ]
+
+    def test_fan_out_affects_pre_review_order(self) -> None:
+        """High-fan-out specs' pre-reviews ordered first in ready_tasks()."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:0:reviewer:pre-review": "pending",
+            "01_setup:1": "pending",
+            "02_broker:0:reviewer:pre-review": "pending",
+            "02_broker:1": "pending",
+            "03_api:0:reviewer:pre-review": "pending",
+            "03_api:1": "pending",
+        }
+        edges = {
+            "01_setup:0:reviewer:pre-review": [],
+            "01_setup:1": ["01_setup:0:reviewer:pre-review"],
+            "02_broker:0:reviewer:pre-review": [],
+            "02_broker:1": ["02_broker:0:reviewer:pre-review", "01_setup:1"],
+            "03_api:0:reviewer:pre-review": [],
+            "03_api:1": ["03_api:0:reviewer:pre-review", "01_setup:1"],
+        }
+        gs = GraphSync(states, edges)
+        result = gs.ready_tasks()
+        # 01_setup has fan-out 2 (02_broker and 03_api depend on it)
+        # Pre-reviews: 01 first (highest fan-out), then 02, then 03
+        assert result[0] == "01_setup:0:reviewer:pre-review"
+
+
+# ---------------------------------------------------------------------------
+# TS-69-E1 through TS-69-E4: Edge cases
+# ---------------------------------------------------------------------------
+
+
 class TestEdgeCases:
     """Edge case tests for spec-fair scheduling.
 
