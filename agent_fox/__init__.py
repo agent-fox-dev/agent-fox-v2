@@ -1,3 +1,3 @@
 """agent-fox: autonomous coding-agent orchestrator."""
 
-__version__ = "3.0.5"
+__version__ = "3.1.0"

@@ -109,9 +109,7 @@ class ContextRewriter:
             if len(facts) < _MIN_CLUSTER_SIZE:
                 continue
             scope_key = f"dir:{directory}"
-            current_hash = compute_content_hash(
-                [(f["id"], f["confidence"]) for f in facts]
-            )
+            current_hash = compute_content_hash([(f["id"], f["confidence"]) for f in facts])
             stored_hash = self._get_stored_hash(conn, scope_key)
             if stored_hash != current_hash:
                 stale.append(scope_key)
@@ -133,9 +131,7 @@ class ContextRewriter:
                 continue
 
             scope_key = f"dir:{directory}"
-            current_hash = compute_content_hash(
-                [(f["id"], f["confidence"]) for f in facts]
-            )
+            current_hash = compute_content_hash([(f["id"], f["confidence"]) for f in facts])
             stored_hash = self._get_stored_hash(ctx.conn, scope_key)
 
             if stored_hash == current_hash:
@@ -191,9 +187,7 @@ class ContextRewriter:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    async def _call_llm(
-        self, directory: str, facts: list[dict], ctx: SleepContext
-    ) -> str:
+    async def _call_llm(self, directory: str, facts: list[dict], ctx: SleepContext) -> str:
         """Call the LLM to synthesize a narrative summary for the cluster.
 
         This method is the primary LLM call site and can be patched in tests.
@@ -202,9 +196,7 @@ class ContextRewriter:
         """
         from agent_fox.core.client import ai_call
 
-        fact_list = "\n".join(
-            f"{i + 1}. {f['content']}" for i, f in enumerate(facts)
-        )
+        fact_list = "\n".join(f"{i + 1}. {f['content']}" for i, f in enumerate(facts))
         prompt = _PROMPT_TEMPLATE.format(
             directory_path=directory,
             fact_list=fact_list,
@@ -218,9 +210,7 @@ class ContextRewriter:
         )
         return text or ""
 
-    def _build_clusters(
-        self, conn: duckdb.DuckDBPyConnection
-    ) -> dict[str, list[dict]]:
+    def _build_clusters(self, conn: duckdb.DuckDBPyConnection) -> dict[str, list[dict]]:
         """Group active entity-linked facts by parent directory of linked files.
 
         Requirements: 112-REQ-3.1, 112-REQ-3.E1
@@ -291,9 +281,7 @@ class ContextRewriter:
 
         return dict(clusters)
 
-    def _get_stored_hash(
-        self, conn: duckdb.DuckDBPyConnection, scope_key: str
-    ) -> str | None:
+    def _get_stored_hash(self, conn: duckdb.DuckDBPyConnection, scope_key: str) -> str | None:
         """Return the content_hash of the active artifact for this scope key, or None."""
         try:
             row = conn.execute(

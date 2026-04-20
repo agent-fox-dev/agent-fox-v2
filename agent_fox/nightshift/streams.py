@@ -332,11 +332,13 @@ class SleepComputeStream:
             elif self._knowledge_config is not None:
                 # Open the real knowledge store and own its lifecycle
                 from agent_fox.knowledge.db import open_knowledge_store
+
                 _knowledge_db = open_knowledge_store(self._knowledge_config)  # type: ignore[arg-type]
                 conn = _knowledge_db.connection
                 owns_conn = False  # _knowledge_db.close() handles cleanup
             else:
                 import duckdb as _duckdb
+
                 conn = _duckdb.connect(":memory:")
 
             from pathlib import Path as _Path

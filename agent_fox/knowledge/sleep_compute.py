@@ -125,9 +125,7 @@ def compute_content_hash(facts: list[tuple[str, float]]) -> str:
 
     Requirements: 112-REQ-3.2, 112-REQ-4.2 (Property 1: Staleness Determinism)
     """
-    hash_input = "|".join(
-        sorted(f"{fact_id}:{confidence}" for fact_id, confidence in facts)
-    )
+    hash_input = "|".join(sorted(f"{fact_id}:{confidence}" for fact_id, confidence in facts))
     return hashlib.sha256(hash_input.encode()).hexdigest()
 
 

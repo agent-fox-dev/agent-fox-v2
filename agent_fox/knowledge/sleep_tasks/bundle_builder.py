@@ -69,9 +69,7 @@ class BundleBuilder:
             if not facts:
                 continue
             scope_key = f"spec:{spec_name}"
-            current_hash = compute_content_hash(
-                [(f["id"], f["confidence"]) for f in facts]
-            )
+            current_hash = compute_content_hash([(f["id"], f["confidence"]) for f in facts])
             stored_hash = self._get_stored_hash(conn, scope_key)
             if stored_hash != current_hash:
                 stale.append(scope_key)
@@ -94,9 +92,7 @@ class BundleBuilder:
                 continue
 
             scope_key = f"spec:{spec_name}"
-            current_hash = compute_content_hash(
-                [(f["id"], f["confidence"]) for f in facts]
-            )
+            current_hash = compute_content_hash([(f["id"], f["confidence"]) for f in facts])
             stored_hash = self._get_stored_hash(ctx.conn, scope_key)
 
             if stored_hash == current_hash:
@@ -105,9 +101,7 @@ class BundleBuilder:
 
             # Compute keyword and causal signals (REQ-4.3)
             try:
-                keyword_facts, causal_facts = self._compute_signals(
-                    spec_name, ctx.conn
-                )
+                keyword_facts, causal_facts = self._compute_signals(spec_name, ctx.conn)
             except Exception as exc:
                 logger.warning(
                     "Bundle builder: signal computation failed for spec %r: %s",
@@ -159,9 +153,7 @@ class BundleBuilder:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _query_active_spec_facts(
-        self, conn: duckdb.DuckDBPyConnection
-    ) -> dict[str, list[dict]]:
+    def _query_active_spec_facts(self, conn: duckdb.DuckDBPyConnection) -> dict[str, list[dict]]:
         """Return a mapping of spec_name → list of active fact dicts.
 
         Requirements: 112-REQ-4.1
@@ -186,14 +178,10 @@ class BundleBuilder:
         for fact_id, spec_name, confidence in rows:
             if spec_name not in result:
                 result[spec_name] = []
-            result[spec_name].append(
-                {"id": str(fact_id), "confidence": float(confidence)}
-            )
+            result[spec_name].append({"id": str(fact_id), "confidence": float(confidence)})
         return result
 
-    def _get_stored_hash(
-        self, conn: duckdb.DuckDBPyConnection, scope_key: str
-    ) -> str | None:
+    def _get_stored_hash(self, conn: duckdb.DuckDBPyConnection, scope_key: str) -> str | None:
         """Return the content_hash of the active bundle for this scope key, or None."""
         try:
             row = conn.execute(
@@ -210,9 +198,7 @@ class BundleBuilder:
             return None
         return row[0] if row else None
 
-    def _compute_signals(
-        self, spec_name: str, conn: duckdb.DuckDBPyConnection
-    ) -> tuple[list, list]:
+    def _compute_signals(self, spec_name: str, conn: duckdb.DuckDBPyConnection) -> tuple[list, list]:
         """Compute keyword and causal signals for a spec.
 
         Uses empty keywords (only spec-name matching) so results are

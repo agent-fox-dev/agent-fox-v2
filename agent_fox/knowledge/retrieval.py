@@ -694,9 +694,7 @@ def _load_cached_bundle(
         causal_facts = [ScoredFact(**f) for f in bundle_data.get("causal", [])]
         return CachedBundle(keyword_facts=keyword_facts, causal_facts=causal_facts)
     except Exception:
-        logger.debug(
-            "_load_cached_bundle: deserialization failed for spec %s", spec_name, exc_info=True
-        )
+        logger.debug("_load_cached_bundle: deserialization failed for spec %s", spec_name, exc_info=True)
         return None
 
 
@@ -744,9 +742,7 @@ def _load_context_preamble(
                 [scope_key],
             ).fetchone()
         except Exception:
-            logger.debug(
-                "_load_context_preamble: DB query failed for %s", scope_key, exc_info=True
-            )
+            logger.debug("_load_context_preamble: DB query failed for %s", scope_key, exc_info=True)
             continue
 
         if row and row[0]:
@@ -832,9 +828,7 @@ class AdaptiveRetriever:
             sleep_artifact_count += 1
         else:
             # Live keyword signal
-            task_keywords = keywords if keywords is not None else (
-                task_description.split() if task_description else []
-            )
+            task_keywords = keywords if keywords is not None else (task_description.split() if task_description else [])
             kw_results = _keyword_signal(
                 spec_name,
                 task_keywords,
