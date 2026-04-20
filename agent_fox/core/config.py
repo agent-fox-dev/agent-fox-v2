@@ -258,6 +258,39 @@ class RetrievalConfig(BaseModel):
     causal_max_depth: int = Field(default=3, description="Max traversal depth for causal signal")
 
 
+class SleepConfig(BaseModel):
+    """Sleep-time compute configuration.
+
+    Controls when and how the sleep-time pre-computation pipeline runs,
+    including cost limits, scheduling intervals, and per-task enable flags.
+
+    Requirements: 112-REQ-7.1, 112-REQ-7.E1
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = Field(
+        default=True,
+        description="Enable/disable sleep-time compute globally",
+    )
+    max_cost: float = Field(
+        default=1.0,
+        description="Maximum LLM cost (USD) per sleep compute invocation",
+    )
+    nightshift_interval: int = Field(
+        default=1800,
+        description="Seconds between nightshift sleep compute runs (default 30 minutes)",
+    )
+    context_rewriter_enabled: bool = Field(
+        default=True,
+        description="Enable context re-representation task (synthesizes narrative summaries)",
+    )
+    bundle_builder_enabled: bool = Field(
+        default=True,
+        description="Enable retrieval bundle builder task (pre-computes keyword/causal signals)",
+    )
+
+
 class KnowledgeConfig(BaseModel):
     """Knowledge store and fact selection configuration.
 
@@ -310,6 +343,10 @@ class KnowledgeConfig(BaseModel):
     retrieval: RetrievalConfig = Field(
         default_factory=RetrievalConfig,
         description="Adaptive retrieval configuration (rrf_k, max_facts, token_budget, etc.)",
+    )
+    sleep: SleepConfig = Field(
+        default_factory=SleepConfig,
+        description="Sleep-time compute configuration (pre-computation during idle periods)",
     )
 
     _auto_clamp = _auto_clamp_validator()

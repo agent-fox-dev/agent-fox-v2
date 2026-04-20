@@ -112,10 +112,10 @@ class TestMigrationIdempotency:
         for _ in range(n_runs):
             apply_pending_migrations(conn)
 
-        # Version should be 14 (latest migration: v14 drop dead tables)
+        # Version should be 15 (latest migration: v15 add sleep_artifacts)
         version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()
         assert version is not None
-        assert version[0] == 14
+        assert version[0] == 15
 
         # Tables should exist (v2 + v4 migrations; v3 tables dropped by v14)
         tables = conn.execute(

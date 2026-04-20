@@ -225,6 +225,29 @@ persists facts learned across sessions for use as context in future sessions.
 | `cleanup_fact_threshold` | int | `500` | — | Active fact count above which decay cleanup runs |
 | `cleanup_enabled` | bool | `true` | — | Enable/disable end-of-run fact lifecycle cleanup |
 | `retrieval` | table | — | — | Adaptive retrieval tuning parameters (see `[knowledge.retrieval]`) |
+| `sleep` | table | — | — | Sleep-time compute configuration (see `[knowledge.sleep]`) |
+
+### knowledge.sleep
+
+Configuration for the sleep-time compute pipeline (spec 112). Controls
+pre-computation of context blocks and retrieval bundles during idle periods.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | bool | `true` | Enable/disable sleep compute globally |
+| `max_cost` | float | `1.0` | Maximum LLM cost (USD) per sleep compute invocation |
+| `nightshift_interval` | int | `1800` | Seconds between nightshift sleep compute runs |
+| `context_rewriter_enabled` | bool | `true` | Enable context re-representation task |
+| `bundle_builder_enabled` | bool | `true` | Enable retrieval bundle builder task |
+
+**Example:**
+
+```toml
+[knowledge.sleep]
+enabled = true
+max_cost = 0.50
+nightshift_interval = 3600
+```
 
 ### knowledge.retrieval
 

@@ -262,6 +262,21 @@ def night_shift_cmd(
         orch_factory=_orch_factory,
     )
 
+    # Add SleepComputeStream if knowledge sleep config is present (112-REQ-6.2)
+    sleep_cfg = getattr(getattr(config, "knowledge", None), "sleep", None)
+    knowledge_cfg = getattr(config, "knowledge", None)
+    if sleep_cfg is not None:
+        from agent_fox.nightshift.streams import SleepComputeStream
+
+        streams.append(
+            SleepComputeStream(
+                config=sleep_cfg,
+                budget=budget,
+                repo_root=project_root,
+                knowledge_config=knowledge_cfg,
+            )
+        )
+
     # Create the daemon runner (85-REQ-1.2, 85-REQ-2.1, 85-REQ-4.1)
     pid_path = project_root / ".agent-fox" / "daemon.pid"
     runner = DaemonRunner(
