@@ -23,11 +23,18 @@ from agent_fox.spec.discovery import discover_specs
 @click.command("plan")
 @click.option("--fast", is_flag=True, help="Exclude optional tasks")
 @click.option("--spec", "filter_spec", default=None, help="Plan a single spec")
+@click.option(
+    "--specs-dir",
+    type=click.Path(),
+    default=None,
+    help="Path to specs directory (default: from config, or .agent-fox/specs)",
+)
 @click.pass_context
 def plan_cmd(
     ctx: click.Context,
     fast: bool,
     filter_spec: str | None,
+    specs_dir: str | None,
 ) -> None:
     """Build an execution plan from specifications."""
     # 85-REQ-3.2: Refuse to run when daemon is active.
@@ -52,7 +59,7 @@ def plan_cmd(
     # Resolve spec root from config with backward compatibility
     from agent_fox.core.config import resolve_spec_root
 
-    specs_dir = resolve_spec_root(config, project_root)
+    specs_dir = Path(specs_dir) if specs_dir else resolve_spec_root(config, project_root)
 
     # Always rebuild the plan from specs directory (63-REQ-1.1)
     json_mode = ctx.obj.get("json", False)

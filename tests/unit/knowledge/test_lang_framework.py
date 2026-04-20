@@ -363,6 +363,63 @@ class TestNonGitRepoFallback:
 
 
 # ---------------------------------------------------------------------------
+# .agent-fox exclusion (issue #499)
+# ---------------------------------------------------------------------------
+
+
+class TestAgentFoxExclusion:
+    """AC-1, AC-2, AC-3: _scan_files must exclude .agent-fox/ directory by default.
+
+    Requirement: .agent-fox must be a member of _EXCLUDED_DIRS in registry.py,
+    so that the onboard command never analyzes the agent-fox config folder.
+    """
+
+    def test_agent_fox_in_excluded_dirs_constant(self) -> None:
+        """AC-3: .agent-fox is explicitly listed in _EXCLUDED_DIRS."""
+        from agent_fox.knowledge.lang.registry import _EXCLUDED_DIRS
+
+        assert ".agent-fox" in _EXCLUDED_DIRS, ".agent-fox must be in _EXCLUDED_DIRS"
+
+    def test_excludes_agent_fox_with_gitignore(self, tmp_path: Path) -> None:
+        """AC-1: _scan_files excludes .agent-fox even when .gitignore is present."""
+        from agent_fox.knowledge.lang.registry import _scan_files
+
+        # Create a top-level source file (should be found)
+        (tmp_path / "main.py").write_text("# main")
+
+        # Create a file under .agent-fox (should be excluded)
+        agent_fox_specs = tmp_path / ".agent-fox" / "specs"
+        agent_fox_specs.mkdir(parents=True)
+        (agent_fox_specs / "helper.py").write_text("# helper inside agent-fox")
+
+        # Add a .gitignore to trigger the pathspec scan path
+        (tmp_path / ".gitignore").write_text("*.log\n")
+
+        result = _scan_files(tmp_path, {".py"})
+
+        assert result == [tmp_path / "main.py"], f"Expected only main.py, got {result}"
+        for path in result:
+            assert ".agent-fox" not in path.parts, f"Unexpected .agent-fox path in result: {path}"
+
+    def test_excludes_agent_fox_without_gitignore(self, tmp_path: Path) -> None:
+        """AC-2: _scan_files excludes .agent-fox when no .gitignore is present (fallback scan)."""
+        from agent_fox.knowledge.lang.registry import _scan_files
+
+        # No .gitignore — uses fallback directory walk
+        (tmp_path / "main.sh").write_text("#!/bin/sh")
+
+        agent_fox_scripts = tmp_path / ".agent-fox" / "scripts"
+        agent_fox_scripts.mkdir(parents=True)
+        (agent_fox_scripts / "run.sh").write_text("#!/bin/sh")
+
+        result = _scan_files(tmp_path, {".sh"})
+
+        assert result == [tmp_path / "main.sh"], f"Expected only main.sh, got {result}"
+        for path in result:
+            assert ".agent-fox" not in path.parts, f"Unexpected .agent-fox path in result: {path}"
+
+
+# ---------------------------------------------------------------------------
 # New language analyzers: bash, html, json, css, regex, swift
 # ---------------------------------------------------------------------------
 

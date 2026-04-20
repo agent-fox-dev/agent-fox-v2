@@ -138,6 +138,89 @@ class TestJSONOutput:
         assert parsed["code_facts_created"] == 3
 
 
+class TestSpinner:
+    """Spinner is shown during onboard and suppressed in JSON mode.
+
+    AC-1: spinner visible during normal invocation.
+    AC-3: spinner suppressed in JSON mode.
+    AC-4: spinner stopped on unexpected exceptions.
+    """
+
+    def _make_store_mock(self) -> MagicMock:
+        mock_open_store = MagicMock()
+        mock_store = MagicMock()
+        mock_open_store.return_value.__enter__ = MagicMock(return_value=mock_store)
+        mock_open_store.return_value.__exit__ = MagicMock(return_value=None)
+        return mock_open_store
+
+    def test_spinner_started_and_stopped_on_success(self, runner: CliRunner) -> None:
+        """ProgressDisplay.start and .stop are both called on a successful run."""
+        mock_open_store = self._make_store_mock()
+        with (
+            patch("agent_fox.cli.onboard.load_config", return_value=AgentFoxConfig()),
+            patch("agent_fox.cli.onboard.open_knowledge_store", mock_open_store),
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                return_value=OnboardResult(),
+            ),
+            patch("agent_fox.cli.onboard.ProgressDisplay") as mock_display_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_display_cls.return_value = mock_progress
+
+            result = runner.invoke(main, ["onboard"])
+
+        assert result.exit_code == 0, result.output
+        mock_progress.start.assert_called_once()
+        mock_progress.stop.assert_called_once()
+
+    def test_spinner_suppressed_in_json_mode(self, runner: CliRunner) -> None:
+        """ProgressDisplay is created with quiet=True when --json is used."""
+        mock_open_store = self._make_store_mock()
+        with (
+            patch("agent_fox.cli.onboard.load_config", return_value=AgentFoxConfig()),
+            patch("agent_fox.cli.onboard.open_knowledge_store", mock_open_store),
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                return_value=OnboardResult(),
+            ),
+            patch("agent_fox.cli.onboard.ProgressDisplay") as mock_display_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_display_cls.return_value = mock_progress
+
+            result = runner.invoke(main, ["--json", "onboard"])
+
+        assert result.exit_code == 0, result.output
+        # ProgressDisplay must be constructed with quiet=True
+        _, kwargs = mock_display_cls.call_args
+        assert kwargs.get("quiet") is True
+
+    def test_spinner_stopped_on_exception(self, runner: CliRunner) -> None:
+        """ProgressDisplay.stop is called in finally even when run_onboard raises."""
+        mock_open_store = self._make_store_mock()
+        with (
+            patch("agent_fox.cli.onboard.load_config", return_value=AgentFoxConfig()),
+            patch("agent_fox.cli.onboard.open_knowledge_store", mock_open_store),
+            patch(
+                "agent_fox.cli.onboard.run_onboard",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("boom"),
+            ),
+            patch("agent_fox.cli.onboard.ProgressDisplay") as mock_display_cls,
+        ):
+            mock_progress = MagicMock()
+            mock_display_cls.return_value = mock_progress
+
+            result = runner.invoke(main, ["onboard"])
+
+        # exit code will be non-zero (unhandled exception propagated)
+        assert result.exit_code != 0
+        mock_progress.stop.assert_called_once()
+
+
 class TestInvalidPath:
     """TS-101-E1: Error on non-existent path.
 

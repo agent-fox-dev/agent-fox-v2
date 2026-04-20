@@ -27,6 +27,7 @@ _EXCLUDED_DIRS: frozenset[str] = frozenset(
         "env",
         ".env",
         ".tox",
+        ".agent-fox",
     }
 )
 

@@ -118,6 +118,12 @@ class _SpecBatchRunner:
     default=False,
     help="Disable the hunt-scan stream.",
 )
+@click.option(
+    "--specs-dir",
+    type=click.Path(),
+    default=None,
+    help="Path to specs directory (default: from config, or .agent-fox/specs)",
+)
 @click.pass_context
 def night_shift_cmd(
     ctx: click.Context,
@@ -125,6 +131,7 @@ def night_shift_cmd(
     no_specs: bool,
     no_fixes: bool,
     no_hunts: bool,
+    specs_dir: str | None,
 ) -> None:
     """Run the night-shift autonomous maintenance daemon.
 
@@ -226,7 +233,7 @@ def night_shift_cmd(
     from agent_fox.engine.hot_load import discover_new_specs_gated
 
     _known_specs: set[str] = set()
-    _specs_dir = resolve_spec_root(config, project_root)
+    _specs_dir = Path(specs_dir) if specs_dir else resolve_spec_root(config, project_root)
     _db_conn = _knowledge_db.connection if _knowledge_db is not None else None
 
     async def _discover_fn() -> list:
