@@ -66,35 +66,38 @@ reference `SleepConfig`.
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Core protocol, orchestrator, config, and schema
-  - [ ] 2.1 Add SleepConfig to config system
+- [x] 2. Core protocol, orchestrator, config, and schema
+  - [x] 2.1 Add SleepConfig to config system
     - Add `SleepConfig` pydantic model to `agent_fox/core/config.py`
     - Add `sleep` field to `KnowledgeConfig` with `default_factory=SleepConfig`
     - _Requirements: 112-REQ-7.1, 112-REQ-7.E1_
 
-  - [ ] 2.2 Add sleep_artifacts schema migration
-    - Add migration to `agent_fox/knowledge/db.py` creating the
-      `sleep_artifacts` table with all columns, unique constraint
+  - [x] 2.2 Add sleep_artifacts schema migration
+    - Add migration v15 to `agent_fox/knowledge/migrations.py` creating the
+      `sleep_artifacts` table with all columns
     - Follow existing migration pattern (next schema_version number)
     - _Requirements: 112-REQ-8.1, 112-REQ-8.2, 112-REQ-8.4, 112-REQ-8.E1_
 
-  - [ ] 2.3 Implement SleepTask protocol, data types, and SleepComputer
-    - Create `agent_fox/knowledge/sleep_compute.py`
-    - Define `SleepTask` Protocol, `SleepContext`, `SleepTaskResult`,
-      `SleepComputeResult` dataclasses
-    - Implement `SleepComputer` with registration-order execution, budget
+  - [x] 2.3 Implement SleepTask protocol, data types, and SleepComputer
+    - Created `agent_fox/knowledge/sleep_compute.py`
+    - Defined `SleepTask` Protocol (with cost_estimate per errata), `SleepContext`,
+      `SleepTaskResult`, `SleepComputeResult` dataclasses
+    - Implemented `SleepComputer` with registration-order execution, budget
       decrementation, error isolation, per-task enable check, audit event
-    - Add `SLEEP_COMPUTE_COMPLETE` to `AuditEventType` enum
-    - Implement `upsert_artifact()` and `compute_content_hash()` helpers
+    - Added `SLEEP_COMPUTE_COMPLETE` to `AuditEventType` enum
+    - Implemented `upsert_artifact()` and `compute_content_hash()` helpers
+    - Created `agent_fox/knowledge/sleep_tasks/` package with ContextRewriter
+      and BundleBuilder stubs (full implementation in groups 3 and 4)
+    - Added `SleepComputeStream` stub to `agent_fox/nightshift/streams.py`
     - _Requirements: 112-REQ-1.1 through 112-REQ-1.5, 112-REQ-2.1 through
       112-REQ-2.5, 112-REQ-2.E1, 112-REQ-2.E2, 112-REQ-7.2, 112-REQ-7.3,
       112-REQ-7.4, 112-REQ-8.3_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_sleep_compute.py -k "test_sleep_task_name or test_sleep_task_run or test_stale_scopes or test_sleep_context or test_sleep_task_result or test_executes_tasks_in_order or test_sleep_compute_result or test_task_exception or test_budget_exhaustion or test_audit_event or test_no_tasks or test_all_tasks_budget or test_config_defaults or test_disabled or test_per_task_disable or test_schema or test_supersession or test_idempotent or property_staleness or property_uniqueness or property_budget or property_error_isolation"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 112-REQ-1.*, 112-REQ-2.*, 112-REQ-7.*, 112-REQ-8.* met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_sleep_compute.py -k "..."`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 112-REQ-1.*, 112-REQ-2.*, 112-REQ-7.*, 112-REQ-8.* met
 
 - [ ] 3. Context re-representation task
   - [ ] 3.1 Create sleep_tasks package

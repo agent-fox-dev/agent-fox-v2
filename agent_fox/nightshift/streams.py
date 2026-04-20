@@ -259,6 +259,123 @@ class HuntScanStream:
 
 
 # ---------------------------------------------------------------------------
+# SleepComputeStream
+# ---------------------------------------------------------------------------
+
+
+class SleepComputeStream:
+    """Work stream that runs the sleep-time compute pipeline on a recurring interval.
+
+    Opens the knowledge DB, instantiates SleepComputer with configured tasks,
+    runs it, adds the LLM cost to the shared budget, and closes the DB.
+
+    Requirements: 112-REQ-6.2, 112-REQ-6.3, 112-REQ-6.4, 112-REQ-6.E2
+    """
+
+    def __init__(
+        self,
+        config: object,  # SleepConfig
+        budget: object | None = None,  # SharedBudget | None
+        *,
+        db_factory: object | None = None,
+        repo_root: object | None = None,
+    ) -> None:
+        self._config = config
+        self._budget = budget
+        self._db_factory = db_factory
+        self._repo_root = repo_root
+
+    @property
+    def name(self) -> str:
+        """Stream name as required by WorkStream protocol."""
+        return "sleep-compute"
+
+    @property
+    def interval(self) -> int:
+        """Seconds between run_once() invocations.
+
+        Requirements: 112-REQ-6.2
+        """
+        return int(getattr(self._config, "nightshift_interval", 1800))
+
+    @property
+    def enabled(self) -> bool:
+        """Whether this stream is enabled (from SleepConfig.enabled).
+
+        Requirements: 112-REQ-7.2
+        """
+        return bool(getattr(self._config, "enabled", True))
+
+    async def run_once(self) -> None:
+        """Execute one sleep compute cycle.
+
+        Opens the knowledge DB, runs SleepComputer, adds cost to shared budget,
+        and closes the DB.
+
+        Requirements: 112-REQ-6.3, 112-REQ-6.4
+        """
+        if self._budget is not None:
+            if not self._budget.has_remaining():  # type: ignore[attr-defined]
+                logger.info("SleepComputeStream: budget exhausted; skipping cycle")
+                return
+
+        conn = None
+        try:
+            if self._db_factory is not None:
+                conn = self._db_factory()
+            else:
+                import duckdb as _duckdb
+                conn = _duckdb.connect(":memory:")
+
+            from pathlib import Path as _Path
+
+            from agent_fox.core.config import SleepConfig
+            from agent_fox.knowledge.sleep_compute import SleepComputer, SleepContext
+            from agent_fox.knowledge.sleep_tasks import BundleBuilder, ContextRewriter
+
+            sleep_config: SleepConfig = self._config  # type: ignore[assignment]
+            budget_remaining = float(getattr(sleep_config, "max_cost", 1.0))
+
+            tasks = []
+            if getattr(sleep_config, "context_rewriter_enabled", True):
+                tasks.append(ContextRewriter())
+            if getattr(sleep_config, "bundle_builder_enabled", True):
+                tasks.append(BundleBuilder())
+
+            ctx = SleepContext(
+                conn=conn,
+                repo_root=_Path(self._repo_root or "."),  # type: ignore[arg-type]
+                model=getattr(sleep_config, "model", "standard"),
+                embedder=None,
+                budget_remaining=budget_remaining,
+                sink_dispatcher=None,
+            )
+
+            computer = SleepComputer(tasks, sleep_config)
+            result = await computer.run(ctx)
+
+            if self._budget is not None:
+                self._budget.add_cost(result.total_llm_cost)  # type: ignore[attr-defined]
+
+            logger.info(
+                "SleepComputeStream completed: cost=%.4f errors=%d",
+                result.total_llm_cost,
+                len(result.errors),
+            )
+        except Exception:
+            logger.exception("SleepComputeStream.run_once() failed")
+        finally:
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    async def shutdown(self) -> None:
+        """No long-lived resources to clean up."""
+
+
+# ---------------------------------------------------------------------------
 # build_streams() factory
 # ---------------------------------------------------------------------------
 

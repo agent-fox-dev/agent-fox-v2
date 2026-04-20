@@ -87,6 +87,7 @@ class AuditEventType(StrEnum):
     FACT_CLEANUP = "fact.cleanup"
     CONSOLIDATION_COMPLETE = "consolidation.complete"
     CONSOLIDATION_COST = "consolidation.cost"
+    SLEEP_COMPUTE_COMPLETE = "SLEEP_COMPUTE_COMPLETE"
 
 
 # ---------------------------------------------------------------------------

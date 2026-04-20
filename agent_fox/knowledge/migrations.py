@@ -602,6 +602,29 @@ def _migrate_v12(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("ALTER TABLE plan_nodes_v12 RENAME TO plan_nodes")
 
 
+def _migrate_v15(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add sleep_artifacts table for sleep-time compute pre-computed outputs.
+
+    Each row represents a pre-computed artifact (context block or retrieval
+    bundle) produced by a sleep task. Supersession replaces the old row rather
+    than updating in place, maintaining full history.
+
+    Requirements: 112-REQ-8.1, 112-REQ-8.2, 112-REQ-8.4, 112-REQ-8.E1
+    """
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sleep_artifacts (
+            id            UUID PRIMARY KEY,
+            task_name     VARCHAR,
+            scope_key     VARCHAR,
+            content       TEXT,
+            metadata_json TEXT,
+            content_hash  VARCHAR,
+            created_at    TIMESTAMP,
+            superseded_at TIMESTAMP
+        )
+    """)
+
+
 def _migrate_v14(conn: duckdb.DuckDBPyConnection) -> None:
     """Drop dead tables: complexity_assessments, execution_outcomes, learned_thresholds.
 
@@ -682,6 +705,11 @@ MIGRATIONS: list[Migration] = [
         version=14,
         description="drop dead tables: complexity_assessments, execution_outcomes, learned_thresholds",
         apply=_migrate_v14,
+    ),
+    Migration(
+        version=15,
+        description="add sleep_artifacts table for sleep-time compute pre-computed outputs",
+        apply=_migrate_v15,
     ),
 ]
 

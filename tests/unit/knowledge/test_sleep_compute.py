@@ -14,16 +14,6 @@ from unittest.mock import MagicMock
 
 import duckdb
 import pytest
-from agent_fox.knowledge.sleep_compute import (  # noqa: F401
-    SleepComputer,
-    SleepComputeResult,
-    SleepContext,
-    SleepTask,
-    SleepTaskResult,
-    compute_content_hash,
-    upsert_artifact,
-)
-from agent_fox.knowledge.sleep_tasks.context_rewriter import ContextRewriter  # noqa: F401
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -36,6 +26,16 @@ from agent_fox.core.config import SleepConfig  # noqa: F401 (doesn't exist yet)
 # Existing imports
 # ---------------------------------------------------------------------------
 from agent_fox.knowledge.migrations import run_migrations
+from agent_fox.knowledge.sleep_compute import (  # noqa: F401
+    SleepComputer,
+    SleepComputeResult,
+    SleepContext,
+    SleepTask,
+    SleepTaskResult,
+    compute_content_hash,
+    upsert_artifact,
+)
+from agent_fox.knowledge.sleep_tasks.context_rewriter import ContextRewriter  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Sleep artifacts DDL (migration v15 will add this; tests create it directly)
