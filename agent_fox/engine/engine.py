@@ -465,6 +465,7 @@ class Orchestrator:
                 logger.debug("Failed to create DB run record", exc_info=True)
 
         self._graph_sync = GraphSync(state.node_states, edges_dict)
+        _defer_ready_reviews(graph, self._graph_sync, self._knowledge_db_conn)
         self._result_handler = SessionResultHandler(
             graph_sync=self._graph_sync,
             routing_ladders=self._routing.ladders,
@@ -570,6 +571,16 @@ class Orchestrator:
                 # 39-REQ-9.3: Filter conflicting tasks when enabled
                 if self._planning_config.file_conflict_detection and self._is_parallel and len(ready) > 1:
                     ready = self._filter_file_conflicts(ready)
+
+                if not ready:
+                    max_slots = self._parallel_runner.max_parallelism if self._parallel_runner else 1
+                    promoted = self._graph_sync.promote_deferred(limit=max_slots)
+                    if promoted:
+                        logger.info(
+                            "Promoted %d deferred review node(s)",
+                            len(promoted),
+                        )
+                        ready = self._graph_sync.ready_tasks()
 
                 if not ready:
                     if self._graph_sync.is_stalled():
@@ -1077,6 +1088,16 @@ class Orchestrator:
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
                 new_ready = graph_sync.ready_tasks()
+                if not new_ready and len(pool) < parallel_runner.max_parallelism:
+                    promoted = graph_sync.promote_deferred(
+                        parallel_runner.max_parallelism - len(pool),
+                    )
+                    if promoted:
+                        logger.info(
+                            "Promoted %d deferred review node(s)",
+                            len(promoted),
+                        )
+                        new_ready = graph_sync.ready_tasks()
                 await self._fill_parallel_pool(
                     pool,
                     new_ready,
@@ -1403,6 +1424,7 @@ class Orchestrator:
         # Rebuild GraphSync with updated graph
         edges_dict = _build_edges_dict_from_graph(self._graph)
         self._graph_sync = GraphSync(state.node_states, edges_dict)
+        _defer_ready_reviews(self._graph, self._graph_sync, self._knowledge_db_conn)
 
     def _block_task(
         self,
@@ -1708,6 +1730,41 @@ def _reset_blocked_tasks(
         for node_id, status in state.node_states.items():
             if status == "pending":
                 persist_node_status(conn, node_id, "pending")
+
+
+def _defer_ready_reviews(
+    graph: TaskGraph,
+    graph_sync: GraphSync,
+    conn: Any = None,
+) -> list[str]:
+    """Mark non-auto_pre review nodes as deferred when deps are already completed.
+
+    Returns list of node IDs that were deferred.
+    """
+    deferred: list[str] = []
+    for nid, node in graph.nodes.items():
+        if graph_sync.node_states.get(nid) != "pending":
+            continue
+        if _is_auto_pre(nid):
+            continue
+        if node.archetype not in _REVIEW_ARCHETYPES:
+            continue
+        preds = graph_sync.predecessors(nid)
+        if preds and all(graph_sync.node_states.get(p) == "completed" for p in preds):
+            graph_sync.node_states[nid] = "deferred"
+            deferred.append(nid)
+    if deferred and conn is not None:
+        from agent_fox.engine.state import persist_node_status
+
+        for nid in deferred:
+            persist_node_status(conn, nid, "deferred")
+    if deferred:
+        logger.info(
+            "Deferred %d review node(s) with already-completed deps: %s",
+            len(deferred),
+            ", ".join(deferred),
+        )
+    return deferred
 
 
 def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:

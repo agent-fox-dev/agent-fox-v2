@@ -303,6 +303,30 @@ class TestStallDetection:
 
         assert sync.is_stalled() is True
 
+    def test_not_stalled_when_promotable_deferred(self) -> None:
+        """Not stalled when deferred nodes can be promoted."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.is_stalled() is False
+
+    def test_stalled_when_deferred_deps_not_met(self) -> None:
+        """Stalled when deferred nodes exist but deps are not completed."""
+        node_states = {
+            "A": "blocked",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.is_stalled() is True
+
     def test_summary_returns_status_counts(self) -> None:
         """Verify summary() returns correct counts per status."""
         node_states = {
@@ -320,3 +344,96 @@ class TestStallDetection:
         assert summary["blocked"] == 1
         assert summary["pending"] == 1
         assert summary["in_progress"] == 1
+
+
+class TestPromoteDeferred:
+    """Tests for GraphSync.promote_deferred()."""
+
+    def test_promote_deferred_node_to_pending(self) -> None:
+        """Deferred node with completed deps is promoted to pending."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == ["B"]
+        assert sync.node_states["B"] == "pending"
+
+    def test_promote_respects_limit(self) -> None:
+        """Only promote up to the specified limit."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+            "C": "deferred",
+            "D": "deferred",
+        }
+        edges = {"B": ["A"], "C": ["A"], "D": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=2)
+
+        assert len(promoted) == 2
+        assert all(sync.node_states[p] == "pending" for p in promoted)
+        deferred_remaining = [
+            nid for nid, s in sync.node_states.items() if s == "deferred"
+        ]
+        assert len(deferred_remaining) == 1
+
+    def test_promote_skips_unmet_deps(self) -> None:
+        """Deferred nodes with incomplete deps are not promoted."""
+        node_states = {
+            "A": "pending",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == []
+        assert sync.node_states["B"] == "deferred"
+
+    def test_promote_no_deferred_nodes(self) -> None:
+        """Returns empty list when no deferred nodes exist."""
+        node_states = {"A": "pending", "B": "completed"}
+        edges = {"A": ["B"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == []
+
+    def test_promoted_nodes_become_ready(self) -> None:
+        """Promoted nodes appear in ready_tasks() after promotion."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.ready_tasks() == []
+
+        sync.promote_deferred(limit=1)
+
+        assert sync.ready_tasks() == ["B"]
+
+    def test_deferred_nodes_excluded_from_ready(self) -> None:
+        """Deferred nodes do not appear in ready_tasks()."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+            "C": "pending",
+        }
+        edges = {"B": ["A"], "C": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        ready = sync.ready_tasks()
+
+        assert "C" in ready
+        assert "B" not in ready
