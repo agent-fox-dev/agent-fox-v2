@@ -617,8 +617,19 @@ class FixPipeline:
         from agent_fox.session.review_parser import parse_triage_output
 
         node_id = f"fix-issue-{spec.issue_number}:0:triage"
+        triage_task = (
+            f"Triage issue #{spec.issue_number}: {spec.title}\n\n"
+            "Analyze the issue, identify the root cause and affected files, "
+            "and produce a JSON triage report with acceptance criteria."
+        )
         try:
-            outcome = await self._run_session("maintainer", workspace, spec=spec, mode="fix-triage")
+            outcome = await self._run_session(
+                "maintainer",
+                workspace,
+                spec=spec,
+                mode="fix-triage",
+                task_prompt=triage_task,
+            )
             self._emit_session_event(outcome, "maintainer", self._run_id, node_id=node_id)
         except Exception as exc:
             logger.warning(

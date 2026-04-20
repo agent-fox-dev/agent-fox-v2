@@ -81,6 +81,7 @@ def _mock_spec():
     spec.system_context = "test context"
     spec.task_prompt = "fix the bug"
     spec.issue_number = 42
+    spec.title = "test issue title"
     spec.branch_name = "fix/issue-42"
     return spec
 
