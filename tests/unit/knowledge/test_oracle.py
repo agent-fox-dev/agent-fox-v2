@@ -16,7 +16,7 @@ import pytest
 from agent_fox.core.config import KnowledgeConfig
 from agent_fox.core.errors import KnowledgeStoreError
 from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.query import Oracle, OracleAnswer
+from agent_fox.knowledge.query_oracle import Oracle, OracleAnswer
 from agent_fox.knowledge.search import SearchResult, VectorSearch
 
 from .conftest import (

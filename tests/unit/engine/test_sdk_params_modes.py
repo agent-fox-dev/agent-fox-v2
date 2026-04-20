@@ -523,8 +523,6 @@ class TestIntegrationSmoke:
         # get_archetype() reads from this dict, so patching here covers all callers.
         patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke1": test_arch}
         monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
-        # Also patch the re-exported reference in session.archetypes (used by sdk_params).
-        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
 
         config = AgentFoxConfig()
         runner = NodeSessionRunner(
@@ -562,7 +560,6 @@ class TestIntegrationSmoke:
 
         patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke2": test_arch}
         monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
-        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
 
         config = AgentFoxConfig()
         runner = NodeSessionRunner(
@@ -596,7 +593,6 @@ class TestIntegrationSmoke:
 
         patched_registry = {**ARCHETYPE_REGISTRY, "test_smoke2b": test_arch}
         monkeypatch.setattr("agent_fox.archetypes.ARCHETYPE_REGISTRY", patched_registry)
-        monkeypatch.setattr("agent_fox.session.archetypes.ARCHETYPE_REGISTRY", patched_registry)
 
         config = AgentFoxConfig()
         runner = NodeSessionRunner(

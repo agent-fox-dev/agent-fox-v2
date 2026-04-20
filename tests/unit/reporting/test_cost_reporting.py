@@ -16,7 +16,8 @@ from agent_fox.core.token_tracker import (
     record_auxiliary_usage,
 )
 from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
-from agent_fox.reporting.status import StatusReport, extract_spec_name
+from agent_fox.core.node_id import spec_name_of as extract_spec_name
+from agent_fox.reporting.status import StatusReport
 
 
 class TestAuxiliaryIntegration:

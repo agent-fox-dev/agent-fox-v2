@@ -5,7 +5,7 @@ Requirements: 13-REQ-4.1, 13-REQ-4.2, 13-REQ-6.1, 13-REQ-6.2, 13-REQ-6.3
 
 from __future__ import annotations
 
-from agent_fox.knowledge.query import Timeline, TimelineNode, temporal_query
+from agent_fox.knowledge.query_temporal import Timeline, TimelineNode, temporal_query
 from tests.unit.knowledge.conftest import (
     FACT_AAA,
     FACT_BBB,

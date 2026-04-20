@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from agent_fox.nightshift.stream import WorkStream
+    from agent_fox.nightshift.streams import WorkStream
     from agent_fox.platform.protocol import PlatformProtocol
 
 from agent_fox.engine.audit_helpers import emit_audit_event as _emit_audit_event

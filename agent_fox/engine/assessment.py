@@ -12,8 +12,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from agent_fox.archetypes import get_archetype
 from agent_fox.core.models import ModelTier
-from agent_fox.session.archetypes import get_archetype
 
 logger = logging.getLogger(__name__)
 

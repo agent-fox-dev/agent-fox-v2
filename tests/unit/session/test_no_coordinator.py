@@ -21,7 +21,7 @@ class TestCoordinatorAbsentFromRegistry:
 
     def test_coordinator_absent_from_registry(self) -> None:
         """ARCHETYPE_REGISTRY must not contain 'coordinator' key."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         assert "coordinator" not in ARCHETYPE_REGISTRY
 
@@ -37,7 +37,7 @@ class TestGetArchetypeCoordinatorFallback:
 
     def test_get_archetype_coordinator_falls_back(self, caplog: pytest.LogCaptureFixture) -> None:
         """get_archetype('coordinator') must return the coder entry."""
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         with caplog.at_level(logging.WARNING):
             result = get_archetype("coordinator")
@@ -46,7 +46,7 @@ class TestGetArchetypeCoordinatorFallback:
 
     def test_get_archetype_coordinator_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """get_archetype('coordinator') must emit a warning log."""
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         with caplog.at_level(logging.WARNING):
             get_archetype("coordinator")

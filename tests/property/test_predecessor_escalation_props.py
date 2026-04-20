@@ -16,7 +16,7 @@ from hypothesis import strategies as st
 
 from agent_fox.core.models import ModelTier
 from agent_fox.routing.escalation import EscalationLadder
-from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
 # Strategies for valid tiers
 _TIERS = [ModelTier.SIMPLE, ModelTier.STANDARD, ModelTier.ADVANCED]

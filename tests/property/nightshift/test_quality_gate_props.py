@@ -273,7 +273,7 @@ class TestTimeoutClamping:
     @settings(max_examples=30)
     def test_timeout_always_at_least_60(self, timeout: int) -> None:
         """TS-67-P6: Config timeout values are always >= 60 after validation."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(quality_gate_timeout=timeout)
         assert config.quality_gate_timeout >= 60

@@ -17,21 +17,21 @@ class TestNightShiftConfigNewDefaults:
 
     def test_spec_interval_default(self) -> None:
         """spec_interval defaults to 300."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.spec_interval == 300
 
     def test_enabled_streams_default(self) -> None:
         """enabled_streams defaults to all three streams."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.enabled_streams == ["specs", "fixes", "hunts"]
 
     def test_merge_strategy_default(self) -> None:
         """merge_strategy defaults to 'direct'."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.merge_strategy == "direct"
@@ -48,7 +48,7 @@ class TestDirectMergeStrategy:
 
     def test_default_is_direct(self) -> None:
         """Default NightShiftConfig has merge_strategy='direct'."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.merge_strategy == "direct"
@@ -82,14 +82,14 @@ class TestSpecIntervalClamping:
 
     def test_spec_interval_clamped(self) -> None:
         """spec_interval of 5 is clamped to 10."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(spec_interval=5)
         assert config.spec_interval == 10
 
     def test_spec_interval_at_boundary(self) -> None:
         """spec_interval of 10 is not changed."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(spec_interval=10)
         assert config.spec_interval == 10
@@ -106,7 +106,7 @@ class TestEmptyEnabledStreams:
 
     def test_empty_list_means_all(self) -> None:
         """Empty enabled_streams treated as all enabled."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(enabled_streams=[])
         assert config.enabled_streams == ["specs", "fixes", "hunts"]
