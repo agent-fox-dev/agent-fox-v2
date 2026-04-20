@@ -290,6 +290,33 @@ class TestScanSourceFiles:
         files = _scan_source_files(tmp_path)
         assert not any(".git" in str(f) for f in files)
 
+    def test_excludes_agent_fox_directory(self, tmp_path: Path) -> None:
+        """AC-4: _scan_source_files excludes .agent-fox/ directory.
+
+        Even though .agent-fox starts with '.' (caught by hidden-dir guard),
+        it is also explicitly listed in _EXCLUDED_DIRS for clarity.
+        """
+        # Legitimate source file
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "app.py").write_text("# app")
+
+        # File under .agent-fox that must be excluded
+        hooks = tmp_path / ".agent-fox" / "hooks"
+        hooks.mkdir(parents=True)
+        (hooks / "post_run.py").write_text("# agent-fox hook")
+
+        from agent_fox.knowledge.code_analysis import _EXCLUDED_DIRS
+
+        files = _scan_source_files(tmp_path)
+
+        assert any(f.name == "app.py" for f in files), "app.py must be found"
+        for path in files:
+            assert ".agent-fox" not in path.parts, f"Unexpected .agent-fox path: {path}"
+
+        # Also verify .agent-fox is explicitly in _EXCLUDED_DIRS
+        assert ".agent-fox" in _EXCLUDED_DIRS, ".agent-fox must be in _EXCLUDED_DIRS"
+
 
 class TestAnalyzeCodeWithLLM:
     """TS-101-20: analyze_code_with_llm creates facts from LLM output.
