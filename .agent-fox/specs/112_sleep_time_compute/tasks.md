@@ -28,8 +28,8 @@ reference `SleepConfig`.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file structure
     - Create `tests/unit/knowledge/test_sleep_compute.py` for protocol,
       orchestrator, config, and schema tests (TS-112-1 through TS-112-10,
       TS-112-30 through TS-112-34, TS-112-E8, TS-112-E9, TS-112-E10, TS-112-E11)
@@ -43,28 +43,28 @@ reference `SleepConfig`.
       (TS-112-SMOKE-1 through TS-112-SMOKE-3)
     - _Test Spec: TS-112-1 through TS-112-34, TS-112-E1 through TS-112-E11_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - One test function per TS-112-N entry
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-112-1 through TS-112-34_
 
-  - [ ] 1.3 Translate edge-case tests from test_spec.md
+  - [x] 1.3 Translate edge-case tests from test_spec.md
     - One test function per TS-112-EN entry
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - _Test Spec: TS-112-E1 through TS-112-E11_
 
-  - [ ] 1.4 Translate property tests from test_spec.md
+  - [x] 1.4 Translate property tests from test_spec.md
     - One property test per TS-112-PN entry using Hypothesis
     - _Test Spec: TS-112-P1 through TS-112-P9_
 
-  - [ ] 1.5 Write integration smoke tests
+  - [x] 1.5 Write integration smoke tests
     - One test per TS-112-SMOKE-N entry
     - _Test Spec: TS-112-SMOKE-1 through TS-112-SMOKE-3_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Core protocol, orchestrator, config, and schema
   - [ ] 2.1 Add SleepConfig to config system
