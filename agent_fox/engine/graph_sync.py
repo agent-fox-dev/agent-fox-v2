@@ -102,15 +102,21 @@ def _interleave_by_spec(
     ready: list[str],
     duration_hints: dict[str, int] | None = None,
     fan_out_weights: dict[str, int] | None = None,
+    node_archetypes: dict[str, str] | None = None,
 ) -> list[str]:
-    """Order ready tasks with pre-review priority and spec-fair interleaving.
+    """Order ready tasks with three-tier priority and spec-fair interleaving.
 
-    Partitions ready tasks into two tiers:
+    Partitions ready tasks into three tiers:
 
     1. **Pre-review tier** (auto_pre nodes at group 0): sorted by spec
        fan-out descending so critical-path specs surface blockers first.
-    2. **Regular tier** (coder and post-review nodes): sorted by spec
-       number ascending with spec-fair round-robin interleaving.
+    2. **Coder tier** (implementation nodes): sorted by spec number
+       ascending with spec-fair round-robin interleaving.
+    3. **Review tier** (non-auto_pre review/verifier nodes): sorted by
+       spec number ascending with spec-fair round-robin interleaving.
+
+    When ``node_archetypes`` is not provided, tiers 2 and 3 are merged
+    (backward-compatible two-tier behavior).
 
     Within each tier, tasks are interleaved round-robin across spec
     groups.
@@ -120,9 +126,12 @@ def _interleave_by_spec(
         duration_hints: Optional mapping of node_id -> predicted duration ms.
         fan_out_weights: Optional mapping of spec_name -> fan-out weight
             (count of distinct downstream specs).
+        node_archetypes: Optional mapping of node_id -> archetype string.
+            When provided, non-auto_pre nodes are partitioned into coder
+            (archetype == "coder") and review (all others) tiers.
 
     Returns:
-        Pre-review-prioritized, spec-fair-ordered list of node IDs.
+        Priority-ordered, spec-fair list of node IDs.
 
     Requirements: 69-REQ-1.1, 69-REQ-1.3, 69-REQ-2.1, 69-REQ-2.2, 69-REQ-2.3
     """
@@ -135,7 +144,15 @@ def _interleave_by_spec(
     result: list[str] = []
     if pre:
         result.extend(_spec_round_robin(pre, duration_hints, fan_out_weights))
-    if regular:
+
+    if node_archetypes:
+        coders = [n for n in regular if node_archetypes.get(n, "coder") == "coder"]
+        reviews = [n for n in regular if node_archetypes.get(n, "coder") != "coder"]
+        if coders:
+            result.extend(_spec_round_robin(coders, duration_hints))
+        if reviews:
+            result.extend(_spec_round_robin(reviews, duration_hints))
+    elif regular:
         result.extend(_spec_round_robin(regular, duration_hints))
 
     return result
@@ -153,6 +170,7 @@ class GraphSync:
         self,
         node_states: dict[str, str],
         edges: dict[str, list[str]],
+        node_archetypes: dict[str, str] | None = None,
     ) -> None:
         """Initialise graph sync with node states and dependency edges.
 
@@ -165,9 +183,13 @@ class GraphSync:
             edges: Adjacency list where each key is a node_id and its
                 value is a list of dependency node_ids (predecessors
                 that must complete before this node can execute).
+            node_archetypes: Optional mapping of node_id -> archetype
+                string.  When provided, ``ready_tasks()`` uses three-tier
+                priority ordering (auto_pre > coders > reviews).
         """
         self.node_states = node_states
         self._edges = edges
+        self._node_archetypes = node_archetypes
 
         # Build reverse adjacency: node -> list of nodes that depend on it.
         # Used for cascade blocking (BFS forward through dependents).
@@ -213,7 +235,7 @@ class GraphSync:
                 ready.append(node_id)
 
         fan_out = self._compute_spec_fan_out()
-        return _interleave_by_spec(ready, duration_hints, fan_out)
+        return _interleave_by_spec(ready, duration_hints, fan_out, self._node_archetypes)
 
     def _compute_spec_fan_out(self) -> dict[str, int]:
         """Count distinct cross-spec dependent specs.

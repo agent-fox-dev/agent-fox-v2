@@ -464,7 +464,8 @@ class Orchestrator:
             except Exception:
                 logger.debug("Failed to create DB run record", exc_info=True)
 
-        self._graph_sync = GraphSync(state.node_states, edges_dict)
+        node_archetypes = {nid: n.archetype for nid, n in graph.nodes.items()}
+        self._graph_sync = GraphSync(state.node_states, edges_dict, node_archetypes)
         _defer_ready_reviews(graph, self._graph_sync, self._knowledge_db_conn)
         self._result_handler = SessionResultHandler(
             graph_sync=self._graph_sync,
@@ -1423,7 +1424,8 @@ class Orchestrator:
 
         # Rebuild GraphSync with updated graph
         edges_dict = _build_edges_dict_from_graph(self._graph)
-        self._graph_sync = GraphSync(state.node_states, edges_dict)
+        node_archetypes = {nid: n.archetype for nid, n in self._graph.nodes.items()}
+        self._graph_sync = GraphSync(state.node_states, edges_dict, node_archetypes)
         _defer_ready_reviews(self._graph, self._graph_sync, self._knowledge_db_conn)
 
     def _block_task(
