@@ -212,8 +212,8 @@ def test_no_duration_imports(source_path: str) -> None:
 @pytest.mark.parametrize(
     "spec_dir",
     [
-        ".specs/archive/30_adaptive_model_routing",
-        ".specs/archive/57_archetype_model_tiers",
+        ".agent-fox/specs/archive/30_adaptive_model_routing",
+        ".agent-fox/specs/archive/57_archetype_model_tiers",
     ],
 )
 def test_superseded_specs_have_banners(spec_dir: str) -> None:
