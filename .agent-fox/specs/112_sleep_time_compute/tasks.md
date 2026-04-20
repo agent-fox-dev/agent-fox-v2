@@ -123,8 +123,8 @@ reference `SleepConfig`.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 112-REQ-3.* met
 
-- [ ] 4. Retrieval bundle task
-  - [ ] 4.1 Implement BundleBuilder
+- [x] 4. Retrieval bundle task
+  - [x] 4.1 Implement BundleBuilder
     - Create `agent_fox/knowledge/sleep_tasks/bundle_builder.py`
     - Query distinct spec names with active facts
     - Compute per-spec content hash
@@ -135,11 +135,11 @@ reference `SleepConfig`.
     - _Requirements: 112-REQ-4.1 through 112-REQ-4.6, 112-REQ-4.E1,
       112-REQ-4.E2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_bundle_builder.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 112-REQ-4.* met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_bundle_builder.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 112-REQ-4.* met
 
 - [ ] 5. Checkpoint - Sleep tasks complete
   - Ensure all task-level tests pass.
