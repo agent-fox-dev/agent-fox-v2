@@ -154,6 +154,59 @@ class TestCascadeBlockingLinear:
         assert sync.node_states["D"] == "blocked"
         assert "D" in cascade_blocked
 
+    def test_cascade_continues_through_in_progress_to_block_pending_dependents(
+        self,
+    ) -> None:
+        """Cascade blocking must reach pending nodes beyond an in_progress intermediate.
+
+        Regression test for issue #481: when a node is blocked, the BFS cascade
+        must continue through any in_progress dependents so that their pending
+        dependents are blocked.  Without this fix, those pending nodes remain
+        unblocked and are dispatched when the in_progress node completes —
+        defeating the quality gate entirely.
+
+        Scenario (mirrors 02_data_broker blocking):
+          coder:1 is blocked (reviewer found critical findings).
+          audit-review is in_progress (already executing, cannot be stopped).
+          coder:2 through coder:N are pending (not yet dispatched).
+          After the fix, coder:2..N are blocked at cascade time, not dispatched
+          when audit-review completes.
+        """
+        # Graph: coder:1 -> audit-review (in_progress) -> coder:2 -> verifier (pending)
+        node_states = {
+            "coder:1": "pending",
+            "audit-review": "in_progress",
+            "coder:2": "pending",
+            "verifier": "pending",
+        }
+        edges = {
+            "audit-review": ["coder:1"],
+            "coder:2": ["audit-review"],
+            "verifier": ["coder:2"],
+        }
+
+        sync = GraphSync(node_states, edges)
+        cascade_blocked = sync.mark_blocked("coder:1", "reviewer: 5 critical findings")
+
+        # coder:1 itself is blocked
+        assert sync.node_states["coder:1"] == "blocked"
+
+        # audit-review is in_progress and must NOT be forcibly blocked —
+        # it is already executing and will complete normally.
+        assert sync.node_states["audit-review"] == "in_progress"
+        assert "audit-review" not in cascade_blocked
+
+        # coder:2 and verifier are pending dependents downstream of the
+        # in_progress node.  They MUST be blocked so they are never dispatched.
+        assert sync.node_states["coder:2"] == "blocked", (
+            "coder:2 should be blocked via cascade through in_progress audit-review"
+        )
+        assert "coder:2" in cascade_blocked
+        assert sync.node_states["verifier"] == "blocked", (
+            "verifier should be blocked via cascade through in_progress audit-review"
+        )
+        assert "verifier" in cascade_blocked
+
 
 class TestCascadeBlockingDiamond:
     """TS-04-7: Cascade blocking with diamond dependency.
@@ -250,6 +303,30 @@ class TestStallDetection:
 
         assert sync.is_stalled() is True
 
+    def test_not_stalled_when_promotable_deferred(self) -> None:
+        """Not stalled when deferred nodes can be promoted."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.is_stalled() is False
+
+    def test_stalled_when_deferred_deps_not_met(self) -> None:
+        """Stalled when deferred nodes exist but deps are not completed."""
+        node_states = {
+            "A": "blocked",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.is_stalled() is True
+
     def test_summary_returns_status_counts(self) -> None:
         """Verify summary() returns correct counts per status."""
         node_states = {
@@ -267,3 +344,96 @@ class TestStallDetection:
         assert summary["blocked"] == 1
         assert summary["pending"] == 1
         assert summary["in_progress"] == 1
+
+
+class TestPromoteDeferred:
+    """Tests for GraphSync.promote_deferred()."""
+
+    def test_promote_deferred_node_to_pending(self) -> None:
+        """Deferred node with completed deps is promoted to pending."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == ["B"]
+        assert sync.node_states["B"] == "pending"
+
+    def test_promote_respects_limit(self) -> None:
+        """Only promote up to the specified limit."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+            "C": "deferred",
+            "D": "deferred",
+        }
+        edges = {"B": ["A"], "C": ["A"], "D": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=2)
+
+        assert len(promoted) == 2
+        assert all(sync.node_states[p] == "pending" for p in promoted)
+        deferred_remaining = [
+            nid for nid, s in sync.node_states.items() if s == "deferred"
+        ]
+        assert len(deferred_remaining) == 1
+
+    def test_promote_skips_unmet_deps(self) -> None:
+        """Deferred nodes with incomplete deps are not promoted."""
+        node_states = {
+            "A": "pending",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == []
+        assert sync.node_states["B"] == "deferred"
+
+    def test_promote_no_deferred_nodes(self) -> None:
+        """Returns empty list when no deferred nodes exist."""
+        node_states = {"A": "pending", "B": "completed"}
+        edges = {"A": ["B"]}
+
+        sync = GraphSync(node_states, edges)
+        promoted = sync.promote_deferred(limit=5)
+
+        assert promoted == []
+
+    def test_promoted_nodes_become_ready(self) -> None:
+        """Promoted nodes appear in ready_tasks() after promotion."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+        }
+        edges = {"B": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+
+        assert sync.ready_tasks() == []
+
+        sync.promote_deferred(limit=1)
+
+        assert sync.ready_tasks() == ["B"]
+
+    def test_deferred_nodes_excluded_from_ready(self) -> None:
+        """Deferred nodes do not appear in ready_tasks()."""
+        node_states = {
+            "A": "completed",
+            "B": "deferred",
+            "C": "pending",
+        }
+        edges = {"B": ["A"], "C": ["A"]}
+
+        sync = GraphSync(node_states, edges)
+        ready = sync.ready_tasks()
+
+        assert "C" in ready
+        assert "B" not in ready

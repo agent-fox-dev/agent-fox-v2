@@ -59,6 +59,7 @@ Controls the orchestration loop: parallelism, retries, timeouts, and quality gat
 | `max_sessions` | int\|null | `null` | — | Maximum total sessions in a run (null = no limit) |
 | `audit_retention_runs` | int | `20` | ≥ 1 | Number of run audit logs to retain on disk |
 | `max_blocked_fraction` | float\|null | `null` | 0.0–1.0 | Abort the run when this fraction of nodes are blocked; `null` disables |
+| `max_review_fraction` | float | `0.34` | 0.0–1.0 | Maximum fraction of parallel slots for review sessions; `auto_pre` nodes exempt |
 | `quality_gate_timeout` | int | `300` | — | Timeout in seconds for the quality-gate command |
 | `causal_context_limit` | int | `200` | 10–10000 | Maximum prior facts included in causal extraction prompts |
 | `watch_interval` | int | `60` | ≥ 10 | Seconds between polls in `--watch` mode |

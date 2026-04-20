@@ -191,7 +191,7 @@ class TestResolveMaxTurnsWithOverrides:
 
     def test_registry_default_used_when_neither(self) -> None:
         """No override and no legacy dict → registry default."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         config = AgentFoxConfig()
         expected = ARCHETYPE_REGISTRY["coder"].default_max_turns

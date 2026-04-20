@@ -38,7 +38,7 @@ class TestReviewerDefaultStandard:
     """Verify reviewer archetype base defaults to STANDARD (was skeptic/oracle ADVANCED)."""
 
     def test_reviewer_default_tier_is_standard(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["reviewer"]
         assert entry.default_model_tier == "STANDARD"
@@ -54,7 +54,7 @@ class TestVerifierDefaultStandard:
     """TS-57-3 (updated): Verify Verifier defaults to STANDARD (was ADVANCED)."""
 
     def test_verifier_default_tier_is_standard(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["verifier"]
         assert entry.default_model_tier == "STANDARD"
@@ -71,7 +71,7 @@ class TestCoderDefaultStandard:
 
     def test_coder_default_tier_is_standard(self) -> None:
         """ARCHETYPE_REGISTRY["coder"].default_model_tier must be STANDARD."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["coder"]
         assert entry.default_model_tier == "STANDARD"
@@ -88,7 +88,7 @@ class TestRemainingArchetypesStandard:
 
     @pytest.mark.parametrize("name", ["coder", "reviewer", "verifier"])
     def test_archetype_defaults_to_standard(self, name: str) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY[name]
         assert entry.default_model_tier == "STANDARD", (
@@ -236,7 +236,7 @@ class TestUnknownArchetypeFallback:
     """TS-57-E1: Unknown archetype name falls back to Coder entry."""
 
     def test_unknown_archetype_returns_coder(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype("unknown_archetype_xyz")
         assert entry.name == "coder"

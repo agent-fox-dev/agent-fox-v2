@@ -13,6 +13,7 @@ Requirements: 67-REQ-1.1, 67-REQ-1.2, 67-REQ-1.E1, 67-REQ-2.1, 67-REQ-2.2,
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,6 +43,18 @@ You are a code quality analyst. The following quality checks have failed in the
 project. Analyse the failure output and produce a JSON array with exactly one
 object per failing check.
 
+Important context for type-checker and linter errors in test files:
+- Errors in test files (paths starting with "tests/") that are tagged
+  "[TEST FILE — may be intentional]" are often DELIBERATE. Tests frequently use
+  constructs like `pytest.raises(ImportError)` to verify that removed modules
+  stay removed. A type-checker like mypy will flag the import as missing, but
+  the test is working as designed.
+- Do NOT create findings for import-not-found or similar errors in test files
+  unless there is additional evidence that the test itself is broken (e.g. the
+  test runner also reports it as a failure).
+- When in doubt about a test-file error, omit it from your analysis rather than
+  flagging it as a real issue.
+
 Each object must have these fields:
 - "check_name": the name of the check (e.g. "pytest", "ruff", "mypy")
 - "title": a short descriptive title of the failure (under 80 chars)
@@ -56,6 +69,26 @@ Failing checks:
 """
 
 
+_TEST_FILE_ERROR_RE = re.compile(
+    r"^(tests/.+?:\d+:.*(?:error|warning).*)$",
+    re.MULTILINE,
+)
+
+
+def _annotate_test_file_errors(output: str) -> str:
+    """Append '[TEST FILE — may be intentional]' to errors in test files.
+
+    Matches lines like:
+        tests/unit/security/test_relocation.py:58: error: Cannot find ...
+    and annotates them so the LLM prompt can recognise intentional errors.
+    """
+
+    def _tag(m: re.Match[str]) -> str:
+        return m.group(1) + "  [TEST FILE — may be intentional]"
+
+    return _TEST_FILE_ERROR_RE.sub(_tag, output)
+
+
 def _format_failures(
     failures: list[tuple[CheckDescriptor, str, int]],
 ) -> str:
@@ -63,6 +96,8 @@ def _format_failures(
     sections: list[str] = []
     for check, output, exit_code in failures:
         truncated = output[:MAX_OUTPUT_CHARS]
+        if check.category in (CheckCategory.TYPE, CheckCategory.LINT):
+            truncated = _annotate_test_file_errors(truncated)
         section = f"=== {check.name} ({check.category}) ===\nExit code: {exit_code}\nOutput:\n{truncated}"
         sections.append(section)
     return "\n\n".join(sections)

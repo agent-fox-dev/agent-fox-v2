@@ -103,13 +103,13 @@ class TestPredecessorReset:
     """Verify orchestrator resets predecessor when Verifier fails."""
 
     def test_predecessor_reset_concept(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype("verifier")
         assert entry.retry_predecessor is True
 
     def test_coder_no_retry_predecessor(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype("coder")
         assert entry.retry_predecessor is False
@@ -176,7 +176,7 @@ class TestRetryCycleLimit:
     """Verify retry-predecessor does not exceed max_retries."""
 
     def test_retry_concept(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         assert ARCHETYPE_REGISTRY["verifier"].retry_predecessor is True
         assert ARCHETYPE_REGISTRY["coder"].retry_predecessor is False
@@ -245,7 +245,7 @@ class TestNonCoderPredecessor:
     """Verify retry-predecessor works for any predecessor archetype."""
 
     def test_retry_works_for_any_predecessor(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype("verifier")
         assert entry.retry_predecessor is True
@@ -311,7 +311,7 @@ class TestPropertyRetryPredecessor:
     """Retry-predecessor resets the correct predecessor."""
 
     def test_prop_retry_flag_only_on_retry_archetypes(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         # Only verifier has retry_predecessor=True at the base archetype level.
         # Reviewer has mode-specific retry_predecessor (audit-review mode),

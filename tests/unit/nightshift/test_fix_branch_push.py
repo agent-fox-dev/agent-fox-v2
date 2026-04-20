@@ -65,7 +65,7 @@ class TestConfigDefaults:
 
     def test_config_defaults_false(self) -> None:
         """NightShiftConfig() with no args must have push_fix_branch == False."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.push_fix_branch is False
@@ -82,7 +82,7 @@ class TestConfigReadsTrue:
 
     def test_config_reads_true(self) -> None:
         """NightShiftConfig(push_fix_branch=True) must have push_fix_branch == True."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(push_fix_branch=True)
         assert config.push_fix_branch is True
@@ -339,14 +339,14 @@ class TestNonBooleanRejected:
 
     def test_config_rejects_non_bool_string(self) -> None:
         """NightShiftConfig(push_fix_branch='banana') must raise ValidationError."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         with pytest.raises(ValidationError):
             NightShiftConfig(push_fix_branch="banana")  # type: ignore[arg-type]
 
     def test_config_rejects_non_bool_int(self) -> None:
         """NightShiftConfig(push_fix_branch=42) must raise ValidationError."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         with pytest.raises(ValidationError):
             NightShiftConfig(push_fix_branch=42)  # type: ignore[arg-type]

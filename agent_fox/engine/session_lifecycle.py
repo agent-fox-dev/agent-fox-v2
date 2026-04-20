@@ -52,10 +52,17 @@ from agent_fox.workspace import (
     create_worktree,
     destroy_worktree,
     ensure_develop,
+    run_git,
 )
 from agent_fox.workspace.harvest import harvest, post_harvest_integrate
 
 logger = logging.getLogger(__name__)
+
+# Archetypes whose outputs are captured as structured findings via
+# _persist_review_findings rather than free-form factual knowledge.
+# Skipping LLM extraction for these avoids ~18k-token overhead per session
+# when the extraction reliably returns zero facts.
+_REVIEW_ARCHETYPES: frozenset[str] = frozenset({"reviewer", "skeptic", "verifier", "oracle", "auditor"})
 
 
 def extract_subtask_descriptions(spec_dir: Path, task_group: int) -> list[str]:
@@ -485,6 +492,13 @@ class NodeSessionRunner:
             touched_files = await harvest(repo_root, workspace)
             # 40-REQ-11.1: Emit git.merge after successful harvest
             if touched_files:
+                # Capture the resulting commit SHA for traceability
+                _, sha_out, _ = await run_git(
+                    ["rev-parse", "HEAD"],
+                    cwd=repo_root,
+                    check=False,
+                )
+                commit_sha = sha_out.strip()
                 emit_audit_event(
                     self._sink,
                     self._run_id,
@@ -493,7 +507,7 @@ class NodeSessionRunner:
                     archetype=self._archetype,
                     payload={
                         "branch": workspace.branch,
-                        "commit_sha": "",
+                        "commit_sha": commit_sha,
                         "files_touched": touched_files,
                     },
                 )
@@ -561,24 +575,34 @@ class NodeSessionRunner:
         if not transcript:
             return
 
-        try:
-            await extract_and_store_knowledge(
-                transcript=transcript,
-                spec_name=self._spec_name,
-                node_id=node_id,
-                memory_extraction_model=self._config.models.memory_extraction,
-                knowledge_db=self._knowledge_db,
-                sink_dispatcher=self._sink,
-                run_id=self._run_id,
-                embedder=self._embedder,
-                causal_context_limit=self._config.orchestrator.causal_context_limit,
-            )
-        except Exception:
-            logger.warning(
-                "Knowledge extraction failed for %s, continuing",
+        # Short-circuit: reviewer archetypes produce structured findings that are
+        # persisted by _persist_review_findings below. They do not yield factual
+        # knowledge entries worth indexing, so skip the expensive LLM call.
+        if self._archetype in _REVIEW_ARCHETYPES:
+            logger.debug(
+                "Skipping LLM knowledge extraction for reviewer archetype %s (node %s)",
+                self._archetype,
                 node_id,
-                exc_info=True,
             )
+        else:
+            try:
+                await extract_and_store_knowledge(
+                    transcript=transcript,
+                    spec_name=self._spec_name,
+                    node_id=node_id,
+                    memory_extraction_model=self._config.models.memory_extraction,
+                    knowledge_db=self._knowledge_db,
+                    sink_dispatcher=self._sink,
+                    run_id=self._run_id,
+                    embedder=self._embedder,
+                    causal_context_limit=self._config.orchestrator.causal_context_limit,
+                )
+            except Exception:
+                logger.warning(
+                    "Knowledge extraction failed for %s, continuing",
+                    node_id,
+                    exc_info=True,
+                )
 
         # 27-REQ-3.1: Parse and persist structured findings from
         # review archetypes (skeptic, verifier, oracle).
@@ -669,22 +693,10 @@ class NodeSessionRunner:
                 },
             )
 
-        # 40-REQ-11.3: Emit harvest.complete on successful harvest
-        if touched_files and status == "completed":
-            emit_audit_event(
-                self._sink,
-                self._run_id,
-                AuditEventType.HARVEST_COMPLETE,
-                node_id=node_id,
-                archetype=self._archetype,
-                payload={
-                    "commit_sha": commit_sha,
-                    "facts_extracted": 0,
-                    "findings_persisted": 0,
-                },
-            )
-
         # 05-REQ-1.1, 52-REQ-1.1: Extract knowledge on success
+        # NOTE: harvest.complete is emitted by extract_and_store_knowledge
+        # (knowledge_harvest.py) with real fact metadata. Do NOT emit it here
+        # — the stale direct emission caused duplicate events (issue #482).
         if status == "completed":
             await self._extract_knowledge_and_findings(
                 node_id,

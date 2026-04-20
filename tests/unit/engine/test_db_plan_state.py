@@ -699,3 +699,96 @@ def test_cleanup_stale_runs_ignores_terminal_statuses(
         ).fetchone()
         assert row is not None
         assert row[0] == status, f"{run_id}: expected {status}, got {row[0]}"
+
+
+# -- Regression tests: issue #480 — UTC timestamps in runs table ---------------
+#
+# Previously, create_run/complete_run/cleanup_stale_runs used SQL
+# CURRENT_TIMESTAMP which DuckDB resolves to server *local* time, producing a
+# systematic offset against session_outcomes.created_at (stored in UTC).
+# These tests freeze time to a known UTC value and assert that the value stored
+# in the DB matches exactly, proving the code path uses datetime.now(UTC) and
+# not the SQL default.
+
+
+def test_create_run_stores_utc_started_at(db_conn: duckdb.DuckDBPyConnection) -> None:
+    """Regression #480: create_run stores started_at in UTC via datetime.now(UTC).
+
+    If CURRENT_TIMESTAMP (local time) were used the stored value would diverge
+    from the frozen UTC anchor by the server's UTC offset.
+    """
+    from datetime import UTC, datetime
+    from unittest.mock import patch
+
+    fixed_utc = datetime(2026, 1, 15, 10, 30, 0, tzinfo=UTC)
+
+    with patch("agent_fox.engine.state.datetime") as mock_dt:
+        mock_dt.now.return_value = fixed_utc
+        create_run(db_conn, "run_utc_480", "hash_480")
+
+    row = db_conn.sql("SELECT started_at FROM runs WHERE id = 'run_utc_480'").fetchone()
+    assert row is not None
+    stored = row[0]
+    # DuckDB returns naive datetime for TIMESTAMP columns; strip tz if present.
+    if hasattr(stored, "tzinfo") and stored.tzinfo is not None:
+        stored = stored.replace(tzinfo=None)
+    assert stored == fixed_utc.replace(tzinfo=None), (
+        f"started_at {stored!r} does not match fixed UTC {fixed_utc!r}; "
+        "CURRENT_TIMESTAMP (local time) may still be in use"
+    )
+
+
+def test_complete_run_stores_utc_completed_at(db_conn: duckdb.DuckDBPyConnection) -> None:
+    """Regression #480: complete_run stores completed_at in UTC via datetime.now(UTC)."""
+    from datetime import UTC, datetime
+    from unittest.mock import patch
+
+    create_run(db_conn, "run_utc_complete_480", "hash_480b")
+
+    fixed_utc = datetime(2026, 1, 15, 11, 0, 0, tzinfo=UTC)
+
+    with patch("agent_fox.engine.state.datetime") as mock_dt:
+        mock_dt.now.return_value = fixed_utc
+        complete_run(db_conn, "run_utc_complete_480", "completed")
+
+    row = db_conn.sql(
+        "SELECT completed_at FROM runs WHERE id = 'run_utc_complete_480'"
+    ).fetchone()
+    assert row is not None
+    stored = row[0]
+    if hasattr(stored, "tzinfo") and stored.tzinfo is not None:
+        stored = stored.replace(tzinfo=None)
+    assert stored == fixed_utc.replace(tzinfo=None), (
+        f"completed_at {stored!r} does not match fixed UTC {fixed_utc!r}; "
+        "CURRENT_TIMESTAMP (local time) may still be in use"
+    )
+
+
+def test_cleanup_stale_runs_stores_utc_completed_at(
+    db_conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Regression #480: cleanup_stale_runs stores completed_at in UTC."""
+    from datetime import UTC, datetime
+    from unittest.mock import patch
+
+    create_run(db_conn, "stale_utc_480", "hash_stale_480")
+
+    fixed_utc = datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC)
+
+    with patch("agent_fox.engine.state.datetime") as mock_dt:
+        mock_dt.now.return_value = fixed_utc
+        count = cleanup_stale_runs(db_conn, "different_current_run")
+
+    assert count == 1
+
+    row = db_conn.sql(
+        "SELECT completed_at FROM runs WHERE id = 'stale_utc_480'"
+    ).fetchone()
+    assert row is not None
+    stored = row[0]
+    if hasattr(stored, "tzinfo") and stored.tzinfo is not None:
+        stored = stored.replace(tzinfo=None)
+    assert stored == fixed_utc.replace(tzinfo=None), (
+        f"completed_at {stored!r} does not match fixed UTC {fixed_utc!r}; "
+        "CURRENT_TIMESTAMP (local time) may still be in use"
+    )

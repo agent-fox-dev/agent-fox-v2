@@ -909,6 +909,210 @@ class TestPatternFactCreation:
 
 
 # ---------------------------------------------------------------------------
+# TS-96-13b: Merge action generates embedding for consolidated fact
+# ---------------------------------------------------------------------------
+
+
+class TestMergeCreatesEmbedding:
+    """Merged consolidated fact must get an embedding row in memory_embeddings.
+
+    Requirements: 96-REQ-4.3 (embedding parity)
+    """
+
+    @pytest.mark.asyncio
+    async def test_merge_creates_embedding(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
+        """Embedding is written for the consolidated fact when embedder is provided."""
+        import math
+
+        def _make_unit_vec(seed: int, dim: int = 384) -> list[float]:
+            raw = [math.sin(seed * (i + 1) * 0.1) for i in range(dim)]
+            norm = math.sqrt(sum(x * x for x in raw))
+            return [x / norm for x in raw]
+
+        emb1 = _make_unit_vec(1)
+        emb2_raw = [emb1[i] * 0.9999 + (0.0001 if i == 0 else 0.0) for i in range(384)]
+        norm2 = math.sqrt(sum(x * x for x in emb2_raw))
+        emb2 = [x / norm2 for x in emb2_raw]
+
+        _insert_fact(entity_conn, FACT_A, spec_name="spec_a", confidence=0.7)
+        _insert_fact(entity_conn, FACT_B, spec_name="spec_b", confidence=0.9)
+        entity_conn.execute(
+            "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+            [FACT_A, emb1],
+        )
+        entity_conn.execute(
+            "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+            [FACT_B, emb2],
+        )
+
+        merged_content = "Merged: both facts say the same thing"
+        llm_mock = AsyncMock(return_value={"action": "merge", "content": merged_content})
+
+        # Mock embedder that returns a fixed 384-dim vector
+        fake_embedding = _make_unit_vec(42)
+        mock_embedder = MagicMock()
+        mock_embedder.embed_text.return_value = fake_embedding
+        mock_embedder.embedding_dimensions = 384
+
+        with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
+            result = await _merge_related_facts(
+                entity_conn, "claude-3-5-haiku-20241022", 0.85, mock_embedder
+            )
+
+        assert result.consolidated_created == 1
+
+        # The new consolidated fact must have a row in memory_embeddings
+        new_fact_row = entity_conn.execute(
+            "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE category = 'decision' AND superseded_by IS NULL"
+        ).fetchone()
+        assert new_fact_row is not None
+        new_id = new_fact_row[0]
+
+        emb_row = entity_conn.execute(
+            "SELECT id FROM memory_embeddings WHERE CAST(id AS VARCHAR) = ?",
+            [new_id],
+        ).fetchone()
+        assert emb_row is not None, "Consolidated fact must have an embedding row"
+        mock_embedder.embed_text.assert_called_once_with(merged_content)
+
+    @pytest.mark.asyncio
+    async def test_merge_no_embedder_logs_warning(
+        self, entity_conn: duckdb.DuckDBPyConnection, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When no embedder is configured, a warning is logged and no crash occurs."""
+        import math
+
+        def _make_unit_vec(seed: int, dim: int = 384) -> list[float]:
+            raw = [math.sin(seed * (i + 1) * 0.1) for i in range(dim)]
+            norm = math.sqrt(sum(x * x for x in raw))
+            return [x / norm for x in raw]
+
+        emb1 = _make_unit_vec(1)
+        emb2_raw = [emb1[i] * 0.9999 + (0.0001 if i == 0 else 0.0) for i in range(384)]
+        norm2 = math.sqrt(sum(x * x for x in emb2_raw))
+        emb2 = [x / norm2 for x in emb2_raw]
+
+        _insert_fact(entity_conn, FACT_A, spec_name="spec_a", confidence=0.7)
+        _insert_fact(entity_conn, FACT_B, spec_name="spec_b", confidence=0.9)
+        entity_conn.execute(
+            "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+            [FACT_A, emb1],
+        )
+        entity_conn.execute(
+            "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+            [FACT_B, emb2],
+        )
+
+        llm_mock = AsyncMock(return_value={"action": "merge", "content": "Merged fact"})
+
+        with (
+            patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock),
+            caplog.at_level(logging.WARNING, logger="agent_fox.knowledge.consolidation"),
+        ):
+            result = await _merge_related_facts(entity_conn, "claude-3-5-haiku-20241022", 0.85, None)
+
+        assert result.consolidated_created == 1
+        assert "without embedding" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# TS-96-17b: Pattern promotion generates embedding for pattern fact
+# ---------------------------------------------------------------------------
+
+
+class TestPatternFactCreatesEmbedding:
+    """Promoted pattern fact must get an embedding row in memory_embeddings.
+
+    Requirements: 96-REQ-5.3 (embedding parity)
+    """
+
+    @pytest.mark.asyncio
+    async def test_pattern_fact_creates_embedding(self, entity_conn: duckdb.DuckDBPyConnection) -> None:
+        """Embedding is written for the pattern fact when embedder is provided."""
+        import math
+
+        def _make_unit_vec(seed: int, dim: int = 384) -> list[float]:
+            raw = [math.sin(seed * (i + 1) * 0.1) for i in range(dim)]
+            norm = math.sqrt(sum(x * x for x in raw))
+            return [x / norm for x in raw]
+
+        emb_base = _make_unit_vec(1)
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
+            _insert_fact(entity_conn, fact_id, spec_name=spec)
+            emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
+            norm = math.sqrt(sum(x * x for x in emb_raw))
+            emb = [x / norm for x in emb_raw]
+            entity_conn.execute(
+                "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+                [fact_id, emb],
+            )
+
+        pattern_description = "A recurring pattern across specs"
+        llm_mock = AsyncMock(return_value={"is_pattern": True, "description": pattern_description})
+
+        fake_embedding = _make_unit_vec(99)
+        mock_embedder = MagicMock()
+        mock_embedder.embed_text.return_value = fake_embedding
+        mock_embedder.embedding_dimensions = 384
+
+        with patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock):
+            result = await _promote_patterns(
+                entity_conn, "claude-3-5-haiku-20241022", embedding_generator=mock_embedder
+            )
+
+        assert result.pattern_facts_created == 1
+
+        # Find the created pattern fact id
+        pattern_row = entity_conn.execute(
+            "SELECT CAST(id AS VARCHAR) FROM memory_facts WHERE category = 'pattern'"
+        ).fetchone()
+        assert pattern_row is not None
+        pattern_id = pattern_row[0]
+
+        # It must have an embedding row
+        emb_row = entity_conn.execute(
+            "SELECT id FROM memory_embeddings WHERE CAST(id AS VARCHAR) = ?",
+            [pattern_id],
+        ).fetchone()
+        assert emb_row is not None, "Pattern fact must have an embedding row"
+        mock_embedder.embed_text.assert_called_once_with(pattern_description)
+
+    @pytest.mark.asyncio
+    async def test_pattern_fact_no_embedder_logs_warning(
+        self, entity_conn: duckdb.DuckDBPyConnection, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When no embedder is configured, a warning is logged and no crash occurs."""
+        import math
+
+        def _make_unit_vec(seed: int, dim: int = 384) -> list[float]:
+            raw = [math.sin(seed * (i + 1) * 0.1) for i in range(dim)]
+            norm = math.sqrt(sum(x * x for x in raw))
+            return [x / norm for x in raw]
+
+        emb_base = _make_unit_vec(1)
+        for i, (fact_id, spec) in enumerate([(FACT_A, "spec_a"), (FACT_B, "spec_b"), (FACT_C, "spec_c")]):
+            _insert_fact(entity_conn, fact_id, spec_name=spec)
+            emb_raw = [emb_base[j] * (0.9998 + i * 0.0001) for j in range(384)]
+            norm = math.sqrt(sum(x * x for x in emb_raw))
+            emb = [x / norm for x in emb_raw]
+            entity_conn.execute(
+                "INSERT INTO memory_embeddings (id, embedding) VALUES (?, ?::FLOAT[384])",
+                [fact_id, emb],
+            )
+
+        llm_mock = AsyncMock(return_value={"is_pattern": True, "description": "Pattern without embedder"})
+
+        with (
+            patch("agent_fox.knowledge.consolidation._call_llm_json", llm_mock),
+            caplog.at_level(logging.WARNING, logger="agent_fox.knowledge.consolidation"),
+        ):
+            result = await _promote_patterns(entity_conn, "claude-3-5-haiku-20241022", embedding_generator=None)
+
+        assert result.pattern_facts_created == 1
+        assert "without embedding" in caplog.text
+
+
+# ---------------------------------------------------------------------------
 # TS-96-18: Redundant chain detection
 # ---------------------------------------------------------------------------
 

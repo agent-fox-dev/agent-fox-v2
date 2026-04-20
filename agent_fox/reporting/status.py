@@ -128,16 +128,6 @@ class StatusReport:
     findings_summary: list = field(default_factory=list)  # list[FindingsSummary]
 
 
-def extract_spec_name(node_id: str) -> str:
-    """Extract spec name from a node_id by stripping the last colon-separated segment.
-
-    Requirements: 34-REQ-4.2, 34-REQ-4.E1
-
-    .. deprecated:: Use ``agent_fox.core.node_id.spec_name_of`` instead.
-    """
-    return spec_name_of(node_id)
-
-
 def _get_failure_reasons(
     session_history: list[SessionRecord],
 ) -> dict[str, str]:

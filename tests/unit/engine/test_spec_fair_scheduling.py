@@ -156,6 +156,252 @@ class TestReadyTasksIntegration:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Pre-review priority scheduling (fixes #476)
+# ---------------------------------------------------------------------------
+
+
+class TestPreReviewPriority:
+    """Tests for pre-review prioritization in _interleave_by_spec.
+
+    Pre-review nodes (auto_pre at group 0) are placed before coder nodes
+    in the ready queue so that blockers surface early.
+    """
+
+    def test_pre_reviews_before_coder_nodes(self) -> None:
+        """Auto_pre review nodes appear before coder nodes."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "65_foo:1",
+            "65_foo:0:reviewer:pre-review",
+            "67_bar:1",
+            "67_bar:0:reviewer:pre-review",
+        ]
+        result = _interleave_by_spec(ready)
+        pre_reviews = [n for n in result if ":0:" in n]
+        coders = [n for n in result if ":0:" not in n]
+        assert result == pre_reviews + coders
+
+    def test_pre_review_fan_out_ordering(self) -> None:
+        """High-fan-out specs' pre-reviews come first."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:0:reviewer:pre-review",
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+        fan_out = {"02_broker": 4, "01_setup": 1, "03_api": 2}
+        result = _interleave_by_spec(ready, fan_out_weights=fan_out)
+        assert result[0] == "02_broker:0:reviewer:pre-review"
+        assert result[1] == "03_api:0:reviewer:pre-review"
+        assert result[2] == "01_setup:0:reviewer:pre-review"
+
+    def test_fan_out_tie_breaks_by_spec_number(self) -> None:
+        """Equal fan-out ties are broken by spec number ascending."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "03_api:0:reviewer:pre-review",
+            "01_setup:0:reviewer:pre-review",
+        ]
+        fan_out = {"01_setup": 2, "03_api": 2}
+        result = _interleave_by_spec(ready, fan_out_weights=fan_out)
+        assert result == [
+            "01_setup:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+
+    def test_mixed_pre_review_and_coder_ordering(self) -> None:
+        """Pre-reviews from all specs come before any coder node."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:1",
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+            "01_setup:2",
+        ]
+        result = _interleave_by_spec(ready)
+        # Pre-reviews first (round-robin: 02, 03)
+        assert result[:2] == [
+            "02_broker:0:reviewer:pre-review",
+            "03_api:0:reviewer:pre-review",
+        ]
+        # Then coder nodes (round-robin: 01:1, 01:2)
+        assert result[2:] == ["01_setup:1", "01_setup:2"]
+
+    def test_drift_review_also_prioritized(self) -> None:
+        """Drift-review (also auto_pre at group 0) is prioritized with pre-reviews."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_setup:1",
+            "02_broker:0:reviewer:drift-review",
+            "02_broker:0:reviewer:pre-review",
+        ]
+        result = _interleave_by_spec(ready)
+        assert result[0].startswith("02_broker:0:")
+        assert result[1].startswith("02_broker:0:")
+        assert result[2] == "01_setup:1"
+
+    def test_single_auto_pre_node_id_format(self) -> None:
+        """Single auto_pre with 'spec:0' format is also prioritized."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_setup:1", "02_broker:0", "03_api:1"]
+        result = _interleave_by_spec(ready)
+        assert result[0] == "02_broker:0"
+
+
+class TestIsAutoPre:
+    """Tests for the _is_auto_pre() helper."""
+
+    def test_suffixed_pre_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0:reviewer:pre-review") is True
+
+    def test_suffixed_drift_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0:reviewer:drift-review") is True
+
+    def test_single_auto_pre(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:0") is True
+
+    def test_coder_group(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:1") is False
+
+    def test_audit_review(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("02_broker:3:reviewer:audit-review") is False
+
+    def test_no_colon(self) -> None:
+        from agent_fox.engine.graph_sync import _is_auto_pre
+
+        assert _is_auto_pre("orphan_node") is False
+
+
+class TestSpecFanOut:
+    """Tests for GraphSync._compute_spec_fan_out()."""
+
+    def test_fan_out_with_cross_spec_edges(self) -> None:
+        """Specs with cross-spec dependents have non-zero fan-out."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:1": "pending",
+            "01_setup:2": "pending",
+            "02_broker:1": "pending",
+            "03_api:1": "pending",
+        }
+        edges = {
+            "01_setup:1": [],
+            "01_setup:2": ["01_setup:1"],
+            "02_broker:1": ["01_setup:2"],
+            "03_api:1": ["01_setup:2"],
+        }
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out["01_setup"] == 2  # 02_broker and 03_api depend on it
+
+    def test_fan_out_no_cross_spec(self) -> None:
+        """No cross-spec edges means empty fan-out."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {"01_a:1": "pending", "01_a:2": "pending"}
+        edges = {"01_a:1": [], "01_a:2": ["01_a:1"]}
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out == {}
+
+    def test_fan_out_counts_distinct_specs(self) -> None:
+        """Multiple edges to same spec count as 1."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_a:1": "pending",
+            "01_a:2": "pending",
+            "02_b:1": "pending",
+            "02_b:2": "pending",
+        }
+        edges = {
+            "01_a:1": [],
+            "01_a:2": ["01_a:1"],
+            "02_b:1": ["01_a:1"],
+            "02_b:2": ["01_a:2"],
+        }
+        gs = GraphSync(states, edges)
+        fan_out = gs._compute_spec_fan_out()
+        assert fan_out["01_a"] == 1  # only 02_b, counted once
+
+
+class TestReadyTasksPreReviewIntegration:
+    """Integration tests for ready_tasks() with pre-review priority."""
+
+    def test_pre_reviews_ordered_first(self) -> None:
+        """Pre-review nodes appear before coder nodes in ready_tasks()."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:0:reviewer:pre-review": "pending",
+            "01_setup:1": "pending",
+            "02_broker:0:reviewer:pre-review": "pending",
+            "02_broker:1": "pending",
+        }
+        edges = {
+            "01_setup:0:reviewer:pre-review": [],
+            "01_setup:1": ["01_setup:0:reviewer:pre-review"],
+            "02_broker:0:reviewer:pre-review": [],
+            "02_broker:1": ["02_broker:0:reviewer:pre-review"],
+        }
+        gs = GraphSync(states, edges)
+        result = gs.ready_tasks()
+        # Only pre-reviews are ready (coders depend on them)
+        assert result == [
+            "01_setup:0:reviewer:pre-review",
+            "02_broker:0:reviewer:pre-review",
+        ]
+
+    def test_fan_out_affects_pre_review_order(self) -> None:
+        """High-fan-out specs' pre-reviews ordered first in ready_tasks()."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_setup:0:reviewer:pre-review": "pending",
+            "01_setup:1": "pending",
+            "02_broker:0:reviewer:pre-review": "pending",
+            "02_broker:1": "pending",
+            "03_api:0:reviewer:pre-review": "pending",
+            "03_api:1": "pending",
+        }
+        edges = {
+            "01_setup:0:reviewer:pre-review": [],
+            "01_setup:1": ["01_setup:0:reviewer:pre-review"],
+            "02_broker:0:reviewer:pre-review": [],
+            "02_broker:1": ["02_broker:0:reviewer:pre-review", "01_setup:1"],
+            "03_api:0:reviewer:pre-review": [],
+            "03_api:1": ["03_api:0:reviewer:pre-review", "01_setup:1"],
+        }
+        gs = GraphSync(states, edges)
+        result = gs.ready_tasks()
+        # 01_setup has fan-out 2 (02_broker and 03_api depend on it)
+        # Pre-reviews: 01 first (highest fan-out), then 02, then 03
+        assert result[0] == "01_setup:0:reviewer:pre-review"
+
+
+# ---------------------------------------------------------------------------
+# TS-69-E1 through TS-69-E4: Edge cases
+# ---------------------------------------------------------------------------
+
+
 class TestEdgeCases:
     """Edge case tests for spec-fair scheduling.
 
@@ -203,3 +449,203 @@ class TestEdgeCases:
         from agent_fox.engine.graph_sync import _spec_name
 
         assert _spec_name("orphan_node") == "orphan_node"
+
+
+# ---------------------------------------------------------------------------
+# Three-tier priority ordering: auto_pre > coders > reviews (fixes #490)
+# ---------------------------------------------------------------------------
+
+
+class TestThreeTierPriority:
+    """Tests for three-tier archetype-aware scheduling.
+
+    When node_archetypes is provided, _interleave_by_spec uses:
+    Tier 1 = auto_pre reviews (group 0)
+    Tier 2 = coder nodes
+    Tier 3 = non-auto_pre review nodes
+    """
+
+    def test_coders_before_reviews(self) -> None:
+        """Coder nodes appear before non-auto_pre review nodes."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_a:1", "02_b:3:reviewer:audit-review", "03_c:1"]
+        archetypes = {
+            "01_a:1": "coder",
+            "02_b:3:reviewer:audit-review": "reviewer",
+            "03_c:1": "coder",
+        }
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        assert result == ["01_a:1", "03_c:1", "02_b:3:reviewer:audit-review"]
+
+    def test_three_tier_full_ordering(self) -> None:
+        """Auto_pre first, then coders, then reviews."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_a:1",
+            "02_b:0:reviewer:pre-review",
+            "03_c:3:reviewer:audit-review",
+            "04_d:1",
+        ]
+        archetypes = {
+            "01_a:1": "coder",
+            "02_b:0:reviewer:pre-review": "reviewer",
+            "03_c:3:reviewer:audit-review": "reviewer",
+            "04_d:1": "coder",
+        }
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        # Tier 1: pre-review
+        assert result[0] == "02_b:0:reviewer:pre-review"
+        # Tier 2: coders (round-robin: 01, 04)
+        assert result[1] == "01_a:1"
+        assert result[2] == "04_d:1"
+        # Tier 3: review
+        assert result[3] == "03_c:3:reviewer:audit-review"
+
+    def test_verifier_after_coders(self) -> None:
+        """Verifier (non-coder archetype) is placed after coders."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_a:5", "01_a:1", "02_b:1"]
+        archetypes = {
+            "01_a:5": "verifier",
+            "01_a:1": "coder",
+            "02_b:1": "coder",
+        }
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        # Coders first, then verifier
+        assert result == ["01_a:1", "02_b:1", "01_a:5"]
+
+    def test_multiple_review_archetypes_in_tier_3(self) -> None:
+        """Multiple review archetypes are all placed in tier 3."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_a:2:reviewer:audit-review",
+            "02_b:1",
+            "03_c:4",
+        ]
+        archetypes = {
+            "01_a:2:reviewer:audit-review": "reviewer",
+            "02_b:1": "coder",
+            "03_c:4": "verifier",
+        }
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        assert result[0] == "02_b:1"  # coder first
+        # Reviews after
+        review_nodes = result[1:]
+        assert set(review_nodes) == {"01_a:2:reviewer:audit-review", "03_c:4"}
+
+    def test_without_archetypes_backward_compat(self) -> None:
+        """Without node_archetypes, behavior is two-tier (backward compatible)."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_a:1", "02_b:3:reviewer:audit-review", "03_c:1"]
+        result_without = _interleave_by_spec(ready)
+        # All non-auto_pre nodes in one tier, round-robin by spec
+        assert result_without == ["01_a:1", "02_b:3:reviewer:audit-review", "03_c:1"]
+
+    def test_duration_hints_within_tiers(self) -> None:
+        """Duration hints apply within each tier independently."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = [
+            "01_a:1",
+            "01_a:2",
+            "01_a:3:reviewer:audit-review",
+            "01_a:4:reviewer:audit-review",
+        ]
+        archetypes = {
+            "01_a:1": "coder",
+            "01_a:2": "coder",
+            "01_a:3:reviewer:audit-review": "reviewer",
+            "01_a:4:reviewer:audit-review": "reviewer",
+        }
+        hints = {
+            "01_a:1": 100,
+            "01_a:2": 500,
+            "01_a:3:reviewer:audit-review": 800,
+            "01_a:4:reviewer:audit-review": 200,
+        }
+        result = _interleave_by_spec(
+            ready, duration_hints=hints, node_archetypes=archetypes
+        )
+        # Tier 2 (coders): 01_a:2 (500) before 01_a:1 (100) — duration desc
+        assert result[0] == "01_a:2"
+        assert result[1] == "01_a:1"
+        # Tier 3 (reviews): 01_a:3 (800) before 01_a:4 (200) — duration desc
+        assert result[2] == "01_a:3:reviewer:audit-review"
+        assert result[3] == "01_a:4:reviewer:audit-review"
+
+    def test_cross_spec_round_robin_within_coder_tier(self) -> None:
+        """Cross-spec round-robin is preserved within the coder tier."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_a:1", "01_a:2", "02_b:1", "02_b:2"]
+        archetypes = {
+            "01_a:1": "coder",
+            "01_a:2": "coder",
+            "02_b:1": "coder",
+            "02_b:2": "coder",
+        }
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        assert result == ["01_a:1", "02_b:1", "01_a:2", "02_b:2"]
+
+    def test_unknown_archetype_defaults_to_coder_tier(self) -> None:
+        """Nodes not in archetypes dict default to coder tier."""
+        from agent_fox.engine.graph_sync import _interleave_by_spec
+
+        ready = ["01_a:1", "02_b:3:reviewer:audit-review"]
+        archetypes = {"02_b:3:reviewer:audit-review": "reviewer"}
+        result = _interleave_by_spec(ready, node_archetypes=archetypes)
+        # 01_a:1 defaults to coder, so it's in tier 2
+        assert result[0] == "01_a:1"
+        assert result[1] == "02_b:3:reviewer:audit-review"
+
+
+class TestThreeTierGraphSyncIntegration:
+    """Integration tests for ready_tasks() with three-tier ordering."""
+
+    def test_ready_tasks_with_archetypes(self) -> None:
+        """ready_tasks() uses three-tier ordering when archetypes are set."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_a:1": "pending",
+            "02_b:3:reviewer:audit-review": "pending",
+            "03_c:1": "pending",
+        }
+        edges = {
+            "01_a:1": [],
+            "02_b:3:reviewer:audit-review": [],
+            "03_c:1": [],
+        }
+        archetypes = {
+            "01_a:1": "coder",
+            "02_b:3:reviewer:audit-review": "reviewer",
+            "03_c:1": "coder",
+        }
+        gs = GraphSync(states, edges, node_archetypes=archetypes)
+        result = gs.ready_tasks()
+        # Coders first, then reviews
+        assert result == ["01_a:1", "03_c:1", "02_b:3:reviewer:audit-review"]
+
+    def test_ready_tasks_without_archetypes_unchanged(self) -> None:
+        """ready_tasks() without archetypes preserves two-tier behavior."""
+        from agent_fox.engine.graph_sync import GraphSync
+
+        states = {
+            "01_a:1": "pending",
+            "02_b:3:reviewer:audit-review": "pending",
+            "03_c:1": "pending",
+        }
+        edges = {
+            "01_a:1": [],
+            "02_b:3:reviewer:audit-review": [],
+            "03_c:1": [],
+        }
+        gs = GraphSync(states, edges)
+        result = gs.ready_tasks()
+        # Two-tier: all non-auto_pre in one group, round-robin by spec
+        assert result == ["01_a:1", "02_b:3:reviewer:audit-review", "03_c:1"]

@@ -29,7 +29,7 @@ class TestRegistryCompleteness:
     """Verify registry contains all archetypes with valid fields."""
 
     def test_all_archetypes_present(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         # "triage" was removed in spec 100 and absorbed into maintainer:hunt.
         # "maintainer" was added in spec 100.
@@ -42,7 +42,7 @@ class TestRegistryCompleteness:
         assert set(ARCHETYPE_REGISTRY.keys()) == expected
 
     def test_each_entry_has_valid_fields(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         valid_tiers = {"SIMPLE", "STANDARD", "ADVANCED"}
         for name, entry in ARCHETYPE_REGISTRY.items():
@@ -62,7 +62,7 @@ class TestPerArchetypeAllowlist:
     def test_maintainer_hunt_has_default_allowlist(self) -> None:
         """maintainer:hunt has the read-only analysis allowlist (replaces triage)."""
         from agent_fox.archetypes import resolve_effective_config
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["maintainer"]
         cfg = resolve_effective_config(entry, "hunt")
@@ -71,7 +71,7 @@ class TestPerArchetypeAllowlist:
         assert len(cfg.default_allowlist) > 0
 
     def test_coder_has_no_allowlist_override(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["coder"]
         assert entry.default_allowlist is None
@@ -87,7 +87,7 @@ class TestUnknownArchetypeFallback:
     """Verify unknown archetype names fall back to coder with warning."""
 
     def test_unknown_returns_coder(self, caplog: pytest.LogCaptureFixture) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         with caplog.at_level(logging.WARNING):
             entry = get_archetype("nonexistent_archetype")
@@ -96,7 +96,7 @@ class TestUnknownArchetypeFallback:
         assert any("nonexistent_archetype" in r.message for r in caplog.records)
 
     def test_known_archetype_returns_self(self) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype("reviewer")
         assert entry.name == "reviewer"
@@ -113,7 +113,7 @@ class TestPropertyRegistryCompleteness:
     """All roster archetypes have valid fields."""
 
     def test_prop_all_entries_valid(self) -> None:
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         roster = {
             "coder",
@@ -157,7 +157,7 @@ class TestPropertyArchetypeFallback:
     )
     @settings(max_examples=50)
     def test_prop_unknown_falls_back_to_coder(self, name: str) -> None:
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         entry = get_archetype(name)
         assert entry.name == "coder"

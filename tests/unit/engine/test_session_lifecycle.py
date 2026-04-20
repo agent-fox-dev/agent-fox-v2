@@ -319,3 +319,95 @@ class TestNoDuplicateSessionOutcomeWrite:
 
         assert record.status == "completed"
         sink.record_session_outcome.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Regression: no duplicate harvest.complete events (fixes #482)
+# ---------------------------------------------------------------------------
+
+
+class TestNoDuplicateHarvestCompleteEvent:
+    """Verify _run_and_harvest does not emit harvest.complete directly.
+
+    harvest.complete must be emitted exclusively by extract_and_store_knowledge
+    (via _extract_knowledge_and_findings), which includes the real fact count
+    and metadata.  The stale direct emission in _run_and_harvest with
+    placeholder zeros caused a duplicate event 5–10 s later (issue #482).
+    """
+
+    @pytest.mark.asyncio
+    async def test_run_and_harvest_does_not_emit_harvest_complete_directly(self) -> None:
+        """emit_audit_event must NOT be called with HARVEST_COMPLETE in _run_and_harvest."""
+        from agent_fox.knowledge.audit import AuditEventType
+
+        config = AgentFoxConfig()
+        sink = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec:1",
+            config,
+            knowledge_db=_MOCK_KB,
+            sink_dispatcher=sink,
+        )
+
+        workspace = WorkspaceInfo(
+            path=Path("/tmp/ws"),
+            spec_name="spec",
+            task_group=1,
+            branch="feature/spec/1",
+        )
+
+        fake_outcome = SessionOutcome(
+            spec_name="spec",
+            task_group="1",
+            node_id="spec:1",
+            status="completed",
+            input_tokens=100,
+            output_tokens=200,
+            duration_ms=5000,
+        )
+
+        audit_calls: list = []
+
+        def capture_emit(sink_arg, run_id, event_type, **kwargs):
+            audit_calls.append(event_type)
+
+        with (
+            patch.object(
+                runner,
+                "_execute_session",
+                new_callable=AsyncMock,
+                return_value=fake_outcome,
+            ),
+            patch.object(
+                runner,
+                "_harvest_and_integrate",
+                new_callable=AsyncMock,
+                return_value=("completed", None, ["some_file.py"]),
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle._capture_develop_head",
+                new_callable=AsyncMock,
+                return_value="abc123",
+            ),
+            patch(
+                "agent_fox.engine.session_lifecycle.emit_audit_event",
+                side_effect=capture_emit,
+            ),
+            patch.object(
+                runner,
+                "_extract_knowledge_and_findings",
+                new_callable=AsyncMock,
+            ),
+        ):
+            record = await runner._run_and_harvest(
+                "spec:1", 1, workspace, "sys", "task", Path("/tmp"),
+            )
+
+        assert record.status == "completed"
+        # harvest.complete must NOT be emitted directly by _run_and_harvest;
+        # it is emitted exclusively by extract_and_store_knowledge.
+        assert AuditEventType.HARVEST_COMPLETE not in audit_calls, (
+            "harvest.complete was emitted directly by _run_and_harvest — "
+            "this causes duplicate events (issue #482)"
+        )

@@ -381,6 +381,18 @@ Rules:
 4. Every input finding must appear in exactly one group OR in the dropped list.
    Do not silently omit any finding.
 
+Common False-Positive Patterns (drop findings matching these):
+- Import errors in test files for modules that were intentionally removed. Tests
+  often use `pytest.raises(ImportError)` to assert that old import paths remain
+  broken. A type-checker flagging the import is expected behaviour, NOT a missing
+  module. Drop any finding whose only evidence is a type-checker import-not-found
+  error in a test file.
+- Type-checker errors that reference test utilities, fixtures, or mock objects.
+  These frequently trigger spurious type errors due to dynamic typing in test
+  frameworks (e.g. MagicMock, parametrize, monkeypatch).
+- Linter warnings in generated files, migration files, or vendored code. These
+  files are not maintained by hand and linter findings on them are not actionable.
+
 Return ONLY a JSON object (no markdown, no explanation outside the JSON) with:
 {
   "groups": [

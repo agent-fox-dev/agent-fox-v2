@@ -138,6 +138,16 @@ class OrchestratorConfig(BaseModel):
         default=None,
         description=("Stop the run when this fraction of nodes are blocked (0.0-1.0). None = disabled."),
     )
+    max_review_fraction: float = Field(
+        default=0.34,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Maximum fraction of parallel slots that may be occupied by "
+            "review archetype sessions (0.0-1.0). auto_pre (group 0) nodes "
+            "are exempt. Default 0.34 means at most ~1/3 of slots for reviews."
+        ),
+    )
     quality_gate: str = Field(
         default="",
         description="Shell command to run after each coder session",

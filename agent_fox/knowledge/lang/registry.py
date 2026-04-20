@@ -187,143 +187,39 @@ def _try_register(registry: LanguageRegistry, make_fn, name: str) -> None:
         logger.info("Skipping %s analyzer: grammar package unavailable (%s)", name, exc)
 
 
+_ANALYZER_SPECS: list[tuple[str, str, str]] = [
+    ("agent_fox.knowledge.lang.python_lang", "PythonAnalyzer", "python"),
+    ("agent_fox.knowledge.lang.go_lang", "GoAnalyzer", "go"),
+    ("agent_fox.knowledge.lang.rust_lang", "RustAnalyzer", "rust"),
+    ("agent_fox.knowledge.lang.typescript_lang", "TypeScriptAnalyzer", "typescript"),
+    ("agent_fox.knowledge.lang.typescript_lang", "JavaScriptAnalyzer", "javascript"),
+    ("agent_fox.knowledge.lang.java_lang", "JavaAnalyzer", "java"),
+    ("agent_fox.knowledge.lang.c_lang", "CAnalyzer", "c"),
+    ("agent_fox.knowledge.lang.c_lang", "CppAnalyzer", "cpp"),
+    ("agent_fox.knowledge.lang.ruby_lang", "RubyAnalyzer", "ruby"),
+    ("agent_fox.knowledge.lang.csharp_lang", "CSharpAnalyzer", "csharp"),
+    ("agent_fox.knowledge.lang.elixir_lang", "ElixirAnalyzer", "elixir"),
+    ("agent_fox.knowledge.lang.kotlin_lang", "KotlinAnalyzer", "kotlin"),
+    ("agent_fox.knowledge.lang.dart_lang", "DartAnalyzer", "dart"),
+    ("agent_fox.knowledge.lang.bash_lang", "BashAnalyzer", "bash"),
+    ("agent_fox.knowledge.lang.simple_lang", "HtmlAnalyzer", "html"),
+    ("agent_fox.knowledge.lang.simple_lang", "JsonAnalyzer", "json"),
+    ("agent_fox.knowledge.lang.css_lang", "CssAnalyzer", "css"),
+    ("agent_fox.knowledge.lang.simple_lang", "RegexAnalyzer", "regex"),
+    ("agent_fox.knowledge.lang.swift_lang", "SwiftAnalyzer", "swift"),
+]
+
+
 def _build_default_registry() -> LanguageRegistry:
     """Construct the default registry with all available language analyzers."""
+    import importlib
+
     registry = LanguageRegistry()
-
-    # Python — always available (tree-sitter-python is a core dependency).
-    from agent_fox.knowledge.lang.python_lang import PythonAnalyzer
-
-    _try_register(registry, PythonAnalyzer, "python")
-
-    # Go
-    try:
-        from agent_fox.knowledge.lang.go_lang import GoAnalyzer
-
-        _try_register(registry, GoAnalyzer, "go")
-    except ImportError:
-        logger.info("Skipping go analyzer: go_lang module not available")
-
-    # Rust
-    try:
-        from agent_fox.knowledge.lang.rust_lang import RustAnalyzer
-
-        _try_register(registry, RustAnalyzer, "rust")
-    except ImportError:
-        logger.info("Skipping rust analyzer: rust_lang module not available")
-
-    # TypeScript and JavaScript
-    try:
-        from agent_fox.knowledge.lang.typescript_lang import JavaScriptAnalyzer, TypeScriptAnalyzer
-
-        _try_register(registry, TypeScriptAnalyzer, "typescript")
-        _try_register(registry, JavaScriptAnalyzer, "javascript")
-    except ImportError:
-        logger.info("Skipping typescript/javascript analyzers: typescript_lang module not available")
-
-    # Java
-    try:
-        from agent_fox.knowledge.lang.java_lang import JavaAnalyzer
-
-        _try_register(registry, JavaAnalyzer, "java")
-    except ImportError:
-        logger.info("Skipping java analyzer: java_lang module not available")
-
-    # C and C++
-    try:
-        from agent_fox.knowledge.lang.c_lang import CAnalyzer, CppAnalyzer
-
-        _try_register(registry, CAnalyzer, "c")
-        _try_register(registry, CppAnalyzer, "cpp")
-    except ImportError:
-        logger.info("Skipping c/cpp analyzers: c_lang module not available")
-
-    # Ruby
-    try:
-        from agent_fox.knowledge.lang.ruby_lang import RubyAnalyzer
-
-        _try_register(registry, RubyAnalyzer, "ruby")
-    except ImportError:
-        logger.info("Skipping ruby analyzer: ruby_lang module not available")
-
-    # C#
-    try:
-        from agent_fox.knowledge.lang.csharp_lang import CSharpAnalyzer
-
-        _try_register(registry, CSharpAnalyzer, "csharp")
-    except ImportError:
-        logger.info("Skipping csharp analyzer: csharp_lang module not available")
-
-    # Elixir
-    try:
-        from agent_fox.knowledge.lang.elixir_lang import ElixirAnalyzer
-
-        _try_register(registry, ElixirAnalyzer, "elixir")
-    except ImportError:
-        logger.info("Skipping elixir analyzer: elixir_lang module not available")
-
-    # Kotlin
-    try:
-        from agent_fox.knowledge.lang.kotlin_lang import KotlinAnalyzer
-
-        _try_register(registry, KotlinAnalyzer, "kotlin")
-    except ImportError:
-        logger.info("Skipping kotlin analyzer: kotlin_lang module not available")
-
-    # Dart
-    try:
-        from agent_fox.knowledge.lang.dart_lang import DartAnalyzer
-
-        _try_register(registry, DartAnalyzer, "dart")
-    except ImportError:
-        logger.info("Skipping dart analyzer: dart_lang module not available")
-
-    # Bash
-    try:
-        from agent_fox.knowledge.lang.bash_lang import BashAnalyzer
-
-        _try_register(registry, BashAnalyzer, "bash")
-    except ImportError:
-        logger.info("Skipping bash analyzer: bash_lang module not available")
-
-    # HTML
-    try:
-        from agent_fox.knowledge.lang.html_lang import HtmlAnalyzer
-
-        _try_register(registry, HtmlAnalyzer, "html")
-    except ImportError:
-        logger.info("Skipping html analyzer: html_lang module not available")
-
-    # JSON
-    try:
-        from agent_fox.knowledge.lang.json_lang import JsonAnalyzer
-
-        _try_register(registry, JsonAnalyzer, "json")
-    except ImportError:
-        logger.info("Skipping json analyzer: json_lang module not available")
-
-    # CSS
-    try:
-        from agent_fox.knowledge.lang.css_lang import CssAnalyzer
-
-        _try_register(registry, CssAnalyzer, "css")
-    except ImportError:
-        logger.info("Skipping css analyzer: css_lang module not available")
-
-    # Regex
-    try:
-        from agent_fox.knowledge.lang.regex_lang import RegexAnalyzer
-
-        _try_register(registry, RegexAnalyzer, "regex")
-    except ImportError:
-        logger.info("Skipping regex analyzer: regex_lang module not available")
-
-    # Swift
-    try:
-        from agent_fox.knowledge.lang.swift_lang import SwiftAnalyzer
-
-        _try_register(registry, SwiftAnalyzer, "swift")
-    except ImportError:
-        logger.info("Skipping swift analyzer: swift_lang module not available")
-
+    for module_path, class_name, display_name in _ANALYZER_SPECS:
+        try:
+            mod = importlib.import_module(module_path)
+            analyzer_cls = getattr(mod, class_name)
+            _try_register(registry, analyzer_cls, display_name)
+        except (ImportError, AttributeError):
+            logger.info("Skipping %s analyzer: module not available", display_name)
     return registry

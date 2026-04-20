@@ -585,7 +585,7 @@ class TestNoLadderCreatedDefensively:
         )
 
         # Coder archetype default_model_tier is STANDARD
-        from agent_fox.session.archetypes import get_archetype
+        from agent_fox.archetypes import get_archetype
 
         coder_entry = get_archetype("coder")
         expected_tier = ModelTier(coder_entry.default_model_tier)

@@ -34,59 +34,126 @@ def _spec_number(spec_name: str) -> tuple[int, str]:
         return (float("inf"), spec_name)  # type: ignore[return-value]
 
 
-def _interleave_by_spec(
-    ready: list[str],
-    duration_hints: dict[str, int] | None = None,
-) -> list[str]:
-    """Order ready tasks with spec-fair round-robin interleaving.
+def _is_auto_pre(node_id: str) -> bool:
+    """Check if a node is an auto_pre archetype (group 0).
 
-    1. Group tasks by spec name (everything before first ':' in node ID).
-    2. Sort spec groups by spec number ascending (numeric prefix).
-    3. Within each group, sort by duration descending (if hints), else
-       alphabetically. Hinted tasks come before unhinted tasks.
-    4. Interleave across groups: take one from each spec per round.
+    Group 0 is reserved for auto_pre archetype nodes (pre-review,
+    drift-review, skeptic, etc.).  Coder groups start at 1.
+
+    Requirements: 69-REQ-1.1
+    """
+    parts = node_id.split(":")
+    return len(parts) >= 2 and parts[1] == "0"
+
+
+def _spec_round_robin(
+    tasks: list[str],
+    duration_hints: dict[str, int] | None = None,
+    fan_out_weights: dict[str, int] | None = None,
+) -> list[str]:
+    """Group by spec, sort within groups, and round-robin interleave.
 
     Args:
-        ready: List of ready node IDs.
-        duration_hints: Optional mapping of node_id -> predicted duration ms.
-
-    Returns:
-        Spec-fair-ordered list of node IDs.
-
-    Requirements: 69-REQ-1.1, 69-REQ-1.3, 69-REQ-2.1, 69-REQ-2.2, 69-REQ-2.3
+        tasks: List of node IDs to interleave.
+        duration_hints: Optional per-node duration hints.
+        fan_out_weights: Optional per-spec fan-out weights.  When
+            provided, specs are sorted by fan-out descending (highest
+            impact first) with ties broken by spec number ascending.
     """
-    if not ready:
+    if not tasks:
         return []
 
-    # Group tasks by spec name
     groups: dict[str, list[str]] = {}
-    for node_id in ready:
+    for node_id in tasks:
         spec = _spec_name(node_id)
         groups.setdefault(spec, []).append(node_id)
 
-    # Sort spec groups by spec number ascending
-    sorted_specs = sorted(groups.keys(), key=_spec_number)
+    if fan_out_weights:
+        sorted_specs = sorted(
+            groups.keys(),
+            key=lambda s: (-fan_out_weights.get(s, 0), *_spec_number(s)),
+        )
+    else:
+        sorted_specs = sorted(groups.keys(), key=_spec_number)
 
-    # Sort within each group
     sorted_groups: list[list[str]] = []
     for spec in sorted_specs:
-        tasks = groups[spec]
+        spec_tasks = groups[spec]
         if duration_hints:
-            hinted = [(t, duration_hints[t]) for t in tasks if t in duration_hints]
-            unhinted = [t for t in tasks if t not in duration_hints]
+            hinted = [(t, duration_hints[t]) for t in spec_tasks if t in duration_hints]
+            unhinted = [t for t in spec_tasks if t not in duration_hints]
             hinted.sort(key=lambda x: x[1], reverse=True)
             unhinted.sort()
             sorted_groups.append([t for t, _ in hinted] + unhinted)
         else:
-            sorted_groups.append(sorted(tasks))
+            sorted_groups.append(sorted(spec_tasks))
 
-    # Round-robin interleave across groups
     result: list[str] = []
     queues = [list(g) for g in sorted_groups]
     while any(queues):
         for q in queues:
             if q:
                 result.append(q.pop(0))
+
+    return result
+
+
+def _interleave_by_spec(
+    ready: list[str],
+    duration_hints: dict[str, int] | None = None,
+    fan_out_weights: dict[str, int] | None = None,
+    node_archetypes: dict[str, str] | None = None,
+) -> list[str]:
+    """Order ready tasks with three-tier priority and spec-fair interleaving.
+
+    Partitions ready tasks into three tiers:
+
+    1. **Pre-review tier** (auto_pre nodes at group 0): sorted by spec
+       fan-out descending so critical-path specs surface blockers first.
+    2. **Coder tier** (implementation nodes): sorted by spec number
+       ascending with spec-fair round-robin interleaving.
+    3. **Review tier** (non-auto_pre review/verifier nodes): sorted by
+       spec number ascending with spec-fair round-robin interleaving.
+
+    When ``node_archetypes`` is not provided, tiers 2 and 3 are merged
+    (backward-compatible two-tier behavior).
+
+    Within each tier, tasks are interleaved round-robin across spec
+    groups.
+
+    Args:
+        ready: List of ready node IDs.
+        duration_hints: Optional mapping of node_id -> predicted duration ms.
+        fan_out_weights: Optional mapping of spec_name -> fan-out weight
+            (count of distinct downstream specs).
+        node_archetypes: Optional mapping of node_id -> archetype string.
+            When provided, non-auto_pre nodes are partitioned into coder
+            (archetype == "coder") and review (all others) tiers.
+
+    Returns:
+        Priority-ordered, spec-fair list of node IDs.
+
+    Requirements: 69-REQ-1.1, 69-REQ-1.3, 69-REQ-2.1, 69-REQ-2.2, 69-REQ-2.3
+    """
+    if not ready:
+        return []
+
+    pre = [n for n in ready if _is_auto_pre(n)]
+    regular = [n for n in ready if not _is_auto_pre(n)]
+
+    result: list[str] = []
+    if pre:
+        result.extend(_spec_round_robin(pre, duration_hints, fan_out_weights))
+
+    if node_archetypes:
+        coders = [n for n in regular if node_archetypes.get(n, "coder") == "coder"]
+        reviews = [n for n in regular if node_archetypes.get(n, "coder") != "coder"]
+        if coders:
+            result.extend(_spec_round_robin(coders, duration_hints))
+        if reviews:
+            result.extend(_spec_round_robin(reviews, duration_hints))
+    elif regular:
+        result.extend(_spec_round_robin(regular, duration_hints))
 
     return result
 
@@ -103,6 +170,7 @@ class GraphSync:
         self,
         node_states: dict[str, str],
         edges: dict[str, list[str]],
+        node_archetypes: dict[str, str] | None = None,
     ) -> None:
         """Initialise graph sync with node states and dependency edges.
 
@@ -115,9 +183,13 @@ class GraphSync:
             edges: Adjacency list where each key is a node_id and its
                 value is a list of dependency node_ids (predecessors
                 that must complete before this node can execute).
+            node_archetypes: Optional mapping of node_id -> archetype
+                string.  When provided, ``ready_tasks()`` uses three-tier
+                priority ordering (auto_pre > coders > reviews).
         """
         self.node_states = node_states
         self._edges = edges
+        self._node_archetypes = node_archetypes
 
         # Build reverse adjacency: node -> list of nodes that depend on it.
         # Used for cascade blocking (BFS forward through dependents).
@@ -137,6 +209,10 @@ class GraphSync:
         - Its status is ``pending``
         - All of its dependencies have status ``completed``
 
+        Pre-review nodes (auto_pre at group 0) are prioritized ahead of
+        coder nodes, with high-fan-out specs ordered first so that
+        critical-path blockers surface early.
+
         Args:
             duration_hints: Optional mapping of node_id to predicted
                 duration in milliseconds. When provided, ready tasks are
@@ -145,10 +221,8 @@ class GraphSync:
                 of duration hints.
 
         Returns:
-            List of ready node_ids in spec-fair round-robin order.
-            Spec groups are ordered by numeric prefix ascending; within
-            each spec group tasks are sorted alphabetically or by
-            duration descending when hints are provided.
+            List of ready node_ids in pre-review-prioritized,
+            spec-fair round-robin order.
 
         Requirements: 39-REQ-1.1, 39-REQ-1.3, 69-REQ-1.1, 69-REQ-2.2
         """
@@ -160,7 +234,23 @@ class GraphSync:
             if all(self.node_states.get(d) == "completed" for d in deps):
                 ready.append(node_id)
 
-        return _interleave_by_spec(ready, duration_hints)
+        fan_out = self._compute_spec_fan_out()
+        return _interleave_by_spec(ready, duration_hints, fan_out, self._node_archetypes)
+
+    def _compute_spec_fan_out(self) -> dict[str, int]:
+        """Count distinct cross-spec dependent specs.
+
+        For each spec, count how many OTHER specs have at least one
+        node that depends on a node in this spec.
+        """
+        spec_dependents: dict[str, set[str]] = {}
+        for node_id, dependents in self._dependents.items():
+            src_spec = _spec_name(node_id)
+            for dep_id in dependents:
+                dep_spec = _spec_name(dep_id)
+                if dep_spec != src_spec:
+                    spec_dependents.setdefault(src_spec, set()).add(dep_spec)
+        return {spec: len(deps) for spec, deps in spec_dependents.items()}
 
     def predecessors(self, node_id: str) -> list[str]:
         """Return predecessor node IDs for *node_id*."""
@@ -196,15 +286,21 @@ class GraphSync:
             for dependent in self._dependents.get(current, []):
                 if dependent in visited:
                     continue
-                # Skip completed nodes (work is done) and in_progress
-                # nodes (actively executing; their result will be
-                # processed when they finish).
-                if self.node_states.get(dependent) in (
-                    "completed",
-                    "in_progress",
-                ):
+                # Skip completed nodes — their work is done and cannot be
+                # reversed.
+                if self.node_states.get(dependent) == "completed":
                     continue
                 visited.add(dependent)
+                # In-progress nodes are actively executing and cannot be
+                # forcibly terminated.  We do NOT mark them "blocked" here,
+                # but we MUST continue the BFS through them so that their
+                # pending dependents are blocked.  Without this traversal,
+                # those dependents would appear in ready_tasks() when the
+                # in-progress node completes and be dispatched despite the
+                # quality gate (issue #481).
+                if self.node_states.get(dependent) == "in_progress":
+                    queue.append(dependent)
+                    continue
                 self.node_states[dependent] = "blocked"
                 cascade_blocked.append(dependent)
                 queue.append(dependent)
@@ -214,6 +310,23 @@ class GraphSync:
     def mark_in_progress(self, node_id: str) -> None:
         """Mark a task as in_progress (being executed)."""
         self.node_states[node_id] = "in_progress"
+
+    def promote_deferred(self, limit: int = 1) -> list[str]:
+        """Promote up to *limit* deferred nodes to pending.
+
+        Only nodes whose dependencies are all completed are promoted.
+        """
+        promoted: list[str] = []
+        for node_id, status in list(self.node_states.items()):
+            if status != "deferred":
+                continue
+            deps = self._edges.get(node_id, [])
+            if all(self.node_states.get(d) == "completed" for d in deps):
+                self.node_states[node_id] = "pending"
+                promoted.append(node_id)
+                if len(promoted) >= limit:
+                    break
+        return promoted
 
     def is_stalled(self) -> bool:
         """Check if no progress is possible.
@@ -227,6 +340,13 @@ class GraphSync:
         all_completed = all(s == "completed" for s in self.node_states.values())
 
         if has_ready or has_in_progress or all_completed:
+            return False
+
+        has_promotable_deferred = any(
+            status == "deferred" and all(self.node_states.get(d) == "completed" for d in self._edges.get(nid, []))
+            for nid, status in self.node_states.items()
+        )
+        if has_promotable_deferred:
             return False
 
         return True

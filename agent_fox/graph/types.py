@@ -19,6 +19,7 @@ class NodeStatus(StrEnum):
     SKIPPED = "skipped"
     COST_BLOCKED = "cost_blocked"
     MERGE_BLOCKED = "merge_blocked"
+    DEFERRED = "deferred"
 
 
 @dataclass

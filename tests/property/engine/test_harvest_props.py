@@ -204,8 +204,11 @@ class TestCausalExtractionMinimumThreshold:
                     "agent_fox.engine.knowledge_harvest._extract_causal_links",
                 ) as mock_causal,
             ):
+                # Transcript must exceed _MIN_TRANSCRIPT_CHARS so the length
+                # guard does not short-circuit before the mocked extract_facts.
+                long_transcript = "prop causal test implementation detail. " * 55  # ~2200 chars
                 await extract_and_store_knowledge(
-                    transcript="test",
+                    transcript=long_transcript,
                     spec_name="prop_test",
                     node_id="prop/new",
                     memory_extraction_model="SIMPLE",
@@ -343,13 +346,17 @@ class TestAuditEventOnSuccess:
             emitted: list[AuditEvent] = []
             mock_sink.emit_audit_event.side_effect = lambda e: emitted.append(e)
 
+            # Transcript must exceed _MIN_TRANSCRIPT_CHARS so the length guard
+            # does not short-circuit before the mocked extract_facts is reached.
+            long_transcript = "prop test content with implementation details. " * 50  # ~2350 chars
+
             with patch(
                 "agent_fox.engine.knowledge_harvest.extract_facts",
                 new_callable=AsyncMock,
                 return_value=facts,
             ):
                 await extract_and_store_knowledge(
-                    transcript="prop test",
+                    transcript=long_transcript,
                     spec_name="prop_test",
                     node_id="prop/test",
                     memory_extraction_model="SIMPLE",
@@ -381,9 +388,12 @@ class TestAuditEventOnEmptyHarvest:
     """
 
     @given(
-        transcript=st.text(
-            min_size=1,
-            max_size=100,
+        # Transcripts must be at least _MIN_TRANSCRIPT_CHARS (2000 chars) long so
+        # the new length guard does not short-circuit before extraction runs.
+        # The harvest.empty event is only emitted when extraction is attempted.
+        filler=st.text(
+            min_size=2000,
+            max_size=2200,
             alphabet=st.characters(whitelist_categories=("L", "N", "P", "Z")),
         )
     )
@@ -393,7 +403,8 @@ class TestAuditEventOnEmptyHarvest:
         deadline=None,
     )
     @pytest.mark.asyncio
-    async def test_harvest_empty_emitted(self, transcript: str) -> None:
+    async def test_harvest_empty_emitted(self, filler: str) -> None:
+        transcript = filler  # meets minimum length threshold
         from agent_fox.knowledge.audit import (
             AuditEvent,
             AuditEventType,

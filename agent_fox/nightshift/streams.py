@@ -1,8 +1,8 @@
-"""Concrete work stream implementations for the daemon framework.
+"""Work stream protocol and concrete implementations for the daemon framework.
 
-Provides three built-in streams wrapping existing capabilities, plus a
-``build_streams()`` factory that applies CLI flags, config, and platform
-degradation rules.
+Defines the ``WorkStream`` protocol and provides three built-in streams
+wrapping existing capabilities, plus a ``build_streams()`` factory that
+applies CLI flags, config, and platform degradation rules.
 
 Requirements: 85-REQ-1.1, 85-REQ-6.1, 85-REQ-6.2, 85-REQ-6.3,
               85-REQ-7.1, 85-REQ-7.E1, 85-REQ-10.1, 85-REQ-10.2,
@@ -13,11 +13,50 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from agent_fox.nightshift.daemon import SharedBudget
-    from agent_fox.nightshift.stream import WorkStream
+
+
+# ---------------------------------------------------------------------------
+# WorkStream protocol
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class WorkStream(Protocol):
+    """Protocol for daemon work streams.
+
+    Each work stream has a name, polling interval, enabled flag, and
+    async methods for running one cycle and shutting down gracefully.
+
+    Requirements: 85-REQ-1.1
+    """
+
+    @property
+    def name(self) -> str:
+        """Unique name identifying this work stream."""
+        ...
+
+    @property
+    def interval(self) -> int:
+        """Seconds between run_once() invocations."""
+        ...
+
+    @property
+    def enabled(self) -> bool:
+        """Whether this stream should be scheduled for execution."""
+        ...
+
+    async def run_once(self) -> None:
+        """Execute one cycle of this work stream's logic."""
+        ...
+
+    async def shutdown(self) -> None:
+        """Clean up resources before daemon exit."""
+        ...
+
 
 logger = logging.getLogger(__name__)
 

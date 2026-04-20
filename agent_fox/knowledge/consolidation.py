@@ -534,6 +534,33 @@ async def _merge_related_facts(
                 [new_id, content, best_spec, max_confidence],
             )
 
+            # Generate and store embedding for the consolidated fact (best-effort)
+            if embedding_generator is not None:
+                try:
+                    embedding = embedding_generator.embed_text(content)
+                    if embedding is not None:
+                        dim = embedding_generator.embedding_dimensions
+                        conn.execute(
+                            f"INSERT INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
+                            [new_id, embedding],
+                        )
+                    else:
+                        logger.warning(
+                            "Embedding generation returned None for consolidated fact %s",
+                            new_id,
+                        )
+                except Exception:
+                    logger.warning(
+                        "Embedding write failed for consolidated fact %s",
+                        new_id,
+                        exc_info=True,
+                    )
+            else:
+                logger.warning(
+                    "No embedder configured; consolidated fact %s stored without embedding",
+                    new_id,
+                )
+
             for fid in active_ids:
                 conn.execute(
                     "UPDATE memory_facts SET superseded_by = ? WHERE id = ?",
@@ -568,6 +595,7 @@ async def _promote_patterns(
     conn: duckdb.DuckDBPyConnection,
     model: str,
     threshold: float = _DEFAULT_PATTERN_THRESHOLD,
+    embedding_generator: EmbeddingGenerator | None = None,
 ) -> PromotionResult:
     """Identify recurring patterns across 3+ specs and create pattern facts.
 
@@ -667,6 +695,33 @@ async def _promote_patterns(
             """,
             [pattern_id, description],
         )
+
+        # Generate and store embedding for the pattern fact (best-effort)
+        if embedding_generator is not None:
+            try:
+                embedding = embedding_generator.embed_text(description)
+                if embedding is not None:
+                    dim = embedding_generator.embedding_dimensions
+                    conn.execute(
+                        f"INSERT INTO memory_embeddings (id, embedding) VALUES (?::UUID, ?::FLOAT[{dim}])",
+                        [pattern_id, embedding],
+                    )
+                else:
+                    logger.warning(
+                        "Embedding generation returned None for pattern fact %s",
+                        pattern_id,
+                    )
+            except Exception:
+                logger.warning(
+                    "Embedding write failed for pattern fact %s",
+                    pattern_id,
+                    exc_info=True,
+                )
+        else:
+            logger.warning(
+                "No embedder configured; pattern fact %s stored without embedding",
+                pattern_id,
+            )
 
         # Add causal edges from each original fact to the pattern fact
         for fid in active_ids:
@@ -968,7 +1023,7 @@ async def run_consolidation(
         errors.append("promotion")
     else:
         try:
-            promotion = await _promote_patterns(conn, model, merge_similarity_threshold)
+            promotion = await _promote_patterns(conn, model, merge_similarity_threshold, embedding_generator)
         except Exception:
             logger.warning("Pattern promotion step failed", exc_info=True)
             errors.append("promotion")

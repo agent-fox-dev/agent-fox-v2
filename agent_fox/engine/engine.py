@@ -38,7 +38,7 @@ from agent_fox.engine.assessment import AssessmentManager
 from agent_fox.engine.audit_helpers import emit_audit_event
 from agent_fox.engine.barrier import _count_node_status, run_sync_barrier_sequence
 from agent_fox.engine.circuit import CircuitBreaker
-from agent_fox.engine.graph_sync import GraphSync
+from agent_fox.engine.graph_sync import GraphSync, _is_auto_pre
 from agent_fox.engine.hot_load import (
     _build_nodes_and_edges,
     _validate_and_parse_specs,
@@ -47,6 +47,7 @@ from agent_fox.engine.hot_load import (
 )
 from agent_fox.engine.parallel import ParallelRunner
 from agent_fox.engine.result_handler import SessionResultHandler
+from agent_fox.engine.session_lifecycle import _REVIEW_ARCHETYPES
 from agent_fox.engine.state import (
     ExecutionState,
     RunStatus,
@@ -463,7 +464,9 @@ class Orchestrator:
             except Exception:
                 logger.debug("Failed to create DB run record", exc_info=True)
 
-        self._graph_sync = GraphSync(state.node_states, edges_dict)
+        node_archetypes = {nid: n.archetype for nid, n in graph.nodes.items()}
+        self._graph_sync = GraphSync(state.node_states, edges_dict, node_archetypes)
+        _defer_ready_reviews(graph, self._graph_sync, self._knowledge_db_conn)
         self._result_handler = SessionResultHandler(
             graph_sync=self._graph_sync,
             routing_ladders=self._routing.ladders,
@@ -569,6 +572,16 @@ class Orchestrator:
                 # 39-REQ-9.3: Filter conflicting tasks when enabled
                 if self._planning_config.file_conflict_detection and self._is_parallel and len(ready) > 1:
                     ready = self._filter_file_conflicts(ready)
+
+                if not ready:
+                    max_slots = self._parallel_runner.max_parallelism if self._parallel_runner else 1
+                    promoted = self._graph_sync.promote_deferred(limit=max_slots)
+                    if promoted:
+                        logger.info(
+                            "Promoted %d deferred review node(s)",
+                            len(promoted),
+                        )
+                        ready = self._graph_sync.ready_tasks()
 
                 if not ready:
                     if self._graph_sync.is_stalled():
@@ -1076,6 +1089,16 @@ class Orchestrator:
             # Re-evaluate ready tasks and fill empty pool slots
             if not self._signal.interrupted:
                 new_ready = graph_sync.ready_tasks()
+                if not new_ready and len(pool) < parallel_runner.max_parallelism:
+                    promoted = graph_sync.promote_deferred(
+                        parallel_runner.max_parallelism - len(pool),
+                    )
+                    if promoted:
+                        logger.info(
+                            "Promoted %d deferred review node(s)",
+                            len(promoted),
+                        )
+                        new_ready = graph_sync.ready_tasks()
                 await self._fill_parallel_pool(
                     pool,
                     new_ready,
@@ -1094,16 +1117,42 @@ class Orchestrator:
         attempt_tracker: dict[str, int],
         error_tracker: dict[str, str | None],
     ) -> None:
-        """Launch candidates into the parallel pool up to max_parallelism."""
+        """Launch candidates into the parallel pool up to max_parallelism.
+
+        Review archetype sessions (excluding auto_pre group-0 nodes) are
+        capped at ``max(1, max_pool * max_review_fraction)`` concurrent
+        slots to prevent slot starvation when many review nodes become
+        ready simultaneously after a sync barrier.
+        """
         assert self._graph_sync is not None  # noqa: S101
         assert self._parallel_runner is not None  # noqa: S101
 
         max_pool = self._parallel_runner.max_parallelism
+        max_review = max(1, int(max_pool * self._config.max_review_fraction))
+
+        review_in_pool = 0
+        for t in pool:
+            name = t.get_name()
+            if name.startswith("parallel-"):
+                pool_node_id = name[len("parallel-") :]
+                if not _is_auto_pre(pool_node_id):
+                    pool_archetype = self._get_node_archetype(pool_node_id)
+                    if pool_archetype in _REVIEW_ARCHETYPES:
+                        review_in_pool += 1
+
         for node_id in candidates:
             if len(pool) >= max_pool:
                 break
             if self._signal.interrupted:
                 break
+
+            # Defense-in-depth: skip any candidate whose status changed to
+            # "blocked" between ready_tasks() evaluation and this dispatch
+            # point (issue #481).  The primary fix is in graph_sync.mark_blocked
+            # which now cascades through in-progress nodes to pre-block their
+            # pending dependents; this guard is a last-resort safety net.
+            if self._graph_sync.node_states.get(node_id) == "blocked":
+                continue
 
             launch = await self._prepare_launch(
                 node_id,
@@ -1115,6 +1164,13 @@ class Orchestrator:
                 continue
 
             _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
+
+            # Review concurrency cap: skip non-pre review candidates when
+            # the review slot budget is exhausted.  Skipped candidates stay
+            # pending and are picked up on the next pool refill cycle.
+            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id) and review_in_pool >= max_review:
+                continue
+
             self._graph_sync.mark_in_progress(node_id)
 
             # 75-REQ-3.5: Pass per-node timeout/turns overrides if available
@@ -1141,6 +1197,9 @@ class Orchestrator:
                 name=f"parallel-{node_id}",
             )
             pool.add(task)
+
+            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id):
+                review_in_pool += 1
 
     def _process_completed_parallel(
         self,
@@ -1365,7 +1424,9 @@ class Orchestrator:
 
         # Rebuild GraphSync with updated graph
         edges_dict = _build_edges_dict_from_graph(self._graph)
-        self._graph_sync = GraphSync(state.node_states, edges_dict)
+        node_archetypes = {nid: n.archetype for nid, n in self._graph.nodes.items()}
+        self._graph_sync = GraphSync(state.node_states, edges_dict, node_archetypes)
+        _defer_ready_reviews(self._graph, self._graph_sync, self._knowledge_db_conn)
 
     def _block_task(
         self,
@@ -1671,6 +1732,41 @@ def _reset_blocked_tasks(
         for node_id, status in state.node_states.items():
             if status == "pending":
                 persist_node_status(conn, node_id, "pending")
+
+
+def _defer_ready_reviews(
+    graph: TaskGraph,
+    graph_sync: GraphSync,
+    conn: Any = None,
+) -> list[str]:
+    """Mark non-auto_pre review nodes as deferred when deps are already completed.
+
+    Returns list of node IDs that were deferred.
+    """
+    deferred: list[str] = []
+    for nid, node in graph.nodes.items():
+        if graph_sync.node_states.get(nid) != "pending":
+            continue
+        if _is_auto_pre(nid):
+            continue
+        if node.archetype not in _REVIEW_ARCHETYPES:
+            continue
+        preds = graph_sync.predecessors(nid)
+        if preds and all(graph_sync.node_states.get(p) == "completed" for p in preds):
+            graph_sync.node_states[nid] = "deferred"
+            deferred.append(nid)
+    if deferred and conn is not None:
+        from agent_fox.engine.state import persist_node_status
+
+        for nid in deferred:
+            persist_node_status(conn, nid, "deferred")
+    if deferred:
+        logger.info(
+            "Deferred %d review node(s) with already-completed deps: %s",
+            len(deferred),
+            ", ".join(deferred),
+        )
+    return deferred
 
 
 def _init_attempt_tracker(state: ExecutionState) -> dict[str, int]:

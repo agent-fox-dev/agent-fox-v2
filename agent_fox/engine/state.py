@@ -441,14 +441,20 @@ def create_run(
 ) -> None:
     """INSERT a new run row with status='running'.
 
+    started_at is set explicitly in Python using UTC so that it matches the
+    UTC convention used by session_outcomes.created_at. DuckDB's
+    CURRENT_TIMESTAMP resolves to server local time, which would produce
+    cross-table timestamp skew (issue #480).
+
     Requirements: 105-REQ-4.2
     """
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         """
-        INSERT INTO runs (id, plan_content_hash, status)
-        VALUES (?, ?, 'running')
+        INSERT INTO runs (id, plan_content_hash, status, started_at)
+        VALUES (?, ?, 'running', ?)
         """,
-        [run_id, plan_hash],
+        [run_id, plan_hash, now],
     )
 
 
@@ -483,16 +489,19 @@ def complete_run(
 ) -> None:
     """UPDATE runs SET completed_at, status to mark a run as finished.
 
+    completed_at is set explicitly in Python using UTC (issue #480).
+
     Requirements: 105-REQ-4.4
     """
+    now = datetime.now(UTC).isoformat()
     conn.execute(
         """
         UPDATE runs
-        SET completed_at = CURRENT_TIMESTAMP,
+        SET completed_at = ?,
             status = ?
         WHERE id = ?
         """,
-        [status, run_id],
+        [now, status, run_id],
     )
 
 
@@ -522,16 +531,17 @@ def cleanup_stale_runs(
     count = count_row[0] if count_row else 0
 
     if count:
+        now = datetime.now(UTC).isoformat()
         conn.execute(
             """
             UPDATE runs
             SET status = 'interrupted',
-                completed_at = CURRENT_TIMESTAMP
+                completed_at = ?
             WHERE status = 'running'
               AND completed_at IS NULL
               AND id != ?
             """,
-            [current_run_id],
+            [now, current_run_id],
         )
 
     return count
