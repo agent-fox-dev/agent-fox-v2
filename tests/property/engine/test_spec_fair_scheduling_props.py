@@ -11,7 +11,7 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.engine.graph_sync import _interleave_by_spec, _spec_name
+from agent_fox.engine.graph_sync import _interleave_by_spec, _is_auto_pre, _spec_name
 
 # ---------------------------------------------------------------------------
 # Hypothesis strategies
@@ -156,7 +156,10 @@ def _spec_number(spec_name: str) -> tuple[int | float, str]:
 
 
 class TestFairnessGuarantee:
-    """Property test: every spec's first task appears in the first N positions.
+    """Property test: within each tier, every spec's first task appears in the first N positions.
+
+    Pre-review nodes (group 0) form a separate priority tier.  Fairness
+    is guaranteed within each tier independently.
 
     Test Spec: TS-69-P1
     Properties: Property 1 from design.md
@@ -166,18 +169,23 @@ class TestFairnessGuarantee:
     @given(ready=multi_spec_list(min_specs=2, max_specs=10))
     @settings(max_examples=200)
     def test_fairness_guarantee(self, ready: list[str]) -> None:
-        """Every spec's first task must appear within the first N positions."""
+        """Within each tier, every spec's first task appears in the first N positions."""
         result = _interleave_by_spec(ready)
-        specs = list({_spec_name(nid) for nid in ready})
-        n = len(specs)
 
-        for spec in specs:
-            first_index = next(i for i, nid in enumerate(result) if _spec_name(nid) == spec)
-            assert first_index < n, (
-                f"Spec '{spec}' first appears at index {first_index}, "
-                f"but should appear within first {n} positions. "
-                f"Result: {result}"
-            )
+        for tier_filter, label in [(_is_auto_pre, "pre"), (lambda n: not _is_auto_pre(n), "regular")]:
+            tier_tasks = [nid for nid in result if tier_filter(nid)]
+            specs = list({_spec_name(nid) for nid in tier_tasks})
+            n = len(specs)
+            if n == 0:
+                continue
+
+            for spec in specs:
+                first_index = next(i for i, nid in enumerate(tier_tasks) if _spec_name(nid) == spec)
+                assert first_index < n, (
+                    f"[{label}] Spec '{spec}' first appears at index {first_index}, "
+                    f"but should appear within first {n} positions. "
+                    f"Tier tasks: {tier_tasks}"
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +215,7 @@ class TestSingleSpecIdentity:
 
 
 class TestDurationPreservesWithinSpecOrder:
-    """Property test: within each spec, tasks are in duration-descending order.
+    """Property test: within each spec and tier, tasks are in duration-descending order.
 
     Test Spec: TS-69-P3
     Properties: Property 3 from design.md
@@ -217,33 +225,34 @@ class TestDurationPreservesWithinSpecOrder:
     @given(spec_list_with_hints())
     @settings(max_examples=200)
     def test_duration_preserves_within_spec_order(self, args: tuple[list[str], dict[str, int]]) -> None:
-        """Within each spec, tasks are ordered by duration descending in result."""
+        """Within each spec and tier, tasks are ordered by duration descending."""
         ready, hints = args
         if not ready:
             return
 
         result = _interleave_by_spec(ready, duration_hints=hints if hints else None)
-        specs = list({_spec_name(nid) for nid in ready})
 
-        for spec in specs:
-            spec_tasks_in_result = [nid for nid in result if _spec_name(nid) == spec]
-            # Hinted tasks should come before unhinted, hinted in descending order
-            hinted = [(nid, hints[nid]) for nid in spec_tasks_in_result if nid in hints]
-            durations = [d for _, d in hinted]
-            assert durations == sorted(durations, reverse=True), (
-                f"Spec '{spec}' hinted tasks not in descending duration order: "
-                f"{hinted} in result {spec_tasks_in_result}"
-            )
+        for tier_filter in [_is_auto_pre, lambda n: not _is_auto_pre(n)]:
+            tier_tasks = [nid for nid in result if tier_filter(nid)]
+            specs = list({_spec_name(nid) for nid in tier_tasks})
 
-            # All hinted tasks should appear before unhinted tasks
-            unhinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid not in hints]
-            hinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid in hints]
-            if hinted_indices and unhinted_indices:
-                assert max(hinted_indices) < min(unhinted_indices), (
-                    f"Spec '{spec}': hinted tasks don't all precede unhinted tasks. "
-                    f"Hinted indices: {hinted_indices}, "
-                    f"unhinted indices: {unhinted_indices}"
+            for spec in specs:
+                spec_tasks_in_result = [nid for nid in tier_tasks if _spec_name(nid) == spec]
+                hinted = [(nid, hints[nid]) for nid in spec_tasks_in_result if nid in hints]
+                durations = [d for _, d in hinted]
+                assert durations == sorted(durations, reverse=True), (
+                    f"Spec '{spec}' hinted tasks not in descending duration order: "
+                    f"{hinted} in result {spec_tasks_in_result}"
                 )
+
+                unhinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid not in hints]
+                hinted_indices = [i for i, nid in enumerate(spec_tasks_in_result) if nid in hints]
+                if hinted_indices and unhinted_indices:
+                    assert max(hinted_indices) < min(unhinted_indices), (
+                        f"Spec '{spec}': hinted tasks don't all precede unhinted tasks. "
+                        f"Hinted indices: {hinted_indices}, "
+                        f"unhinted indices: {unhinted_indices}"
+                    )
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +294,11 @@ class TestCompleteness:
 
 
 class TestSpecOrderConsistency:
-    """Property test: lower-numbered specs appear before higher-numbered specs.
+    """Property test: within the regular tier, lower-numbered specs appear first.
+
+    Pre-review nodes (group 0) form a separate priority tier and are
+    exempt from spec-number ordering (they use fan-out ordering instead).
+    The spec-number consistency property applies to the regular tier.
 
     Test Spec: TS-69-P5
     Properties: Property 5 from design.md
@@ -295,14 +308,17 @@ class TestSpecOrderConsistency:
     @given(ready=multi_spec_list(min_specs=2, max_specs=10))
     @settings(max_examples=200)
     def test_spec_order_consistency(self, ready: list[str]) -> None:
-        """For specs A < B by number, A's first task appears before B's first task."""
+        """Within the regular tier, A < B by number ⇒ A's first task before B's."""
         result = _interleave_by_spec(ready)
-        specs = list({_spec_name(nid) for nid in ready})
+        regular_result = [nid for nid in result if not _is_auto_pre(nid)]
+        specs = list({_spec_name(nid) for nid in regular_result})
+        if len(specs) < 2:
+            return
         specs_sorted = sorted(specs, key=_spec_number)
 
         first_indices: dict[str, int] = {}
         for spec in specs_sorted:
-            first_indices[spec] = next(i for i, nid in enumerate(result) if _spec_name(nid) == spec)
+            first_indices[spec] = next(i for i, nid in enumerate(regular_result) if _spec_name(nid) == spec)
 
         for i in range(len(specs_sorted)):
             for j in range(i + 1, len(specs_sorted)):
@@ -312,7 +328,7 @@ class TestSpecOrderConsistency:
                     f"Spec '{spec_a}' (number {_spec_number(spec_a)}) first appears "
                     f"at index {first_indices[spec_a]}, but spec '{spec_b}' "
                     f"(number {_spec_number(spec_b)}) first appears at "
-                    f"index {first_indices[spec_b]}. Result: {result}"
+                    f"index {first_indices[spec_b]}. Regular result: {regular_result}"
                 )
 
 
