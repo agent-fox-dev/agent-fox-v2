@@ -50,7 +50,7 @@ class TestMaxTurnsDefaults:
 
     def test_default_max_turns_per_archetype(self) -> None:
         """TS-56-3: Each archetype has the correct default_max_turns."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         expected = {
             "coder": 300,
@@ -162,7 +162,7 @@ class TestThinkingDefaults:
 
     def test_coder_default_thinking_adaptive(self) -> None:
         """TS-56-14: Coder defaults to adaptive thinking with 64000 budget."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         coder = ARCHETYPE_REGISTRY["coder"]
         assert coder.default_thinking_mode == "adaptive"
@@ -170,7 +170,7 @@ class TestThinkingDefaults:
 
     def test_other_archetypes_default_thinking_disabled(self) -> None:
         """TS-56-14: Non-coder archetypes default to disabled thinking."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         for name in (
             "reviewer",

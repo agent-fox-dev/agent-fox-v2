@@ -17,7 +17,7 @@ class TestOracleAnswerConfidence:
 
     def test_oracle_answer_has_float_confidence(self) -> None:
         """OracleAnswer.confidence is a float."""
-        from agent_fox.knowledge.query import OracleAnswer
+        from agent_fox.knowledge.query_oracle import OracleAnswer
 
         answer = OracleAnswer(
             answer="Test answer",
@@ -29,7 +29,7 @@ class TestOracleAnswerConfidence:
 
     def test_determine_confidence_returns_float(self) -> None:
         """_determine_confidence returns a float >= 0.8 for 3+ high-sim results."""
-        from agent_fox.knowledge.query import Oracle
+        from agent_fox.knowledge.query_oracle import Oracle
 
         oracle = Oracle.__new__(Oracle)
 
@@ -59,7 +59,7 @@ class TestPatternConfidence:
 
     def test_assign_confidence_occurrence_mapping(self) -> None:
         """_assign_confidence returns correct floats for occurrence counts."""
-        from agent_fox.knowledge.query import _assign_confidence
+        from agent_fox.knowledge.query_patterns import _assign_confidence
 
         assert _assign_confidence(2) == 0.4
         assert _assign_confidence(3) == 0.7
@@ -68,7 +68,7 @@ class TestPatternConfidence:
 
     def test_pattern_has_float_confidence(self) -> None:
         """Pattern.confidence is a float."""
-        from agent_fox.knowledge.query import Pattern
+        from agent_fox.knowledge.query_patterns import Pattern
 
         pattern = Pattern(
             trigger="src/auth/",

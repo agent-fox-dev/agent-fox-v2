@@ -322,7 +322,7 @@ def _query_oracle_facts(config: AgentFoxConfig) -> list[Any]:
     """
     from agent_fox.knowledge.db import KnowledgeDB
     from agent_fox.knowledge.embeddings import EmbeddingGenerator
-    from agent_fox.knowledge.query import Oracle
+    from agent_fox.knowledge.query_oracle import Oracle
     from agent_fox.knowledge.search import VectorSearch
 
     db = KnowledgeDB(config.knowledge)

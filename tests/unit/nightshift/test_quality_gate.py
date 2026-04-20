@@ -308,7 +308,7 @@ class TestConfiguration:
 
     def test_default_timeout_is_600(self) -> None:
         """TS-67-10: Default quality_gate_timeout is 600 seconds."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig()
         assert config.quality_gate_timeout == 600
@@ -489,7 +489,7 @@ class TestEdgeCases:
     # Requirement: 67-REQ-5.3
     def test_timeout_below_60_is_clamped(self) -> None:
         """TS-67-E7: quality_gate_timeout below 60 is clamped to 60."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(quality_gate_timeout=10)
         assert config.quality_gate_timeout == 60

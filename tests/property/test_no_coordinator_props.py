@@ -24,7 +24,7 @@ class TestNoCoordinatorInAnyCollection:
 
     def test_no_coordinator_in_registry(self) -> None:
         """ARCHETYPE_REGISTRY must not contain 'coordinator'."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         assert "coordinator" not in set(ARCHETYPE_REGISTRY.keys())
 
@@ -36,7 +36,7 @@ class TestNoCoordinatorInAnyCollection:
 
     def test_no_coordinator_in_any_collection(self) -> None:
         """Coordinator absent from every archetype enumeration simultaneously."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
         from agent_fox.spec.parser import _KNOWN_ARCHETYPES
 
         all_collections = [

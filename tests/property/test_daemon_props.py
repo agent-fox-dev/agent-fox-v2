@@ -237,7 +237,7 @@ class TestConfigIntervalClamping:
     @settings(max_examples=100)
     def test_intervals_clamped(self, spec_interval: int) -> None:
         """spec_interval >= 10 after validation."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         config = NightShiftConfig(
             spec_interval=spec_interval,

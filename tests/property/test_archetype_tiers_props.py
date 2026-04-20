@@ -42,7 +42,7 @@ class TestRegistryDefaultsMatchSpec:
 
     def test_advanced_archetypes_all_advanced(self) -> None:
         """Skeptic, Oracle, Verifier must all be ADVANCED."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         for name in _ADVANCED_ARCHETYPES:
             entry = ARCHETYPE_REGISTRY[name]
@@ -51,7 +51,7 @@ class TestRegistryDefaultsMatchSpec:
 
     def test_standard_archetypes_all_standard(self) -> None:
         """Coder and Auditor must be STANDARD."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         for name in _STANDARD_ARCHETYPES:
             entry = ARCHETYPE_REGISTRY[name]
@@ -64,7 +64,7 @@ class TestRegistryDefaultsMatchSpec:
     @settings(max_examples=50)
     def test_prop_every_archetype_matches_spec(self, name: str) -> None:
         """For any archetype in the registry, tier matches the spec assignment."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY[name]
         if name in _ADVANCED_ARCHETYPES:
@@ -84,7 +84,7 @@ class TestCeilingAlwaysAdvanced:
 
     def test_all_archetypes_get_advanced_ceiling(self) -> None:
         """An escalation ladder for any archetype has ceiling=ADVANCED."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         for name, entry in ARCHETYPE_REGISTRY.items():
             starting = ModelTier(entry.default_model_tier)
@@ -104,7 +104,7 @@ class TestCeilingAlwaysAdvanced:
     @settings(max_examples=50)
     def test_prop_ceiling_always_advanced(self, name: str) -> None:
         """For any archetype, a ladder with ADVANCED ceiling preserves the ceiling."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY[name]
         starting = ModelTier(entry.default_model_tier)
@@ -225,7 +225,7 @@ class TestConfigOverridePrecedence:
         """Without archetype override, global [models] config or registry default is used."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.sdk_params import _ARCHETYPE_MODEL_KEYS, resolve_model_tier
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models={}))
         tier = resolve_model_tier(config, name)
@@ -250,7 +250,7 @@ class TestConfigOverridePrecedence:
         """Property: override → returned; no override → global models or registry default."""
         from agent_fox.core.config import AgentFoxConfig, ArchetypesConfig
         from agent_fox.engine.sdk_params import _ARCHETYPE_MODEL_KEYS, resolve_model_tier
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         models = {name: override} if override is not None else {}
         config = AgentFoxConfig(archetypes=ArchetypesConfig(models=models))

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import duckdb
 
-from agent_fox.knowledge.query import (
+from agent_fox.knowledge.query_patterns import (
     Pattern,
     detect_patterns,
     render_patterns,

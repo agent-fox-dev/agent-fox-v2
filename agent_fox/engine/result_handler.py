@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from agent_fox.archetypes import get_archetype
 from agent_fox.core.config import ArchetypesConfig
 from agent_fox.core.models import ModelTier
 from agent_fox.core.node_id import parse_node_id
@@ -26,7 +27,6 @@ from agent_fox.engine.graph_sync import GraphSync
 from agent_fox.engine.state import ExecutionState, SessionRecord, update_state_with_session
 from agent_fox.knowledge.audit import AuditEventType
 from agent_fox.knowledge.sink import SinkDispatcher
-from agent_fox.session.archetypes import get_archetype
 from agent_fox.ui.progress import TaskCallback, TaskEvent
 
 logger = logging.getLogger(__name__)

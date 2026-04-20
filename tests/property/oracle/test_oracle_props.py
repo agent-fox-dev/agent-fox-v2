@@ -81,7 +81,7 @@ class TestPropertyRegistryCompleteness:
     def test_registry_completeness(self) -> None:
         """TS-32-P1: Reviewer entry with drift-review mode has auto_pre, task_assignable, allowlist."""
         from agent_fox.archetypes import resolve_effective_config
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY
 
         entry = ARCHETYPE_REGISTRY["reviewer"]
         resolved = resolve_effective_config(entry, mode="drift-review")

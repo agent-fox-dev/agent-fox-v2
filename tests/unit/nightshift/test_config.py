@@ -17,14 +17,14 @@ class TestNightShiftConfigDefaults:
 
     def test_default_issue_check_interval(self) -> None:
         """issue_check_interval defaults to 900."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig()
         assert cfg.issue_check_interval == 900
 
     def test_default_hunt_scan_interval(self) -> None:
         """hunt_scan_interval defaults to 21600."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig()
         assert cfg.hunt_scan_interval == 21600
@@ -41,7 +41,7 @@ class TestCategoryConfig:
 
     def test_all_categories_enabled_by_default(self) -> None:
         """All seven categories are enabled by default."""
-        from agent_fox.nightshift.config import NightShiftCategoryConfig
+        from agent_fox.core.config import NightShiftCategoryConfig
 
         cfg = NightShiftCategoryConfig()
         assert cfg.dependency_freshness is True
@@ -54,7 +54,7 @@ class TestCategoryConfig:
 
     def test_disable_single_category(self) -> None:
         """Disabling dead_code leaves all others enabled."""
-        from agent_fox.nightshift.config import (
+        from agent_fox.core.config import (
             NightShiftCategoryConfig,
             NightShiftConfig,
         )
@@ -80,28 +80,28 @@ class TestIntervalClamping:
 
     def test_issue_check_interval_clamped(self) -> None:
         """issue_check_interval of 10 is clamped to 60."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig(issue_check_interval=10)
         assert cfg.issue_check_interval == 60
 
     def test_hunt_scan_interval_clamped(self) -> None:
         """hunt_scan_interval of 30 is clamped to 60."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig(hunt_scan_interval=30)
         assert cfg.hunt_scan_interval == 60
 
     def test_interval_at_boundary_not_clamped(self) -> None:
         """An interval of exactly 60 is not changed."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig(issue_check_interval=60)
         assert cfg.issue_check_interval == 60
 
     def test_interval_above_minimum_not_clamped(self) -> None:
         """An interval above 60 is not changed."""
-        from agent_fox.nightshift.config import NightShiftConfig
+        from agent_fox.core.config import NightShiftConfig
 
         cfg = NightShiftConfig(issue_check_interval=120)
         assert cfg.issue_check_interval == 120

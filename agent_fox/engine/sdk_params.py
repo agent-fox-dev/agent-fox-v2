@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import logging
 
+from agent_fox.archetypes import get_archetype
 from agent_fox.core.config import AgentFoxConfig, SecurityConfig
-from agent_fox.session.archetypes import get_archetype
 
 logger = logging.getLogger(__name__)
 

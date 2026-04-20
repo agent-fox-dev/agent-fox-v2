@@ -11,7 +11,7 @@ import duckdb
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from agent_fox.knowledge.query import detect_patterns
+from agent_fox.knowledge.query_patterns import detect_patterns
 from tests.unit.knowledge.conftest import (
     create_schema,
     seed_causal_links,

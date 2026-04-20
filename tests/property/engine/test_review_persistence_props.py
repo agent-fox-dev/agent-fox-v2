@@ -483,7 +483,7 @@ class TestReviewOnlyReadOnlyEnforcement:
 
     def test_review_only_nodes_have_no_write_commands(self, tmp_path: Path) -> None:
         """TS-53-P6: No review node's allowlist contains write shell commands."""
-        from agent_fox.session.archetypes import ARCHETYPE_REGISTRY  # noqa: PLC0415
+        from agent_fox.archetypes import ARCHETYPE_REGISTRY  # noqa: PLC0415
 
         specs_dir = tmp_path / ".specs"
         spec_dir = specs_dir / "03_api"

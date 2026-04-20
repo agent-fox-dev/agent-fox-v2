@@ -335,7 +335,7 @@ def test_prop_escalation_preserved(retries: int, start: ModelTier) -> None:
 def test_prop_unknown_archetype_fallback(name: str) -> None:
     """Any archetype name not in the registry yields coder defaults (STANDARD)."""
     from agent_fox.archetypes import ARCHETYPE_REGISTRY
-    from agent_fox.session.archetypes import get_archetype
+    from agent_fox.archetypes import get_archetype
 
     assert name not in ARCHETYPE_REGISTRY, f"'{name}' must not be in registry for this test"
     entry = get_archetype(name)

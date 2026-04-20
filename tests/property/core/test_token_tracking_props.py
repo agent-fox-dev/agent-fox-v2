@@ -21,7 +21,7 @@ from agent_fox.core.config import (
 from agent_fox.core.models import MODEL_REGISTRY, calculate_cost
 from agent_fox.core.token_tracker import TokenAccumulator
 from agent_fox.engine.state import SessionRecord
-from agent_fox.reporting.status import extract_spec_name
+from agent_fox.core.node_id import spec_name_of as extract_spec_name
 
 # Strategies
 model_ids = st.sampled_from(["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-6"])
