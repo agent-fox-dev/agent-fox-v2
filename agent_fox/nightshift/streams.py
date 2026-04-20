@@ -310,19 +310,22 @@ class SleepComputeStream:
         """Execute one sleep compute cycle.
 
         Opens the knowledge DB, runs SleepComputer, adds cost to shared budget,
-        and closes the DB.
+        and closes the DB when the connection was opened internally (not via
+        a caller-supplied db_factory).
 
         Requirements: 112-REQ-6.3, 112-REQ-6.4
         """
         if self._budget is not None:
-            if not self._budget.has_remaining():  # type: ignore[attr-defined]
+            if self._budget.exceeded:  # type: ignore[attr-defined]
                 logger.info("SleepComputeStream: budget exhausted; skipping cycle")
                 return
 
         conn = None
+        owns_conn = True  # True when run_once() opened the connection itself
         try:
             if self._db_factory is not None:
                 conn = self._db_factory()
+                owns_conn = False  # caller-provided; caller owns lifecycle
             else:
                 import duckdb as _duckdb
                 conn = _duckdb.connect(":memory:")
@@ -365,7 +368,7 @@ class SleepComputeStream:
         except Exception:
             logger.exception("SleepComputeStream.run_once() failed")
         finally:
-            if conn is not None:
+            if conn is not None and owns_conn:
                 try:
                     conn.close()
                 except Exception:

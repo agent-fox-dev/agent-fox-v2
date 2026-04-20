@@ -261,6 +261,40 @@ async def run_sync_barrier_sequence(
         except Exception:
             logger.warning("Knowledge compaction failed at barrier", exc_info=True)
 
+    # 112-REQ-6.1: Run sleep-time compute pipeline after compaction.
+    if knowledge_db_conn is not None and knowledge_config is not None:
+        sleep_cfg = getattr(knowledge_config, "sleep", None)
+        if sleep_cfg is not None and getattr(sleep_cfg, "enabled", True):
+            try:
+                from agent_fox.knowledge.sleep_compute import SleepComputer, SleepContext
+                from agent_fox.knowledge.sleep_tasks import BundleBuilder, ContextRewriter
+
+                tasks = []
+                if getattr(sleep_cfg, "context_rewriter_enabled", True):
+                    tasks.append(ContextRewriter())
+                if getattr(sleep_cfg, "bundle_builder_enabled", True):
+                    tasks.append(BundleBuilder())
+
+                sleep_ctx = SleepContext(
+                    conn=knowledge_db_conn,
+                    repo_root=repo_root,
+                    model=getattr(sleep_cfg, "model", "standard"),
+                    embedder=None,
+                    budget_remaining=float(getattr(sleep_cfg, "max_cost", 1.0)),
+                    sink_dispatcher=sink_dispatcher,
+                )
+                sleep_computer = SleepComputer(tasks, sleep_cfg)
+                sleep_result = await sleep_computer.run(sleep_ctx)
+                logger.info(
+                    "Sleep compute at barrier: created=%d refreshed=%d cost=%.4f errors=%d",
+                    sum(r.created for r in sleep_result.task_results.values()),
+                    sum(r.refreshed for r in sleep_result.task_results.values()),
+                    sleep_result.total_llm_cost,
+                    len(sleep_result.errors),
+                )
+            except Exception:
+                logger.warning("Sleep compute failed at barrier", exc_info=True)
+
     # 06-REQ-6.2 / 05-REQ-6.3: Regenerate memory summary
     try:
         render_summary(conn=knowledge_db_conn)

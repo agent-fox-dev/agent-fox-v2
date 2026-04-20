@@ -357,26 +357,31 @@ def test_sleep_compute_stream() -> None:
 
 
 async def test_stream_run_once_lifecycle() -> None:
-    """TS-112-28: run_once opens DB, runs SleepComputer, closes DB."""
+    """TS-112-28: run_once opens DB, runs SleepComputer, closes DB.
+
+    Tests the self-managed connection lifecycle (no db_factory) by patching
+    duckdb.connect so we can track open and close counts.
+    DuckDB C-extension connections do not support monkey-patching of built-in
+    methods, so a MagicMock connection is used for tracking.
+    """
     config = SleepConfig()
 
     open_count = 0
     close_count = 0
     run_count = 0
 
-    def mock_db_factory() -> duckdb.DuckDBPyConnection:
+    mock_conn = MagicMock()
+
+    def tracking_close(*args: object, **kwargs: object) -> None:
+        nonlocal close_count
+        close_count += 1
+
+    mock_conn.close.side_effect = tracking_close
+
+    def mock_duckdb_connect(*args: object, **kwargs: object) -> MagicMock:
         nonlocal open_count
         open_count += 1
-        conn = _make_conn()
-        original_close = conn.close
-
-        def tracking_close() -> None:
-            nonlocal close_count
-            close_count += 1
-            original_close()
-
-        conn.close = tracking_close  # type: ignore[method-assign]
-        return conn
+        return mock_conn
 
     async def mock_sleep_run(*args: object, **kwargs: object) -> object:
         nonlocal run_count
@@ -385,8 +390,12 @@ async def test_stream_run_once_lifecycle() -> None:
 
         return SleepComputeResult(task_results={}, total_llm_cost=0.0, errors=[])
 
-    with patch("agent_fox.knowledge.sleep_compute.SleepComputer.run", mock_sleep_run):
-        stream = SleepComputeStream(config, db_factory=mock_db_factory)
+    with (
+        patch("agent_fox.knowledge.sleep_compute.SleepComputer.run", mock_sleep_run),
+        patch("duckdb.connect", mock_duckdb_connect),
+    ):
+        # No db_factory: run_once() opens and closes the connection itself
+        stream = SleepComputeStream(config)
         await stream.run_once()
 
     assert open_count == 1

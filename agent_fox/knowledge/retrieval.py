@@ -11,6 +11,7 @@ Requirements: 104-REQ-1.*, 104-REQ-2.*, 104-REQ-3.*, 104-REQ-4.*, 104-REQ-5.*
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import deque
 from dataclasses import dataclass, field
@@ -61,6 +62,19 @@ class RetrievalResult:
     intent_profile: IntentProfile
     anchor_count: int
     signal_counts: dict[str, int] = field(default_factory=dict)
+    sleep_hit: bool = False
+    sleep_artifact_count: int = 0
+
+
+@dataclass(frozen=True)
+class CachedBundle:
+    """Pre-computed keyword and causal signal results loaded from sleep_artifacts.
+
+    Requirements: 112-REQ-5.3
+    """
+
+    keyword_facts: list[ScoredFact]
+    causal_facts: list[ScoredFact]
 
 
 # ---------------------------------------------------------------------------
@@ -641,6 +655,114 @@ def assemble_ranked_context(
 
 
 # ---------------------------------------------------------------------------
+# Sleep artifact helpers
+# ---------------------------------------------------------------------------
+
+
+def _load_cached_bundle(
+    conn: duckdb.DuckDBPyConnection,
+    spec_name: str,
+) -> CachedBundle | None:
+    """Load a cached retrieval bundle from sleep_artifacts.
+
+    Returns a CachedBundle if a valid (non-superseded) bundle exists for the
+    given spec_name, or None if no bundle exists or deserialization fails.
+
+    Requirements: 112-REQ-5.3, 112-REQ-5.4
+    """
+    try:
+        row = conn.execute(
+            """
+            SELECT content
+            FROM sleep_artifacts
+            WHERE task_name = 'bundle_builder'
+              AND scope_key = ?
+              AND superseded_at IS NULL
+            """,
+            [f"spec:{spec_name}"],
+        ).fetchone()
+    except Exception:
+        logger.debug("_load_cached_bundle: DB query failed for spec %s", spec_name, exc_info=True)
+        return None
+
+    if row is None:
+        return None
+
+    try:
+        bundle_data = json.loads(row[0])
+        keyword_facts = [ScoredFact(**f) for f in bundle_data.get("keyword", [])]
+        causal_facts = [ScoredFact(**f) for f in bundle_data.get("causal", [])]
+        return CachedBundle(keyword_facts=keyword_facts, causal_facts=causal_facts)
+    except Exception:
+        logger.debug(
+            "_load_cached_bundle: deserialization failed for spec %s", spec_name, exc_info=True
+        )
+        return None
+
+
+def _load_context_preamble(
+    conn: duckdb.DuckDBPyConnection,
+    touched_files: list[str],
+    token_budget: int,
+) -> str:
+    """Load context blocks from sleep_artifacts for directories of touched files.
+
+    Queries context_rewriter artifacts whose scope_keys match directories
+    containing any of the touched_files. Enforces a 30% cap on token_budget.
+    Returns empty string if no matching active artifacts exist.
+
+    Requirements: 112-REQ-5.1, 112-REQ-5.2
+    """
+    preamble_budget = int(token_budget * 0.3)
+    if not touched_files or preamble_budget == 0:
+        return ""
+
+    # Extract parent directories from touched file paths
+    dirs: set[str] = set()
+    for f in touched_files:
+        normalized = f.replace("\\", "/")
+        parts = normalized.rsplit("/", 1)
+        if len(parts) > 1:
+            dirs.add(parts[0])
+
+    if not dirs:
+        return ""
+
+    # Collect matching context blocks
+    blocks: list[str] = []
+    for dir_path in sorted(dirs):  # sorted for determinism
+        scope_key = f"dir:{dir_path}"
+        try:
+            row = conn.execute(
+                """
+                SELECT content
+                FROM sleep_artifacts
+                WHERE task_name = 'context_rewriter'
+                  AND scope_key = ?
+                  AND superseded_at IS NULL
+                """,
+                [scope_key],
+            ).fetchone()
+        except Exception:
+            logger.debug(
+                "_load_context_preamble: DB query failed for %s", scope_key, exc_info=True
+            )
+            continue
+
+        if row and row[0]:
+            blocks.append(row[0])
+
+    if not blocks:
+        return ""
+
+    header = "## Module Context\n"
+    body = "\n".join(blocks) + "\n"
+    full_preamble = header + body
+    # Enforce 30% cap strictly
+    return full_preamble[:preamble_budget]
+
+
+# ---------------------------------------------------------------------------
 # AdaptiveRetriever
 # ---------------------------------------------------------------------------
 
@@ -659,11 +781,15 @@ class AdaptiveRetriever:
     def __init__(
         self,
         conn: duckdb.DuckDBPyConnection,
-        config: RetrievalConfig,
+        config: RetrievalConfig | KnowledgeConfig,
         embedder=None,
     ) -> None:
         self._conn = conn
-        self._config = config
+        # Accept either RetrievalConfig or KnowledgeConfig; unwrap if needed.
+        if hasattr(config, "retrieval"):
+            self._config: RetrievalConfig = config.retrieval  # type: ignore[union-attr]
+        else:
+            self._config = config  # type: ignore[assignment]
         self._embedder = embedder
 
     def retrieve(
@@ -675,28 +801,58 @@ class AdaptiveRetriever:
         touched_files: list[str],
         task_description: str,
         confidence_threshold: float = 0.5,
+        keywords: list[str] | None = None,
     ) -> RetrievalResult:
         """Run all four signals, fuse via RRF, assemble formatted context.
 
-        Requirements: 104-REQ-1.1, 104-REQ-5.1, 104-REQ-5.2
+        When a valid retrieval bundle exists for spec_name in sleep_artifacts,
+        the cached keyword and causal signals are used instead of live
+        computation. Context blocks from sleep_artifacts for touched file
+        directories are prepended as a "## Module Context" preamble.
+
+        Requirements: 104-REQ-1.1, 104-REQ-5.1, 104-REQ-5.2,
+                      112-REQ-5.1, 112-REQ-5.2, 112-REQ-5.3, 112-REQ-5.4,
+                      112-REQ-5.5, 112-REQ-5.E1, 112-REQ-5.E2
         """
         # Derive intent profile
         profile = derive_intent_profile(archetype, node_status)
 
         signal_lists: dict[str, list[ScoredFact]] = {}
+        sleep_hit = False
+        sleep_artifact_count = 0
 
-        # Keyword signal
-        task_keywords = task_description.split() if task_description else []
-        kw_results = _keyword_signal(
-            spec_name,
-            task_keywords,
-            self._conn,
-            confidence_threshold,
-            top_k=self._config.keyword_top_k,
-        )
-        signal_lists["keyword"] = kw_results
+        # Try to load cached retrieval bundle (112-REQ-5.3, 112-REQ-5.4)
+        cached_bundle: CachedBundle | None = _load_cached_bundle(self._conn, spec_name)
 
-        # Vector signal (graceful degradation on failure)
+        if cached_bundle is not None:
+            # Use cached keyword and causal signals (bypass live computation)
+            signal_lists["keyword"] = cached_bundle.keyword_facts
+            signal_lists["causal"] = cached_bundle.causal_facts
+            sleep_hit = True
+            sleep_artifact_count += 1
+        else:
+            # Live keyword signal
+            task_keywords = keywords if keywords is not None else (
+                task_description.split() if task_description else []
+            )
+            kw_results = _keyword_signal(
+                spec_name,
+                task_keywords,
+                self._conn,
+                confidence_threshold,
+                top_k=self._config.keyword_top_k,
+            )
+            signal_lists["keyword"] = kw_results
+
+            # Live causal signal
+            cau_results = _causal_signal(
+                spec_name,
+                self._conn,
+                max_depth=self._config.causal_max_depth,
+            )
+            signal_lists["causal"] = cau_results
+
+        # Vector signal (always live; graceful degradation on failure)
         if self._embedder is not None:
             try:
                 knowledge_config = KnowledgeConfig(
@@ -720,7 +876,7 @@ class AdaptiveRetriever:
         else:
             signal_lists["vector"] = []
 
-        # Entity signal
+        # Entity signal (always live)
         ent_results = _entity_signal(
             touched_files,
             self._conn,
@@ -729,20 +885,28 @@ class AdaptiveRetriever:
         )
         signal_lists["entity"] = ent_results
 
-        # Causal signal
-        cau_results = _causal_signal(
-            spec_name,
-            self._conn,
-            max_depth=self._config.causal_max_depth,
-        )
-        signal_lists["causal"] = cau_results
-
         # Weighted RRF fusion
         anchors = weighted_rrf_fusion(signal_lists, profile, k=self._config.rrf_k)
         anchors = anchors[: self._config.max_facts]
 
-        # Assemble formatted context
+        # Load context preamble from sleep_artifacts (112-REQ-5.1, 112-REQ-5.2)
+        preamble = _load_context_preamble(
+            self._conn,
+            touched_files,
+            self._config.token_budget,
+        )
+        if preamble:
+            sleep_artifact_count += 1
+
+        # Assemble formatted knowledge context (always include section header)
         context = assemble_ranked_context(anchors, self._conn, self._config)
+        if not context:
+            context = "## Knowledge Context\n"
+
+        # Prepend preamble and enforce total token budget
+        if preamble:
+            combined = preamble + context
+            context = combined[: self._config.token_budget]
 
         signal_counts = {name: len(lst) for name, lst in signal_lists.items()}
 
@@ -751,4 +915,6 @@ class AdaptiveRetriever:
             intent_profile=profile,
             anchor_count=len(anchors),
             signal_counts=signal_counts,
+            sleep_hit=sleep_hit,
+            sleep_artifact_count=sleep_artifact_count,
         )

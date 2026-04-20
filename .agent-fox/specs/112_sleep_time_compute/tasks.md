@@ -145,8 +145,8 @@ reference `SleepConfig`.
   - Ensure all task-level tests pass.
   - Run `uv run pytest -q tests/unit/knowledge/test_sleep_compute.py tests/unit/knowledge/test_context_rewriter.py tests/unit/knowledge/test_bundle_builder.py`
 
-- [ ] 6. Retriever and integration wiring
-  - [ ] 6.1 Extend AdaptiveRetriever for sleep artifacts
+- [x] 6. Retriever and integration wiring
+  - [x] 6.1 Extend AdaptiveRetriever for sleep artifacts
     - Add `_load_context_preamble(conn, touched_files, token_budget)` function
       to `retrieval.py` — queries context blocks by matching touched file
       directories, enforces 30% budget cap
@@ -160,7 +160,7 @@ reference `SleepConfig`.
     - _Requirements: 112-REQ-5.1 through 112-REQ-5.5, 112-REQ-5.E1,
       112-REQ-5.E2_
 
-  - [ ] 6.2 Wire sleep compute into barrier sequence
+  - [x] 6.2 Wire sleep compute into barrier sequence
     - Add sleep compute step to `run_sync_barrier_sequence` in
       `agent_fox/engine/barrier.py`, after compaction and before
       `render_summary`
@@ -170,24 +170,27 @@ reference `SleepConfig`.
       enable flags
     - _Requirements: 112-REQ-6.1, 112-REQ-6.E1_
 
-  - [ ] 6.3 Implement SleepComputeStream for nightshift
-    - Add `SleepComputeStream` class to `agent_fox/nightshift/streams.py`
-    - Implement `WorkStream` protocol: name, interval, enabled, run_once,
+  - [x] 6.3 Implement SleepComputeStream for nightshift
+    - `SleepComputeStream` class already in `agent_fox/nightshift/streams.py`
+      (from group 2); full implementation wired in this group
+    - Implements `WorkStream` protocol: name, interval, enabled, run_once,
       shutdown
-    - Open/close DB connection per cycle
-    - Respect SharedBudget
-    - Add `"sleep": "sleep-compute"` to `_CONFIG_TO_STREAM` mapping
+    - Opens/closes DB connection per cycle (owns lifecycle unless factory
+      provided); respects SharedBudget via `budget.exceeded`
+    - Registered in `agent_fox/cli/nightshift.py` after `build_streams()`
+      (avoids disturbing CLI flag filtering in build_streams)
     - _Requirements: 112-REQ-6.2, 112-REQ-6.3, 112-REQ-6.4, 112-REQ-6.E2_
 
-  - [ ] 6.4 Update config documentation
-    - Add `[knowledge.sleep]` section to `docs/config-reference.md`
+  - [x] 6.4 Update config documentation
+    - `[knowledge.sleep]` section already in `docs/config-reference.md`
+      (added in group 2)
     - _Requirements: 112-REQ-7.1_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_sleep_retrieval.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 112-REQ-5.*, 112-REQ-6.*, 112-REQ-7.* met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_sleep_retrieval.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 112-REQ-5.*, 112-REQ-6.*, 112-REQ-7.* met
 
 - [ ] 7. Wiring verification
 
