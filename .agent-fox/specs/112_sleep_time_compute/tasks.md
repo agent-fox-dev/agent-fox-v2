@@ -192,9 +192,9 @@ reference `SleepConfig`.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 112-REQ-5.*, 112-REQ-6.*, 112-REQ-7.* met
 
-- [ ] 7. Wiring verification
+- [x] 7. Wiring verification
 
-  - [ ] 7.1 Trace every execution path from design.md end-to-end
+  - [x] 7.1 Trace every execution path from design.md end-to-end
     - Path 1: barrier → SleepComputer → tasks → sleep_artifacts
     - Path 2: nightshift daemon → SleepComputeStream → SleepComputer → tasks
     - Path 3: AdaptiveRetriever → _load_context_preamble → sleep_artifacts
@@ -205,7 +205,7 @@ reference `SleepConfig`.
     - Every path must be live in production code
     - _Requirements: all_
 
-  - [ ] 7.2 Verify return values propagate correctly
+  - [x] 7.2 Verify return values propagate correctly
     - SleepTaskResult → SleepComputeResult (task_results dict, total_llm_cost)
     - CachedBundle → AdaptiveRetriever (keyword_facts, causal_facts)
     - Context preamble string → RetrievalResult.context
@@ -213,31 +213,37 @@ reference `SleepConfig`.
     - Grep for callers of each function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 7.3 Run the integration smoke tests
+  - [x] 7.3 Run the integration smoke tests
     - All `TS-112-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/test_sleep_compute_smoke.py`
     - _Test Spec: TS-112-SMOKE-1 through TS-112-SMOKE-3_
 
-  - [ ] 7.4 Stub / dead-code audit
+  - [x] 7.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `override point`, `NotImplementedError`
     - Each hit must be justified or replaced
+    - Intentional stubs: context_rewriter.py/_get_stored_hash() returns None
+      on CatalogException (table missing, graceful degradation); same for
+      bundle_builder.py/_get_stored_hash(). streams.py `pass` in finally
+      suppresses close() exceptions (correct). All return [] in signal helpers
+      are correct empty-list returns when no data available.
     - Document any intentional stubs here with rationale
 
-  - [ ] 7.5 Cross-spec entry point verification
-    - Verify `SleepComputeStream` is included in the daemon's stream list
-      (constructed in nightshift factory or daemon setup code)
-    - Verify barrier sleep compute call is reachable from
-      `run_sync_barrier_sequence`
+  - [x] 7.5 Cross-spec entry point verification
+    - SleepComputeStream is appended to streams in nightshift.py lines 265-276
+      after build_streams(), with knowledge_config=config.knowledge so the
+      stream opens the real knowledge DB (not :memory:) on each cycle.
+    - Barrier sleep compute call is at barrier.py lines ~283+ inside
+      run_sync_barrier_sequence(), after compact() and before render_summary().
     - _Requirements: all_
 
-  - [ ] 7.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 7.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 

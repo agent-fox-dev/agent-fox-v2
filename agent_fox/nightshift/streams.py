@@ -279,11 +279,13 @@ class SleepComputeStream:
         *,
         db_factory: object | None = None,
         repo_root: object | None = None,
+        knowledge_config: object | None = None,  # KnowledgeConfig for opening real DB
     ) -> None:
         self._config = config
         self._budget = budget
         self._db_factory = db_factory
         self._repo_root = repo_root
+        self._knowledge_config = knowledge_config
 
     @property
     def name(self) -> str:
@@ -321,11 +323,18 @@ class SleepComputeStream:
                 return
 
         conn = None
+        _knowledge_db = None  # KnowledgeDB instance (if we opened it)
         owns_conn = True  # True when run_once() opened the connection itself
         try:
             if self._db_factory is not None:
                 conn = self._db_factory()
                 owns_conn = False  # caller-provided; caller owns lifecycle
+            elif self._knowledge_config is not None:
+                # Open the real knowledge store and own its lifecycle
+                from agent_fox.knowledge.db import open_knowledge_store
+                _knowledge_db = open_knowledge_store(self._knowledge_config)  # type: ignore[arg-type]
+                conn = _knowledge_db.connection
+                owns_conn = False  # _knowledge_db.close() handles cleanup
             else:
                 import duckdb as _duckdb
                 conn = _duckdb.connect(":memory:")
@@ -368,7 +377,13 @@ class SleepComputeStream:
         except Exception:
             logger.exception("SleepComputeStream.run_once() failed")
         finally:
-            if conn is not None and owns_conn:
+            if _knowledge_db is not None:
+                # Close the KnowledgeDB instance we opened via knowledge_config
+                try:
+                    _knowledge_db.close()
+                except Exception:
+                    pass
+            elif conn is not None and owns_conn:
                 try:
                     conn.close()
                 except Exception:
