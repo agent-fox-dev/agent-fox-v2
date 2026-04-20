@@ -289,6 +289,23 @@ class GraphSync:
         """Mark a task as in_progress (being executed)."""
         self.node_states[node_id] = "in_progress"
 
+    def promote_deferred(self, limit: int = 1) -> list[str]:
+        """Promote up to *limit* deferred nodes to pending.
+
+        Only nodes whose dependencies are all completed are promoted.
+        """
+        promoted: list[str] = []
+        for node_id, status in list(self.node_states.items()):
+            if status != "deferred":
+                continue
+            deps = self._edges.get(node_id, [])
+            if all(self.node_states.get(d) == "completed" for d in deps):
+                self.node_states[node_id] = "pending"
+                promoted.append(node_id)
+                if len(promoted) >= limit:
+                    break
+        return promoted
+
     def is_stalled(self) -> bool:
         """Check if no progress is possible.
 
@@ -301,6 +318,13 @@ class GraphSync:
         all_completed = all(s == "completed" for s in self.node_states.values())
 
         if has_ready or has_in_progress or all_completed:
+            return False
+
+        has_promotable_deferred = any(
+            status == "deferred" and all(self.node_states.get(d) == "completed" for d in self._edges.get(nid, []))
+            for nid, status in self.node_states.items()
+        )
+        if has_promotable_deferred:
             return False
 
         return True
