@@ -10,6 +10,7 @@ build/
 .hypothesis/
 
 # hacking
+prompts.md
 todo.md
 hack.md
 stuff.md
