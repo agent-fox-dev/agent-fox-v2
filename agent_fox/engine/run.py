@@ -152,6 +152,7 @@ def _setup_infrastructure(
             timeout_override=timeout_override,
             max_turns_override=max_turns_override,
             embedder=embedder,
+            trace_enabled=debug,
         )
 
     # 108-REQ-5.1: Create platform instance (None if not configured)

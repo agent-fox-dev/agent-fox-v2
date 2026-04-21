@@ -205,6 +205,7 @@ class NodeSessionRunner:
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
         embedder: EmbeddingGenerator | None = None,
+        trace_enabled: bool = False,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -216,6 +217,7 @@ class NodeSessionRunner:
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
+        self._trace_enabled = trace_enabled
         # 75-REQ-3.5: Per-node timeout/turns overrides from timeout-aware escalation
         self._timeout_override = timeout_override
         self._max_turns_override = max_turns_override
@@ -284,11 +286,13 @@ class NodeSessionRunner:
             knowledge_context = result.context
 
             # 113-REQ-7.2: Store retrieval summary for session outcome recording
-            self._retrieval_summary = json.dumps({
-                "facts_injected": result.anchor_count,
-                "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
-                "cold_start": result.cold_start,
-            })
+            self._retrieval_summary = json.dumps(
+                {
+                    "facts_injected": result.anchor_count,
+                    "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
+                    "cold_start": result.cold_start,
+                }
+            )
         except Exception:
             logger.warning(
                 "AdaptiveRetriever failed for %s, continuing without knowledge context",
@@ -594,11 +598,15 @@ class NodeSessionRunner:
                       113-REQ-1.E2
         """
         # 113-REQ-1.1: Reconstruct full transcript from agent trace JSONL
-        from agent_fox.core.paths import AUDIT_DIR
-        from agent_fox.knowledge.agent_trace import reconstruct_transcript
+        # Only attempt trace reconstruction when debug tracing is active;
+        # the trace file is not written in normal (non-debug) runs.
+        transcript = ""
+        if self._trace_enabled:
+            from agent_fox.core.paths import AUDIT_DIR
+            from agent_fox.knowledge.agent_trace import reconstruct_transcript
 
-        audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
-        transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
+            audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
+            transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
 
         # 113-REQ-1.E1, 113-REQ-1.E2: Fall back to _build_fallback_input
         # when trace is unavailable or has no assistant messages
