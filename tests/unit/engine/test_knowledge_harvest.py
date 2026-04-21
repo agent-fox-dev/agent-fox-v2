@@ -23,7 +23,7 @@ from agent_fox.knowledge.facts import Fact
 def _make_fact(
     *,
     fact_id: str | None = None,
-    content: str = "test fact",
+    content: str = "test fact for knowledge harvest — extraction and storage verification padding",
     category: str = "gotcha",
     spec_name: str = "test_spec",
     session_id: str = "test/1",

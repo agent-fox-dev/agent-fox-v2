@@ -208,29 +208,22 @@ class KnowledgeIngestor:
             embedding_failures=embedding_failures,
         )
 
-    def ingest_git_commits(
+    async def ingest_git_commits(
         self,
         *,
         limit: int = 100,
         since: str | None = None,
+        model_name: str = "SIMPLE",
     ) -> IngestResult:
-        """Ingest git commit messages as facts.
+        """Ingest git commit messages as facts using LLM extraction.
 
-        Each commit is stored as a fact with:
-        - content: the commit message (subject + body)
-        - category: "git"
-        - commit_sha: the commit's SHA
-        - created_at: the commit's author date
+        Collects commits via ``git log``, batches them into groups of 20,
+        and calls an LLM to extract structured knowledge (decisions,
+        patterns, gotchas, conventions) from each batch.  Commits shorter
+        than 20 characters are excluded from the LLM batch.
 
-        Skips commits that have already been ingested (by checking
-        for existing facts with the same commit_sha and category).
-
-        Args:
-            limit: Maximum number of commits to ingest.
-            since: Only ingest commits after this date (ISO 8601).
-
-        Returns:
-            An IngestResult summarizing what was ingested.
+        Requirements: 113-REQ-2.1, 113-REQ-2.2, 113-REQ-2.3,
+                      113-REQ-2.E1, 113-REQ-2.E2
         """
         # Build git log command
         cmd = [
@@ -270,10 +263,8 @@ class KnowledgeIngestor:
                 embedding_failures=0,
             )
 
-        facts_added = 0
-        facts_skipped = 0
-        embedding_failures = 0
-
+        # Parse commits and filter
+        commits: list[tuple[str, str, str]] = []  # (sha, message, date)
         for record in result.stdout.split("\x1e"):
             record = record.strip()
             if not record:
@@ -288,28 +279,66 @@ class KnowledgeIngestor:
             body = parts[3].strip() if len(parts) > 3 else ""
             message = f"{subject}\n\n{body}" if body else subject
 
-            if self._is_already_ingested(
-                category="git",
-                identifier=sha,
-            ):
-                facts_skipped += 1
+            # 113-REQ-2.E2: Skip messages shorter than 20 characters
+            if len(message) < 20:
                 continue
 
-            fact_id = str(uuid.uuid4())
+            commits.append((sha, message, date))
 
-            self._conn.execute(
-                """
-                INSERT INTO memory_facts
-                    (id, content, category, spec_name, session_id,
-                     commit_sha, confidence, created_at)
-                VALUES (?::UUID, ?, 'git', NULL, NULL, ?, 0.9, ?::TIMESTAMP)
-                """,
-                [fact_id, message, sha, date],
+        if not commits:
+            return IngestResult(
+                source_type="git",
+                facts_added=0,
+                facts_skipped=0,
+                embedding_failures=0,
             )
-            facts_added += 1
 
-            if not self._store_embedding(fact_id, message, f"commit {sha}"):
-                embedding_failures += 1
+        # 113-REQ-2.1: Batch commits into groups of 20
+        facts_added = 0
+        facts_skipped = 0
+        embedding_failures = 0
+        batch_size = 20
+
+        for batch_start in range(0, len(commits), batch_size):
+            batch = commits[batch_start : batch_start + batch_size]
+
+            # 113-REQ-2.E1: On LLM failure, skip batch and log warning
+            try:
+                extracted_facts = await self._extract_git_facts_llm(batch, model_name)
+            except Exception:
+                logger.warning(
+                    "LLM git extraction failed for batch starting at %d, skipping",
+                    batch_start,
+                    exc_info=True,
+                )
+                continue
+
+            # 113-REQ-2.2: If LLM returns zero facts, store nothing
+            if not extracted_facts:
+                continue
+
+            # Apply minimum content length filter (113-REQ-5.2)
+            from agent_fox.engine.knowledge_harvest import _filter_minimum_length
+
+            extracted_facts, _filtered = _filter_minimum_length(extracted_facts)
+
+            # Use the first commit SHA from the batch for traceability
+            batch_sha = batch[0][0] if batch else None
+
+            for fact in extracted_facts:
+                self._conn.execute(
+                    """
+                    INSERT INTO memory_facts
+                        (id, content, category, spec_name, session_id,
+                         commit_sha, confidence, keywords, created_at)
+                    VALUES (?::UUID, ?, 'git', NULL, NULL, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    [fact.id, fact.content, batch_sha, fact.confidence, fact.keywords],
+                )
+                facts_added += 1
+
+                if not self._store_embedding(fact.id, fact.content, f"git-llm:{fact.id[:8]}"):
+                    embedding_failures += 1
 
         return IngestResult(
             source_type="git",
@@ -317,6 +346,86 @@ class KnowledgeIngestor:
             facts_skipped=facts_skipped,
             embedding_failures=embedding_failures,
         )
+
+    async def _extract_git_facts_llm(
+        self,
+        batch: list[tuple[str, str, str]],
+        model_name: str = "SIMPLE",
+    ) -> list:
+        """Extract structured facts from a batch of git commit messages using LLM.
+
+        Returns facts with categories from {decision, pattern, gotcha, convention}
+        and confidence derived from LLM response (high=0.9, medium=0.6, low=0.3).
+        Returns empty list on LLM failure.
+
+        Requirements: 113-REQ-2.1, 113-REQ-2.2, 113-REQ-2.3, 113-REQ-2.E1
+        """
+        from agent_fox.core.client import ai_call
+        from agent_fox.core.json_extraction import extract_json_array
+        from agent_fox.knowledge.extraction import GIT_EXTRACTION_PROMPT
+        from agent_fox.knowledge.facts import Fact, parse_confidence
+
+        # Format commits for the prompt
+        commit_lines = []
+        for sha, message, date in batch:
+            commit_lines.append(f"[{sha[:8]}] ({date}): {message}")
+        commits_text = "\n\n".join(commit_lines)
+
+        prompt = GIT_EXTRACTION_PROMPT.format(commits=commits_text)
+
+        raw_text, _response = await ai_call(
+            model_tier=model_name,
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+            context="git fact extraction",
+        )
+
+        if raw_text is None:
+            return []
+
+        json_data = extract_json_array(raw_text)
+        if json_data is None or not isinstance(json_data, list):
+            return []
+
+        # Valid categories for git extraction
+        valid_categories = {"decision", "pattern", "gotcha", "convention"}
+        now_str = __import__("datetime").datetime.now(
+            __import__("datetime").UTC
+        ).isoformat()
+
+        facts: list[Fact] = []
+        for item in json_data:
+            if not isinstance(item, dict):
+                continue
+            content = item.get("content", "")
+            if not content:
+                continue
+
+            category = item.get("category", "pattern")
+            if category not in valid_categories:
+                category = "pattern"
+
+            raw_confidence = item.get("confidence", "medium")
+            confidence = parse_confidence(raw_confidence)
+
+            keywords = item.get("keywords", [])
+            if not isinstance(keywords, list):
+                keywords = []
+
+            fact = Fact(
+                id=str(uuid.uuid4()),
+                content=content,
+                category=category,
+                spec_name="",
+                keywords=keywords,
+                confidence=confidence,
+                created_at=now_str,
+                supersedes=None,
+                session_id=None,
+            )
+            facts.append(fact)
+
+        return facts
 
     def _parse_adr(self, path: Path) -> tuple[str, str]:
         """Parse an ADR markdown file into (title, body).
@@ -384,6 +493,8 @@ def run_background_ingestion(
 
     Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3, 40-REQ-11.6
     """
+    import asyncio
+
     try:
         embedder = EmbeddingGenerator(config)
         ingestor = KnowledgeIngestor(conn, embedder, project_root)
@@ -404,7 +515,23 @@ def run_background_ingestion(
                 item_count=adr_result.facts_added,
             )
 
-        git_result = ingestor.ingest_git_commits()
+        # 113-REQ-2.1: ingest_git_commits is now async (LLM extraction)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already inside an event loop — create a new task
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                git_result = pool.submit(
+                    asyncio.run, ingestor.ingest_git_commits()
+                ).result()
+        else:
+            git_result = asyncio.run(ingestor.ingest_git_commits())
+
         if git_result.facts_added > 0:
             logger.info(
                 "Ingested %d git commit(s) (%d skipped)",

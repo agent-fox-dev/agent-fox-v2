@@ -110,10 +110,12 @@ class TestCeilingAlwaysAdvanced:
     @pytest.mark.asyncio
     async def test_ceiling_always_advanced_skeptic(self) -> None:
         """Skeptic node: ceiling must be ADVANCED even though default is STANDARD."""
+        from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.assessment import AssessmentManager
 
         mgr = AssessmentManager(
             retries_before_escalation=1,
+            config=AgentFoxConfig(),
         )
 
         await mgr.assess_node("spec:1", "skeptic")
@@ -255,18 +257,20 @@ class TestPipelineFailureFallback:
 
     @pytest.mark.asyncio
     async def test_pipeline_failure_uses_default_with_advanced_ceiling(self) -> None:
-        """Coder node without pipeline: starting=STANDARD (archetype default), ceiling=ADVANCED."""
+        """Coder node with default config: starting=ADVANCED (config default), ceiling=ADVANCED."""
+        from agent_fox.core.config import AgentFoxConfig
         from agent_fox.engine.assessment import AssessmentManager
 
         mgr = AssessmentManager(
             retries_before_escalation=1,
+            config=AgentFoxConfig(),
         )
 
         await mgr.assess_node("spec:1", "coder")
 
         ladder = mgr.ladders["spec:1"]
-        # starting_tier = coder.default (STANDARD), ceiling = ADVANCED (hardcoded)
-        assert ladder.current_tier == ModelTier.STANDARD
+        # starting_tier = config.models.coding (ADVANCED), ceiling = ADVANCED
+        assert ladder.current_tier == ModelTier.ADVANCED
         assert ladder._tier_ceiling == ModelTier.ADVANCED
 
 

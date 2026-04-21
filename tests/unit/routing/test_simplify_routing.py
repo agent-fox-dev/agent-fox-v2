@@ -18,25 +18,27 @@ from pathlib import Path
 
 import pytest
 
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import ModelTier
 
 # ---------------------------------------------------------------------------
-# TS-89-1: AssessmentManager creates ladder from archetype default
+# TS-89-1: AssessmentManager creates ladder from config-resolved tier
 # Requirement: 89-REQ-1.1
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_ladder_from_archetype_default() -> None:
-    """assess_node() creates an EscalationLadder at the coder default tier."""
+    """assess_node() creates an EscalationLadder at the config-resolved tier."""
     from agent_fox.engine.assessment import AssessmentManager
 
-    # Simplified constructor: only retries_before_escalation (no pipeline param)
-    manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=1, config=config)
     await manager.assess_node("some_spec:1", "coder")
 
     ladder = manager.ladders["some_spec:1"]
-    assert ladder.current_tier == ModelTier.STANDARD
+    # Default config has models.coding = "ADVANCED"
+    assert ladder.current_tier == ModelTier.ADVANCED
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +52,8 @@ async def test_ladder_ceiling_advanced() -> None:
     """Escalation ladder tier_ceiling is always ADVANCED."""
     from agent_fox.engine.assessment import AssessmentManager
 
-    manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=1, config=config)
     await manager.assess_node("some_spec:1", "reviewer")
 
     ladder = manager.ladders["some_spec:1"]
@@ -68,11 +71,12 @@ async def test_ladder_created_without_pipeline() -> None:
     """assess_node() creates a ladder even when no pipeline exists."""
     from agent_fox.engine.assessment import AssessmentManager
 
-    manager = AssessmentManager(retries_before_escalation=2)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=2, config=config)
     await manager.assess_node("spec:2", "reviewer")
 
     assert "spec:2" in manager.ladders
-    # reviewer default tier is STANDARD
+    # reviewer has no config mapping, falls back to archetype default (STANDARD)
     assert manager.ladders["spec:2"].current_tier == ModelTier.STANDARD
 
 
@@ -239,11 +243,12 @@ async def test_unknown_archetype_defaults_to_coder() -> None:
     """assess_node with unknown archetype creates ladder at STANDARD (coder fallback)."""
     from agent_fox.engine.assessment import AssessmentManager
 
-    manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=1, config=config)
     await manager.assess_node("spec:1", "nonexistent_archetype")
 
     ladder = manager.ladders["spec:1"]
-    # Coder default is STANDARD
+    # Unknown archetype has no config mapping, falls back to coder default (STANDARD)
     assert ladder.current_tier == ModelTier.STANDARD
 
 
@@ -255,17 +260,19 @@ async def test_unknown_archetype_defaults_to_coder() -> None:
 
 @pytest.mark.asyncio
 async def test_prop_archetype_tier_becomes_ladder() -> None:
-    """For any archetype in the registry, assess_node creates a ladder at the default tier."""
+    """For any archetype in the registry, assess_node creates a ladder at the resolved tier."""
     from agent_fox.archetypes import ARCHETYPE_REGISTRY
     from agent_fox.engine.assessment import AssessmentManager
+    from agent_fox.engine.sdk_params import resolve_model_tier
 
-    for archetype_name, entry in ARCHETYPE_REGISTRY.items():
-        manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    for archetype_name in ARCHETYPE_REGISTRY:
+        manager = AssessmentManager(retries_before_escalation=1, config=config)
         node_id = "test_spec:1"
         await manager.assess_node(node_id, archetype_name)
 
         ladder = manager.ladders[node_id]
-        expected = ModelTier(entry.default_model_tier)
+        expected = ModelTier(resolve_model_tier(config, archetype_name))
         assert ladder.current_tier == expected, (
             f"Archetype '{archetype_name}': expected tier {expected}, got {ladder.current_tier}"
         )

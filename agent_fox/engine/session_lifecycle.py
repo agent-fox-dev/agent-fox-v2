@@ -212,6 +212,7 @@ class NodeSessionRunner:
         self._mode = mode  # 97-REQ-5.3: mode for per-mode configuration resolution
         self._instances = clamp_instances(archetype, instances, mode=mode)
         self._sink = sink_dispatcher
+        self._sink_dispatcher = sink_dispatcher  # alias for retrieval audit events
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
@@ -233,6 +234,8 @@ class NodeSessionRunner:
                 resolve_model_tier(self._config, self._archetype, mode=self._mode)
             ).model_id
         self._resolved_security = resolve_security_config(self._config, self._archetype, mode=self._mode)
+        # 113-REQ-7.2: Retrieval summary populated by _build_prompts for session outcome recording
+        self._retrieval_summary: str | None = None
 
     def _build_prompts(
         self,
@@ -260,20 +263,32 @@ class NodeSessionRunner:
                 retrieval_config,
                 embedder=self._embedder,
             )
+            # Wire sink dispatcher and node_id for audit event emission
+            retriever._sink_dispatcher = self._sink_dispatcher
+            retriever._node_id = self._node_id
             # Build task description from subtask descriptions
             descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
             task_description = "\n".join(descriptions) if descriptions else self._spec_name
 
             node_status = "retry" if attempt > 1 else "fresh"
+            # 113-REQ-3.1: Query prior touched files for entity signal
+            prior_touched = self._query_prior_touched_files(self._spec_name)
             result = retriever.retrieve(
                 spec_name=self._spec_name,
                 archetype=self._archetype,
                 node_status=node_status,
-                touched_files=[],
+                touched_files=prior_touched,
                 task_description=task_description,
                 confidence_threshold=self._config.knowledge.confidence_threshold,
             )
             knowledge_context = result.context
+
+            # 113-REQ-7.2: Store retrieval summary for session outcome recording
+            self._retrieval_summary = json.dumps({
+                "facts_injected": result.anchor_count,
+                "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
+                "cold_start": result.cold_start,
+            })
         except Exception:
             logger.warning(
                 "AdaptiveRetriever failed for %s, continuing without knowledge context",
@@ -319,9 +334,10 @@ class NodeSessionRunner:
                 f"Please address this error.\n"
             )
 
-        # 53-REQ-5.1: Inject active critical/major review findings for coder
-        # retries so the coder can address identified issues.
-        if self._archetype == "coder" and attempt > 1:
+        # 53-REQ-5.1, 113-REQ-4.2: Inject active critical/major review
+        # findings (including audit findings) for all coder attempts so the
+        # coder can address identified issues.
+        if self._archetype == "coder":
             retry_context = self._build_retry_context(self._spec_name)
             if retry_context:
                 task_prompt = f"{retry_context}\n\n{task_prompt}"
@@ -343,7 +359,7 @@ class NodeSessionRunner:
             return None
         try:
             return json.loads(summary_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
+        except (json.JSONDecodeError, OSError, TypeError) as exc:
             logger.warning(
                 "Failed to read session summary from %s: %s",
                 summary_path,
@@ -566,10 +582,26 @@ class NodeSessionRunner:
     ) -> None:
         """Extract knowledge facts and review findings from session output.
 
-        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2
+        113-REQ-1.1: Reconstructs the full conversation transcript from the
+        agent trace JSONL events for the session's node_id and uses it as the
+        primary transcript source.
+        113-REQ-1.3: Continues to use session summary for the log message.
+        113-REQ-1.E1: Falls back to _build_fallback_input when trace is
+        unavailable.
+
+        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2,
+                      113-REQ-1.1, 113-REQ-1.2, 113-REQ-1.3, 113-REQ-1.E1,
+                      113-REQ-1.E2
         """
-        summary = self._read_session_artifacts(workspace)
-        transcript = (summary or {}).get("summary", "")
+        # 113-REQ-1.1: Reconstruct full transcript from agent trace JSONL
+        from agent_fox.core.paths import AUDIT_DIR
+        from agent_fox.knowledge.agent_trace import reconstruct_transcript
+
+        audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
+        transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
+
+        # 113-REQ-1.E1, 113-REQ-1.E2: Fall back to _build_fallback_input
+        # when trace is unavailable or has no assistant messages
         if not transcript:
             transcript = self._build_fallback_input(workspace, node_id)
         if not transcript:
@@ -643,12 +675,34 @@ class NodeSessionRunner:
             cache_creation_input_tokens=outcome.cache_creation_input_tokens,
         )
 
+        # Detect budget exhaustion: SDK returns is_error=True with no message
+        # when the max-budget-usd limit is hit.  The session did real work
+        # (high token count) so retrying would just burn the same budget again.
+        _BUDGET_EXHAUST_RATIO = 0.9
+        resolved_budget = resolve_max_budget(self._config)
+        is_budget_exhausted = (
+            outcome.status == "failed"
+            and (outcome.error_message or "") in ("Unknown error", "")
+            and resolved_budget is not None
+            and cost >= resolved_budget * _BUDGET_EXHAUST_RATIO
+        )
+        if is_budget_exhausted:
+            logger.warning(
+                "Session %s budget exhausted (cost=$%.2f of $%.2f budget), will not retry",
+                node_id,
+                cost,
+                resolved_budget,
+            )
+
         status, error_message, touched_files = await self._harvest_and_integrate(
             node_id,
             outcome,
             workspace,
             repo_root,
         )
+
+        if is_budget_exhausted:
+            error_message = f"Budget exhausted (${cost:.2f} of ${resolved_budget:.2f})"
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
         commit_sha = ""
@@ -690,6 +744,12 @@ class NodeSessionRunner:
                     "prompt_template": self._archetype,
                     "error_message": error_message or "Unknown error",
                     "attempt": attempt,
+                    "input_tokens": outcome.input_tokens,
+                    "output_tokens": outcome.output_tokens,
+                    "cache_read_input_tokens": outcome.cache_read_input_tokens,
+                    "cache_creation_input_tokens": outcome.cache_creation_input_tokens,
+                    "cost": cost,
+                    "duration_ms": outcome.duration_ms,
                 },
             )
 
@@ -720,6 +780,8 @@ class NodeSessionRunner:
             archetype=self._archetype,
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
+            is_budget_exhausted=is_budget_exhausted,
+            retrieval_summary=self._retrieval_summary,  # 113-REQ-7.2
         )
 
     def _persist_review_findings(
@@ -756,6 +818,56 @@ class NodeSessionRunner:
             mode=self._mode,
             specs_dir=resolve_spec_root(self._config, Path.cwd()),
         )
+
+    def _query_prior_touched_files(self, spec_name: str) -> list[str]:
+        """Query session_outcomes for touched_path values from prior completed
+        sessions with the same spec_name.
+
+        Returns a deduplicated list of file paths, limited to the 50 most
+        recently touched (by session created_at). Returns empty list if no
+        prior sessions exist.
+
+        Requirements: 113-REQ-3.1, 113-REQ-3.2, 113-REQ-3.E1
+        """
+        try:
+            conn = self._knowledge_db.connection
+            rows = conn.execute(
+                """
+                SELECT touched_path, created_at
+                FROM session_outcomes
+                WHERE spec_name = ?
+                  AND status = 'completed'
+                  AND touched_path IS NOT NULL
+                ORDER BY created_at DESC
+                """,
+                [spec_name],
+            ).fetchall()
+        except Exception:
+            logger.warning(
+                "Failed to query prior touched files for %s",
+                spec_name,
+                exc_info=True,
+            )
+            return []
+
+        if not rows:
+            return []
+
+        # Collect paths in order of most-recently-touched sessions,
+        # deduplicating as we go, up to 50 paths.
+        seen: set[str] = set()
+        result: list[str] = []
+        for touched_path, _created_at in rows:
+            if not touched_path:
+                continue
+            for path in touched_path.split(","):
+                path = path.strip()
+                if path and path not in seen:
+                    seen.add(path)
+                    result.append(path)
+                    if len(result) >= 50:
+                        return result
+        return result
 
     def _build_retry_context(self, spec_name: str) -> str:
         """Query active critical/major findings for the spec and format them.

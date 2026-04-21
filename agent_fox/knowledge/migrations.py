@@ -639,6 +639,24 @@ def _migrate_v14(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("DROP TABLE IF EXISTS learned_thresholds")
 
 
+def _migrate_v16(conn: duckdb.DuckDBPyConnection) -> None:
+    """Add retrieval_summary column to session_outcomes.
+
+    Stores a JSON string recording the number of facts injected and which
+    retrieval signals contributed facts for each session.
+
+    Requirements: 113-REQ-7.2
+    """
+    tables = {
+        r[0]
+        for r in conn.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'").fetchall()
+    }
+    if "session_outcomes" in tables:
+        conn.execute("ALTER TABLE session_outcomes ADD COLUMN IF NOT EXISTS retrieval_summary TEXT")
+    else:
+        logger.info("session_outcomes table not found, skipping retrieval_summary extension in v16 migration")
+
+
 # Registry of all migrations, ordered by version.
 MIGRATIONS: list[Migration] = [
     Migration(
@@ -711,6 +729,11 @@ MIGRATIONS: list[Migration] = [
         description="add sleep_artifacts table for sleep-time compute pre-computed outputs",
         apply=_migrate_v15,
     ),
+    Migration(
+        version=16,
+        description="add retrieval_summary column to session_outcomes",
+        apply=_migrate_v16,
+    ),
 ]
 
 
@@ -761,7 +784,8 @@ CREATE TABLE IF NOT EXISTS session_outcomes (
     archetype           VARCHAR,
     commit_sha          VARCHAR,
     error_message       TEXT,
-    is_transport_error  BOOLEAN DEFAULT FALSE
+    is_transport_error  BOOLEAN DEFAULT FALSE,
+    retrieval_summary   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS plan_nodes (

@@ -88,6 +88,7 @@ class AuditEventType(StrEnum):
     CONSOLIDATION_COMPLETE = "consolidation.complete"
     CONSOLIDATION_COST = "consolidation.cost"
     SLEEP_COMPUTE_COMPLETE = "SLEEP_COMPUTE_COMPLETE"
+    KNOWLEDGE_RETRIEVAL = "knowledge.retrieval"  # 113-REQ-7.1
 
 
 # ---------------------------------------------------------------------------

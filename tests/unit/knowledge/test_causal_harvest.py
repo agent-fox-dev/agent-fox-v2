@@ -32,7 +32,7 @@ _LONG_TRANSCRIPT = "Session log: implemented the retry logic with exponential ba
 def _make_fact(
     *,
     fact_id: str | None = None,
-    content: str = "test fact",
+    content: str = "test fact for causal harvest — extraction verification with sufficient padding",
     category: str = "gotcha",
     spec_name: str = "test_spec",
     session_id: str = "test/1",
@@ -170,10 +170,11 @@ class TestHarvestCompleteEvent:
     async def test_harvest_complete_event_emitted(self, knowledge_db: KnowledgeDB) -> None:
         """Successful extraction should emit harvest.complete with fact_count
         and categories."""
+        _padding = " — harvest complete event emission verification padding"
         facts = [
-            _make_fact(content="Fact 1", category="gotcha"),
-            _make_fact(content="Fact 2", category="pattern"),
-            _make_fact(content="Fact 3", category="gotcha"),
+            _make_fact(content=f"Fact 1{_padding}", category="gotcha"),
+            _make_fact(content=f"Fact 2{_padding}", category="pattern"),
+            _make_fact(content=f"Fact 3{_padding}", category="gotcha"),
         ]
         mock_sink = MagicMock()
         emitted_events: list[AuditEvent] = []
@@ -336,7 +337,7 @@ class TestCausalTriggerThreshold:
         _extract_causal_links should be called."""
         # Insert 5 existing facts
         _insert_n_facts(knowledge_db, 5)
-        new_fact = _make_fact(content="New fact triggering causal")
+        new_fact = _make_fact(content="New fact triggering causal extraction above the count threshold now")
 
         with (
             patch(

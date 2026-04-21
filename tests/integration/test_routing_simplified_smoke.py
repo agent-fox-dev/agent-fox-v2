@@ -16,6 +16,7 @@ import sys
 
 import pytest
 
+from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.models import ModelTier
 
 # ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ from agent_fox.core.models import ModelTier
 
 @pytest.mark.asyncio
 async def test_orchestrator_dispatch_creates_ladder_without_pipeline() -> None:
-    """Dispatching a node creates an EscalationLadder from the archetype default.
+    """Dispatching a node creates an EscalationLadder at the config-resolved tier.
 
     Uses a real AssessmentManager and EscalationLadder (not mocked).
     Verifies that no removed prediction pipeline modules are imported
@@ -36,22 +37,21 @@ async def test_orchestrator_dispatch_creates_ladder_without_pipeline() -> None:
     """
     from agent_fox.engine.assessment import AssessmentManager
 
-    # Simplified construction: no pipeline, no routing_config needed
-    # Currently FAILS because AssessmentManager requires routing_config and pipeline args
-    manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=1, config=config)
 
-    # Dispatch a node with archetype "coder" (default tier: STANDARD)
+    # Dispatch a node with archetype "coder" (config default: ADVANCED)
     await manager.assess_node("test_spec:1", "coder")
 
-    # Verify: ladder exists and was created at archetype default tier
+    # Verify: ladder exists and was created at config-resolved tier
     assert "test_spec:1" in manager.ladders, (
         "assess_node() must create an escalation ladder without a prediction pipeline"
     )
 
     ladder = manager.ladders["test_spec:1"]
 
-    # 89-REQ-1.1: starting tier is archetype default (STANDARD for coder)
-    assert ladder.current_tier == ModelTier.STANDARD, f"Expected STANDARD (coder default), got {ladder.current_tier}"
+    # 89-REQ-1.1: starting tier is config-resolved (ADVANCED for coder with default config)
+    assert ladder.current_tier == ModelTier.ADVANCED, f"Expected ADVANCED (config default), got {ladder.current_tier}"
 
     # 89-REQ-1.2: tier ceiling is always ADVANCED
     assert ladder._tier_ceiling == ModelTier.ADVANCED, f"Expected ADVANCED ceiling, got {ladder._tier_ceiling}"
@@ -78,9 +78,10 @@ async def test_ladder_escalates_on_repeated_failure() -> None:
     """
     from agent_fox.engine.assessment import AssessmentManager
 
-    # retries_before_escalation=0 means escalate after 1 failure
-    manager = AssessmentManager(retries_before_escalation=0)
-    await manager.assess_node("test_spec:1", "coder")
+    # Use reviewer (no config mapping, starts at STANDARD) to test escalation
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=0, config=config)
+    await manager.assess_node("test_spec:1", "reviewer")
 
     ladder = manager.ladders["test_spec:1"]
     assert ladder.current_tier == ModelTier.STANDARD
@@ -107,7 +108,8 @@ async def test_no_pipeline_modules_imported_after_assess() -> None:
 
     from agent_fox.engine.assessment import AssessmentManager
 
-    manager = AssessmentManager(retries_before_escalation=1)
+    config = AgentFoxConfig()
+    manager = AssessmentManager(retries_before_escalation=1, config=config)
     await manager.assess_node("some_spec:2", "oracle")
 
     after = set(sys.modules.keys())

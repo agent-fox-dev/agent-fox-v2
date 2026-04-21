@@ -104,6 +104,18 @@ def _insert_sleep_artifact(
     )
 
 
+def _seed_fact(conn: duckdb.DuckDBPyConnection, spec_name: str = "test_spec") -> None:
+    """Insert a dummy fact to prevent cold-start skip (113-REQ-6.2)."""
+    conn.execute(
+        """
+        INSERT INTO memory_facts (id, content, category, spec_name, confidence, created_at)
+        VALUES (gen_random_uuid(), 'Dummy fact for cold-start bypass in sleep retrieval tests',
+                'decision', ?, 0.9, CURRENT_TIMESTAMP)
+        """,
+        [spec_name],
+    )
+
+
 def _make_knowledge_config(token_budget: int = 30000) -> KnowledgeConfig:
     return KnowledgeConfig(retrieval=RetrievalConfig(token_budget=token_budget))
 
@@ -123,6 +135,7 @@ def _make_mock_embedder() -> MagicMock:
 def test_prepends_context_preamble() -> None:
     """TS-112-21: context block for 'dir:agent_fox/knowledge' prepended with ## Module Context."""
     conn = _make_conn()
+    _seed_fact(conn)  # Prevent cold-start skip (113-REQ-6.2)
     _insert_sleep_artifact(
         conn,
         task_name="context_rewriter",
@@ -182,6 +195,7 @@ def test_preamble_budget_cap() -> None:
 def test_uses_cached_bundle_signals() -> None:
     """TS-112-23: With valid bundle, _keyword_signal and _causal_signal not called."""
     conn = _make_conn()
+    _seed_fact(conn)  # Prevent cold-start skip (113-REQ-6.2)
 
     # Pre-populate a bundle for test_spec
     bundle_data = json.dumps({
@@ -235,6 +249,7 @@ def test_uses_cached_bundle_signals() -> None:
 def test_fallback_without_bundle() -> None:
     """TS-112-24: No bundle for spec → _keyword_signal is called, sleep_hit=False."""
     conn = _make_conn()
+    _seed_fact(conn, spec_name="no_bundle_spec")  # Prevent cold-start skip (113-REQ-6.2)
     config = _make_knowledge_config()
     retriever = AdaptiveRetriever(conn, config, embedder=_make_mock_embedder())
 

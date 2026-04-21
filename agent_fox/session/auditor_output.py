@@ -35,12 +35,17 @@ def persist_auditor_results(
     *,
     attempt: int = 1,
     project_root: Path | None = None,
+    conn: Any = None,
 ) -> None:
     """Write audit findings to .agent-fox/audit/audit_{spec_name}.md.
 
     For PASS verdicts, deletes any existing audit report and writes nothing.
     For non-PASS verdicts, creates the audit directory if needed and writes
     (or overwrites) the report.
+
+    When a DuckDB connection is provided via ``conn``, also persists non-PASS
+    audit entries to the ``review_findings`` table with ``category='audit'``
+    so they can be injected into subsequent coder prompts (113-REQ-4.1).
 
     Handles filesystem errors gracefully — logs and does not raise.
 
@@ -51,10 +56,13 @@ def persist_auditor_results(
         project_root: Root directory of the project (parent of
             ``.agent-fox/``).  Falls back to ``spec_dir.parent.parent``
             when not supplied, for backward compatibility.
+        conn: Optional DuckDB connection for persisting findings to
+            review_findings table (113-REQ-4.1).
 
     Requirements: 46-REQ-8.1, 46-REQ-8.E2,
                   92-REQ-1.1, 92-REQ-1.2, 92-REQ-1.3, 92-REQ-1.E1,
-                  92-REQ-2.1, 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2
+                  92-REQ-2.1, 92-REQ-3.1, 92-REQ-3.E1, 92-REQ-3.E2,
+                  113-REQ-4.1, 113-REQ-4.3
     """
     spec_name = spec_dir.name
     root = project_root if project_root is not None else spec_dir.parent.parent
@@ -123,6 +131,81 @@ def persist_auditor_results(
         logger.info("Wrote audit report to %s", audit_path)
     except OSError:
         logger.error("Failed to write audit report to %s", audit_path, exc_info=True)
+
+    # 113-REQ-4.1: Persist non-PASS audit entries to review_findings table
+    if conn is not None:
+        _persist_audit_findings_to_db(conn, spec_name, result, attempt)
+
+
+def _persist_audit_findings_to_db(
+    conn: Any,
+    spec_name: str,
+    result: AuditResult,
+    attempt: int,
+) -> None:
+    """Persist audit entries as review findings with category='audit'.
+
+    Converts each non-PASS AuditEntry to a ReviewFinding and inserts
+    into the review_findings table. Failures are logged and do not raise.
+
+    Requirements: 113-REQ-4.1, 113-REQ-4.E1
+    """
+    try:
+        import uuid
+
+        from agent_fox.knowledge.review_store import ReviewFinding, insert_findings
+
+        findings: list[ReviewFinding] = []
+        session_id = f"{spec_name}:audit:{attempt}"
+
+        for entry in result.entries:
+            # Derive severity: prefer explicit severity field, fall back from verdict
+            severity = entry.severity if entry.severity else _verdict_to_severity(entry.verdict)
+            # Derive description: prefer explicit description, fall back to notes/ts_entry
+            description = entry.description if entry.description else (
+                entry.notes or f"[{entry.verdict}] {entry.ts_entry}"
+            )
+
+            finding = ReviewFinding(
+                id=str(uuid.uuid4()),
+                severity=severity,
+                description=description,
+                requirement_ref=None,
+                spec_name=spec_name,
+                task_group="",
+                session_id=session_id,
+                superseded_by=None,
+                category="audit",
+            )
+            findings.append(finding)
+
+        if findings:
+            insert_findings(conn, findings)
+            logger.info(
+                "Persisted %d audit findings for %s",
+                len(findings),
+                spec_name,
+            )
+    except Exception:
+        logger.warning(
+            "Failed to persist audit findings to DB for %s",
+            spec_name,
+            exc_info=True,
+        )
+
+
+def _verdict_to_severity(verdict: str) -> str:
+    """Map audit verdict to review finding severity.
+
+    MISSING/MISALIGNED → critical, WEAK → major, PASS → observation.
+    """
+    mapping = {
+        "MISSING": "critical",
+        "MISALIGNED": "critical",
+        "WEAK": "major",
+        "PASS": "observation",
+    }
+    return mapping.get(verdict, "major")
 
 
 # ---------------------------------------------------------------------------

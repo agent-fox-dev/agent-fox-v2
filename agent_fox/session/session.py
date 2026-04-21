@@ -131,6 +131,9 @@ async def run_session(
     # Track metrics via mutable state (supports partial reads on timeout/failure)
     state = _QueryExecutionState()
 
+    effective_timeout = session_timeout if session_timeout is not None else config.orchestrator.session_timeout
+    start_time = datetime.now(UTC)
+
     try:
         # 03-REQ-3.1, 03-REQ-6.1: Execute query wrapped in timeout
         await with_timeout(
@@ -153,12 +156,16 @@ async def run_session(
                 thinking=thinking,
                 archetype=archetype,
             ),
-            timeout_minutes=(session_timeout if session_timeout is not None else config.orchestrator.session_timeout),
+            timeout_minutes=effective_timeout,
         )
 
     except TimeoutError:
         # 03-REQ-6.2, 03-REQ-6.E1: Timeout with partial metrics
+        elapsed_ms = int((datetime.now(UTC) - start_time).total_seconds() * 1000)
         state.status = "timeout"
+        state.error_message = f"Session timed out after {effective_timeout} minutes"
+        if state.duration_ms == 0:
+            state.duration_ms = elapsed_ms
 
     except Exception as exc:
         # 03-REQ-3.E1, 26-REQ-1.E1: Catch backend errors, return failed outcome

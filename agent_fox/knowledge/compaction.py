@@ -65,6 +65,8 @@ def compact(
         return (0, 0)
 
     surviving = _deduplicate_by_content(facts)
+    # 113-REQ-5.1: Substring supersession after content-hash dedup
+    surviving, _substr_count = _substring_supersede(surviving)
     surviving = _resolve_supersession(surviving)
 
     surviving_count = len(surviving)
@@ -85,6 +87,14 @@ def compact(
         original_count,
         surviving_count,
     )
+
+    # 113-REQ-5.E1: Log info when compaction reduces facts by more than 50%
+    if original_count > 0 and surviving_count < original_count * 0.5:
+        logger.info(
+            "Large compaction: reduced from %d to %d facts (>50%% reduction)",
+            original_count,
+            surviving_count,
+        )
 
     # 40-REQ-11.5: Emit fact.compacted audit event
     if sink_dispatcher is not None and run_id:
@@ -107,6 +117,36 @@ def compact(
     return (original_count, surviving_count)
 
 
+def _substring_supersede(
+    facts: list[Fact],
+) -> tuple[list[Fact], int]:
+    """Identify facts whose content is a substring of another fact with equal
+    or higher confidence. Mark the shorter fact as superseded by the longer.
+
+    Returns (surviving_facts, superseded_count).
+
+    Requirements: 113-REQ-5.1
+    """
+    superseded_ids: set[str] = set()
+
+    for i, fact_a in enumerate(facts):
+        if fact_a.id in superseded_ids:
+            continue
+        for j, fact_b in enumerate(facts):
+            if i == j or fact_b.id in superseded_ids:
+                continue
+            # Check if fact_a's content is a substring of fact_b's content
+            if fact_a.content in fact_b.content and fact_a.content != fact_b.content:
+                # fact_a is substring of fact_b; supersede fact_a only if
+                # fact_b has equal or higher confidence
+                if fact_b.confidence >= fact_a.confidence:
+                    superseded_ids.add(fact_a.id)
+                    break
+
+    surviving = [f for f in facts if f.id not in superseded_ids]
+    return surviving, len(superseded_ids)
+
+
 def _content_hash(content: str) -> str:
     """Compute SHA-256 hash of a fact's content string."""
     return content_hash(content)
@@ -115,14 +155,25 @@ def _content_hash(content: str) -> str:
 def _deduplicate_by_content(facts: list[Fact]) -> list[Fact]:
     """Remove duplicate facts with the same content hash.
 
-    Keeps the earliest instance (by created_at) for each unique hash.
+    Keeps the fact with highest confidence for each unique hash.
+    Ties are broken by recency (more recent wins).
+
+    Requirements: 113-REQ-5.3
     """
-    # Group facts by content hash, keeping the earliest for each.
+    # Group facts by content hash, keeping the best for each.
     best: dict[str, Fact] = {}
     for fact in facts:
         h = _content_hash(fact.content)
-        if h not in best or fact.created_at < best[h].created_at:
+        if h not in best:
             best[h] = fact
+        else:
+            existing = best[h]
+            # Higher confidence wins; ties broken by recency (later created_at)
+            if (fact.confidence > existing.confidence) or (
+                fact.confidence == existing.confidence
+                and fact.created_at > existing.created_at
+            ):
+                best[h] = fact
 
     # Preserve original ordering among the surviving facts.
     seen_hashes: set[str] = set()

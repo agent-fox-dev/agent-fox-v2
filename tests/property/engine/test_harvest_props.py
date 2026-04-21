@@ -184,7 +184,7 @@ class TestCausalExtractionMinimumThreshold:
             _insert_n_facts(db, n)
             new_fact = Fact(
                 id=str(uuid.uuid4()),
-                content="New hypothesis fact",
+                content="New hypothesis fact — causal threshold property test padding content",
                 category="pattern",
                 spec_name="prop_test",
                 keywords=["test"],
@@ -330,7 +330,7 @@ class TestAuditEventOnSuccess:
             facts = [
                 Fact(
                     id=str(uuid.uuid4()),
-                    content=f"Prop fact {i}",
+                    content=f"Property test fact number {i} — audit event emission verification padding",
                     category="pattern",
                     spec_name="prop_test",
                     keywords=["test"],

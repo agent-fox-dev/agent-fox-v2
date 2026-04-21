@@ -218,6 +218,14 @@ def test_retriever_consumes_artifacts() -> None:
     """TS-112-SMOKE-3: Real AdaptiveRetriever reads context blocks and bundle from sleep_artifacts."""
     conn = _make_full_conn()
 
+    # Seed a fact to prevent cold-start skip (113-REQ-6.2)
+    conn.execute(
+        """
+        INSERT INTO memory_facts (id, content, category, spec_name, confidence, created_at)
+        VALUES (gen_random_uuid(), 'Dummy fact for cold-start bypass', 'decision', 'test_spec', 0.9, CURRENT_TIMESTAMP)
+        """,
+    )
+
     # Pre-populate a context block for agent_fox/knowledge/
     conn.execute(
         """

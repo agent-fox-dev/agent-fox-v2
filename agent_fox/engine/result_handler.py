@@ -400,6 +400,7 @@ class SessionResultHandler:
                     commit_sha=record.commit_sha,
                     error_message=record.error_message,
                     is_transport_error=record.is_transport_error,
+                    retrieval_summary=record.retrieval_summary,  # 113-REQ-7.2
                 )
                 _record_session_db(self._knowledge_db_conn, outcome)
                 _update_run_totals(
@@ -603,6 +604,23 @@ class SessionResultHandler:
         """Handle a failed session: retry, escalate, or block."""
         node_id = record.node_id
         error_tracker[node_id] = record.error_message
+
+        # Budget exhaustion is not retryable — the session did real work but
+        # the SDK terminated it when the max-budget-usd cap was reached.
+        # Retrying would just burn the same budget again with no progress.
+        if getattr(record, "is_budget_exhausted", False):
+            logger.warning(
+                "Budget exhausted for %s, blocking without retry: %s",
+                node_id,
+                record.error_message,
+            )
+            self._block_task(
+                node_id,
+                state,
+                f"Budget exhausted for {node_id}: {record.error_message}",
+            )
+            self._check_block_budget(state)
+            return
 
         # Transport errors are retried without consuming an escalation attempt.
         # The ClaudeBackend already retried internally; this path is reached only
