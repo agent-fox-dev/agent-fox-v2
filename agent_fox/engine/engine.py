@@ -230,7 +230,7 @@ class Orchestrator:
         self._routing_config = _rc  # store for timeout-aware escalation wiring
         self._routing = AssessmentManager(
             retries_before_escalation=self._resolve_retries_before_escalation(_rc),
-            config=config,
+            config=full_config or AgentFoxConfig(),
         )
 
         self._result_handler: SessionResultHandler | None = None

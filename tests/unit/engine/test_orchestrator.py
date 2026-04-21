@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from agent_fox.core.config import OrchestratorConfig
+from agent_fox.core.config import AgentFoxConfig, ModelConfig, OrchestratorConfig
 from agent_fox.core.errors import PlanError
 from agent_fox.engine.engine import Orchestrator
 from agent_fox.engine.state import ExecutionState
@@ -222,10 +222,14 @@ class TestBlockedAfterRetries:
             sync_interval=0,
             hot_load=False,
         )
+        # Use STANDARD coding tier so the ladder has room to escalate
+        # (STANDARD → ADVANCED) before exhausting.
+        full_config = AgentFoxConfig(models=ModelConfig(coding="STANDARD"))
         orchestrator = Orchestrator(
             config=config,
             session_runner_factory=lambda nid, **kw: mock,
             knowledge_db_conn=db_conn,
+            full_config=full_config,
         )
 
         state = await orchestrator.run()
