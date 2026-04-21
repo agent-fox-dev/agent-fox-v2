@@ -230,6 +230,7 @@ class Orchestrator:
         self._routing_config = _rc  # store for timeout-aware escalation wiring
         self._routing = AssessmentManager(
             retries_before_escalation=self._resolve_retries_before_escalation(_rc),
+            config=config,
         )
 
         self._result_handler: SessionResultHandler | None = None
@@ -340,9 +341,11 @@ class Orchestrator:
         """
         # 30-REQ-7.1: Run assessment before first dispatch
         archetype = self._get_node_archetype(node_id)
+        mode = self._get_node_mode(node_id)
         await self._routing.assess_node(
             node_id,
             archetype,
+            mode=mode,
         )
 
         attempt = attempt_tracker.get(node_id, 0) + 1
@@ -359,7 +362,6 @@ class Orchestrator:
         attempt_tracker[node_id] = attempt
         previous_error = error_tracker.get(node_id)
         instances = self._get_node_instances(node_id)
-        mode = self._get_node_mode(node_id)
 
         # 30-REQ-7.2: Pass assessed tier from escalation ladder
         ladder = self._routing.ladders.get(node_id)
