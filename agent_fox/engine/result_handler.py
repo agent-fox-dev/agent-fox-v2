@@ -400,6 +400,7 @@ class SessionResultHandler:
                     commit_sha=record.commit_sha,
                     error_message=record.error_message,
                     is_transport_error=record.is_transport_error,
+                    retrieval_summary=record.retrieval_summary,  # 113-REQ-7.2
                 )
                 _record_session_db(self._knowledge_db_conn, outcome)
                 _update_run_totals(

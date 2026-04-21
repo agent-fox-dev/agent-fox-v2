@@ -180,13 +180,13 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - [x] Requirements 113-REQ-2.*, 113-REQ-3.*, 113-REQ-4.1/4.3/4.E1,
       113-REQ-6.* acceptance criteria met
 
-- [ ] 4. Retrieval quality validation + audit prompt injection
-  - [ ] 4.1 Add `KNOWLEDGE_RETRIEVAL` audit event type
+- [x] 4. Retrieval quality validation + audit prompt injection
+  - [x] 4.1 Add `KNOWLEDGE_RETRIEVAL` audit event type
     - Add `KNOWLEDGE_RETRIEVAL = "knowledge.retrieval"` to `AuditEventType`
       enum in `audit.py`
     - _Requirements: 113-REQ-7.1_
 
-  - [ ] 4.2 Emit retrieval audit event from `AdaptiveRetriever.retrieve`
+  - [x] 4.2 Emit retrieval audit event from `AdaptiveRetriever.retrieve`
     - After RRF fusion, emit `knowledge.retrieval` event via the
       `SinkDispatcher` (passed through constructor or method parameter)
     - Event payload: `spec_name`, `node_id`, `facts_returned`, `signals_active`
@@ -196,7 +196,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-7.1, 113-REQ-7.E1_
     - _Test Spec: TS-7.1, TS-7.3_
 
-  - [ ] 4.3 Add `retrieval_summary` to session outcomes
+  - [x] 4.3 Add `retrieval_summary` to session outcomes
     - Add `retrieval_summary TEXT` column to `session_outcomes` via schema
       migration (next version)
     - After retrieval in `_build_prompts`, store a JSON summary dict
@@ -205,7 +205,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-7.2_
     - _Test Spec: TS-7.2_
 
-  - [ ] 4.4 Inject audit findings into first-attempt coder prompts
+  - [x] 4.4 Inject audit findings into first-attempt coder prompts
     - Extend `_build_prompts` to query and inject audit findings for all
       coder attempts (not just retries)
     - Use the same `query_active_findings` / `build_retry_context` mechanism
@@ -215,11 +215,11 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-4.2_
     - _Test Spec: TS-4.2_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_retrieval_quality.py tests/unit/knowledge/test_audit_consumption.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 113-REQ-4.2, 113-REQ-7.* acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_retrieval_quality.py tests/unit/knowledge/test_audit_consumption.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 113-REQ-4.2, 113-REQ-7.* acceptance criteria met
 
 - [ ] 5. Checkpoint — all spec tests green
   - [ ] 5.1 Run full spec test suite

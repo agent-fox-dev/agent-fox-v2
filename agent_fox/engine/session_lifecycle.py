@@ -212,6 +212,7 @@ class NodeSessionRunner:
         self._mode = mode  # 97-REQ-5.3: mode for per-mode configuration resolution
         self._instances = clamp_instances(archetype, instances, mode=mode)
         self._sink = sink_dispatcher
+        self._sink_dispatcher = sink_dispatcher  # alias for retrieval audit events
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
@@ -233,6 +234,8 @@ class NodeSessionRunner:
                 resolve_model_tier(self._config, self._archetype, mode=self._mode)
             ).model_id
         self._resolved_security = resolve_security_config(self._config, self._archetype, mode=self._mode)
+        # 113-REQ-7.2: Retrieval summary populated by _build_prompts for session outcome recording
+        self._retrieval_summary: str | None = None
 
     def _build_prompts(
         self,
@@ -260,6 +263,9 @@ class NodeSessionRunner:
                 retrieval_config,
                 embedder=self._embedder,
             )
+            # Wire sink dispatcher and node_id for audit event emission
+            retriever._sink_dispatcher = self._sink_dispatcher
+            retriever._node_id = self._node_id
             # Build task description from subtask descriptions
             descriptions = extract_subtask_descriptions(spec_dir, self._task_group)
             task_description = "\n".join(descriptions) if descriptions else self._spec_name
@@ -276,6 +282,13 @@ class NodeSessionRunner:
                 confidence_threshold=self._config.knowledge.confidence_threshold,
             )
             knowledge_context = result.context
+
+            # 113-REQ-7.2: Store retrieval summary for session outcome recording
+            self._retrieval_summary = json.dumps({
+                "facts_injected": result.anchor_count,
+                "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
+                "cold_start": result.cold_start,
+            })
         except Exception:
             logger.warning(
                 "AdaptiveRetriever failed for %s, continuing without knowledge context",
@@ -768,6 +781,7 @@ class NodeSessionRunner:
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
             is_budget_exhausted=is_budget_exhausted,
+            retrieval_summary=self._retrieval_summary,  # 113-REQ-7.2
         )
 
     def _persist_review_findings(
