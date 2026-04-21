@@ -29,7 +29,8 @@ flowchart TD
 
     subgraph Knowledge Ingestion
         L[KnowledgeIngestor.ingest_git_commits] --> M[_extract_git_facts_llm]
-        M --> N[Store LLM-extracted facts]
+        M --> M2[_filter_minimum_length]
+        M2 --> N[Store LLM-extracted facts]
     end
 
     subgraph Retrieval
@@ -69,7 +70,8 @@ sequenceDiagram
     AR->>AR: count_facts(spec_name, threshold)
     alt cold start (count == 0)
         AR-->>SL: RetrievalResult(cold_start=True)
-    else facts exist
+    else facts exist or count query failed
+        Note over AR: On count failure (None): log warning, proceed (REQ-6.E1)
         AR->>AR: run 4 signals + RRF
         AR->>AR: emit knowledge.retrieval event
         AR-->>SL: RetrievalResult(context, signal_counts, ...)
@@ -81,12 +83,14 @@ sequenceDiagram
     SL->>AT: reconstruct_transcript(run_id, node_id)
     AT-->>SL: full transcript string
     SL->>KH: extract_and_store_knowledge(transcript, ...)
+    KH->>KH: _filter_minimum_length (reject < 50 chars)
     KH-->>SL: facts stored
     E->>KI: ingest_git_commits(limit, since)
     KI->>KI: _extract_git_facts_llm(batch)
+    KI->>KI: _filter_minimum_length (reject < 50 chars)
     KI-->>E: IngestResult
     E->>C: compact(conn)
-    C->>C: _substring_supersede + _deduplicate_by_content
+    C->>C: _substring_supersede + _deduplicate_by_content + _resolve_supersession
     C-->>E: (original_count, surviving_count)
 ```
 
@@ -99,12 +103,14 @@ sequenceDiagram
    inject audit findings, and record retrieval summary.
 3. **`agent_fox/engine/knowledge_harvest.py`** — Drives LLM fact extraction
    and storage; receives the full transcript instead of the session summary.
+   Applies minimum content length filter before storage.
 4. **`agent_fox/knowledge/ingest.py`** — Ingests external knowledge sources;
    modified to use LLM extraction for git commits instead of verbatim storage.
+   Applies minimum content length filter before storage.
 5. **`agent_fox/knowledge/retrieval.py`** — Multi-signal retrieval with RRF
    fusion; modified with cold-start skip and audit event emission.
 6. **`agent_fox/knowledge/compaction.py`** — Fact deduplication and pruning;
-   enhanced with substring supersession and minimum length filtering.
+   enhanced with substring supersession.
 7. **`agent_fox/knowledge/extraction.py`** — LLM-based fact extraction from
    text; new prompt template for git commit extraction.
 8. **`agent_fox/knowledge/audit.py`** — Audit event types; new
@@ -129,9 +135,12 @@ sequenceDiagram
    — receives the reconstructed transcript instead of the session summary
 5. `extraction.py: extract_facts(transcript, spec_name, model_name)` →
    `list[Fact]` — LLM extraction now receives sufficient input
-6. `knowledge_harvest.py: sync_facts_to_duckdb(knowledge_db, facts)` — persists
+6. `knowledge_harvest.py: _filter_minimum_length(facts, min_length=50)` →
+   `list[Fact]` — **NEW**: removes facts with `len(content) < 50` before
+   storage (113-REQ-5.2)
+7. `knowledge_harvest.py: sync_facts_to_duckdb(knowledge_db, facts)` — persists
    extracted facts
-7. `knowledge_harvest.py: _generate_embeddings(knowledge_db, facts, embedder)` —
+8. `knowledge_harvest.py: _generate_embeddings(knowledge_db, facts, embedder)` —
    generates embeddings for new facts
 
 ### Path 2: LLM-Powered Git Commit Extraction
@@ -145,9 +154,11 @@ sequenceDiagram
    `list[Fact]` — **NEW**: calls LLM with git-specific extraction prompt;
    returns facts with categories (decision, pattern, gotcha, convention) and
    variable confidence (high=0.9, medium=0.6, low=0.3)
-4. `ingest.py: KnowledgeIngestor._store_embedding(fact_id, content, label)` →
+4. `ingest.py: _filter_minimum_length(facts, min_length=50)` → `list[Fact]`
+   — removes facts with `len(content) < 50` before storage (113-REQ-5.2)
+5. `ingest.py: KnowledgeIngestor._store_embedding(fact_id, content, label)` →
    `bool` — generates embedding for each extracted fact
-5. Side effect: facts inserted into `memory_facts` with `category='git'` and
+6. Side effect: facts inserted into `memory_facts` with `category='git'` and
    LLM-derived confidence
 
 ### Path 3: Entity Signal Activation via Prior Touched Files
@@ -182,26 +193,27 @@ sequenceDiagram
 1. `retrieval.py: AdaptiveRetriever.retrieve(spec_name, ...)` — entry point
    (line 791)
 2. `retrieval.py: AdaptiveRetriever._count_available_facts(spec_name, threshold)` →
-   `int` — **NEW**: executes `SELECT COUNT(*) FROM memory_facts WHERE
-   (spec_name = ? OR confidence >= ?) AND supersedes IS NULL`
-3. If count == 0: return `RetrievalResult(context="", cold_start=True,
+   `int | None` — **NEW**: executes `SELECT COUNT(*) FROM memory_facts WHERE
+   (spec_name = ? OR confidence >= ?) AND superseded_by IS NULL`. Returns
+   `None` on database error so the caller can fall through to normal retrieval.
+3. If count is `None` (database error): log warning and proceed with
+   normal 4-signal retrieval per 113-REQ-6.E1
+4. If count == 0: return `RetrievalResult(context="", cold_start=True,
    signal_counts={})` with debug log "Skipping retrieval: no facts available
    (cold start)"
-4. If count > 0: proceed with normal 4-signal retrieval
+5. If count > 0: proceed with normal 4-signal retrieval
 
 ### Path 6: Compaction Improvements
 
 1. `compaction.py: compact(conn)` — entry point (line 28)
-2. `compaction.py: _filter_minimum_length(facts, min_length=50)` → `list[Fact]`
-   — **NEW**: removes facts with `len(content) < 50`
-3. `compaction.py: _substring_supersede(facts)` → `list[Fact]` — **NEW**:
+2. `compaction.py: _substring_supersede(facts)` → `list[Fact]` — **NEW**:
    identifies facts whose content is a substring of another fact with equal or
    higher confidence; marks the shorter as superseded
-4. `compaction.py: _deduplicate_by_content(facts)` → `list[Fact]` — existing
+3. `compaction.py: _deduplicate_by_content(facts)` → `list[Fact]` — existing
    content-hash dedup
-5. `compaction.py: _resolve_supersession(facts)` → `list[Fact]` — existing
+4. `compaction.py: _resolve_supersession(facts)` → `list[Fact]` — existing
    chain resolution
-6. Side effect: superseded facts updated in `memory_facts` with `supersedes`
+5. Side effect: superseded facts updated in `memory_facts` with `superseded_by`
    pointing to the surviving fact
 
 ### Path 7: Retrieval Quality Audit Event
@@ -274,12 +286,13 @@ def _count_available_facts(
     self,
     spec_name: str,
     confidence_threshold: float,
-) -> int:
+) -> int | None:
     """Count non-superseded facts matching spec_name or exceeding confidence
     threshold.
 
-    Returns 0 on database error (triggering cold-start skip fallback to
-    normal retrieval per 113-REQ-6.E1).
+    Returns None on database error so the caller can distinguish failure
+    from a genuine zero count and proceed with normal retrieval per
+    113-REQ-6.E1.
 
     Requirements: 113-REQ-6.1, 113-REQ-6.E1
     """
@@ -300,12 +313,15 @@ def _substring_supersede(
 ```
 
 ```python
-# compaction.py
+# knowledge_harvest.py
 def _filter_minimum_length(
     facts: list[Fact],
     min_length: int = 50,
 ) -> tuple[list[Fact], int]:
     """Remove facts with content shorter than min_length characters.
+
+    Called during ingestion (before storage) to enforce 113-REQ-5.2.
+    Also imported by ingest.py for the git extraction path.
 
     Returns (passing_facts, filtered_count).
 
@@ -371,10 +387,9 @@ def retrieve(self, ...) -> RetrievalResult:
 ```python
 # compaction.py: compact
 # Before: content-hash dedup + supersession resolution only
-# After: adds minimum length filter + substring supersession
+# After: adds substring supersession
 def compact(conn, path, ...) -> tuple[int, int]:
-    # NEW: _filter_minimum_length step before dedup
-    # NEW: _substring_supersede step after dedup
+    # NEW: _substring_supersede step before dedup
 ```
 
 ### Modified Data Structures

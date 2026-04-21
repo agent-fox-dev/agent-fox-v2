@@ -311,7 +311,7 @@
 3. Fact C is unaffected.
 4. Returns `superseded_count == 1`.
 
-#### TS-5.2: Minimum Content Length Filter
+#### TS-5.2: Minimum Content Length Filter (Unit)
 
 **Covers:** 113-REQ-5.2, CP-8
 
@@ -322,6 +322,35 @@
 **Assertions:**
 1. Only the 50-char fact survives.
 2. Returns `filtered_count == 2`.
+
+#### TS-5.2b: Short Facts Rejected at Transcript Ingestion (Integration)
+
+**Covers:** 113-REQ-5.2, CP-8
+
+**Setup:**
+- Mock LLM extraction to return 3 facts: content lengths 30, 49, 60.
+- DuckDB connection with `memory_facts` table.
+- Valid transcript string exceeding minimum character threshold.
+
+**Action:** Call `extract_and_store_knowledge(transcript, ...)`.
+
+**Assertions:**
+1. Only the 60-char fact is stored in `memory_facts`.
+2. The two short facts are not present in `memory_facts`.
+
+#### TS-5.2c: Short Facts Rejected at Git Ingestion (Integration)
+
+**Covers:** 113-REQ-5.2, CP-8
+
+**Setup:**
+- Mock LLM to return 2 facts: content lengths 40, 80.
+- DuckDB connection with `memory_facts` table.
+
+**Action:** Call `ingest_git_commits()`.
+
+**Assertions:**
+1. Only the 80-char fact is stored in `memory_facts`.
+2. The 40-char fact is not present in `memory_facts`.
 
 #### TS-5.3: Confidence-Aware Deduplication
 
@@ -500,7 +529,7 @@
 | 113-REQ-4.3 | TS-4.3 | CP-5 |
 | 113-REQ-4.E1 | TS-4.4 | CP-5 |
 | 113-REQ-5.1 | TS-5.1 | CP-7 |
-| 113-REQ-5.2 | TS-5.2 | CP-8 |
+| 113-REQ-5.2 | TS-5.2, TS-5.2b, TS-5.2c | CP-8 |
 | 113-REQ-5.3 | TS-5.3, TS-5.4 | CP-7 |
 | 113-REQ-5.E1 | TS-5.5 | CP-7 |
 | 113-REQ-6.1 | TS-6.1, TS-6.4 | CP-6 |
