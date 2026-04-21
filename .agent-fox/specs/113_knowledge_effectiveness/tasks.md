@@ -31,8 +31,8 @@ The `ingest_git_commits` method becomes async in group 3, so callers
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create test file structure
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create test file structure
     - Create `tests/unit/knowledge/test_transcript_reconstruction.py` for
       Suite 1 tests (TS-1.1 through TS-1.5)
     - Create `tests/unit/knowledge/test_git_extraction.py` for Suite 2
@@ -51,22 +51,22 @@ The `ingest_git_commits` method becomes async in group 3, so callers
       integration smoke tests
     - _Test Spec: TS-1.1 through TS-7.3_
 
-  - [ ] 1.2 Translate acceptance-criterion tests from test_spec.md
+  - [x] 1.2 Translate acceptance-criterion tests from test_spec.md
     - One test function per TS entry from Suites 1-7
     - Tests MUST fail (assert against not-yet-implemented behavior)
     - Use `unittest.mock.AsyncMock` for LLM calls, `tmp_path` for JSONL files
     - Use existing `duckdb_conn` / `knowledge_db` fixtures for DB tests
     - _Test Spec: TS-1.1 through TS-7.3_
 
-  - [ ] 1.3 Write integration smoke tests
+  - [x] 1.3 Write integration smoke tests
     - One smoke test per execution path from design.md (Paths 1-7)
     - Stub only LLM calls and filesystem; use real DuckDB and real module code
     - _Test Spec: smoke tests for Paths 1-7_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Transcript reconstruction + compaction improvements
   - [ ] 2.1 Add `reconstruct_transcript` to `agent_trace.py`
