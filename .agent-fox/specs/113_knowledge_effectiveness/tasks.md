@@ -221,17 +221,17 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 113-REQ-4.2, 113-REQ-7.* acceptance criteria met
 
-- [ ] 5. Checkpoint — all spec tests green
-  - [ ] 5.1 Run full spec test suite
+- [x] 5. Checkpoint — all spec tests green
+  - [x] 5.1 Run full spec test suite
     - All tests from Suites 1-7 pass
     - All integration smoke tests pass
     - `uv run pytest -q tests/unit/knowledge/test_transcript_reconstruction.py tests/unit/knowledge/test_git_extraction.py tests/unit/knowledge/test_entity_signal_activation.py tests/unit/knowledge/test_audit_consumption.py tests/unit/knowledge/test_compaction_improvements.py tests/unit/knowledge/test_cold_start.py tests/unit/knowledge/test_retrieval_quality.py tests/integration/test_knowledge_effectiveness_smoke.py`
 
-  - [ ] 5.2 Run full regression suite
+  - [x] 5.2 Run full regression suite
     - `uv run pytest -q`
     - Zero regressions in existing tests
 
-  - [ ] 5.3 Update `docs/memory.md` with implementation notes
+  - [x] 5.3 Update `docs/memory.md` with implementation notes
 
 - [ ] 6. Wiring verification
   - [ ] 6.1 Trace every execution path from design.md end-to-end
