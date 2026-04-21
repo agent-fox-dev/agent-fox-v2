@@ -643,12 +643,34 @@ class NodeSessionRunner:
             cache_creation_input_tokens=outcome.cache_creation_input_tokens,
         )
 
+        # Detect budget exhaustion: SDK returns is_error=True with no message
+        # when the max-budget-usd limit is hit.  The session did real work
+        # (high token count) so retrying would just burn the same budget again.
+        _BUDGET_EXHAUST_RATIO = 0.9
+        resolved_budget = resolve_max_budget(self._config)
+        is_budget_exhausted = (
+            outcome.status == "failed"
+            and (outcome.error_message or "") in ("Unknown error", "")
+            and resolved_budget is not None
+            and cost >= resolved_budget * _BUDGET_EXHAUST_RATIO
+        )
+        if is_budget_exhausted:
+            logger.warning(
+                "Session %s budget exhausted (cost=$%.2f of $%.2f budget), will not retry",
+                node_id,
+                cost,
+                resolved_budget,
+            )
+
         status, error_message, touched_files = await self._harvest_and_integrate(
             node_id,
             outcome,
             workspace,
             repo_root,
         )
+
+        if is_budget_exhausted:
+            error_message = f"Budget exhausted (${cost:.2f} of ${resolved_budget:.2f})"
 
         # 35-REQ-1.1: Capture develop HEAD SHA after successful harvest
         commit_sha = ""
@@ -726,6 +748,7 @@ class NodeSessionRunner:
             archetype=self._archetype,
             commit_sha=commit_sha,
             is_transport_error=getattr(outcome, "is_transport_error", False),
+            is_budget_exhausted=is_budget_exhausted,
         )
 
     def _persist_review_findings(
