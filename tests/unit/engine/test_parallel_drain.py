@@ -541,3 +541,167 @@ class TestReviewConcurrencyCapPool:
         for t in pool:
             t.cancel()
         await asyncio.gather(*pool, return_exceptions=True)
+
+
+# ---------------------------------------------------------------------------
+# TS-503-1: Review cap must not consume retry budget (issue #503)
+# ---------------------------------------------------------------------------
+
+
+class TestReviewCapDoesNotConsumeRetries:
+    """Verify that the review concurrency cap does not increment attempt_tracker.
+
+    When a review candidate is skipped because the review slot budget is
+    exhausted, _prepare_launch must NOT be called.  Previously, the cap
+    check was placed AFTER _prepare_launch, which incremented
+    attempt_tracker on each pool-refill cycle.  After max_retries+1
+    such skips the circuit breaker permanently blocked the task with
+    'Retry limit exceeded' — without ever starting a session.
+    """
+
+    @pytest.mark.asyncio
+    async def test_attempt_tracker_unchanged_for_capped_review(self) -> None:
+        """Skipped review candidates keep attempt_tracker at 0."""
+        from unittest.mock import AsyncMock, MagicMock, PropertyMock
+
+        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.types import Node
+
+        config = MagicMock()
+        config.parallel = 3
+        config.max_review_fraction = 0.34
+
+        nodes = {
+            "spec_a:1": Node(
+                id="spec_a:1", spec_name="spec_a", group_number=1,
+                title="audit review A", optional=False, archetype="reviewer",
+            ),
+            "spec_b:1": Node(
+                id="spec_b:1", spec_name="spec_b", group_number=1,
+                title="audit review B", optional=False, archetype="reviewer",
+            ),
+        }
+
+        orch = object.__new__(Orchestrator)
+        orch._config = config
+        orch._graph = MagicMock()
+        orch._graph.nodes = nodes
+        orch._graph_sync = MagicMock()
+        orch._graph_sync.node_states = {}
+        orch._graph_sync.mark_in_progress = MagicMock()
+        orch._signal = MagicMock()
+        orch._signal.interrupted = False
+        orch._result_handler = None
+        orch._run_id = "test"
+        orch._routing = MagicMock()
+
+        runner = MagicMock()
+        type(runner).max_parallelism = PropertyMock(return_value=3)
+        runner.execute_one = AsyncMock(return_value=_make_record("x"))
+        orch._parallel_runner = runner
+
+        prepare_calls: list[str] = []
+
+        async def mock_prepare_launch(node_id, state, at, et):
+            prepare_calls.append(node_id)
+            arch = nodes[node_id].archetype
+            at[node_id] = at.get(node_id, 0) + 1
+            return ("allowed", at[node_id], None, arch, 1, None, None)
+
+        orch._prepare_launch = mock_prepare_launch
+
+        attempt_tracker: dict[str, int] = {}
+        pool: set[asyncio.Task[SessionRecord]] = set()
+
+        # max_review = max(1, int(3*0.34)) = 1
+        # spec_a:1 should launch (first review slot), spec_b:1 should be
+        # skipped by the cap BEFORE _prepare_launch is called.
+        await orch._fill_parallel_pool(
+            pool, ["spec_a:1", "spec_b:1"], MagicMock(), attempt_tracker, {},
+        )
+
+        assert "spec_a:1" in prepare_calls
+        assert "spec_b:1" not in prepare_calls, (
+            "_prepare_launch must not be called for review candidates "
+            "skipped by the concurrency cap"
+        )
+        assert attempt_tracker.get("spec_b:1", 0) == 0
+
+        for t in pool:
+            t.cancel()
+        await asyncio.gather(*pool, return_exceptions=True)
+
+    @pytest.mark.asyncio
+    async def test_review_cap_skip_survives_repeated_refills(self) -> None:
+        """A capped review is never blocked even after many pool refill cycles."""
+        from unittest.mock import AsyncMock, MagicMock, PropertyMock
+
+        from agent_fox.engine.engine import Orchestrator
+        from agent_fox.graph.types import Node
+
+        config = MagicMock()
+        config.parallel = 5
+        config.max_review_fraction = 0.34
+        config.max_retries = 2
+
+        nodes = {
+            "spec_x:1:reviewer:audit-review": Node(
+                id="spec_x:1:reviewer:audit-review",
+                spec_name="spec_x", group_number=1,
+                title="audit", optional=False, archetype="reviewer",
+            ),
+        }
+
+        orch = object.__new__(Orchestrator)
+        orch._config = config
+        orch._graph = MagicMock()
+        orch._graph.nodes = nodes
+        orch._graph_sync = MagicMock()
+        orch._graph_sync.node_states = {}
+        orch._graph_sync.mark_in_progress = MagicMock()
+        orch._signal = MagicMock()
+        orch._signal.interrupted = False
+        orch._result_handler = None
+        orch._run_id = "test"
+        orch._routing = MagicMock()
+
+        runner = MagicMock()
+        type(runner).max_parallelism = PropertyMock(return_value=5)
+        runner.execute_one = AsyncMock(return_value=_make_record("x"))
+        orch._parallel_runner = runner
+
+        async def mock_prepare_launch(node_id, state, at, et):
+            arch = nodes[node_id].archetype
+            at[node_id] = at.get(node_id, 0) + 1
+            return ("allowed", at[node_id], None, arch, 1, None, None)
+
+        orch._prepare_launch = mock_prepare_launch
+
+        attempt_tracker: dict[str, int] = {}
+        node_id = "spec_x:1:reviewer:audit-review"
+
+        # Simulate a review already occupying the single review slot.
+        # Run 10 pool refill cycles (well past max_retries+1=3).
+        for _ in range(10):
+            existing_task = MagicMock()
+            existing_task.get_name.return_value = "parallel-other:1"
+            pool: set[asyncio.Task[SessionRecord]] = set()
+
+            # Fake an existing review in the pool so the cap is hit.
+            fake_review_task = MagicMock()
+            fake_review_task.get_name.return_value = "parallel-other_review:1"
+            pool.add(fake_review_task)
+            orch._graph.nodes["other_review:1"] = Node(
+                id="other_review:1", spec_name="other", group_number=1,
+                title="r", optional=False, archetype="reviewer",
+            )
+
+            await orch._fill_parallel_pool(
+                pool, [node_id], MagicMock(), attempt_tracker, {},
+            )
+
+        assert attempt_tracker.get(node_id, 0) == 0, (
+            f"attempt_tracker was {attempt_tracker.get(node_id, 0)} after "
+            f"10 refill cycles; expected 0 (review cap should not consume retries)"
+        )
+        assert orch._graph_sync.node_states.get(node_id) != "blocked"
