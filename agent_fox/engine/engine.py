@@ -1154,6 +1154,15 @@ class Orchestrator:
             if self._graph_sync.node_states.get(node_id) == "blocked":
                 continue
 
+            # Review concurrency cap: check BEFORE _prepare_launch to avoid
+            # incrementing the attempt counter for tasks that won't launch.
+            # _prepare_launch updates attempt_tracker on "allowed" verdicts,
+            # so skipping afterward would silently consume retry budget
+            # (issue #503).
+            candidate_archetype = self._get_node_archetype(node_id)
+            if candidate_archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id) and review_in_pool >= max_review:
+                continue
+
             launch = await self._prepare_launch(
                 node_id,
                 state,
@@ -1164,12 +1173,6 @@ class Orchestrator:
                 continue
 
             _, attempt, previous_error, archetype, instances, assessed_tier, node_mode = launch
-
-            # Review concurrency cap: skip non-pre review candidates when
-            # the review slot budget is exhausted.  Skipped candidates stay
-            # pending and are picked up on the next pool refill cycle.
-            if archetype in _REVIEW_ARCHETYPES and not _is_auto_pre(node_id) and review_in_pool >= max_review:
-                continue
 
             self._graph_sync.mark_in_progress(node_id)
 
