@@ -125,15 +125,22 @@ class TestCompactionIdempotency:
 class TestDeduplicationDeterminism:
     """TS-05-P4: Deduplication determinism.
 
-    Deduplication always keeps the earliest instance regardless of input order.
+    Deduplication keeps the highest-confidence instance for each content hash.
+    Ties are broken by recency (most recent wins).
+
+    Updated per 113-REQ-5.3 (confidence-aware dedup).
 
     Property 5 from design.md.
     """
 
     @given(facts=facts_with_duplicates())
     @settings(max_examples=100)
-    def test_keeps_earliest_for_each_hash(self, facts: list[Fact]) -> None:
-        """The surviving fact for each content hash has the minimum created_at."""
+    def test_keeps_highest_confidence_for_each_hash(self, facts: list[Fact]) -> None:
+        """The surviving fact for each content hash has the maximum confidence
+        (ties broken by most recent created_at).
+
+        Updated per 113-REQ-5.3.
+        """
         if not facts:
             return
 
@@ -142,8 +149,10 @@ class TestDeduplicationDeterminism:
         for r in result:
             h = _content_hash(r.content)
             all_with_hash = [f for f in facts if _content_hash(f.content) == h]
-            earliest = min(all_with_hash, key=lambda f: f.created_at)
-            assert r.created_at == earliest.created_at
+            # Best = highest confidence, ties broken by most recent
+            best = max(all_with_hash, key=lambda f: (f.confidence, f.created_at))
+            assert r.confidence == best.confidence
+            assert r.created_at == best.created_at
 
 
 class TestSupersessionChainResolution:

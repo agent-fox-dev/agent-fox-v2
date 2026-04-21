@@ -30,6 +30,31 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _filter_minimum_length(
+    facts: list[Any],
+    min_length: int = 50,
+) -> tuple[list[Any], int]:
+    """Remove facts with content shorter than min_length characters.
+
+    Called during ingestion (before storage) to enforce 113-REQ-5.2.
+    Also imported by ingest.py for the git extraction path.
+
+    Returns (passing_facts, filtered_count).
+
+    Requirements: 113-REQ-5.2
+    """
+    passing = [f for f in facts if len(f.content) >= min_length]
+    filtered_count = len(facts) - len(passing)
+    if filtered_count > 0:
+        logger.debug(
+            "Filtered %d facts shorter than %d characters",
+            filtered_count,
+            min_length,
+        )
+    return passing, filtered_count
+
+
 # Minimum transcript length to justify an LLM extraction call.
 # Transcripts shorter than this threshold (~500 tokens) are unlikely to
 # contain actionable learnings, and the per-call LLM overhead — typically
@@ -87,6 +112,13 @@ async def extract_and_store_knowledge(
 
     if not facts:
         # 52-REQ-4.2: Emit harvest.empty when non-empty input yields zero facts
+        if transcript:
+            _emit_harvest_empty(sink_dispatcher, run_id, node_id)
+        return
+
+    # 113-REQ-5.2: Filter out facts shorter than 50 characters before storage
+    facts, min_len_filtered = _filter_minimum_length(facts)
+    if not facts:
         if transcript:
             _emit_harvest_empty(sink_dispatcher, run_id, node_id)
         return

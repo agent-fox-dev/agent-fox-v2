@@ -22,6 +22,66 @@ if TYPE_CHECKING:
 logger = logging.getLogger("agent_fox.knowledge.agent_trace")
 
 
+def reconstruct_transcript(
+    audit_dir: Path,
+    run_id: str,
+    node_id: str,
+) -> str:
+    """Read the agent trace JSONL file and reconstruct the full conversation
+    transcript for a given node_id.
+
+    Filters events to event_type == 'assistant.message' and matching node_id.
+    Returns concatenated content strings separated by double newlines.
+    Returns empty string if the file does not exist or contains no matching
+    events.
+
+    Requirements: 113-REQ-1.1, 113-REQ-1.E1, 113-REQ-1.E2
+    """
+    jsonl_path = audit_dir / f"agent_{run_id}.jsonl"
+    if not jsonl_path.exists():
+        logger.warning(
+            "Agent trace file not found: %s, falling back to alternative transcript source",
+            jsonl_path,
+        )
+        return ""
+
+    messages: list[str] = []
+    try:
+        with open(jsonl_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if (
+                    event.get("event_type") == "assistant.message"
+                    and event.get("node_id") == node_id
+                ):
+                    content = event.get("content", "")
+                    if content:
+                        messages.append(content)
+    except OSError:
+        logger.warning(
+            "Failed to read agent trace file: %s",
+            jsonl_path,
+            exc_info=True,
+        )
+        return ""
+
+    if not messages:
+        logger.debug(
+            "No assistant messages found for node_id=%s in %s",
+            node_id,
+            jsonl_path,
+        )
+        return ""
+
+    return "\n\n".join(messages)
+
+
 def truncate_tool_input(
     tool_input: dict[str, Any],
     max_len: int = 10_000,

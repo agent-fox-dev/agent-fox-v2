@@ -343,7 +343,7 @@ class NodeSessionRunner:
             return None
         try:
             return json.loads(summary_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
+        except (json.JSONDecodeError, OSError, TypeError) as exc:
             logger.warning(
                 "Failed to read session summary from %s: %s",
                 summary_path,
@@ -566,10 +566,26 @@ class NodeSessionRunner:
     ) -> None:
         """Extract knowledge facts and review findings from session output.
 
-        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2
+        113-REQ-1.1: Reconstructs the full conversation transcript from the
+        agent trace JSONL events for the session's node_id and uses it as the
+        primary transcript source.
+        113-REQ-1.3: Continues to use session summary for the log message.
+        113-REQ-1.E1: Falls back to _build_fallback_input when trace is
+        unavailable.
+
+        Requirements: 05-REQ-1.1, 27-REQ-3.1, 52-REQ-1.1, 52-REQ-1.2,
+                      113-REQ-1.1, 113-REQ-1.2, 113-REQ-1.3, 113-REQ-1.E1,
+                      113-REQ-1.E2
         """
-        summary = self._read_session_artifacts(workspace)
-        transcript = (summary or {}).get("summary", "")
+        # 113-REQ-1.1: Reconstruct full transcript from agent trace JSONL
+        from agent_fox.core.paths import AUDIT_DIR
+        from agent_fox.knowledge.agent_trace import reconstruct_transcript
+
+        audit_dir = getattr(self, "_audit_dir", None) or AUDIT_DIR
+        transcript = reconstruct_transcript(audit_dir, self._run_id, node_id)
+
+        # 113-REQ-1.E1, 113-REQ-1.E2: Fall back to _build_fallback_input
+        # when trace is unavailable or has no assistant messages
         if not transcript:
             transcript = self._build_fallback_input(workspace, node_id)
         if not transcript:

@@ -144,7 +144,7 @@ class TestLifecycleUsesReconstructedTranscript:
             captured_transcript.append(transcript)
 
         with patch(
-            "agent_fox.engine.knowledge_harvest.extract_and_store_knowledge",
+            "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
             side_effect=fake_extract,
         ):
             # NodeSessionRunner setup is complex — test the transcript
@@ -213,7 +213,7 @@ def _make_minimal_runner(tmp_path: Path, node_id: str):
     """Create a NodeSessionRunner with minimal config for testing."""
     import duckdb
 
-    from agent_fox.core.config import KnowledgeConfig
+    from agent_fox.core.config import AgentFoxConfig
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.db import KnowledgeDB
     from agent_fox.knowledge.migrations import run_migrations
@@ -223,18 +223,20 @@ def _make_minimal_runner(tmp_path: Path, node_id: str):
     db = KnowledgeDB.__new__(KnowledgeDB)
     db._conn = conn
 
-    config = KnowledgeConfig(store_path=str(tmp_path / "knowledge.duckdb"))
+    config = AgentFoxConfig()
 
     runner = NodeSessionRunner.__new__(NodeSessionRunner)
     runner._node_id = node_id
     runner._spec_name = node_id.split(":")[0] if ":" in node_id else node_id
+    runner._task_group = int(node_id.split(":")[1]) if ":" in node_id else 1
     runner._run_id = "test-run"
     runner._audit_dir = tmp_path / ".agent-fox" / "audit"
     runner._audit_dir.mkdir(parents=True, exist_ok=True)
     runner._agent_fox_dir = tmp_path / ".agent-fox"
     runner._config = config
     runner._knowledge_db = db
-    runner._sink_dispatcher = None
+    runner._sink = None
     runner._embedder = None
-    runner._memory_extraction_model = "SIMPLE"
+    runner._archetype = "coder"
+    runner._mode = None
     return runner

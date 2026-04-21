@@ -237,7 +237,7 @@ class TestShortFactsRejectedAtTranscriptIngestion:
             return [short_fact_1, short_fact_2, long_fact]
 
         with patch(
-            "agent_fox.knowledge.extraction.extract_facts",
+            "agent_fox.engine.knowledge_harvest.extract_facts",
             side_effect=fake_extract_facts,
         ):
             await extract_and_store_knowledge(

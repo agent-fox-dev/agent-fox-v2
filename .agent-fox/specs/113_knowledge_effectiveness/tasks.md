@@ -68,8 +68,8 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - [x] All spec tests FAIL (red) — no implementation yet
     - [x] No linter warnings introduced: `uv run ruff check tests/`
 
-- [ ] 2. Transcript reconstruction + compaction improvements
-  - [ ] 2.1 Add `reconstruct_transcript` to `agent_trace.py`
+- [x] 2. Transcript reconstruction + compaction improvements
+  - [x] 2.1 Add `reconstruct_transcript` to `agent_trace.py`
     - Add module-level function `reconstruct_transcript(audit_dir, run_id,
       node_id) -> str` that reads `agent_{run_id}.jsonl`, filters
       `assistant.message` events matching `node_id`, and returns concatenated
@@ -79,7 +79,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-1.1, 113-REQ-1.E1, 113-REQ-1.E2_
     - _Test Spec: TS-1.1, TS-1.2, TS-1.3_
 
-  - [ ] 2.2 Modify `_extract_knowledge_and_findings` in `session_lifecycle.py`
+  - [x] 2.2 Modify `_extract_knowledge_and_findings` in `session_lifecycle.py`
     - Before falling back to session summary, call `reconstruct_transcript()`
       with the audit_dir, run_id, and node_id
     - If reconstructed transcript is non-empty and exceeds the minimum char
@@ -89,14 +89,14 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-1.1, 113-REQ-1.2, 113-REQ-1.3_
     - _Test Spec: TS-1.4, TS-1.5_
 
-  - [ ] 2.3 Add `_filter_minimum_length` to `compaction.py`
+  - [x] 2.3 Add `_filter_minimum_length` to `compaction.py`
     - Add function `_filter_minimum_length(facts, min_length=50)` that removes
       facts with `len(content) < min_length`
     - Returns `(surviving_facts, filtered_count)`
     - _Requirements: 113-REQ-5.2_
     - _Test Spec: TS-5.2_
 
-  - [ ] 2.4 Add `_substring_supersede` to `compaction.py`
+  - [x] 2.4 Add `_substring_supersede` to `compaction.py`
     - Add function that identifies facts whose content is a substring of
       another fact with equal or higher confidence
     - Mark the shorter fact as superseded by the longer
@@ -104,7 +104,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-5.1_
     - _Test Spec: TS-5.1_
 
-  - [ ] 2.5 Integrate new compaction steps into `compact()`
+  - [x] 2.5 Integrate new compaction steps into `compact()`
     - Add `_filter_minimum_length` call before existing `_deduplicate_by_content`
     - Add `_substring_supersede` call after content-hash dedup
     - Update confidence-aware dedup to keep higher confidence (ties broken by
@@ -113,11 +113,11 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-5.1, 113-REQ-5.2, 113-REQ-5.3, 113-REQ-5.E1_
     - _Test Spec: TS-5.3, TS-5.4, TS-5.5_
 
-  - [ ] 2.V Verify task group 2
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_transcript_reconstruction.py tests/unit/knowledge/test_compaction_improvements.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 113-REQ-1.*, 113-REQ-5.* acceptance criteria met
+  - [x] 2.V Verify task group 2
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_transcript_reconstruction.py tests/unit/knowledge/test_compaction_improvements.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 113-REQ-1.*, 113-REQ-5.* acceptance criteria met
 
 - [ ] 3. Entity signal, cold-start, git extraction, audit consumption
   - [ ] 3.1 Add `_query_prior_touched_files` to `NodeSessionRunner`
