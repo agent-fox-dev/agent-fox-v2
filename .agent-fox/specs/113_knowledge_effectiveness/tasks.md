@@ -119,8 +119,8 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
     - [x] Requirements 113-REQ-1.*, 113-REQ-5.* acceptance criteria met
 
-- [ ] 3. Entity signal, cold-start, git extraction, audit consumption
-  - [ ] 3.1 Add `_query_prior_touched_files` to `NodeSessionRunner`
+- [x] 3. Entity signal, cold-start, git extraction, audit consumption
+  - [x] 3.1 Add `_query_prior_touched_files` to `NodeSessionRunner`
     - Add method on `NodeSessionRunner` that queries `session_outcomes` for
       `touched_path` from prior completed sessions with the same `spec_name`
     - Split comma-delimited `touched_path` values, deduplicate, limit to 50
@@ -129,14 +129,14 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-3.1, 113-REQ-3.2, 113-REQ-3.E1_
     - _Test Spec: TS-3.1, TS-3.2, TS-3.3_
 
-  - [ ] 3.2 Wire touched files into `_build_prompts`
+  - [x] 3.2 Wire touched files into `_build_prompts`
     - In `_build_prompts`, call `_query_prior_touched_files(self._spec_name)`
       and pass the result to `retriever.retrieve(touched_files=...)` instead
       of the hardcoded `[]`
     - _Requirements: 113-REQ-3.1_
     - _Test Spec: TS-3.4_
 
-  - [ ] 3.3 Add cold-start detection to `AdaptiveRetriever.retrieve`
+  - [x] 3.3 Add cold-start detection to `AdaptiveRetriever.retrieve`
     - Add `_count_available_facts(spec_name, confidence_threshold)` method
       that runs `SELECT COUNT(*) FROM memory_facts WHERE (spec_name = ? OR
       confidence >= ?) AND supersedes IS NULL`
@@ -148,7 +148,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-6.1, 113-REQ-6.2, 113-REQ-6.E1_
     - _Test Spec: TS-6.1, TS-6.2, TS-6.3, TS-6.4_
 
-  - [ ] 3.4 Add LLM-powered git commit extraction
+  - [x] 3.4 Add LLM-powered git commit extraction
     - Add `GIT_EXTRACTION_PROMPT` constant to `extraction.py`
     - Add async method `_extract_git_facts_llm(batch, model_name)` to
       `KnowledgeIngestor` that calls the LLM with batched commit messages
@@ -162,7 +162,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
       113-REQ-2.E2_
     - _Test Spec: TS-2.1, TS-2.2, TS-2.3, TS-2.4, TS-2.5_
 
-  - [ ] 3.5 Add audit finding persistence to review pathway
+  - [x] 3.5 Add audit finding persistence to review pathway
     - In the audit-review persistence path (review_persistence.py), after
       `persist_auditor_results` writes the markdown report, also call
       `insert_findings(conn, findings)` with `category='audit'` for each
@@ -173,11 +173,11 @@ The `ingest_git_commits` method becomes async in group 3, so callers
     - _Requirements: 113-REQ-4.1, 113-REQ-4.3, 113-REQ-4.E1_
     - _Test Spec: TS-4.1, TS-4.3, TS-4.4_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_entity_signal_activation.py tests/unit/knowledge/test_cold_start.py tests/unit/knowledge/test_git_extraction.py tests/unit/knowledge/test_audit_consumption.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 113-REQ-2.*, 113-REQ-3.*, 113-REQ-4.1/4.3/4.E1,
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests pass: `uv run pytest -q tests/unit/knowledge/test_entity_signal_activation.py tests/unit/knowledge/test_cold_start.py tests/unit/knowledge/test_git_extraction.py tests/unit/knowledge/test_audit_consumption.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 113-REQ-2.*, 113-REQ-3.*, 113-REQ-4.1/4.3/4.E1,
       113-REQ-6.* acceptance criteria met
 
 - [ ] 4. Retrieval quality validation + audit prompt injection

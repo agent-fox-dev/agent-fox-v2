@@ -214,14 +214,14 @@ class TestBuildPromptsPassesTouchedFiles:
 
 def _make_runner_with_conn(conn: duckdb.DuckDBPyConnection):
     """Create a NodeSessionRunner with the given DB connection."""
-    from agent_fox.core.config import KnowledgeConfig
+    from agent_fox.core.config import AgentFoxConfig
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.db import KnowledgeDB
 
     db = KnowledgeDB.__new__(KnowledgeDB)
     db._conn = conn
 
-    config = KnowledgeConfig()
+    config = AgentFoxConfig()
 
     runner = NodeSessionRunner.__new__(NodeSessionRunner)
     runner._node_id = "05_foo:1"
@@ -232,4 +232,6 @@ def _make_runner_with_conn(conn: duckdb.DuckDBPyConnection):
     runner._sink_dispatcher = None
     runner._embedder = None
     runner._archetype = "coder"
+    runner._mode = None
+    runner._task_group = 2
     return runner

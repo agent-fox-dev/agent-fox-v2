@@ -261,13 +261,13 @@ def _build_coder_prompt(
     attempt: int,
 ) -> str:
     """Build a coder task prompt and return it as a string for assertion."""
-    from agent_fox.core.config import KnowledgeConfig
+    from agent_fox.core.config import AgentFoxConfig
     from agent_fox.engine.session_lifecycle import NodeSessionRunner
     from agent_fox.knowledge.db import KnowledgeDB
 
     db = KnowledgeDB.__new__(KnowledgeDB)
     db._conn = conn
-    config = KnowledgeConfig()
+    config = AgentFoxConfig()
 
     runner = NodeSessionRunner.__new__(NodeSessionRunner)
     runner._node_id = f"{spec_name}:1"
@@ -278,13 +278,18 @@ def _build_coder_prompt(
     runner._sink_dispatcher = None
     runner._embedder = None
     runner._archetype = "coder"
-    runner._task_group = "2"
+    runner._mode = None
+    runner._task_group = 2
     runner._agent_fox_dir = tmp_path / ".agent-fox"
 
-    # Create a minimal spec dir
+    # Create a minimal spec dir with required artifacts
     spec_dir = tmp_path / ".agent-fox" / "specs" / spec_name
     spec_dir.mkdir(parents=True, exist_ok=True)
     (spec_dir / "tasks.md").write_text("# Tasks\n\n- [ ] 2. Implement feature\n  - [ ] 2.1 Do thing\n")
+    (spec_dir / "prd.md").write_text(f"# {spec_name}\n\nMinimal spec for testing.\n")
+    (spec_dir / "requirements.md").write_text("# Requirements\n\nNone.\n")
+    (spec_dir / "design.md").write_text("# Design\n\nMinimal.\n")
+    (spec_dir / "test_spec.md").write_text("# Test Spec\n\nNone.\n")
 
     try:
         _sys, task = runner._build_prompts(tmp_path, attempt, None)

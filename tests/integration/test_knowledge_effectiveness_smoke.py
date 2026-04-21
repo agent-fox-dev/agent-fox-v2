@@ -57,7 +57,7 @@ async def test_smoke_path1_transcript_extraction(
             "event_type": "assistant.message",
             "run_id": run_id,
             "node_id": node_id,
-            "content": f"This is assistant message {i} with substantial content: " + "X" * 200,
+            "content": f"This is assistant message {i} with substantial content: " + "X" * 500,
         }
         for i in range(5)
     ]
@@ -96,7 +96,7 @@ async def test_smoke_path1_transcript_extraction(
         from agent_fox.knowledge.extraction import _parse_extraction_response
         return _parse_extraction_response(llm_response, spec)
 
-    with patch("agent_fox.knowledge.extraction.extract_facts", side_effect=fake_extract):
+    with patch("agent_fox.engine.knowledge_harvest.extract_facts", side_effect=fake_extract):
         await extract_and_store_knowledge(transcript, "05_foo", node_id, "SIMPLE", db)
 
     # Verify fact was stored

@@ -96,6 +96,28 @@ async def extract_facts(
     return facts
 
 
+GIT_EXTRACTION_PROMPT = """Analyze the following batch of git commit messages
+from a software project. Extract structured knowledge — decisions, patterns,
+gotchas, and conventions — that would help a future developer working on
+this codebase.
+
+For each piece of knowledge, provide:
+- content: A clear, standalone statement of the knowledge
+- category: One of "decision", "pattern", "gotcha", "convention"
+- confidence: "high", "medium", or "low"
+- keywords: 2-5 relevant terms
+
+Ignore boilerplate commits (version bumps, merge commits, trivial formatting).
+Only extract knowledge that reveals intent, trade-offs, or non-obvious behavior.
+
+Return a JSON array of objects. Return an empty array [] if no knowledge
+can be extracted.
+
+Commit messages:
+{commits}
+"""
+
+
 CAUSAL_EXTRACTION_ADDENDUM = """
 ## Causal Relationships
 

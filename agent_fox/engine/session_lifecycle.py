@@ -265,11 +265,13 @@ class NodeSessionRunner:
             task_description = "\n".join(descriptions) if descriptions else self._spec_name
 
             node_status = "retry" if attempt > 1 else "fresh"
+            # 113-REQ-3.1: Query prior touched files for entity signal
+            prior_touched = self._query_prior_touched_files(self._spec_name)
             result = retriever.retrieve(
                 spec_name=self._spec_name,
                 archetype=self._archetype,
                 node_status=node_status,
-                touched_files=[],
+                touched_files=prior_touched,
                 task_description=task_description,
                 confidence_threshold=self._config.knowledge.confidence_threshold,
             )
@@ -319,9 +321,10 @@ class NodeSessionRunner:
                 f"Please address this error.\n"
             )
 
-        # 53-REQ-5.1: Inject active critical/major review findings for coder
-        # retries so the coder can address identified issues.
-        if self._archetype == "coder" and attempt > 1:
+        # 53-REQ-5.1, 113-REQ-4.2: Inject active critical/major review
+        # findings (including audit findings) for all coder attempts so the
+        # coder can address identified issues.
+        if self._archetype == "coder":
             retry_context = self._build_retry_context(self._spec_name)
             if retry_context:
                 task_prompt = f"{retry_context}\n\n{task_prompt}"
@@ -801,6 +804,56 @@ class NodeSessionRunner:
             mode=self._mode,
             specs_dir=resolve_spec_root(self._config, Path.cwd()),
         )
+
+    def _query_prior_touched_files(self, spec_name: str) -> list[str]:
+        """Query session_outcomes for touched_path values from prior completed
+        sessions with the same spec_name.
+
+        Returns a deduplicated list of file paths, limited to the 50 most
+        recently touched (by session created_at). Returns empty list if no
+        prior sessions exist.
+
+        Requirements: 113-REQ-3.1, 113-REQ-3.2, 113-REQ-3.E1
+        """
+        try:
+            conn = self._knowledge_db.connection
+            rows = conn.execute(
+                """
+                SELECT touched_path, created_at
+                FROM session_outcomes
+                WHERE spec_name = ?
+                  AND status = 'completed'
+                  AND touched_path IS NOT NULL
+                ORDER BY created_at DESC
+                """,
+                [spec_name],
+            ).fetchall()
+        except Exception:
+            logger.warning(
+                "Failed to query prior touched files for %s",
+                spec_name,
+                exc_info=True,
+            )
+            return []
+
+        if not rows:
+            return []
+
+        # Collect paths in order of most-recently-touched sessions,
+        # deduplicating as we go, up to 50 paths.
+        seen: set[str] = set()
+        result: list[str] = []
+        for touched_path, _created_at in rows:
+            if not touched_path:
+                continue
+            for path in touched_path.split(","):
+                path = path.strip()
+                if path and path not in seen:
+                    seen.add(path)
+                    result.append(path)
+                    if len(result) >= 50:
+                        return result
+        return result
 
     def _build_retry_context(self, spec_name: str) -> str:
         """Query active critical/major findings for the spec and format them.

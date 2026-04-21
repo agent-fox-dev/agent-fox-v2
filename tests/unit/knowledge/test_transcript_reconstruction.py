@@ -184,7 +184,7 @@ class TestLifecycleUsesReconstructedTranscript:
 
         with (
             patch(
-                "agent_fox.engine.knowledge_harvest.extract_and_store_knowledge",
+                "agent_fox.engine.session_lifecycle.extract_and_store_knowledge",
                 side_effect=fake_extract,
             ),
             patch(

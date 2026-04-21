@@ -64,6 +64,8 @@ class RetrievalResult:
     signal_counts: dict[str, int] = field(default_factory=dict)
     sleep_hit: bool = False
     sleep_artifact_count: int = 0
+    cold_start: bool = False  # 113-REQ-6.2
+    token_budget_used: int = 0  # 113-REQ-7.1
 
 
 @dataclass(frozen=True)
@@ -763,6 +765,28 @@ def _load_context_preamble(
 # ---------------------------------------------------------------------------
 
 
+class _ConnectionProxy:
+    """Lightweight proxy around a DuckDB connection.
+
+    DuckDB's C extension makes ``execute`` a read-only slot, which
+    prevents ``unittest.mock.patch.object`` from replacing it during
+    tests.  This proxy delegates all attribute access to the underlying
+    connection but lives in pure Python, so its attributes *can* be
+    patched.
+
+    Requirements: 113-REQ-6.E1 (testability of _count_available_facts)
+    """
+
+    def __init__(self, conn: duckdb.DuckDBPyConnection) -> None:
+        object.__setattr__(self, "_conn", conn)
+
+    def execute(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        return self._conn.execute(*args, **kwargs)
+
+    def __getattr__(self, name: str):  # noqa: ANN204
+        return getattr(self._conn, name)
+
+
 class AdaptiveRetriever:
     """Unified retriever fusing four signals via weighted RRF.
 
@@ -780,13 +804,49 @@ class AdaptiveRetriever:
         config: RetrievalConfig | KnowledgeConfig,
         embedder=None,
     ) -> None:
-        self._conn = conn
+        self._conn = _ConnectionProxy(conn)
         # Accept either RetrievalConfig or KnowledgeConfig; unwrap if needed.
         if hasattr(config, "retrieval"):
             self._config: RetrievalConfig = config.retrieval  # type: ignore[union-attr]
         else:
             self._config = config  # type: ignore[assignment]
         self._embedder = embedder
+        # Optional attributes set by callers for audit event emission
+        self._sink_dispatcher = None
+        self._node_id: str | None = None
+
+    def _count_available_facts(
+        self,
+        spec_name: str,
+        confidence_threshold: float,
+    ) -> int | None:
+        """Count non-superseded facts matching spec_name or exceeding confidence
+        threshold.
+
+        Returns None on database error so the caller can distinguish failure
+        from a genuine zero count and proceed with normal retrieval per
+        113-REQ-6.E1.
+
+        Requirements: 113-REQ-6.1, 113-REQ-6.E1
+        """
+        try:
+            row = self._conn.execute(
+                """
+                SELECT COUNT(*)
+                FROM memory_facts
+                WHERE (spec_name = ? OR confidence >= ?)
+                  AND superseded_by IS NULL
+                """,
+                [spec_name, confidence_threshold],
+            ).fetchone()
+            return row[0] if row else 0
+        except Exception:
+            logger.warning(
+                "Cold-start count query failed for spec %s, proceeding with normal retrieval",
+                spec_name,
+                exc_info=True,
+            )
+            return None
 
     def retrieve(
         self,
@@ -812,6 +872,34 @@ class AdaptiveRetriever:
         """
         # Derive intent profile
         profile = derive_intent_profile(archetype, node_status)
+
+        # 113-REQ-6.1, 113-REQ-6.2: Cold-start detection — skip all signals
+        # if no facts exist for this spec or exceed the confidence threshold.
+        try:
+            fact_count = self._count_available_facts(spec_name, confidence_threshold)
+        except Exception:
+            # 113-REQ-6.E1: On exception, proceed with normal retrieval
+            fact_count = None
+            logger.warning(
+                "Cold-start count query raised, proceeding with normal retrieval",
+                exc_info=True,
+            )
+
+        if fact_count is not None and fact_count == 0:
+            logger.debug(
+                "Skipping retrieval: no facts available (cold start) for spec %s",
+                spec_name,
+            )
+            return RetrievalResult(
+                context="",
+                intent_profile=profile,
+                anchor_count=0,
+                signal_counts={},
+                cold_start=True,
+            )
+        elif fact_count is None:
+            # 113-REQ-6.E1: count query failed, proceed with normal retrieval
+            pass
 
         signal_lists: dict[str, list[ScoredFact]] = {}
         sleep_hit = False
@@ -903,6 +991,18 @@ class AdaptiveRetriever:
             context = combined[: self._config.token_budget]
 
         signal_counts = {name: len(lst) for name, lst in signal_lists.items()}
+        token_budget_used = len(context)
+
+        # 113-REQ-7.1: Emit knowledge.retrieval audit event for non-empty
+        # retrievals. Wrap in try/except per 113-REQ-7.E1.
+        if anchors:
+            self._emit_retrieval_event(
+                spec_name=spec_name,
+                facts_returned=len(anchors),
+                signals_active=[name for name, lst in signal_lists.items() if lst],
+                cold_start=False,
+                token_budget_used=token_budget_used,
+            )
 
         return RetrievalResult(
             context=context,
@@ -911,4 +1011,45 @@ class AdaptiveRetriever:
             signal_counts=signal_counts,
             sleep_hit=sleep_hit,
             sleep_artifact_count=sleep_artifact_count,
+            cold_start=False,
+            token_budget_used=token_budget_used,
         )
+
+    def _emit_retrieval_event(
+        self,
+        *,
+        spec_name: str,
+        facts_returned: int,
+        signals_active: list[str],
+        cold_start: bool,
+        token_budget_used: int,
+    ) -> None:
+        """Emit a knowledge.retrieval audit event (best-effort).
+
+        Requirements: 113-REQ-7.1, 113-REQ-7.E1
+        """
+        if self._sink_dispatcher is None:
+            return
+        try:
+            from agent_fox.knowledge.audit import AuditEvent, AuditEventType
+
+            event = AuditEvent(
+                run_id="",
+                event_type=AuditEventType.KNOWLEDGE_RETRIEVAL,
+                node_id=self._node_id or "",
+                payload={
+                    "spec_name": spec_name,
+                    "node_id": self._node_id or "",
+                    "facts_returned": facts_returned,
+                    "signals_active": signals_active,
+                    "cold_start": cold_start,
+                    "token_budget_used": token_budget_used,
+                },
+            )
+            self._sink_dispatcher.emit_audit_event(event)
+        except Exception:
+            logger.warning(
+                "Failed to emit knowledge.retrieval audit event for spec %s",
+                spec_name,
+                exc_info=True,
+            )

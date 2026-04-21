@@ -371,7 +371,13 @@ def persist_review_findings(
                 from agent_fox.core.config import AgentFoxConfig, resolve_spec_root
 
                 spec_dir = resolve_spec_root(AgentFoxConfig(), Path.cwd()) / spec_name
-            persist_auditor_results(spec_dir, audit_result, attempt=attempt, project_root=Path.cwd())
+            persist_auditor_results(
+                spec_dir,
+                audit_result,
+                attempt=attempt,
+                project_root=Path.cwd(),
+                conn=knowledge_db_conn,
+            )
 
     except Exception:
         logger.warning(

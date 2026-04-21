@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 import uuid
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -301,12 +301,21 @@ _VERDICT_SEVERITY: dict[str, int] = {
 
 @dataclass(frozen=True)
 class AuditEntry:
-    """A single TS entry audit result."""
+    """A single TS entry audit result.
 
-    ts_entry: str
-    test_functions: list[str]
-    verdict: str  # PASS | WEAK | MISSING | MISALIGNED
+    Supports two construction patterns:
+    - Original: AuditEntry(ts_entry="TS-1", test_functions=[], verdict="PASS")
+    - Audit finding: AuditEntry(severity="critical", description="...")
+      where ts_entry/test_functions/verdict default to empty/blank values.
+    """
+
+    ts_entry: str = ""
+    test_functions: list[str] = field(default_factory=list)
+    verdict: str = ""  # PASS | WEAK | MISSING | MISALIGNED
     notes: str | None = None
+    # 113-REQ-4.1: Additional fields for audit finding persistence
+    severity: str = ""
+    description: str = ""
 
 
 @dataclass(frozen=True)

@@ -7,8 +7,9 @@ Requirements: 12-REQ-4.1, 12-REQ-4.2, 12-REQ-4.3
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import duckdb
 
@@ -108,76 +109,176 @@ class TestIngestGitCommits:
     Requirements: 12-REQ-4.2, 12-REQ-4.3
     """
 
-    def test_creates_git_facts(
+    async def test_creates_git_facts(
         self,
         tmp_path: Path,
         schema_conn: duckdb.DuckDBPyConnection,
         mock_embedder: MagicMock,
     ) -> None:
-        """Verify ingesting git commits creates facts with category='git'."""
+        """Verify ingesting git commits creates facts with category='git'.
+
+        Post-113: ingest_git_commits is async and uses LLM extraction.
+        We mock the LLM call to return structured facts.
+        """
         mock_git_result = _mock_git_log_output(
             [
-                ("abc1234", "2025-11-01T10:00:00", "feat: add user authentication"),
-                ("def5678", "2025-11-02T11:00:00", "fix: correct password hashing"),
-                ("ghi9012", "2025-11-03T12:00:00", "refactor: clean up auth module"),
+                ("abc1234", "2025-11-01T10:00:00",
+                 "feat: add user authentication with JWT tokens"),
+                ("def5678", "2025-11-02T11:00:00",
+                 "fix: correct password hashing to use bcrypt"),
+                ("ghi9012", "2025-11-03T12:00:00",
+                 "refactor: clean up auth module and extract helpers"),
             ]
         )
 
+        # Mock LLM to return 3 facts (one per commit-like extraction)
+        mock_llm_facts = [
+            {
+                "content": "JWT tokens are used for user authentication"
+                " with session management support",
+                "category": "decision",
+                "confidence": "high",
+                "keywords": ["jwt", "auth"],
+            },
+            {
+                "content": "Bcrypt is preferred over md5 for password"
+                " hashing due to security considerations",
+                "category": "decision",
+                "confidence": "high",
+                "keywords": ["bcrypt", "security"],
+            },
+            {
+                "content": "Auth module helper functions should be"
+                " extracted for clarity and reusability",
+                "category": "pattern",
+                "confidence": "medium",
+                "keywords": ["auth", "refactor"],
+            },
+        ]
+
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
-        with patch(
-            "agent_fox.knowledge.ingest.subprocess.run",
-            return_value=mock_git_result,
+        llm_resp = (json.dumps(mock_llm_facts), None)
+        with (
+            patch(
+                "agent_fox.knowledge.ingest.subprocess.run",
+                return_value=mock_git_result,
+            ),
+            patch(
+                "agent_fox.core.client.ai_call",
+                new_callable=AsyncMock,
+                return_value=llm_resp,
+            ),
         ):
-            result = ingestor.ingest_git_commits(limit=10)
+            result = await ingestor.ingest_git_commits(limit=10)
 
         assert result.facts_added == 3
         assert result.source_type == "git"
 
-    def test_git_facts_have_commit_sha(
+    async def test_git_facts_have_commit_sha(
         self,
         tmp_path: Path,
         schema_conn: duckdb.DuckDBPyConnection,
         mock_embedder: MagicMock,
     ) -> None:
-        """Verify each git fact has commit_sha populated."""
+        """Verify each git fact has commit_sha populated.
+
+        Post-113: ingest_git_commits is async and uses LLM extraction.
+        """
         mock_git_result = _mock_git_log_output(
             [
-                ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
-                ("def5678", "2025-11-02T11:00:00", "fix: fix bug"),
-                ("ghi9012", "2025-11-03T12:00:00", "refactor: cleanup"),
+                ("abc1234", "2025-11-01T10:00:00",
+                 "feat: add feature with comprehensive implementation"),
+                ("def5678", "2025-11-02T11:00:00",
+                 "fix: fix bug in the authentication pipeline"),
+                ("ghi9012", "2025-11-03T12:00:00",
+                 "refactor: cleanup of the database module"),
             ]
         )
 
+        mock_llm_facts = [
+            {
+                "content": "Feature implementation should include"
+                " comprehensive documentation for maintainability",
+                "category": "convention",
+                "confidence": "high",
+                "keywords": ["docs"],
+            },
+            {
+                "content": "Authentication pipeline requires special"
+                " attention to edge cases in error handling",
+                "category": "gotcha",
+                "confidence": "medium",
+                "keywords": ["auth"],
+            },
+            {
+                "content": "Database module refactoring improves"
+                " maintainability through separation of concerns",
+                "category": "pattern",
+                "confidence": "high",
+                "keywords": ["database"],
+            },
+        ]
+
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
-        with patch(
-            "agent_fox.knowledge.ingest.subprocess.run",
-            return_value=mock_git_result,
+        llm_resp = (json.dumps(mock_llm_facts), None)
+        with (
+            patch(
+                "agent_fox.knowledge.ingest.subprocess.run",
+                return_value=mock_git_result,
+            ),
+            patch(
+                "agent_fox.core.client.ai_call",
+                new_callable=AsyncMock,
+                return_value=llm_resp,
+            ),
         ):
-            ingestor.ingest_git_commits(limit=10)
+            await ingestor.ingest_git_commits(limit=10)
 
         rows = schema_conn.execute("SELECT commit_sha FROM memory_facts WHERE category = 'git'").fetchall()
         assert len(rows) == 3
         assert all(row[0] is not None for row in rows)
 
-    def test_git_facts_have_category(
+    async def test_git_facts_have_category(
         self,
         tmp_path: Path,
         schema_conn: duckdb.DuckDBPyConnection,
         mock_embedder: MagicMock,
     ) -> None:
-        """Verify git facts have category='git'."""
+        """Verify git facts have category='git'.
+
+        Post-113: ingest_git_commits is async and uses LLM extraction.
+        """
         mock_git_result = _mock_git_log_output(
             [
-                ("abc1234", "2025-11-01T10:00:00", "feat: add feature"),
+                ("abc1234", "2025-11-01T10:00:00",
+                 "feat: add feature with comprehensive details"),
             ]
         )
 
+        mock_llm_facts = [
+            {
+                "content": "Feature implementation requires comprehensive"
+                " details for proper code review and maintenance",
+                "category": "convention",
+                "confidence": "high",
+                "keywords": ["feature"],
+            },
+        ]
+
         ingestor = KnowledgeIngestor(schema_conn, mock_embedder, tmp_path)
-        with patch(
-            "agent_fox.knowledge.ingest.subprocess.run",
-            return_value=mock_git_result,
+        llm_resp = (json.dumps(mock_llm_facts), None)
+        with (
+            patch(
+                "agent_fox.knowledge.ingest.subprocess.run",
+                return_value=mock_git_result,
+            ),
+            patch(
+                "agent_fox.core.client.ai_call",
+                new_callable=AsyncMock,
+                return_value=llm_resp,
+            ),
         ):
-            ingestor.ingest_git_commits(limit=10)
+            await ingestor.ingest_git_commits(limit=10)
 
         rows = schema_conn.execute("SELECT category FROM memory_facts WHERE category = 'git'").fetchall()
         assert len(rows) == 1
