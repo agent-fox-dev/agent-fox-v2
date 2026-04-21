@@ -690,6 +690,12 @@ class NodeSessionRunner:
                     "prompt_template": self._archetype,
                     "error_message": error_message or "Unknown error",
                     "attempt": attempt,
+                    "input_tokens": outcome.input_tokens,
+                    "output_tokens": outcome.output_tokens,
+                    "cache_read_input_tokens": outcome.cache_read_input_tokens,
+                    "cache_creation_input_tokens": outcome.cache_creation_input_tokens,
+                    "cost": cost,
+                    "duration_ms": outcome.duration_ms,
                 },
             )
 
