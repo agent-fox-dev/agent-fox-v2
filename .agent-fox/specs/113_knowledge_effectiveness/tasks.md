@@ -233,8 +233,8 @@ The `ingest_git_commits` method becomes async in group 3, so callers
 
   - [x] 5.3 Update `docs/memory.md` with implementation notes
 
-- [ ] 6. Wiring verification
-  - [ ] 6.1 Trace every execution path from design.md end-to-end
+- [x] 6. Wiring verification
+  - [x] 6.1 Trace every execution path from design.md end-to-end
     - For each of the 7 paths, verify the entry point actually calls the next
       function in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`,
@@ -243,7 +243,7 @@ The `ingest_git_commits` method becomes async in group 3, so callers
       satisfy this check
     - _Requirements: all_
 
-  - [ ] 6.2 Verify return values propagate correctly
+  - [x] 6.2 Verify return values propagate correctly
     - For every function in this spec that returns data consumed by a caller,
       confirm the caller receives and uses the return value
     - Key returns: `reconstruct_transcript` -> `_extract_knowledge_and_findings`,
@@ -252,18 +252,18 @@ The `ingest_git_commits` method becomes async in group 3, so callers
       `ingest_git_commits`, `_substring_supersede` -> `compact`
     - _Requirements: all_
 
-  - [ ] 6.3 Run the integration smoke tests
+  - [x] 6.3 Run the integration smoke tests
     - All smoke tests pass using real components (no stub bypass)
     - _Test Spec: smoke tests for Paths 1-7_
 
-  - [ ] 6.4 Stub / dead-code audit
+  - [x] 6.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None`
       on non-Optional returns, `pass` in non-abstract methods, `# TODO`,
       `# stub`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it
       is intentional, or (b) replaced with a real implementation
 
-  - [ ] 6.5 Cross-spec entry point verification
+  - [x] 6.5 Cross-spec entry point verification
     - Verify that `reconstruct_transcript` is called from
       `_extract_knowledge_and_findings` (session_lifecycle.py)
     - Verify that `_query_prior_touched_files` is called from `_build_prompts`
@@ -273,12 +273,12 @@ The `ingest_git_commits` method becomes async in group 3, so callers
       `insert_findings` to `query_active_findings` to `_build_prompts`
     - _Requirements: all_
 
-  - [ ] 6.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `uv run pytest -q`
+  - [x] 6.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `uv run pytest -q`
 
 ## Traceability
 
