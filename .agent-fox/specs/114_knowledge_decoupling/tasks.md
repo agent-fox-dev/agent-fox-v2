@@ -30,22 +30,22 @@ each group), and group 7 verifies everything end-to-end.
 
 ## Tasks
 
-- [ ] 1. Write failing spec tests
-  - [ ] 1.1 Create protocol unit tests
+- [x] 1. Write failing spec tests
+  - [x] 1.1 Create protocol unit tests
     - Create `tests/unit/knowledge/test_provider.py`
     - Tests for `KnowledgeProvider` protocol definition (TS-114-1 through TS-114-4)
     - Tests for `NoOpKnowledgeProvider` (TS-114-5 through TS-114-7)
     - Edge case tests for partial protocol (TS-114-E1) and NoOp robustness (TS-114-E2)
     - _Test Spec: TS-114-1, TS-114-2, TS-114-3, TS-114-4, TS-114-5, TS-114-6, TS-114-7, TS-114-E1, TS-114-E2_
 
-  - [ ] 1.2 Create engine integration tests
+  - [x] 1.2 Create engine integration tests
     - Create `tests/unit/knowledge/test_decoupling.py`
     - Tests for engine default provider (TS-114-8)
     - Tests for retrieve/ingest call flow (TS-114-9, TS-114-11, TS-114-12)
     - Tests for retrieve/ingest failure resilience (TS-114-E3, TS-114-E4)
     - _Test Spec: TS-114-8, TS-114-9, TS-114-11, TS-114-12, TS-114-E3, TS-114-E4_
 
-  - [ ] 1.3 Create import isolation and deletion tests
+  - [x] 1.3 Create import isolation and deletion tests
     - Create `tests/unit/engine/test_engine_import_isolation.py`
     - Tests for engine import isolation (TS-114-10, TS-114-13, TS-114-15)
     - Tests for nightshift import isolation (TS-114-17 through TS-114-20)
@@ -57,22 +57,22 @@ each group), and group 7 verifies everything end-to-end.
     - Edge case tests (TS-114-E5 through TS-114-E8)
     - _Test Spec: TS-114-10, TS-114-13, TS-114-14, TS-114-15, TS-114-17, TS-114-18, TS-114-19, TS-114-20, TS-114-21, TS-114-22, TS-114-23, TS-114-24, TS-114-25, TS-114-26, TS-114-27, TS-114-28, TS-114-29, TS-114-30, TS-114-31, TS-114-32, TS-114-33, TS-114-34, TS-114-38, TS-114-E5, TS-114-E6, TS-114-E7, TS-114-E8_
 
-  - [ ] 1.4 Create property tests
+  - [x] 1.4 Create property tests
     - Create `tests/property/knowledge/test_knowledge_provider_props.py`
     - Property tests for protocol conformance (TS-114-P1)
     - Property tests for NoOp behavior (TS-114-P2, TS-114-P3)
     - Property tests for config backward compatibility (TS-114-P7)
     - _Test Spec: TS-114-P1, TS-114-P2, TS-114-P3, TS-114-P7_
 
-  - [ ] 1.5 Create smoke tests
+  - [x] 1.5 Create smoke tests
     - Create `tests/integration/knowledge/test_decoupling_smoke.py`
     - Smoke tests for all 5 execution paths (TS-114-SMOKE-1 through TS-114-SMOKE-5)
     - _Test Spec: TS-114-SMOKE-1, TS-114-SMOKE-2, TS-114-SMOKE-3, TS-114-SMOKE-4, TS-114-SMOKE-5_
 
-  - [ ] 1.V Verify task group 1
-    - [ ] All spec tests exist and are syntactically valid
-    - [ ] All spec tests FAIL (red) — no implementation yet
-    - [ ] No linter warnings introduced: `uv run ruff check tests/`
+  - [x] 1.V Verify task group 1
+    - [x] All spec tests exist and are syntactically valid
+    - [x] All spec tests FAIL (red) — no implementation yet
+    - [x] No linter warnings introduced: `uv run ruff check tests/`
 
 - [ ] 2. Define KnowledgeProvider protocol and NoOpKnowledgeProvider
   - [ ] 2.1 Create `agent_fox/knowledge/provider.py`

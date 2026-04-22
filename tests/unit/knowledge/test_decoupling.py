@@ -1,0 +1,315 @@
+"""Engine integration tests for knowledge system decoupling.
+
+Test Spec: TS-114-8, TS-114-9, TS-114-11, TS-114-12, TS-114-E3, TS-114-E4
+Requirements: 114-REQ-2.4, 114-REQ-3.1, 114-REQ-3.3, 114-REQ-3.E1,
+              114-REQ-4.1, 114-REQ-4.E1
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pytest
+from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
+
+# ---------------------------------------------------------------------------
+# Mock KnowledgeProvider for tests
+# ---------------------------------------------------------------------------
+
+
+class MockKnowledgeProvider:
+    """Mock provider that tracks calls for test assertions."""
+
+    def __init__(self, retrieve_returns: list[str] | None = None) -> None:
+        self.retrieve_called = False
+        self.retrieve_args: tuple[str, str] | None = None
+        self.retrieve_returns = retrieve_returns or []
+        self.ingest_call_count = 0
+        self.ingest_last_context: dict[str, Any] | None = None
+        self.ingest_last_session_id: str | None = None
+        self.ingest_last_spec_name: str | None = None
+
+    def ingest(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None:
+        self.ingest_call_count += 1
+        self.ingest_last_session_id = session_id
+        self.ingest_last_spec_name = spec_name
+        self.ingest_last_context = context
+
+    def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+        self.retrieve_called = True
+        self.retrieve_args = (spec_name, task_description)
+        return self.retrieve_returns
+
+
+# ---------------------------------------------------------------------------
+# TS-114-8: Engine Uses NoOp as Default Provider
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultProvider:
+    """Verify engine infrastructure setup creates a NoOpKnowledgeProvider.
+
+    Requirements: 114-REQ-2.4
+    """
+
+    def test_setup_infrastructure_returns_noop_provider(self) -> None:
+        """_setup_infrastructure creates a NoOpKnowledgeProvider when no
+        other provider is configured."""
+        from agent_fox.engine.run import _setup_infrastructure
+
+        # Patch heavy dependencies to avoid real DB/sink creation
+        with (
+            patch("agent_fox.engine.run.open_knowledge_store") as mock_store,
+            patch("agent_fox.engine.run.DuckDBSink"),
+            patch("agent_fox.engine.run.SinkDispatcher"),
+            patch("agent_fox.knowledge.agent_trace.AgentTraceSink"),
+        ):
+            mock_db = MagicMock()
+            mock_db.connection = MagicMock()
+            mock_store.return_value = mock_db
+
+            mock_config = MagicMock()
+            mock_config.knowledge = MagicMock()
+            mock_config.knowledge.store_path = ":memory:"
+
+            infra = _setup_infrastructure(mock_config)
+
+        assert "knowledge_provider" in infra
+        assert isinstance(infra["knowledge_provider"], KnowledgeProvider)
+        assert isinstance(infra["knowledge_provider"], NoOpKnowledgeProvider)
+
+
+# ---------------------------------------------------------------------------
+# TS-114-9: Engine Calls retrieve() Pre-Session
+# ---------------------------------------------------------------------------
+
+
+class TestRetrieveCalled:
+    """Verify _build_prompts calls knowledge_provider.retrieve().
+
+    Requirements: 114-REQ-3.1
+    """
+
+    def test_retrieve_called_during_prompt_assembly(self) -> None:
+        """_build_prompts calls provider.retrieve() with (spec_name, task_description)."""
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_provider = MockKnowledgeProvider(retrieve_returns=["fact block 1"])
+
+        # Create runner with mock provider instead of embedder
+        mock_config = MagicMock()
+        mock_config.knowledge = MagicMock()
+        mock_config.models = MagicMock()
+        mock_config.orchestrator = MagicMock()
+        mock_db = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec_01:1",
+            mock_config,
+            knowledge_db=mock_db,
+            knowledge_provider=mock_provider,
+            sink_dispatcher=MagicMock(),
+        )
+
+        with (
+            patch.object(runner, "_build_prompts") as mock_build,
+        ):
+            # Simulate calling _build_prompts
+            mock_build.return_value = ("system", "task")
+            runner._build_prompts("/tmp/repo", 1, None)
+
+        assert mock_provider.retrieve_called
+        assert mock_provider.retrieve_args is not None
+        assert mock_provider.retrieve_args[0] == "spec_01"
+
+
+# ---------------------------------------------------------------------------
+# TS-114-11: Empty Retrieve Means No Knowledge Context
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyRetrieve:
+    """Verify engine proceeds without knowledge context when provider returns [].
+
+    Requirements: 114-REQ-3.3
+    """
+
+    def test_empty_retrieve_produces_valid_prompts(self) -> None:
+        """When provider.retrieve() returns [], session proceeds without crash."""
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_config = MagicMock()
+        mock_config.knowledge = MagicMock()
+        mock_config.models = MagicMock()
+        mock_config.orchestrator = MagicMock()
+        mock_db = MagicMock()
+
+        noop = NoOpKnowledgeProvider()
+        runner = NodeSessionRunner(
+            "spec_01:1",
+            mock_config,
+            knowledge_db=mock_db,
+            knowledge_provider=noop,
+            sink_dispatcher=MagicMock(),
+        )
+
+        # Mock the prompt assembly functions to isolate provider behavior
+        with (
+            patch("agent_fox.engine.session_lifecycle.assemble_context", return_value=MagicMock()),
+            patch("agent_fox.engine.session_lifecycle.build_system_prompt", return_value="sys"),
+            patch("agent_fox.engine.session_lifecycle.build_task_prompt", return_value="task"),
+            patch("agent_fox.core.config.resolve_spec_root", return_value=MagicMock()),
+        ):
+            sys_prompt, task_prompt = runner._build_prompts("/tmp/repo", 1, None)
+
+        assert isinstance(sys_prompt, str)
+        assert len(sys_prompt) > 0
+
+
+# ---------------------------------------------------------------------------
+# TS-114-12: Engine Calls ingest() Post-Session
+# ---------------------------------------------------------------------------
+
+
+class TestIngestCalled:
+    """Verify _ingest_knowledge calls provider.ingest() once with correct args.
+
+    Requirements: 114-REQ-4.1
+    """
+
+    def test_ingest_called_with_correct_context(self) -> None:
+        """_ingest_knowledge calls provider.ingest() with session metadata."""
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_provider = MockKnowledgeProvider()
+        mock_config = MagicMock()
+        mock_config.knowledge = MagicMock()
+        mock_config.models = MagicMock()
+        mock_config.orchestrator = MagicMock()
+        mock_db = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec_01:1",
+            mock_config,
+            knowledge_db=mock_db,
+            knowledge_provider=mock_provider,
+            sink_dispatcher=MagicMock(),
+        )
+
+        runner._ingest_knowledge(
+            "spec_01:1",
+            ["src/foo.py"],
+            "abc123",
+            "completed",
+        )
+
+        assert mock_provider.ingest_call_count == 1
+        ctx = mock_provider.ingest_last_context
+        assert ctx is not None
+        assert "touched_files" in ctx
+        assert "commit_sha" in ctx
+        assert "session_status" in ctx
+
+
+# ---------------------------------------------------------------------------
+# TS-114-E3: Retrieve Exception Handled Gracefully
+# ---------------------------------------------------------------------------
+
+
+class TestRetrieveException:
+    """Verify engine handles retrieve() exceptions gracefully.
+
+    Requirements: 114-REQ-3.E1
+    """
+
+    def test_retrieve_failure_logs_warning_and_proceeds(self, caplog: pytest.LogCaptureFixture) -> None:
+        """When retrieve() raises, engine logs WARNING and uses empty context."""
+
+        class FailingProvider:
+            def ingest(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None:
+                pass
+
+            def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+                raise RuntimeError("broken")
+
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        mock_config = MagicMock()
+        mock_config.knowledge = MagicMock()
+        mock_config.models = MagicMock()
+        mock_config.orchestrator = MagicMock()
+        mock_db = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec_01:1",
+            mock_config,
+            knowledge_db=mock_db,
+            knowledge_provider=FailingProvider(),
+            sink_dispatcher=MagicMock(),
+        )
+
+        with (
+            patch("agent_fox.engine.session_lifecycle.assemble_context", return_value=MagicMock()),
+            patch("agent_fox.engine.session_lifecycle.build_system_prompt", return_value="sys"),
+            patch("agent_fox.engine.session_lifecycle.build_task_prompt", return_value="task"),
+            patch("agent_fox.core.config.resolve_spec_root", return_value=MagicMock()),
+            caplog.at_level(logging.WARNING),
+        ):
+            sys_prompt, task_prompt = runner._build_prompts("/tmp/repo", 1, None)
+
+        assert isinstance(sys_prompt, str)
+        # Check that a warning was logged about retrieve failure
+        warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+        assert any("retrieve" in msg.lower() or "knowledge" in msg.lower() for msg in warning_messages)
+
+
+# ---------------------------------------------------------------------------
+# TS-114-E4: Ingest Exception Handled Gracefully
+# ---------------------------------------------------------------------------
+
+
+class TestIngestException:
+    """Verify engine handles ingest() exceptions gracefully.
+
+    Requirements: 114-REQ-4.E1
+    """
+
+    def test_ingest_failure_logs_warning_and_continues(self, caplog: pytest.LogCaptureFixture) -> None:
+        """When ingest() raises, engine logs WARNING and does not retry."""
+
+        class FailingProvider:
+            ingest_count = 0
+
+            def ingest(self, session_id: str, spec_name: str, context: dict[str, Any]) -> None:
+                FailingProvider.ingest_count += 1
+                raise RuntimeError("broken")
+
+            def retrieve(self, spec_name: str, task_description: str) -> list[str]:
+                return []
+
+        from agent_fox.engine.session_lifecycle import NodeSessionRunner
+
+        provider = FailingProvider()
+        mock_config = MagicMock()
+        mock_config.knowledge = MagicMock()
+        mock_config.models = MagicMock()
+        mock_config.orchestrator = MagicMock()
+        mock_db = MagicMock()
+
+        runner = NodeSessionRunner(
+            "spec_01:1",
+            mock_config,
+            knowledge_db=mock_db,
+            knowledge_provider=provider,
+            sink_dispatcher=MagicMock(),
+        )
+
+        with caplog.at_level(logging.WARNING):
+            # Should not raise
+            runner._ingest_knowledge("node_1", ["f.py"], "sha", "completed")
+
+        assert provider.ingest_count == 1  # called once, no retry
+        warning_messages = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+        assert any("ingest" in msg.lower() or "knowledge" in msg.lower() for msg in warning_messages)
