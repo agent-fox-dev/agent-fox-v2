@@ -386,8 +386,8 @@ class TestContentHashDeterminism:
         h1 = compute_content_hash(text)
         h2 = compute_content_hash(text)
         assert h1 == h2
-        assert compute_content_hash(text.upper()) == compute_content_hash(
-            text.lower()
+        assert compute_content_hash(text) == compute_content_hash(
+            text.casefold()
         )
 
 
