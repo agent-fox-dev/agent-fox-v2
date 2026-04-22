@@ -81,3 +81,82 @@ Key observations:
 - Output-heavy: Output tokens outnumber input tokens 2.3:1 overall, and 2.1:1 for coders. The agents are writing a lot of code and explanations.
 - Reviewer is the cheapest archetype: $0.47/session average — high value relative to the critical/major findings it produces.
 - Auxiliary costs not tracked in session table: The haiku-4-5 token usage for knowledge extraction, fact dedup, causal link analysis, consolidation, and git ingestion is separate and not individually attributed to sessions. From the log, these calls are roughly 600K-800K additional tokens across the run.
+
+---
+
+The Verify-Only Problem
+
+21 of 56 coder sessions (37.5%) touched no files. They consumed $35.94 — 27.2% of total coder spend — just to read the codebase and conclude everything was
+already done.
+
+The verify-only rate rises sharply with task group position:
+
+┌───────────────┬─────────┬─────────────┬──────────┐
+│  Task Group   │ Changed │ Verify-Only │ % Verify │
+├───────────────┼─────────┼─────────────┼──────────┤
+│ TG 1 (tests)  │ 8       │ 1           │ 11%      │
+├───────────────┼─────────┼─────────────┼──────────┤
+│ TG 2          │ 6       │ 3           │ 33%      │
+├───────────────┼─────────┼─────────────┼──────────┤
+│ TG 3          │ 4       │ 5           │ 56%      │
+├───────────────┼─────────┼─────────────┼──────────┤
+│ TG 5 (wiring) │ 3       │ 6           │ 67%      │
+└───────────────┴─────────┴─────────────┴──────────┘
+
+Two distinct causes
+
+1. Earlier task groups over-implement. Look at 01_project_setup: TG 1-3 made changes, then TG 4 through TG 7 were all verify-only ($7.39 wasted). The TG 1
+coder ("write failing spec tests") didn't just write failing tests — it implemented the full solution. Everything after that was re-orientation for nothing.
+
+Similarly, 05_parking_fee_service TG 1 changed code, then TG 2 (model/config/store) and TG 3 (geo module) found everything done. Prior sessions had
+implemented the lot.
+
+2. "Wiring verification" TGs are coders running on Opus. These are pure verification by design — their job is to confirm all requirements are met and all
+tests pass. But the engine treats them identically to implementation task groups: same archetype (coder), same model (Opus), same $8 budget. There are 9
+"wiring verification" + 1 "checkpoint" TGs across the specs, costing $29.58 total.
+
+Is this the cost of quality?
+
+Partly, but it's over-priced quality. The data shows that 6 of 13 wiring/verification TGs did make small changes (tasks.md updates, errata docs, minor test
+fixes). So there IS a quality tail from running these sessions. But:
+
+- The same verification work is already being done by the verifier archetype (Sonnet, $0.76/session average). The verifier found 5 genuine FAIL verdicts.
+- The same verification work is being done by the reviewer archetype (Sonnet, $0.47/session average). The reviewer found 41 critical and 69 major findings.
+- The coder-on-Opus is the most expensive way to verify ($1.71/session average for verify-only sessions vs $0.76 for a verifier).
+
+The engine architecture drives this
+
+From the source code (explored in engine/engine.py, engine/session_lifecycle.py, engine/graph_sync.py):
+
+- No pre-flight check exists. The _check_launch() function checks cost limits and retry limits, but never checks whether a task group's work is already done.
+Every pending node whose dependencies are completed gets launched unconditionally.
+- No post-harvest skip. After a coder session produces no changes, the system still runs knowledge extraction, causal link analysis, and records the session
+at full cost.
+- Wiring verification nodes are indistinguishable from implementation nodes in the plan graph. They use archetype coder with no mode flag. The title contains
+"Wiring verification" but that's not used for routing decisions.
+
+What could be changed
+
+Three interventions, from easiest to hardest:
+
+A. Route "wiring verification" TGs to verifier archetype (Sonnet). The plan graph title already identifies them. A simple heuristic during plan generation or
+graph injection — if the last TG for a spec is titled "Wiring verification" or "Checkpoint," assign archetype=verifier instead of coder. Savings: ~$19.70
+(13.3% of total run cost). This is actually already happening in this run for some specs — the verifier sessions at the end are exactly this role, they just
+run in addition to the coder wiring verification.
+
+B. Add a lightweight pre-flight check before launching coder sessions. Before launching an Opus session, run a Haiku-tier check (~$0.02):
+- Are all subtask checkboxes for this task group already marked complete in tasks.md?
+- Do the related tests pass? (a make test or targeted test command)
+- Are there unresolved critical/major review findings for this specific task group?
+
+If checkboxes are done AND tests pass AND no unresolved findings → skip the coder session entirely, or downgrade to a verifier session. This would catch most
+of the 21 verify-only sessions.
+
+C. Tighter scoping in prompts for early TGs. The TG 1 prompt ("write failing spec tests") should be more constrained to prevent the coder from writing full
+implementations. This is a prompt engineering issue rather than an engine issue, but it's the root cause of why later TGs find everything done. The tradeoff:
+if TG 1 is forced to only write failing tests, total session count might stay the same but each session does real work instead of re-orientation.
+
+Combined impact estimate: Interventions A+B together would reduce the $35.94 verify-only waste to roughly $3-5 (a few Haiku pre-flight checks + Sonnet
+verifier sessions for wiring TGs), saving ~$30 or ~20% of total run cost.
+
+  ---
