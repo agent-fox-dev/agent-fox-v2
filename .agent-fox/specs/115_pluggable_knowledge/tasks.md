@@ -174,9 +174,9 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/run.py`
     - [x] Requirements 10.1, 10.2, 10.3 acceptance criteria met
 
-- [ ] 8. Wiring verification
+- [x] 8. Wiring verification
 
-  - [ ] 8.1 Trace every execution path from design.md end-to-end
+  - [x] 8.1 Trace every execution path from design.md end-to-end
     - Path 1 (retrieval): `_build_prompts` → `FoxKnowledgeProvider.retrieve` → `query_errata` + `query_active_findings` + `query_gotchas` → `_compose_results`
     - Path 2 (ingestion): `_ingest_knowledge` → `FoxKnowledgeProvider.ingest` → `extract_gotchas` → `store_gotchas`
     - Path 3 (errata registration): `register_errata` → DuckDB insert
@@ -185,36 +185,36 @@ Each group produces testable artifacts that accumulate into the full provider.
     - Confirm no function in the chain is a stub
     - _Requirements: all_
 
-  - [ ] 8.2 Verify return values propagate correctly
+  - [x] 8.2 Verify return values propagate correctly
     - `FoxKnowledgeProvider.retrieve()` → returned list flows to `assemble_context` in session_lifecycle
     - `register_errata()` → returned `ErrataEntry` available to caller
     - `store_gotchas()` → returned count used for logging
     - `extract_gotchas()` → returned candidates consumed by `store_gotchas`
     - _Requirements: all_
 
-  - [ ] 8.3 Run the integration smoke tests
+  - [x] 8.3 Run the integration smoke tests
     - All `TS-115-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/knowledge/test_fox_provider_smoke.py`
     - _Test Spec: TS-115-SMOKE-1 through TS-115-SMOKE-4_
 
-  - [ ] 8.4 Stub / dead-code audit
+  - [x] 8.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, `NotImplementedError`
     - Each hit must be either: (a) justified, or (b) replaced with real implementation
     - `query_gotchas` returning `[]` for empty spec is intentional (no gotchas)
     - `query_errata` returning `[]` for empty spec is intentional (no errata)
 
-  - [ ] 8.5 Cross-spec entry point verification
+  - [x] 8.5 Cross-spec entry point verification
     - Verify `engine/run.py` constructs `FoxKnowledgeProvider` and passes it via factory — this is the entry point from spec 114
     - Verify `engine/session_lifecycle.py` calls `retrieve()` and `ingest()` via the protocol — these are the call sites defined in spec 114
     - Confirm `FoxKnowledgeProvider` is called from production code, not just tests
     - _Requirements: all_
 
-  - [ ] 8.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `make check`
+  - [x] 8.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `make check`
 
 ### Checkbox States
 

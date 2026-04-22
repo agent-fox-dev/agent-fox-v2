@@ -296,6 +296,7 @@ class TestReviewPrefix:
         assert len(reviews) == 1
         assert reviews[0].startswith("[REVIEW] ")
         assert "critical" in reviews[0].lower()
+        assert "security" in reviews[0].lower()
         assert "SQL injection" in reviews[0]
 
 

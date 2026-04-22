@@ -156,6 +156,8 @@ class TestPostSessionIngestionSmoke:
     """
 
     def test_ingestion_path(self, smoke_db, smoke_conn) -> None:
+        # Mock only _call_llm (the LLM boundary) — extract_gotchas, store_gotchas,
+        # and FoxKnowledgeProvider are all real code exercised end-to-end.
         mock_candidates = [
             _make_candidate("DuckDB ON CONFLICT requires explicit columns"),
             _make_candidate("Hypothesis deadline must be disabled"),
@@ -164,7 +166,7 @@ class TestPostSessionIngestionSmoke:
         provider = FoxKnowledgeProvider(smoke_db, KnowledgeProviderConfig())
 
         with patch(
-            "agent_fox.knowledge.gotcha_extraction.extract_gotchas",
+            "agent_fox.knowledge.gotcha_extraction._call_llm",
             return_value=mock_candidates,
         ):
             provider.ingest(
@@ -174,6 +176,7 @@ class TestPostSessionIngestionSmoke:
                     "session_status": "completed",
                     "touched_files": ["f.py"],
                     "commit_sha": "abc",
+                    "spec_name": "spec_01",
                 },
             )
 

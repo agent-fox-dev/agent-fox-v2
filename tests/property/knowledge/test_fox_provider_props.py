@@ -125,9 +125,8 @@ class TestProtocolConformance:
     @given(st.just(True))
     @settings(max_examples=5)
     def test_protocol_conformance(self, _: bool) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
         from agent_fox.knowledge.provider import KnowledgeProvider
 
         conn = _fresh_conn()
@@ -191,7 +190,14 @@ class TestGotchaTTLExclusion:
         result = query_gotchas(conn, "spec_01", ttl_days=ttl, limit=5)
 
         if age > ttl:
-            assert len(result) == 0
+            # Exclusion direction: older than TTL → not returned
+            assert len(result) == 0, f"Expected exclusion: age={age} > ttl={ttl}"
+        elif age < ttl and ttl > 0:
+            # Inclusion direction: younger than TTL → returned
+            assert len(result) == 1, f"Expected inclusion: age={age} < ttl={ttl}"
+        # age == ttl is a boundary case: strict > comparison means
+        # gotcha at exactly TTL boundary may or may not appear depending
+        # on sub-second timing, so we do not assert on it.
         conn.close()
 
 
@@ -222,9 +228,8 @@ class TestRetrievalCap:
         n_errata: int,
         max_items: int,
     ) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         conn = _fresh_conn()
         for i in range(n_gotchas):
@@ -261,9 +266,8 @@ class TestCategoryPriorityOrder:
     @given(st.just(True))
     @settings(max_examples=5)
     def test_category_order(self, _: bool) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         conn = _fresh_conn()
         _insert_gotcha_raw(conn, "spec_01", "A gotcha")
@@ -338,9 +342,8 @@ class TestFailedSessionSkip:
     )
     @settings(max_examples=10)
     def test_skip_non_completed(self, status: str) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         conn = _fresh_conn()
         db = _make_provider_db(conn)
@@ -405,9 +408,8 @@ class TestReviewCategoryPrefix:
     @given(severity=st.sampled_from(["critical", "major"]))
     @settings(max_examples=10)
     def test_review_prefix(self, severity: str) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         conn = _fresh_conn()
         _insert_review_finding(conn, "spec_01", severity, f"A {severity} issue")

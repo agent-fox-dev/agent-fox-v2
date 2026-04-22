@@ -14,12 +14,12 @@ from datetime import UTC, datetime, timedelta
 
 import duckdb
 import pytest
+
 from agent_fox.knowledge.gotcha_extraction import GotchaCandidate
 from agent_fox.knowledge.gotcha_store import (
     query_gotchas,
     store_gotchas,
 )
-
 from agent_fox.knowledge.migrations import apply_pending_migrations
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
@@ -140,6 +140,11 @@ class TestQueryBySpec:
         # All should be for spec_01 only, most recent first
         for g in result:
             assert g.startswith("[GOTCHA]")
+
+        # Verify recency ordering: most recent (C) first, oldest (A) last
+        assert "Gotcha C" in result[0]
+        assert "Gotcha B" in result[1]
+        assert "Gotcha A" in result[2]
 
 
 # ===========================================================================

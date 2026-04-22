@@ -13,8 +13,8 @@ from unittest.mock import patch
 
 import duckdb
 import pytest
-from agent_fox.knowledge.gotcha_extraction import GotchaCandidate
 
+from agent_fox.knowledge.gotcha_extraction import GotchaCandidate
 from agent_fox.knowledge.migrations import apply_pending_migrations
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
@@ -93,9 +93,8 @@ class TestGotchaExtraction:
     def test_extraction_stores_gotchas(
         self, extraction_db, extraction_conn
     ) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         mock_candidates = [
             _make_candidate("DuckDB ON CONFLICT requires explicit columns"),
@@ -130,9 +129,8 @@ class TestModelTier:
     """
 
     def test_simple_model_tier_used(self, extraction_db) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         provider = FoxKnowledgeProvider(
             extraction_db, KnowledgeProviderConfig(model_tier="SIMPLE")
@@ -146,9 +144,10 @@ class TestModelTier:
 
             # Verify extract_gotchas was called with SIMPLE tier
             mock_extract.assert_called_once()
-            call_kwargs = mock_extract.call_args
-            # model_tier should be "SIMPLE" (positional or keyword)
-            assert "SIMPLE" in str(call_kwargs)
+            call_args, call_kwargs = mock_extract.call_args
+            # model_tier is the 2nd positional arg to extract_gotchas(context, model_tier)
+            assert len(call_args) >= 2, "Expected at least 2 positional args"
+            assert call_args[1] == "SIMPLE", f"Expected model_tier='SIMPLE', got {call_args[1]!r}"
 
 
 # ===========================================================================
@@ -165,9 +164,8 @@ class TestZeroCandidates:
     def test_zero_candidates_no_storage(
         self, extraction_db, extraction_conn
     ) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         provider = FoxKnowledgeProvider(
             extraction_db, KnowledgeProviderConfig()
@@ -197,9 +195,8 @@ class TestSkipNonCompleted:
     """
 
     def test_skip_failed_session(self, extraction_db, extraction_conn) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         provider = FoxKnowledgeProvider(
             extraction_db, KnowledgeProviderConfig()
@@ -240,9 +237,8 @@ class TestLLMFailure:
     def test_llm_failure_logged(
         self, extraction_db, extraction_conn, caplog
     ) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         provider = FoxKnowledgeProvider(
             extraction_db, KnowledgeProviderConfig()
@@ -260,7 +256,9 @@ class TestLLMFailure:
             "SELECT * FROM gotchas"
         ).fetchall()
         assert len(rows) == 0
-        assert any("WARNING" in r.levelname for r in caplog.records) or len(caplog.records) > 0
+        assert any(r.levelno >= logging.WARNING for r in caplog.records), (
+            "Expected at least one WARNING-level log record"
+        )
 
 
 # ===========================================================================
@@ -275,9 +273,8 @@ class TestCapAtThree:
     """
 
     def test_cap_at_three(self, extraction_db, extraction_conn) -> None:
-        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
 
         mock_candidates = [_make_candidate(f"Gotcha {i}") for i in range(5)]
 
