@@ -88,26 +88,26 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/core/config.py agent_fox/knowledge/migrations.py`
     - [x] Requirements 8.1, 8.2, 8.3, 9.1, 9.2, 9.3, 9.4 acceptance criteria met
 
-- [ ] 3. Gotcha store and errata store modules
-  - [ ] 3.1 Create `agent_fox/knowledge/gotcha_store.py`
+- [x] 3. Gotcha store and errata store modules
+  - [x] 3.1 Create `agent_fox/knowledge/gotcha_store.py`
     - Implement `GotchaRecord` dataclass
     - Implement `compute_content_hash(text)` — SHA-256 of lowered, whitespace-collapsed text
     - Implement `store_gotchas(conn, spec_name, session_id, candidates)` with content-hash dedup
     - Implement `query_gotchas(conn, spec_name, ttl_days, limit)` with TTL filter and recency ordering
     - _Requirements: 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 7.1, 7.2_
 
-  - [ ] 3.2 Create `agent_fox/knowledge/errata_store.py`
+  - [x] 3.2 Create `agent_fox/knowledge/errata_store.py`
     - Implement `ErrataEntry` dataclass
     - Implement `register_errata(conn, spec_name, file_path)` — idempotent insert, returns `ErrataEntry`
     - Implement `unregister_errata(conn, spec_name, file_path)` — returns bool
     - Implement `query_errata(conn, spec_name)` — returns formatted `[ERRATA]` strings
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.E1, 5.E2_
 
-  - [ ] 3.V Verify task group 3
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_store.py tests/unit/knowledge/test_errata_store.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_store.py agent_fox/knowledge/errata_store.py`
-    - [ ] Requirements 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 7.1, 7.2 acceptance criteria met
+  - [x] 3.V Verify task group 3
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_store.py tests/unit/knowledge/test_errata_store.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_store.py agent_fox/knowledge/errata_store.py`
+    - [x] Requirements 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 7.1, 7.2 acceptance criteria met
 
 - [ ] 4. Gotcha extraction module
   - [ ] 4.1 Create `agent_fox/knowledge/gotcha_extraction.py`

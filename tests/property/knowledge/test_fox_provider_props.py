@@ -15,11 +15,11 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import duckdb
-from agent_fox.knowledge.gotcha_extraction import GotchaCandidate, extract_gotchas
-from agent_fox.knowledge.gotcha_store import compute_content_hash, query_gotchas, store_gotchas
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from agent_fox.knowledge.gotcha_extraction import GotchaCandidate, extract_gotchas
+from agent_fox.knowledge.gotcha_store import compute_content_hash, query_gotchas, store_gotchas
 from agent_fox.knowledge.migrations import apply_pending_migrations
 from tests.unit.knowledge.conftest import SCHEMA_DDL
 
@@ -69,8 +69,7 @@ def _make_provider_db(conn):
 
 
 def _make_candidate(text: str) -> GotchaCandidate:
-    normalized = " ".join(text.lower().split())
-    content_hash = hashlib.sha256(normalized.encode()).hexdigest()
+    content_hash = compute_content_hash(text)
     return GotchaCandidate(text=text, content_hash=content_hash)
 
 
@@ -126,9 +125,9 @@ class TestProtocolConformance:
     @settings(max_examples=5)
     def test_protocol_conformance(self, _: bool) -> None:
         from agent_fox.knowledge.fox_provider import FoxKnowledgeProvider
-        from agent_fox.knowledge.provider import KnowledgeProvider
 
         from agent_fox.core.config import KnowledgeProviderConfig
+        from agent_fox.knowledge.provider import KnowledgeProvider
 
         conn = _fresh_conn()
         db = _make_provider_db(conn)
