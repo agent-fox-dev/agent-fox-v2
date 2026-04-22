@@ -1,8 +1,8 @@
-"""Consolidated knowledge management for agent-fox.
+"""Knowledge management for agent-fox.
 
-Provides fact storage, DuckDB knowledge store infrastructure, schema
-management, embedding and search, fact extraction, filtering, rendering,
-compaction, and the in-memory state machine for buffered writes.
+Provides the KnowledgeProvider protocol, DuckDB knowledge store
+infrastructure, schema management, audit/sink infrastructure, review
+store, blocking history, and agent trace.
 """
 
 from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider

@@ -39,7 +39,6 @@ from agent_fox.ui.progress import ActivityCallback, SpinnerCallback, TaskCallbac
 if TYPE_CHECKING:
     import duckdb
 
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
     from agent_fox.knowledge.sink import SinkDispatcher
 
 logger = logging.getLogger(__name__)
@@ -83,7 +82,7 @@ class NightShiftEngine:
         spinner_callback: SpinnerCallback | None = None,
         sink_dispatcher: SinkDispatcher | None = None,
         conn: duckdb.DuckDBPyConnection | None = None,
-        embedder: EmbeddingGenerator | None = None,
+        embedder: object | None = None,
     ) -> None:
         self._config = config
         self._platform = platform

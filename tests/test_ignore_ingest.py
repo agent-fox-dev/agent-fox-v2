@@ -4,6 +4,11 @@ Test cases: TS-110-12, TS-110-13, TS-110-17, TS-110-E5 through TS-110-E7,
 TS-110-P6, TS-110-SMOKE-2
 
 Requirements: 110-REQ-5.1 through 110-REQ-5.E3
+
+Note: ingest_ignore_signals() was converted to a no-op by spec 114 (REQ-6.5).
+Tests that previously validated fact creation and platform updates have been
+updated to verify the no-op behavior — the function always returns 0 without
+performing any action.
 """
 
 from __future__ import annotations
@@ -11,6 +16,8 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 # These imports will fail until task group 5 implements ignore_ingest.py.
 # All tests in this file will error on collection until then.
@@ -18,9 +25,6 @@ from agent_fox.nightshift.ignore_ingest import (
     extract_category_from_body,
     ingest_ignore_signals,
 )
-from hypothesis import given, settings
-from hypothesis import strategies as st
-
 from agent_fox.platform.protocol import IssueResult
 
 # Marker that indicates an issue body has been ingested into the knowledge store.
@@ -145,16 +149,12 @@ class TestExtractCategoryFromBody:
 
 
 class TestIngestCreatesAntiPatternFact:
-    """TS-110-12: ingest_ignore_signals() creates an anti_pattern fact."""
+    """TS-110-12: ingest_ignore_signals() is now a no-op (spec 114, REQ-6.5)."""
 
-    async def test_creates_fact_for_new_issue(
+    async def test_noop_returns_zero_for_new_issue(
         self, knowledge_conn: object
     ) -> None:
-        """One new af:ignore issue → one anti_pattern fact in knowledge store."""
-        import duckdb
-
-        conn: duckdb.DuckDBPyConnection = knowledge_conn  # type: ignore[assignment]
-
+        """No-op: returns 0 regardless of issues (spec 114, REQ-6.5)."""
         issue = _make_issue(
             number=42,
             title="Dead code: unused_fn",
@@ -163,22 +163,10 @@ class TestIngestCreatesAntiPatternFact:
         platform = _MockPlatform(ignore_issues=[issue])
         embedder = _SameVectorEmbedder()
 
-        count = await ingest_ignore_signals(platform, conn, embedder)  # type: ignore[arg-type]
+        count = await ingest_ignore_signals(platform, knowledge_conn, embedder)  # type: ignore[arg-type]
 
-        assert count == 1
-
-        # Verify fact was created with correct fields
-        facts = conn.execute(
-            "SELECT category, spec_name, confidence, content "
-            "FROM memory_facts "
-            "WHERE spec_name = 'nightshift:ignore'"
-        ).fetchall()
-        assert len(facts) == 1
-        fact_category, fact_spec_name, fact_confidence, fact_content = facts[0]
-        assert fact_category == "anti_pattern"
-        assert fact_spec_name == "nightshift:ignore"
-        assert fact_confidence == pytest.approx(0.9)
-        assert "unused_fn" in fact_content
+        # After spec 114 decoupling, ingest_ignore_signals is a no-op
+        assert count == 0
 
     async def test_returns_zero_for_no_issues(
         self, knowledge_conn: object
@@ -198,28 +186,25 @@ class TestIngestCreatesAntiPatternFact:
 
 
 class TestIngestAppendsMarker:
-    """TS-110-13: ingest_ignore_signals() appends the knowledge-ingested marker."""
+    """TS-110-13: ingest_ignore_signals() is now a no-op (spec 114, REQ-6.5)."""
 
-    async def test_appends_marker_to_issue_body(
+    async def test_noop_does_not_call_update_issue(
         self, knowledge_conn: object
     ) -> None:
-        """After ingestion, update_issue is called with body ending in marker."""
+        """No-op: update_issue is never called (spec 114, REQ-6.5)."""
         issue = _make_issue(number=7, title="Security issue", category="security")
         platform = _MockPlatform(ignore_issues=[issue])
         embedder = _SameVectorEmbedder()
 
         await ingest_ignore_signals(platform, knowledge_conn, embedder)  # type: ignore[arg-type]
 
-        # update_issue must have been called for issue number 7
-        assert len(platform.update_issue_calls) == 1
-        call = platform.update_issue_calls[0]
-        assert call["number"] == 7
-        assert str(call["body"]).endswith(_KNOWLEDGE_INGESTED_MARKER)
+        # No-op: no platform calls are made
+        assert len(platform.update_issue_calls) == 0
 
-    async def test_appended_body_contains_original_content(
+    async def test_noop_does_not_modify_issue_body(
         self, knowledge_conn: object
     ) -> None:
-        """Original body content is preserved when marker is appended."""
+        """No-op: issue body is not modified (spec 114, REQ-6.5)."""
         original_body = (
             "## Security issue\n\n**Category:** security\n\nUser-written content."
         )
@@ -229,10 +214,8 @@ class TestIngestAppendsMarker:
 
         await ingest_ignore_signals(platform, knowledge_conn, embedder)  # type: ignore[arg-type]
 
-        call = platform.update_issue_calls[0]
-        updated_body = str(call["body"])
-        assert "User-written content." in updated_body
-        assert _KNOWLEDGE_INGESTED_MARKER in updated_body
+        # No-op: no update_issue calls
+        assert len(platform.update_issue_calls) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -275,29 +258,20 @@ class TestMarkerAlreadyPresent:
 
 
 class TestUpdateIssueFailure:
-    """TS-110-E6: update_issue failure still creates the fact."""
+    """TS-110-E6: ingest_ignore_signals() is now a no-op (spec 114, REQ-6.5)."""
 
-    async def test_fact_created_despite_update_failure(
+    async def test_noop_returns_zero_regardless_of_platform_state(
         self, knowledge_conn: object
     ) -> None:
-        """When update_issue raises, fact is still persisted and count=1."""
-        import duckdb
-
-        conn: duckdb.DuckDBPyConnection = knowledge_conn  # type: ignore[assignment]
-
+        """No-op: returns 0 even when platform would raise (spec 114, REQ-6.5)."""
         issue = _make_issue(number=3, title="Linter debt: unused import")
         platform = _MockPlatform(ignore_issues=[issue], update_raises=True)
         embedder = _SameVectorEmbedder()
 
-        count = await ingest_ignore_signals(platform, conn, embedder)  # type: ignore[arg-type]
+        count = await ingest_ignore_signals(platform, knowledge_conn, embedder)  # type: ignore[arg-type]
 
-        # Fact is still created
-        assert count == 1
-        facts = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE spec_name = 'nightshift:ignore'"
-        ).fetchone()
-        assert facts is not None
-        assert facts[0] == 1
+        # No-op: always returns 0
+        assert count == 0
 
 
 class TestKnowledgeStoreUnavailable:
@@ -331,39 +305,21 @@ class TestIngestionIdempotency:
         )
     )
     @settings(max_examples=10)
-    def test_second_ingest_returns_zero(self, title: str) -> None:
-        """Calling ingest twice: first returns 1, second returns 0."""
-        import duckdb
-
-        from tests.unit.knowledge.conftest import SCHEMA_DDL  # type: ignore[import]
-
-        conn = duckdb.connect(":memory:")
-        conn.execute(SCHEMA_DDL)
-
+    def test_noop_always_returns_zero(self, title: str) -> None:
+        """No-op: always returns 0 regardless of input (spec 114, REQ-6.5)."""
         issue = _make_issue(title=title)
         embedder = _SameVectorEmbedder()
 
         loop = asyncio.new_event_loop()
         try:
-            # First call: ingests the issue
-            platform1 = _MockPlatform(ignore_issues=[issue])
-            count1 = loop.run_until_complete(
-                ingest_ignore_signals(platform1, conn, embedder)  # type: ignore[arg-type]
-            )
-
-            # Second call: the update_issue was called once, simulating that the
-            # platform now returns the issue WITH the marker
-            issue_with_marker = _make_issue(title=title, with_marker=True)
-            platform2 = _MockPlatform(ignore_issues=[issue_with_marker])
-            count2 = loop.run_until_complete(
-                ingest_ignore_signals(platform2, conn, embedder)  # type: ignore[arg-type]
+            platform = _MockPlatform(ignore_issues=[issue])
+            count = loop.run_until_complete(
+                ingest_ignore_signals(platform, None, embedder)  # type: ignore[arg-type]
             )
         finally:
             loop.close()
-            conn.close()
 
-        assert count1 == 1
-        assert count2 == 0
+        assert count == 0
 
 
 # ---------------------------------------------------------------------------
@@ -372,16 +328,12 @@ class TestIngestionIdempotency:
 
 
 class TestIngestionSmoke:
-    """TS-110-SMOKE-2: Full ingestion pipeline exercises real components."""
+    """TS-110-SMOKE-2: ingest_ignore_signals is now a no-op (spec 114, REQ-6.5)."""
 
-    async def test_ingests_new_ignores_skips_ingested(
+    async def test_noop_returns_zero_with_mixed_issues(
         self, knowledge_conn: object
     ) -> None:
-        """One new + one already-ingested → count=1, one update, one fact."""
-        import duckdb
-
-        conn: duckdb.DuckDBPyConnection = knowledge_conn  # type: ignore[assignment]
-
+        """No-op: returns 0 regardless of issue mix (spec 114, REQ-6.5)."""
         issue_new = _make_issue(number=10, title="New ignore: dead_code fn")
         issue_old = _make_issue(
             number=11, title="Old ignore: already done", with_marker=True
@@ -390,16 +342,8 @@ class TestIngestionSmoke:
         platform = _MockPlatform(ignore_issues=[issue_new, issue_old])
         embedder = _SameVectorEmbedder()
 
-        count = await ingest_ignore_signals(platform, conn, embedder)  # type: ignore[arg-type]
+        count = await ingest_ignore_signals(platform, knowledge_conn, embedder)  # type: ignore[arg-type]
 
-        assert count == 1
-        # Only the new issue should trigger update_issue
-        assert len(platform.update_issue_calls) == 1
-        assert platform.update_issue_calls[0]["number"] == 10
-
-        # Exactly one fact should exist in the knowledge store
-        facts = conn.execute(
-            "SELECT COUNT(*) FROM memory_facts WHERE spec_name = 'nightshift:ignore'"
-        ).fetchone()
-        assert facts is not None
-        assert facts[0] == 1
+        # No-op: always returns 0, no platform calls
+        assert count == 0
+        assert len(platform.update_issue_calls) == 0

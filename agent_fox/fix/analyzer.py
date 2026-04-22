@@ -17,9 +17,29 @@ from typing import Any
 
 from agent_fox.core.config import AgentFoxConfig
 from agent_fox.core.json_extraction import extract_json_object
-from agent_fox.knowledge.facts import parse_confidence
 
 logger = logging.getLogger(__name__)
+
+# Confidence normalization (inlined from deleted knowledge.facts module)
+_CONFIDENCE_MAP: dict[str, float] = {"high": 0.9, "medium": 0.6, "low": 0.3}
+_DEFAULT_CONFIDENCE: float = 0.6
+
+
+def _parse_confidence(value: str | float | int | None) -> float:
+    """Convert any confidence representation to float [0.0, 1.0]."""
+    if value is None:
+        return _DEFAULT_CONFIDENCE
+    if isinstance(value, str):
+        mapped = _CONFIDENCE_MAP.get(value.lower())
+        if mapped is not None:
+            return mapped
+        try:
+            numeric = float(value)
+            return max(0.0, min(1.0, numeric))
+        except (ValueError, OverflowError):
+            pass
+        return _DEFAULT_CONFIDENCE
+    return max(0.0, min(1.0, float(value)))
 
 # Tier priority order: lower value = higher priority
 _TIER_PRIORITY: dict[str, int] = {
@@ -319,23 +339,12 @@ def _query_oracle_facts(config: AgentFoxConfig) -> list[Any]:
 
     This is a separate function to allow easy mocking in tests.
     Raises on failure (caller handles gracefully).
+
+    Note: The Oracle/EmbeddingGenerator/VectorSearch pipeline has been removed
+    as part of the knowledge decoupling (spec 114). This function now always
+    returns an empty list.
     """
-    from agent_fox.knowledge.db import KnowledgeDB
-    from agent_fox.knowledge.embeddings import EmbeddingGenerator
-    from agent_fox.knowledge.query_oracle import Oracle
-    from agent_fox.knowledge.search import VectorSearch
-
-    db = KnowledgeDB(config.knowledge)
-    db.open()
-
-    embedder = EmbeddingGenerator(config.knowledge)
-    search = VectorSearch(db.connection, config.knowledge)
-    oracle = Oracle(embedder, search, config.knowledge)
-
-    answer = oracle.ask(_ORACLE_SEED_QUESTION)
-    db.close()
-
-    return answer.sources[:10]  # top-k = 10 (31-REQ-4.2)
+    return []
 
 
 def _load_conventions(project_root: Path) -> str:
@@ -407,5 +416,5 @@ def _parse_improvement(data: Any, *, index: int) -> Improvement:
         description=str(data["description"]),
         files=[str(f) for f in files],
         impact=str(data["impact"]),
-        confidence=parse_confidence(data["confidence"]),
+        confidence=_parse_confidence(data["confidence"]),
     )

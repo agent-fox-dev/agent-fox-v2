@@ -199,26 +199,20 @@ def schema_conn() -> Generator[duckdb.DuckDBPyConnection, None, None]:
 
 
 class TestCausalContextAssembly:
-    """Tests for select_context_with_causal() using traverse_with_reviews.
+    """Tests for select_context_with_causal() keyword passthrough.
 
-    Requirements: 42-REQ-1.1, 42-REQ-1.2
+    Note: Causal traversal was removed in spec 114 (knowledge decoupling).
+    The function now returns keyword_facts trimmed to max_facts.
+
+    Requirements: 42-REQ-1.1, 42-REQ-1.2 (causal portions removed)
     """
 
-    def test_includes_review_findings_in_result(
+    def test_returns_keyword_facts_trimmed(
         self,
         schema_conn: duckdb.DuckDBPyConnection,
     ) -> None:
-        """TS-42-5: select_context_with_causal includes review findings."""
+        """select_context_with_causal returns keyword_facts trimmed to max_facts."""
         fact_id = _new_id()
-        review_id = _new_id()
-
-        _insert_fact(schema_conn, fact_id, "A test fact", "test_spec")
-        _insert_review_finding(
-            schema_conn,
-            review_id,
-            "test_spec",
-            description="Review issue found",
-        )
 
         keyword_facts = [
             {
@@ -237,10 +231,9 @@ class TestCausalContextAssembly:
             keyword_facts=keyword_facts,
         )
 
-        # The result should include an entry representing the review finding,
-        # distinguishable from regular fact dicts (has a "type" key or similar)
-        has_review = any(isinstance(item, dict) and item.get("type") == "review" for item in result)
-        assert has_review, "Expected review finding in select_context_with_causal result"
+        # After causal removal, the function just passes through keyword_facts
+        assert len(result) == 1
+        assert result[0]["id"] == fact_id
 
 
 # ---------------------------------------------------------------------------

@@ -17,10 +17,60 @@ from unittest.mock import MagicMock
 import duckdb
 import pytest
 
+from dataclasses import dataclass, field as dc_field
+
 from agent_fox.core.config import KnowledgeConfig
-from agent_fox.knowledge.embeddings import EmbeddingGenerator
-from agent_fox.knowledge.facts import Fact
-from agent_fox.knowledge.search import SearchResult
+
+
+# --- Stub types replacing deleted knowledge modules --------------------------
+# These stubs are retained so that test fixtures remain importable until the
+# dead test files are cleaned up in task group 6 (spec 114).
+
+
+@dataclass
+class Fact:
+    """Minimal stub replacing agent_fox.knowledge.facts.Fact."""
+
+    id: str
+    content: str
+    category: str = "decision"
+    spec_name: str = ""
+    session_id: str | None = None
+    commit_sha: str | None = None
+    keywords: list[str] = dc_field(default_factory=list)
+    confidence: float = 0.6
+    created_at: str = ""
+    supersedes: str | None = None
+    superseded_by: str | None = None
+
+
+@dataclass
+class SearchResult:
+    """Minimal stub replacing agent_fox.knowledge.search.SearchResult."""
+
+    fact_id: str
+    content: str
+    category: str = "decision"
+    spec_name: str = ""
+    session_id: str | None = None
+    commit_sha: str | None = None
+    similarity: float = 0.0
+
+
+class _EmbeddingGeneratorStub:
+    """Stub class for mock spec= usage (replaces EmbeddingGenerator)."""
+
+    embedding_dimensions: int = 384
+
+    def embed_text(self, text: str) -> list[float]:  # noqa: ARG002
+        return []
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:  # noqa: ARG002
+        return []
+
+
+# Alias so that MagicMock(spec=EmbeddingGenerator) still works.
+EmbeddingGenerator = _EmbeddingGeneratorStub
 
 # -- Well-known fact UUIDs for Time Vision tests --------------------------------
 # These are full UUIDs used consistently across causal/temporal/pattern tests.

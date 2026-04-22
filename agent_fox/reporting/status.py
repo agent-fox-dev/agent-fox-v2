@@ -7,7 +7,7 @@ Requirements: 07-REQ-1.1, 07-REQ-1.2, 07-REQ-1.3,
 from __future__ import annotations
 
 import logging
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -16,7 +16,6 @@ import duckdb
 from agent_fox.core.node_id import spec_name_of
 from agent_fox.engine.state import ExecutionState, SessionRecord, load_state_from_db
 from agent_fox.graph.types import TaskGraph
-from agent_fox.knowledge.store import read_all_facts
 from agent_fox.reporting import parse_audit_payload
 from agent_fox.reporting.standup import TaskActivity, _compute_task_activities
 
@@ -358,10 +357,10 @@ def generate_status(
     # Compute per-spec breakdown (real tasks only)
     per_spec = _compute_per_spec(graph, task_node_states)
 
-    # Memory facts summary (auto-fallback: conn → read-only DB → JSONL)
-    facts = read_all_facts(db_conn)
-    memory_total = len(facts)
-    memory_by_category = dict(Counter(f.category for f in facts))
+    # Memory facts summary — knowledge store removed (spec 114);
+    # report zero facts until a pluggable provider is wired in.
+    memory_total = 0
+    memory_by_category: dict[str, int] = {}
 
     # Per-spec cost breakdown from session history
     cost_by_spec_agg: dict[str, float] = defaultdict(float)

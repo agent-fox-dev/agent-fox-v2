@@ -151,26 +151,26 @@ each group), and group 7 verifies everything end-to-end.
   - At this point the engine uses `KnowledgeProvider` protocol exclusively.
   - Old knowledge modules are still on disk but no longer imported by engine.
 
-- [ ] 5. Delete knowledge modules, directories, and knowledge_harvest.py
-  - [ ] 5.1 Delete knowledge pipeline modules
+- [x] 5. Delete knowledge modules, directories, and knowledge_harvest.py
+  - [x] 5.1 Delete knowledge pipeline modules
     - Delete from `agent_fox/knowledge/`: `extraction.py`, `embeddings.py`, `search.py`, `retrieval.py`, `causal.py`, `lifecycle.py`, `contradiction.py`, `consolidation.py`, `compaction.py`, `entity_linker.py`, `entity_query.py`, `entity_store.py`, `entities.py`, `static_analysis.py`, `git_mining.py`, `doc_mining.py`, `sleep_compute.py`, `code_analysis.py`, `onboard.py`, `project_model.py`, `query_oracle.py`, `query_patterns.py`, `query_temporal.py`, `rendering.py`, `store.py`, `ingest.py`, `facts.py`
     - _Requirements: 7.1_
 
-  - [ ] 5.2 Delete `agent_fox/knowledge/lang/` directory entirely
+  - [x] 5.2 Delete `agent_fox/knowledge/lang/` directory entirely
     - _Requirements: 7.2_
 
-  - [ ] 5.3 Delete `agent_fox/knowledge/sleep_tasks/` directory entirely
+  - [x] 5.3 Delete `agent_fox/knowledge/sleep_tasks/` directory entirely
     - _Requirements: 7.3_
 
-  - [ ] 5.4 Delete `agent_fox/engine/knowledge_harvest.py`
+  - [x] 5.4 Delete `agent_fox/engine/knowledge_harvest.py`
     - _Requirements: 7.4, 4.3_
 
-  - [ ] 5.5 Clean up `agent_fox/knowledge/__init__.py`
+  - [x] 5.5 Clean up `agent_fox/knowledge/__init__.py`
     - Remove exports for deleted modules
     - Keep exports for retained modules and new `KnowledgeProvider`/`NoOpKnowledgeProvider`
     - _Requirements: 7.5_
 
-  - [ ] 5.6 Fix remaining import references
+  - [x] 5.6 Fix remaining import references
     - Scan entire `agent_fox/` package for imports from deleted modules
     - Fix nightshift files: `ignore_ingest.py`, `dedup.py`, `ignore_filter.py`, `streams.py`
     - Convert `ingest_ignore_signals()` in `ignore_ingest.py` to a no-op (remove `Fact` and `_write_fact` usage)
@@ -178,12 +178,12 @@ each group), and group 7 verifies everything end-to-end.
     - Fix any other files discovered by scan
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.5, 9.2, 9.3_
 
-  - [ ] 5.V Verify task group 5
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_engine_import_isolation.py -k "deletion or import_isolation or nightshift or cli"`
-    - [ ] `python -c "import agent_fox"` succeeds with zero errors
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/`
-    - [ ] Requirements 4.3, 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 7.5, 9.2, 9.3 acceptance criteria met
+  - [x] 5.V Verify task group 5
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_engine_import_isolation.py -k "deletion or import_isolation or nightshift or cli"`
+    - [x] `python -c "import agent_fox"` succeeds with zero errors
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
+    - [x] Requirements 4.3, 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 7.5, 9.2, 9.3 acceptance criteria met
 
 - [ ] 6. Configuration cleanup, CLI cleanup, and test cleanup
   - [ ] 6.1 Simplify KnowledgeConfig
