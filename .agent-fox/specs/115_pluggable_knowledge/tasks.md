@@ -109,19 +109,19 @@ Each group produces testable artifacts that accumulate into the full provider.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_store.py agent_fox/knowledge/errata_store.py`
     - [x] Requirements 2.4, 2.E1, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 7.1, 7.2 acceptance criteria met
 
-- [ ] 4. Gotcha extraction module
-  - [ ] 4.1 Create `agent_fox/knowledge/gotcha_extraction.py`
+- [x] 4. Gotcha extraction module
+  - [x] 4.1 Create `agent_fox/knowledge/gotcha_extraction.py`
     - Implement `GotchaCandidate` dataclass
     - Implement gotcha extraction prompt template
     - Implement `extract_gotchas(context, model_tier)` — calls LLM, parses response, caps at 3
     - Handle LLM failures gracefully (return empty list)
     - _Requirements: 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3_
 
-  - [ ] 4.V Verify task group 4
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_extraction.py`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_extraction.py`
-    - [ ] Requirements 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3 acceptance criteria met
+  - [x] 4.V Verify task group 4
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/knowledge/test_gotcha_extraction.py`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/knowledge/gotcha_extraction.py`
+    - [x] Requirements 2.1, 2.2, 2.3, 2.5, 2.E2, 2.E3 acceptance criteria met
 
 - [ ] 5. Checkpoint - Store modules complete
   - Ensure all store-level tests pass.
