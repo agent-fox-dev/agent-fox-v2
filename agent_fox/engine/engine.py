@@ -359,6 +359,13 @@ class Orchestrator:
         if verdict != "allowed":
             return None
 
+        # Pre-flight: skip coder sessions when the task group is already
+        # complete, tests pass, and no unresolved critical/major findings.
+        if archetype == "coder" and attempt == 1:
+            skip = self._run_preflight(node_id)
+            if skip:
+                return None
+
         attempt_tracker[node_id] = attempt
         previous_error = error_tracker.get(node_id)
         instances = self._get_node_instances(node_id)
@@ -1238,6 +1245,67 @@ class Orchestrator:
                     barrier_needed = True
 
         return barrier_needed
+
+    def _run_preflight(self, node_id: str) -> bool:
+        """Run pre-flight check and skip the session if work is done.
+
+        Returns True if the session should be skipped, False otherwise.
+        Marks the node as completed and emits an audit event on skip.
+        """
+        from agent_fox.core.config import resolve_spec_root
+        from agent_fox.core.node_id import parse_node_id
+        from agent_fox.engine.preflight import PreflightVerdict, run_preflight
+
+        parsed = parse_node_id(node_id)
+        specs_dir = self._specs_dir
+        if specs_dir is None and self._full_config is not None:
+            specs_dir = resolve_spec_root(self._full_config, Path.cwd())
+        if specs_dir is None:
+            return False
+
+        verdict = run_preflight(
+            spec_name=parsed.spec_name,
+            group_number=parsed.group_number,
+            conn=self._knowledge_db_conn,
+            specs_dir=specs_dir,
+            cwd=Path.cwd(),
+        )
+        if verdict != PreflightVerdict.SKIP:
+            return False
+
+        if self._graph_sync is not None:
+            prev_status = self._graph_sync.node_states.get(node_id, "pending")
+            self._graph_sync.mark_completed(node_id)
+            emit_audit_event(
+                self._sink,
+                self._run_id,
+                AuditEventType.PREFLIGHT_SKIP,
+                node_id=node_id,
+                payload={
+                    "from_status": prev_status,
+                    "reason": "checkboxes done, no active findings, tests pass",
+                },
+            )
+            if self._knowledge_db_conn is not None:
+                try:
+                    from agent_fox.engine.state import persist_node_status
+
+                    persist_node_status(self._knowledge_db_conn, node_id, "completed")
+                except Exception:
+                    logger.debug("Failed to persist preflight skip status", exc_info=True)
+
+            if self._task_callback is not None:
+                self._task_callback(
+                    TaskEvent(
+                        node_id=node_id,
+                        status="completed",
+                        duration_s=0.0,
+                        archetype="coder",
+                    )
+                )
+
+        logger.info("Preflight skip: %s", node_id)
+        return True
 
     def _get_node(self, node_id: str) -> Any | None:
         """Look up a TaskNode by ID, returning None if graph is unset."""
