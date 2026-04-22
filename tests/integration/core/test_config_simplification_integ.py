@@ -31,7 +31,7 @@ class TestHiddenSectionsLoad:
         assert config.theme.playful is False, f"theme.playful is {config.theme.playful}, expected False"
 
     def test_knowledge_hidden_section_loads(self, tmp_path: Path):
-        """Config with knowledge section appended loads correctly."""
+        """Config with old knowledge fields loads without error (extra=ignore)."""
         base = generate_default_config()
         extra = "\n[knowledge]\nask_top_k = 50\n"
         content = base + extra
@@ -40,12 +40,18 @@ class TestHiddenSectionsLoad:
 
         config = load_config(config_file)
 
-        assert config.knowledge.ask_top_k == 50, f"knowledge.ask_top_k is {config.knowledge.ask_top_k}, expected 50"
+        # ask_top_k was removed in spec 114; silently ignored via extra="ignore"
+        assert config.knowledge.store_path == ".agent-fox/knowledge.duckdb"
+        assert not hasattr(config.knowledge, "ask_top_k") or "ask_top_k" not in config.knowledge.model_fields
 
     def test_multiple_hidden_sections_load(self, tmp_path: Path):
         """Config with multiple hidden sections all load correctly."""
         base = generate_default_config()
-        extra = "\n[routing]\nretries_before_escalation = 1\n\n[theme]\nplayful = true\n\n[knowledge]\nask_top_k = 10\n"
+        extra = (
+            "\n[routing]\nretries_before_escalation = 1\n"
+            "\n[theme]\nplayful = true\n"
+            '\n[knowledge]\nstore_path = "custom.duckdb"\n'
+        )
         content = base + extra
         config_file = tmp_path / "config.toml"
         config_file.write_text(content)
@@ -54,4 +60,4 @@ class TestHiddenSectionsLoad:
 
         assert config.routing.retries_before_escalation == 1
         assert config.theme.playful is True
-        assert config.knowledge.ask_top_k == 10
+        assert config.knowledge.store_path == "custom.duckdb"

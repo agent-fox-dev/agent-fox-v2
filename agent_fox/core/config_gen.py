@@ -49,8 +49,6 @@ _BOUNDS_MAP: dict[tuple[str, str], str] = {
     ("RoutingConfig", "max_timeout_retries"): ">=0",
     ("RoutingConfig", "timeout_multiplier"): ">=1.0",
     ("RoutingConfig", "timeout_ceiling_factor"): ">=1.0",
-    # KnowledgeConfig
-    ("KnowledgeConfig", "ask_top_k"): ">=1",
     # ArchetypeInstancesConfig
     ("ArchetypeInstancesConfig", "reviewer"): "1-5",
     ("ArchetypeInstancesConfig", "verifier"): "1",
@@ -146,10 +144,6 @@ _DEFAULT_DESCRIPTIONS: dict[tuple[str, str], str] = {
     ("PlatformConfig", "url"): "Issue tracker URL — overrides default for type",
     # KnowledgeConfig
     ("KnowledgeConfig", "store_path"): "Path to knowledge store",
-    ("KnowledgeConfig", "embedding_model"): "Embedding model for knowledge",
-    ("KnowledgeConfig", "embedding_dimensions"): "Embedding vector dimensions",
-    ("KnowledgeConfig", "ask_top_k"): "Number of results for knowledge queries",
-    ("KnowledgeConfig", "ask_synthesis_model"): "Model tier for answer synthesis",
     # ArchetypesConfig
     ("ArchetypesConfig", "coder"): "Enable coder archetype",
     ("ArchetypesConfig", "reviewer"): (

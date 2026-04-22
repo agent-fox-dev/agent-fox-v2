@@ -11,16 +11,15 @@ from __future__ import annotations
 import math
 import uuid
 from collections.abc import Generator
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import duckdb
 import pytest
 
-from dataclasses import dataclass, field as dc_field
-
 from agent_fox.core.config import KnowledgeConfig
-
 
 # --- Stub types replacing deleted knowledge modules --------------------------
 # These stubs are retained so that test fixtures remain importable until the
@@ -29,7 +28,7 @@ from agent_fox.core.config import KnowledgeConfig
 
 @dataclass
 class Fact:
-    """Minimal stub replacing agent_fox.knowledge.facts.Fact."""
+    """Minimal stub for Fact dataclass (original module removed in spec 114)."""
 
     id: str
     content: str
@@ -46,7 +45,7 @@ class Fact:
 
 @dataclass
 class SearchResult:
-    """Minimal stub replacing agent_fox.knowledge.search.SearchResult."""
+    """Minimal stub for SearchResult dataclass (original module removed in spec 114)."""
 
     fact_id: str
     content: str

@@ -658,7 +658,11 @@ class TestNoTestImportsDeleted:
 
     def test_no_deleted_module_imports_in_tests(self) -> None:
         tests_dir = _REPO_ROOT / "tests"
+        # Exclude this file (it contains the module names as test data)
+        this_file = Path(__file__).resolve()
         for py_file in sorted(tests_dir.rglob("*.py")):
+            if py_file.resolve() == this_file:
+                continue
             source = py_file.read_text(encoding="utf-8")
             rel = py_file.relative_to(_REPO_ROOT)
             for mod in self.DELETED_MODULES:

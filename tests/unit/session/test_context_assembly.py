@@ -496,23 +496,20 @@ class TestPriorGroupFindings:
 class TestCacheIntegration:
     """Tests for cache disabled behavior.
 
-    Requirements: 42-REQ-3.4
+    Requirements: 42-REQ-3.4 (superseded by 114-REQ-8.1)
+
+    The fact_cache_enabled field was removed from KnowledgeConfig in
+    spec 114. Old configs specifying it are silently ignored.
     """
 
-    def test_cache_disabled_skips_population(self) -> None:
-        """TS-42-14: cache disabled skips population.
+    def test_old_cache_flag_silently_ignored(self) -> None:
+        """TS-42-14: Old fact_cache_enabled is silently ignored.
 
-        When fact_cache_enabled=False, the orchestrator should not call
-        precompute_fact_rankings(). We verify this by checking config
-        and ensuring the code path respects the flag.
+        The fact caching pipeline was removed in spec 114. Old config
+        files that specify this field are silently ignored.
         """
         from agent_fox.core.config import KnowledgeConfig
 
-        config = KnowledgeConfig(fact_cache_enabled=False)
-        assert config.fact_cache_enabled is False
-
-        # The orchestrator path that checks this flag should skip cache.
-        # This test verifies the config setting; the actual wiring is
-        # tested via integration when the orchestrator is implemented.
-        config_enabled = KnowledgeConfig(fact_cache_enabled=True)
-        assert config_enabled.fact_cache_enabled is True
+        # Should not raise - extra="ignore" silently drops unknown fields
+        KnowledgeConfig(fact_cache_enabled=False)  # type: ignore[call-arg]
+        assert "fact_cache_enabled" not in KnowledgeConfig.model_fields

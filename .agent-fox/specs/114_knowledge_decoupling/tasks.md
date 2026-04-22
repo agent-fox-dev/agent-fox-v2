@@ -185,24 +185,24 @@ each group), and group 7 verifies everything end-to-end.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/`
     - [x] Requirements 4.3, 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 7.5, 9.2, 9.3 acceptance criteria met
 
-- [ ] 6. Configuration cleanup, CLI cleanup, and test cleanup
-  - [ ] 6.1 Simplify KnowledgeConfig
+- [x] 6. Configuration cleanup, CLI cleanup, and test cleanup
+  - [x] 6.1 Simplify KnowledgeConfig
     - Remove all fields listed in REQ 8.1 from `KnowledgeConfig`
     - Delete `RetrievalConfig` class
     - Delete `SleepConfig` class
     - Retain `store_path` field and `extra="ignore"` behavior
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-  - [ ] 6.2 Remove `cli/onboard.py` command
+  - [x] 6.2 Remove `cli/onboard.py` command
     - Delete `agent_fox/cli/onboard.py`
     - Remove `onboard_cmd` import and `main.add_command(onboard_cmd, name="onboard")` from `cli/app.py`
     - _Requirements: 9.1_
 
-  - [ ] 6.3 Update `cli/plan.py`
+  - [x] 6.3 Update `cli/plan.py`
     - Verify `open_knowledge_store` import works without depending on removed modules
     - _Requirements: 9.4_
 
-  - [ ] 6.4 Delete test files for removed functionality
+  - [x] 6.4 Delete test files for removed functionality
     - Delete unit tests that exclusively test removed modules (extraction, embeddings, retrieval, consolidation, compaction, sleep compute, entity graph, contradiction, lifecycle, onboard, rendering, causal, etc.)
     - Delete integration tests for removed functionality (consolidation_smoke, entity_graph_smoke, multilang_smoke, onboard_smoke, etc.)
     - Delete property tests for removed functionality
@@ -210,17 +210,17 @@ each group), and group 7 verifies everything end-to-end.
     - Update any shared test fixtures that reference deleted modules
     - _Requirements: 10.4, 7.E1_
 
-  - [ ] 6.5 Create remaining spec tests
+  - [x] 6.5 Create remaining spec tests
     - Add tests for protocol existence (TS-114-36), import isolation (TS-114-37)
     - Verify `make check` passes (TS-114-35)
     - _Requirements: 10.1, 10.2, 10.3_
 
-  - [ ] 6.V Verify task group 6
-    - [ ] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_engine_import_isolation.py -k "config or cli or dead_test"`
-    - [ ] All existing tests still pass: `uv run pytest -q`
-    - [ ] `make check` passes
-    - [ ] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
-    - [ ] Requirements 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.4, 10.1, 10.2, 10.3, 10.4 acceptance criteria met
+  - [x] 6.V Verify task group 6
+    - [x] Spec tests for this group pass: `uv run pytest -q tests/unit/engine/test_engine_import_isolation.py -k "config or cli or dead_test"`
+    - [x] All existing tests still pass: `uv run pytest -q`
+    - [x] `make check` passes
+    - [x] No linter warnings introduced: `uv run ruff check agent_fox/ tests/`
+    - [x] Requirements 8.1, 8.2, 8.3, 8.4, 8.5, 9.1, 9.4, 10.1, 10.2, 10.3, 10.4 acceptance criteria met
 
 - [ ] 7. Supersede specs 112 and 113
   - [ ] 7.1 Add deprecation banners to spec 112
