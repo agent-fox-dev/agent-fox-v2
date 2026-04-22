@@ -41,6 +41,7 @@ def _parse_confidence(value: str | float | int | None) -> float:
         return _DEFAULT_CONFIDENCE
     return max(0.0, min(1.0, float(value)))
 
+
 # Tier priority order: lower value = higher priority
 _TIER_PRIORITY: dict[str, int] = {
     "quick_win": 0,

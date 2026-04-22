@@ -241,43 +241,43 @@ each group), and group 7 verifies everything end-to-end.
     - [x] Specs 112 and 113 are in `.agent-fox/specs/archive/`
     - [x] No lint or test regressions: `make check`
 
-- [ ] 8. Wiring verification
+- [x] 8. Wiring verification
 
-  - [ ] 8.1 Trace every execution path from design.md end-to-end
+  - [x] 8.1 Trace every execution path from design.md end-to-end
     - For each path (1-5), verify the entry point actually calls the next function in the chain (read the calling code, do not assume)
     - Confirm no function in the chain is a stub (`return []`, `return None`, `pass`, `raise NotImplementedError`) that was never replaced
     - Every path must be live in production code — errata or deferrals do not satisfy this check
     - _Requirements: all_
 
-  - [ ] 8.2 Verify return values propagate correctly
+  - [x] 8.2 Verify return values propagate correctly
     - For `KnowledgeProvider.retrieve()`: confirm `_build_prompts` receives the return value and passes it to `assemble_context`
     - For `KnowledgeProvider.ingest()`: confirm caller does not discard the return (it's None, but the call must happen)
     - Grep for callers of each function; confirm none discards the return
     - _Requirements: all_
 
-  - [ ] 8.3 Run the integration smoke tests
+  - [x] 8.3 Run the integration smoke tests
     - All `TS-114-SMOKE-*` tests pass using real components (no stub bypass)
     - `uv run pytest -q tests/integration/knowledge/test_decoupling_smoke.py`
     - _Test Spec: TS-114-SMOKE-1 through TS-114-SMOKE-5_
 
-  - [ ] 8.4 Stub / dead-code audit
+  - [x] 8.4 Stub / dead-code audit
     - Search all files touched by this spec for: `return []`, `return None` on non-Optional returns, `pass` in non-abstract methods, `# TODO`, `# stub`, `override point`, `NotImplementedError`
     - Each hit must be either: (a) justified with a comment explaining why it is intentional, or (b) replaced with a real implementation
     - `NoOpKnowledgeProvider.retrieve()` returning `[]` is intentional — document in audit
     - `NoOpKnowledgeProvider.ingest()` returning `None` is intentional — document in audit
 
-  - [ ] 8.5 Cross-spec entry point verification
+  - [x] 8.5 Cross-spec entry point verification
     - Verify that spec 115 (pluggable knowledge) can implement `KnowledgeProvider` by inspecting the protocol definition
     - Verify that `engine/run.py` instantiates `NoOpKnowledgeProvider` and passes it through the factory — this is the entry point for spec 115 to swap in a real implementation
     - Confirm no upstream callers depend on deleted modules
     - _Requirements: all_
 
-  - [ ] 8.V Verify wiring group
-    - [ ] All smoke tests pass
-    - [ ] No unjustified stubs remain in touched files
-    - [ ] All execution paths from design.md are live (traceable in code)
-    - [ ] All cross-spec entry points are called from production code
-    - [ ] All existing tests still pass: `make check`
+  - [x] 8.V Verify wiring group
+    - [x] All smoke tests pass
+    - [x] No unjustified stubs remain in touched files
+    - [x] All execution paths from design.md are live (traceable in code)
+    - [x] All cross-spec entry points are called from production code
+    - [x] All existing tests still pass: `make check`
 
 ### Checkbox States
 
