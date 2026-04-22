@@ -9,13 +9,13 @@ Requirements: 114-REQ-1.1, 114-REQ-1.2, 114-REQ-2.1, 114-REQ-2.2,
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+from agent_fox.knowledge.provider import KnowledgeProvider, NoOpKnowledgeProvider
 
 # ---------------------------------------------------------------------------
 # TS-114-P1: Protocol Structural Conformance

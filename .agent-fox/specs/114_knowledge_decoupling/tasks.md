@@ -146,7 +146,7 @@ each group), and group 7 verifies everything end-to-end.
     - [x] No linter warnings introduced: `uv run ruff check agent_fox/engine/`
     - [x] Requirements 2.4, 3.1, 3.2, 3.3, 3.E1, 4.1, 4.2, 4.E1, 5.1, 5.2 acceptance criteria met
 
-- [ ] 4. Checkpoint - Engine rewiring complete
+- [x] 4. Checkpoint - Engine rewiring complete
   - Ensure all tests pass after engine rewiring.
   - At this point the engine uses `KnowledgeProvider` protocol exclusively.
   - Old knowledge modules are still on disk but no longer imported by engine.
