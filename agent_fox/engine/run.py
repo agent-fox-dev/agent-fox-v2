@@ -288,21 +288,23 @@ def _barrier_sync(infra: dict[str, Any], config: Any) -> None:
         )
     except Exception:
         logger.warning("Barrier ingestion failed", exc_info=True)
+    finally:
+        infra["_barrier_ingestion_ran"] = True
 
 
 def _cleanup_infrastructure(infra: dict[str, Any], config: Any) -> None:
     """Clean up infrastructure resources."""
     knowledge_db = infra["knowledge_db"]
 
-    # Re-ingest to capture new commits/ADRs
-    try:
-        run_background_ingestion(
-            knowledge_db.connection,
-            config.knowledge,
-            Path.cwd(),
-        )
-    except Exception:
-        logger.warning("Final ingestion failed", exc_info=True)
+    if not infra.get("_barrier_ingestion_ran", False):
+        try:
+            run_background_ingestion(
+                knowledge_db.connection,
+                config.knowledge,
+                Path.cwd(),
+            )
+        except Exception:
+            logger.warning("Final ingestion failed", exc_info=True)
 
     # Close sinks and DB
     try:
