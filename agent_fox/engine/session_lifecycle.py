@@ -205,6 +205,7 @@ class NodeSessionRunner:
         timeout_override: int | None = None,
         max_turns_override: int | None = None,
         embedder: EmbeddingGenerator | None = None,
+        trace_enabled: bool = True,
     ) -> None:
         self._node_id = node_id
         self._config = config
@@ -216,6 +217,7 @@ class NodeSessionRunner:
         self._knowledge_db = knowledge_db
         self._activity_callback = activity_callback
         self._run_id = run_id
+        self._trace_enabled = trace_enabled
         # 75-REQ-3.5: Per-node timeout/turns overrides from timeout-aware escalation
         self._timeout_override = timeout_override
         self._max_turns_override = max_turns_override
@@ -284,11 +286,13 @@ class NodeSessionRunner:
             knowledge_context = result.context
 
             # 113-REQ-7.2: Store retrieval summary for session outcome recording
-            self._retrieval_summary = json.dumps({
-                "facts_injected": result.anchor_count,
-                "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
-                "cold_start": result.cold_start,
-            })
+            self._retrieval_summary = json.dumps(
+                {
+                    "facts_injected": result.anchor_count,
+                    "signals_active": [name for name, count in result.signal_counts.items() if count > 0],
+                    "cold_start": result.cold_start,
+                }
+            )
         except Exception:
             logger.warning(
                 "AdaptiveRetriever failed for %s, continuing without knowledge context",

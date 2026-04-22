@@ -260,24 +260,27 @@ async def _call_llm_json(model: str, prompt: str, context: dict) -> dict:
     from agent_fox.core.client import create_async_anthropic_client
 
     client = create_async_anthropic_client()
-    full_prompt = f"{prompt}\n\nContext:\n{json.dumps(context, indent=2, default=str)}"
+    try:
+        full_prompt = f"{prompt}\n\nContext:\n{json.dumps(context, indent=2, default=str)}"
 
-    response = await client.messages.create(
-        model=model,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": full_prompt}],
-    )
+        response = await client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": full_prompt}],
+        )
 
-    block = response.content[0]
-    if not isinstance(block, TextBlock):
-        raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
-    text = block.text.strip()
-    # Strip markdown code fences if present
-    if text.startswith("```"):
-        lines = text.splitlines()
-        text = "\n".join(line for line in lines if not line.startswith("```")).strip()
+        block = response.content[0]
+        if not isinstance(block, TextBlock):
+            raise TypeError(f"Expected TextBlock, got {type(block).__name__}")
+        text = block.text.strip()
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            lines = text.splitlines()
+            text = "\n".join(line for line in lines if not line.startswith("```")).strip()
 
-    return json.loads(text)
+        return json.loads(text)
+    finally:
+        await client.close()
 
 
 # ---------------------------------------------------------------------------

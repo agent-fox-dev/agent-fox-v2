@@ -134,9 +134,7 @@ class TestLifecycleUsesReconstructedTranscript:
         # Create a session-summary.json with short summary
         summary_dir = tmp_path / ".agent-fox"
         summary_dir.mkdir(parents=True, exist_ok=True)
-        (summary_dir / "session-summary.json").write_text(
-            '{"summary": "Short summary only."}'
-        )
+        (summary_dir / "session-summary.json").write_text('{"summary": "Short summary only."}')
 
         captured_transcript: list[str] = []
 
@@ -239,4 +237,5 @@ def _make_minimal_runner(tmp_path: Path, node_id: str):
     runner._embedder = None
     runner._archetype = "coder"
     runner._mode = None
+    runner._trace_enabled = True
     return runner
